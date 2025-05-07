@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# My Expenses Website
 
-## Getting Started
+A Next.js web app for managing your expenses, connected to your existing my-expenses-api backend.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- List, create, edit, and delete transactions
+- Search transactions by description, category, or date
+- View summary of expenses (toggle by category or by month)
+- Material UI design
+- Loading and error states for API calls
+- Form validation
+- State management with React hooks and context
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Install dependencies:**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   ```
 
-## Learn More
+2. **Set environment variables:**
 
-To learn more about Next.js, take a look at the following resources:
+   Create a `.env.local` file in the root:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   Replace the URL with your actual API endpoint.
 
-## Deploy on Vercel
+3. **Run the development server:**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Open [http://localhost:3000](http://localhost:3000) in your browser.**
+
+---
+
+## Project Structure
+
+- `components/` – Reusable UI components
+- `services/` – API logic
+- `types/` – TypeScript types
+- `utils/` – Helper functions
+- `app/` – Next.js App Router pages
+
+---
+
+## Tech Stack
+
+- Next.js (App Router)
+- TypeScript
+- Material UI
+- React Context & Hooks
+
+---

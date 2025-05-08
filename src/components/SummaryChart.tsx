@@ -1,26 +1,45 @@
 "use client";
 
 import React from "react";
-import { Paper, Typography, List, ListItem, ListItemText } from "@mui/material";
+import { Paper } from "@mui/material";
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 
 type Props = {
-  data: { [key: string]: number };
-  label: string;
+  totalIncome: number;
+  totalExpense: number;
 };
 
-export default function SummaryChart({ data, label }: Props) {
+export default function SummaryChart({ totalIncome, totalExpense }: Props) {
+  const data = [
+    { name: "Income", value: totalIncome },
+    { name: "Expense", value: totalExpense },
+  ];
+  const COLORS = ["#4caf50", "#f44336"];
+  console.log("SummaryChart data", data);
+
   return (
     <Paper sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        {label}
-      </Typography>
-      <List>
-        {Object.entries(data).map(([key, value]) => (
-          <ListItem key={key} disablePadding>
-            <ListItemText primary={`${key}: $${value.toLocaleString()}`} />
-          </ListItem>
-        ))}
-      </List>
+      <ResponsiveContainer width="100%" height={250}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={80}
+            label
+          >
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+              />
+            ))}
+          </Pie>
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
     </Paper>
   );
 }

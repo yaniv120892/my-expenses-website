@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Box, Button, MenuItem, TextField } from "@mui/material";
+import clsx from "clsx";
 import { Category } from "../types";
 import { getCategories } from "../services/transactions";
 
@@ -27,23 +28,33 @@ export default function SearchBar({ onSearch }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch({ searchTerm, categoryId, startDate, endDate });
+    onSearch({
+      searchTerm: searchTerm.trim() === "" ? undefined : searchTerm,
+      categoryId: categoryId === "" ? undefined : categoryId,
+      startDate: startDate === "" ? undefined : startDate,
+      endDate: endDate === "" ? undefined : endDate,
+    });
   };
 
   return (
     <Box
       component="form"
+      className="card-accent-light"
       display="flex"
       gap={2}
       alignItems="center"
-      mb={2}
+      p={2}
+      boxShadow={2}
       onSubmit={handleSubmit}
+      style={{ borderRadius: 18 }}
     >
       <TextField
         label="Search"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         size="small"
+        style={{ minWidth: 200 }}
+        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       />
       <TextField
         select
@@ -52,6 +63,7 @@ export default function SearchBar({ onSearch }: Props) {
         onChange={(e) => setCategoryId(e.target.value)}
         size="small"
         style={{ minWidth: 120 }}
+        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       >
         <MenuItem value="">All</MenuItem>
         {categories.map((cat) => (
@@ -66,7 +78,8 @@ export default function SearchBar({ onSearch }: Props) {
         value={startDate}
         onChange={(e) => setStartDate(e.target.value)}
         size="small"
-        InputLabelProps={{ shrink: true }}
+        slotProps={{ inputLabel: { shrink: true } }}
+        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       />
       <TextField
         label="End Date"
@@ -74,9 +87,15 @@ export default function SearchBar({ onSearch }: Props) {
         value={endDate}
         onChange={(e) => setEndDate(e.target.value)}
         size="small"
-        InputLabelProps={{ shrink: true }}
+        slotProps={{ inputLabel: { shrink: true } }}
+        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       />
-      <Button type="submit" variant="contained">
+      <Button
+        type="submit"
+        className="button-primary"
+        variant="contained"
+        style={{ borderRadius: 12, minWidth: 120 }}
+      >
         Search
       </Button>
     </Box>

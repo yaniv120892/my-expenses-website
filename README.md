@@ -6,7 +6,7 @@ A Next.js web app for managing your expenses, connected to your existing my-expe
 
 - List, create, edit, and delete transactions
 - Search transactions by description, category, or date
-- View summary of expenses (toggle by category or by month)
+- View summary of expenses
 - Material UI design
 - Loading and error states for API calls
 - Form validation

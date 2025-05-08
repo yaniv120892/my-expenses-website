@@ -1,26 +1,130 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: lightgray; /* light gray background */
+  --accent-blue: #2563eb; /* vibrant blue */
+  --accent-blue-light: #60a5fa; /* lighter blue */
+  --accent-pink: #ff4f81; /* modern pink for CTAs */
+  --accent-green: #34d399; /* modern green for success */
+  --accent-yellow: #fbbf24; /* modern yellow for warning */
+  --card-bg: #60a5fa; /* lighter blue */
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.1); /* subtle shadow */
+  --foreground: #ffffff; /* updated foreground color */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --card-bg: #23263a;
+    --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
   }
 }
 
 body {
   background: var(--background);
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+  color: #23263a; /* Modern dark text color for all text */
+}
+
+.card-accent {
+  background: var(--accent-blue-light);
+  border-radius: 18px;
+  padding: 1.5rem;
+  color: #fff;
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.2s;
+}
+
+.card-accent-light {
+  background: var(--accent-blue-light);
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: var(--card-shadow);
+}
+
+.button-primary {
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.button-primary:hover {
+  background: var(--accent-pink);
+  box-shadow: 0 4px 16px rgba(255, 79, 129, 0.12);
+}
+
+.button-secondary {
+  background: var(--accent-blue-light);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(165, 201, 250, 0.08);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.button-secondary:hover {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+input,
+select,
+.MuiInputBase-root,
+.MuiOutlinedInput-root {
+  border-radius: 16px !important;
+  border: 1px solid #e0e0e0;
+  padding: 0.5rem 1rem;
+  background: lightgray;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+input:focus,
+select:focus {
+  border: 1.5px solid var(--accent-blue);
+  outline: none;
+}
+
+.table {
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.table tr {
+  background: #f3f6fa; /* Light modern background */
+  color: #23263a; /* Modern text color */
+  transition: background 0.2s;
+}
+.table tr:nth-child(even) {
+  background: #e6eef7; /* Slightly different for zebra striping */
+}
+.table tr:hover {
+  background: var(--accent-blue-light);
+  color: #fff;
+}
+
+.table th {
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Ensure all text in components uses modern color */
+* {
+  color: inherit;
 }

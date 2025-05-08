@@ -27,8 +27,6 @@ export type UpdateTransactionInput = CreateTransactionInput;
 export interface TransactionSummary {
   totalIncome: number;
   totalExpense: number;
-  byCategory?: { [category: string]: number };
-  byMonth?: { [month: string]: number };
 }
 
 export interface TransactionFilters {

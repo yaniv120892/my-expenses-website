@@ -3,17 +3,6 @@
 import React from "react";
 import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Typography,
-} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -29,100 +18,81 @@ export default function TransactionList({
   onDelete,
 }: Props) {
   if (!transactions.length) {
-    return <Typography>No transactions found.</Typography>;
+    return (
+      <div className="card-accent" style={{ color: "var(--accent-purple)" }}>
+        No transactions found.
+      </div>
+    );
   }
 
   return (
-    <TableContainer
-      component={Paper}
-      sx={{
-        borderRadius: 3,
-        boxShadow: 3,
-        mt: 2,
-        mb: 2,
-        overflow: "hidden",
-      }}
-    >
-      <Table sx={{ minWidth: 650 }}>
-        <TableHead>
-          <TableRow sx={{ backgroundColor: "primary.main" }}>
-            <TableCell
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Description
-            </TableCell>
-            <TableCell
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Value
-            </TableCell>
-            <TableCell
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Type
-            </TableCell>
-            <TableCell
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Category
-            </TableCell>
-            <TableCell
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Date
-            </TableCell>
-            <TableCell
-              align="right"
-              sx={{ color: "white", fontWeight: "bold", fontSize: "1.1rem" }}
-            >
-              Actions
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {transactions.map((tx, idx) => (
-            <TableRow
-              key={tx.id}
-              sx={{
-                backgroundColor:
-                  idx % 2 === 0 ? "background.paper" : "grey.100",
-                transition: "background 0.2s",
-                "&:hover": {
-                  backgroundColor: "grey.200",
-                },
-              }}
-            >
-              <TableCell sx={{ fontSize: "1rem" }}>{tx.description}</TableCell>
-              <TableCell sx={{ fontSize: "1rem" }}>{tx.value}</TableCell>
-              <TableCell sx={{ fontSize: "1rem", textTransform: "capitalize" }}>
-                {tx.type}
-              </TableCell>
-              <TableCell sx={{ fontSize: "1rem" }}>
-                {tx.category?.name}
-              </TableCell>
-              <TableCell sx={{ fontSize: "1rem" }}>
-                {formatTransactionDate(tx.date)}
-              </TableCell>
-              <TableCell align="right">
-                <IconButton
-                  onClick={() => onEdit(tx)}
-                  size="small"
-                  sx={{ mr: 1 }}
+    <div className="card-accent" style={{ padding: 0 }}>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Value</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.map((tx) => (
+            <tr key={tx.id}>
+              <td>{tx.description}</td>
+              <td
+                style={{
+                  color:
+                    tx.type === "INCOME"
+                      ? "var(--accent-green)"
+                      : "var(--accent-red)",
+                  fontWeight: 600,
+                }}
+              >
+                {tx.value}
+              </td>
+              <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
+              <td>{tx.category?.name}</td>
+              <td>{formatTransactionDate(tx.date)}</td>
+              <td style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  <EditIcon />
-                </IconButton>
-                <IconButton
-                  onClick={() => onDelete(tx.id)}
-                  size="small"
-                  color="error"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </TableCell>
-            </TableRow>
+                  <button
+                    className="button-secondary"
+                    style={{
+                      padding: "0.3rem 0.8rem",
+                      fontSize: "0.95rem",
+                    }}
+                    onClick={() => onEdit(tx)}
+                    aria-label="Edit"
+                  >
+                    <EditIcon fontSize="small" />
+                  </button>
+                  <button
+                    className="button-primary"
+                    style={{
+                      padding: "0.3rem 0.8rem",
+                      fontSize: "0.95rem",
+                      background: "var(--accent-red)",
+                    }}
+                    onClick={() => onDelete(tx.id)}
+                    aria-label="Delete"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </button>
+                </span>
+              </td>
+            </tr>
           ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+        </tbody>
+      </table>
+    </div>
   );
 }

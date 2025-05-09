@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { Box, Button, MenuItem, TextField } from "@mui/material";
-import clsx from "clsx";
 import { Category } from "../types";
 import { getCategories } from "../services/transactions";
 

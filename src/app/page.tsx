@@ -29,7 +29,6 @@ import {
   Tabs,
   Tab,
   Toolbar,
-  Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 
@@ -43,9 +42,6 @@ export default function HomePage() {
     totalIncome: number;
     totalExpense: number;
   } | null>(null);
-  const [summaryMode, setSummaryMode] = useState<"category" | "month">(
-    "category"
-  );
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"transactions" | "summary">(

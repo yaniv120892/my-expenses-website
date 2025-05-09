@@ -1,130 +1,146 @@
 @import "tailwindcss";
 
 :root {
-  --background: lightgray; /* light gray background */
-  --accent-blue: #2563eb; /* vibrant blue */
-  --accent-blue-light: #60a5fa; /* lighter blue */
-  --accent-pink: #ff4f81; /* modern pink for CTAs */
-  --accent-green: #34d399; /* modern green for success */
-  --accent-yellow: #fbbf24; /* modern yellow for warning */
-  --card-bg: #60a5fa; /* lighter blue */
-  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.1); /* subtle shadow */
-  --foreground: #ffffff; /* updated foreground color */
+  --primary: #070707; /* Uizard primary blue */
+  --secondary: #7b61ff; /* Uizard secondary purple */
+  --accent-green: #00c48c; /* Uizard green */
+  --accent-yellow: #ffd600; /* Uizard yellow */
+  --accent-red: #ff647c; /* Uizard red */
+  --accent-red-light: #ffe6ec; /* Light red for backgrounds */
+  --secondary-light: #f3edff; /* Light purple for backgrounds */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --card-bg: #23263a;
     --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    --background: #181a20;
+    --foreground: #fff;
   }
 }
 
 body {
   background: var(--background);
   font-family: "Inter", Arial, Helvetica, sans-serif;
-  color: #23263a; /* Modern dark text color for all text */
 }
 
 .card-accent {
-  background: var(--accent-blue-light);
-  border-radius: 18px;
-  padding: 1.5rem;
-  color: #fff;
+  border-radius: 24px;
+  padding: 2rem;
   box-shadow: var(--card-shadow);
   transition: box-shadow 0.2s;
 }
 
 .card-accent-light {
-  background: var(--accent-blue-light);
-  border-radius: 18px;
-  padding: 1.5rem;
+  background: var(--secondary);
+  border-radius: 24px;
   box-shadow: var(--card-shadow);
 }
 
 .button-primary {
-  background: var(--accent-blue);
+  background: var(--primary);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 600;
-  font-size: 1rem;
+  border-radius: 16px;
+  padding: 0.85rem 2rem;
+  font-weight: 700;
+  font-size: 1.05rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(58, 90, 255, 0.1);
   transition: background 0.2s, box-shadow 0.2s;
 }
 .button-primary:hover {
-  background: var(--accent-pink);
-  box-shadow: 0 4px 16px rgba(255, 79, 129, 0.12);
+  opacity: 0.8;
+  box-shadow: 0 4px 16px rgba(123, 97, 255, 0.12);
 }
 
 .button-secondary {
-  background: var(--accent-blue-light);
-  color: var(--foreground);
+  background: var(--secondary);
+  color: #fff;
   border: none;
-  border-radius: 12px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  font-size: 1rem;
+  border-radius: 16px;
+  padding: 0.85rem 2rem;
+  font-weight: 600;
+  font-size: 1.05rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 8px rgba(165, 201, 250, 0.08);
+  box-shadow: 0 2px 8px rgba(123, 97, 255, 0.1);
   transition: background 0.2s, box-shadow 0.2s;
 }
 .button-secondary:hover {
-  background: var(--accent-blue);
-  color: #fff;
+  opacity: 0.8;
+  box-shadow: 0 4px 16px rgba(123, 97, 255, 0.12);
 }
 
 input,
 select,
 .MuiInputBase-root,
 .MuiOutlinedInput-root {
-  border-radius: 16px !important;
-  border: 1px solid #e0e0e0;
-  padding: 0.5rem 1rem;
-  background: lightgray;
-  font-size: 1rem;
+  border-radius: 18px !important;
+  border: 1.5px solid #e0e4ea;
+  padding: 0.6rem 1.2rem;
+  background: #f7f8fa;
+  font-size: 1.05rem;
   transition: border 0.2s;
 }
 input:focus,
 select:focus {
-  border: 1.5px solid var(--accent-blue);
+  border: 2px solid var(--primary);
   outline: none;
 }
 
+input[type="search"] {
+  /* Remove default background if any */
+  background: unset;
+}
+
+/* Search bar custom styles */
+.searchbar-red {
+  background: var(--accent-red-light);
+  border: 1.5px solid var(--accent-red);
+  color: var(--accent-red);
+}
+.searchbar-purple {
+  background: var(--secondary-light);
+  border: 1.5px solid var(--secondary);
+  color: var(--secondary);
+}
+
 .table {
-  border-radius: 14px;
+  border-radius: 18px;
   box-shadow: var(--card-shadow);
   overflow: hidden;
-  width: 100%;
-  margin: 1rem 0;
+  width: 60%;
+  border-collapse: collapse;
+  border-left: 1px solid #e0e4ea;
+  border-right: 1px solid #e0e4ea;
 }
 
 .table tr {
-  background: #f3f6fa; /* Light modern background */
-  color: #23263a; /* Modern text color */
   transition: background 0.2s;
+  text-align: center;
 }
-.table tr:nth-child(even) {
-  background: #e6eef7; /* Slightly different for zebra striping */
-}
+
 .table tr:hover {
-  background: var(--accent-blue-light);
-  color: #fff;
+  background: rgba(97, 121, 241, 0.1);
 }
 
 .table th {
-  background: var(--accent-blue);
-  color: #fff;
-  font-weight: 600;
+  background: var(--primary);
+  color: var(--foreground);
+  transition: background 0.2s;
+  font-weight: 700;
   letter-spacing: 0.03em;
+  text-align: center;
 }
 
-/* Ensure all text in components uses modern color */
-* {
-  color: inherit;
+.table td {
+  color: var(--foreground);
+  padding: 1rem;
+  text-align: center;
+  font-size: 1rem;
+  border-bottom: 1px solid #e0e4ea;
 }

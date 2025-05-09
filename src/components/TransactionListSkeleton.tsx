@@ -1,14 +1,5 @@
 import React from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Skeleton,
-} from "@mui/material";
+import { Skeleton } from "@mui/material";
 
 export default function TransactionListSkeleton({
   rows = 5,
@@ -16,43 +7,52 @@ export default function TransactionListSkeleton({
   rows?: number;
 }) {
   return (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Description</TableCell>
-            <TableCell>Value</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Category</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
+    <div className="card-accent" style={{ padding: 0 }}>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Value</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
           {[...Array(rows)].map((_, i) => (
-            <TableRow key={i}>
-              <TableCell>
+            <tr key={i}>
+              <td>
                 <Skeleton width="80%" />
-              </TableCell>
-              <TableCell>
+              </td>
+              <td>
                 <Skeleton width="60%" />
-              </TableCell>
-              <TableCell>
+              </td>
+              <td>
                 <Skeleton width="50%" />
-              </TableCell>
-              <TableCell>
+              </td>
+              <td>
                 <Skeleton width="70%" />
-              </TableCell>
-              <TableCell>
+              </td>
+              <td>
                 <Skeleton width="60%" />
-              </TableCell>
-              <TableCell align="right">
-                <Skeleton variant="circular" width={32} height={32} />
-              </TableCell>
-            </TableRow>
+              </td>
+              <td style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <Skeleton variant="circular" width={32} height={32} />
+                  <Skeleton variant="circular" width={32} height={32} />
+                </span>
+              </td>
+            </tr>
           ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+        </tbody>
+      </table>
+    </div>
   );
 }

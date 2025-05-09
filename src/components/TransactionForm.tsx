@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
-  Button,
   MenuItem,
   TextField,
   Dialog,
@@ -95,7 +94,7 @@ export default function TransactionForm({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth>
-      <DialogTitle>
+      <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
         {initialData ? "Edit Transaction" : "New Transaction"}
       </DialogTitle>
       <DialogContent>
@@ -161,19 +160,29 @@ export default function TransactionForm({
           />
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
+      <DialogActions style={{ padding: "1.5rem" }}>
+        <button
+          className="button-secondary"
+          style={{ minWidth: 100 }}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+        </button>
+        <button
+          className="button-primary"
+          style={{ minWidth: 120 }}
+          onClick={handleSubmit}
+          disabled={loading}
+        >
           {loading ? (
-            <CircularProgress size={20} />
+            <CircularProgress size={20} style={{ color: "#fff" }} />
           ) : initialData ? (
             "Update"
           ) : (
             "Create"
           )}
-        </Button>
+        </button>
       </DialogActions>
     </Dialog>
   );

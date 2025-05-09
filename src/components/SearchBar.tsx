@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Button, MenuItem, TextField } from "@mui/material";
 import { Category } from "../types";
 import { getCategories } from "../services/transactions";
 
@@ -36,67 +35,63 @@ export default function SearchBar({ onSearch }: Props) {
   };
 
   return (
-    <Box
-      component="form"
+    <form
       className="card-accent-light"
-      display="flex"
-      gap={2}
-      alignItems="center"
-      p={2}
-      boxShadow={2}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        alignItems: "stretch",
+        borderRadius: 24,
+        padding: 24,
+        boxShadow: "var(--card-shadow)",
+        minWidth: 220,
+        width: "100%",
+      }}
       onSubmit={handleSubmit}
-      style={{ borderRadius: 18 }}
     >
-      <TextField
-        label="Search"
+      <input
+        className="searchbar-purple"
+        style={{ minWidth: 0, marginBottom: 8 }}
+        placeholder="Search"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        size="small"
-        style={{ minWidth: 200 }}
-        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
+        type="text"
       />
-      <TextField
-        select
-        label="Category"
+      <select
+        className="searchbar-purple"
+        style={{ minWidth: 0, marginBottom: 8 }}
         value={categoryId}
         onChange={(e) => setCategoryId(e.target.value)}
-        size="small"
-        style={{ minWidth: 120 }}
-        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       >
-        <MenuItem value="">All</MenuItem>
+        <option value="">All</option>
         {categories.map((cat) => (
-          <MenuItem key={cat.id} value={cat.id}>
+          <option key={cat.id} value={cat.id}>
             {cat.name}
-          </MenuItem>
+          </option>
         ))}
-      </TextField>
-      <TextField
-        label="Start Date"
+      </select>
+      <input
+        className="searchbar-purple"
         type="date"
         value={startDate}
+        style={{ marginBottom: 8 }}
         onChange={(e) => setStartDate(e.target.value)}
-        size="small"
-        slotProps={{ inputLabel: { shrink: true } }}
-        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       />
-      <TextField
-        label="End Date"
+      <input
+        className="searchbar-purple"
         type="date"
         value={endDate}
+        style={{ marginBottom: 16 }}
         onChange={(e) => setEndDate(e.target.value)}
-        size="small"
-        slotProps={{ inputLabel: { shrink: true } }}
-        InputProps={{ style: { borderRadius: 16, background: "#f3f6fa" } }}
       />
-      <Button
+      <button
         type="submit"
         className="button-primary"
-        variant="contained"
-        style={{ borderRadius: 12, minWidth: 120 }}
+        style={{ borderRadius: 16, minWidth: 0 }}
       >
         Search
-      </Button>
-    </Box>
+      </button>
+    </form>
   );
 }

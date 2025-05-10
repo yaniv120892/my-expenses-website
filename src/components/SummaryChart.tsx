@@ -307,9 +307,14 @@ const SummaryChart: React.FC = () => {
                     cy="50%"
                     outerRadius={80}
                     innerRadius={40}
-                    label={({ name, value }) =>
-                      `${name}: ${formatNumber(value)}`
-                    }
+                    label={({ name, value }) => {
+                      const total = topCategories.reduce(
+                        (sum, c) => sum + c.value,
+                        0
+                      );
+                      const percent = total > 0 ? (value / total) * 100 : 0;
+                      return `${name}: ${percent.toFixed(1)}%`;
+                    }}
                     stroke={COLORS.background}
                     strokeWidth={2}
                   >

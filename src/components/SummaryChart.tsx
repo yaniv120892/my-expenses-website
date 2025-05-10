@@ -297,7 +297,7 @@ const SummaryChart: React.FC = () => {
               <Typography variant="subtitle1" mb={1} color={COLORS.text}>
                 Top 5 Expense Categories
               </Typography>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={230}>
                 <PieChart>
                   <Pie
                     data={topCategories}

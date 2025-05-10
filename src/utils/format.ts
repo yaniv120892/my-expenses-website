@@ -10,3 +10,7 @@ export function formatTransaction(transaction: Transaction) {
     transaction.category?.name || "N/A"
   }) on ${formatTransactionDate(transaction.date)}`;
 }
+
+export function formatNumber(value: number) {
+  return value.toLocaleString();
+}

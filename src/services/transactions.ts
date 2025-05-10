@@ -17,6 +17,7 @@ export async function getTransactions(
   };
   const mergedParams = { ...defaultParams, ...params };
   const res = await api.get("/api/transactions", { params: mergedParams });
+  console.log("Transactions response", res.data);
   return res.data;
 }
 

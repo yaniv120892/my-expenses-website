@@ -20,6 +20,7 @@ import TransactionListSkeleton from "../components/TransactionListSkeleton";
 import Navbar from "../components/Navbar";
 import { Box, Snackbar, Alert, Fab } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import SummaryChart from "@/components/SummaryChart";
 
 export default function HomePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -90,18 +91,7 @@ export default function HomePage() {
         />
         <Box sx={{ flex: 1, pl: 3 }}>
           {activeTab === "summary" ? (
-            <Box
-              mb={3}
-              sx={{
-                background: "#fff",
-                borderRadius: 3,
-                boxShadow: "0 2px 16px 0 rgba(60,72,100,0.08)",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                p: { xs: 2, sm: 4 },
-              }}
-            ></Box>
+            <SummaryChart />
           ) : (
             <Box
               sx={{

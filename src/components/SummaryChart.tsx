@@ -10,9 +10,15 @@ import {
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from "recharts";
 import dayjs from "dayjs";
-import { getTransactionSummary } from "../services/transactions";
+import {
+  getTransactionSummary,
+  getTransactions,
+} from "../services/transactions";
+import { Transaction } from "@/types";
+import { formatNumber } from "@/utils/format";
 
 // Color palette
 const COLORS = {
@@ -22,6 +28,15 @@ const COLORS = {
   purple: "#7c3aed",
   text: "#fff",
 };
+
+// 5 distinct colors for doughnut chart (not black/purple/red/green)
+const DOUGHNUT_COLORS = [
+  "#f39c12", // orange
+  "#3498db", // blue
+  "#e67e22", // dark orange
+  "#9b59b6", // violet
+  "#1abc9c", // teal
+];
 
 // Types
 interface MonthSummary {
@@ -35,7 +50,7 @@ const getLast6Months = () => {
   for (let i = 5; i >= 0; i--) {
     months.push(dayjs().subtract(i, "month").format("YYYY-MM"));
   }
-  return months;
+  return months.reverse();
 };
 
 const fetchLast6MonthsSummary = async (): Promise<MonthSummary[]> => {
@@ -74,13 +89,42 @@ const fetchLast6MonthsSummary = async (): Promise<MonthSummary[]> => {
       };
     }
   });
-  return Promise.all(promises);
+  return Promise.all(promises).then((results) => results);
+};
+
+// Custom compact tooltip for PieChart
+const CompactTooltip: React.FC<{
+  active?: boolean;
+  payload?: { name: string; value: number }[];
+}> = ({ active, payload }) => {
+  if (!active || !payload || !payload.length) return null;
+  const { name, value } = payload[0];
+  return (
+    <div
+      style={{
+        background: COLORS.background,
+        color: COLORS.text,
+        fontSize: 12,
+        padding: "2px 8px",
+        borderRadius: 6,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        minWidth: 0,
+        pointerEvents: "auto",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
+    </div>
+  );
 };
 
 const SummaryChart: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<MonthSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [topCategories, setTopCategories] = useState<
+    { name: string; value: number }[]
+  >([]);
 
   useEffect(() => {
     setLoading(true);
@@ -88,6 +132,46 @@ const SummaryChart: React.FC = () => {
       .then(setData)
       .catch(() => setError("Failed to load summary"))
       .finally(() => setLoading(false));
+
+    // Fetch all expense transactions for the last 6 months and compute top 5 categories
+    const fetchTopCategories = async () => {
+      const startDate = dayjs()
+        .subtract(5, "month")
+        .startOf("month")
+        .format("YYYY-MM-DD");
+      const endDate = dayjs().endOf("month").format("YYYY-MM-DD");
+      let page = 1;
+      let allExpenses: Transaction[] = [];
+      let hasMore = true;
+      while (hasMore) {
+        const txs: Transaction[] = await getTransactions({
+          type: "EXPENSE",
+          startDate,
+          endDate,
+          page,
+          perPage: 100,
+        });
+        allExpenses = allExpenses.concat(txs);
+        hasMore = txs.length === 100;
+        page++;
+      }
+      // Aggregate by category
+      const categoryTotals: Record<string, { name: string; value: number }> =
+        {};
+      allExpenses.forEach((tx) => {
+        if (!tx.category) return;
+        if (!categoryTotals[tx.category.id]) {
+          categoryTotals[tx.category.id] = { name: tx.category.name, value: 0 };
+        }
+        categoryTotals[tx.category.id].value += tx.value;
+      });
+      // Sort and take top 5
+      const sorted = Object.values(categoryTotals)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+      setTopCategories(sorted);
+    };
+    fetchTopCategories();
   }, []);
 
   if (loading) {
@@ -151,6 +235,7 @@ const SummaryChart: React.FC = () => {
             <Cell key="income" fill={COLORS.income} />
             <Cell key="expense" fill={COLORS.expense} />
           </Pie>
+          <Tooltip content={<CompactTooltip />} />
         </PieChart>
         <Typography ml={2} color={COLORS.text} fontWeight={500}>
           {label}
@@ -174,36 +259,74 @@ const SummaryChart: React.FC = () => {
         Summary (Last 6 Months)
       </Typography>
       <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={4}>
-        <Box flex={1}>
-          <Typography variant="subtitle1" mb={1} color={COLORS.text}>
-            Total Income vs Expense
-          </Typography>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart
-              data={barData}
-              margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
-            >
-              <XAxis
-                dataKey="name"
-                stroke={COLORS.text}
-                tick={{ fill: COLORS.text, fontWeight: 500 }}
-              />
-              <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
-              <Tooltip
-                contentStyle={{
-                  background: COLORS.background,
-                  color: COLORS.text,
-                  border: "none",
-                }}
-                labelStyle={{ color: COLORS.text }}
-              />
-              <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                <Cell fill={COLORS.income} />
-                <Cell fill={COLORS.expense} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Left side: column with bar chart and doughnut chart */}
+        <Box flex={1} display="flex" flexDirection="column" gap={4}>
+          {/* Bar chart: Total Income vs Expense */}
+          <Box>
+            <Typography variant="subtitle1" mb={1} color={COLORS.text}>
+              Total Income vs Expense
+            </Typography>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart
+                data={barData}
+                margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="name"
+                  stroke={COLORS.text}
+                  tick={{ fill: COLORS.text, fontWeight: 500 }}
+                />
+                <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  <Cell fill={COLORS.income} />
+                  <Cell fill={COLORS.expense} />
+                  <LabelList
+                    dataKey="value"
+                    position="top"
+                    fill={COLORS.text}
+                    fontWeight={700}
+                    formatter={formatNumber}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+          {/* Doughnut chart: Top 5 Expense Categories */}
+          {topCategories.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" mb={1} color={COLORS.text}>
+                Top 5 Expense Categories
+              </Typography>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={topCategories}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    innerRadius={40}
+                    label={({ name, value }) =>
+                      `${name}: ${formatNumber(value)}`
+                    }
+                    stroke={COLORS.background}
+                    strokeWidth={2}
+                  >
+                    {topCategories.map((entry, idx) => (
+                      <Cell
+                        key={entry.name}
+                        fill={DOUGHNUT_COLORS[idx % DOUGHNUT_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CompactTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
         </Box>
+        {/* Right side: Monthly Breakdown (pie charts) */}
         <Box flex={1}>
           <Typography variant="subtitle1" mb={1} color={COLORS.text}>
             Monthly Breakdown

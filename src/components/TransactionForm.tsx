@@ -14,7 +14,6 @@ import {
 import { Category, CreateTransactionInput, Transaction } from "../types";
 import { getCategories } from "../services/transactions";
 import dayjs from "dayjs";
-import { on } from "events";
 
 type Props = {
   open: boolean;

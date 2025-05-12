@@ -17,7 +17,7 @@ export interface Transaction {
 export interface CreateTransactionInput {
   description: string;
   value: number;
-  categoryId: string;
+  categoryId: string | undefined;
   type: TransactionType;
   date: string;
 }

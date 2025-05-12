@@ -139,11 +139,11 @@ export default function HomePage() {
               </Box>
               <TransactionForm
                 open={formOpen}
-                onClose={() => {
+                onCloseAction={() => {
                   setFormOpen(false);
                   setEditTx(null);
                 }}
-                onSubmit={editTx ? handleUpdate : handleCreate}
+                onSubmitAction={editTx ? handleUpdate : handleCreate}
                 initialData={editTx}
               />
             </Box>

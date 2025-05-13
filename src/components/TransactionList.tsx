@@ -5,6 +5,7 @@ import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EmptyState from "./EmptyState";
 
 type Props = {
   transactions: Transaction[];
@@ -18,11 +19,7 @@ export default function TransactionList({
   onDeleteAction,
 }: Props) {
   if (!transactions.length) {
-    return (
-      <div className="card-accent" style={{ color: "var(--accent-purple)" }}>
-        No transactions found.
-      </div>
-    );
+    return <EmptyState message="No transactions found." />;
   }
 
   return (

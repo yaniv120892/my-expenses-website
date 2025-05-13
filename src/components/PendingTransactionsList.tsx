@@ -3,6 +3,7 @@ import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import CheckIcon from "@mui/icons-material/Check";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EmptyState from "./EmptyState";
 
 type Props = {
   transactions: Transaction[];
@@ -16,11 +17,7 @@ export default function PendingTransactionsList({
   onDeleteAction,
 }: Props) {
   if (!transactions.length) {
-    return (
-      <div className="card-accent" style={{ color: "var(--accent-purple)" }}>
-        No pending transactions found.
-      </div>
-    );
+    return <EmptyState message="No pending transactions found." />;
   }
 
   return (

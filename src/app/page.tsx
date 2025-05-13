@@ -177,8 +177,8 @@ export default function HomePage() {
                 ) : (
                   <TransactionList
                     transactions={transactions}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
+                    onEditAction={handleEdit}
+                    onDeleteAction={handleDelete}
                   />
                 )}
                 {/* Floating Action Button */}

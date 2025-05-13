@@ -4,6 +4,17 @@ import React from "react";
 import Image from "next/image";
 import { Tabs, Tab } from "@mui/material";
 
+function getTabStyle(isSelected: boolean) {
+  return {
+    color: "var(--secondary)",
+    fontWeight: 700,
+    borderRadius: 2,
+    mb: 1,
+    background: isSelected ? "var(--secondary-light)" : "transparent",
+    transition: "background 0.2s, color 0.2s",
+  };
+}
+
 interface NavbarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -51,71 +62,22 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
         <Tab
           label="Transactions"
           value="transactions"
-          sx={{
-            color:
-              activeTab === "transactions"
-                ? "var(--secondary)"
-                : "var(--accent-red)",
-            fontWeight: 700,
-            borderRadius: 2,
-            mb: 1,
-            background:
-              activeTab === "transactions"
-                ? "var(--secondary-light)"
-                : "transparent",
-            transition: "background 0.2s, color 0.2s",
-          }}
+          sx={getTabStyle(activeTab === "transactions")}
         />
         <Tab
           label="Pending Transactions"
           value="pending-transactions"
-          sx={{
-            color:
-              activeTab === "pending-transactions"
-                ? "var(--accent-red)"
-                : "var(--secondary)",
-            fontWeight: 700,
-            borderRadius: 2,
-            background:
-              activeTab === "pending-transactions"
-                ? "var(--accent-red-light)"
-                : "transparent",
-            transition: "background 0.2s, color 0.2s",
-          }}
+          sx={getTabStyle(activeTab === "pending-transactions")}
         />
         <Tab
           label="Scheduled Transactions"
           value="scheduled-transactions"
-          sx={{
-            color:
-              activeTab === "scheduled-transactions"
-                ? "var(--accent-red)"
-                : "var(--secondary)",
-            fontWeight: 700,
-            borderRadius: 2,
-            background:
-              activeTab === "scheduled-transactions"
-                ? "var(--accent-red-light)"
-                : "transparent",
-            transition: "background 0.2s, color 0.2s",
-          }}
+          sx={getTabStyle(activeTab === "scheduled-transactions")}
         />
         <Tab
           label="Summary"
           value="summary"
-          sx={{
-            color:
-              activeTab === "summary"
-                ? "var(--accent-red)"
-                : "var(--secondary)",
-            fontWeight: 700,
-            borderRadius: 2,
-            background:
-              activeTab === "summary"
-                ? "var(--accent-red-light)"
-                : "transparent",
-            transition: "background 0.2s, color 0.2s",
-          }}
+          sx={getTabStyle(activeTab === "summary")}
         />
       </Tabs>
     </nav>

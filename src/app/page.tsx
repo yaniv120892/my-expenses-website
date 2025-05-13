@@ -7,14 +7,10 @@ import TransactionsTab from "./tabs/TransactionsTab";
 import ScheduledTransactionsTab from "./tabs/ScheduledTransactionsTab";
 import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
 import { Box } from "@mui/material";
+import { TabOption } from "../types";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<
-    | "transactions"
-    | "summary"
-    | "scheduled-transactions"
-    | "pending-transactions"
-  >("transactions");
+  const [activeTab, setActiveTab] = useState<TabOption>(TabOption.Transactions);
 
   return (
     <div>
@@ -28,22 +24,14 @@ export default function HomePage() {
       >
         <Navbar
           activeTab={activeTab}
-          onTabChange={(tab) =>
-            setActiveTab(
-              tab as
-                | "transactions"
-                | "summary"
-                | "scheduled-transactions"
-                | "pending-transactions"
-            )
-          }
+          onTabChange={(tab) => setActiveTab(tab as TabOption)}
         />
         <Box sx={{ flex: 1, pl: 3 }}>
-          {activeTab === "summary" ? (
+          {activeTab === TabOption.Summary ? (
             <SummaryChart />
-          ) : activeTab === "scheduled-transactions" ? (
+          ) : activeTab === TabOption.ScheduledTransactions ? (
             <ScheduledTransactionsTab />
-          ) : activeTab === "pending-transactions" ? (
+          ) : activeTab === TabOption.PendingTransactions ? (
             <PendingTransactionsTab />
           ) : (
             <TransactionsTab />

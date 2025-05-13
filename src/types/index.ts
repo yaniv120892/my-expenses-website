@@ -1,3 +1,10 @@
+export enum TabOption {
+  Transactions = "transactions",
+  PendingTransactions = "pending-transactions",
+  ScheduledTransactions = "scheduled-transactions",
+  Summary = "summary",
+}
+
 export type TransactionType = "INCOME" | "EXPENSE";
 
 export interface Category {

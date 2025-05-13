@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import CheckIcon from "@mui/icons-material/Check";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CircularProgress from "@mui/material/CircularProgress";
 import EmptyState from "./EmptyState";
 
 type Props = {
@@ -16,9 +17,30 @@ export default function PendingTransactionsList({
   onConfirmAction,
   onDeleteAction,
 }: Props) {
+  const [loadingConfirmId, setLoadingConfirmId] = useState<string | null>(null);
+  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
+
   if (!transactions.length) {
     return <EmptyState message="No pending transactions found." />;
   }
+
+  const handleConfirm = async (id: string) => {
+    setLoadingConfirmId(id);
+    try {
+      await onConfirmAction(id);
+    } finally {
+      setLoadingConfirmId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setLoadingDeleteId(id);
+    try {
+      await onDeleteAction(id);
+    } finally {
+      setLoadingDeleteId(null);
+    }
+  };
 
   return (
     <div className="card-accent" style={{ padding: 0 }}>
@@ -65,11 +87,21 @@ export default function PendingTransactionsList({
                       padding: "0.3rem 0.8rem",
                       fontSize: "0.95rem",
                       background: "var(--accent-green)",
+                      cursor:
+                        loadingConfirmId === tx.id ? "default" : "pointer",
+                      opacity: loadingConfirmId === tx.id ? 0.7 : 1,
                     }}
-                    onClick={() => onConfirmAction(tx.id)}
+                    onClick={() => handleConfirm(tx.id)}
                     aria-label="Confirm"
+                    disabled={
+                      loadingConfirmId === tx.id || loadingDeleteId === tx.id
+                    }
                   >
-                    <CheckIcon fontSize="small" />
+                    {loadingConfirmId === tx.id ? (
+                      <CircularProgress size={18} style={{ color: "#fff" }} />
+                    ) : (
+                      <CheckIcon fontSize="small" />
+                    )}
                   </button>
                   <button
                     className="button-primary"
@@ -77,11 +109,20 @@ export default function PendingTransactionsList({
                       padding: "0.3rem 0.8rem",
                       fontSize: "0.95rem",
                       background: "var(--accent-red)",
+                      cursor: loadingDeleteId === tx.id ? "default" : "pointer",
+                      opacity: loadingDeleteId === tx.id ? 0.7 : 1,
                     }}
-                    onClick={() => onDeleteAction(tx.id)}
+                    onClick={() => handleDelete(tx.id)}
                     aria-label="Delete"
+                    disabled={
+                      loadingDeleteId === tx.id || loadingConfirmId === tx.id
+                    }
                   >
-                    <DeleteIcon fontSize="small" />
+                    {loadingDeleteId === tx.id ? (
+                      <CircularProgress size={18} style={{ color: "#fff" }} />
+                    ) : (
+                      <DeleteIcon fontSize="small" />
+                    )}
                   </button>
                 </span>
               </td>

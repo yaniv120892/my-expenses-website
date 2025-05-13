@@ -96,7 +96,12 @@ export default function TransactionForm({
   };
 
   return (
-    <Dialog open={open} onClose={onCloseAction} fullWidth>
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onCloseAction}
+      fullWidth
+      disableEscapeKeyDown={loading}
+    >
       <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
         {initialData ? "Edit Transaction" : "New Transaction"}
       </DialogTitle>

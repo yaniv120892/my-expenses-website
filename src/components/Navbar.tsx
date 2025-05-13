@@ -56,8 +56,13 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
         value={activeTab}
         onChange={(_, v) => onTabChange(v)}
         textColor="inherit"
-        TabIndicatorProps={{ style: { background: "var(--secondary)" } }}
-        sx={{ width: "100%" }}
+        indicatorColor="secondary"
+        sx={{
+          width: "100%",
+          "& .MuiTabs-indicator": {
+            background: "var(--secondary)",
+          },
+        }}
       >
         <Tab
           label="Transactions"

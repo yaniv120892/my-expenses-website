@@ -54,3 +54,16 @@ export async function getCategories(): Promise<Category[]> {
   const res = await api.get("/api/categories");
   return res.data;
 }
+
+export async function getPendingTransactions(): Promise<Transaction[]> {
+  const res = await api.get("/api/transactions/pending");
+  return res.data;
+}
+
+export async function updateTransactionStatus(
+  id: string,
+  status: string
+): Promise<string> {
+  const res = await api.patch(`/api/transactions/${id}/status`, { status });
+  return res.data;
+}

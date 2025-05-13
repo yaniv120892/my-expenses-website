@@ -16,6 +16,8 @@ import {
   updateTransaction,
   deleteTransaction,
   getCategories,
+  getPendingTransactions,
+  updateTransactionStatus,
 } from "../services/transactions";
 import {
   getScheduledTransactions,
@@ -29,6 +31,7 @@ import TransactionListSkeleton from "../components/TransactionListSkeleton";
 import Navbar from "../components/Navbar";
 import ScheduledTransactionList from "../components/ScheduledTransactionList";
 import ScheduledTransactionForm from "../components/ScheduledTransactionForm";
+import PendingTransactionsList from "../components/PendingTransactionsList";
 import { Box, Snackbar, Alert, Fab } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SummaryChart from "@/components/SummaryChart";
@@ -38,9 +41,13 @@ export default function HomePage() {
   const [scheduledTransactions, setScheduledTransactions] = useState<
     ScheduledTransaction[]
   >([]);
+  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
+    []
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduledLoading, setScheduledLoading] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [scheduledFormOpen, setScheduledFormOpen] = useState(false);
@@ -48,7 +55,10 @@ export default function HomePage() {
     useState<ScheduledTransaction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "transactions" | "summary" | "scheduled-transactions"
+    | "transactions"
+    | "summary"
+    | "scheduled-transactions"
+    | "pending-transactions"
   >("transactions");
 
   const fetchTransactions = async (params?: TransactionFilters) => {
@@ -77,6 +87,20 @@ export default function HomePage() {
     }
   };
 
+  const fetchPendingTransactions = async () => {
+    setPendingLoading(true);
+    try {
+      const data = await getPendingTransactions();
+      setPendingTransactions(data);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to load pending transactions"
+      );
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
   const fetchAllCategories = async () => {
     try {
       const data = await getCategories();
@@ -93,6 +117,9 @@ export default function HomePage() {
     if (activeTab === "scheduled-transactions") {
       fetchScheduledTransactions();
       fetchAllCategories();
+    }
+    if (activeTab === "pending-transactions") {
+      fetchPendingTransactions();
     }
   }, [activeTab]);
 
@@ -130,6 +157,16 @@ export default function HomePage() {
     fetchTransactions();
   };
 
+  const handleConfirmPending = async (id: string) => {
+    await updateTransactionStatus(id, "APPROVED");
+    fetchPendingTransactions();
+  };
+
+  const handleDeletePending = async (id: string) => {
+    await deleteTransaction(id);
+    fetchPendingTransactions();
+  };
+
   return (
     <div>
       <Box
@@ -144,7 +181,11 @@ export default function HomePage() {
           activeTab={activeTab}
           onTabChange={(tab) =>
             setActiveTab(
-              tab as "transactions" | "summary" | "scheduled-transactions"
+              tab as
+                | "transactions"
+                | "summary"
+                | "scheduled-transactions"
+                | "pending-transactions"
             )
           }
         />
@@ -198,6 +239,25 @@ export default function HomePage() {
                 onSubmitAction={handleCreateScheduled}
                 initialData={editScheduledTx}
               />
+            </Box>
+          ) : activeTab === "pending-transactions" ? (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+                position: "relative",
+              }}
+            >
+              {pendingLoading ? (
+                <TransactionListSkeleton rows={6} />
+              ) : (
+                <PendingTransactionsList
+                  transactions={pendingTransactions}
+                  onConfirmAction={handleConfirmPending}
+                  onDeleteAction={handleDeletePending}
+                />
+              )}
             </Box>
           ) : (
             <Box

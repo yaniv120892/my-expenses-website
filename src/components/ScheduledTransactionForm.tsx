@@ -19,6 +19,7 @@ import {
   TransactionType,
 } from "../types";
 import { getCategories } from "../services/transactions";
+import { translateToScheduleSummary } from "../utils/format";
 
 interface Props {
   open: boolean;
@@ -82,39 +83,12 @@ export default function ScheduledTransactionForm({
   }, [initialData, open]);
 
   const getScheduleSummary = () => {
-    const interval =
-      form.interval && form.interval > 1 ? `every ${form.interval} ` : "every ";
-    if (form.scheduleType === "DAILY") {
-      return `Runs ${interval.trim()} day${
-        form.interval && form.interval > 1 ? "s" : ""
-      }.`;
-    }
-    if (form.scheduleType === "WEEKLY") {
-      if (!form.dayOfWeek) return "Choose a day of week.";
-      const weekInterval =
-        form.interval && form.interval > 1
-          ? `every ${form.interval} weeks`
-          : "every week";
-      const days = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ];
-      return `Runs ${weekInterval} on ${days[(form.dayOfWeek - 1) % 7]}.`;
-    }
-    if (form.scheduleType === "MONTHLY") {
-      if (!form.dayOfMonth) return "Choose a day of month.";
-      const monthInterval =
-        form.interval && form.interval > 1
-          ? `every ${form.interval} months`
-          : "every month";
-      return `Runs ${monthInterval} on day ${form.dayOfMonth}.`;
-    }
-    return "";
+    return translateToScheduleSummary(
+      form.scheduleType,
+      form.interval,
+      form.dayOfWeek,
+      form.dayOfMonth
+    );
   };
 
   const validate = () => {

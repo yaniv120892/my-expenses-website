@@ -6,6 +6,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CircularProgress from "@mui/material/CircularProgress";
 import EmptyState from "./EmptyState";
+import { formatTransactionDate } from "../utils/format";
 
 interface Props {
   scheduledTransactions: ScheduledTransaction[];
@@ -70,6 +71,7 @@ export default function ScheduledTransactionList({
             <th>Type</th>
             <th>Category</th>
             <th>Schedule</th>
+            <th>Next Run</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -91,6 +93,9 @@ export default function ScheduledTransactionList({
               <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
               <td>{getCategoryName(tx.categoryId, categories)}</td>
               <td>{formatSchedule(tx)}</td>
+              <td>
+                {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : "N/A"}
+              </td>
               <td style={{ textAlign: "right" }}>
                 <span
                   style={{

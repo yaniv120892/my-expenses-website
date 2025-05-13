@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { Tabs, Tab } from "@mui/material";
+import { TabOption } from "../types";
 
 function getTabStyle(isSelected: boolean) {
   return {
@@ -16,8 +17,8 @@ function getTabStyle(isSelected: boolean) {
 }
 
 interface NavbarProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
+  activeTab: TabOption;
+  onTabChange: (tab: TabOption) => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
@@ -54,7 +55,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
       <Tabs
         orientation="vertical"
         value={activeTab}
-        onChange={(_, v) => onTabChange(v)}
+        onChange={(_, v) => onTabChange(v as TabOption)}
         textColor="inherit"
         indicatorColor="secondary"
         sx={{
@@ -66,23 +67,23 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
       >
         <Tab
           label="Transactions"
-          value="transactions"
-          sx={getTabStyle(activeTab === "transactions")}
+          value={TabOption.Transactions}
+          sx={getTabStyle(activeTab === TabOption.Transactions)}
         />
         <Tab
           label="Pending Transactions"
-          value="pending-transactions"
-          sx={getTabStyle(activeTab === "pending-transactions")}
+          value={TabOption.PendingTransactions}
+          sx={getTabStyle(activeTab === TabOption.PendingTransactions)}
         />
         <Tab
           label="Scheduled Transactions"
-          value="scheduled-transactions"
-          sx={getTabStyle(activeTab === "scheduled-transactions")}
+          value={TabOption.ScheduledTransactions}
+          sx={getTabStyle(activeTab === TabOption.ScheduledTransactions)}
         />
         <Tab
           label="Summary"
-          value="summary"
-          sx={getTabStyle(activeTab === "summary")}
+          value={TabOption.Summary}
+          sx={getTabStyle(activeTab === TabOption.Summary)}
         />
       </Tabs>
     </nav>

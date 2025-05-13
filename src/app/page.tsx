@@ -8,6 +8,7 @@ import {
   UpdateTransactionInput,
   Category,
   ScheduledTransaction,
+  CreateScheduledTransactionInput,
 } from "../types";
 import {
   getTransactions,
@@ -19,6 +20,7 @@ import {
 import {
   getScheduledTransactions,
   deleteScheduledTransaction,
+  createScheduledTransaction,
 } from "../services/scheduledTransactions";
 import TransactionList from "../components/TransactionList";
 import TransactionForm from "../components/TransactionForm";
@@ -26,6 +28,7 @@ import SearchBar from "../components/SearchBar";
 import TransactionListSkeleton from "../components/TransactionListSkeleton";
 import Navbar from "../components/Navbar";
 import ScheduledTransactionList from "../components/ScheduledTransactionList";
+import ScheduledTransactionForm from "../components/ScheduledTransactionForm";
 import { Box, Snackbar, Alert, Fab } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SummaryChart from "@/components/SummaryChart";
@@ -40,6 +43,9 @@ export default function HomePage() {
   const [scheduledLoading, setScheduledLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [scheduledFormOpen, setScheduledFormOpen] = useState(false);
+  const [editScheduledTx, setEditScheduledTx] =
+    useState<ScheduledTransaction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "transactions" | "summary" | "scheduled-transactions"
@@ -99,6 +105,13 @@ export default function HomePage() {
     fetchTransactions();
   };
 
+  const handleCreateScheduled = async (
+    data: CreateScheduledTransactionInput
+  ) => {
+    await createScheduledTransaction(data);
+    fetchScheduledTransactions();
+  };
+
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);
     setFormOpen(true);
@@ -139,7 +152,14 @@ export default function HomePage() {
           {activeTab === "summary" ? (
             <SummaryChart />
           ) : activeTab === "scheduled-transactions" ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+                position: "relative",
+              }}
+            >
               {scheduledLoading ? (
                 <TransactionListSkeleton rows={6} />
               ) : (
@@ -153,6 +173,31 @@ export default function HomePage() {
                   }}
                 />
               )}
+              <Fab
+                color="primary"
+                aria-label="add"
+                sx={{
+                  position: "fixed",
+                  bottom: 32,
+                  right: 32,
+                  zIndex: 2000,
+                }}
+                onClick={() => {
+                  setScheduledFormOpen(true);
+                  setEditScheduledTx(null);
+                }}
+              >
+                <AddIcon />
+              </Fab>
+              <ScheduledTransactionForm
+                open={scheduledFormOpen}
+                onCloseAction={() => {
+                  setScheduledFormOpen(false);
+                  setEditScheduledTx(null);
+                }}
+                onSubmitAction={handleCreateScheduled}
+                initialData={editScheduledTx}
+              />
             </Box>
           ) : (
             <Box

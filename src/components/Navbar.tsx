@@ -66,7 +66,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             transition: "background 0.2s, color 0.2s",
           }}
         />
-
         <Tab
           label="Pending Transactions"
           value="pending-transactions"
@@ -101,20 +100,24 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             transition: "background 0.2s, color 0.2s",
           }}
         />
+        <Tab
+          label="Summary"
+          value="summary"
+          sx={{
+            color:
+              activeTab === "summary"
+                ? "var(--accent-red)"
+                : "var(--secondary)",
+            fontWeight: 700,
+            borderRadius: 2,
+            background:
+              activeTab === "summary"
+                ? "var(--accent-red-light)"
+                : "transparent",
+            transition: "background 0.2s, color 0.2s",
+          }}
+        />
       </Tabs>
-      <Tab
-        label="Summary"
-        value="summary"
-        sx={{
-          color:
-            activeTab === "summary" ? "var(--accent-red)" : "var(--secondary)",
-          fontWeight: 700,
-          borderRadius: 2,
-          background:
-            activeTab === "summary" ? "var(--accent-red-light)" : "transparent",
-          transition: "background 0.2s, color 0.2s",
-        }}
-      />
     </nav>
   );
 };

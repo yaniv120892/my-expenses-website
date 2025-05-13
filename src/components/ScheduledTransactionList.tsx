@@ -4,6 +4,7 @@ import React from "react";
 import { ScheduledTransaction, Category } from "../types";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EmptyState from "./EmptyState";
 
 interface Props {
   scheduledTransactions: ScheduledTransaction[];
@@ -34,11 +35,7 @@ export default function ScheduledTransactionList({
   onDeleteAction,
 }: Props) {
   if (!scheduledTransactions.length) {
-    return (
-      <div className="card-accent" style={{ color: "var(--accent-purple)" }}>
-        No scheduled transactions found.
-      </div>
-    );
+    return <EmptyState message="No scheduled transactions found." />;
   }
 
   return (

@@ -38,3 +38,44 @@ export interface TransactionFilters {
   page?: number;
   perPage?: number;
 }
+
+export type ScheduleType = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+
+export interface CreateScheduledTransactionInput {
+  description: string;
+  value: number;
+  type: TransactionType;
+  categoryId: string;
+  scheduleType: ScheduleType;
+  interval?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  monthOfYear?: number;
+}
+
+export interface UpdateScheduledTransactionInput {
+  description?: string;
+  value?: number;
+  type?: TransactionType;
+  categoryId?: string;
+  scheduleType?: ScheduleType;
+  interval?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  monthOfYear?: number;
+}
+
+export interface ScheduledTransaction {
+  id: string;
+  description: string;
+  value: number;
+  type: TransactionType;
+  categoryId: string;
+  scheduleType: ScheduleType;
+  interval?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  monthOfYear?: number;
+  lastRunDate?: string;
+  nextRunDate?: string;
+}

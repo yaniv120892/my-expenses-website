@@ -6,31 +6,44 @@ import {
   TransactionFilters,
   CreateTransactionInput,
   UpdateTransactionInput,
+  Category,
+  ScheduledTransaction,
 } from "../types";
 import {
   getTransactions,
   createTransaction,
   updateTransaction,
   deleteTransaction,
+  getCategories,
 } from "../services/transactions";
+import {
+  getScheduledTransactions,
+  deleteScheduledTransaction,
+} from "../services/scheduledTransactions";
 import TransactionList from "../components/TransactionList";
 import TransactionForm from "../components/TransactionForm";
 import SearchBar from "../components/SearchBar";
 import TransactionListSkeleton from "../components/TransactionListSkeleton";
 import Navbar from "../components/Navbar";
+import ScheduledTransactionList from "../components/ScheduledTransactionList";
 import { Box, Snackbar, Alert, Fab } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SummaryChart from "@/components/SummaryChart";
 
 export default function HomePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [scheduledTransactions, setScheduledTransactions] = useState<
+    ScheduledTransaction[]
+  >([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scheduledLoading, setScheduledLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"transactions" | "summary">(
-    "transactions"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "transactions" | "summary" | "scheduled-transactions"
+  >("transactions");
 
   const fetchTransactions = async (params?: TransactionFilters) => {
     setLoading(true);
@@ -44,9 +57,38 @@ export default function HomePage() {
     }
   };
 
+  const fetchScheduledTransactions = async () => {
+    setScheduledLoading(true);
+    try {
+      const data = await getScheduledTransactions();
+      setScheduledTransactions(data);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to load scheduled transactions"
+      );
+    } finally {
+      setScheduledLoading(false);
+    }
+  };
+
+  const fetchAllCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load categories");
+    }
+  };
+
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    if (activeTab === "transactions") {
+      fetchTransactions();
+    }
+    if (activeTab === "scheduled-transactions") {
+      fetchScheduledTransactions();
+      fetchAllCategories();
+    }
+  }, [activeTab]);
 
   const handleSearch = (params: TransactionFilters) => {
     fetchTransactions(params);
@@ -87,11 +129,31 @@ export default function HomePage() {
       >
         <Navbar
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as "transactions" | "summary")}
+          onTabChange={(tab) =>
+            setActiveTab(
+              tab as "transactions" | "summary" | "scheduled-transactions"
+            )
+          }
         />
         <Box sx={{ flex: 1, pl: 3 }}>
           {activeTab === "summary" ? (
             <SummaryChart />
+          ) : activeTab === "scheduled-transactions" ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {scheduledLoading ? (
+                <TransactionListSkeleton rows={6} />
+              ) : (
+                <ScheduledTransactionList
+                  scheduledTransactions={scheduledTransactions}
+                  categories={categories}
+                  onEditAction={() => {}}
+                  onDeleteAction={async (id) => {
+                    await deleteScheduledTransaction(id);
+                    fetchScheduledTransactions();
+                  }}
+                />
+              )}
+            </Box>
           ) : (
             <Box
               sx={{

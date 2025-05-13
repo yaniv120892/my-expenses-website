@@ -83,6 +83,23 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             transition: "background 0.2s, color 0.2s",
           }}
         />
+        <Tab
+          label="Scheduled Transactions"
+          value="scheduled-transactions"
+          sx={{
+            color:
+              activeTab === "scheduled-transactions"
+                ? "var(--accent-red)"
+                : "var(--secondary)",
+            fontWeight: 700,
+            borderRadius: 2,
+            background:
+              activeTab === "scheduled-transactions"
+                ? "var(--accent-red-light)"
+                : "transparent",
+            transition: "background 0.2s, color 0.2s",
+          }}
+        />
       </Tabs>
     </nav>
   );

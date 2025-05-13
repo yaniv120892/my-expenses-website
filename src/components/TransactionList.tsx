@@ -8,14 +8,14 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 type Props = {
   transactions: Transaction[];
-  onEdit: (tx: Transaction) => void;
-  onDelete: (id: string) => void;
+  onEditAction: (tx: Transaction) => void;
+  onDeleteAction: (id: string) => void;
 };
 
 export default function TransactionList({
   transactions,
-  onEdit,
-  onDelete,
+  onEditAction,
+  onDeleteAction,
 }: Props) {
   if (!transactions.length) {
     return (
@@ -70,7 +70,7 @@ export default function TransactionList({
                       padding: "0.3rem 0.8rem",
                       fontSize: "0.95rem",
                     }}
-                    onClick={() => onEdit(tx)}
+                    onClick={() => onEditAction(tx)}
                     aria-label="Edit"
                   >
                     <EditIcon fontSize="small" />
@@ -82,7 +82,7 @@ export default function TransactionList({
                       fontSize: "0.95rem",
                       background: "var(--accent-red)",
                     }}
-                    onClick={() => onDelete(tx.id)}
+                    onClick={() => onDeleteAction(tx.id)}
                     aria-label="Delete"
                   >
                     <DeleteIcon fontSize="small" />

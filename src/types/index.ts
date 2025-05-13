@@ -46,7 +46,7 @@ export interface TransactionFilters {
   perPage?: number;
 }
 
-export type ScheduleType = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+export type ScheduleType = "DAILY" | "WEEKLY" | "MONTHLY";
 
 export interface CreateScheduledTransactionInput {
   description: string;

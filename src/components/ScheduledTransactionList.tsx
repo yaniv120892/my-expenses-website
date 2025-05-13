@@ -6,7 +6,10 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CircularProgress from "@mui/material/CircularProgress";
 import EmptyState from "./EmptyState";
-import { formatTransactionDate } from "../utils/format";
+import {
+  formatTransactionDate,
+  translateToScheduleSummary,
+} from "../utils/format";
 
 interface Props {
   scheduledTransactions: ScheduledTransaction[];
@@ -18,16 +21,6 @@ interface Props {
 function getCategoryName(categoryId: string, categories: Category[]) {
   const found = categories.find((cat) => cat.id === categoryId);
   return found ? found.name : "N/A";
-}
-
-function formatSchedule(tx: ScheduledTransaction) {
-  let schedule = tx.scheduleType;
-  if (tx.interval) schedule += ` every ${tx.interval}`;
-  if (tx.dayOfWeek !== undefined) schedule += `, dayOfWeek: ${tx.dayOfWeek}`;
-  if (tx.dayOfMonth !== undefined) schedule += `, dayOfMonth: ${tx.dayOfMonth}`;
-  if (tx.monthOfYear !== undefined)
-    schedule += `, monthOfYear: ${tx.monthOfYear}`;
-  return schedule;
 }
 
 export default function ScheduledTransactionList({
@@ -92,7 +85,14 @@ export default function ScheduledTransactionList({
               </td>
               <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
               <td>{getCategoryName(tx.categoryId, categories)}</td>
-              <td>{formatSchedule(tx)}</td>
+              <td>
+                {translateToScheduleSummary(
+                  tx.scheduleType,
+                  tx.interval,
+                  tx.dayOfWeek,
+                  tx.dayOfMonth
+                )}
+              </td>
               <td>
                 {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : "N/A"}
               </td>

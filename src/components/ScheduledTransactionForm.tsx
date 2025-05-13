@@ -35,7 +35,7 @@ const defaultForm: Omit<
   value: 0,
 };
 
-const scheduleTypes: ScheduleType[] = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
+const scheduleTypes: ScheduleType[] = ["DAILY", "WEEKLY", "MONTHLY"];
 const transactionTypes: TransactionType[] = ["EXPENSE", "INCOME"];
 
 export default function ScheduledTransactionForm({
@@ -69,7 +69,6 @@ export default function ScheduledTransactionForm({
         interval: initialData.interval,
         dayOfWeek: initialData.dayOfWeek,
         dayOfMonth: initialData.dayOfMonth,
-        monthOfYear: initialData.monthOfYear,
       });
     } else {
       setForm({
@@ -82,6 +81,42 @@ export default function ScheduledTransactionForm({
     setErrors({});
   }, [initialData, open]);
 
+  const getScheduleSummary = () => {
+    const interval =
+      form.interval && form.interval > 1 ? `every ${form.interval} ` : "every ";
+    if (form.scheduleType === "DAILY") {
+      return `Runs ${interval.trim()}day${
+        form.interval && form.interval > 1 ? "s" : ""
+      }.`;
+    }
+    if (form.scheduleType === "WEEKLY") {
+      if (!form.dayOfWeek) return "Choose a day of week.";
+      const weekInterval =
+        form.interval && form.interval > 1
+          ? `every ${form.interval} weeks`
+          : "every week";
+      const days = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+      return `Runs ${weekInterval} on ${days[(form.dayOfWeek - 1) % 7]}.`;
+    }
+    if (form.scheduleType === "MONTHLY") {
+      if (!form.dayOfMonth) return "Choose a day of month.";
+      const monthInterval =
+        form.interval && form.interval > 1
+          ? `every ${form.interval} months`
+          : "every month";
+      return `Runs ${monthInterval} on day ${form.dayOfMonth}.`;
+    }
+    return "";
+  };
+
   const validate = () => {
     const errs: { [k: string]: string } = {};
     if (!form.description) errs.description = "Description is required";
@@ -90,6 +125,32 @@ export default function ScheduledTransactionForm({
     if (!form.type) errs.type = "Type is required";
     if (!form.categoryId) errs.categoryId = "Category is required";
     if (!form.scheduleType) errs.scheduleType = "Schedule type is required";
+    if (form.scheduleType === "WEEKLY" && !form.dayOfWeek)
+      errs.dayOfWeek = "Day of week is required";
+    if (form.scheduleType === "MONTHLY" && !form.dayOfMonth)
+      errs.dayOfMonth = "Day of month is required";
+    if (form.scheduleType === "MONTHLY" && form.dayOfWeek)
+      errs.dayOfWeek = "Day of week is not valid for monthly schedule";
+    if (
+      form.scheduleType === "DAILY" &&
+      (form.dayOfWeek || form.dayOfMonth || form.monthOfYear)
+    ) {
+      if (form.dayOfWeek)
+        errs.dayOfWeek = "Day of week is not valid for daily schedule";
+      if (form.dayOfMonth)
+        errs.dayOfMonth = "Day of month is not valid for daily schedule";
+      if (form.monthOfYear)
+        errs.monthOfYear = "Month of year is not valid for daily schedule";
+    }
+    if (
+      form.scheduleType === "WEEKLY" &&
+      (form.dayOfMonth || form.monthOfYear)
+    ) {
+      if (form.dayOfMonth)
+        errs.dayOfMonth = "Day of month is not valid for weekly schedule";
+      if (form.monthOfYear)
+        errs.monthOfYear = "Month of year is not valid for weekly schedule";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -131,6 +192,9 @@ export default function ScheduledTransactionForm({
       </DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
+          <Box mb={1} color="var(--primary)">
+            {getScheduleSummary()}
+          </Box>
           <TextField
             label="Description"
             name="description"
@@ -209,30 +273,41 @@ export default function ScheduledTransactionForm({
             onChange={handleNumberChange}
             fullWidth
           />
-          <TextField
-            label="Day of Week"
-            name="dayOfWeek"
-            type="number"
-            value={form.dayOfWeek ?? ""}
-            onChange={handleNumberChange}
-            fullWidth
-          />
-          <TextField
-            label="Day of Month"
-            name="dayOfMonth"
-            type="number"
-            value={form.dayOfMonth ?? ""}
-            onChange={handleNumberChange}
-            fullWidth
-          />
-          <TextField
-            label="Month of Year"
-            name="monthOfYear"
-            type="number"
-            value={form.monthOfYear ?? ""}
-            onChange={handleNumberChange}
-            fullWidth
-          />
+          {form.scheduleType === "WEEKLY" && (
+            <TextField
+              select
+              label="Day of Week"
+              name="dayOfWeek"
+              value={form.dayOfWeek ?? ""}
+              onChange={handleNumberChange}
+              error={!!errors.dayOfWeek}
+              helperText={errors.dayOfWeek}
+              fullWidth
+            >
+              <MenuItem value="">
+                <em>Choose day</em>
+              </MenuItem>
+              <MenuItem value={1}>Sunday</MenuItem>
+              <MenuItem value={2}>Monday</MenuItem>
+              <MenuItem value={3}>Tuesday</MenuItem>
+              <MenuItem value={4}>Wednesday</MenuItem>
+              <MenuItem value={5}>Thursday</MenuItem>
+              <MenuItem value={6}>Friday</MenuItem>
+              <MenuItem value={7}>Saturday</MenuItem>
+            </TextField>
+          )}
+          {form.scheduleType === "MONTHLY" && (
+            <TextField
+              label="Day of Month"
+              name="dayOfMonth"
+              type="number"
+              value={form.dayOfMonth ?? ""}
+              onChange={handleNumberChange}
+              error={!!errors.dayOfMonth}
+              helperText={errors.dayOfMonth}
+              fullWidth
+            />
+          )}
         </Box>
       </DialogContent>
       <DialogActions style={{ padding: "1.5rem" }}>

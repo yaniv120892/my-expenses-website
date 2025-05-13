@@ -207,7 +207,10 @@ export default function HomePage() {
                 <ScheduledTransactionList
                   scheduledTransactions={scheduledTransactions}
                   categories={categories}
-                  onEditAction={() => {}}
+                  onEditAction={(tx) => {
+                    setEditScheduledTx(tx);
+                    setScheduledFormOpen(true);
+                  }}
                   onDeleteAction={async (id) => {
                     await deleteScheduledTransaction(id);
                     fetchScheduledTransactions();

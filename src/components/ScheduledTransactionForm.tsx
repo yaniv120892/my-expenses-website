@@ -85,7 +85,7 @@ export default function ScheduledTransactionForm({
     const interval =
       form.interval && form.interval > 1 ? `every ${form.interval} ` : "every ";
     if (form.scheduleType === "DAILY") {
-      return `Runs ${interval.trim()}day${
+      return `Runs ${interval.trim()} day${
         form.interval && form.interval > 1 ? "s" : ""
       }.`;
     }

@@ -4,7 +4,11 @@ import ScheduledTransactionForm from "../../components/ScheduledTransactionForm"
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box, Snackbar, Alert } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { ScheduledTransaction } from "../../types";
+import {
+  CreateScheduledTransactionInput,
+  ScheduledTransaction,
+  UpdateScheduledTransactionInput,
+} from "../../types";
 import { useScheduledTransactions } from "../../hooks/useScheduledTransactions";
 
 export default function ScheduledTransactionsTab() {
@@ -16,11 +20,22 @@ export default function ScheduledTransactionsTab() {
     fetchScheduledTransactions,
     fetchCategories,
     handleCreate,
+    handleUpdate,
     handleDelete,
     setError,
   } = useScheduledTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
+
+  const handleFormSubmit = async (
+    data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput
+  ) => {
+    if (editTx) {
+      await handleUpdate(editTx.id, data as UpdateScheduledTransactionInput);
+    } else {
+      await handleCreate(data as CreateScheduledTransactionInput);
+    }
+  };
 
   useEffect(() => {
     fetchScheduledTransactions();
@@ -66,7 +81,7 @@ export default function ScheduledTransactionsTab() {
           setFormOpen(false);
           setEditTx(null);
         }}
-        onSubmitAction={handleCreate}
+        onSubmitAction={handleFormSubmit}
         initialData={editTx}
       />
       <Snackbar

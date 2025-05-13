@@ -3,10 +3,12 @@ import {
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   Category,
+  UpdateScheduledTransactionInput,
 } from "../types";
 import {
   getScheduledTransactions,
   createScheduledTransaction,
+  updateScheduledTransaction,
   deleteScheduledTransaction,
 } from "../services/scheduledTransactions";
 import { getCategories } from "../services/transactions";
@@ -47,6 +49,14 @@ export function useScheduledTransactions() {
     fetchScheduledTransactions();
   };
 
+  const handleUpdate = async (
+    id: string,
+    data: UpdateScheduledTransactionInput
+  ) => {
+    await updateScheduledTransaction(id, data);
+    fetchScheduledTransactions();
+  };
+
   const handleDelete = async (id: string) => {
     await deleteScheduledTransaction(id);
     fetchScheduledTransactions();
@@ -60,6 +70,7 @@ export function useScheduledTransactions() {
     fetchScheduledTransactions,
     fetchCategories,
     handleCreate,
+    handleUpdate,
     handleDelete,
     setError,
   };

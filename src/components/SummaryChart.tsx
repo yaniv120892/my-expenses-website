@@ -63,14 +63,8 @@ const fetchLast6MonthsSummary = async (): Promise<MonthSummary[]> => {
     const endDate = dayjs(m + "-01")
       .endOf("month")
       .format("YYYY-MM-DD");
-    console.log(`[SummaryChart] Fetching summary for`, { startDate, endDate });
     try {
       const summary = await getTransactionSummary({ startDate, endDate });
-      console.log(`[SummaryChart] Got summary for`, {
-        startDate,
-        endDate,
-        summary,
-      });
       return {
         month: m,
         income: summary.totalIncome || 0,

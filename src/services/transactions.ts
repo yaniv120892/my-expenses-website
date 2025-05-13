@@ -14,6 +14,9 @@ export async function getTransactions(
   const defaultParams = {
     page: 1,
     perPage: 10,
+    endDate: new Date(
+      new Date().setDate(new Date().getDate() + 7)
+    ).toISOString(),
   };
   const mergedParams = { ...defaultParams, ...params };
   const res = await api.get("/api/transactions", { params: mergedParams });

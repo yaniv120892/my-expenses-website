@@ -51,30 +51,32 @@ export default function ScheduledTransactionsTab() {
         position: "relative",
       }}
     >
-      {loading ? (
-        <TransactionListSkeleton rows={6} />
-      ) : (
-        <ScheduledTransactionList
-          scheduledTransactions={scheduledTransactions}
-          categories={categories}
-          onEditAction={(tx) => {
-            setEditTx(tx);
+      <Box sx={{ position: "relative" }}>
+        {loading ? (
+          <TransactionListSkeleton rows={6} />
+        ) : (
+          <ScheduledTransactionList
+            scheduledTransactions={scheduledTransactions}
+            categories={categories}
+            onEditAction={(tx) => {
+              setEditTx(tx);
+              setFormOpen(true);
+            }}
+            onDeleteAction={handleDelete}
+          />
+        )}
+        <Fab
+          color="primary"
+          aria-label="add"
+          sx={{ position: "absolute", bottom: 16, right: 16, zIndex: 2000 }}
+          onClick={() => {
             setFormOpen(true);
+            setEditTx(null);
           }}
-          onDeleteAction={handleDelete}
-        />
-      )}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{ position: "fixed", bottom: 32, right: 32, zIndex: 2000 }}
-        onClick={() => {
-          setFormOpen(true);
-          setEditTx(null);
-        }}
-      >
-        <AddIcon />
-      </Fab>
+        >
+          <AddIcon />
+        </Fab>
+      </Box>
       <ScheduledTransactionForm
         open={formOpen}
         onCloseAction={() => {

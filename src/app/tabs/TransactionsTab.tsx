@@ -8,6 +8,54 @@ import { Fab, Box } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { useTransactions } from "../../hooks/useTransactions";
 
+function TransactionSearch({
+  onSearch,
+}: {
+  onSearch: (params: TransactionFilters) => void;
+}) {
+  return (
+    <Box sx={{ minWidth: 260, maxWidth: 320 }}>
+      <SearchBar onSearch={onSearch} />
+    </Box>
+  );
+}
+
+function TransactionTableArea({
+  loading,
+  transactions,
+  onEdit,
+  onDelete,
+  onFabClick,
+}: {
+  loading: boolean;
+  transactions: Transaction[];
+  onEdit: (tx: Transaction) => void;
+  onDelete: (id: string) => void;
+  onFabClick: () => void;
+}) {
+  return (
+    <Box flex={1} sx={{ position: "relative" }}>
+      {loading ? (
+        <TransactionListSkeleton rows={6} />
+      ) : (
+        <TransactionList
+          transactions={transactions}
+          onEditAction={onEdit}
+          onDeleteAction={onDelete}
+        />
+      )}
+      <Fab
+        color="primary"
+        aria-label="add"
+        sx={{ position: "absolute", bottom: 16, right: 16, zIndex: 2000 }}
+        onClick={onFabClick}
+      >
+        <AddIcon />
+      </Fab>
+    </Box>
+  );
+}
+
 export default function TransactionsTab() {
   const {
     transactions,
@@ -33,6 +81,11 @@ export default function TransactionsTab() {
     setFormOpen(true);
   };
 
+  const handleFabClick = () => {
+    setFormOpen(true);
+    setEditTx(null);
+  };
+
   return (
     <Box
       sx={{
@@ -42,31 +95,14 @@ export default function TransactionsTab() {
         gap: 3,
       }}
     >
-      <Box sx={{ minWidth: 260, maxWidth: 320 }}>
-        <SearchBar onSearch={handleSearch} />
-      </Box>
-      <Box flex={1} sx={{ position: "relative" }}>
-        {loading ? (
-          <TransactionListSkeleton rows={6} />
-        ) : (
-          <TransactionList
-            transactions={transactions}
-            onEditAction={handleEdit}
-            onDeleteAction={handleDelete}
-          />
-        )}
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{ position: "fixed", bottom: 32, right: 32, zIndex: 2000 }}
-          onClick={() => {
-            setFormOpen(true);
-            setEditTx(null);
-          }}
-        >
-          <AddIcon />
-        </Fab>
-      </Box>
+      <TransactionSearch onSearch={handleSearch} />
+      <TransactionTableArea
+        loading={loading}
+        transactions={transactions}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onFabClick={handleFabClick}
+      />
       <TransactionForm
         open={formOpen}
         onCloseAction={() => {

@@ -62,7 +62,12 @@ export default function SearchDialog({
   };
 
   return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth sx={{ mt: 8 }}>
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onClose}
+      fullWidth
+      sx={{ mt: 8 }}
+    >
       <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
         <Box display="flex" alignItems="center" gap={1}>
           <SearchIcon style={{ color: "var(--primary)" }} />

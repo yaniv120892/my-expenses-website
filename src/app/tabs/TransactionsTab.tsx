@@ -14,13 +14,11 @@ function TransactionTableArea({
   transactions,
   onEdit,
   onDelete,
-  onFabClick,
 }: {
   loading: boolean;
   transactions: Transaction[];
   onEdit: (tx: Transaction) => void;
   onDelete: (id: string) => void;
-  onFabClick: () => void;
 }) {
   return (
     <Box flex={1} sx={{ position: "relative" }}>
@@ -33,14 +31,6 @@ function TransactionTableArea({
           onDeleteAction={onDelete}
         />
       )}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{ position: "absolute", bottom: 16, right: 16, zIndex: 2000 }}
-        onClick={onFabClick}
-      >
-        <AddIcon />
-      </Fab>
     </Box>
   );
 }
@@ -99,7 +89,6 @@ export default function TransactionsTab() {
         transactions={transactions}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onFabClick={handleFabClick}
       />
       <TransactionForm
         open={formOpen}
@@ -112,14 +101,28 @@ export default function TransactionsTab() {
         }
         initialData={editTx}
       />
-      <Fab
-        color="secondary"
-        aria-label="search"
-        sx={{ position: "fixed", bottom: 90, right: 32, zIndex: 2000 }}
-        onClick={handleSearchFabClick}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 32,
+          right: 32,
+          display: "flex",
+          flexDirection: "row",
+          gap: 2,
+          zIndex: 2000,
+        }}
       >
-        <SearchIcon />
-      </Fab>
+        <Fab color="primary" aria-label="add" onClick={handleFabClick}>
+          <AddIcon />
+        </Fab>
+        <Fab
+          color="secondary"
+          aria-label="search"
+          onClick={handleSearchFabClick}
+        >
+          <SearchIcon />
+        </Fab>
+      </Box>
       <SearchDialog
         open={searchDialogOpen}
         onClose={() => setSearchDialogOpen(false)}

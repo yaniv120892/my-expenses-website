@@ -2,23 +2,12 @@ import React, { useState } from "react";
 import { Transaction, TransactionFilters } from "../../types";
 import TransactionList from "../../components/TransactionList";
 import TransactionForm from "../../components/TransactionForm";
-import SearchBar from "../../components/SearchBar";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import SearchDialog from "../../components/SearchDialog";
+import SearchIcon from "@mui/icons-material/Search";
 import { useTransactions } from "../../hooks/useTransactions";
-
-function TransactionSearch({
-  onSearch,
-}: {
-  onSearch: (params: TransactionFilters) => void;
-}) {
-  return (
-    <Box sx={{ minWidth: 260, maxWidth: 320 }}>
-      <SearchBar onSearch={onSearch} />
-    </Box>
-  );
-}
 
 function TransactionTableArea({
   loading,
@@ -67,12 +56,17 @@ export default function TransactionsTab() {
   } = useTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [lastSearch, setLastSearch] = useState<TransactionFilters | undefined>(
+    undefined
+  );
 
   React.useEffect(() => {
     fetchTransactions();
   }, []);
 
   const handleSearch = (params: TransactionFilters) => {
+    setLastSearch(params);
     fetchTransactions(params);
   };
 
@@ -86,6 +80,10 @@ export default function TransactionsTab() {
     setEditTx(null);
   };
 
+  const handleSearchFabClick = () => {
+    setSearchDialogOpen(true);
+  };
+
   return (
     <Box
       sx={{
@@ -93,9 +91,9 @@ export default function TransactionsTab() {
         flexDirection: "row",
         alignItems: "flex-start",
         gap: 3,
+        position: "relative",
       }}
     >
-      <TransactionSearch onSearch={handleSearch} />
       <TransactionTableArea
         loading={loading}
         transactions={transactions}
@@ -113,6 +111,20 @@ export default function TransactionsTab() {
           editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate
         }
         initialData={editTx}
+      />
+      <Fab
+        color="secondary"
+        aria-label="search"
+        sx={{ position: "fixed", bottom: 90, right: 32, zIndex: 2000 }}
+        onClick={handleSearchFabClick}
+      >
+        <SearchIcon />
+      </Fab>
+      <SearchDialog
+        open={searchDialogOpen}
+        onClose={() => setSearchDialogOpen(false)}
+        onSearch={handleSearch}
+        initialFilters={lastSearch}
       />
     </Box>
   );

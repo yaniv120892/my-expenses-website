@@ -20,11 +20,15 @@ import {
 } from "../types";
 import { getCategories } from "../services/transactions";
 import { translateToScheduleSummary } from "../utils/format";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
 
 interface Props {
   open: boolean;
   onCloseAction: () => void;
   onSubmitAction: (data: CreateScheduledTransactionInput) => Promise<void>;
+  onDeleteAction?: (id: string) => Promise<void>;
   initialData?: ScheduledTransaction | null;
 }
 
@@ -43,6 +47,7 @@ export default function ScheduledTransactionForm({
   open,
   onCloseAction,
   onSubmitAction,
+  onDeleteAction,
   initialData,
 }: Props) {
   const [form, setForm] = useState<CreateScheduledTransactionInput>({
@@ -151,6 +156,18 @@ export default function ScheduledTransactionForm({
       setLoading(false);
     }
   };
+
+  async function handleDelete() {
+    if (initialData && onDeleteAction) {
+      setLoading(true);
+      try {
+        await onDeleteAction(initialData.id);
+        onCloseAction();
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
 
   return (
     <Dialog
@@ -284,29 +301,67 @@ export default function ScheduledTransactionForm({
           )}
         </Box>
       </DialogContent>
-      <DialogActions style={{ padding: "1.5rem" }}>
-        <button
-          className="button-secondary"
-          style={{ minWidth: 100 }}
-          onClick={onCloseAction}
-          disabled={loading}
-        >
-          Cancel
-        </button>
-        <button
-          className="button-primary"
-          style={{ minWidth: 120 }}
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <CircularProgress size={20} style={{ color: "#fff" }} />
-          ) : initialData ? (
-            "Update"
-          ) : (
-            "Create"
-          )}
-        </button>
+      <DialogActions
+        style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
+      >
+        <Box display="flex" width="100%" gap={2}>
+          <button
+            className="button-secondary"
+            style={{
+              width: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <CircularProgress size={20} style={{ color: "#fff" }} />
+            ) : (
+              <>
+                <SaveIcon style={{ fontSize: 20 }} />
+                {initialData ? "Update" : "Create"}
+              </>
+            )}
+          </button>
+          <button
+            className="button-primary"
+            style={{
+              width: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={onCloseAction}
+            disabled={loading}
+          >
+            <CloseIcon style={{ fontSize: 20 }} />
+            Close
+          </button>
+        </Box>
+        {initialData && (
+          <button
+            className="button-secondary"
+            style={{
+              width: "100%",
+              color: "#fff",
+              background: "#e74c3c",
+              marginTop: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={handleDelete}
+            disabled={loading}
+          >
+            <DeleteIcon style={{ fontSize: 20 }} />
+            Delete
+          </button>
+        )}
       </DialogActions>
     </Dialog>
   );

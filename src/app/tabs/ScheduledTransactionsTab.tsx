@@ -133,6 +133,9 @@ export default function ScheduledTransactionsTab() {
           setEditTx(null);
         }}
         onSubmitAction={handleFormSubmit}
+        onDeleteAction={async (id) => {
+          await handleDelete(id);
+        }}
         initialData={editTx}
       />
       <AddScheduledTransactionFab

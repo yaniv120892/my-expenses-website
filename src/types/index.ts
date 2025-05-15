@@ -84,5 +84,5 @@ export interface ScheduledTransaction {
   dayOfMonth?: number;
   monthOfYear?: number;
   lastRunDate?: string;
-  nextRunDate?: string;
+  nextRunDate: string;
 }

@@ -13,7 +13,7 @@ export async function getTransactions(
 ): Promise<Transaction[]> {
   const defaultParams = {
     page: 1,
-    perPage: 10,
+    perPage: 100,
     endDate: new Date(
       new Date().setDate(new Date().getDate() + 7)
     ).toISOString(),

@@ -6,22 +6,7 @@ function getMobileSkeletonRow() {
   return (
     <tr>
       <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: "#eee",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 32,
-              flexShrink: 0,
-            }}
-          >
-            <Skeleton variant="circular" width={32} height={32} />
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
               <Skeleton width="80%" />

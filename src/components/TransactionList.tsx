@@ -30,8 +30,14 @@ function TransactionRowMobile({
   return (
     <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
       <td style={{ padding: "0.7rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ textAlign: "left" }}>
             <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
               {transaction.description}
             </div>

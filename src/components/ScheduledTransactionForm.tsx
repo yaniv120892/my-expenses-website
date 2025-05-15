@@ -32,12 +32,12 @@ interface Props {
   initialData?: ScheduledTransaction | null;
 }
 
-const defaultForm: Omit<
-  CreateScheduledTransactionInput,
-  "categoryId" | "type" | "scheduleType"
-> = {
+const defaultForm: Omit<CreateScheduledTransactionInput, "date"> = {
   description: "",
   value: 0,
+  categoryId: "",
+  type: "EXPENSE",
+  scheduleType: "MONTHLY",
 };
 
 const scheduleTypes: ScheduleType[] = ["DAILY", "WEEKLY", "MONTHLY"];
@@ -52,12 +52,10 @@ export default function ScheduledTransactionForm({
 }: Props) {
   const [form, setForm] = useState<CreateScheduledTransactionInput>({
     ...defaultForm,
-    categoryId: "",
-    type: "EXPENSE",
-    scheduleType: "MONTHLY",
   });
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
+  const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
 
   useEffect(() => {
@@ -77,94 +75,108 @@ export default function ScheduledTransactionForm({
         dayOfMonth: initialData.dayOfMonth,
       });
     } else {
-      setForm({
-        ...defaultForm,
-        categoryId: "",
-        type: "EXPENSE",
-        scheduleType: "MONTHLY",
-      });
+      setForm({ ...defaultForm });
     }
     setErrors({});
   }, [initialData, open]);
 
-  const getScheduleSummary = () => {
+  function getScheduleSummary() {
     return translateToScheduleSummary(
       form.scheduleType,
       form.interval,
       form.dayOfWeek,
       form.dayOfMonth
     );
-  };
+  }
 
-  const validate = () => {
+  function validate() {
     const errs: { [k: string]: string } = {};
-    if (!form.description) errs.description = "Description is required";
-    if (!form.value || form.value <= 0)
+    if (!form.description) {
+      errs.description = "Description is required";
+    }
+    if (!form.value || form.value <= 0) {
       errs.value = "Value must be greater than 0";
-    if (!form.type) errs.type = "Type is required";
-    if (!form.categoryId) errs.categoryId = "Category is required";
-    if (!form.scheduleType) errs.scheduleType = "Schedule type is required";
-    if (form.scheduleType === "WEEKLY" && !form.dayOfWeek)
+    }
+    if (!form.type) {
+      errs.type = "Type is required";
+    }
+    if (!form.categoryId) {
+      errs.categoryId = "Category is required";
+    }
+    if (!form.scheduleType) {
+      errs.scheduleType = "Schedule type is required";
+    }
+    if (form.scheduleType === "WEEKLY" && !form.dayOfWeek) {
       errs.dayOfWeek = "Day of week is required";
-    if (form.scheduleType === "MONTHLY" && !form.dayOfMonth)
+    }
+    if (form.scheduleType === "MONTHLY" && !form.dayOfMonth) {
       errs.dayOfMonth = "Day of month is required";
-    if (form.scheduleType === "MONTHLY" && form.dayOfWeek)
+    }
+    if (form.scheduleType === "MONTHLY" && form.dayOfWeek) {
       errs.dayOfWeek = "Day of week is not valid for monthly schedule";
+    }
     if (
       form.scheduleType === "DAILY" &&
       (form.dayOfWeek || form.dayOfMonth || form.monthOfYear)
     ) {
-      if (form.dayOfWeek)
+      if (form.dayOfWeek) {
         errs.dayOfWeek = "Day of week is not valid for daily schedule";
-      if (form.dayOfMonth)
+      }
+      if (form.dayOfMonth) {
         errs.dayOfMonth = "Day of month is not valid for daily schedule";
-      if (form.monthOfYear)
+      }
+      if (form.monthOfYear) {
         errs.monthOfYear = "Month of year is not valid for daily schedule";
+      }
     }
     if (
       form.scheduleType === "WEEKLY" &&
       (form.dayOfMonth || form.monthOfYear)
     ) {
-      if (form.dayOfMonth)
+      if (form.dayOfMonth) {
         errs.dayOfMonth = "Day of month is not valid for weekly schedule";
-      if (form.monthOfYear)
+      }
+      if (form.monthOfYear) {
         errs.monthOfYear = "Month of year is not valid for weekly schedule";
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
-  };
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  }
 
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({
       ...form,
       [e.target.name]:
         e.target.value === "" ? undefined : Number(e.target.value),
     });
-  };
+  }
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-    setLoading(true);
+  async function handleSubmit() {
+    if (!validate()) {
+      return;
+    }
+    setIsLoadingUpdate(true);
     try {
       await onSubmitAction(form);
       onCloseAction();
     } finally {
-      setLoading(false);
+      setIsLoadingUpdate(false);
     }
-  };
+  }
 
   async function handleDelete() {
     if (initialData && onDeleteAction) {
-      setLoading(true);
+      setIsLoadingDelete(true);
       try {
         await onDeleteAction(initialData.id);
         onCloseAction();
       } finally {
-        setLoading(false);
+        setIsLoadingDelete(false);
       }
     }
   }
@@ -172,9 +184,9 @@ export default function ScheduledTransactionForm({
   return (
     <Dialog
       open={open}
-      onClose={loading ? undefined : onCloseAction}
+      onClose={isLoadingUpdate || isLoadingDelete ? undefined : onCloseAction}
       fullWidth
-      disableEscapeKeyDown={loading}
+      disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
     >
       <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
         {initialData
@@ -315,10 +327,13 @@ export default function ScheduledTransactionForm({
               gap: 8,
             }}
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={isLoadingUpdate || isLoadingDelete}
           >
-            {loading ? (
-              <CircularProgress size={20} style={{ color: "#fff" }} />
+            {isLoadingUpdate ? (
+              <>
+                <CircularProgress size={20} style={{ color: "#fff" }} />
+                {initialData ? "Update" : "Create"}
+              </>
             ) : (
               <>
                 <SaveIcon style={{ fontSize: 20 }} />
@@ -336,7 +351,7 @@ export default function ScheduledTransactionForm({
               gap: 8,
             }}
             onClick={onCloseAction}
-            disabled={loading}
+            disabled={isLoadingUpdate || isLoadingDelete}
           >
             <CloseIcon style={{ fontSize: 20 }} />
             Close
@@ -356,10 +371,19 @@ export default function ScheduledTransactionForm({
               gap: 8,
             }}
             onClick={handleDelete}
-            disabled={loading}
+            disabled={isLoadingUpdate || isLoadingDelete}
           >
-            <DeleteIcon style={{ fontSize: 20 }} />
-            Delete
+            {isLoadingDelete ? (
+              <>
+                <CircularProgress size={20} style={{ color: "#fff" }} />
+                Delete
+              </>
+            ) : (
+              <>
+                <DeleteIcon style={{ fontSize: 20 }} />
+                Delete
+              </>
+            )}
           </button>
         )}
       </DialogActions>

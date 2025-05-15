@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { ScheduledTransaction, Category } from "../types";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CircularProgress from "@mui/material/CircularProgress";
 import EmptyState from "./EmptyState";
 import {
   formatTransactionDate,
@@ -32,27 +29,16 @@ function ScheduledTransactionRowMobile({
   tx,
   categories,
   onEdit,
-  onDelete,
-  loadingEditId,
-  loadingDeleteId,
 }: {
   tx: ScheduledTransaction;
   categories: Category[];
   onEdit: (tx: ScheduledTransaction) => void;
-  onDelete: (id: string) => void;
-  loadingEditId: string | null;
-  loadingDeleteId: string | null;
 }) {
-  function handleEditClick(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleRowClick() {
     onEdit(tx);
   }
-  function handleDeleteClick(e: React.MouseEvent) {
-    e.stopPropagation();
-    onDelete(tx.id);
-  }
   return (
-    <tr style={{ cursor: "pointer" }} onClick={() => onEdit(tx)}>
+    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
       <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
@@ -97,55 +83,47 @@ function ScheduledTransactionRowMobile({
             <div style={{ fontSize: "0.97em", color: "#888" }}>
               {formatTransactionDate(tx.nextRunDate)}
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                justifyContent: "flex-end",
-                marginTop: 8,
-              }}
-            >
-              <button
-                className="button-secondary"
-                style={{
-                  padding: "0.3rem 0.8rem",
-                  fontSize: "0.95rem",
-                  cursor: loadingEditId === tx.id ? "default" : "pointer",
-                  opacity: loadingEditId === tx.id ? 0.7 : 1,
-                }}
-                onClick={handleEditClick}
-                aria-label="Edit"
-                disabled={loadingEditId === tx.id || loadingDeleteId === tx.id}
-              >
-                {loadingEditId === tx.id ? (
-                  <CircularProgress size={18} style={{ color: "#1976d2" }} />
-                ) : (
-                  <EditIcon fontSize="small" />
-                )}
-              </button>
-              <button
-                className="button-primary"
-                style={{
-                  padding: "0.3rem 0.8rem",
-                  fontSize: "0.95rem",
-                  background: "var(--accent-red)",
-                  cursor: loadingDeleteId === tx.id ? "default" : "pointer",
-                  opacity: loadingDeleteId === tx.id ? 0.7 : 1,
-                }}
-                onClick={handleDeleteClick}
-                aria-label="Delete"
-                disabled={loadingDeleteId === tx.id || loadingEditId === tx.id}
-              >
-                {loadingDeleteId === tx.id ? (
-                  <CircularProgress size={18} style={{ color: "#fff" }} />
-                ) : (
-                  <DeleteIcon fontSize="small" />
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </td>
+    </tr>
+  );
+}
+
+function ScheduledTransactionRowDesktop({
+  tx,
+  categories,
+  onEdit,
+}: {
+  tx: ScheduledTransaction;
+  categories: Category[];
+  onEdit: (tx: ScheduledTransaction) => void;
+}) {
+  function handleRowClick() {
+    onEdit(tx);
+  }
+  return (
+    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
+      <td>{tx.description}</td>
+      <td
+        style={{
+          color: getValueColor(tx.type),
+          fontWeight: 600,
+        }}
+      >
+        {getFormattedValue(tx.value)}
+      </td>
+      <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
+      <td>{getCategoryName(tx.categoryId, categories)}</td>
+      <td>
+        {translateToScheduleSummary(
+          tx.scheduleType,
+          tx.interval,
+          tx.dayOfWeek,
+          tx.dayOfMonth
+        )}
+      </td>
+      <td>{tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : "N/A"}</td>
     </tr>
   );
 }
@@ -154,15 +132,11 @@ export default function ScheduledTransactionList({
   scheduledTransactions,
   categories,
   onEditAction,
-  onDeleteAction,
 }: {
   scheduledTransactions: ScheduledTransaction[];
   categories: Category[];
   onEditAction: (tx: ScheduledTransaction) => void;
-  onDeleteAction: (id: string) => void;
 }) {
-  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   if (!scheduledTransactions.length) {
@@ -170,21 +144,7 @@ export default function ScheduledTransactionList({
   }
 
   async function handleEdit(tx: ScheduledTransaction) {
-    setLoadingEditId(tx.id);
-    try {
-      await onEditAction(tx);
-    } finally {
-      setLoadingEditId(null);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    setLoadingDeleteId(id);
-    try {
-      await onDeleteAction(id);
-    } finally {
-      setLoadingDeleteId(null);
-    }
+    await onEditAction(tx);
   }
 
   if (isMobile) {
@@ -205,9 +165,6 @@ export default function ScheduledTransactionList({
                 tx={tx}
                 categories={categories}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
-                loadingEditId={loadingEditId}
-                loadingDeleteId={loadingDeleteId}
               />
             ))}
           </tbody>
@@ -227,89 +184,16 @@ export default function ScheduledTransactionList({
             <th>Category</th>
             <th>Schedule</th>
             <th>Next Run</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {scheduledTransactions.map((tx) => (
-            <tr key={tx.id}>
-              <td>{tx.description}</td>
-              <td
-                style={{
-                  color: getValueColor(tx.type),
-                  fontWeight: 600,
-                }}
-              >
-                {getFormattedValue(tx.value)}
-              </td>
-              <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
-              <td>{getCategoryName(tx.categoryId, categories)}</td>
-              <td>
-                {translateToScheduleSummary(
-                  tx.scheduleType,
-                  tx.interval,
-                  tx.dayOfWeek,
-                  tx.dayOfMonth
-                )}
-              </td>
-              <td>
-                {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : "N/A"}
-              </td>
-              <td style={{ textAlign: "right" }}>
-                <span
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    className="button-secondary"
-                    style={{
-                      padding: "0.3rem 0.8rem",
-                      fontSize: "0.95rem",
-                      cursor: loadingEditId === tx.id ? "default" : "pointer",
-                      opacity: loadingEditId === tx.id ? 0.7 : 1,
-                    }}
-                    onClick={() => handleEdit(tx)}
-                    aria-label="Edit"
-                    disabled={
-                      loadingEditId === tx.id || loadingDeleteId === tx.id
-                    }
-                  >
-                    {loadingEditId === tx.id ? (
-                      <CircularProgress
-                        size={18}
-                        style={{ color: "#1976d2" }}
-                      />
-                    ) : (
-                      <EditIcon fontSize="small" />
-                    )}
-                  </button>
-                  <button
-                    className="button-primary"
-                    style={{
-                      padding: "0.3rem 0.8rem",
-                      fontSize: "0.95rem",
-                      background: "var(--accent-red)",
-                      cursor: loadingDeleteId === tx.id ? "default" : "pointer",
-                      opacity: loadingDeleteId === tx.id ? 0.7 : 1,
-                    }}
-                    onClick={() => handleDelete(tx.id)}
-                    aria-label="Delete"
-                    disabled={
-                      loadingDeleteId === tx.id || loadingEditId === tx.id
-                    }
-                  >
-                    {loadingDeleteId === tx.id ? (
-                      <CircularProgress size={18} style={{ color: "#fff" }} />
-                    ) : (
-                      <DeleteIcon fontSize="small" />
-                    )}
-                  </button>
-                </span>
-              </td>
-            </tr>
+            <ScheduledTransactionRowDesktop
+              key={tx.id}
+              tx={tx}
+              categories={categories}
+              onEdit={handleEdit}
+            />
           ))}
         </tbody>
       </table>

@@ -203,41 +203,6 @@ const SummaryChart: React.FC = () => {
     { name: "Expense", value: totalExpense },
   ];
 
-  // Pie chart data for each month
-  const pieCharts = data.map((m) => {
-    const pieData = [
-      { name: "Income", value: m.income },
-      { name: "Expense", value: m.expense },
-    ];
-    const label = dayjs(m.month + "-01").format("MMMM YYYY");
-    return (
-      <Box key={m.month} display="flex" alignItems="center" mb={2}>
-        <PieChart width={80} height={80}>
-          <Pie
-            data={pieData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={32}
-            innerRadius={18}
-            stroke={COLORS.background}
-            strokeWidth={2}
-            startAngle={90}
-            endAngle={-270}
-          >
-            <Cell key="income" fill={COLORS.income} />
-            <Cell key="expense" fill={COLORS.expense} />
-          </Pie>
-          <Tooltip content={<CompactTooltip />} />
-        </PieChart>
-        <Typography ml={2} color={COLORS.text} fontWeight={500}>
-          {label}
-        </Typography>
-      </Box>
-    );
-  });
-
   return (
     <Paper
       sx={{
@@ -253,39 +218,38 @@ const SummaryChart: React.FC = () => {
         Summary (Last 6 Months)
       </Typography>
       <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={4}>
-        {/* Left side: column with bar chart and doughnut chart */}
         <Box flex={1} display="flex" flexDirection="column" gap={4}>
-          {/* Bar chart: Total Income vs Expense */}
           <Box>
             <Typography variant="subtitle1" mb={1} color={COLORS.text}>
               Total Income vs Expense
             </Typography>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart
-                data={barData}
-                margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
-              >
-                <XAxis
-                  dataKey="name"
-                  stroke={COLORS.text}
-                  tick={{ fill: COLORS.text, fontWeight: 500 }}
-                />
-                <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  <Cell fill={COLORS.income} />
-                  <Cell fill={COLORS.expense} />
-                  <LabelList
-                    dataKey="value"
-                    position="top"
-                    fill={COLORS.text}
-                    fontWeight={700}
-                    formatter={formatNumber}
+            <Box display="flex" flexDirection="row" alignItems="center" gap={4}>
+              <ResponsiveContainer width="60%" height={180}>
+                <BarChart
+                  data={barData}
+                  margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
+                >
+                  <XAxis
+                    dataKey="name"
+                    stroke={COLORS.text}
+                    tick={{ fill: COLORS.text, fontWeight: 500 }}
                   />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                    <Cell fill={COLORS.income} />
+                    <Cell fill={COLORS.expense} />
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      fill={COLORS.text}
+                      fontWeight={700}
+                      formatter={formatNumber}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
           </Box>
-          {/* Doughnut chart: Top 5 Expense Categories */}
           {topCategories.length > 0 && (
             <Box>
               <Typography variant="subtitle1" mb={1} color={COLORS.text}>
@@ -325,13 +289,93 @@ const SummaryChart: React.FC = () => {
             </Box>
           )}
         </Box>
-        {/* Right side: Monthly Breakdown (pie charts) */}
         <Box flex={1}>
           <Typography variant="subtitle1" mb={1} color={COLORS.text}>
             Monthly Breakdown
           </Typography>
-          <Box display="flex" flexDirection="column" gap={1}>
-            {pieCharts}
+          <Box display="flex" flexDirection="column" gap={3}>
+            {data.map((monthData) => {
+              const pieData = [
+                { name: "Income", value: monthData.income },
+                { name: "Expense", value: monthData.expense },
+              ];
+              const total = monthData.income - monthData.expense;
+              const monthLabel = dayjs(monthData.month + "-01").format(
+                "MMMM YYYY"
+              );
+              return (
+                <Box
+                  key={monthData.month}
+                  display="flex"
+                  flexDirection="row"
+                  alignItems="center"
+                  gap={4}
+                >
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="center"
+                    minWidth={160}
+                  >
+                    <Typography
+                      color={COLORS.text}
+                      fontWeight={700}
+                      fontSize={18}
+                      mb={1}
+                    >
+                      {monthLabel}
+                    </Typography>
+                    <PieChart width={140} height={140}>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={60}
+                        innerRadius={36}
+                        stroke={COLORS.background}
+                        strokeWidth={2}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <Cell key="income" fill={COLORS.income} />
+                        <Cell key="expense" fill={COLORS.expense} />
+                      </Pie>
+                      <Tooltip content={<CompactTooltip />} />
+                    </PieChart>
+                  </Box>
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="flex-start"
+                    minWidth={120}
+                  >
+                    <Typography
+                      fontWeight={600}
+                      color={COLORS.income}
+                      fontSize={12}
+                    >
+                      Income: ₪{formatNumber(monthData.income)}
+                    </Typography>
+                    <Typography
+                      fontWeight={600}
+                      color={COLORS.expense}
+                      fontSize={12}
+                    >
+                      Expenses: ₪{formatNumber(monthData.expense)}
+                    </Typography>
+                    <Typography
+                      fontWeight={700}
+                      color={total >= 0 ? COLORS.income : COLORS.expense}
+                      fontSize={14}
+                    >
+                      Total: ₪{formatNumber(total)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
           </Box>
         </Box>
       </Box>

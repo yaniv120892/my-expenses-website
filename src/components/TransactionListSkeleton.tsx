@@ -71,7 +71,11 @@ export default function TransactionListSkeleton({
             width: "100%",
           }}
         >
-          <tbody>{[...Array(rows)].map(() => getMobileSkeletonRow())}</tbody>
+          <tbody>
+            {[...Array(rows)].map((_, idx) =>
+              React.cloneElement(getMobileSkeletonRow(), { key: idx })
+            )}
+          </tbody>
         </table>
       </div>
     );
@@ -88,7 +92,11 @@ export default function TransactionListSkeleton({
             <th>Date</th>
           </tr>
         </thead>
-        <tbody>{[...Array(rows)].map(() => getDesktopSkeletonRow())}</tbody>
+        <tbody>
+          {[...Array(rows)].map((_, idx) =>
+            React.cloneElement(getDesktopSkeletonRow(), { key: idx })
+          )}
+        </tbody>
       </table>
     </div>
   );

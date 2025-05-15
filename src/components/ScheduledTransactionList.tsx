@@ -10,17 +10,144 @@ import {
   formatTransactionDate,
   translateToScheduleSummary,
 } from "../utils/format";
-
-interface Props {
-  scheduledTransactions: ScheduledTransaction[];
-  categories: Category[];
-  onEditAction: (tx: ScheduledTransaction) => void;
-  onDeleteAction: (id: string) => void;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 function getCategoryName(categoryId: string, categories: Category[]) {
   const found = categories.find((cat) => cat.id === categoryId);
   return found ? found.name : "N/A";
+}
+
+function getValueColor(type: string) {
+  if (type === "INCOME") {
+    return "var(--accent-green)";
+  }
+  return "var(--accent-red)";
+}
+
+function getFormattedValue(value: number) {
+  return value.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
+}
+
+function ScheduledTransactionRowMobile({
+  tx,
+  categories,
+  onEdit,
+  onDelete,
+  loadingEditId,
+  loadingDeleteId,
+}: {
+  tx: ScheduledTransaction;
+  categories: Category[];
+  onEdit: (tx: ScheduledTransaction) => void;
+  onDelete: (id: string) => void;
+  loadingEditId: string | null;
+  loadingDeleteId: string | null;
+}) {
+  function handleEditClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    onEdit(tx);
+  }
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    onDelete(tx.id);
+  }
+  return (
+    <tr style={{ cursor: "pointer" }} onClick={() => onEdit(tx)}>
+      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: "#eee",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 32,
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
+              {tx.description}
+            </div>
+            <div style={{ fontSize: "0.97em", color: "#888" }}>
+              {getCategoryName(tx.categoryId, categories)}
+            </div>
+            <div style={{ fontSize: "0.97em", color: "#888" }}>
+              {translateToScheduleSummary(
+                tx.scheduleType,
+                tx.interval,
+                tx.dayOfWeek,
+                tx.dayOfMonth
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", minWidth: 110 }}>
+            <div
+              style={{
+                color: getValueColor(tx.type),
+                fontWeight: 600,
+                fontSize: "1.1em",
+              }}
+            >
+              {getFormattedValue(tx.value)}
+            </div>
+            <div style={{ fontSize: "0.97em", color: "#888" }}>
+              {formatTransactionDate(tx.nextRunDate)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                justifyContent: "flex-end",
+                marginTop: 8,
+              }}
+            >
+              <button
+                className="button-secondary"
+                style={{
+                  padding: "0.3rem 0.8rem",
+                  fontSize: "0.95rem",
+                  cursor: loadingEditId === tx.id ? "default" : "pointer",
+                  opacity: loadingEditId === tx.id ? 0.7 : 1,
+                }}
+                onClick={handleEditClick}
+                aria-label="Edit"
+                disabled={loadingEditId === tx.id || loadingDeleteId === tx.id}
+              >
+                {loadingEditId === tx.id ? (
+                  <CircularProgress size={18} style={{ color: "#1976d2" }} />
+                ) : (
+                  <EditIcon fontSize="small" />
+                )}
+              </button>
+              <button
+                className="button-primary"
+                style={{
+                  padding: "0.3rem 0.8rem",
+                  fontSize: "0.95rem",
+                  background: "var(--accent-red)",
+                  cursor: loadingDeleteId === tx.id ? "default" : "pointer",
+                  opacity: loadingDeleteId === tx.id ? 0.7 : 1,
+                }}
+                onClick={handleDeleteClick}
+                aria-label="Delete"
+                disabled={loadingDeleteId === tx.id || loadingEditId === tx.id}
+              >
+                {loadingDeleteId === tx.id ? (
+                  <CircularProgress size={18} style={{ color: "#fff" }} />
+                ) : (
+                  <DeleteIcon fontSize="small" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
 export default function ScheduledTransactionList({
@@ -28,31 +155,66 @@ export default function ScheduledTransactionList({
   categories,
   onEditAction,
   onDeleteAction,
-}: Props) {
+}: {
+  scheduledTransactions: ScheduledTransaction[];
+  categories: Category[];
+  onEditAction: (tx: ScheduledTransaction) => void;
+  onDeleteAction: (id: string) => void;
+}) {
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   if (!scheduledTransactions.length) {
     return <EmptyState message="No scheduled transactions found." />;
   }
 
-  const handleEdit = async (tx: ScheduledTransaction) => {
+  async function handleEdit(tx: ScheduledTransaction) {
     setLoadingEditId(tx.id);
     try {
       await onEditAction(tx);
     } finally {
       setLoadingEditId(null);
     }
-  };
+  }
 
-  const handleDelete = async (id: string) => {
+  async function handleDelete(id: string) {
     setLoadingDeleteId(id);
     try {
       await onDeleteAction(id);
     } finally {
       setLoadingDeleteId(null);
     }
-  };
+  }
+
+  if (isMobile) {
+    return (
+      <div className="card-accent" style={{ padding: 0 }}>
+        <table
+          className="table"
+          style={{
+            borderCollapse: "separate",
+            borderSpacing: 0,
+            width: "100%",
+          }}
+        >
+          <tbody>
+            {scheduledTransactions.map((tx) => (
+              <ScheduledTransactionRowMobile
+                key={tx.id}
+                tx={tx}
+                categories={categories}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                loadingEditId={loadingEditId}
+                loadingDeleteId={loadingDeleteId}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <div className="card-accent" style={{ padding: 0 }}>
@@ -74,14 +236,11 @@ export default function ScheduledTransactionList({
               <td>{tx.description}</td>
               <td
                 style={{
-                  color:
-                    tx.type === "INCOME"
-                      ? "var(--accent-green)"
-                      : "var(--accent-red)",
+                  color: getValueColor(tx.type),
                   fontWeight: 600,
                 }}
               >
-                {tx.value}
+                {getFormattedValue(tx.value)}
               </td>
               <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
               <td>{getCategoryName(tx.categoryId, categories)}</td>

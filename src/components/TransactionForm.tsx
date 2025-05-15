@@ -14,11 +14,15 @@ import {
 import { Category, CreateTransactionInput, Transaction } from "../types";
 import { getCategories } from "../services/transactions";
 import dayjs from "dayjs";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
 
 type Props = {
   open: boolean;
   onCloseAction: () => void;
   onSubmitAction: (data: CreateTransactionInput) => Promise<void>;
+  onDeleteAction?: (id: string) => Promise<void>;
   initialData?: Transaction | null;
 };
 
@@ -33,6 +37,7 @@ export default function TransactionForm({
   open,
   onCloseAction,
   onSubmitAction,
+  onDeleteAction,
   initialData,
 }: Props) {
   const [form, setForm] = useState<CreateTransactionInput>({
@@ -40,7 +45,8 @@ export default function TransactionForm({
     date: dayjs().format("YYYY-MM-DD"),
   });
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
+  const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
 
   useEffect(() => {
@@ -82,7 +88,7 @@ export default function TransactionForm({
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    setLoading(true);
+    setIsLoadingUpdate(true);
     try {
       const submitData = {
         ...form,
@@ -91,16 +97,28 @@ export default function TransactionForm({
       await onSubmitAction(submitData);
       onCloseAction();
     } finally {
-      setLoading(false);
+      setIsLoadingUpdate(false);
     }
   };
+
+  async function handleDelete() {
+    if (initialData && onDeleteAction) {
+      setIsLoadingDelete(true);
+      try {
+        await onDeleteAction(initialData.id);
+        onCloseAction();
+      } finally {
+        setIsLoadingDelete(false);
+      }
+    }
+  }
 
   return (
     <Dialog
       open={open}
-      onClose={loading ? undefined : onCloseAction}
+      onClose={isLoadingUpdate || isLoadingDelete ? undefined : onCloseAction}
       fullWidth
-      disableEscapeKeyDown={loading}
+      disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
     >
       <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
         {initialData ? "Edit Transaction" : "New Transaction"}
@@ -176,29 +194,79 @@ export default function TransactionForm({
           />
         </Box>
       </DialogContent>
-      <DialogActions style={{ padding: "1.5rem" }}>
-        <button
-          className="button-secondary"
-          style={{ minWidth: 100 }}
-          onClick={onCloseAction}
-          disabled={loading}
-        >
-          Cancel
-        </button>
-        <button
-          className="button-primary"
-          style={{ minWidth: 120 }}
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <CircularProgress size={20} style={{ color: "#fff" }} />
-          ) : initialData ? (
-            "Update"
-          ) : (
-            "Create"
-          )}
-        </button>
+      <DialogActions
+        style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
+      >
+        <Box display="flex" width="100%" gap={2}>
+          <button
+            className="button-secondary"
+            style={{
+              width: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={handleSubmit}
+            disabled={isLoadingUpdate || isLoadingDelete}
+          >
+            {isLoadingUpdate ? (
+              <>
+                <CircularProgress size={20} style={{ color: "#fff" }} />
+                {initialData ? "Update" : "Create"}
+              </>
+            ) : (
+              <>
+                <SaveIcon style={{ fontSize: 20 }} />
+                {initialData ? "Update" : "Create"}
+              </>
+            )}
+          </button>
+          <button
+            className="button-primary"
+            style={{
+              width: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={onCloseAction}
+            disabled={isLoadingUpdate || isLoadingDelete}
+          >
+            <CloseIcon style={{ fontSize: 20 }} />
+            Close
+          </button>
+        </Box>
+        {initialData && (
+          <button
+            className="button-secondary"
+            style={{
+              width: "100%",
+              color: "#fff",
+              background: "#e74c3c",
+              marginTop: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onClick={handleDelete}
+            disabled={isLoadingUpdate || isLoadingDelete}
+          >
+            {isLoadingDelete ? (
+              <>
+                <CircularProgress size={20} style={{ color: "#fff" }} />
+                {"Delete"}
+              </>
+            ) : (
+              <>
+                <DeleteIcon style={{ fontSize: 20 }} />
+                {"Delete"}
+              </>
+            )}
+          </button>
+        )}
       </DialogActions>
     </Dialog>
   );

@@ -135,6 +135,9 @@ export default function TransactionsTab() {
         onSubmitAction={
           editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate
         }
+        onDeleteAction={async (id) => {
+          await handleDelete(id);
+        }}
         initialData={editTx}
       />
       <AddTransactionFabs

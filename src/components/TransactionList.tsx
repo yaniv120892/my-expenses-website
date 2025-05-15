@@ -29,40 +29,27 @@ function TransactionRowMobile({
   }
   return (
     <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
-      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: "#eee",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 32,
-              flexShrink: 0,
-            }}
-          />
+      <td style={{ padding: "0.7rem 0.5rem", border: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
+            <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
               {transaction.description}
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.85em", color: "#888" }}>
               {transaction.category?.name}
             </div>
           </div>
-          <div style={{ textAlign: "right", minWidth: 110 }}>
+          <div style={{ textAlign: "right", minWidth: 90 }}>
             <div
               style={{
                 color: getValueColor(transaction.type),
                 fontWeight: 600,
-                fontSize: "1.1em",
+                fontSize: "0.98em",
               }}
             >
               {getFormattedValue(transaction.value)}
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.85em", color: "#888" }}>
               {formatTransactionDate(transaction.date)}
             </div>
           </div>

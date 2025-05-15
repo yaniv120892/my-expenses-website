@@ -17,13 +17,11 @@ function ScheduleTransactionTableArea({
   scheduledTransactions,
   categories,
   onEdit,
-  onDelete,
 }: {
   loading: boolean;
   scheduledTransactions: ScheduledTransaction[];
   categories: Category[];
   onEdit: (tx: ScheduledTransaction) => void;
-  onDelete: (id: string) => void;
 }) {
   return (
     <Box flex={1} sx={{ position: "relative" }}>
@@ -34,7 +32,6 @@ function ScheduleTransactionTableArea({
           scheduledTransactions={scheduledTransactions}
           categories={categories}
           onEditAction={onEdit}
-          onDeleteAction={onDelete}
         />
       )}
     </Box>
@@ -124,7 +121,6 @@ export default function ScheduledTransactionsTab() {
         scheduledTransactions={scheduledTransactions}
         categories={categories}
         onEdit={handleEdit}
-        onDelete={handleDelete}
       />
       <ScheduledTransactionForm
         open={formOpen}

@@ -5,11 +5,70 @@ import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box, Snackbar, Alert } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import {
+  Category,
   CreateScheduledTransactionInput,
   ScheduledTransaction,
   UpdateScheduledTransactionInput,
 } from "../../types";
 import { useScheduledTransactions } from "../../hooks/useScheduledTransactions";
+
+function ScheduleTransactionTableArea({
+  loading,
+  scheduledTransactions,
+  categories,
+  onEdit,
+  onDelete,
+}: {
+  loading: boolean;
+  scheduledTransactions: ScheduledTransaction[];
+  categories: Category[];
+  onEdit: (tx: ScheduledTransaction) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <Box flex={1} sx={{ position: "relative" }}>
+      {loading ? (
+        <TransactionListSkeleton rows={6} />
+      ) : (
+        <ScheduledTransactionList
+          scheduledTransactions={scheduledTransactions}
+          categories={categories}
+          onEditAction={onEdit}
+          onDeleteAction={onDelete}
+        />
+      )}
+    </Box>
+  );
+}
+
+function AddScheduledTransactionFab({
+  onClick,
+  visible,
+}: {
+  onClick: () => void;
+  visible: boolean;
+}) {
+  if (visible) {
+    return (
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 32,
+          right: 32,
+          display: "flex",
+          flexDirection: "row",
+          gap: 2,
+          zIndex: 2000,
+        }}
+      >
+        <Fab color="secondary" aria-label="add" onClick={onClick}>
+          <AddIcon />
+        </Fab>
+      </Box>
+    );
+  }
+  return null;
+}
 
 export default function ScheduledTransactionsTab() {
   const {
@@ -27,15 +86,24 @@ export default function ScheduledTransactionsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
 
-  const handleFormSubmit = async (
+  function handleFormSubmit(
     data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput
-  ) => {
+  ) {
     if (editTx) {
-      await handleUpdate(editTx.id, data as UpdateScheduledTransactionInput);
-    } else {
-      await handleCreate(data as CreateScheduledTransactionInput);
+      return handleUpdate(editTx.id, data as UpdateScheduledTransactionInput);
     }
-  };
+    return handleCreate(data as CreateScheduledTransactionInput);
+  }
+
+  function handleEdit(tx: ScheduledTransaction) {
+    setEditTx(tx);
+    setFormOpen(true);
+  }
+
+  function handleAddClick() {
+    setFormOpen(true);
+    setEditTx(null);
+  }
 
   useEffect(() => {
     fetchScheduledTransactions();
@@ -51,32 +119,13 @@ export default function ScheduledTransactionsTab() {
         position: "relative",
       }}
     >
-      <Box sx={{ position: "relative" }}>
-        {loading ? (
-          <TransactionListSkeleton rows={6} />
-        ) : (
-          <ScheduledTransactionList
-            scheduledTransactions={scheduledTransactions}
-            categories={categories}
-            onEditAction={(tx) => {
-              setEditTx(tx);
-              setFormOpen(true);
-            }}
-            onDeleteAction={handleDelete}
-          />
-        )}
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{ position: "absolute", bottom: 16, right: 16, zIndex: 2000 }}
-          onClick={() => {
-            setFormOpen(true);
-            setEditTx(null);
-          }}
-        >
-          <AddIcon />
-        </Fab>
-      </Box>
+      <ScheduleTransactionTableArea
+        loading={loading}
+        scheduledTransactions={scheduledTransactions}
+        categories={categories}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
       <ScheduledTransactionForm
         open={formOpen}
         onCloseAction={() => {
@@ -85,6 +134,10 @@ export default function ScheduledTransactionsTab() {
         }}
         onSubmitAction={handleFormSubmit}
         initialData={editTx}
+      />
+      <AddScheduledTransactionFab
+        onClick={handleAddClick}
+        visible={!formOpen}
       />
       <Snackbar
         open={!!error}

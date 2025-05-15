@@ -3,7 +3,7 @@ import { Transaction, TransactionFilters } from "../../types";
 import TransactionList from "../../components/TransactionList";
 import TransactionForm from "../../components/TransactionForm";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
-import { Fab, Box } from "@mui/material";
+import { Fab, Box, Alert, Snackbar } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SearchDialog from "../../components/SearchDialog";
 import SearchIcon from "@mui/icons-material/Search";
@@ -35,14 +35,50 @@ function TransactionTableArea({
   );
 }
 
+function AddTransactionFabs({
+  onAddClick,
+  onSearchClick,
+  visible,
+}: {
+  onAddClick: () => void;
+  onSearchClick: () => void;
+  visible: boolean;
+}) {
+  if (visible) {
+    return (
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 32,
+          right: 32,
+          display: "flex",
+          flexDirection: "row",
+          gap: 2,
+          zIndex: 2000,
+        }}
+      >
+        <Fab color="secondary" aria-label="add" onClick={onAddClick}>
+          <AddIcon />
+        </Fab>
+        <Fab color="secondary" aria-label="search" onClick={onSearchClick}>
+          <SearchIcon />
+        </Fab>
+      </Box>
+    );
+  }
+  return null;
+}
+
 export default function TransactionsTab() {
   const {
     transactions,
     loading,
+    error,
     fetchTransactions,
     handleCreate,
     handleUpdate,
     handleDelete,
+    setError,
   } = useTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
@@ -65,7 +101,7 @@ export default function TransactionsTab() {
     setFormOpen(true);
   };
 
-  const handleFabClick = () => {
+  const handleAddFabClick = () => {
     setFormOpen(true);
     setEditTx(null);
   };
@@ -101,34 +137,24 @@ export default function TransactionsTab() {
         }
         initialData={editTx}
       />
-      <Box
-        sx={{
-          position: "fixed",
-          bottom: 32,
-          right: 32,
-          display: "flex",
-          flexDirection: "row",
-          gap: 2,
-          zIndex: 2000,
-        }}
-      >
-        <Fab color="primary" aria-label="add" onClick={handleFabClick}>
-          <AddIcon />
-        </Fab>
-        <Fab
-          color="secondary"
-          aria-label="search"
-          onClick={handleSearchFabClick}
-        >
-          <SearchIcon />
-        </Fab>
-      </Box>
+      <AddTransactionFabs
+        onAddClick={handleAddFabClick}
+        onSearchClick={handleSearchFabClick}
+        visible={!formOpen && !searchDialogOpen}
+      />
       <SearchDialog
         open={searchDialogOpen}
         onClose={() => setSearchDialogOpen(false)}
         onSearch={handleSearch}
         initialFilters={lastSearch}
       />
+      <Snackbar
+        open={!!error}
+        autoHideDuration={4000}
+        onClose={() => setError(null)}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Snackbar>
     </Box>
   );
 }

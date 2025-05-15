@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --primary: #070707; /* Uizard primary blue */
-  --secondary: #7b61ff; /* Uizard secondary purple */
-  --accent-green: #00c48c; /* Uizard green */
-  --accent-yellow: #ffd600; /* Uizard yellow */
-  --accent-red: #ff647c; /* Uizard red */
-  --accent-red-light: #ffe6ec; /* Light red for backgrounds */
-  --secondary-light: #f3edff; /* Light purple for backgrounds */
+  --primary: #070707;
+  --secondary: #7b61ff;
+  --accent-green: #00c48c;
+  --accent-yellow: #ffd600;
+  --accent-red: #ff647c;
+  --accent-red-light: #ffe6ec;
+  --secondary-light: #f3edff;
+  --background: #f7f8fa;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -16,6 +17,7 @@
     --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
     --background: #181a20;
     --foreground: #fff;
+    --text-color: #fff;
   }
 }
 

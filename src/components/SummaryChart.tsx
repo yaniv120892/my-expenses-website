@@ -24,9 +24,9 @@ import { formatNumber } from "@/utils/format";
 const COLORS = {
   income: "#2ecc40", // green
   expense: "#e74c3c", // red
-  background: "#18141c", // black
+  background: "var(--background)",
   purple: "#7c3aed",
-  text: "#fff",
+  text: "var(--text-color)",
 };
 
 // 5 distinct colors for doughnut chart (not black/purple/red/green)
@@ -55,7 +55,6 @@ const getLast6Months = () => {
 
 const fetchLast6MonthsSummary = async (): Promise<MonthSummary[]> => {
   const months = getLast6Months();
-  // Run all requests in parallel and log each request/response
   const promises = months.map(async (m) => {
     const startDate = dayjs(m + "-01")
       .startOf("month")
@@ -206,7 +205,7 @@ const SummaryChart: React.FC = () => {
   return (
     <Paper
       sx={{
-        background: `linear-gradient(135deg, ${COLORS.background} 80%, ${COLORS.purple} 100%)`,
+        background: COLORS.background,
         color: COLORS.text,
         p: 3,
         borderRadius: 4,
@@ -352,15 +351,15 @@ const SummaryChart: React.FC = () => {
                     minWidth={120}
                   >
                     <Typography
-                      fontWeight={600}
-                      color={COLORS.income}
+                      fontWeight={400}
+                      color={COLORS.text}
                       fontSize={12}
                     >
                       Income: ₪{formatNumber(monthData.income)}
                     </Typography>
                     <Typography
-                      fontWeight={600}
-                      color={COLORS.expense}
+                      fontWeight={400}
+                      color={COLORS.text}
                       fontSize={12}
                     >
                       Expenses: ₪{formatNumber(monthData.expense)}

@@ -1,11 +1,97 @@
 import React from "react";
 import { Skeleton } from "@mui/material";
+import { useIsMobile } from "@/hooks/useIsMobile";
+
+function getMobileSkeletonRow() {
+  return (
+    <tr>
+      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: "#eee",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 32,
+              flexShrink: 0,
+            }}
+          >
+            <Skeleton variant="circular" width={32} height={32} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
+              <Skeleton width="80%" />
+            </div>
+            <div style={{ fontSize: "0.97em", color: "#888" }}>
+              <Skeleton width="60%" />
+            </div>
+          </div>
+          <div style={{ textAlign: "right", minWidth: 110 }}>
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: "1.1em",
+              }}
+            >
+              <Skeleton width="60%" />
+            </div>
+            <div style={{ fontSize: "0.97em", color: "#888" }}>
+              <Skeleton width="50%" />
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function getDesktopSkeletonRow() {
+  return (
+    <tr>
+      <td>
+        <Skeleton width="80%" />
+      </td>
+      <td>
+        <Skeleton width="60%" />
+      </td>
+      <td>
+        <Skeleton width="70%" />
+      </td>
+      <td>
+        <Skeleton width="60%" />
+      </td>
+    </tr>
+  );
+}
 
 export default function TransactionListSkeleton({
   rows = 5,
 }: {
   rows?: number;
 }) {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <div className="card-accent" style={{ padding: 0 }}>
+        <table
+          className="table"
+          style={{
+            borderCollapse: "separate",
+            borderSpacing: 0,
+            width: "100%",
+          }}
+        >
+          <tbody>{[...Array(rows)].map(() => getMobileSkeletonRow())}</tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <div className="card-accent" style={{ padding: 0 }}>
       <table className="table">
@@ -13,45 +99,11 @@ export default function TransactionListSkeleton({
           <tr>
             <th>Description</th>
             <th>Value</th>
-            <th>Type</th>
             <th>Category</th>
             <th>Date</th>
-            <th>Actions</th>
           </tr>
         </thead>
-        <tbody>
-          {[...Array(rows)].map((_, i) => (
-            <tr key={i}>
-              <td>
-                <Skeleton width="80%" />
-              </td>
-              <td>
-                <Skeleton width="60%" />
-              </td>
-              <td>
-                <Skeleton width="50%" />
-              </td>
-              <td>
-                <Skeleton width="70%" />
-              </td>
-              <td>
-                <Skeleton width="60%" />
-              </td>
-              <td style={{ textAlign: "right" }}>
-                <span
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <Skeleton variant="circular" width={32} height={32} />
-                  <Skeleton variant="circular" width={32} height={32} />
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{[...Array(rows)].map(() => getDesktopSkeletonRow())}</tbody>
       </table>
     </div>
   );

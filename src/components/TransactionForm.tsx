@@ -26,11 +26,20 @@ type Props = {
   initialData?: Transaction | null;
 };
 
-const defaultForm: Omit<CreateTransactionInput, "date"> = {
+type TransactionFormType = {
+  description: string;
+  value: number | string;
+  categoryId: string;
+  type: "EXPENSE" | "INCOME";
+  date: string;
+};
+
+const defaultForm: TransactionFormType = {
   description: "",
-  value: 0,
+  value: "",
   categoryId: "",
   type: "EXPENSE",
+  date: dayjs().format("YYYY-MM-DD"),
 };
 
 export default function TransactionForm({
@@ -40,10 +49,7 @@ export default function TransactionForm({
   onDeleteAction,
   initialData,
 }: Props) {
-  const [form, setForm] = useState<CreateTransactionInput>({
-    ...defaultForm,
-    date: dayjs().format("YYYY-MM-DD"),
-  });
+  const [form, setForm] = useState<TransactionFormType>(defaultForm);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
@@ -73,11 +79,22 @@ export default function TransactionForm({
 
   const validate = () => {
     const errs: { [k: string]: string } = {};
-    if (!form.description) errs.description = "Description is required";
-    if (!form.value || form.value <= 0)
-      errs.value = "Value must be greater than 0";
-    if (!form.type) errs.type = "Type is required";
-    if (!form.date) errs.date = "Date is required";
+    if (!form.description) {
+      errs.description = "Description is required";
+    }
+    if (isNaN(Number(form.value))) {
+      errs.value = "Value must be a number";
+    } else {
+      if (Number(form.value) <= 0) {
+        errs.value = "Value must be greater than 0";
+      }
+    }
+    if (!form.type) {
+      errs.type = "Type is required";
+    }
+    if (!form.date) {
+      errs.date = "Date is required";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -87,11 +104,14 @@ export default function TransactionForm({
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      return;
+    }
     setIsLoadingUpdate(true);
     try {
       const submitData = {
         ...form,
+        value: Number(form.value),
         categoryId: form.categoryId === "" ? undefined : form.categoryId,
       };
       await onSubmitAction(submitData);

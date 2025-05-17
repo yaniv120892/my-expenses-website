@@ -3,9 +3,8 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import { Tabs, Tab } from "@mui/material";
-import { TabOption } from "../types";
+import { TabOption, Transaction } from "../types";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { usePendingTransactions } from "@/hooks/usePendingTransactions";
 
 function getTabStyle(isSelected: boolean, isMobile: boolean) {
   return {
@@ -23,7 +22,6 @@ function getTabStyle(isSelected: boolean, isMobile: boolean) {
 }
 
 function PendingTransactionsTabLabel(pendingCount: number) {
-  console.log("Pending count:", pendingCount);
   if (pendingCount > 0) {
     return (
       <span style={{ position: "relative", display: "inline-block" }}>
@@ -59,12 +57,17 @@ function PendingTransactionsTabLabel(pendingCount: number) {
 interface NavbarProps {
   activeTab: TabOption;
   onTabChange: (tab: TabOption) => void;
+  pendingTransactions: Transaction[];
+  fetchPendingTransactions: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
+const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
+  onTabChange,
+  pendingTransactions,
+  fetchPendingTransactions,
+}) => {
   const isMobile = useIsMobile();
-  const { pendingTransactions, fetchPendingTransactions } =
-    usePendingTransactions();
   const pendingCount = pendingTransactions.length;
 
   useEffect(() => {

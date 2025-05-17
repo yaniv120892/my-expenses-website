@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Navbar from "../components/Navbar";
 import SummaryChart from "@/components/SummaryChart";
@@ -10,6 +10,7 @@ import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { usePendingTransactions } from "../hooks/usePendingTransactions";
 
 function getTabLabel(tab: TabOption) {
   if (tab === TabOption.Transactions) return "Transactions";
@@ -19,18 +20,23 @@ function getTabLabel(tab: TabOption) {
   return "";
 }
 
-function renderTabContent(tab: TabOption) {
-  if (tab === TabOption.Summary) return <SummaryChart />;
-  if (tab === TabOption.ScheduledTransactions)
-    return <ScheduledTransactionsTab />;
-  if (tab === TabOption.PendingTransactions) return <PendingTransactionsTab />;
-  return <TransactionsTab />;
-}
-
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState(TabOption.Transactions);
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const isMobile = useIsMobile();
+  const {
+    pendingTransactions,
+    loading: pendingLoading,
+    error: pendingError,
+    fetchPendingTransactions,
+    handleConfirm,
+    handleDelete,
+    setError: setPendingError,
+  } = usePendingTransactions();
+
+  useEffect(() => {
+    fetchPendingTransactions();
+  }, []);
 
   function handleMobileNavOpen() {
     setMobileNavOpen(true);
@@ -43,6 +49,28 @@ export default function HomePage() {
   function handleTabChange(tab: TabOption) {
     setActiveTab(tab);
     setMobileNavOpen(false);
+  }
+
+  function renderTabContent(tab: TabOption) {
+    if (tab === TabOption.Summary) {
+      return <SummaryChart />;
+    }
+    if (tab === TabOption.ScheduledTransactions) {
+      return <ScheduledTransactionsTab />;
+    }
+    if (tab === TabOption.PendingTransactions) {
+      return (
+        <PendingTransactionsTab
+          pendingTransactions={pendingTransactions}
+          loading={pendingLoading}
+          error={pendingError}
+          handleConfirm={handleConfirm}
+          handleDelete={handleDelete}
+          setError={setPendingError}
+        />
+      );
+    }
+    return <TransactionsTab />;
   }
 
   if (isMobile) {
@@ -114,7 +142,12 @@ export default function HomePage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
+              <Navbar
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                pendingTransactions={pendingTransactions}
+                fetchPendingTransactions={fetchPendingTransactions}
+              />
             </Box>
             <Box
               sx={{
@@ -141,7 +174,12 @@ export default function HomePage() {
         }}
       >
         <Box sx={{ width: "100%", position: "sticky", top: 0, zIndex: 10 }}>
-          <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+          <Navbar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            pendingTransactions={pendingTransactions}
+            fetchPendingTransactions={fetchPendingTransactions}
+          />
         </Box>
         <Box sx={{ flex: 1, pt: 0, pr: 3, pb: 3, pl: 3 }}>
           {renderTabContent(activeTab)}

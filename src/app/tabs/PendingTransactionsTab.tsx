@@ -1,24 +1,26 @@
-import React, { useEffect } from "react";
+import React from "react";
 import PendingTransactionsList from "../../components/PendingTransactionsList";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Box, Snackbar, Alert } from "@mui/material";
-import { usePendingTransactions } from "../../hooks/usePendingTransactions";
+import { Transaction } from "../../types";
 
-export default function PendingTransactionsTab() {
-  const {
-    pendingTransactions,
-    loading,
-    error,
-    fetchPendingTransactions,
-    handleConfirm,
-    handleDelete,
-    setError,
-  } = usePendingTransactions();
+type PendingTransactionsTabProps = {
+  pendingTransactions: Transaction[];
+  loading: boolean;
+  error: string | null;
+  handleConfirm: (id: string) => void;
+  handleDelete: (id: string) => void;
+  setError: (err: string | null) => void;
+};
 
-  useEffect(() => {
-    fetchPendingTransactions();
-  }, []);
-
+export default function PendingTransactionsTab({
+  pendingTransactions,
+  loading,
+  error,
+  handleConfirm,
+  handleDelete,
+  setError,
+}: PendingTransactionsTabProps) {
   return (
     <Box
       sx={{

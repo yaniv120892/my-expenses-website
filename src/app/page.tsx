@@ -103,7 +103,7 @@ export default function HomePage() {
           >
             <Box
               sx={{
-                width: 240,
+                width: 260,
                 maxWidth: "80vw",
                 height: "100vh",
                 background: "var(--background)",

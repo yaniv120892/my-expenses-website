@@ -1,25 +1,59 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { Tabs, Tab } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { usePendingTransactions } from "@/hooks/usePendingTransactions";
 
 function getTabStyle(isSelected: boolean, isMobile: boolean) {
   return {
     color: "var(--secondary)",
     fontWeight: 700,
     borderRadius: 2,
-    mb: isMobile ? 0 : 1,
-    mr: isMobile ? 1 : 0,
+    mb: 0,
     fontSize: isMobile ? 13 : 16,
     background: isSelected ? "var(--secondary-light)" : "transparent",
     transition: "background 0.2s, color 0.2s",
     minHeight: isMobile ? 36 : 48,
-    minWidth: isMobile ? 60 : 120,
-    padding: isMobile ? "0 8px" : undefined,
+    minWidth: 120,
+    padding: isMobile ? "8px 15px" : "8px 20px",
   };
+}
+
+function PendingTransactionsTabLabel(pendingCount: number) {
+  console.log("Pending count:", pendingCount);
+  if (pendingCount > 0) {
+    return (
+      <span style={{ position: "relative", display: "inline-block" }}>
+        Pending Transactions
+        <span
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -18,
+            minWidth: 18,
+            height: 18,
+            background: "#e74c3c",
+            color: "#fff",
+            borderRadius: 9,
+            fontSize: 12,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 5px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+            zIndex: 1,
+          }}
+        >
+          {pendingCount}
+        </span>
+      </span>
+    );
+  }
+  return "Pending Transactions";
 }
 
 interface NavbarProps {
@@ -29,6 +63,13 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
   const isMobile = useIsMobile();
+  const { pendingTransactions, fetchPendingTransactions } =
+    usePendingTransactions();
+  const pendingCount = pendingTransactions.length;
+
+  useEffect(() => {
+    fetchPendingTransactions();
+  }, []);
 
   return (
     <nav
@@ -119,6 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
                 ml: 2,
                 flex: 1,
                 flexDirection: "row",
+                gap: 8,
                 "& .MuiTabs-indicator": {
                   background: "var(--secondary)",
                   height: 3,
@@ -132,12 +174,14 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
           sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
         />
         <Tab
-          label="Pending Transactions"
+          label={PendingTransactionsTabLabel(pendingCount)}
           value={TabOption.PendingTransactions}
           sx={getTabStyle(
             activeTab === TabOption.PendingTransactions,
             isMobile
           )}
+          wrapped
+          key={`pending-tab-${pendingCount}`}
         />
         <Tab
           label="Scheduled Transactions"

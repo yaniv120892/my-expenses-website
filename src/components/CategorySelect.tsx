@@ -26,11 +26,14 @@ export default function CategorySelect({
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    async function fetchCategories() {
-      const categories = await getCategories();
-      setCategories(categories);
+    async function fetchAndSetCategories() {
+      const fetchedCategories = await getCategories();
+      const sortedCategories = [...fetchedCategories].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      setCategories(sortedCategories);
     }
-    fetchCategories();
+    fetchAndSetCategories();
   }, []);
 
   return (

@@ -12,17 +12,16 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
-  Category,
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   ScheduleType,
   TransactionType,
 } from "../types";
-import { getCategories } from "../services/transactions";
 import { translateToScheduleSummary } from "../utils/format";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
+import CategorySelect from "./CategorySelect";
 
 interface Props {
   open: boolean;
@@ -53,14 +52,9 @@ export default function ScheduledTransactionForm({
   const [form, setForm] = useState<CreateScheduledTransactionInput>({
     ...defaultForm,
   });
-  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
-
-  useEffect(() => {
-    getCategories().then(setCategories);
-  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -217,25 +211,12 @@ export default function ScheduledTransactionForm({
             helperText={errors.value}
             fullWidth
           />
-          <TextField
-            select
-            label="Category"
-            name="categoryId"
+          <CategorySelect
             value={form.categoryId}
             onChange={handleChange}
             error={!!errors.categoryId}
             helperText={errors.categoryId}
-            fullWidth
-          >
-            <MenuItem value="">
-              <em>Choose category</em>
-            </MenuItem>
-            {categories.map((cat) => (
-              <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
           <TextField
             select
             label="Type"

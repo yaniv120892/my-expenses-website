@@ -5,13 +5,12 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem,
   Box,
   CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { Category, TransactionFilters } from "../types";
-import { getCategories } from "../services/transactions";
+import { TransactionFilters } from "../types";
+import CategorySelect from "./CategorySelect";
 
 type SearchDialogProps = {
   open: boolean;
@@ -30,12 +29,7 @@ export default function SearchDialog({
   const [categoryId, setCategoryId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    getCategories().then(setCategories);
-  }, []);
 
   useEffect(() => {
     setSearchTerm(initialFilters?.searchTerm || "");
@@ -80,20 +74,12 @@ export default function SearchDialog({
             onChange={(e) => setSearchTerm(e.target.value)}
             fullWidth
           />
-          <TextField
-            select
-            label="Category"
+          <CategorySelect
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
+            label="Category"
             fullWidth
-          >
-            <MenuItem value="">All</MenuItem>
-            {categories.map((cat) => (
-              <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
           <TextField
             label="Start Date"
             type="date"

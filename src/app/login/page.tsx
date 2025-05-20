@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import React, { useState } from "react";
+import { handleApiError } from "../../utils/api";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,8 +18,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      console.error(err);
-      setError("Login failed");
+      const errorMessage = handleApiError(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

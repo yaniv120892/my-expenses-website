@@ -86,3 +86,9 @@ export interface ScheduledTransaction {
   lastRunDate?: string;
   nextRunDate: string;
 }
+
+export class ApiResponse<T> {
+  data?: T;
+  success: boolean = false;
+  error?: string;
+}

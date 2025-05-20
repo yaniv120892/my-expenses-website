@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import React, { useState } from "react";
+import { handleApiError } from "../../utils/api";
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -16,9 +17,9 @@ export default function SignupPage() {
     setError("");
     try {
       await signup(email, password);
-    } catch (err) {
-      console.error(err);
-      setError("Signup failed");
+    } catch (err: unknown) {
+      const errorMessage = handleApiError(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

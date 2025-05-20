@@ -12,10 +12,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isVerified: boolean;
   token: string | null;
-  user: { id: string; email: string; username: string } | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
-  verifyCode: (code: string) => Promise<void>;
+  verifyCode: (code: string, email: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -36,14 +35,24 @@ function clearStoredToken() {
   localStorage.removeItem("authToken");
 }
 
+function getStoredIsVerified() {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("isVerified") === "true";
+  }
+  return false;
+}
+
+function setStoredIsVerified(isVerified: boolean) {
+  localStorage.setItem("isVerified", String(isVerified));
+}
+
+function clearStoredIsVerified() {
+  localStorage.removeItem("isVerified");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(getStoredToken());
-  const [user, setUser] = useState<{
-    id: string;
-    email: string;
-    username: string;
-  } | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
+  const [isVerified, setIsVerified] = useState(getStoredIsVerified());
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -55,6 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
+  useEffect(() => {
+    if (isVerified) {
+      setStoredIsVerified(isVerified);
+    } else {
+      clearStoredIsVerified();
+    }
+  }, [isVerified]);
+
   async function login(email: string, password: string) {
     const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
       method: "POST",
@@ -63,10 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (response.ok) {
       const data = await response.json();
-      setToken(data.tempToken);
-      setUser(data.user);
-      setIsVerified(false);
-      router.push("/verify");
+      setToken(data.token);
+      setIsVerified(true);
+      router.push("/");
     }
 
     if (response.status === 400) {
@@ -84,10 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, username: email, password }),
     });
     if (response.ok) {
-      const data = await response.json();
-      setUser(data.user);
       setIsVerified(false);
-      router.push("/verify");
+      router.push("/verify?email=" + email);
     }
 
     if (response.status === 400) {
@@ -98,19 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Failed to sign up");
   }
 
-  async function verifyCode(code: string) {
+  async function verifyCode(code: string, email: string) {
     const response = await fetch(`${apiBaseUrl}/api/auth/verify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ code }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, email }),
     });
     if (response.ok) {
       const data = await response.json();
       setToken(data.token);
-      setUser(data.user);
       setIsVerified(true);
       router.push("/");
     }
@@ -125,9 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     setToken(null);
-    setUser(null);
     setIsVerified(false);
     clearStoredToken();
+    clearStoredIsVerified();
     router.push("/login");
   }
 
@@ -139,7 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isVerified,
         token,
-        user,
         login,
         signup,
         verifyCode,

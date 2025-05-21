@@ -3,6 +3,7 @@ export enum TabOption {
   PendingTransactions = "pending-transactions",
   ScheduledTransactions = "scheduled-transactions",
   Summary = "summary",
+  Settings = "settings",
 }
 
 export type TransactionType = "INCOME" | "EXPENSE";
@@ -91,4 +92,14 @@ export class ApiResponse<T> {
   data?: T;
   success: boolean = false;
   error?: string;
+}
+
+export interface UserSettings {
+  info: {
+    email: string;
+  };
+  notifications: {
+    createTransaction: boolean;
+    dailySummary: boolean;
+  };
 }

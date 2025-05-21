@@ -7,6 +7,7 @@ import SummaryChart from "@/components/SummaryChart";
 import TransactionsTab from "./tabs/TransactionsTab";
 import ScheduledTransactionsTab from "./tabs/ScheduledTransactionsTab";
 import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
+import SettingsTab from "./tabs/SettingsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -18,6 +19,7 @@ function getTabLabel(tab: TabOption) {
   if (tab === TabOption.PendingTransactions) return "Pending Transactions";
   if (tab === TabOption.ScheduledTransactions) return "Scheduled Transactions";
   if (tab === TabOption.Summary) return "Summary";
+  if (tab === TabOption.Settings) return "Settings";
   return "";
 }
 
@@ -55,25 +57,33 @@ export default function HomePage() {
   }
 
   function renderTabContent(tab: TabOption) {
-    if (tab === TabOption.Summary) {
-      return <SummaryChart />;
+    switch (tab) {
+      case TabOption.Summary: {
+        return <SummaryChart />;
+      }
+      case TabOption.ScheduledTransactions: {
+        return <ScheduledTransactionsTab />;
+      }
+      case TabOption.PendingTransactions: {
+        return (
+          <PendingTransactionsTab
+            pendingTransactions={pendingTransactions}
+            loading={pendingLoading}
+            error={pendingError}
+            handleConfirm={handleConfirm}
+            handleDelete={handleDelete}
+            setError={setPendingError}
+          />
+        );
+      }
+      case TabOption.Settings: {
+        return <SettingsTab />;
+      }
+      case TabOption.Transactions:
+      default: {
+        return <TransactionsTab />;
+      }
     }
-    if (tab === TabOption.ScheduledTransactions) {
-      return <ScheduledTransactionsTab />;
-    }
-    if (tab === TabOption.PendingTransactions) {
-      return (
-        <PendingTransactionsTab
-          pendingTransactions={pendingTransactions}
-          loading={pendingLoading}
-          error={pendingError}
-          handleConfirm={handleConfirm}
-          handleDelete={handleDelete}
-          setError={setPendingError}
-        />
-      );
-    }
-    return <TransactionsTab />;
   }
 
   if (!isMounted) {

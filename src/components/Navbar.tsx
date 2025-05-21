@@ -2,9 +2,10 @@
 
 import React, { useEffect } from "react";
 import Image from "next/image";
-import { Tabs, Tab } from "@mui/material";
+import { Tabs, Tab, Button } from "@mui/material";
 import { TabOption, Transaction } from "../types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useAuth } from "@/context/AuthContext";
 
 function getTabStyle(isSelected: boolean, isMobile: boolean) {
   return {
@@ -69,6 +70,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const pendingCount = pendingTransactions.length;
+  const { logout } = useAuth();
 
   useEffect(() => {
     fetchPendingTransactions();
@@ -199,7 +201,33 @@ const Navbar: React.FC<NavbarProps> = ({
           value={TabOption.Summary}
           sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
         />
+        <Tab
+          label="Settings"
+          value={TabOption.Settings}
+          sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
+        />
       </Tabs>
+      <div
+        style={
+          isMobile
+            ? { marginTop: 32, width: "100%" }
+            : {
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginLeft: 16,
+              }
+        }
+      >
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={logout}
+          sx={{ width: isMobile ? "100%" : "auto" }}
+        >
+          Logout
+        </Button>
+      </div>
     </nav>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ScheduledTransactionList from "../../components/ScheduledTransactionList";
 import ScheduledTransactionForm from "../../components/ScheduledTransactionForm";
-import TransactionListSkeleton from "../../components/TransactionListSkeleton";
+import ScheduledTransactionListSkeleton from "../../components/ScheduledTransactionListSkeleton";
 import { Fab, Box, Snackbar, Alert } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -23,17 +23,16 @@ function ScheduleTransactionTableArea({
   categories: Category[];
   onEdit: (tx: ScheduledTransaction) => void;
 }) {
+  if (loading) {
+    return <ScheduledTransactionListSkeleton rows={6} />;
+  }
   return (
     <Box flex={1} sx={{ position: "relative" }}>
-      {loading ? (
-        <TransactionListSkeleton rows={6} />
-      ) : (
-        <ScheduledTransactionList
-          scheduledTransactions={scheduledTransactions}
-          categories={categories}
-          onEditAction={onEdit}
-        />
-      )}
+      <ScheduledTransactionList
+        scheduledTransactions={scheduledTransactions}
+        categories={categories}
+        onEditAction={onEdit}
+      />
     </Box>
   );
 }

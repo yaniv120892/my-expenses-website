@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, CircularProgress, Paper } from "@mui/material";
+import { Box, Typography, Paper } from "@mui/material";
 import {
   BarChart,
   Bar,

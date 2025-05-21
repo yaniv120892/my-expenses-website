@@ -7,7 +7,6 @@ import {
   FormControlLabel,
   Paper,
   Divider,
-  CircularProgress,
   Alert,
 } from "@mui/material";
 import { useUserSettings } from "@/hooks/useUserSettings";
@@ -41,7 +40,7 @@ export default function SettingsTab() {
   if (error) {
     return <Alert severity="error">{error}</Alert>;
   }
-  
+
   if (!settings) {
     return <Alert severity="error">Failed to load settings</Alert>;
   }

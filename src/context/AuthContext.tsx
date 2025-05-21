@@ -83,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       setIsVerified(true);
       router.push("/");
+      return;
     }
 
     if (response.status === 400) {
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (response.ok) {
       setIsVerified(false);
       router.push("/verify?email=" + email);
+      return;
     }
 
     if (response.status === 400) {
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       setIsVerified(true);
       router.push("/");
+      return;
     }
 
     if (response.status === 400) {

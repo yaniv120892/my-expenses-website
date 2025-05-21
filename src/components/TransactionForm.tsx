@@ -98,16 +98,28 @@ export default function TransactionForm({
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const getCurrentDateTimeString = () => {
+    return dayjs().format("YYYY-MM-DDTHH:mm:ss");
+  };
+
   const handleSubmit = async () => {
     if (!validate()) {
       return;
     }
     setIsLoadingUpdate(true);
     try {
+      let dateToUse = form.date;
+      if (!initialData) {
+        const today = dayjs().format("YYYY-MM-DD");
+        if (form.date === today) {
+          dateToUse = getCurrentDateTimeString();
+        }
+      }
       const submitData = {
         ...form,
         value: Number(form.value),
         categoryId: form.categoryId === "" ? undefined : form.categoryId,
+        date: dateToUse,
       };
       await onSubmitAction(submitData);
       onCloseAction();

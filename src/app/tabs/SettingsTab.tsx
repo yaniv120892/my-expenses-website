@@ -11,6 +11,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import SettingsTabSkeleton from "@/components/SettingsTabSkeleton";
 
 export default function SettingsTab() {
   const { settings, loading, error, fetchUserSettings, saveUserSettings } =
@@ -33,25 +34,16 @@ export default function SettingsTab() {
     });
   }
 
-  if (loading && !settings) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight={200}
-      >
-        <CircularProgress />
-      </Box>
-    );
+  if (loading) {
+    return <SettingsTabSkeleton />;
   }
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
   }
-
+  
   if (!settings) {
-    return null;
+    return <Alert severity="error">Failed to load settings</Alert>;
   }
 
   return (

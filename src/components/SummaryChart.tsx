@@ -19,6 +19,7 @@ import {
 } from "../services/transactions";
 import { Transaction } from "@/types";
 import { formatNumber } from "@/utils/format";
+import SummaryChartSkeleton from "@/components/SummaryChartSkeleton";
 
 // Color palette
 const COLORS = {
@@ -168,16 +169,7 @@ const SummaryChart: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight={300}
-      >
-        <CircularProgress />
-      </Box>
-    );
+    return <SummaryChartSkeleton />;
   }
   if (error) {
     return (

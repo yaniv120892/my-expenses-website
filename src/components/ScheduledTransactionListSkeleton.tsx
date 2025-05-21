@@ -9,25 +9,13 @@ function getMobileSkeletonRow() {
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              <Skeleton
-                width="80%"
-                animation="wave"
-                sx={{ bgcolor: "var(--secondary)" }}
-              />
+              <Skeleton width="80%" sx={{ bgcolor: "var(--secondary)" }} />
             </div>
             <div style={{ fontSize: "0.97em", color: "#888" }}>
-              <Skeleton
-                width="60%"
-                animation="wave"
-                sx={{ bgcolor: "var(--secondary)" }}
-              />
+              <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
             </div>
             <div style={{ fontSize: "0.97em", color: "#888" }}>
-              <Skeleton
-                width="50%"
-                animation="wave"
-                sx={{ bgcolor: "var(--secondary)" }}
-              />
+              <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
             </div>
           </div>
           <div style={{ textAlign: "right", minWidth: 110 }}>
@@ -38,18 +26,10 @@ function getMobileSkeletonRow() {
                 fontSize: "1.1em",
               }}
             >
-              <Skeleton
-                width="60%"
-                animation="wave"
-                sx={{ bgcolor: "var(--secondary)" }}
-              />
+              <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
             </div>
             <div style={{ fontSize: "0.97em", color: "#888" }}>
-              <Skeleton
-                width="50%"
-                animation="wave"
-                sx={{ bgcolor: "var(--secondary)" }}
-              />
+              <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
             </div>
           </div>
         </div>
@@ -62,46 +42,22 @@ function getDesktopSkeletonRow() {
   return (
     <tr>
       <td>
-        <Skeleton
-          width="80%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="80%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
       <td>
-        <Skeleton
-          width="60%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
       <td>
-        <Skeleton
-          width="50%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
       <td>
-        <Skeleton
-          width="60%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
       <td>
-        <Skeleton
-          width="70%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="70%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
       <td>
-        <Skeleton
-          width="60%"
-          animation="wave"
-          sx={{ bgcolor: "var(--secondary)" }}
-        />
+        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
     </tr>
   );

@@ -1,6 +1,6 @@
 import React from "react";
 import PendingTransactionsList from "../../components/PendingTransactionsList";
-import TransactionListSkeleton from "../../components/TransactionListSkeleton";
+import PendingTransactionListSkeleton from "../../components/PendingTransactionListSkeleton";
 import { Box, Snackbar, Alert } from "@mui/material";
 import { Transaction } from "../../types";
 
@@ -31,7 +31,7 @@ export default function PendingTransactionsTab({
       }}
     >
       {loading ? (
-        <TransactionListSkeleton rows={6} />
+        <PendingTransactionListSkeleton rows={6} />
       ) : (
         <PendingTransactionsList
           transactions={pendingTransactions}

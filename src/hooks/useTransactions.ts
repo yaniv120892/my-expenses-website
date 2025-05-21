@@ -16,29 +16,50 @@ export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const fetchTransactions = async (params?: TransactionFilters) => {
     setLoading(true);
     try {
       const data = await getTransactions(params);
       setTransactions(data);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load transactions");
     } finally {
       setLoading(false);
     }
   };
+
   const handleCreate = async (data: CreateTransactionInput) => {
-    await createTransaction(data);
-    fetchTransactions();
+    try {
+      await createTransaction(data);
+      await fetchTransactions();
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create transaction");
+    }
   };
+
   const handleUpdate = async (id: string, data: UpdateTransactionInput) => {
-    await updateTransaction(id, data);
-    fetchTransactions();
+    try {
+      await updateTransaction(id, data);
+      await fetchTransactions();
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update transaction");
+    }
   };
+
   const handleDelete = async (id: string) => {
-    await deleteTransaction(id);
-    fetchTransactions();
+    try {
+      await deleteTransaction(id);
+      await fetchTransactions();
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete transaction");
+    }
   };
+
   return {
     transactions,
     loading,

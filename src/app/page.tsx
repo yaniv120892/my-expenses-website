@@ -24,6 +24,7 @@ function getTabLabel(tab: TabOption) {
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState(TabOption.Transactions);
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const isMobile = useIsMobile();
   const {
     pendingTransactions,
@@ -36,6 +37,7 @@ export default function HomePage() {
   } = usePendingTransactions();
 
   useEffect(() => {
+    setIsMounted(true);
     fetchPendingTransactions();
   }, []);
 
@@ -72,6 +74,10 @@ export default function HomePage() {
       );
     }
     return <TransactionsTab />;
+  }
+
+  if (!isMounted) {
+    return null;
   }
 
   if (isMobile) {

@@ -12,3 +12,10 @@ export async function updateUserSettings(
   const res = await api.put("/api/user/settings", settings);
   return res.data;
 }
+
+export async function testTelegram(
+  chatId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await api.post("/api/user/testTelegram", { chatId });
+  return res.data;
+}

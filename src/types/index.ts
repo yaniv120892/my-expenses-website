@@ -102,4 +102,8 @@ export interface UserSettings {
     createTransaction: boolean;
     dailySummary: boolean;
   };
+  provider: {
+    enabled: boolean;
+    telegramChatId: string | null;
+  };
 }

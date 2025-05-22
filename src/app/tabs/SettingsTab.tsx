@@ -128,12 +128,6 @@ export default function SettingsTab() {
           <Controller
             name="provider.telegramChatId"
             control={control}
-            rules={{
-              pattern: {
-                value: /^\d*$/,
-                message: "Chat ID must be a number",
-              },
-            }}
             render={({ field, fieldState }) => (
               <TextField
                 label="Telegram Chat ID"

@@ -250,7 +250,7 @@ export default function SettingsTab() {
                 )}
               />
               <Tooltip
-                title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here."
+                title="Will be used to send notifications to your Telegram account - will add in the future instructions on how to get this id - meanwhile you can ask chatgpt :)"
                 open={isMobile ? tooltipOpen : undefined}
                 onClose={isMobile ? handleTooltipClose : undefined}
                 disableFocusListener={isMobile}

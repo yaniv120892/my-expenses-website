@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import EmptyState from "./EmptyState";
+import NotificationSnackbar from "./NotificationSnackbar";
 
 type Props = {
   transactions: Transaction[];
@@ -38,6 +39,20 @@ export default function PendingTransactionsList({
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
+    "success"
+  );
+
+  function showSnackbar(
+    message: string,
+    severity: "success" | "error" = "success"
+  ) {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }
 
   function openDialog(transaction: Transaction) {
     setSelectedTransaction(transaction);
@@ -49,16 +64,26 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
-  function handleApprove() {
+  async function handleApprove() {
     if (selectedTransaction) {
-      onConfirmAction(selectedTransaction.id);
+      try {
+        await onConfirmAction(selectedTransaction.id);
+        showSnackbar("Transaction approved successfully", "success");
+      } catch {
+        showSnackbar("Failed to approve transaction", "error");
+      }
       closeDialog();
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (selectedTransaction) {
-      onDeleteAction(selectedTransaction.id);
+      try {
+        await onDeleteAction(selectedTransaction.id);
+        showSnackbar("Transaction rejected successfully", "success");
+      } catch {
+        showSnackbar("Failed to reject transaction", "error");
+      }
       closeDialog();
     }
   }
@@ -68,86 +93,99 @@ export default function PendingTransactionsList({
   }
 
   return (
-    <div className="card-accent" style={{ padding: 0 }}>
-      <table className="table">
-        <tbody>
-          {transactions.map((tx) => (
-            <tr
-              key={tx.id}
-              style={{ cursor: "pointer" }}
-              onClick={() => openDialog(tx)}
-            >
-              <td>
-                <div style={{ fontWeight: 600 }}>{tx.description}</div>
-                <div style={{ fontSize: "0.95em", color: "#888" }}>
-                  {tx.category?.name}
-                </div>
-              </td>
-              <td>
-                <div style={{ color: getValueColor(tx.type), fontWeight: 600 }}>
-                  {getFormattedValue(tx.value)}
-                </div>
-                <div style={{ fontSize: "0.95em", color: "#888" }}>
-                  {formatTransactionDate(tx.date)}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {isDialogOpen && selectedTransaction && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
+    <>
+      <div className="card-accent" style={{ padding: 0 }}>
+        <table className="table">
+          <tbody>
+            {transactions.map((tx) => (
+              <tr
+                key={tx.id}
+                style={{ cursor: "pointer" }}
+                onClick={() => openDialog(tx)}
+              >
+                <td>
+                  <div style={{ fontWeight: 600 }}>{tx.description}</div>
+                  <div style={{ fontSize: "0.95em", color: "#888" }}>
+                    {tx.category?.name}
+                  </div>
+                </td>
+                <td>
+                  <div
+                    style={{ color: getValueColor(tx.type), fontWeight: 600 }}
+                  >
+                    {getFormattedValue(tx.value)}
+                  </div>
+                  <div style={{ fontSize: "0.95em", color: "#888" }}>
+                    {formatTransactionDate(tx.date)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {isDialogOpen && selectedTransaction && (
           <div
             style={{
-              background: "#fff",
-              borderRadius: 8,
-              padding: 24,
-              minWidth: 300,
-              boxShadow: "0 2px 16px rgba(0,0,0,0.15)",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(0,0,0,0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
             }}
           >
-            <div style={{ marginBottom: 16, fontWeight: 600 }}>
-              {selectedTransaction.description}
-            </div>
-            <div style={{ marginBottom: 24 }}>
-              Approve or delete this transaction?
-            </div>
             <div
-              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+              style={{
+                background: "#fff",
+                borderRadius: 8,
+                padding: 24,
+                minWidth: 300,
+                boxShadow: "0 2px 16px rgba(0,0,0,0.15)",
+              }}
             >
-              <button
-                onClick={handleApprove}
-                className={getButtonClass("approve")}
+              <div style={{ marginBottom: 16, fontWeight: 600 }}>
+                {selectedTransaction.description}
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                Approve or delete this transaction?
+              </div>
+              <div
+                style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
               >
-                Approve
-              </button>
-              <button
-                onClick={handleDelete}
-                className={getButtonClass("delete")}
-                style={{ background: "#e74c3c", color: "#fff" }}
-              >
-                Delete
-              </button>
-              <button onClick={closeDialog} className={getButtonClass("close")}>
-                Cancel
-              </button>
+                <button
+                  onClick={handleApprove}
+                  className={getButtonClass("approve")}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className={getButtonClass("delete")}
+                  style={{ background: "#e74c3c", color: "#fff" }}
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={closeDialog}
+                  className={getButtonClass("close")}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+      <NotificationSnackbar
+        open={snackbarOpen}
+        message={snackbarMessage}
+        severity={snackbarSeverity}
+        onClose={() => setSnackbarOpen(false)}
+      />
+    </>
   );
 }

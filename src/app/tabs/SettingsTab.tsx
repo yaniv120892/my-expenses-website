@@ -92,7 +92,7 @@ export default function SettingsTab() {
     await saveUserSettings({
       ...data,
       provider: {
-        enabled: settings?.provider.enabled || false,
+        enabled: data.provider.telegramChatId ? true : false,
         telegramChatId: data.provider.telegramChatId,
       },
     });

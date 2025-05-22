@@ -89,7 +89,6 @@ const Navbar: React.FC<NavbarProps> = ({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              height: "100vh",
               position: "sticky",
               top: 0,
               zIndex: 10,
@@ -135,99 +134,155 @@ const Navbar: React.FC<NavbarProps> = ({
               }
         }
       />
-      <Tabs
-        orientation={isMobile ? "vertical" : "horizontal"}
-        value={activeTab}
-        onChange={(_, v) => onTabChange(v as TabOption)}
-        textColor="inherit"
-        indicatorColor="secondary"
-        sx={
-          isMobile
-            ? {
-                height: "100%",
-                width: "auto",
-                flexDirection: "column",
-                minWidth: 36,
-                ml: 0,
-                flex: 1,
-                "& .MuiTabs-indicator": {
-                  background: "var(--secondary)",
-                  width: 3,
-                  right: 0,
-                  left: "unset",
-                  top: 0,
-                  bottom: 0,
-                },
-              }
-            : {
-                width: "100%",
-                minHeight: 36,
-                ml: 2,
-                flex: 1,
-                flexDirection: "row",
-                gap: 8,
-                "& .MuiTabs-indicator": {
-                  background: "var(--secondary)",
-                  height: 3,
-                },
-              }
-        }
-      >
-        <Tab
-          label="Transactions"
-          value={TabOption.Transactions}
-          sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
-        />
-        <Tab
-          label={PendingTransactionsTabLabel(pendingCount)}
-          value={TabOption.PendingTransactions}
-          sx={getTabStyle(
-            activeTab === TabOption.PendingTransactions,
-            isMobile
-          )}
-          wrapped
-          key={`pending-tab-${pendingCount}`}
-        />
-        <Tab
-          label="Scheduled Transactions"
-          value={TabOption.ScheduledTransactions}
-          sx={getTabStyle(
-            activeTab === TabOption.ScheduledTransactions,
-            isMobile
-          )}
-        />
-        <Tab
-          label="Summary"
-          value={TabOption.Summary}
-          sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
-        />
-        <Tab
-          label="Settings"
-          value={TabOption.Settings}
-          sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
-        />
-      </Tabs>
-      <div
-        style={
-          isMobile
-            ? { marginTop: 32, width: "100%" }
-            : {
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginLeft: 16,
-              }
-        }
-      >
-        <Button
-          variant="contained"
-          color="secondary"
-          onClick={logout}
-          sx={{ width: isMobile ? "100%" : "auto" }}
-        >
-          Logout
-        </Button>
-      </div>
+      {isMobile ? (
+        <>
+          <Tabs
+            orientation="vertical"
+            value={activeTab}
+            onChange={(_, v) => onTabChange(v as TabOption)}
+            textColor="inherit"
+            indicatorColor="secondary"
+            sx={{
+              width: "auto",
+              flexDirection: "column",
+              minWidth: 36,
+              ml: 0,
+              flex: 1,
+              "& .MuiTabs-indicator": {
+                background: "var(--secondary)",
+                width: 3,
+                right: 0,
+                left: "unset",
+                top: 0,
+                bottom: 0,
+              },
+            }}
+          >
+            <Tab
+              label="Transactions"
+              value={TabOption.Transactions}
+              sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
+            />
+            <Tab
+              label={PendingTransactionsTabLabel(pendingCount)}
+              value={TabOption.PendingTransactions}
+              sx={getTabStyle(
+                activeTab === TabOption.PendingTransactions,
+                isMobile
+              )}
+              wrapped
+              key={`pending-tab-${pendingCount}`}
+            />
+            <Tab
+              label="Scheduled Transactions"
+              value={TabOption.ScheduledTransactions}
+              sx={getTabStyle(
+                activeTab === TabOption.ScheduledTransactions,
+                isMobile
+              )}
+            />
+            <Tab
+              label="Summary"
+              value={TabOption.Summary}
+              sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
+            />
+            <Tab
+              label="Settings"
+              value={TabOption.Settings}
+              sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
+            />
+          </Tabs>
+          <div
+            style={{
+              width: "100%",
+              height: 1,
+              background: "var(--secondary)",
+              margin: "2px 0 16px 0",
+            }}
+          />
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={logout}
+            sx={{ width: "100%" }}
+          >
+            Logout
+          </Button>
+        </>
+      ) : (
+        <>
+          <Tabs
+            orientation="horizontal"
+            value={activeTab}
+            onChange={(_, v) => onTabChange(v as TabOption)}
+            textColor="inherit"
+            indicatorColor="secondary"
+            sx={{
+              width: "100%",
+              minHeight: 36,
+              ml: 2,
+              flex: 1,
+              flexDirection: "row",
+              gap: 8,
+              "& .MuiTabs-indicator": {
+                background: "var(--secondary)",
+                height: 3,
+              },
+            }}
+          >
+            <Tab
+              label="Transactions"
+              value={TabOption.Transactions}
+              sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
+            />
+            <Tab
+              label={PendingTransactionsTabLabel(pendingCount)}
+              value={TabOption.PendingTransactions}
+              sx={getTabStyle(
+                activeTab === TabOption.PendingTransactions,
+                isMobile
+              )}
+              wrapped
+              key={`pending-tab-${pendingCount}`}
+            />
+            <Tab
+              label="Scheduled Transactions"
+              value={TabOption.ScheduledTransactions}
+              sx={getTabStyle(
+                activeTab === TabOption.ScheduledTransactions,
+                isMobile
+              )}
+            />
+            <Tab
+              label="Summary"
+              value={TabOption.Summary}
+              sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
+            />
+            <Tab
+              label="Settings"
+              value={TabOption.Settings}
+              sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
+            />
+          </Tabs>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginLeft: 16,
+            }}
+          >
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={logout}
+              sx={{ width: "auto" }}
+            >
+              Logout
+            </Button>
+          </div>
+        </>
+      )}
     </nav>
   );
 };

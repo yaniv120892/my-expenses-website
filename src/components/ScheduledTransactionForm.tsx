@@ -22,6 +22,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
 import CategorySelect from "./CategorySelect";
+import NotificationSnackbar from "./NotificationSnackbar";
 
 interface Props {
   open: boolean;
@@ -55,6 +56,11 @@ export default function ScheduledTransactionForm({
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
+    "success"
+  );
 
   useEffect(() => {
     if (initialData) {
@@ -150,6 +156,15 @@ export default function ScheduledTransactionForm({
     });
   }
 
+  function showSnackbar(
+    message: string,
+    severity: "success" | "error" = "success"
+  ) {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }
+
   async function handleSubmit() {
     if (!validate()) {
       return;
@@ -157,7 +172,15 @@ export default function ScheduledTransactionForm({
     setIsLoadingUpdate(true);
     try {
       await onSubmitAction(form);
+      showSnackbar(
+        initialData
+          ? "Scheduled transaction updated successfully"
+          : "Scheduled transaction created successfully",
+        "success"
+      );
       onCloseAction();
+    } catch {
+      showSnackbar("Failed to save scheduled transaction", "error");
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -168,7 +191,10 @@ export default function ScheduledTransactionForm({
       setIsLoadingDelete(true);
       try {
         await onDeleteAction(initialData.id);
+        showSnackbar("Scheduled transaction deleted successfully", "success");
         onCloseAction();
+      } catch {
+        showSnackbar("Failed to delete scheduled transaction", "error");
       } finally {
         setIsLoadingDelete(false);
       }
@@ -176,198 +202,206 @@ export default function ScheduledTransactionForm({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={isLoadingUpdate || isLoadingDelete ? undefined : onCloseAction}
-      fullWidth
-      disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
-    >
-      <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
-        {initialData
-          ? "Edit Scheduled Transaction"
-          : "New Scheduled Transaction"}
-      </DialogTitle>
-      <DialogContent>
-        <Box display="flex" flexDirection="column" gap={2} mt={1}>
-          <Box mb={1} color="var(--primary)">
-            {getScheduleSummary()}
-          </Box>
-          <TextField
-            label="Description"
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            error={!!errors.description}
-            helperText={errors.description}
-            fullWidth
-          />
-          <TextField
-            label="Value"
-            name="value"
-            type="number"
-            value={form.value}
-            onChange={handleNumberChange}
-            error={!!errors.value}
-            helperText={errors.value}
-            fullWidth
-          />
-          <CategorySelect
-            value={form.categoryId}
-            onChange={handleChange}
-            error={!!errors.categoryId}
-            helperText={errors.categoryId}
-          />
-          <TextField
-            select
-            label="Type"
-            name="type"
-            value={form.type}
-            onChange={handleChange}
-            error={!!errors.type}
-            helperText={errors.type}
-            fullWidth
-          >
-            {transactionTypes.map((type) => (
-              <MenuItem key={type} value={type}>
-                {type.charAt(0) + type.slice(1).toLowerCase()}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Schedule Type"
-            name="scheduleType"
-            value={form.scheduleType}
-            onChange={handleChange}
-            error={!!errors.scheduleType}
-            helperText={errors.scheduleType}
-            fullWidth
-          >
-            {scheduleTypes.map((type) => (
-              <MenuItem key={type} value={type}>
-                {type.charAt(0) + type.slice(1).toLowerCase()}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Interval"
-            name="interval"
-            type="number"
-            value={form.interval ?? ""}
-            onChange={handleNumberChange}
-            fullWidth
-          />
-          {form.scheduleType === "WEEKLY" && (
+    <>
+      <Dialog
+        open={open}
+        onClose={isLoadingUpdate || isLoadingDelete ? undefined : onCloseAction}
+        fullWidth
+        disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
+      >
+        <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
+          {initialData
+            ? "Edit Scheduled Transaction"
+            : "New Scheduled Transaction"}
+        </DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            <Box mb={1} color="var(--primary)">
+              {getScheduleSummary()}
+            </Box>
             <TextField
-              select
-              label="Day of Week"
-              name="dayOfWeek"
-              value={form.dayOfWeek ?? ""}
-              onChange={handleNumberChange}
-              error={!!errors.dayOfWeek}
-              helperText={errors.dayOfWeek}
-              fullWidth
-            >
-              <MenuItem value="">
-                <em>Choose day</em>
-              </MenuItem>
-              <MenuItem value={1}>Sunday</MenuItem>
-              <MenuItem value={2}>Monday</MenuItem>
-              <MenuItem value={3}>Tuesday</MenuItem>
-              <MenuItem value={4}>Wednesday</MenuItem>
-              <MenuItem value={5}>Thursday</MenuItem>
-              <MenuItem value={6}>Friday</MenuItem>
-              <MenuItem value={7}>Saturday</MenuItem>
-            </TextField>
-          )}
-          {form.scheduleType === "MONTHLY" && (
-            <TextField
-              label="Day of Month"
-              name="dayOfMonth"
-              type="number"
-              value={form.dayOfMonth ?? ""}
-              onChange={handleNumberChange}
-              error={!!errors.dayOfMonth}
-              helperText={errors.dayOfMonth}
+              label="Description"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              error={!!errors.description}
+              helperText={errors.description}
               fullWidth
             />
+            <TextField
+              label="Value"
+              name="value"
+              type="number"
+              value={form.value}
+              onChange={handleNumberChange}
+              error={!!errors.value}
+              helperText={errors.value}
+              fullWidth
+            />
+            <CategorySelect
+              value={form.categoryId}
+              onChange={handleChange}
+              error={!!errors.categoryId}
+              helperText={errors.categoryId}
+            />
+            <TextField
+              select
+              label="Type"
+              name="type"
+              value={form.type}
+              onChange={handleChange}
+              error={!!errors.type}
+              helperText={errors.type}
+              fullWidth
+            >
+              {transactionTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type.charAt(0) + type.slice(1).toLowerCase()}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Schedule Type"
+              name="scheduleType"
+              value={form.scheduleType}
+              onChange={handleChange}
+              error={!!errors.scheduleType}
+              helperText={errors.scheduleType}
+              fullWidth
+            >
+              {scheduleTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type.charAt(0) + type.slice(1).toLowerCase()}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Interval"
+              name="interval"
+              type="number"
+              value={form.interval ?? ""}
+              onChange={handleNumberChange}
+              fullWidth
+            />
+            {form.scheduleType === "WEEKLY" && (
+              <TextField
+                select
+                label="Day of Week"
+                name="dayOfWeek"
+                value={form.dayOfWeek ?? ""}
+                onChange={handleNumberChange}
+                error={!!errors.dayOfWeek}
+                helperText={errors.dayOfWeek}
+                fullWidth
+              >
+                <MenuItem value="">
+                  <em>Choose day</em>
+                </MenuItem>
+                <MenuItem value={1}>Sunday</MenuItem>
+                <MenuItem value={2}>Monday</MenuItem>
+                <MenuItem value={3}>Tuesday</MenuItem>
+                <MenuItem value={4}>Wednesday</MenuItem>
+                <MenuItem value={5}>Thursday</MenuItem>
+                <MenuItem value={6}>Friday</MenuItem>
+                <MenuItem value={7}>Saturday</MenuItem>
+              </TextField>
+            )}
+            {form.scheduleType === "MONTHLY" && (
+              <TextField
+                label="Day of Month"
+                name="dayOfMonth"
+                type="number"
+                value={form.dayOfMonth ?? ""}
+                onChange={handleNumberChange}
+                error={!!errors.dayOfMonth}
+                helperText={errors.dayOfMonth}
+                fullWidth
+              />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions
+          style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
+        >
+          <Box display="flex" width="100%" gap={2}>
+            <button
+              className="button-secondary"
+              style={{
+                width: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onClick={handleSubmit}
+              disabled={isLoadingUpdate || isLoadingDelete}
+            >
+              {isLoadingUpdate ? (
+                <>
+                  <CircularProgress size={20} style={{ color: "#fff" }} />
+                  {initialData ? "Update" : "Create"}
+                </>
+              ) : (
+                <>
+                  <SaveIcon style={{ fontSize: 20 }} />
+                  {initialData ? "Update" : "Create"}
+                </>
+              )}
+            </button>
+            <button
+              className="button-primary"
+              style={{
+                width: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onClick={onCloseAction}
+              disabled={isLoadingUpdate || isLoadingDelete}
+            >
+              <CloseIcon style={{ fontSize: 20 }} />
+              Close
+            </button>
+          </Box>
+          {initialData && (
+            <button
+              className="button-secondary"
+              style={{
+                width: "100%",
+                color: "#fff",
+                background: "#e74c3c",
+                marginTop: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onClick={handleDelete}
+              disabled={isLoadingUpdate || isLoadingDelete}
+            >
+              {isLoadingDelete ? (
+                <>
+                  <CircularProgress size={20} style={{ color: "#fff" }} />
+                  Delete
+                </>
+              ) : (
+                <>
+                  <DeleteIcon style={{ fontSize: 20 }} />
+                  Delete
+                </>
+              )}
+            </button>
           )}
-        </Box>
-      </DialogContent>
-      <DialogActions
-        style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
-      >
-        <Box display="flex" width="100%" gap={2}>
-          <button
-            className="button-secondary"
-            style={{
-              width: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onClick={handleSubmit}
-            disabled={isLoadingUpdate || isLoadingDelete}
-          >
-            {isLoadingUpdate ? (
-              <>
-                <CircularProgress size={20} style={{ color: "#fff" }} />
-                {initialData ? "Update" : "Create"}
-              </>
-            ) : (
-              <>
-                <SaveIcon style={{ fontSize: 20 }} />
-                {initialData ? "Update" : "Create"}
-              </>
-            )}
-          </button>
-          <button
-            className="button-primary"
-            style={{
-              width: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onClick={onCloseAction}
-            disabled={isLoadingUpdate || isLoadingDelete}
-          >
-            <CloseIcon style={{ fontSize: 20 }} />
-            Close
-          </button>
-        </Box>
-        {initialData && (
-          <button
-            className="button-secondary"
-            style={{
-              width: "100%",
-              color: "#fff",
-              background: "#e74c3c",
-              marginTop: 16,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onClick={handleDelete}
-            disabled={isLoadingUpdate || isLoadingDelete}
-          >
-            {isLoadingDelete ? (
-              <>
-                <CircularProgress size={20} style={{ color: "#fff" }} />
-                Delete
-              </>
-            ) : (
-              <>
-                <DeleteIcon style={{ fontSize: 20 }} />
-                Delete
-              </>
-            )}
-          </button>
-        )}
-      </DialogActions>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+      <NotificationSnackbar
+        open={snackbarOpen}
+        message={snackbarMessage}
+        severity={snackbarSeverity}
+        onClose={() => setSnackbarOpen(false)}
+      />
+    </>
   );
 }

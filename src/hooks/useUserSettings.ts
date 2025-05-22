@@ -25,16 +25,12 @@ export function useUserSettings() {
   }
 
   async function saveUserSettings(updated: UserSettings) {
-    setLoading(true);
     try {
       await updateUserSettings(updated);
-      fetchUserSettings();
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Failed to update user settings"
       );
-    } finally {
-      setLoading(false);
     }
   }
 

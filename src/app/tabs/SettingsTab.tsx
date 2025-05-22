@@ -13,6 +13,7 @@ import {
   IconButton,
   Button,
   CircularProgress,
+  Snackbar,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useUserSettings } from "@/hooks/useUserSettings";
@@ -45,6 +46,8 @@ export default function SettingsTab() {
   const [testResult, setTestResult] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [testSnackbarOpen, setTestSnackbarOpen] = useState(false);
   const testResultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { control, handleSubmit, reset, watch, formState } = useForm({
@@ -96,6 +99,7 @@ export default function SettingsTab() {
       setTestResult(result.message || "Failed to send test message");
     }
     setTestLoading(false);
+    setTestSnackbarOpen(true);
   };
 
   useEffect(() => {
@@ -105,6 +109,7 @@ export default function SettingsTab() {
       }
       testResultTimeoutRef.current = setTimeout(() => {
         setTestResult("");
+        setTestSnackbarOpen(false);
       }, 5000);
     }
     return () => {
@@ -123,7 +128,20 @@ export default function SettingsTab() {
         telegramChatId: data.provider.telegramChatId,
       },
     });
+    reset({
+      provider: {
+        telegramChatId: data.provider.telegramChatId,
+      },
+      notifications: {
+        createTransaction: data.notifications.createTransaction,
+        dailySummary: data.notifications.dailySummary,
+      },
+      info: {
+        email: data.info.email,
+      },
+    });
     setSaveLoading(false);
+    setSaveSuccess(true);
   };
 
   if (loading) {
@@ -298,19 +316,6 @@ export default function SettingsTab() {
           </Box>
         </Box>
 
-        {testResult && (
-          <Box mt={1}>
-            <Alert
-              severity={
-                testResult === "Test message sent successfully"
-                  ? "success"
-                  : "error"
-              }
-            >
-              {testResult}
-            </Alert>
-          </Box>
-        )}
         <Divider sx={{ my: 4 }} />
         <Typography variant="h6" gutterBottom color="var(--primary)">
           Notifications
@@ -364,11 +369,46 @@ export default function SettingsTab() {
               minWidth: 80,
               width: "50%",
             }}
+            startIcon={
+              saveLoading ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : null
+            }
           >
             {saveLoading ? "Saving..." : "Save"}
           </Button>
         </Box>
       </Paper>
+      <Snackbar
+        open={saveSuccess}
+        autoHideDuration={4000}
+        onClose={() => setSaveSuccess(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity="success" sx={{ width: "100%" }}>
+          Settings saved successfully
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={!!testResult && testSnackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => {
+          setTestSnackbarOpen(false);
+          setTestResult("");
+        }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={
+            testResult === "Test message sent successfully"
+              ? "success"
+              : "error"
+          }
+          sx={{ width: "100%" }}
+        >
+          {testResult}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

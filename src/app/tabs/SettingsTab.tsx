@@ -271,7 +271,11 @@ export default function SettingsTab() {
                   backgroundColor: "var(--primary)",
                   color: "var(--secondary)",
                   minWidth: 80,
-                  
+                  "&.Mui-disabled": {
+                    backgroundColor: "var(--primary)",
+                    color: "var(--secondary)",
+                    opacity: 0.5,
+                  },
                 }}
                 onClick={handleTestTelegram}
                 disabled={

@@ -3,6 +3,7 @@ import { UserSettings } from "../types";
 import {
   getUserSettings,
   updateUserSettings,
+  testTelegram,
 } from "../services/userSettingsService";
 
 export function useUserSettings() {
@@ -37,6 +38,18 @@ export function useUserSettings() {
     }
   }
 
+  async function testTelegramConnection(chatId: string) {
+    try {
+      return await testTelegram(chatId);
+    } catch (e) {
+      return {
+        success: false,
+        message:
+          e instanceof Error ? e.message : "Failed to test Telegram connection",
+      };
+    }
+  }
+
   return {
     settings,
     loading,
@@ -44,5 +57,6 @@ export function useUserSettings() {
     fetchUserSettings,
     saveUserSettings,
     setError,
+    testTelegramConnection,
   };
 }

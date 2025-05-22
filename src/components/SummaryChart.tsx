@@ -209,77 +209,6 @@ const SummaryChart: React.FC = () => {
         Summary (Last 6 Months)
       </Typography>
       <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={4}>
-        <Box flex={1} display="flex" flexDirection="column" gap={4}>
-          <Box>
-            <Typography variant="subtitle1" mb={1} color={COLORS.text}>
-              Total Income vs Expense
-            </Typography>
-            <Box display="flex" flexDirection="row" alignItems="center" gap={4}>
-              <ResponsiveContainer width="60%" height={180}>
-                <BarChart
-                  data={barData}
-                  margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="name"
-                    stroke={COLORS.text}
-                    tick={{ fill: COLORS.text, fontWeight: 500 }}
-                  />
-                  <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
-                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                    <Cell fill={COLORS.income} />
-                    <Cell fill={COLORS.expense} />
-                    <LabelList
-                      dataKey="value"
-                      position="top"
-                      fill={COLORS.text}
-                      fontWeight={700}
-                      formatter={formatNumber}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-          </Box>
-          {topCategories.length > 0 && (
-            <Box>
-              <Typography variant="subtitle1" mb={1} color={COLORS.text}>
-                Top 5 Expense Categories
-              </Typography>
-              <ResponsiveContainer width="100%" height={230}>
-                <PieChart>
-                  <Pie
-                    data={topCategories}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    innerRadius={40}
-                    label={({ name, value }) => {
-                      const total = topCategories.reduce(
-                        (sum, c) => sum + c.value,
-                        0
-                      );
-                      const percent = total > 0 ? (value / total) * 100 : 0;
-                      return `${name}: ${percent.toFixed(1)}%`;
-                    }}
-                    stroke={COLORS.background}
-                    strokeWidth={2}
-                  >
-                    {topCategories.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={DOUGHNUT_COLORS[idx % DOUGHNUT_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CompactTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Box>
-          )}
-        </Box>
         <Box flex={1}>
           <Typography variant="subtitle1" mb={1} color={COLORS.text}>
             Monthly Breakdown
@@ -368,6 +297,77 @@ const SummaryChart: React.FC = () => {
               );
             })}
           </Box>
+        </Box>
+        <Box flex={1} display="flex" flexDirection="column" gap={4}>
+          <Box>
+            <Typography variant="subtitle1" mb={1} color={COLORS.text}>
+              Total Income vs Expense
+            </Typography>
+            <Box display="flex" flexDirection="row" alignItems="center" gap={4}>
+              <ResponsiveContainer width="60%" height={180}>
+                <BarChart
+                  data={barData}
+                  margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
+                >
+                  <XAxis
+                    dataKey="name"
+                    stroke={COLORS.text}
+                    tick={{ fill: COLORS.text, fontWeight: 500 }}
+                  />
+                  <YAxis stroke={COLORS.text} tick={{ fill: COLORS.text }} />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                    <Cell fill={COLORS.income} />
+                    <Cell fill={COLORS.expense} />
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      fill={COLORS.text}
+                      fontWeight={700}
+                      formatter={formatNumber}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Box>
+          {topCategories.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" mb={1} color={COLORS.text}>
+                Top 5 Expense Categories
+              </Typography>
+              <ResponsiveContainer width="100%" height={230}>
+                <PieChart>
+                  <Pie
+                    data={topCategories}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    innerRadius={40}
+                    label={({ name, value }) => {
+                      const total = topCategories.reduce(
+                        (sum, c) => sum + c.value,
+                        0
+                      );
+                      const percent = total > 0 ? (value / total) * 100 : 0;
+                      return `${name}: ${percent.toFixed(1)}%`;
+                    }}
+                    stroke={COLORS.background}
+                    strokeWidth={2}
+                  >
+                    {topCategories.map((entry, idx) => (
+                      <Cell
+                        key={entry.name}
+                        fill={DOUGHNUT_COLORS[idx % DOUGHNUT_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CompactTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
         </Box>
       </Box>
     </Paper>

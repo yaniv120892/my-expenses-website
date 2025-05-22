@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Box,
   Typography,
@@ -43,6 +43,7 @@ export default function SettingsTab() {
   const [testResult, setTestResult] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const testResultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { control, handleSubmit, reset, watch, formState } = useForm({
     defaultValues: {
@@ -87,6 +88,22 @@ export default function SettingsTab() {
     setTestLoading(false);
   };
 
+  useEffect(() => {
+    if (testResult) {
+      if (testResultTimeoutRef.current) {
+        clearTimeout(testResultTimeoutRef.current);
+      }
+      testResultTimeoutRef.current = setTimeout(() => {
+        setTestResult("");
+      }, 5000);
+    }
+    return () => {
+      if (testResultTimeoutRef.current) {
+        clearTimeout(testResultTimeoutRef.current);
+      }
+    };
+  }, [testResult]);
+
   const onSave = async (data: UserSettingsForm) => {
     setSaveLoading(true);
     await saveUserSettings({
@@ -121,43 +138,71 @@ export default function SettingsTab() {
           Info
         </Typography>
         <Divider sx={{ mb: 2 }} />
-        <Typography variant="body1" color="var(--primary)">
-          Email: {watchedValues.info.email}
-        </Typography>
-        <Box mt={2} display="flex" alignItems="center" gap={1}>
-          <Controller
-            name="provider.telegramChatId"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                label="Telegram Chat ID"
-                {...field}
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message || ""}
-                size="small"
-                sx={{ flex: 1 }}
+        <Box display="flex" flexDirection="column" gap={2}>
+          <Box display="flex" flexDirection="row" alignItems="center" gap={2}>
+            <Box minWidth={120} display="flex" alignItems="center">
+              <Typography variant="body1" color="var(--primary)">
+                Email:
+              </Typography>
+            </Box>
+            <Box flex={1} display="flex" alignItems="center">
+              <Typography variant="body1" color="var(--primary)">
+                {watchedValues.info.email}
+              </Typography>
+            </Box>
+            <Box width={120} />
+          </Box>
+          <Box display="flex" flexDirection="row" alignItems="center" gap={2}>
+            <Box minWidth={120} display="flex" alignItems="center">
+              <Typography variant="body1" color="var(--primary)">
+                Telegram chat id:
+              </Typography>
+            </Box>
+            <Box flex={1} display="flex" alignItems="center">
+              <Controller
+                name="provider.telegramChatId"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    error={!!formState.errors.provider?.telegramChatId}
+                    helperText={
+                      formState.errors.provider?.telegramChatId?.message || ""
+                    }
+                    size="small"
+                    sx={{ flex: 1 }}
+                  />
+                )}
               />
-            )}
-          />
-          <Tooltip title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here.">
-            <IconButton size="small">
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleTestTelegram}
-            disabled={
-              testLoading ||
-              !watchedValues.provider.telegramChatId ||
-              !!formState.errors.provider?.telegramChatId
-            }
-            sx={{ minWidth: 80 }}
-          >
-            {testLoading ? "Testing..." : "Test"}
-          </Button>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Tooltip title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here.">
+                <IconButton size="small">
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  backgroundColor: "var(--primary)",
+                  color: "var(--secondary)",
+                  minWidth: 80,
+                }}
+                onClick={handleTestTelegram}
+                disabled={
+                  testLoading ||
+                  !watchedValues.provider.telegramChatId ||
+                  !!formState.errors.provider?.telegramChatId
+                }
+                hidden={watchedValues.provider.telegramChatId === ""}
+              >
+                {testLoading ? "Testing..." : "Test"}
+              </Button>
+            </Box>
+          </Box>
         </Box>
+
         {testResult && (
           <Box mt={1}>
             <Alert
@@ -171,8 +216,7 @@ export default function SettingsTab() {
             </Alert>
           </Box>
         )}
-      </Paper>
-      <Paper elevation={3} sx={{ p: 3, backgroundColor: "var(--secondary)" }}>
+        <Divider sx={{ my: 4 }} />
         <Typography variant="h6" gutterBottom color="var(--primary)">
           Notifications
         </Typography>
@@ -210,16 +254,21 @@ export default function SettingsTab() {
           )}
         />
         <Divider sx={{ my: 2 }} />
-        <Box display="flex" justifyContent="flex-end" gap={2}>
+        <Box display="flex" justifyContent="center" gap={2}>
           <Button
             variant="contained"
-            color="primary"
             onClick={handleSubmit(onSave)}
             disabled={
               !isDirty ||
               saveLoading ||
               !!formState.errors.provider?.telegramChatId
             }
+            sx={{
+              backgroundColor: "var(--primary)",
+              color: "var(--secondary)",
+              minWidth: 80,
+              width: "50%",
+            }}
           >
             {saveLoading ? "Saving..." : "Save"}
           </Button>

@@ -12,11 +12,13 @@ import {
   Tooltip,
   IconButton,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import SettingsTabSkeleton from "@/components/SettingsTabSkeleton";
 import { useForm, Controller } from "react-hook-form";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type UserSettingsForm = {
   provider: {
@@ -53,6 +55,14 @@ export default function SettingsTab() {
     },
     mode: "onChange",
   });
+
+  const isMobile = useIsMobile();
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const tooltipAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  function handleTooltipClose() {
+    setTooltipOpen(false);
+  }
 
   useEffect(() => {
     fetchUserSettings();
@@ -129,7 +139,7 @@ export default function SettingsTab() {
   }
 
   return (
-    <Box maxWidth={500} mx="auto" mt={4}>
+    <Box maxWidth={600} mx="auto" mt={4}>
       <Paper
         elevation={3}
         sx={{ p: 3, mb: 4, backgroundColor: "var(--secondary)" }}
@@ -138,27 +148,74 @@ export default function SettingsTab() {
           Info
         </Typography>
         <Divider sx={{ mb: 2 }} />
-        <Box display="flex" flexDirection="column" gap={2}>
-          <Box display="flex" flexDirection="row" alignItems="center" gap={2}>
-            <Box minWidth={120} display="flex" alignItems="center">
-              <Typography variant="body1" color="var(--primary)">
+        <Box display="flex" flexDirection="column" gap={1}>
+          <Box
+            display="flex"
+            flexDirection={isMobile ? "column" : "row"}
+            alignItems={isMobile ? undefined : "center"}
+            gap={2}
+          >
+            <Box
+              minWidth={120}
+              display="flex"
+              alignItems={isMobile ? undefined : "center"}
+              mb={isMobile ? 0.5 : 0}
+            >
+              <Typography
+                variant="body1"
+                color="var(--primary)"
+                fontWeight="bold"
+                sx={{ mr: 0 }}
+              >
                 Email:
               </Typography>
             </Box>
-            <Box flex={1} display="flex" alignItems="center">
-              <Typography variant="body1" color="var(--primary)">
-                {watchedValues.info.email}
-              </Typography>
+            <Box
+              flex={1}
+              display="flex"
+              alignItems={isMobile ? undefined : "center"}
+              sx={{ ml: 0 }}
+            >
+              <Controller
+                name="info.email"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    error={!!formState.errors.info?.email}
+                    helperText={formState.errors.info?.email?.message || ""}
+                    size="small"
+                    sx={{ width: 300 }}
+                    disabled
+                  />
+                )}
+              />
             </Box>
-            <Box width={120} />
+            {!isMobile && <Box width={120} />}
           </Box>
-          <Box display="flex" flexDirection="row" alignItems="center" gap={2}>
-            <Box minWidth={120} display="flex" alignItems="center">
-              <Typography variant="body1" color="var(--primary)">
+          <Box height={isMobile ? 8 : 16} />
+          <Box
+            display="flex"
+            flexDirection={isMobile ? "column" : "row"}
+            alignItems={isMobile ? undefined : "center"}
+            gap={2}
+          >
+            <Box
+              minWidth={120}
+              display="flex"
+              alignItems={isMobile ? undefined : "center"}
+              mb={isMobile ? 0.5 : 0}
+              gap={1}
+            >
+              <Typography
+                variant="body1"
+                color="var(--primary)"
+                fontWeight="bold"
+              >
                 Telegram chat id:
               </Typography>
             </Box>
-            <Box flex={1} display="flex" alignItems="center">
+            <Box flex={1} display="flex" alignItems="center" gap={1}>
               <Controller
                 name="provider.telegramChatId"
                 control={control}
@@ -170,17 +227,43 @@ export default function SettingsTab() {
                       formState.errors.provider?.telegramChatId?.message || ""
                     }
                     size="small"
-                    sx={{ flex: 1 }}
+                    sx={{ width: 300 }}
                   />
                 )}
               />
-            </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Tooltip title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here.">
-                <IconButton size="small">
+              <Tooltip
+                title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here."
+                open={isMobile ? tooltipOpen : undefined}
+                onClose={isMobile ? handleTooltipClose : undefined}
+                disableFocusListener={isMobile}
+                disableHoverListener={isMobile}
+                disableTouchListener={isMobile}
+                placement="top"
+                arrow
+              >
+                <IconButton
+                  size="small"
+                  ref={tooltipAnchorRef}
+                  onClick={
+                    isMobile
+                      ? (e) => {
+                          e.stopPropagation();
+                          setTooltipOpen((open) => !open);
+                        }
+                      : undefined
+                  }
+                  aria-label="Telegram chat id info"
+                >
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+            </Box>
+            <Box
+              display="flex"
+              alignItems="center"
+              gap={1}
+              mt={isMobile ? 1 : 0}
+            >
               <Button
                 variant="outlined"
                 size="small"
@@ -188,6 +271,7 @@ export default function SettingsTab() {
                   backgroundColor: "var(--primary)",
                   color: "var(--secondary)",
                   minWidth: 80,
+                  
                 }}
                 onClick={handleTestTelegram}
                 disabled={
@@ -196,8 +280,15 @@ export default function SettingsTab() {
                   !!formState.errors.provider?.telegramChatId
                 }
                 hidden={watchedValues.provider.telegramChatId === ""}
+                startIcon={
+                  testLoading ? (
+                    <Box display="flex" alignItems="center">
+                      <CircularProgress size={16} color="inherit" />
+                    </Box>
+                  ) : null
+                }
               >
-                {testLoading ? "Testing..." : "Test"}
+                Test
               </Button>
             </Box>
           </Box>

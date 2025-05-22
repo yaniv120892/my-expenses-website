@@ -16,6 +16,20 @@ import {
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import SettingsTabSkeleton from "@/components/SettingsTabSkeleton";
+import { useForm, Controller } from "react-hook-form";
+
+type UserSettingsForm = {
+  provider: {
+    telegramChatId: string;
+  };
+  notifications: {
+    createTransaction: boolean;
+    dailySummary: boolean;
+  };
+  info: {
+    email: string;
+  };
+};
 
 export default function SettingsTab() {
   const {
@@ -26,69 +40,64 @@ export default function SettingsTab() {
     saveUserSettings,
     testTelegramConnection,
   } = useUserSettings();
-  const [telegramChatId, setTelegramChatId] = useState("");
-  const [telegramChatIdError, setTelegramChatIdError] = useState("");
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState("");
   const [testLoading, setTestLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const { control, handleSubmit, reset, watch, formState } = useForm({
+    defaultValues: {
+      provider: { telegramChatId: "" },
+      notifications: { createTransaction: false, dailySummary: false },
+      info: { email: "" },
+    },
+    mode: "onChange",
+  });
 
   useEffect(() => {
     fetchUserSettings();
   }, []);
 
   useEffect(() => {
-    if (settings && settings.provider && settings.provider.telegramChatId) {
-      setTelegramChatId(settings.provider.telegramChatId);
+    if (settings) {
+      reset({
+        provider: {
+          ...settings.provider,
+          telegramChatId: settings.provider.telegramChatId || "",
+        },
+        notifications: { ...settings.notifications },
+        info: { ...settings.info },
+      });
     }
-  }, [settings]);
+  }, [settings, reset]);
 
-  function handleToggle(name: "createTransaction" | "dailySummary") {
-    if (!settings) {
-      return;
-    }
-    saveUserSettings({
-      info: settings.info,
-      notifications: {
-        ...settings.notifications,
-        [name]: !settings.notifications[name],
-      },
-      provider: settings.provider,
-    });
-  }
+  const watchedValues = watch();
+  const isDirty = formState.isDirty;
 
-  async function handleTelegramChatIdChange(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const value = e.target.value;
-    setTelegramChatId(value);
-    setTelegramChatIdError("");
-    setTestResult(null);
-    if (!settings) {
-      return;
-    }
-    if (value && !/^\d+$/.test(value)) {
-      setTelegramChatIdError("Chat ID must be a number");
-      return;
-    }
-    await saveUserSettings({
-      ...settings,
-      provider: {
-        ...settings.provider,
-        telegramChatId: value,
-      },
-    });
-  }
-
-  async function handleTestTelegram() {
-    setTestResult(null);
+  const handleTestTelegram = async () => {
+    setTestResult("");
     setTestLoading(true);
-    const result = await testTelegramConnection(telegramChatId);
+    const result = await testTelegramConnection(
+      watchedValues.provider.telegramChatId
+    );
     if (result.success) {
       setTestResult("Test message sent successfully");
     } else {
       setTestResult(result.message || "Failed to send test message");
     }
     setTestLoading(false);
-  }
+  };
+
+  const onSave = async (data: UserSettingsForm) => {
+    setSaveLoading(true);
+    await saveUserSettings({
+      ...data,
+      provider: {
+        enabled: settings?.provider.enabled || false,
+        telegramChatId: data.provider.telegramChatId,
+      },
+    });
+    setSaveLoading(false);
+  };
 
   if (loading) {
     return <SettingsTabSkeleton />;
@@ -113,17 +122,28 @@ export default function SettingsTab() {
         </Typography>
         <Divider sx={{ mb: 2 }} />
         <Typography variant="body1" color="var(--primary)">
-          Email: {settings.info.email}
+          Email: {watchedValues.info.email}
         </Typography>
         <Box mt={2} display="flex" alignItems="center" gap={1}>
-          <TextField
-            label="Telegram Chat ID"
-            value={telegramChatId}
-            onChange={handleTelegramChatIdChange}
-            error={!!telegramChatIdError}
-            helperText={telegramChatIdError || ""}
-            size="small"
-            sx={{ flex: 1 }}
+          <Controller
+            name="provider.telegramChatId"
+            control={control}
+            rules={{
+              pattern: {
+                value: /^\d*$/,
+                message: "Chat ID must be a number",
+              },
+            }}
+            render={({ field, fieldState }) => (
+              <TextField
+                label="Telegram Chat ID"
+                {...field}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message || ""}
+                size="small"
+                sx={{ flex: 1 }}
+              />
+            )}
           />
           <Tooltip title="To get your chat ID, create a new group on Telegram, add my-expenses-bot to the group, and send a message: @WhatIsMyChatId. The bot will reply with your chat ID. Copy it here.">
             <IconButton size="small">
@@ -134,7 +154,11 @@ export default function SettingsTab() {
             variant="outlined"
             size="small"
             onClick={handleTestTelegram}
-            disabled={testLoading || !telegramChatId || !!telegramChatIdError}
+            disabled={
+              testLoading ||
+              !watchedValues.provider.telegramChatId ||
+              !!formState.errors.provider?.telegramChatId
+            }
             sx={{ minWidth: 80 }}
           >
             {testLoading ? "Testing..." : "Test"}
@@ -159,27 +183,53 @@ export default function SettingsTab() {
           Notifications
         </Typography>
         <Divider sx={{ mb: 2 }} />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={settings.notifications.createTransaction}
-              onChange={() => handleToggle("createTransaction")}
-              sx={{ color: "var(--primary)" }}
+        <Controller
+          name="notifications.createTransaction"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  sx={{ color: "var(--primary)" }}
+                />
+              }
+              label="Notify on new transaction creation"
             />
-          }
-          label="Notify on new transaction creation"
+          )}
         />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={settings.notifications.dailySummary}
-              onChange={() => handleToggle("dailySummary")}
-              sx={{ color: "var(--primary)" }}
+        <Controller
+          name="notifications.dailySummary"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  sx={{ color: "var(--primary)" }}
+                />
+              }
+              label="Daily summary notification"
             />
-          }
-          label="Daily summary notification"
+          )}
         />
         <Divider sx={{ my: 2 }} />
+        <Box display="flex" justifyContent="flex-end" gap={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit(onSave)}
+            disabled={
+              !isDirty ||
+              saveLoading ||
+              !!formState.errors.provider?.telegramChatId
+            }
+          >
+            {saveLoading ? "Saving..." : "Save"}
+          </Button>
+        </Box>
       </Paper>
     </Box>
   );

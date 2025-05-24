@@ -30,6 +30,8 @@
     --background: #f7f8fa;
     --foreground: #000;
     --text-color: #000;
+    --primary: #f7f8fa;
+    --secondary: #7b61ff;
   }
 }
 
@@ -53,8 +55,8 @@ body {
 
 .button-primary {
   background: var(--primary);
-  color: #fff;
-  border: none;
+  color: var(--text-color);
+  border: var(--text-color) 1px solid;
   border-radius: 16px;
   padding: 0.85rem 2rem;
   font-weight: 700;

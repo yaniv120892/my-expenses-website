@@ -174,7 +174,12 @@ export default function TransactionForm({
         fullWidth
         disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
       >
-        <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
+        <DialogTitle
+          style={{
+            fontWeight: 700,
+            color: "black",
+          }}
+        >
           {initialData ? "Edit Transaction" : "New Transaction"}
         </DialogTitle>
         <DialogContent>

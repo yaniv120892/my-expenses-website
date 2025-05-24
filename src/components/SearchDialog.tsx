@@ -60,9 +60,9 @@ export default function SearchDialog({
       fullWidth
       sx={{ mt: 8 }}
     >
-      <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
+      <DialogTitle style={{ fontWeight: 700, color: "black)" }}>
         <Box display="flex" alignItems="center" gap={1}>
-          <SearchIcon style={{ color: "var(--primary)" }} />
+          <SearchIcon style={{ color: "black)" }} />
           Search Transactions
         </Box>
       </DialogTitle>

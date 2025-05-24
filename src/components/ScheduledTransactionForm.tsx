@@ -209,14 +209,19 @@ export default function ScheduledTransactionForm({
         fullWidth
         disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
       >
-        <DialogTitle style={{ fontWeight: 700, color: "var(--primary)" }}>
+        <DialogTitle
+          style={{
+            fontWeight: 700,
+            color: "black",
+          }}
+        >
           {initialData
             ? "Edit Scheduled Transaction"
             : "New Scheduled Transaction"}
         </DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
-            <Box mb={1} color="var(--primary)">
+            <Box mb={1} color="black" fontWeight={500}>
               {getScheduleSummary()}
             </Box>
             <TextField

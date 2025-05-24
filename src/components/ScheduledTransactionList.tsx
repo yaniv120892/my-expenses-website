@@ -45,10 +45,10 @@ function ScheduledTransactionRowMobile({
             <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
               {tx.description}
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
               {getCategoryName(tx.categoryId, categories)}
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
               {translateToScheduleSummary(
                 tx.scheduleType,
                 tx.interval,
@@ -67,7 +67,7 @@ function ScheduledTransactionRowMobile({
             >
               {getFormattedValue(tx.value)}
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
               {formatTransactionDate(tx.nextRunDate)}
             </div>
           </div>

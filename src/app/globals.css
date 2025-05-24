@@ -3,6 +3,7 @@
 :root {
   --primary: #070707;
   --secondary: #7b61ff;
+  --text-secondary: #6c6c6c;
   --accent-green: #00c48c;
   --accent-yellow: #ffd600;
   --accent-red: #ff647c;
@@ -15,9 +16,20 @@
   :root {
     --card-bg: #23263a;
     --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    --text-secondary: #b0b0b0;
     --background: #181a20;
     --foreground: #fff;
     --text-color: #fff;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --card-bg: #ffffff;
+    --card-shadow: 0 2px 8px rgba(58, 90, 255, 0.1);
+    --background: #f7f8fa;
+    --foreground: #000;
+    --text-color: #000;
   }
 }
 
@@ -127,16 +139,18 @@ input[type="search"] {
 }
 
 .table tr:hover {
-  background: rgba(97, 121, 241, 0.1);
+  background: var(--background);
 }
 
 .table th {
-  background: var(--primary);
+  background: var(--background);
   color: var(--foreground);
   transition: background 0.2s;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-align: center;
+  border-bottom: 1px solid var(--foreground);
+  padding: 1rem;
 }
 
 .table td {

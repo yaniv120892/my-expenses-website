@@ -119,16 +119,14 @@ export default function TransactionsTab() {
   };
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
-    setFilters({});
-    await handleCreate(data);
+    await handleCreate(data, filters);
   };
 
   const handleUpdateSuccess = async (
     id: string,
     data: CreateTransactionInput
   ) => {
-    setFilters({});
-    await handleUpdate(id, data);
+    await handleUpdate(id, data, filters);
   };
 
   return (
@@ -144,7 +142,7 @@ export default function TransactionsTab() {
           loading={loading}
           transactions={transactions}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onDelete={(id) => handleDelete(id, filters)}
         />
       </Box>
 

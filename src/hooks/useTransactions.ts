@@ -30,30 +30,37 @@ export function useTransactions() {
     }
   };
 
-  const handleCreate = async (data: CreateTransactionInput) => {
+  const handleCreate = async (
+    data: CreateTransactionInput,
+    filters?: TransactionFilters
+  ) => {
     try {
       await createTransaction(data);
-      await fetchTransactions();
+      await fetchTransactions(filters);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create transaction");
     }
   };
 
-  const handleUpdate = async (id: string, data: UpdateTransactionInput) => {
+  const handleUpdate = async (
+    id: string,
+    data: UpdateTransactionInput,
+    filters?: TransactionFilters
+  ) => {
     try {
       await updateTransaction(id, data);
-      await fetchTransactions();
+      await fetchTransactions(filters);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update transaction");
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, filters?: TransactionFilters) => {
     try {
       await deleteTransaction(id);
-      await fetchTransactions();
+      await fetchTransactions(filters);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete transaction");

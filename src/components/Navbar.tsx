@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import Image from "next/image";
 import { Tabs, Tab, Button } from "@mui/material";
-import { TabOption, Transaction } from "../types";
+import { TabOption } from "../types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAuth } from "@/context/AuthContext";
+import { usePendingTransactionsQuery } from "@/hooks/usePendingTransactionsQuery";
 
 function getTabStyle(isSelected: boolean, isMobile: boolean) {
   return {
@@ -58,23 +59,12 @@ function PendingTransactionsTabLabel(pendingCount: number) {
 interface NavbarProps {
   activeTab: TabOption;
   onTabChange: (tab: TabOption) => void;
-  pendingTransactions: Transaction[];
-  fetchPendingTransactions: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({
-  activeTab,
-  onTabChange,
-  pendingTransactions,
-  fetchPendingTransactions,
-}) => {
+const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
   const isMobile = useIsMobile();
-  const pendingCount = pendingTransactions.length;
+  const { data: pendingTransactions = [] } = usePendingTransactionsQuery();
   const { logout } = useAuth();
-
-  useEffect(() => {
-    fetchPendingTransactions();
-  }, []);
 
   return (
     <nav
@@ -164,14 +154,14 @@ const Navbar: React.FC<NavbarProps> = ({
               sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
             />
             <Tab
-              label={PendingTransactionsTabLabel(pendingCount)}
+              label={PendingTransactionsTabLabel(pendingTransactions.length)}
               value={TabOption.PendingTransactions}
               sx={getTabStyle(
                 activeTab === TabOption.PendingTransactions,
                 isMobile
               )}
               wrapped
-              key={`pending-tab-${pendingCount}`}
+              key={`pending-tab-${pendingTransactions.length}`}
             />
             <Tab
               label="Scheduled Transactions"
@@ -246,14 +236,14 @@ const Navbar: React.FC<NavbarProps> = ({
               sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
             />
             <Tab
-              label={PendingTransactionsTabLabel(pendingCount)}
+              label={PendingTransactionsTabLabel(pendingTransactions.length)}
               value={TabOption.PendingTransactions}
               sx={getTabStyle(
                 activeTab === TabOption.PendingTransactions,
                 isMobile
               )}
               wrapped
-              key={`pending-tab-${pendingCount}`}
+              key={`pending-tab-${pendingTransactions.length}`}
             />
             <Tab
               label="Scheduled Transactions"

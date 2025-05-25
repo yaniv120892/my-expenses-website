@@ -1,26 +1,38 @@
-import React from "react";
+import React, { useState } from "react";
 import PendingTransactionsList from "../../components/PendingTransactionsList";
 import PendingTransactionListSkeleton from "../../components/PendingTransactionListSkeleton";
 import { Box, Snackbar, Alert } from "@mui/material";
-import { Transaction } from "../../types";
+import {
+  usePendingTransactionsQuery,
+  useConfirmTransactionMutation,
+  useDeletePendingTransactionMutation,
+} from "../../hooks/usePendingTransactionsQuery";
 
-type PendingTransactionsTabProps = {
-  pendingTransactions: Transaction[];
-  loading: boolean;
-  error: string | null;
-  handleConfirm: (id: string) => void;
-  handleDelete: (id: string) => void;
-  setError: (err: string | null) => void;
-};
+export default function PendingTransactionsTab() {
+  const [error, setError] = useState<string | null>(null);
+  const { data: pendingTransactions = [], isLoading } =
+    usePendingTransactionsQuery();
+  const confirmMutation = useConfirmTransactionMutation();
+  const deleteMutation = useDeletePendingTransactionMutation();
 
-export default function PendingTransactionsTab({
-  pendingTransactions,
-  loading,
-  error,
-  handleConfirm,
-  handleDelete,
-  setError,
-}: PendingTransactionsTabProps) {
+  async function handleConfirm(id: string) {
+    try {
+      await confirmMutation.mutateAsync(id);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to confirm transaction"
+      );
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete transaction");
+    }
+  }
+
   return (
     <Box
       sx={{
@@ -30,7 +42,7 @@ export default function PendingTransactionsTab({
         position: "relative",
       }}
     >
-      {loading ? (
+      {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />
       ) : (
         <PendingTransactionsList

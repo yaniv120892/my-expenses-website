@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Box, Typography, Paper } from "@mui/material";
 import {
   BarChart,
@@ -13,13 +13,13 @@ import {
   LabelList,
 } from "recharts";
 import dayjs from "dayjs";
-import {
-  getTransactionSummary,
-  getTransactions,
-} from "../services/transactions";
 import { Transaction } from "@/types";
 import { formatNumber } from "@/utils/format";
 import SummaryChartSkeleton from "@/components/SummaryChartSkeleton";
+import {
+  useTransactionsSummaryQuery,
+  useAllTransactionsQuery,
+} from "@/hooks/useTransactionsQuery";
 
 // Color palette
 const COLORS = {
@@ -54,38 +54,6 @@ const getLast6Months = () => {
   return months.reverse();
 };
 
-const fetchLast6MonthsSummary = async (): Promise<MonthSummary[]> => {
-  const months = getLast6Months();
-  const promises = months.map(async (m) => {
-    const startDate = dayjs(m + "-01")
-      .startOf("month")
-      .format("YYYY-MM-DD");
-    const endDate = dayjs(m + "-01")
-      .endOf("month")
-      .format("YYYY-MM-DD");
-    try {
-      const summary = await getTransactionSummary({ startDate, endDate });
-      return {
-        month: m,
-        income: summary.totalIncome || 0,
-        expense: summary.totalExpense || 0,
-      };
-    } catch (err) {
-      console.error(`[SummaryChart] Failed to fetch summary for`, {
-        startDate,
-        endDate,
-        err,
-      });
-      return {
-        month: m,
-        income: 0,
-        expense: 0,
-      };
-    }
-  });
-  return Promise.all(promises).then((results) => results);
-};
-
 // Custom compact tooltip for PieChart
 const CompactTooltip: React.FC<{
   active?: boolean;
@@ -113,71 +81,106 @@ const CompactTooltip: React.FC<{
 };
 
 const SummaryChart: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<MonthSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [topCategories, setTopCategories] = useState<
-    { name: string; value: number }[]
-  >([]);
+  const months = getLast6Months();
+  const startDate = dayjs()
+    .subtract(5, "month")
+    .startOf("month")
+    .format("YYYY-MM-DD");
+  const endDate = dayjs().endOf("month").format("YYYY-MM-DD");
 
-  useEffect(() => {
-    setLoading(true);
-    fetchLast6MonthsSummary()
-      .then(setData)
-      .catch(() => setError("Failed to load summary"))
-      .finally(() => setLoading(false));
+  // Fetch all expenses for top categories
+  const { data: allTransactionsData } = useAllTransactionsQuery({
+    type: "EXPENSE",
+    startDate,
+    endDate,
+  });
 
-    // Fetch all expense transactions for the last 6 months and compute top 5 categories
-    const fetchTopCategories = async () => {
-      const startDate = dayjs()
-        .subtract(5, "month")
-        .startOf("month")
-        .format("YYYY-MM-DD");
-      const endDate = dayjs().endOf("month").format("YYYY-MM-DD");
-      let page = 1;
-      let allExpenses: Transaction[] = [];
-      let hasMore = true;
-      while (hasMore) {
-        const txs: Transaction[] = await getTransactions({
-          type: "EXPENSE",
-          startDate,
-          endDate,
-          page,
-          perPage: 100,
-        });
-        allExpenses = allExpenses.concat(txs);
-        hasMore = txs.length === 100;
-        page++;
-      }
-      // Aggregate by category
-      const categoryTotals: Record<string, { name: string; value: number }> =
-        {};
-      allExpenses.forEach((tx) => {
-        if (!tx.category) return;
-        if (!categoryTotals[tx.category.id]) {
-          categoryTotals[tx.category.id] = { name: tx.category.name, value: 0 };
-        }
-        categoryTotals[tx.category.id].value += tx.value;
-      });
-      // Sort and take top 5
-      const sorted = Object.values(categoryTotals)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5);
-      setTopCategories(sorted);
-    };
-    fetchTopCategories();
-  }, []);
+  // Individual monthly summary queries
+  const month0Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[0] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[0] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
+  const month1Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[1] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[1] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
+  const month2Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[2] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[2] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
+  const month3Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[3] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[3] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
+  const month4Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[4] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[4] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
+  const month5Query = useTransactionsSummaryQuery({
+    startDate: dayjs(months[5] + "-01")
+      .startOf("month")
+      .format("YYYY-MM-DD"),
+    endDate: dayjs(months[5] + "-01")
+      .endOf("month")
+      .format("YYYY-MM-DD"),
+  });
 
-  if (loading) {
+  const monthlySummaries = [
+    month0Query,
+    month1Query,
+    month2Query,
+    month3Query,
+    month4Query,
+    month5Query,
+  ];
+
+  // Check if any queries are loading
+  const isLoading = monthlySummaries.some((query) => query.isLoading);
+  // Check if any queries have errors
+  const error = monthlySummaries.find((query) => query.error)?.error;
+
+  if (isLoading) {
     return <SummaryChartSkeleton />;
   }
+
   if (error) {
     return (
       <Box textAlign="center" color={COLORS.expense} py={4} fontWeight={500}>
-        {error}
+        {error instanceof Error ? error.message : "Failed to load summary"}
       </Box>
     );
   }
+
+  // Transform monthly data
+  const data: MonthSummary[] = months.map((month, index) => {
+    const summary = monthlySummaries[index].data;
+    return {
+      month,
+      income: summary?.totalIncome || 0,
+      expense: summary?.totalExpense || 0,
+    };
+  });
+
   if (!data.length) {
     return (
       <Box textAlign="center" color={COLORS.text} py={4} fontWeight={500}>
@@ -185,6 +188,20 @@ const SummaryChart: React.FC = () => {
       </Box>
     );
   }
+
+  // Calculate top categories from all transactions
+  const categoryTotals: Record<string, { name: string; value: number }> = {};
+  allTransactionsData?.pages?.flat().forEach((tx: Transaction) => {
+    if (!tx.category) return;
+    if (!categoryTotals[tx.category.id]) {
+      categoryTotals[tx.category.id] = { name: tx.category.name, value: 0 };
+    }
+    categoryTotals[tx.category.id].value += tx.value;
+  });
+
+  const topCategories = Object.values(categoryTotals)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
 
   // Bar chart data (total for last 6 months)
   const totalIncome = data.reduce((sum, m) => sum + m.income, 0);

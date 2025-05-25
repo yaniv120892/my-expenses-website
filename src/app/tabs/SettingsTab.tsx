@@ -16,10 +16,14 @@ import {
   Snackbar,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import { useUserSettings } from "@/hooks/useUserSettings";
 import SettingsTabSkeleton from "@/components/SettingsTabSkeleton";
 import { useForm, Controller } from "react-hook-form";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  useTestTelegramMutation,
+  useUpdateUserSettingsMutation,
+  useUserSettingsQuery,
+} from "@/hooks/useUserSettingsQuery";
 
 type UserSettingsForm = {
   provider: {
@@ -35,14 +39,10 @@ type UserSettingsForm = {
 };
 
 export default function SettingsTab() {
-  const {
-    settings,
-    loading,
-    error,
-    fetchUserSettings,
-    saveUserSettings,
-    testTelegramConnection,
-  } = useUserSettings();
+  const { data: settings, isLoading: loading, error } = useUserSettingsQuery();
+  const { mutateAsync: saveUserSettings } = useUpdateUserSettingsMutation();
+  const { mutateAsync: testTelegramConnection } = useTestTelegramMutation();
+
   const [testResult, setTestResult] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -68,10 +68,6 @@ export default function SettingsTab() {
   }
 
   useEffect(() => {
-    fetchUserSettings();
-  }, []);
-
-  useEffect(() => {
     if (settings) {
       reset({
         provider: {
@@ -90,16 +86,19 @@ export default function SettingsTab() {
   const handleTestTelegram = async () => {
     setTestResult("");
     setTestLoading(true);
-    const result = await testTelegramConnection(
-      watchedValues.provider.telegramChatId
-    );
-    if (result.success) {
-      setTestResult("Test message sent successfully");
-    } else {
-      setTestResult(result.message || "Failed to send test message");
+    try {
+      const result = await testTelegramConnection(
+        watchedValues.provider.telegramChatId
+      );
+      setTestResult(
+        result.success ? "Test message sent successfully" : result.message
+      );
+    } catch {
+      setTestResult("Failed to send test message");
+    } finally {
+      setTestLoading(false);
+      setTestSnackbarOpen(true);
     }
-    setTestLoading(false);
-    setTestSnackbarOpen(true);
   };
 
   useEffect(() => {
@@ -149,7 +148,11 @@ export default function SettingsTab() {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <Alert severity="error">
+        {error instanceof Error ? error.message : String(error)}
+      </Alert>
+    );
   }
 
   if (!settings) {

@@ -53,7 +53,6 @@ export const TrendFiltersDialog = ({
     initialTransactionType
   );
 
-  // Reset local state when dialog opens
   useEffect(() => {
     if (open) {
       setPeriod(initialPeriod);

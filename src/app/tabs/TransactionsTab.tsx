@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Transaction, TransactionFilters } from "../../types";
+import {
+  Transaction,
+  TransactionFilters,
+  CreateTransactionInput,
+} from "../../types";
 import TransactionList from "../../components/TransactionList";
 import TransactionForm from "../../components/TransactionForm";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
@@ -114,6 +118,19 @@ export default function TransactionsTab() {
     setEditTx(null);
   };
 
+  const handleCreateSuccess = async (data: CreateTransactionInput) => {
+    setFilters({});
+    await handleCreate(data);
+  };
+
+  const handleUpdateSuccess = async (
+    id: string,
+    data: CreateTransactionInput
+  ) => {
+    setFilters({});
+    await handleUpdate(id, data);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <TransactionFiltersDisplay
@@ -138,7 +155,9 @@ export default function TransactionsTab() {
           setEditTx(null);
         }}
         onSubmitAction={
-          editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate
+          editTx
+            ? (data) => handleUpdateSuccess(editTx.id, data)
+            : handleCreateSuccess
         }
         onDeleteAction={async (id) => {
           await handleDelete(id);

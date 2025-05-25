@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ScheduledTransactionList from "../../components/ScheduledTransactionList";
 import ScheduledTransactionForm from "../../components/ScheduledTransactionForm";
 import ScheduledTransactionListSkeleton from "../../components/ScheduledTransactionListSkeleton";
@@ -10,7 +10,13 @@ import {
   ScheduledTransaction,
   UpdateScheduledTransactionInput,
 } from "../../types";
-import { useScheduledTransactions } from "../../hooks/useScheduledTransactions";
+import {
+  useScheduledTransactionsQuery,
+  useCreateScheduledTransactionMutation,
+  useUpdateScheduledTransactionMutation,
+  useDeleteScheduledTransactionMutation,
+} from "../../hooks/useScheduledTransactionsQuery";
+import { useCategoriesQuery } from "../../hooks/useTransactionsQuery";
 
 function ScheduleTransactionTableArea({
   loading,
@@ -67,28 +73,36 @@ function AddScheduledTransactionFab({
 }
 
 export default function ScheduledTransactionsTab() {
-  const {
-    scheduledTransactions,
-    categories,
-    loading,
-    error,
-    fetchScheduledTransactions,
-    fetchCategories,
-    handleCreate,
-    handleUpdate,
-    handleDelete,
-    setError,
-  } = useScheduledTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleFormSubmit(
+  const { data: scheduledTransactions = [], isLoading: loading } =
+    useScheduledTransactionsQuery();
+  const { data: categories = [] } = useCategoriesQuery();
+
+  const createMutation = useCreateScheduledTransactionMutation();
+  const updateMutation = useUpdateScheduledTransactionMutation();
+  const deleteMutation = useDeleteScheduledTransactionMutation();
+
+  async function handleFormSubmit(
     data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput
   ) {
-    if (editTx) {
-      return handleUpdate(editTx.id, data as UpdateScheduledTransactionInput);
+    try {
+      if (editTx) {
+        await updateMutation.mutateAsync({ id: editTx.id, data });
+      } else {
+        await createMutation.mutateAsync(
+          data as CreateScheduledTransactionInput
+        );
+      }
+      setFormOpen(false);
+      setEditTx(null);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to save scheduled transaction"
+      );
     }
-    return handleCreate(data as CreateScheduledTransactionInput);
   }
 
   function handleEdit(tx: ScheduledTransaction) {
@@ -101,10 +115,17 @@ export default function ScheduledTransactionsTab() {
     setEditTx(null);
   }
 
-  useEffect(() => {
-    fetchScheduledTransactions();
-    fetchCategories();
-  }, []);
+  async function handleDelete(id: string) {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to delete scheduled transaction"
+      );
+    }
+  }
 
   return (
     <Box
@@ -128,9 +149,7 @@ export default function ScheduledTransactionsTab() {
           setEditTx(null);
         }}
         onSubmitAction={handleFormSubmit}
-        onDeleteAction={async (id) => {
-          await handleDelete(id);
-        }}
+        onDeleteAction={handleDelete}
         initialData={editTx}
       />
       <AddScheduledTransactionFab

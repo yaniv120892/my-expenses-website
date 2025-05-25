@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { TextField, MenuItem } from "@mui/material";
-import { Category } from "../types";
-import { getCategories } from "../services/transactions";
+import { useCategoriesQuery } from "../hooks/useTransactionsQuery";
 
 type CategorySelectProps = {
   value: string;
@@ -23,18 +22,10 @@ export default function CategorySelect({
   fullWidth = true,
   disabled = false,
 }: CategorySelectProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    async function fetchAndSetCategories() {
-      const fetchedCategories = await getCategories();
-      const sortedCategories = [...fetchedCategories].sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
-      setCategories(sortedCategories);
-    }
-    fetchAndSetCategories();
-  }, []);
+  const { data: categories = [] } = useCategoriesQuery();
+  const sortedCategories = [...categories].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   return (
     <TextField
@@ -52,7 +43,7 @@ export default function CategorySelect({
       <MenuItem value="">
         <em>Choose category</em>
       </MenuItem>
-      {categories.map((cat) => (
+      {sortedCategories.map((cat) => (
         <MenuItem key={cat.id} value={cat.id}>
           {cat.name}
         </MenuItem>

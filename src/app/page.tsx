@@ -12,7 +12,6 @@ import TrendsTab from "./tabs/TrendsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { usePendingTransactions } from "../hooks/usePendingTransactions";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 function getTabLabel(tab: TabOption) {
@@ -30,19 +29,9 @@ export default function HomePage() {
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const isMobile = useIsMobile();
-  const {
-    pendingTransactions,
-    loading: pendingLoading,
-    error: pendingError,
-    fetchPendingTransactions,
-    handleConfirm,
-    handleDelete,
-    setError: setPendingError,
-  } = usePendingTransactions();
 
   useEffect(() => {
     setIsMounted(true);
-    fetchPendingTransactions();
   }, []);
 
   function handleMobileNavOpen() {
@@ -69,12 +58,6 @@ export default function HomePage() {
       case TabOption.PendingTransactions: {
         return (
           <PendingTransactionsTab
-            pendingTransactions={pendingTransactions}
-            loading={pendingLoading}
-            error={pendingError}
-            handleConfirm={handleConfirm}
-            handleDelete={handleDelete}
-            setError={setPendingError}
           />
         );
       }
@@ -168,8 +151,6 @@ export default function HomePage() {
                 <Navbar
                   activeTab={activeTab}
                   onTabChange={handleTabChange}
-                  pendingTransactions={pendingTransactions}
-                  fetchPendingTransactions={fetchPendingTransactions}
                 />
               </Box>
               <Box
@@ -202,8 +183,6 @@ export default function HomePage() {
             <Navbar
               activeTab={activeTab}
               onTabChange={setActiveTab}
-              pendingTransactions={pendingTransactions}
-              fetchPendingTransactions={fetchPendingTransactions}
             />
           </Box>
           <Box sx={{ flex: 1, pt: 0, pr: 3, pb: 3, pl: 3 }}>

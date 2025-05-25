@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Transaction,
   TransactionFilters,
@@ -9,11 +9,15 @@ import TransactionForm from "../../components/TransactionForm";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box, Alert, Snackbar } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { useTransactions } from "../../hooks/useTransactions";
 import { TransactionFiltersDialog } from "../../components/transactions/TransactionFiltersDialog";
 import { TransactionFiltersDisplay } from "../../components/transactions/TransactionFiltersDisplay";
-import { getCategories } from "../../services/transactions";
-import { Category } from "../../types";
+import {
+  useTransactionsQuery,
+  useCategoriesQuery,
+  useCreateTransactionMutation,
+  useUpdateTransactionMutation,
+  useDeleteTransactionMutation,
+} from "../../hooks/useTransactionsQuery";
 
 function TransactionTableArea({
   loading,
@@ -71,41 +75,22 @@ function AddTransactionFab({
 }
 
 export default function TransactionsTab() {
-  const {
-    transactions,
-    loading,
-    error,
-    fetchTransactions,
-    handleCreate,
-    handleUpdate,
-    handleDelete,
-    setError,
-  } = useTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({});
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const cats = await getCategories();
-        setCategories(cats);
-      } catch (error) {
-        console.error("Error loading categories:", error);
-      }
-    };
-    loadCategories();
-  }, []);
+  const { data: transactions = [], isLoading: loading } =
+    useTransactionsQuery(filters);
+  const { data: categories = [] } = useCategoriesQuery();
 
-  React.useEffect(() => {
-    fetchTransactions();
-  }, []);
+  const createMutation = useCreateTransactionMutation();
+  const updateMutation = useUpdateTransactionMutation();
+  const deleteMutation = useDeleteTransactionMutation();
 
   const handleApplyFilters = (newFilters: TransactionFilters) => {
     setFilters(newFilters);
-    fetchTransactions(newFilters);
   };
 
   const handleEdit = (tx: Transaction) => {
@@ -119,14 +104,30 @@ export default function TransactionsTab() {
   };
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
-    await handleCreate(data, filters);
+    try {
+      await createMutation.mutateAsync(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create transaction");
+    }
   };
 
   const handleUpdateSuccess = async (
     id: string,
     data: CreateTransactionInput
   ) => {
-    await handleUpdate(id, data, filters);
+    try {
+      await updateMutation.mutateAsync({ id, data });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update transaction");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete transaction");
+    }
   };
 
   return (
@@ -142,7 +143,7 @@ export default function TransactionsTab() {
           loading={loading}
           transactions={transactions}
           onEdit={handleEdit}
-          onDelete={(id) => handleDelete(id, filters)}
+          onDelete={handleDelete}
         />
       </Box>
 
@@ -157,9 +158,7 @@ export default function TransactionsTab() {
             ? (data) => handleUpdateSuccess(editTx.id, data)
             : handleCreateSuccess
         }
-        onDeleteAction={async (id) => {
-          await handleDelete(id);
-        }}
+        onDeleteAction={handleDelete}
         initialData={editTx}
       />
 

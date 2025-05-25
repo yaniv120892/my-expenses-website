@@ -1,24 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Box } from "@mui/material";
-import {
-  SpendingTrend,
-  CategorySpendingTrend,
-  TrendFilters,
-} from "@/types/trends";
-import {
-  fetchSpendingTrends,
-  fetchCategorySpendingTrends,
-} from "@/services/trendService";
+import { TrendFilters } from "@/types/trends";
 import { subMonths } from "date-fns";
-import { getCategories } from "@/services/transactions";
-import { Category } from "@/types";
 import { OverallTrendCard } from "@/components/trends/OverallTrendCard";
 import { CategoryTrendCard } from "@/components/trends/CategoryTrendCard";
 import { TrendCardSkeleton } from "@/components/trends/TrendSkeleton";
 import { TrendFiltersDialog } from "@/components/trends/TrendFiltersDialog";
 import { TrendFiltersDisplay } from "@/components/trends/TrendFiltersDisplay";
+import {
+  useSpendingTrendsQuery,
+  useCategorySpendingTrendsQuery,
+} from "@/hooks/useTrendsQuery";
+import { useCategoriesQuery } from "@/hooks/useTransactionsQuery";
 
 export default function TrendsTab() {
   const [filters, setFilters] = useState<TrendFilters>({
@@ -28,62 +23,37 @@ export default function TrendsTab() {
     selectedCategory: "All Categories",
     transactionType: "EXPENSE",
   });
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [overallTrend, setOverallTrend] = useState<SpendingTrend | null>(null);
-  const [categoryTrends, setCategoryTrends] = useState<CategorySpendingTrend[]>(
-    []
-  );
-  const [isLoading, setIsLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const cats = await getCategories();
-        setCategories(cats);
-      } catch (error) {
-        console.error("Error loading categories:", error);
-      }
-    };
-    loadCategories();
-  }, []);
+  const { data: categories = [] } = useCategoriesQuery();
+  const { data: overallTrend, isLoading: isOverallLoading } =
+    useSpendingTrendsQuery({
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      period: filters.period,
+      categoryId:
+        filters.selectedCategory === "All Categories"
+          ? undefined
+          : filters.selectedCategory,
+      transactionType: filters.transactionType,
+    });
 
-  const fetchTrends = async () => {
-    setIsLoading(true);
-    try {
-      const overallTrend = await fetchSpendingTrends({
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        period: filters.period,
-        categoryId:
-          filters.selectedCategory === "All Categories"
-            ? undefined
-            : filters.selectedCategory,
-        transactionType: filters.transactionType,
-      });
-      setOverallTrend(overallTrend);
-      if (filters.selectedCategory === "All Categories") {
-        const categories = await fetchCategorySpendingTrends({
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          period: filters.period,
-          transactionType: filters.transactionType,
-        });
-        setCategoryTrends(categories);
-      }
-    } catch (error) {
-      console.error("Error fetching trends:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: categoryTrends = [], isLoading: isCategoryLoading } =
+    useCategorySpendingTrendsQuery(
+      filters.selectedCategory === "All Categories"
+        ? {
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+            period: filters.period,
+            transactionType: filters.transactionType,
+          }
+        : { period: filters.period }
+    );
 
-  useEffect(() => {
-    fetchTrends();
-  }, [filters]);
+  const isLoading = isOverallLoading || isCategoryLoading;
 
   const handleCategoryExpand = (categoryId: string) => {
     setExpandedCategories((prev) => {

@@ -1,4 +1,4 @@
-export type TrendPeriod = "daily" | "weekly" | "monthly" | "yearly";
+export type TrendPeriod = "weekly" | "monthly" | "yearly";
 export type TransactionType = "EXPENSE" | "INCOME";
 
 export type TrendPoint = {
@@ -12,24 +12,25 @@ export type CategoryTrendPoint = TrendPoint & {
   categoryName: string;
 };
 
-export type SpendingTrend = {
-  period: TrendPeriod;
-  startDate: string;
-  endDate: string;
-  points: TrendPoint[];
+export interface SpendingTrend {
+  points: {
+    date: string;
+    amount: number;
+  }[];
   totalAmount: number;
   percentageChange: number;
   trend: "up" | "down" | "stable";
-};
+}
 
-export type CategorySpendingTrend = {
-  period: TrendPeriod;
-  startDate: string;
-  endDate: string;
-  points: CategoryTrendPoint[];
-  totalAmount: number;
-  percentageChange: number;
-  trend: "up" | "down" | "stable";
+export interface CategorySpendingTrend extends SpendingTrend {
   categoryId: string;
   categoryName: string;
-};
+}
+
+export interface TrendFilters {
+  period: TrendPeriod;
+  startDate: Date;
+  endDate: Date;
+  selectedCategory: string;
+  transactionType: TransactionType;
+}

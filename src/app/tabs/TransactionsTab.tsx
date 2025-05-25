@@ -5,9 +5,9 @@ import TransactionForm from "../../components/TransactionForm";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box, Alert, Snackbar } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import SearchDialog from "../../components/SearchDialog";
-import SearchIcon from "@mui/icons-material/Search";
 import { useTransactions } from "../../hooks/useTransactions";
+import { TransactionFiltersDialog } from "../../components/transactions/TransactionFiltersDialog";
+import { TransactionFiltersDisplay } from "../../components/transactions/TransactionFiltersDisplay";
 
 function TransactionTableArea({
   loading,
@@ -35,13 +35,11 @@ function TransactionTableArea({
   );
 }
 
-function AddTransactionFabs({
+function AddTransactionFab({
   onAddClick,
-  onSearchClick,
   visible,
 }: {
   onAddClick: () => void;
-  onSearchClick: () => void;
   visible: boolean;
 }) {
   if (visible) {
@@ -59,9 +57,6 @@ function AddTransactionFabs({
       >
         <Fab color="secondary" aria-label="add" onClick={onAddClick}>
           <AddIcon />
-        </Fab>
-        <Fab color="secondary" aria-label="search" onClick={onSearchClick}>
-          <SearchIcon />
         </Fab>
       </Box>
     );
@@ -82,18 +77,16 @@ export default function TransactionsTab() {
   } = useTransactions();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
-  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
-  const [lastSearch, setLastSearch] = useState<TransactionFilters | undefined>(
-    undefined
-  );
+  const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
+  const [filters, setFilters] = useState<TransactionFilters>({});
 
   React.useEffect(() => {
     fetchTransactions();
   }, []);
 
-  const handleSearch = (params: TransactionFilters) => {
-    setLastSearch(params);
-    fetchTransactions(params);
+  const handleApplyFilters = (newFilters: TransactionFilters) => {
+    setFilters(newFilters);
+    fetchTransactions(newFilters);
   };
 
   const handleEdit = (tx: Transaction) => {
@@ -106,26 +99,22 @@ export default function TransactionsTab() {
     setEditTx(null);
   };
 
-  const handleSearchFabClick = () => {
-    setSearchDialogOpen(true);
-  };
-
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 3,
-        position: "relative",
-      }}
-    >
-      <TransactionTableArea
-        loading={loading}
-        transactions={transactions}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+    <Box sx={{ p: 3 }}>
+      <TransactionFiltersDisplay
+        {...filters}
+        onOpenFilters={() => setFiltersDialogOpen(true)}
       />
+
+      <Box sx={{ mt: 2, flex: 1 }}>
+        <TransactionTableArea
+          loading={loading}
+          transactions={transactions}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      </Box>
+
       <TransactionForm
         open={formOpen}
         onCloseAction={() => {
@@ -140,17 +129,16 @@ export default function TransactionsTab() {
         }}
         initialData={editTx}
       />
-      <AddTransactionFabs
-        onAddClick={handleAddFabClick}
-        onSearchClick={handleSearchFabClick}
-        visible={!formOpen && !searchDialogOpen}
+
+      <AddTransactionFab onAddClick={handleAddFabClick} visible={!formOpen} />
+
+      <TransactionFiltersDialog
+        open={filtersDialogOpen}
+        onClose={() => setFiltersDialogOpen(false)}
+        onApply={handleApplyFilters}
+        initialFilters={filters}
       />
-      <SearchDialog
-        open={searchDialogOpen}
-        onClose={() => setSearchDialogOpen(false)}
-        onSearch={handleSearch}
-        initialFilters={lastSearch}
-      />
+
       <Snackbar
         open={!!error}
         autoHideDuration={4000}

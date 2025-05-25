@@ -8,23 +8,23 @@ import {
   Box,
   CircularProgress,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import { TransactionFilters } from "../types";
-import CategorySelect from "./CategorySelect";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import { TransactionFilters } from "@/types";
+import CategorySelect from "../CategorySelect";
 
-type SearchDialogProps = {
+interface TransactionFiltersDialogProps {
   open: boolean;
   onClose: () => void;
-  onSearch: (filters: TransactionFilters) => void;
+  onApply: (filters: TransactionFilters) => void;
   initialFilters?: TransactionFilters;
-};
+}
 
-export default function SearchDialog({
+export const TransactionFiltersDialog = ({
   open,
   onClose,
-  onSearch,
+  onApply,
   initialFilters,
-}: SearchDialogProps) {
+}: TransactionFiltersDialogProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -32,16 +32,18 @@ export default function SearchDialog({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setSearchTerm(initialFilters?.searchTerm || "");
-    setCategoryId(initialFilters?.categoryId || "");
-    setStartDate(initialFilters?.startDate || "");
-    setEndDate(initialFilters?.endDate || "");
+    if (open) {
+      setSearchTerm(initialFilters?.searchTerm || "");
+      setCategoryId(initialFilters?.categoryId || "");
+      setStartDate(initialFilters?.startDate || "");
+      setEndDate(initialFilters?.endDate || "");
+    }
   }, [initialFilters, open]);
 
-  const handleSearch = async () => {
+  const handleApply = async () => {
     setLoading(true);
     try {
-      onSearch({
+      onApply({
         searchTerm: searchTerm.trim() === "" ? undefined : searchTerm,
         categoryId: categoryId === "" ? undefined : categoryId,
         startDate: startDate === "" ? undefined : startDate,
@@ -54,16 +56,11 @@ export default function SearchDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={loading ? undefined : onClose}
-      fullWidth
-      sx={{ mt: 8 }}
-    >
-      <DialogTitle style={{ fontWeight: 700, color: "black)" }}>
+    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth>
+      <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>
-          <SearchIcon style={{ color: "black)" }} />
-          Search Transactions
+          <FilterListIcon />
+          Filter Transactions
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -98,44 +95,40 @@ export default function SearchDialog({
           />
         </Box>
       </DialogContent>
-      <DialogActions
-        style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
-      >
-        <Box display="flex" width="100%" gap={2}>
-          <button
-            className="button-secondary"
-            style={{
-              width: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onClick={handleSearch}
-            disabled={loading}
-          >
-            {loading ? (
-              <CircularProgress size={20} style={{ color: "#fff" }} />
-            ) : (
-              "Search"
-            )}
-          </button>
-          <button
-            className="button-primary"
-            style={{
-              width: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onClick={onClose}
-            disabled={loading}
-          >
-            Close
-          </button>
-        </Box>
+      <DialogActions sx={{ p: 2, display: "flex", gap: 2 }}>
+        <button
+          className="button-secondary"
+          style={{
+            width: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+          onClick={handleApply}
+          disabled={loading}
+        >
+          {loading ? (
+            <CircularProgress size={20} style={{ color: "#fff" }} />
+          ) : (
+            "Apply"
+          )}
+        </button>
+        <button
+          className="button-primary"
+          style={{
+            width: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+          onClick={onClose}
+          disabled={loading}
+        >
+          Close
+        </button>
       </DialogActions>
     </Dialog>
   );
-}
+};

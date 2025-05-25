@@ -187,6 +187,11 @@ const Navbar: React.FC<NavbarProps> = ({
               sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
             />
             <Tab
+              label="Trends"
+              value={TabOption.Trends}
+              sx={getTabStyle(activeTab === TabOption.Trends, isMobile)}
+            />
+            <Tab
               label="Settings"
               value={TabOption.Settings}
               sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
@@ -201,10 +206,15 @@ const Navbar: React.FC<NavbarProps> = ({
             }}
           />
           <Button
-            variant="contained"
+            variant="outlined"
             color="secondary"
             onClick={logout}
-            sx={{ width: "100%" }}
+            sx={{
+              width: "100%",
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 700,
+            }}
           >
             Logout
           </Button>
@@ -259,6 +269,11 @@ const Navbar: React.FC<NavbarProps> = ({
               sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
             />
             <Tab
+              label="Trends"
+              value={TabOption.Trends}
+              sx={getTabStyle(activeTab === TabOption.Trends, isMobile)}
+            />
+            <Tab
               label="Settings"
               value={TabOption.Settings}
               sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
@@ -273,10 +288,15 @@ const Navbar: React.FC<NavbarProps> = ({
             }}
           >
             <Button
-              variant="contained"
+              variant="outlined"
               color="secondary"
               onClick={logout}
-              sx={{ width: "auto" }}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 700,
+                minWidth: 100,
+              }}
             >
               Logout
             </Button>

@@ -1,10 +1,12 @@
-import { Box, Chip, Button, Typography } from "@mui/material";
+import { Box, Chip, Button, Typography, Stack } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import { TransactionFilters } from "@/types";
+import { Category } from "@/types";
 import dayjs from "dayjs";
 
 interface TransactionFiltersDisplayProps extends TransactionFilters {
   onOpenFilters: () => void;
+  categories: Category[];
 }
 
 export const TransactionFiltersDisplay = ({
@@ -13,15 +15,21 @@ export const TransactionFiltersDisplay = ({
   startDate,
   endDate,
   onOpenFilters,
+  categories,
 }: TransactionFiltersDisplayProps) => {
   const hasActiveFilters = searchTerm || categoryId || startDate || endDate;
 
+  const getCategoryName = (id: string) => {
+    const category = categories.find((cat) => cat.id === id);
+    return category ? category.name : id;
+  };
+
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-      <Typography variant="h4" color="var(--text-color)">
-        Transactions
-      </Typography>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+    <Box sx={{ mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+        <Typography variant="h4" color="var(--text-color)">
+          Transactions
+        </Typography>
         <Button
           variant="outlined"
           startIcon={<FilterListIcon />}
@@ -38,7 +46,7 @@ export const TransactionFiltersDisplay = ({
       </Box>
 
       {hasActiveFilters && (
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           {searchTerm && (
             <Chip
               label={`Search: ${searchTerm}`}
@@ -52,7 +60,7 @@ export const TransactionFiltersDisplay = ({
           )}
           {categoryId && (
             <Chip
-              label={`Category: ${categoryId}`}
+              label={`Category: ${getCategoryName(categoryId)}`}
               variant="outlined"
               sx={{
                 backgroundColor: "var(--primary)",
@@ -83,7 +91,7 @@ export const TransactionFiltersDisplay = ({
               }}
             />
           )}
-        </Box>
+        </Stack>
       )}
     </Box>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Transaction, TransactionFilters } from "../../types";
 import TransactionList from "../../components/TransactionList";
 import TransactionForm from "../../components/TransactionForm";
@@ -8,6 +8,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { useTransactions } from "../../hooks/useTransactions";
 import { TransactionFiltersDialog } from "../../components/transactions/TransactionFiltersDialog";
 import { TransactionFiltersDisplay } from "../../components/transactions/TransactionFiltersDisplay";
+import { getCategories } from "../../services/transactions";
+import { Category } from "../../types";
 
 function TransactionTableArea({
   loading,
@@ -79,6 +81,19 @@ export default function TransactionsTab() {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({});
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await getCategories();
+        setCategories(cats);
+      } catch (error) {
+        console.error("Error loading categories:", error);
+      }
+    };
+    loadCategories();
+  }, []);
 
   React.useEffect(() => {
     fetchTransactions();
@@ -104,6 +119,7 @@ export default function TransactionsTab() {
       <TransactionFiltersDisplay
         {...filters}
         onOpenFilters={() => setFiltersDialogOpen(true)}
+        categories={categories}
       />
 
       <Box sx={{ mt: 2, flex: 1 }}>

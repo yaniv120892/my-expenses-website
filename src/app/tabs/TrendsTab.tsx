@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Box, Typography, SelectChangeEvent } from "@mui/material";
+import { Box } from "@mui/material";
 import {
-  TrendPeriod,
   SpendingTrend,
   CategorySpendingTrend,
-  TransactionType,
+  TrendFilters,
 } from "@/types/trends";
 import {
   fetchSpendingTrends,
@@ -15,19 +14,20 @@ import {
 import { subMonths } from "date-fns";
 import { getCategories } from "@/services/transactions";
 import { Category } from "@/types";
-import { TrendFilters } from "@/components/trends/TrendFilters";
 import { OverallTrendCard } from "@/components/trends/OverallTrendCard";
 import { CategoryTrendCard } from "@/components/trends/CategoryTrendCard";
 import { TrendCardSkeleton } from "@/components/trends/TrendSkeleton";
+import { TrendFiltersDialog } from "@/components/trends/TrendFiltersDialog";
+import { TrendFiltersDisplay } from "@/components/trends/TrendFiltersDisplay";
 
 export default function TrendsTab() {
-  const [period, setPeriod] = useState<TrendPeriod>("monthly");
-  const [startDate, setStartDate] = useState<Date>(subMonths(new Date(), 6));
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  const [selectedCategory, setSelectedCategory] =
-    useState<string>("All Categories");
-  const [transactionType, setTransactionType] =
-    useState<TransactionType>("EXPENSE");
+  const [filters, setFilters] = useState<TrendFilters>({
+    period: "monthly",
+    startDate: subMonths(new Date(), 6),
+    endDate: new Date(),
+    selectedCategory: "All Categories",
+    transactionType: "EXPENSE",
+  });
   const [categories, setCategories] = useState<Category[]>([]);
   const [overallTrend, setOverallTrend] = useState<SpendingTrend | null>(null);
   const [categoryTrends, setCategoryTrends] = useState<CategorySpendingTrend[]>(
@@ -37,6 +37,7 @@ export default function TrendsTab() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -54,20 +55,22 @@ export default function TrendsTab() {
     setIsLoading(true);
     try {
       const overallTrend = await fetchSpendingTrends({
-        startDate,
-        endDate,
-        period,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        period: filters.period,
         categoryId:
-          selectedCategory === "All Categories" ? undefined : selectedCategory,
-        transactionType,
+          filters.selectedCategory === "All Categories"
+            ? undefined
+            : filters.selectedCategory,
+        transactionType: filters.transactionType,
       });
       setOverallTrend(overallTrend);
-      if (selectedCategory === "All Categories") {
+      if (filters.selectedCategory === "All Categories") {
         const categories = await fetchCategorySpendingTrends({
-          startDate,
-          endDate,
-          period,
-          transactionType,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          period: filters.period,
+          transactionType: filters.transactionType,
         });
         setCategoryTrends(categories);
       }
@@ -80,31 +83,7 @@ export default function TrendsTab() {
 
   useEffect(() => {
     fetchTrends();
-  }, [period, startDate, endDate, selectedCategory, transactionType]);
-
-  const handlePeriodChange = (event: SelectChangeEvent<TrendPeriod>) => {
-    setPeriod(event.target.value as TrendPeriod);
-  };
-
-  const handleCategoryChange = (event: SelectChangeEvent<string>) => {
-    setSelectedCategory(event.target.value);
-  };
-
-  const handleStartDateChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setStartDate(new Date(event.target.value));
-  };
-
-  const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEndDate(new Date(event.target.value));
-  };
-
-  const handleTransactionTypeChange = (
-    event: SelectChangeEvent<TransactionType>
-  ) => {
-    setTransactionType(event.target.value as TransactionType);
-  };
+  }, [filters]);
 
   const handleCategoryExpand = (categoryId: string) => {
     setExpandedCategories((prev) => {
@@ -118,24 +97,33 @@ export default function TrendsTab() {
     });
   };
 
+  const handleOpenFilters = () => {
+    setIsFiltersOpen(true);
+  };
+
+  const handleCloseFilters = () => {
+    setIsFiltersOpen(false);
+  };
+
+  const handleApplyFilters = (newFilters: TrendFilters) => {
+    setFilters(newFilters);
+    setIsFiltersOpen(false);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom color="var(--text-color)">
-        {transactionType === "EXPENSE" ? "Spending" : "Income"} Trends
-      </Typography>
-
-      <TrendFilters
-        period={period}
-        startDate={startDate}
-        endDate={endDate}
-        selectedCategory={selectedCategory}
-        transactionType={transactionType}
+      <TrendFiltersDisplay
+        {...filters}
         categories={categories}
-        onPeriodChange={handlePeriodChange}
-        onStartDateChange={handleStartDateChange}
-        onEndDateChange={handleEndDateChange}
-        onCategoryChange={handleCategoryChange}
-        onTransactionTypeChange={handleTransactionTypeChange}
+        onOpenFilters={handleOpenFilters}
+      />
+
+      <TrendFiltersDialog
+        open={isFiltersOpen}
+        onClose={handleCloseFilters}
+        onApply={handleApplyFilters}
+        {...filters}
+        categories={categories}
       />
 
       {isLoading ? (
@@ -145,20 +133,20 @@ export default function TrendsTab() {
           {overallTrend && (
             <OverallTrendCard
               trend={overallTrend}
-              selectedCategory={selectedCategory}
+              selectedCategory={filters.selectedCategory}
               categories={categories}
-              transactionType={transactionType}
-              period={period}
+              transactionType={filters.transactionType}
+              period={filters.period}
             />
           )}
 
-          {selectedCategory === "All Categories" &&
+          {filters.selectedCategory === "All Categories" &&
             categoryTrends.map((trend) => (
               <CategoryTrendCard
                 key={trend.categoryId}
                 trend={trend}
-                transactionType={transactionType}
-                period={period}
+                transactionType={filters.transactionType}
+                period={filters.period}
                 isExpanded={expandedCategories.has(trend.categoryId)}
                 onExpand={handleCategoryExpand}
               />

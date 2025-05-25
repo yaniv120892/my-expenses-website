@@ -8,6 +8,7 @@ import TransactionsTab from "./tabs/TransactionsTab";
 import ScheduledTransactionsTab from "./tabs/ScheduledTransactionsTab";
 import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
 import SettingsTab from "./tabs/SettingsTab";
+import TrendsTab from "./tabs/TrendsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -20,6 +21,7 @@ function getTabLabel(tab: TabOption) {
   if (tab === TabOption.ScheduledTransactions) return "Scheduled Transactions";
   if (tab === TabOption.Summary) return "Summary";
   if (tab === TabOption.Settings) return "Settings";
+  if (tab === TabOption.Trends) return "Trends";
   return "";
 }
 
@@ -78,6 +80,9 @@ export default function HomePage() {
       }
       case TabOption.Settings: {
         return <SettingsTab />;
+      }
+      case TabOption.Trends: {
+        return <TrendsTab />;
       }
       case TabOption.Transactions:
       default: {

@@ -1,10 +1,11 @@
 export enum TabOption {
-  Transactions = "transactions",
-  PendingTransactions = "pending-transactions",
-  ScheduledTransactions = "scheduled-transactions",
-  Summary = "summary",
-  Settings = "settings",
-  Trends = "trends",
+  Transactions = "TRANSACTIONS",
+  PendingTransactions = "PENDING_TRANSACTIONS",
+  ScheduledTransactions = "SCHEDULED_TRANSACTIONS",
+  Summary = "SUMMARY",
+  Settings = "SETTINGS",
+  Trends = "TRENDS",
+  Imports = "IMPORTS",
 }
 
 export type TransactionType = "INCOME" | "EXPENSE";

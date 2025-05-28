@@ -11,7 +11,7 @@ import {
   DialogActions,
   CircularProgress,
 } from "@mui/material";
-import { CreateTransactionInput, Transaction } from "../types";
+import { CreateTransactionInput } from "../types";
 import dayjs from "dayjs";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
@@ -19,15 +19,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import CategorySelect from "./CategorySelect";
 import NotificationSnackbar from "./NotificationSnackbar";
 
-type Props = {
-  open: boolean;
-  onCloseAction: () => void;
-  onSubmitAction: (data: CreateTransactionInput) => Promise<void>;
-  onDeleteAction?: (id: string) => Promise<void>;
-  initialData?: Transaction | null;
-};
-
 type TransactionFormType = {
+  id: string;
   description: string;
   value: number | string;
   categoryId: string;
@@ -35,7 +28,17 @@ type TransactionFormType = {
   date: string;
 };
 
+type Props = {
+  open: boolean;
+  onCloseAction: () => void;
+  onSubmitAction: (data: CreateTransactionInput) => Promise<void>;
+  onDeleteAction?: (id: string) => Promise<void>;
+  initialData?: TransactionFormType | null;
+  mode?: "approve" | "merge";
+};
+
 const defaultForm: TransactionFormType = {
+  id: "",
   description: "",
   value: "",
   categoryId: "",
@@ -49,6 +52,7 @@ export default function TransactionForm({
   onSubmitAction,
   onDeleteAction,
   initialData,
+  mode,
 }: Props) {
   const [form, setForm] = useState<TransactionFormType>(defaultForm);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
@@ -63,9 +67,10 @@ export default function TransactionForm({
   useEffect(() => {
     if (initialData) {
       setForm({
+        id: initialData.id,
         description: initialData.description,
         value: initialData.value,
-        categoryId: initialData.category.id,
+        categoryId: initialData.categoryId || "",
         type: initialData.type,
         date: dayjs(initialData.date).format("YYYY-MM-DD"),
       });
@@ -166,6 +171,24 @@ export default function TransactionForm({
     }
   }
 
+  const getDialogTitle = () => {
+    if (mode === "approve") return "Approve Imported Transaction";
+    if (mode === "merge") return "Merge Imported Transaction";
+    return initialData ? "Edit Transaction" : "New Transaction";
+  };
+
+  const getSubmitButtonText = () => {
+    if (mode === "approve") return "Approve";
+    if (mode === "merge") return "Merge";
+    return initialData ? "Update" : "Create";
+  };
+
+  const getSubmitButtonColor = () => {
+    if (mode === "approve") return "#2ecc71"; 
+    if (mode === "merge") return "#3498db";
+    return "var(--primary-color)";
+  };
+
   return (
     <>
       <Dialog
@@ -180,7 +203,7 @@ export default function TransactionForm({
             color: "black",
           }}
         >
-          {initialData ? "Edit Transaction" : "New Transaction"}
+          {getDialogTitle()}
         </DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
@@ -254,6 +277,7 @@ export default function TransactionForm({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
+                background: getSubmitButtonColor(),
               }}
               onClick={handleSubmit}
               disabled={isLoadingUpdate || isLoadingDelete}
@@ -261,12 +285,12 @@ export default function TransactionForm({
               {isLoadingUpdate ? (
                 <>
                   <CircularProgress size={20} style={{ color: "#fff" }} />
-                  {initialData ? "Update" : "Create"}
+                  {getSubmitButtonText()}
                 </>
               ) : (
                 <>
                   <SaveIcon style={{ fontSize: 20 }} />
-                  {initialData ? "Update" : "Create"}
+                  {getSubmitButtonText()}
                 </>
               )}
             </button>
@@ -291,13 +315,24 @@ export default function TransactionForm({
               className="button-secondary"
               style={{
                 width: "100%",
-                color: "#fff",
-                background: "#e74c3c",
-                marginTop: 16,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
+                background: "#e74c3c",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                padding: "8px 16px",
+                cursor: "pointer",
+                fontWeight: 600,
+                transition: "background-color 0.2s",
+              }}
+              onMouseOver={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#c0392b";
+              }}
+              onMouseOut={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#e74c3c";
               }}
               onClick={handleDelete}
               disabled={isLoadingUpdate || isLoadingDelete}
@@ -305,12 +340,12 @@ export default function TransactionForm({
               {isLoadingDelete ? (
                 <>
                   <CircularProgress size={20} style={{ color: "#fff" }} />
-                  {"Delete"}
+                  Delete
                 </>
               ) : (
                 <>
                   <DeleteIcon style={{ fontSize: 20 }} />
-                  {"Delete"}
+                  Delete
                 </>
               )}
             </button>

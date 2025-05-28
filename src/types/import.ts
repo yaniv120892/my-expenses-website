@@ -1,4 +1,4 @@
-import { Transaction } from "./index";
+import { TransactionType } from "./index";
 
 export enum ImportFileType {
   CAL_CREDIT = "CAL_CREDIT",
@@ -30,6 +30,17 @@ export interface Import {
   completedAt?: string;
 }
 
+export interface MatchingTransaction {
+  id: string;
+  description: string;
+  value: number;
+  date: string;
+  categoryId: string;
+  type: TransactionType;
+  status: ImportedTransactionStatus;
+  userId: string;
+}
+
 export interface ImportedTransaction {
   id: string;
   importId: string;
@@ -39,7 +50,7 @@ export interface ImportedTransaction {
   type: string;
   status: ImportedTransactionStatus;
   matchingTransactionId?: string;
-  matchingTransaction?: Transaction;
+  matchingTransaction?: MatchingTransaction;
   rawData: unknown;
   deleted?: boolean;
 }

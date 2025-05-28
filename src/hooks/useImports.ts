@@ -4,6 +4,7 @@ import { Import, ImportFileType } from "../types/import";
 import { pendingTransactionKeys } from "@/hooks/usePendingTransactionsQuery";
 import { transactionKeys } from "@/hooks/useTransactionsQuery";
 import { trendKeys } from "@/hooks/useTrendsQuery";
+import { CreateTransactionInput } from "../types";
 
 export const useImportsQuery = () => {
   return useQuery<Import[]>({
@@ -41,8 +42,8 @@ export const useApproveImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (transactionId: string) =>
-      importService.approveImportedTransaction(transactionId),
+    mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
+      importService.approveImportedTransaction(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["imported-transactions", importId],
@@ -78,8 +79,8 @@ export const useMergeImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (transactionId: string) =>
-      importService.mergeImportedTransaction(transactionId),
+    mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
+      importService.mergeImportedTransaction(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["imported-transactions", importId],

@@ -1,5 +1,6 @@
 import api from "@/services/api";
 import { Import, ImportFileType, ImportedTransaction } from "../types/import";
+import { CreateTransactionInput } from "../types";
 
 class ImportService {
   async processImport(
@@ -25,12 +26,18 @@ class ImportService {
     return response.data;
   }
 
-  async approveImportedTransaction(transactionId: string): Promise<void> {
-    await api.post(`/api/imports/transactions/${transactionId}/approve`);
+  async approveImportedTransaction(
+    transactionId: string,
+    data?: CreateTransactionInput
+  ): Promise<void> {
+    await api.post(`/api/imports/transactions/${transactionId}/approve`, data);
   }
 
-  async mergeImportedTransaction(transactionId: string): Promise<void> {
-    await api.post(`/api/imports/transactions/${transactionId}/merge`);
+  async mergeImportedTransaction(
+    transactionId: string,
+    data?: CreateTransactionInput
+  ): Promise<void> {
+    await api.post(`/api/imports/transactions/${transactionId}/merge`, data);
   }
 
   async rejectImportedTransaction(transactionId: string): Promise<void> {

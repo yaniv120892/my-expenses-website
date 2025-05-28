@@ -14,6 +14,19 @@ export function formatTrendDate(date: string, period: TrendPeriod): string {
   }
 }
 
-export const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString();
+/**
+ * Format a date string to a readable date string
+ * @param dateString - The date string to format
+ * @param includeTime - Whether to include the time in the formatted date
+ * @returns The formatted date string in the format of DD/MM/YYYY HH:MM
+ */
+export const formatDate = (
+  dateString: string,
+  includeTime: boolean = false
+) => {
+  const date = new Date(dateString);
+  if (includeTime) {
+    return format(date, "dd/MM/yyyy HH:mm");
+  }
+  return date.toLocaleDateString();
 };

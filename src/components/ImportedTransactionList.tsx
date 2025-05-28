@@ -21,9 +21,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import {
   useImportedTransactionsQuery,
   useApproveImportedTransactionMutation,
-  useRejectImportedTransactionMutation,
   useMergeImportedTransactionMutation,
   useDeleteImportedTransactionMutation,
+  useIgnoreImportedTransactionMutation,
 } from "../hooks/useImports";
 import { formatDate } from "../utils/dateUtils";
 import {
@@ -44,7 +44,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     useImportedTransactionsQuery(importId);
   const approveMutation = useApproveImportedTransactionMutation(importId);
   const mergeMutation = useMergeImportedTransactionMutation(importId);
-  const rejectMutation = useRejectImportedTransactionMutation(importId);
+  const ignoreMutation = useIgnoreImportedTransactionMutation(importId);
   const deleteMutation = useDeleteImportedTransactionMutation(importId);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -52,6 +52,9 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   const [selectedTransaction, setSelectedTransaction] =
     useState<ImportedTransaction | null>(null);
   const [formMode, setFormMode] = useState<"merge" | "approve" | undefined>();
+  const [pendingOperations, setPendingOperations] = useState<
+    Record<string, string>
+  >({});
 
   const formatAmount = (value: number) => {
     return new Intl.NumberFormat("he-IL", {
@@ -78,16 +81,40 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     }
   };
 
-  const handleReject = async (transactionId: string) => {
-    await rejectMutation.mutateAsync(transactionId);
+  const handleIgnore = async (transactionId: string) => {
+    setPendingOperations((prev) => ({ ...prev, [transactionId]: "ignore" }));
+    try {
+      await ignoreMutation.mutateAsync(transactionId);
+    } finally {
+      setPendingOperations((prev) => {
+        const updated = { ...prev };
+        delete updated[transactionId];
+        return updated;
+      });
+    }
   };
 
   const handleDelete = async (transactionId: string) => {
-    await deleteMutation.mutateAsync(transactionId);
+    setPendingOperations((prev) => ({ ...prev, [transactionId]: "delete" }));
+    try {
+      await deleteMutation.mutateAsync(transactionId);
+    } finally {
+      setPendingOperations((prev) => {
+        const updated = { ...prev };
+        delete updated[transactionId];
+        return updated;
+      });
+    }
   };
 
   const handleFormSubmit = async (data: CreateTransactionInput) => {
     if (!selectedTransaction) return;
+
+    const operationType = formMode === "merge" ? "merge" : "approve";
+    setPendingOperations((prev) => ({
+      ...prev,
+      [selectedTransaction.id]: operationType,
+    }));
 
     try {
       if (formMode === "merge") {
@@ -106,6 +133,12 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
       setFormMode(undefined);
     } catch (error) {
       console.error("Error handling transaction:", error);
+    } finally {
+      setPendingOperations((prev) => {
+        const updated = { ...prev };
+        delete updated[selectedTransaction.id];
+        return updated;
+      });
     }
   };
 
@@ -201,7 +234,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                           size="small"
                           color="info"
                           onClick={() => handleMerge(transaction.id)}
-                          disabled={mergeMutation.isPending}
+                          disabled={!!pendingOperations[transaction.id]}
                           startIcon={!isMobile && <MergeIcon />}
                           sx={{
                             textTransform: "none",
@@ -218,7 +251,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                           size="small"
                           color="success"
                           onClick={() => handleApprove(transaction.id)}
-                          disabled={approveMutation.isPending}
+                          disabled={!!pendingOperations[transaction.id]}
                           startIcon={!isMobile && <CheckIcon />}
                           sx={{
                             textTransform: "none",
@@ -234,8 +267,8 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         variant="contained"
                         size="small"
                         color="warning"
-                        onClick={() => handleReject(transaction.id)}
-                        disabled={rejectMutation.isPending}
+                        onClick={() => handleIgnore(transaction.id)}
+                        disabled={!!pendingOperations[transaction.id]}
                         startIcon={!isMobile && <CloseIcon />}
                         sx={{
                           textTransform: "none",
@@ -244,7 +277,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                           p: isMobile ? 1 : undefined,
                         }}
                       >
-                        {isMobile ? <CloseIcon /> : "Reject"}
+                        {isMobile ? <CloseIcon /> : "Ignore"}
                       </Button>
                     </>
                   )}
@@ -254,7 +287,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                       size="small"
                       color="error"
                       onClick={() => handleDelete(transaction.id)}
-                      disabled={deleteMutation.isPending}
+                      disabled={!!pendingOperations[transaction.id]}
                       startIcon={!isMobile && <DeleteIcon />}
                       sx={{
                         textTransform: "none",
@@ -278,6 +311,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
           setFormOpen(false);
           setSelectedTransaction(null);
           setFormMode(undefined);
+          if (selectedTransaction) {
+            setPendingOperations((prev) => {
+              const updated = { ...prev };
+              delete updated[selectedTransaction.id];
+              return updated;
+            });
+          }
         }}
         onSubmitAction={handleFormSubmit}
         initialData={

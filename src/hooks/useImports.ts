@@ -28,10 +28,12 @@ export const useProcessImportMutation = () => {
     mutationFn: ({
       fileUrl,
       importType,
+      originalFileName,
     }: {
       fileUrl: string;
       importType: ImportFileType;
-    }) => importService.processImport(fileUrl, importType),
+      originalFileName: string;
+    }) => importService.processImport(fileUrl, importType, originalFileName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["imports"] });
     },
@@ -61,12 +63,12 @@ export const useApproveImportedTransactionMutation = (importId: string) => {
   });
 };
 
-export const useRejectImportedTransactionMutation = (importId: string) => {
+export const useIgnoreImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (transactionId: string) =>
-      importService.rejectImportedTransaction(transactionId),
+      importService.ignoreImportedTransaction(transactionId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["imported-transactions", importId],

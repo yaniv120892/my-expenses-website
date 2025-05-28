@@ -48,10 +48,10 @@ function ImportRowMobile({
         >
           <div style={{ textAlign: "left" }}>
             <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
-              {importItem.importType}
+              {importItem.originalFileName}
             </div>
             <div style={{ fontSize: "0.85em", color: "#888" }}>
-              {formatDate(importItem.createdAt)}
+              {formatDate(importItem.createdAt, true)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -85,7 +85,7 @@ function ImportRowDesktop({
       <td style={{ width: 48, padding: "8px 0" }}>
         {isExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
       </td>
-      <td>{importItem.importType}</td>
+      <td>{importItem.originalFileName}</td>
       <td>
         <Chip
           label={importItem.status}
@@ -93,7 +93,7 @@ function ImportRowDesktop({
           size="small"
         />
       </td>
-      <td>{formatDate(importItem.createdAt)}</td>
+      <td>{formatDate(importItem.createdAt, true)}</td>
     </tr>
   );
 }
@@ -166,7 +166,7 @@ export default function ImportList({
         <thead>
           <tr>
             <th style={{ width: 48 }}></th>
-            <th>Import Type</th>
+            <th>File Name</th>
             <th>Status</th>
             <th>Created At</th>
           </tr>

@@ -183,12 +183,6 @@ export default function TransactionForm({
     return initialData ? "Update" : "Create";
   };
 
-  const getSubmitButtonColor = () => {
-    if (mode === "approve") return "#2ecc71"; 
-    if (mode === "merge") return "#3498db";
-    return "var(--primary-color)";
-  };
-
   return (
     <>
       <Dialog
@@ -277,7 +271,7 @@ export default function TransactionForm({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                background: getSubmitButtonColor(),
+                background: "var(--secondary)",
               }}
               onClick={handleSubmit}
               disabled={isLoadingUpdate || isLoadingDelete}

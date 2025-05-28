@@ -58,6 +58,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         await processImportMutation.mutateAsync({
           fileUrl,
           importType: selectedImportType,
+          originalFileName: file.name,
         });
 
         onUploadComplete?.();

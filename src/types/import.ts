@@ -27,7 +27,6 @@ export interface Import {
   status: ImportStatus;
   error?: string;
   createdAt: string;
-  completedAt?: string;
 }
 
 export interface MatchingTransaction {

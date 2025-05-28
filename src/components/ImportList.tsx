@@ -94,9 +94,6 @@ function ImportRowDesktop({
         />
       </td>
       <td>{formatDate(importItem.createdAt)}</td>
-      <td>
-        {importItem.completedAt ? formatDate(importItem.completedAt) : "-"}
-      </td>
     </tr>
   );
 }
@@ -172,7 +169,6 @@ export default function ImportList({
             <th>Import Type</th>
             <th>Status</th>
             <th>Created At</th>
-            <th>Completed At</th>
           </tr>
         </thead>
         <tbody>

@@ -41,9 +41,6 @@ function getDesktopSkeletonRow() {
       <td>
         <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
       </td>
-      <td>
-        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
-      </td>
     </tr>
   );
 }
@@ -80,7 +77,6 @@ export default function ImportListSkeleton({ rows = 5 }: { rows?: number }) {
             <th>Import Type</th>
             <th>Status</th>
             <th>Created At</th>
-            <th>Completed At</th>
           </tr>
         </thead>
         <tbody>

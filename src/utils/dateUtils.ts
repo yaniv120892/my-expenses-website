@@ -13,3 +13,7 @@ export function formatTrendDate(date: string, period: TrendPeriod): string {
       return date;
   }
 }
+
+export const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString();
+};

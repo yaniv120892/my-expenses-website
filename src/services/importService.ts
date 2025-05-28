@@ -5,11 +5,13 @@ import { CreateTransactionInput } from "../types";
 class ImportService {
   async processImport(
     fileUrl: string,
-    importType: ImportFileType
+    importType: ImportFileType,
+    originalFileName: string,
   ): Promise<Import> {
     const response = await api.post("/api/imports/process", {
       fileUrl,
       importType,
+      originalFileName,
     });
     return response.data;
   }
@@ -40,8 +42,8 @@ class ImportService {
     await api.post(`/api/imports/transactions/${transactionId}/merge`, data);
   }
 
-  async rejectImportedTransaction(transactionId: string): Promise<void> {
-    await api.post(`/api/imports/transactions/${transactionId}/reject`);
+  async ignoreImportedTransaction(transactionId: string): Promise<void> {
+    await api.post(`/api/imports/transactions/${transactionId}/ignore`);
   }
 
   async deleteImportedTransaction(transactionId: string): Promise<void> {

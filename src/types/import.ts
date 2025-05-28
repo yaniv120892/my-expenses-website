@@ -23,6 +23,7 @@ export enum ImportedTransactionStatus {
 export interface Import {
   id: string;
   fileUrl: string;
+  originalFileName: string;
   importType: ImportFileType;
   status: ImportStatus;
   error?: string;

@@ -146,9 +146,8 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         <TableHead>
           <TableRow>
             <TableCell>Transaction Details</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Status</TableCell>
             <TableCell>Matching Transaction</TableCell>
+            <TableCell>Status</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -162,24 +161,11 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                   </Typography>
                   <Typography variant="caption" color="var(--text-color)">
                     {formatAmount(transaction.value)} on{" "}
-                    {formatDate(transaction.date)}
+                    {formatDate(transaction.date)} {transaction.type}
                   </Typography>
                 </Box>
               </TableCell>
-              <TableCell>
-                <Chip
-                  label={transaction.type}
-                  color={transaction.type === "EXPENSE" ? "error" : "success"}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={transaction.status}
-                  color={getStatusColor(transaction.status)}
-                  size="small"
-                />
-              </TableCell>
+
               <TableCell>
                 {transaction.matchingTransaction ? (
                   <Box>
@@ -188,7 +174,8 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                     </Typography>
                     <Typography variant="caption" color="var(--text-color)">
                       {formatAmount(transaction.matchingTransaction.value)} on{" "}
-                      {formatDate(transaction.matchingTransaction.date)}
+                      {formatDate(transaction.matchingTransaction.date)}{" "}
+                      {transaction.matchingTransaction.type}
                     </Typography>
                   </Box>
                 ) : (
@@ -196,6 +183,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                     No match found
                   </Typography>
                 )}
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={transaction.status}
+                  color={getStatusColor(transaction.status)}
+                  size="small"
+                />
               </TableCell>
               <TableCell>
                 <Stack direction="row" spacing={1} justifyContent="center">

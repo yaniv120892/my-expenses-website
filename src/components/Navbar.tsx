@@ -172,6 +172,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               )}
             />
             <Tab
+              label="Imports"
+              value={TabOption.Imports}
+              sx={getTabStyle(activeTab === TabOption.Imports, isMobile)}
+            />
+            <Tab
               label="Summary"
               value={TabOption.Summary}
               sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
@@ -252,6 +257,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
                 activeTab === TabOption.ScheduledTransactions,
                 isMobile
               )}
+            />
+            <Tab
+              label="Imports"
+              value={TabOption.Imports}
+              sx={getTabStyle(activeTab === TabOption.Imports, isMobile)}
             />
             <Tab
               label="Summary"

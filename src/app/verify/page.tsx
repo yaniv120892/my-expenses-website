@@ -5,7 +5,7 @@ import React, { useState, Suspense } from "react";
 import { handleApiError } from "../../utils/api";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 
-function getEmailFromUrl(searchParams: ReadonlyURLSearchParams) {
+function getEmailFromUrl(searchParams: ReadonlyURLSearchParams | null) {
   if (!searchParams) {
     return "";
   }

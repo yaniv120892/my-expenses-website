@@ -9,6 +9,7 @@ import ScheduledTransactionsTab from "./tabs/ScheduledTransactionsTab";
 import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
 import SettingsTab from "./tabs/SettingsTab";
 import TrendsTab from "./tabs/TrendsTab";
+import ImportsTab from "./tabs/ImportsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -21,6 +22,7 @@ function getTabLabel(tab: TabOption) {
   if (tab === TabOption.Summary) return "Summary";
   if (tab === TabOption.Settings) return "Settings";
   if (tab === TabOption.Trends) return "Trends";
+  if (tab === TabOption.Imports) return "Imports";
   return "";
 }
 
@@ -56,16 +58,16 @@ export default function HomePage() {
         return <ScheduledTransactionsTab />;
       }
       case TabOption.PendingTransactions: {
-        return (
-          <PendingTransactionsTab
-          />
-        );
+        return <PendingTransactionsTab />;
       }
       case TabOption.Settings: {
         return <SettingsTab />;
       }
       case TabOption.Trends: {
         return <TrendsTab />;
+      }
+      case TabOption.Imports: {
+        return <ImportsTab />;
       }
       case TabOption.Transactions:
       default: {
@@ -148,10 +150,7 @@ export default function HomePage() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <Navbar
-                  activeTab={activeTab}
-                  onTabChange={handleTabChange}
-                />
+                <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
               </Box>
               <Box
                 sx={{
@@ -180,10 +179,7 @@ export default function HomePage() {
           }}
         >
           <Box sx={{ width: "100%", position: "sticky", top: 0, zIndex: 10 }}>
-            <Navbar
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
+            <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
           </Box>
           <Box sx={{ flex: 1, pt: 0, pr: 3, pb: 3, pl: 3 }}>
             {renderTabContent(activeTab)}

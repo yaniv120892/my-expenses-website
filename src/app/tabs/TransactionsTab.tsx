@@ -159,7 +159,14 @@ export default function TransactionsTab() {
             : handleCreateSuccess
         }
         onDeleteAction={handleDelete}
-        initialData={editTx}
+        initialData={editTx ? {
+          id: editTx.id,
+          description: editTx.description,
+          value: editTx.value,
+          categoryId: editTx.category.id,
+          type: editTx.type,
+          date: editTx.date,
+        } : null}
       />
 
       <AddTransactionFab onAddClick={handleAddFabClick} visible={!formOpen} />

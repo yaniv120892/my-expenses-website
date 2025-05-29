@@ -7,6 +7,9 @@ import dayjs from "dayjs";
 interface TransactionFiltersDisplayProps extends TransactionFilters {
   onOpenFilters: () => void;
   categories: Category[];
+  onResetSearch: () => void;
+  onResetCategory: () => void;
+  onResetDateRange: () => void;
 }
 
 export const TransactionFiltersDisplay = ({
@@ -16,12 +19,28 @@ export const TransactionFiltersDisplay = ({
   endDate,
   onOpenFilters,
   categories,
+  onResetSearch,
+  onResetCategory,
+  onResetDateRange,
 }: TransactionFiltersDisplayProps) => {
   const hasActiveFilters = searchTerm || categoryId || startDate || endDate;
 
   const getCategoryName = (id: string) => {
     const category = categories.find((cat) => cat.id === id);
     return category ? category.name : id;
+  };
+
+  const chipSx = {
+    backgroundColor: "var(--primary)",
+    color: "var(--secondary)",
+    fontWeight: "bold",
+    "& .MuiChip-deleteIcon": {
+      color: "var(--secondary)",
+      "&:hover": {
+        color: "var(--secondary)",
+        opacity: 0.7,
+      },
+    },
   };
 
   return (
@@ -51,44 +70,26 @@ export const TransactionFiltersDisplay = ({
             <Chip
               label={`Search: ${searchTerm}`}
               variant="outlined"
-              sx={{
-                backgroundColor: "var(--primary)",
-                color: "var(--secondary)",
-                fontWeight: "bold",
-              }}
+              onDelete={onResetSearch}
+              sx={chipSx}
             />
           )}
           {categoryId && (
             <Chip
               label={`Category: ${getCategoryName(categoryId)}`}
               variant="outlined"
-              sx={{
-                backgroundColor: "var(--primary)",
-                color: "var(--secondary)",
-                fontWeight: "bold",
-              }}
+              onDelete={onResetCategory}
+              sx={chipSx}
             />
           )}
-          {startDate && (
+          {(startDate || endDate) && (
             <Chip
-              label={`From: ${dayjs(startDate).format("MMM D, YYYY")}`}
+              label={`Date: ${
+                startDate ? dayjs(startDate).format("MMM D, YYYY") : ""
+              } - ${endDate ? dayjs(endDate).format("MMM D, YYYY") : ""}`}
               variant="outlined"
-              sx={{
-                backgroundColor: "var(--primary)",
-                color: "var(--secondary)",
-                fontWeight: "bold",
-              }}
-            />
-          )}
-          {endDate && (
-            <Chip
-              label={`To: ${dayjs(endDate).format("MMM D, YYYY")}`}
-              variant="outlined"
-              sx={{
-                backgroundColor: "var(--primary)",
-                color: "var(--secondary)",
-                fontWeight: "bold",
-              }}
+              onDelete={onResetDateRange}
+              sx={chipSx}
             />
           )}
         </Stack>

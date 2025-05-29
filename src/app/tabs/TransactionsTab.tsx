@@ -130,12 +130,31 @@ export default function TransactionsTab() {
     }
   };
 
+  const handleResetSearch = () => {
+    setFilters((prev) => ({ ...prev, searchTerm: undefined }));
+  };
+
+  const handleResetCategory = () => {
+    setFilters((prev) => ({ ...prev, categoryId: undefined }));
+  };
+
+  const handleResetDateRange = () => {
+    setFilters((prev) => ({
+      ...prev,
+      startDate: undefined,
+      endDate: undefined,
+    }));
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <TransactionFiltersDisplay
         {...filters}
         onOpenFilters={() => setFiltersDialogOpen(true)}
         categories={categories}
+        onResetSearch={handleResetSearch}
+        onResetCategory={handleResetCategory}
+        onResetDateRange={handleResetDateRange}
       />
 
       <Box sx={{ mt: 2, flex: 1 }}>
@@ -159,14 +178,18 @@ export default function TransactionsTab() {
             : handleCreateSuccess
         }
         onDeleteAction={handleDelete}
-        initialData={editTx ? {
-          id: editTx.id,
-          description: editTx.description,
-          value: editTx.value,
-          categoryId: editTx.category.id,
-          type: editTx.type,
-          date: editTx.date,
-        } : null}
+        initialData={
+          editTx
+            ? {
+                id: editTx.id,
+                description: editTx.description,
+                value: editTx.value,
+                categoryId: editTx.category.id,
+                type: editTx.type,
+                date: editTx.date,
+              }
+            : null
+        }
       />
 
       <AddTransactionFab onAddClick={handleAddFabClick} visible={!formOpen} />

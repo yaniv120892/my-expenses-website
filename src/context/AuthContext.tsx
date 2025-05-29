@@ -7,6 +7,16 @@ import React, {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { Alert, Snackbar } from "@mui/material";
+import api from "../services/api";
+import {
+  getStoredToken,
+  setStoredToken,
+  clearStoredToken,
+  getStoredIsVerified,
+  setStoredIsVerified,
+  clearStoredIsVerified,
+} from "../services/authService";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -15,44 +25,18 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   verifyCode: (code: string, email: string) => Promise<void>;
-  logout: () => void;
+  logout: (message?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function getStoredToken() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("authToken");
-  }
-  return null;
-}
-
-function setStoredToken(token: string) {
-  localStorage.setItem("authToken", token);
-}
-
-function clearStoredToken() {
-  localStorage.removeItem("authToken");
-}
-
-function getStoredIsVerified() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("isVerified") === "true";
-  }
-  return false;
-}
-
-function setStoredIsVerified(isVerified: boolean) {
-  localStorage.setItem("isVerified", String(isVerified));
-}
-
-function clearStoredIsVerified() {
-  localStorage.removeItem("isVerified");
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(getStoredToken());
   const [isVerified, setIsVerified] = useState(getStoredIsVerified());
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "error" | "success";
+  } | null>(null);
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -72,6 +56,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [isVerified]);
 
+  useEffect(() => {
+    if (token) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common["Authorization"];
+    }
+  }, [token]);
+
+  function logout(message?: string) {
+    setToken(null);
+    setIsVerified(false);
+    clearStoredToken();
+    clearStoredIsVerified();
+
+    if (message) {
+      setNotification({ message, type: "error" });
+    }
+
+    router.push("/login");
+  }
+
+  function handleAuthError(response: Response) {
+    if (response.status === 401) {
+      const code = response.headers.get("error-code");
+      let message = "Your session has expired. Please log in again.";
+
+      switch (code) {
+        case "SESSION_EXPIRED":
+          message = "Your session has expired. Please log in again.";
+          break;
+        case "USER_NOT_VERIFIED":
+          message = "Your account needs verification. Please check your email.";
+          break;
+        case "USER_NOT_FOUND":
+          message = "Account not found. Please register or try again.";
+          break;
+        case "AUTH_REQUIRED":
+          message = "Authentication required. Please log in.";
+          break;
+      }
+
+      logout(message);
+      return true;
+    }
+    return false;
+  }
+
   async function login(email: string, password: string) {
     const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
       method: "POST",
@@ -83,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       setIsVerified(true);
       router.push("/");
+      return;
+    }
+
+    if (handleAuthError(response)) {
       return;
     }
 
@@ -136,14 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Failed to verify code");
   }
 
-  function logout() {
-    setToken(null);
-    setIsVerified(false);
-    clearStoredToken();
-    clearStoredIsVerified();
-    router.push("/login");
-  }
-
   const isAuthenticated = !!token && isVerified;
 
   return (
@@ -159,6 +186,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={6000}
+        onClose={() => setNotification(null)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity={notification?.type}>{notification?.message}</Alert>
+      </Snackbar>
     </AuthContext.Provider>
   );
 }

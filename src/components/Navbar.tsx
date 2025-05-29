@@ -203,7 +203,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
           <Button
             variant="outlined"
             color="secondary"
-            onClick={logout}
+            onClick={() => logout()}
             sx={{
               width: "100%",
               borderRadius: 2,
@@ -290,7 +290,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             <Button
               variant="outlined"
               color="secondary"
-              onClick={logout}
+              onClick={() => logout()}
               sx={{
                 borderRadius: 2,
                 textTransform: "none",

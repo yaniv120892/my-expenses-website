@@ -51,7 +51,10 @@ function ImportRowMobile({
               {importItem.originalFileName}
             </div>
             <div style={{ fontSize: "0.85em", color: "#888" }}>
-              {formatDate(importItem.createdAt, true)}
+              Card: {importItem.creditCardLastFourDigits || "N/A"} &bull; Month: {importItem.paymentMonth || "N/A"}
+            </div>
+            <div style={{ fontSize: "0.85em", color: "#888" }}>
+              Created: {formatDate(importItem.createdAt, true)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -86,6 +89,8 @@ function ImportRowDesktop({
         {isExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
       </td>
       <td>{importItem.originalFileName}</td>
+      <td>{importItem.creditCardLastFourDigits || "N/A"}</td>
+      <td>{importItem.paymentMonth || "N/A"}</td>
       <td>
         <Chip
           label={importItem.status}
@@ -167,6 +172,8 @@ export default function ImportList({
           <tr>
             <th style={{ width: 48 }}></th>
             <th>File Name</th>
+            <th>Card (Last 4)</th>
+            <th>Payment Month</th>
             <th>Status</th>
             <th>Created At</th>
           </tr>
@@ -180,7 +187,7 @@ export default function ImportList({
                 isExpanded={expandedImportId === importItem.id}
               />
               <tr>
-                <td colSpan={5} style={{ padding: 0 }}>
+                <td colSpan={7} style={{ padding: 0 }}>
                   <Collapse
                     in={expandedImportId === importItem.id}
                     timeout="auto"

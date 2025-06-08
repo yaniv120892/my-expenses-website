@@ -1,17 +1,17 @@
 import api from "@/services/api";
-import { Import, ImportFileType, ImportedTransaction } from "../types/import";
+import { Import, ImportedTransaction } from "../types/import";
 import { CreateTransactionInput } from "../types";
 
 class ImportService {
   async processImport(
     fileUrl: string,
-    importType: ImportFileType,
     originalFileName: string,
+    paymentMonth?: string,
   ): Promise<Import> {
     const response = await api.post("/api/imports/process", {
       fileUrl,
-      importType,
       originalFileName,
+      paymentMonth,
     });
     return response.data;
   }

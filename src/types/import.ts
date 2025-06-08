@@ -1,9 +1,9 @@
 import { TransactionType } from "./index";
 
 export enum ImportFileType {
-  CAL_CREDIT = "CAL_CREDIT",
+  VISA_CREDIT = "VISA_CREDIT",
+  MASTERCARD_CREDIT = "MASTERCARD_CREDIT",
   AMERICAN_EXPRESS_CREDIT = "AMERICAN_EXPRESS_CREDIT",
-  ISRACARD_CREDIT = "ISRACARD_CREDIT",
 }
 
 export enum ImportStatus {
@@ -28,6 +28,8 @@ export interface Import {
   status: ImportStatus;
   error?: string;
   createdAt: string;
+  creditCardLastFourDigits?: string | null;
+  paymentMonth?: string | null;
 }
 
 export interface MatchingTransaction {

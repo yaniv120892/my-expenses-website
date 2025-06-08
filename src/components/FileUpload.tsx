@@ -6,15 +6,11 @@ import {
   Typography,
   LinearProgress,
   Stack,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Snackbar,
   Alert,
+  TextField,
 } from "@mui/material";
 import { UploadFile } from "@mui/icons-material";
-import { ImportFileType } from "../types/import";
 import { useProcessImportMutation } from "../hooks/useImports";
 
 interface FileUploadProps {
@@ -25,9 +21,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImportType, setSelectedImportType] = useState<ImportFileType>(
-    ImportFileType.CAL_CREDIT
-  );
+  const [paymentMonth, setPaymentMonth] = useState<string>("");
   const processImportMutation = useProcessImportMutation();
 
   const onDrop = useCallback(
@@ -42,7 +36,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("importType", selectedImportType);
+        formData.append("paymentMonth", paymentMonth);
 
         const response = await fetch("/api/imports/upload", {
           method: "POST",
@@ -57,8 +51,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
         await processImportMutation.mutateAsync({
           fileUrl,
-          importType: selectedImportType,
           originalFileName: file.name,
+          paymentMonth: paymentMonth || undefined,
         });
 
         onUploadComplete?.();
@@ -72,7 +66,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         setUploadProgress(0);
       }
     },
-    [processImportMutation, onUploadComplete, selectedImportType]
+    [processImportMutation, onUploadComplete, paymentMonth],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -91,24 +85,17 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
   return (
     <Box>
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <InputLabel id="import-type-label">Import Type</InputLabel>
-        <Select
-          labelId="import-type-label"
-          value={selectedImportType}
-          label="Import Type"
-          onChange={(e) =>
-            setSelectedImportType(e.target.value as ImportFileType)
-          }
-          disabled={isDisabled}
-        >
-          <MenuItem value={ImportFileType.CAL_CREDIT}>Cal Credit</MenuItem>
-          <MenuItem value={ImportFileType.AMERICAN_EXPRESS_CREDIT}>
-            American Express
-          </MenuItem>
-          <MenuItem value={ImportFileType.ISRACARD_CREDIT}>Isracard</MenuItem>
-        </Select>
-      </FormControl>
+      <TextField
+        fullWidth
+        label="Payment Month (MM/YYYY)"
+        variant="outlined"
+        value={paymentMonth}
+        onChange={(e) => setPaymentMonth(e.target.value)}
+        sx={{ mb: 3 }}
+        disabled={isDisabled}
+        placeholder="e.g., 01/2024 (Optional)"
+        helperText="Leave blank if month is in filename (e.g., XXXX_01_2024.csv)"
+      />
 
       <Box
         {...getRootProps()}

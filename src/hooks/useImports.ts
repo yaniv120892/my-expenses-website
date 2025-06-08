@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { importService } from "../services/importService";
-import { Import, ImportFileType } from "../types/import";
+import { Import } from "../types/import";
 import { pendingTransactionKeys } from "@/hooks/usePendingTransactionsQuery";
 import { transactionKeys } from "@/hooks/useTransactionsQuery";
 import { trendKeys } from "@/hooks/useTrendsQuery";
@@ -27,13 +27,13 @@ export const useProcessImportMutation = () => {
   return useMutation({
     mutationFn: ({
       fileUrl,
-      importType,
       originalFileName,
+      paymentMonth,
     }: {
       fileUrl: string;
-      importType: ImportFileType;
       originalFileName: string;
-    }) => importService.processImport(fileUrl, importType, originalFileName),
+      paymentMonth?: string;
+    }) => importService.processImport(fileUrl, originalFileName, paymentMonth),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["imports"] });
     },

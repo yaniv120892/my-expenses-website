@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "../context/AuthContext";
 
+
 const DEFAULT_STALE_TIME = 60000;
 const DEFAULT_RETRY = 1;
 

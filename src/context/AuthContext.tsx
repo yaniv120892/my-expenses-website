@@ -7,6 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import Chat from "../components/chat/Chat";
 import { Alert, Snackbar } from "@mui/material";
 import api from "../services/api";
 import {
@@ -185,7 +186,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
       }}
     >
-      {children}
+      <>
+        {children}
+        {isAuthenticated && <Chat />}
+      </>
       <Snackbar
         open={!!notification}
         autoHideDuration={6000}

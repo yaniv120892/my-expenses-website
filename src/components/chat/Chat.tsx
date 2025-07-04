@@ -1,14 +1,52 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Fab, Dialog, DialogTitle, DialogContent, TextField, IconButton, Paper, Typography, CircularProgress } from '@mui/material';
+import { Box, Fab, Dialog, DialogTitle, DialogContent, TextField, IconButton, Paper, Typography, CircularProgress, Tooltip, tooltipClasses } from '@mui/material';
 import { Send as SendIcon, Chat as ChatIcon } from '@mui/icons-material';
 import { useChat } from '../../hooks/useChat';
+import { styled, keyframes } from '@mui/material/styles';
+
+const TOOLTIP_SEEN_KEY = 'chatTooltipSeen';
+
+const pulse = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(156, 39, 176, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(156, 39, 176, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(156, 39, 176, 0); }
+`;
+
+
+import { forwardRef } from 'react';
+import type { TooltipProps } from '@mui/material/Tooltip';
+
+const AnimatedTooltip = styled(forwardRef<HTMLDivElement, TooltipProps>(
+  function AnimatedTooltip(props, ref) {
+    const { className, ...other } = props;
+    return <Tooltip ref={ref} {...other} classes={{ popper: className }} />;
+  }
+))(({  }) => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: '#8e24aa',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+    padding: '12px 20px',
+    borderRadius: 8,
+    boxShadow: '0 2px 12px 0 rgba(156,39,176,0.3)',
+    animation: `${pulse} 1.5s infinite cubic-bezier(0.66, 0, 0, 1)`
+  },
+  [`& .${tooltipClasses.arrow}`]: {
+    color: '#8e24aa',
+  },
+}));
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== 'undefined' && !localStorage.getItem(TOOLTIP_SEEN_KEY)) {
+      setShowTooltip(true);
+    }
   }, []);
   const [inputValue, setInputValue] = useState('');
   const { messages, handleSendMessage, isLoading } = useChat();
@@ -22,7 +60,14 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleOpen = () => setIsOpen(true);
+  const handleOpen = () => {
+    setIsOpen(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(TOOLTIP_SEEN_KEY, 'true');
+    }
+    setShowTooltip(false);
+  };
+
   const handleClose = () => setIsOpen(false);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,14 +86,32 @@ const Chat: React.FC = () => {
 
   return (
     <>
-      <Fab
-        color="primary"
-        aria-label="chat"
-        onClick={handleOpen}
-        sx={{ position: 'fixed', bottom: 96, right: 24, zIndex: 1300 }}
+      <AnimatedTooltip
+        title={<span>✨ <b>New!</b> Try our AI Assistant</span>}
+        open={showTooltip}
+        arrow
+        placement="left"
+        disableFocusListener
+        disableHoverListener
+        disableTouchListener
       >
-        <ChatIcon />
-      </Fab>
+        <Fab
+          color="secondary"
+          aria-label="chat"
+          onClick={handleOpen}
+          sx={{
+            position: "fixed",
+            bottom: 96,
+            right: 32,
+            display: "flex",
+            flexDirection: "row",
+            gap: 2,
+            zIndex: 2000,
+          }}
+        >
+          <ChatIcon />
+        </Fab>
+      </AnimatedTooltip>
       <Dialog
         open={isOpen}
         onClose={handleClose}

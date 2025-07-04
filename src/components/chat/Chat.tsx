@@ -161,6 +161,7 @@ const Chat: React.FC = () => {
               sx={{
                 '& .MuiOutlinedInput-root': {
                   color: 'var(--text-color)',
+                  backgroundColor: 'var(--background)',
                   '& fieldset': {
                     borderColor: 'var(--text-secondary)',
                   },
@@ -173,6 +174,7 @@ const Chat: React.FC = () => {
                 },
                 input: {
                   color: 'var(--text-color)',
+                  backgroundColor: 'var(--background)',
                 },
               }}
               InputLabelProps={{

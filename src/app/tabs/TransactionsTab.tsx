@@ -12,6 +12,7 @@ import { Fab, Box, Alert, Snackbar } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { TransactionFiltersDialog } from "../../components/transactions/TransactionFiltersDialog";
 import { TransactionFiltersDisplay } from "../../components/transactions/TransactionFiltersDisplay";
+import PendingTransactionsPopup from "../../components/PendingTransactionsPopup";
 import {
   useTransactionsQuery,
   useCategoriesQuery,
@@ -149,6 +150,7 @@ export default function TransactionsTab() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <PendingTransactionsPopup />
       <TransactionFiltersDisplay
         {...filters}
         onOpenFilters={() => setFiltersDialogOpen(true)}

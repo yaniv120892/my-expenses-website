@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { sendMessage } from '../services/chatService';
 
-interface Message {
+export interface Message {
   sender: 'user' | 'bot';
   text: string;
 }
@@ -29,8 +29,11 @@ export const useChat = () => {
     if (!text.trim()) {
       return;
     }
-    setMessages((prev) => [...prev, { sender: 'user', text }]);
-    mutation.mutate(text);
+    setMessages((prev) => {
+      const updated = [...prev, { sender: 'user' as const, text }];
+      mutation.mutate(updated);
+      return updated;
+    });
   };
 
   return {

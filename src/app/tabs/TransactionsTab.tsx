@@ -6,6 +6,7 @@ import {
 } from "../../types";
 import TransactionList from "../../components/TransactionList";
 import TransactionForm from "../../components/TransactionForm";
+import Chat from "../../components/chat/Chat";
 import TransactionListSkeleton from "../../components/TransactionListSkeleton";
 import { Fab, Box, Alert, Snackbar } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -192,7 +193,8 @@ export default function TransactionsTab() {
         }
       />
 
-      <AddTransactionFab onAddClick={handleAddFabClick} visible={!formOpen} />
+      <Chat />
+      {!formOpen && <AddTransactionFab onAddClick={handleAddFabClick} visible={true} />}
 
       <TransactionFiltersDialog
         open={filtersDialogOpen}

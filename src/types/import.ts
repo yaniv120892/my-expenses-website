@@ -20,11 +20,17 @@ export enum ImportedTransactionStatus {
   IGNORED = "IGNORED",
 }
 
+export enum ImportBankSourceType {
+  NON_BANK_CREDIT = "NON_BANK_CREDIT",
+  BANK_CREDIT = "BANK_CREDIT",
+}
+
 export interface Import {
   id: string;
   fileUrl: string;
   originalFileName: string;
   importType: ImportFileType;
+  bankSourceType?: ImportBankSourceType;
   status: ImportStatus;
   error?: string;
   createdAt: string;

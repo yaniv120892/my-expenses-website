@@ -101,7 +101,7 @@ export function useAttachFileMutation() {
   });
 }
 
-export function useDirectS3UploadForAttachment(transactionId: string) {
+export function useDirectS3UploadForAttachment() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const attachFileMutation = useAttachFileMutation();
@@ -118,7 +118,7 @@ export function useDirectS3UploadForAttachment(transactionId: string) {
     throw err;
   };
 
-  const upload = async (file: File) => {
+  const upload = async (transactionId: string, file: File) => {
     setIsUploading(true);
     setError(null);
     try {

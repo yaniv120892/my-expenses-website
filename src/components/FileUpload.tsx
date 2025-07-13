@@ -11,7 +11,10 @@ import {
   TextField,
 } from "@mui/material";
 import { UploadFile } from "@mui/icons-material";
-import { useProcessImportMutation } from "../hooks/useImports";
+import {
+  useProcessImportMutation,
+  useImportUploadMutation,
+} from "../hooks/useImports";
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -23,6 +26,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [error, setError] = useState<string | null>(null);
   const [paymentMonth, setPaymentMonth] = useState<string>("");
   const processImportMutation = useProcessImportMutation();
+  const importUploadMutation = useImportUploadMutation();
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -38,16 +42,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         formData.append("file", file);
         formData.append("paymentMonth", paymentMonth);
 
-        const response = await fetch("/api/imports/upload", {
-          method: "POST",
-          body: formData,
+        const { fileUrl } = await importUploadMutation.mutateAsync({
+          formData,
+          onProgress: (progress: number) => setUploadProgress(progress),
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to upload file");
-        }
-
-        const { fileUrl } = await response.json();
 
         await processImportMutation.mutateAsync({
           fileUrl,
@@ -66,7 +64,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         setUploadProgress(0);
       }
     },
-    [processImportMutation, onUploadComplete, paymentMonth],
+    [
+      processImportMutation,
+      onUploadComplete,
+      paymentMonth,
+      importUploadMutation,
+    ]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

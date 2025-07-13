@@ -21,8 +21,7 @@ import NotificationSnackbar from "./NotificationSnackbar";
 import TransactionAttachments from "./TransactionForm/TransactionAttachments";
 import {
   useRemoveFileMutation,
-  useTransactionAttachmentUploadMutation,
-  useAttachFileMutation,
+  useDirectS3UploadForAttachment,
 } from "@/hooks/useTransactionFilesQuery";
 
 type TransactionFormType = {
@@ -73,9 +72,8 @@ export default function TransactionForm({
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
 
-  const uploadFileMutation = useTransactionAttachmentUploadMutation();
+  const directS3Upload = useDirectS3UploadForAttachment(initialData?.id || "");
   const removeFileMutation = useRemoveFileMutation(initialData?.id || "");
-  const attachFileMutation = useAttachFileMutation();
 
   useEffect(() => {
     if (initialData) {
@@ -135,6 +133,16 @@ export default function TransactionForm({
     setSnackbarOpen(true);
   };
 
+  const handleUploadError = (err: unknown) => {
+    let message = "Direct S3 upload failed.";
+    if (err instanceof Error) {
+      message += ` Error: ${err.message}`;
+    } else if (typeof err === "string") {
+      message += ` Error: ${err}`;
+    }
+    setFileUploadError(message);
+  };
+
   const handleSubmit = async () => {
     if (!validate()) {
       return;
@@ -165,47 +173,10 @@ export default function TransactionForm({
       }
       if (pendingFiles.length > 0 && transactionId) {
         for (const file of pendingFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("transactionId", transactionId);
           try {
-            const uploadFileResult = await uploadFileMutation.mutateAsync({
-              formData,
-              onProgress: (progress: number) => {
-                console.log("Upload progress:", progress);
-              },
-            });
-            try {
-              await attachFileMutation.mutateAsync({
-                transactionId,
-                fileMeta: {
-                  fileKey: uploadFileResult.fileKey,
-                  fileName: file.name,
-                  fileSize: file.size,
-                  mimeType: file.type,
-                },
-              });
-            } catch (err) {
-              let message = "Failed to attach file.";
-              if (err instanceof Error) {
-                message += ` Error: ${err.message}`;
-                if (err.stack) message += `\n${err.stack}`;
-              } else if (typeof err === "string") {
-                message += ` Error: ${err}`;
-              }
-              setFileUploadError(message);
-              throw err;
-            }
+            await directS3Upload.upload(file);
           } catch (err) {
-            let message = "Failed to upload file.";
-            if (err instanceof Error) {
-              message += ` Error: ${err.message}`;
-              if (err.stack) message += `\n${err.stack}`;
-            } else if (typeof err === "string") {
-              message += ` Error: ${err}`;
-            }
-            setFileUploadError(message);
-            throw err;
+            handleUploadError(err);
           }
         }
         setPendingFiles([]);

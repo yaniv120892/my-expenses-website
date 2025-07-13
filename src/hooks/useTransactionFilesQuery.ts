@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TransactionFile } from "../types";
 import * as TransactionFileService from "../services/transactionFileService";
+import { useState } from "react";
 
 export const transactionFileKeys = {
   all: ["transactionFiles"] as const,
@@ -98,4 +99,64 @@ export function useAttachFileMutation() {
       });
     },
   });
+}
+
+export function useDirectS3UploadForAttachment(transactionId: string) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const attachFileMutation = useAttachFileMutation();
+
+  const handleUploadError = (err: unknown) => {
+    let message = "Direct S3 upload failed.";
+    if (err instanceof Error) {
+      message += ` Error: ${err.message}`;
+    } else if (typeof err === "string") {
+      message += ` Error: ${err}`;
+    }
+    setError(message);
+    setIsUploading(false);
+    throw err;
+  };
+
+  const upload = async (file: File) => {
+    setIsUploading(true);
+    setError(null);
+    try {
+      const { uploadUrl, fileKey } =
+        await TransactionFileService.getPresignedUploadUrl(
+          transactionId,
+          file.name,
+          file.type
+        );
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error(
+          `S3 upload failed: ${uploadRes.status} ${uploadRes.statusText}`
+        );
+      }
+
+      await attachFileMutation.mutateAsync({
+        transactionId,
+        fileMeta: {
+          fileKey,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        },
+      });
+      setIsUploading(false);
+      return { fileKey };
+    } catch (err) {
+      handleUploadError(err);
+    }
+  };
+
+  return { isUploading, error, upload };
 }

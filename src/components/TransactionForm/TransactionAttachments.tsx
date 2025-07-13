@@ -102,17 +102,21 @@ export default function TransactionAttachments({
     setError(message);
   };
 
-  const downloadFile = async (file: TransactionFile) => {
+  const downloadFile = async (
+    file: TransactionFile,
+    fileUrlOverride?: string
+  ) => {
     try {
       const isMobile =
         /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(
           navigator.userAgent
         );
+      const fileUrl = fileUrlOverride || file.previewFileUrl;
       if (isMobile) {
-        window.open(file.fileUrl, "_blank");
+        window.open(fileUrl, "_blank");
         return;
       }
-      const response = await fetch(file.fileUrl);
+      const response = await fetch(fileUrl);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -205,7 +209,7 @@ export default function TransactionAttachments({
                       >
                         {file.mimeType.startsWith("image/") ? (
                           <Image
-                            src={file.fileUrl}
+                            src={file.previewFileUrl}
                             alt={file.fileName}
                             width={40}
                             height={40}
@@ -214,7 +218,7 @@ export default function TransactionAttachments({
                           />
                         ) : (
                           <Link
-                            href={file.fileUrl}
+                            href={file.previewFileUrl}
                             target="_blank"
                             rel="noopener"
                           >
@@ -244,7 +248,9 @@ export default function TransactionAttachments({
                         <IconButton
                           aria-label="Download file"
                           size="small"
-                          onClick={() => downloadFile(file)}
+                          onClick={() =>
+                            downloadFile(file, file.downloadableFileUrl)
+                          }
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>

@@ -25,7 +25,8 @@ export interface TransactionFile {
   transactionId: string;
   fileName: string;
   fileKey: string;
-  fileUrl: string;
+  previewFileUrl: string;
+  downloadableFileUrl: string;
   fileSize: number;
   mimeType: string;
   status: TransactionFileStatus;

@@ -20,3 +20,15 @@ export async function attachFile(
 export async function removeFile(transactionId: string, fileId: string) {
   await api.delete(`/api/transactions/${transactionId}/attachments/${fileId}`);
 }
+
+export async function getPresignedUploadUrl(
+  transactionId: string,
+  fileName: string,
+  mimeType: string
+) {
+  const res = await api.post(
+    `/api/transactions/${transactionId}/attachments/presign-upload`,
+    { fileName, mimeType }
+  );
+  return res.data;
+}

@@ -72,7 +72,7 @@ export default function TransactionForm({
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
 
-  const directS3Upload = useDirectS3UploadForAttachment(initialData?.id || "");
+  const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || "");
 
   useEffect(() => {
@@ -174,7 +174,7 @@ export default function TransactionForm({
       if (pendingFiles.length > 0 && transactionId) {
         for (const file of pendingFiles) {
           try {
-            await directS3Upload.upload(file);
+            await directS3Upload.upload(transactionId, file);
           } catch (err) {
             handleUploadError(err);
           }

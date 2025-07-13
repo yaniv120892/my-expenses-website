@@ -107,7 +107,8 @@ export default function TransactionsTab() {
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
     try {
-      await createMutation.mutateAsync(data);
+      const newId = await createMutation.mutateAsync(data);
+      return newId;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create transaction");
     }
@@ -196,7 +197,9 @@ export default function TransactionsTab() {
       />
 
       <Chat />
-      {!formOpen && <AddTransactionFab onAddClick={handleAddFabClick} visible={true} />}
+      {!formOpen && (
+        <AddTransactionFab onAddClick={handleAddFabClick} visible={true} />
+      )}
 
       <TransactionFiltersDialog
         open={filtersDialogOpen}

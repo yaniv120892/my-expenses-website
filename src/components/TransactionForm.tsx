@@ -18,6 +18,12 @@ import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
 import CategorySelect from "./CategorySelect";
 import NotificationSnackbar from "./NotificationSnackbar";
+import TransactionAttachments from "./TransactionForm/TransactionAttachments";
+import {
+  useRemoveFileMutation,
+  useTransactionAttachmentUploadMutation,
+  useAttachFileMutation,
+} from "@/hooks/useTransactionFilesQuery";
 
 type TransactionFormType = {
   id: string;
@@ -31,7 +37,7 @@ type TransactionFormType = {
 type Props = {
   open: boolean;
   onCloseAction: () => void;
-  onSubmitAction: (data: CreateTransactionInput) => Promise<void>;
+  onSubmitAction: (data: CreateTransactionInput) => Promise<string | void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: TransactionFormType | null;
   mode?: "approve" | "merge";
@@ -63,6 +69,13 @@ export default function TransactionForm({
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
     "success"
   );
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+
+  const uploadFileMutation = useTransactionAttachmentUploadMutation();
+  const removeFileMutation = useRemoveFileMutation(initialData?.id || "");
+  const attachFileMutation = useAttachFileMutation();
 
   useEffect(() => {
     if (initialData) {
@@ -127,6 +140,7 @@ export default function TransactionForm({
       return;
     }
     setIsLoadingUpdate(true);
+    setFileUploadError(null);
     try {
       let dateToUse = form.date;
       if (!initialData) {
@@ -141,7 +155,35 @@ export default function TransactionForm({
         categoryId: form.categoryId === "" ? undefined : form.categoryId,
         date: dateToUse,
       };
-      await onSubmitAction(submitData);
+      const newId = await onSubmitAction(submitData);
+      const transactionId = initialData ? initialData.id : newId;
+      if (initialData && filesToRemove.length > 0) {
+        for (const fileId of filesToRemove) {
+          await removeFileMutation.mutateAsync(fileId);
+        }
+        setFilesToRemove([]);
+      }
+      if (pendingFiles.length > 0 && transactionId) {
+        for (const file of pendingFiles) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("transactionId", transactionId);
+          const uploadFileResult = await uploadFileMutation.mutateAsync({
+            formData,
+          });
+
+          await attachFileMutation.mutateAsync({
+            transactionId,
+            fileMeta: {
+              fileKey: uploadFileResult.fileKey,
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+            },
+          });
+        }
+        setPendingFiles([]);
+      }
       showSnackbar(
         initialData
           ? "Transaction updated successfully"
@@ -255,10 +297,22 @@ export default function TransactionForm({
               error={!!errors.date}
               helperText={errors.date}
               fullWidth
-              InputLabelProps={{ shrink: true }}
             />
           </Box>
         </DialogContent>
+        <TransactionAttachments
+          transactionId={initialData?.id}
+          pendingFiles={pendingFiles}
+          setPendingFiles={setPendingFiles}
+          filesToRemove={filesToRemove}
+          setFilesToRemove={setFilesToRemove}
+          submitButtonLabel={getSubmitButtonText()}
+        />
+        {fileUploadError && (
+          <Box color="error.main" mt={1} mb={1}>
+            {fileUploadError}
+          </Box>
+        )}
         <DialogActions
           style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
         >

@@ -15,13 +15,32 @@ export interface Category {
   name: string;
 }
 
+export type TransactionFileStatus =
+  | "ACTIVE"
+  | "MARKED_FOR_DELETION"
+  | "DELETED";
+
+export interface TransactionFile {
+  id: string;
+  transactionId: string;
+  fileName: string;
+  fileKey: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  status: TransactionFileStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Transaction {
   id: string;
   description: string;
   value: number;
-  date: string; // ISO string
+  date: string;
   type: TransactionType;
   category: Category;
+  files?: TransactionFile[];
 }
 
 export interface CreateTransactionInput {

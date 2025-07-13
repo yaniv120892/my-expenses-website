@@ -168,19 +168,45 @@ export default function TransactionForm({
           const formData = new FormData();
           formData.append("file", file);
           formData.append("transactionId", transactionId);
-          const uploadFileResult = await uploadFileMutation.mutateAsync({
-            formData,
-          });
-
-          await attachFileMutation.mutateAsync({
-            transactionId,
-            fileMeta: {
-              fileKey: uploadFileResult.fileKey,
-              fileName: file.name,
-              fileSize: file.size,
-              mimeType: file.type,
-            },
-          });
+          try {
+            const uploadFileResult = await uploadFileMutation.mutateAsync({
+              formData,
+              onProgress: (progress: number) => {
+                console.log("Upload progress:", progress);
+              },
+            });
+            try {
+              await attachFileMutation.mutateAsync({
+                transactionId,
+                fileMeta: {
+                  fileKey: uploadFileResult.fileKey,
+                  fileName: file.name,
+                  fileSize: file.size,
+                  mimeType: file.type,
+                },
+              });
+            } catch (err) {
+              let message = "Failed to attach file.";
+              if (err instanceof Error) {
+                message += ` Error: ${err.message}`;
+                if (err.stack) message += `\n${err.stack}`;
+              } else if (typeof err === "string") {
+                message += ` Error: ${err}`;
+              }
+              setFileUploadError(message);
+              throw err;
+            }
+          } catch (err) {
+            let message = "Failed to upload file.";
+            if (err instanceof Error) {
+              message += ` Error: ${err.message}`;
+              if (err.stack) message += `\n${err.stack}`;
+            } else if (typeof err === "string") {
+              message += ` Error: ${err}`;
+            }
+            setFileUploadError(message);
+            throw err;
+          }
         }
         setPendingFiles([]);
       }

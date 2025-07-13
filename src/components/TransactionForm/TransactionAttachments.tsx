@@ -92,6 +92,44 @@ export default function TransactionAttachments({
     setPendingFiles(pendingFiles.filter((_, i) => i !== index));
   };
 
+  const handleDownloadFileError = (err: unknown) => {
+    let message = "Failed to download file.";
+    if (err instanceof Error) {
+      message += ` Error: ${err.message}`;
+    } else if (typeof err === "string") {
+      message += ` Error: ${err}`;
+    }
+    setError(message);
+  };
+
+  const downloadFile = async (file: TransactionFile) => {
+    try {
+      const isMobile =
+        /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(
+          navigator.userAgent
+        );
+      if (isMobile) {
+        window.open(file.fileUrl, "_blank");
+        return;
+      }
+      const response = await fetch(file.fileUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      handleDownloadFileError(err);
+    }
+  };
+
   const attachedCount = Math.max(
     0,
     files.length - filesToRemove.length + pendingFiles.length
@@ -206,22 +244,7 @@ export default function TransactionAttachments({
                         <IconButton
                           aria-label="Download file"
                           size="small"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(file.fileUrl);
-                              const blob = await response.blob();
-                              const url = window.URL.createObjectURL(blob);
-                              const link = document.createElement("a");
-                              link.href = url;
-                              link.download = file.fileName;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                              window.URL.revokeObjectURL(url);
-                            } catch {
-                              setError("Failed to download file");
-                            }
-                          }}
+                          onClick={() => downloadFile(file)}
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>
@@ -232,7 +255,6 @@ export default function TransactionAttachments({
               </Box>
             </Box>
           )}
-          {/* Pending files preview (for new or staged files) */}
           {pendingFiles.length > 0 && (
             <Box
               sx={{

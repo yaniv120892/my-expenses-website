@@ -68,52 +68,66 @@ export const TransactionFiltersDisplay = ({
       </Box>
 
       {hasActiveFilters && (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {searchTerm && (
-            <Chip
-              label={
-                <Box
-                  component="span"
-                  display="flex"
-                  alignItems="center"
-                  gap={0.5}
-                >
-                  {smartSearch && (
-                    <Tooltip title="Smart Search is enabled (typo-tolerant, flexible search)">
-                      <AutoFixHighIcon
-                        color="primary"
-                        fontSize="small"
-                        style={{ verticalAlign: "middle" }}
-                      />
-                    </Tooltip>
-                  )}
-                  <span>{`Search: ${searchTerm}`}</span>
-                </Box>
-              }
-              variant="outlined"
-              onDelete={onResetSearch}
-              sx={chipSx}
-            />
-          )}
-          {categoryId && (
-            <Chip
-              label={`Category: ${getCategoryName(categoryId)}`}
-              variant="outlined"
-              onDelete={onResetCategory}
-              sx={chipSx}
-            />
-          )}
-          {(startDate || endDate) && (
-            <Chip
-              label={`Date: ${
-                startDate ? dayjs(startDate).format("MMM D, YYYY") : ""
-              } - ${endDate ? dayjs(endDate).format("MMM D, YYYY") : ""}`}
-              variant="outlined"
-              onDelete={onResetDateRange}
-              sx={chipSx}
-            />
-          )}
-        </Stack>
+        <Box
+          sx={{ cursor: "pointer", "&:hover": { opacity: 0.85 } }}
+          onClick={onOpenFilters}
+        >
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {searchTerm && (
+              <Chip
+                label={
+                  <Box
+                    component="span"
+                    display="flex"
+                    alignItems="center"
+                    gap={0.5}
+                  >
+                    {smartSearch && (
+                      <Tooltip title="Smart Search is enabled (typo-tolerant, flexible search)">
+                        <AutoFixHighIcon
+                          color="primary"
+                          fontSize="small"
+                          style={{ verticalAlign: "middle" }}
+                        />
+                      </Tooltip>
+                    )}
+                    <span>{`Search: ${searchTerm}`}</span>
+                  </Box>
+                }
+                variant="outlined"
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onResetSearch();
+                }}
+                sx={chipSx}
+              />
+            )}
+            {categoryId && (
+              <Chip
+                label={`Category: ${getCategoryName(categoryId)}`}
+                variant="outlined"
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onResetCategory();
+                }}
+                sx={chipSx}
+              />
+            )}
+            {(startDate || endDate) && (
+              <Chip
+                label={`Date: ${
+                  startDate ? dayjs(startDate).format("MMM D, YYYY") : ""
+                } - ${endDate ? dayjs(endDate).format("MMM D, YYYY") : ""}`}
+                variant="outlined"
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onResetDateRange();
+                }}
+                sx={chipSx}
+              />
+            )}
+          </Stack>
+        </Box>
       )}
     </Box>
   );

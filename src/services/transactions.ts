@@ -18,6 +18,7 @@ export async function getTransactions(
       new Date().setDate(new Date().getDate() + 7)
     ).toISOString(),
   };
+  // Explicitly include smartSearch if present
   const mergedParams = { ...defaultParams, ...params };
   const res = await api.get("/api/transactions", { params: mergedParams });
   return res.data;

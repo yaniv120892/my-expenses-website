@@ -67,6 +67,7 @@ export interface TransactionFilters {
   endDate?: string;
   page?: number;
   perPage?: number;
+  smartSearch?: boolean;
 }
 
 export type ScheduleType = "DAILY" | "WEEKLY" | "MONTHLY";

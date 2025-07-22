@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Skeleton } from "@mui/material";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import type { TooltipProps } from "recharts";
 import { COLORS } from "@/utils/constants";
@@ -75,19 +75,40 @@ const IncomeExpensePieChart: React.FC<Props> = ({
         }}
       >
         {loading ? (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: 140,
-              width: 140,
-            }}
-          >
-            <svg width="140" height="140">
-              <circle cx="70" cy="70" r="60" fill="#f0f0f0" />
-            </svg>
-          </Box>
+          <>
+            <Skeleton
+              variant="circular"
+              width={140}
+              height={140}
+              sx={{ bgcolor: "var(--secondary)" }}
+            />
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="flex-start"
+              minWidth={120}
+              gap={1}
+            >
+              <Skeleton
+                variant="text"
+                width={80}
+                height={18}
+                sx={{ bgcolor: "var(--secondary)" }}
+              />
+              <Skeleton
+                variant="text"
+                width={80}
+                height={18}
+                sx={{ bgcolor: "var(--secondary)" }}
+              />
+              <Skeleton
+                variant="text"
+                width={80}
+                height={18}
+                sx={{ bgcolor: "var(--secondary)" }}
+              />
+            </Box>
+          </>
         ) : error ? (
           <Box color="#e74c3c">Failed to load summary</Box>
         ) : (
@@ -115,26 +136,28 @@ const IncomeExpensePieChart: React.FC<Props> = ({
             <Tooltip content={<CompactTooltip />} />
           </PieChart>
         )}
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="flex-start"
-          minWidth={120}
-        >
-          <Typography fontWeight={400} color={COLORS.text} fontSize={12}>
-            Income: ₪{formatNumber(income)}
-          </Typography>
-          <Typography fontWeight={400} color={COLORS.text} fontSize={12}>
-            Expenses: ₪{formatNumber(expense)}
-          </Typography>
-          <Typography
-            fontWeight={700}
-            color={total >= 0 ? COLORS.income : COLORS.expense}
-            fontSize={14}
+        {!loading && !error && (
+          <Box
+            display="flex"
+            flexDirection="column"
+            alignItems="flex-start"
+            minWidth={120}
           >
-            Total: ₪{formatNumber(Math.abs(Math.round(total)))}
-          </Typography>
-        </Box>
+            <Typography fontWeight={400} color={COLORS.text} fontSize={12}>
+              Income: ₪{formatNumber(income)}
+            </Typography>
+            <Typography fontWeight={400} color={COLORS.text} fontSize={12}>
+              Expenses: ₪{formatNumber(expense)}
+            </Typography>
+            <Typography
+              fontWeight={700}
+              color={total >= 0 ? COLORS.income : COLORS.expense}
+              fontSize={14}
+            >
+              Total: ₪{formatNumber(Math.abs(Math.round(total)))}
+            </Typography>
+          </Box>
+        )}
       </Box>
     </Box>
   );

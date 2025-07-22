@@ -20,15 +20,8 @@ import {
   useTransactionsSummaryQuery,
   useAllTransactionsQuery,
 } from "@/hooks/useTransactionsQuery";
-
-// Color palette
-const COLORS = {
-  income: "#2ecc40", // green
-  expense: "#e74c3c", // red
-  background: "var(--background)",
-  purple: "#7c3aed",
-  text: "var(--text-color)",
-};
+import IncomeExpensePieChart from "./IncomeExpensePieChart";
+import { COLORS } from "@/utils/constants";
 
 // 5 distinct colors for doughnut chart (not black/purple/red/green)
 const DOUGHNUT_COLORS = [
@@ -231,15 +224,12 @@ const SummaryChart: React.FC = () => {
             Monthly Breakdown
           </Typography>
           <Box display="flex" flexDirection="column" gap={3}>
-            {data.map((monthData) => {
-              const pieData = [
-                { name: "Income", value: monthData.income },
-                { name: "Expense", value: monthData.expense },
-              ];
-              const total = monthData.income - monthData.expense;
+            {data.map((monthData, idx) => {
               const monthLabel = dayjs(monthData.month + "-01").format(
                 "MMMM YYYY"
               );
+              const loading = monthlySummaries[idx].isLoading;
+              const error = monthlySummaries[idx].error;
               return (
                 <Box
                   key={monthData.month}
@@ -262,53 +252,18 @@ const SummaryChart: React.FC = () => {
                     >
                       {monthLabel}
                     </Typography>
-                    <PieChart width={140} height={140}>
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={60}
-                        innerRadius={36}
-                        stroke={COLORS.background}
-                        strokeWidth={2}
-                        startAngle={90}
-                        endAngle={-270}
-                      >
-                        <Cell key="income" fill={COLORS.income} />
-                        <Cell key="expense" fill={COLORS.expense} />
-                      </Pie>
-                      <Tooltip content={<CompactTooltip />} />
-                    </PieChart>
-                  </Box>
-                  <Box
-                    display="flex"
-                    flexDirection="column"
-                    alignItems="flex-start"
-                    minWidth={120}
-                  >
-                    <Typography
-                      fontWeight={400}
-                      color={COLORS.text}
-                      fontSize={12}
-                    >
-                      Income: ₪{formatNumber(monthData.income)}
-                    </Typography>
-                    <Typography
-                      fontWeight={400}
-                      color={COLORS.text}
-                      fontSize={12}
-                    >
-                      Expenses: ₪{formatNumber(monthData.expense)}
-                    </Typography>
-                    <Typography
-                      fontWeight={700}
-                      color={total >= 0 ? COLORS.income : COLORS.expense}
-                      fontSize={14}
-                    >
-                      Total: ₪{formatNumber(total)}
-                    </Typography>
+                    <IncomeExpensePieChart
+                      income={monthData.income}
+                      expense={monthData.expense}
+                      loading={loading}
+                      error={
+                        error
+                          ? error instanceof Error
+                            ? error.message
+                            : String(error)
+                          : undefined
+                      }
+                    />
                   </Box>
                 </Box>
               );

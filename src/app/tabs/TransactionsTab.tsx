@@ -19,7 +19,10 @@ import {
   useCreateTransactionMutation,
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
+  useTransactionsSummaryQuery,
 } from "../../hooks/useTransactionsQuery";
+import IncomeExpensePieChart from "../../components/IncomeExpensePieChart";
+import dayjs from "dayjs";
 
 function TransactionTableArea({
   loading,
@@ -76,16 +79,32 @@ function AddTransactionFab({
   return null;
 }
 
+const getDefaultFilters = () => ({
+  startDate: dayjs().startOf("month").format("YYYY-MM-DD"),
+  endDate: dayjs().endOf("month").format("YYYY-MM-DD"),
+});
+
 export default function TransactionsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>({});
+
+  const [filters, setFilters] = useState<TransactionFilters>({
+    ...getDefaultFilters(),
+  });
   const [error, setError] = useState<string | null>(null);
 
   const { data: transactions = [], isLoading: loading } =
     useTransactionsQuery(filters);
   const { data: categories = [] } = useCategoriesQuery();
+
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useTransactionsSummaryQuery({
+    ...filters,
+  });
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
@@ -152,6 +171,13 @@ export default function TransactionsTab() {
   return (
     <Box sx={{ p: 3 }}>
       <PendingTransactionsPopup />
+      <IncomeExpensePieChart
+        income={summary?.totalIncome || 0}
+        expense={summary?.totalExpense || 0}
+        loading={summaryLoading}
+        error={summaryError as string | null}
+        title={dayjs(filters.startDate).format("MMMM YYYY")}
+      />
       <TransactionFiltersDisplay
         {...filters}
         onOpenFilters={() => setFiltersDialogOpen(true)}
@@ -160,7 +186,6 @@ export default function TransactionsTab() {
         onResetCategory={handleResetCategory}
         onResetDateRange={handleResetDateRange}
       />
-
       <Box sx={{ mt: 2, flex: 1 }}>
         <TransactionTableArea
           loading={loading}

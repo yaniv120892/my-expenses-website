@@ -1,5 +1,6 @@
-import { Box, Chip, Button, Typography, Stack } from "@mui/material";
+import { Box, Chip, Button, Typography, Stack, Tooltip } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { TransactionFilters } from "@/types";
 import { Category } from "@/types";
 import dayjs from "dayjs";
@@ -10,6 +11,7 @@ interface TransactionFiltersDisplayProps extends TransactionFilters {
   onResetSearch: () => void;
   onResetCategory: () => void;
   onResetDateRange: () => void;
+  smartSearch?: boolean;
 }
 
 export const TransactionFiltersDisplay = ({
@@ -22,6 +24,7 @@ export const TransactionFiltersDisplay = ({
   onResetSearch,
   onResetCategory,
   onResetDateRange,
+  smartSearch,
 }: TransactionFiltersDisplayProps) => {
   const hasActiveFilters = searchTerm || categoryId || startDate || endDate;
 
@@ -68,7 +71,25 @@ export const TransactionFiltersDisplay = ({
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           {searchTerm && (
             <Chip
-              label={`Search: ${searchTerm}`}
+              label={
+                <Box
+                  component="span"
+                  display="flex"
+                  alignItems="center"
+                  gap={0.5}
+                >
+                  {smartSearch && (
+                    <Tooltip title="Smart Search is enabled (typo-tolerant, flexible search)">
+                      <AutoFixHighIcon
+                        color="primary"
+                        fontSize="small"
+                        style={{ verticalAlign: "middle" }}
+                      />
+                    </Tooltip>
+                  )}
+                  <span>{`Search: ${searchTerm}`}</span>
+                </Box>
+              }
               variant="outlined"
               onDelete={onResetSearch}
               sx={chipSx}

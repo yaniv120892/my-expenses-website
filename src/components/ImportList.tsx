@@ -3,23 +3,13 @@
 import React from "react";
 import { Box, Typography, Chip, Collapse } from "@mui/material";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
-import { Import, ImportStatus, ImportBankSourceType } from "../types/import";
+import { Import, ImportStatus } from "../types/import";
 import { useImportsQuery } from "../hooks/useImports";
 import ImportedTransactionList from "./ImportedTransactionList";
 import { formatDate } from "../utils/dateUtils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import EmptyState from "./EmptyState";
 import ImportListSkeleton from "./ImportListSkeleton";
-
-function formatBankSourceType(sourceType?: ImportBankSourceType) {
-  if (!sourceType) {
-    return "N/A";
-  }
-  return sourceType
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
 
 function getStatusColor(status: ImportStatus) {
   switch (status) {
@@ -61,10 +51,14 @@ function ImportRowMobile({
               {importItem.originalFileName}
             </div>
             <div style={{ fontSize: "0.85em", color: "#888" }}>
-              Card: {importItem.creditCardLastFourDigits || "N/A"} &bull; Month: {importItem.paymentMonth || "N/A"} &bull; Source: {formatBankSourceType(importItem.bankSourceType)}
+              Card: {importItem.creditCardLastFourDigits || "N/A"} &bull; Month:{" "}
+              {importItem.paymentMonth || "N/A"}
             </div>
             <div style={{ fontSize: "0.85em", color: "#888" }}>
               Created: {formatDate(importItem.createdAt, true)}
+            </div>
+            <div style={{ fontSize: "0.85em", color: "#888" }}>
+              Updated: {formatDate(importItem.updatedAt, true)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -98,10 +92,9 @@ function ImportRowDesktop({
       <td style={{ width: 48, padding: "8px 0" }}>
         {isExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
       </td>
-      <td>{importItem.originalFileName}</td>
       <td>{importItem.creditCardLastFourDigits || "N/A"}</td>
       <td>{importItem.paymentMonth || "N/A"}</td>
-      <td>{formatBankSourceType(importItem.bankSourceType)}</td>
+      <td>{importItem.originalFileName}</td>
       <td>
         <Chip
           label={importItem.status}
@@ -110,6 +103,7 @@ function ImportRowDesktop({
         />
       </td>
       <td>{formatDate(importItem.createdAt, true)}</td>
+      <td>{formatDate(importItem.updatedAt, true)}</td>
     </tr>
   );
 }
@@ -182,12 +176,12 @@ export default function ImportList({
         <thead>
           <tr>
             <th style={{ width: 48 }}></th>
-            <th>File Name</th>
             <th>Card (Last 4)</th>
             <th>Payment Month</th>
-            <th>Source</th>
+            <th>File Name</th>
             <th>Status</th>
             <th>Created At</th>
+            <th>Updated At</th>
           </tr>
         </thead>
         <tbody>
@@ -199,7 +193,7 @@ export default function ImportList({
                 isExpanded={expandedImportId === importItem.id}
               />
               <tr>
-                <td colSpan={8} style={{ padding: 0 }}>
+                <td colSpan={7} style={{ padding: 0 }}>
                   <Collapse
                     in={expandedImportId === importItem.id}
                     timeout="auto"

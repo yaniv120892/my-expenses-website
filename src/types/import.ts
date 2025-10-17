@@ -34,6 +34,7 @@ export interface Import {
   status: ImportStatus;
   error?: string;
   createdAt: string;
+  updatedAt: string;
   creditCardLastFourDigits?: string | null;
   paymentMonth?: string | null;
 }

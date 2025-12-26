@@ -2,7 +2,12 @@
 
 import React from "react";
 import { Box, Typography, Chip, Collapse } from "@mui/material";
-import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
+import {
+  KeyboardArrowDown,
+  KeyboardArrowUp,
+  CheckCircle,
+  Cancel,
+} from "@mui/icons-material";
 import { Import, ImportStatus } from "../types/import";
 import { useImportsQuery } from "../hooks/useImports";
 import ImportedTransactionList from "./ImportedTransactionList";
@@ -62,6 +67,11 @@ function ImportRowMobile({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {importItem.isVerified ? (
+              <CheckCircle color="success" fontSize="small" />
+            ) : (
+              <Cancel color="warning" fontSize="small" />
+            )}
             <Chip
               label={importItem.status}
               color={getStatusColor(importItem.status)}
@@ -101,6 +111,13 @@ function ImportRowDesktop({
           color={getStatusColor(importItem.status)}
           size="small"
         />
+      </td>
+      <td style={{ textAlign: "center" }}>
+        {importItem.isVerified ? (
+          <CheckCircle color="success" />
+        ) : (
+          <Cancel color="warning" />
+        )}
       </td>
       <td>{formatDate(importItem.createdAt, true)}</td>
       <td>{formatDate(importItem.updatedAt, true)}</td>
@@ -180,6 +197,7 @@ export default function ImportList({
             <th>Payment Month</th>
             <th>File Name</th>
             <th>Status</th>
+            <th>Verified</th>
             <th>Created At</th>
             <th>Updated At</th>
           </tr>
@@ -193,7 +211,7 @@ export default function ImportList({
                 isExpanded={expandedImportId === importItem.id}
               />
               <tr>
-                <td colSpan={7} style={{ padding: 0 }}>
+                <td colSpan={8} style={{ padding: 0 }}>
                   <Collapse
                     in={expandedImportId === importItem.id}
                     timeout="auto"

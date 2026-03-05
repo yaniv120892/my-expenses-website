@@ -20,6 +20,7 @@ import {
   TransactionSummary,
 } from "../types";
 import { trendKeys } from "@/hooks/useTrendsQuery";
+import { dashboardKeys } from "@/hooks/useDashboardQuery";
 
 export const transactionKeys = {
   all: ["transactions"] as const,
@@ -56,8 +57,9 @@ export const useCreateTransactionMutation = () => {
       queryClient.invalidateQueries({
         queryKey: transactionKeys.allTransactions(),
       });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() }); 
+      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
       queryClient.invalidateQueries({ queryKey: trendKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
   });
 };
@@ -75,6 +77,7 @@ export const useUpdateTransactionMutation = () => {
       });
       queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
       queryClient.invalidateQueries({ queryKey: trendKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
   });
 };
@@ -91,6 +94,7 @@ export const useDeleteTransactionMutation = () => {
       });
       queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
       queryClient.invalidateQueries({ queryKey: trendKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
   });
 };

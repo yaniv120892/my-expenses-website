@@ -149,6 +149,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             }}
           >
             <Tab
+              label="Dashboard"
+              value={TabOption.Dashboard}
+              sx={getTabStyle(activeTab === TabOption.Dashboard, isMobile)}
+            />
+            <Tab
               label="Transactions"
               value={TabOption.Transactions}
               sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
@@ -175,11 +180,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               label="Imports"
               value={TabOption.Imports}
               sx={getTabStyle(activeTab === TabOption.Imports, isMobile)}
-            />
-            <Tab
-              label="Summary"
-              value={TabOption.Summary}
-              sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
             />
             <Tab
               label="Trends"
@@ -236,6 +236,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             }}
           >
             <Tab
+              label="Dashboard"
+              value={TabOption.Dashboard}
+              sx={getTabStyle(activeTab === TabOption.Dashboard, isMobile)}
+            />
+            <Tab
               label="Transactions"
               value={TabOption.Transactions}
               sx={getTabStyle(activeTab === TabOption.Transactions, isMobile)}
@@ -262,11 +267,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               label="Imports"
               value={TabOption.Imports}
               sx={getTabStyle(activeTab === TabOption.Imports, isMobile)}
-            />
-            <Tab
-              label="Summary"
-              value={TabOption.Summary}
-              sx={getTabStyle(activeTab === TabOption.Summary, isMobile)}
             />
             <Tab
               label="Trends"

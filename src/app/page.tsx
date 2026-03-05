@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Navbar from "../components/Navbar";
-import SummaryChart from "@/components/SummaryChart";
+import DashboardTab from "./tabs/DashboardTab";
 import TransactionsTab from "./tabs/TransactionsTab";
 import ScheduledTransactionsTab from "./tabs/ScheduledTransactionsTab";
 import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
@@ -19,7 +19,7 @@ function getTabLabel(tab: TabOption) {
   if (tab === TabOption.Transactions) return "Transactions";
   if (tab === TabOption.PendingTransactions) return "Pending Transactions";
   if (tab === TabOption.ScheduledTransactions) return "Scheduled Transactions";
-  if (tab === TabOption.Summary) return "Summary";
+  if (tab === TabOption.Dashboard) return "Dashboard";
   if (tab === TabOption.Settings) return "Settings";
   if (tab === TabOption.Trends) return "Trends";
   if (tab === TabOption.Imports) return "Imports";
@@ -27,7 +27,7 @@ function getTabLabel(tab: TabOption) {
 }
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState(TabOption.Transactions);
+  const [activeTab, setActiveTab] = useState(TabOption.Dashboard);
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const isMobile = useIsMobile();
@@ -51,8 +51,14 @@ export default function HomePage() {
 
   function renderTabContent(tab: TabOption) {
     switch (tab) {
-      case TabOption.Summary: {
-        return <SummaryChart />;
+      case TabOption.Dashboard: {
+        return (
+          <DashboardTab
+            onNavigateToTransactions={() =>
+              handleTabChange(TabOption.Transactions)
+            }
+          />
+        );
       }
       case TabOption.ScheduledTransactions: {
         return <ScheduledTransactionsTab />;

@@ -2,7 +2,7 @@ export enum TabOption {
   Transactions = "TRANSACTIONS",
   PendingTransactions = "PENDING_TRANSACTIONS",
   ScheduledTransactions = "SCHEDULED_TRANSACTIONS",
-  Summary = "SUMMARY",
+  Dashboard = "DASHBOARD",
   Settings = "SETTINGS",
   Trends = "TRENDS",
   Imports = "IMPORTS",

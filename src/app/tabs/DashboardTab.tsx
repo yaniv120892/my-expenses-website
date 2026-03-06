@@ -1,18 +1,22 @@
 "use client";
 
-import React from "react";
-import { Box, Typography, Button } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Typography, Button, Fab, Alert, Snackbar } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import {
   useDashboardQuery,
   useDashboardInsightsQuery,
 } from "@/hooks/useDashboardQuery";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCreateTransactionMutation } from "@/hooks/useTransactionsQuery";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { MonthComparisonCards } from "@/components/dashboard/MonthComparisonCards";
 import { TopCategoriesChart } from "@/components/dashboard/TopCategoriesChart";
 import { MonthHighlights } from "@/components/dashboard/MonthHighlights";
 import { AiInsightsCard } from "@/components/dashboard/AiInsightsCard";
 import { RecentTransactionsQuickView } from "@/components/dashboard/RecentTransactionsQuickView";
+import TransactionForm from "@/components/TransactionForm";
+import { CreateTransactionInput } from "@/types";
 
 interface DashboardTabProps {
   onNavigateToTransactions: () => void;
@@ -21,13 +25,26 @@ interface DashboardTabProps {
 export default function DashboardTab({
   onNavigateToTransactions,
 }: DashboardTabProps) {
-  const { data, isLoading, error } = useDashboardQuery();
+  const [formOpen, setFormOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, isLoading, error: dashboardError } = useDashboardQuery();
   const { data: insights, isLoading: insightsLoading } =
     useDashboardInsightsQuery(!!data);
   const isMobile = useIsMobile();
+  const createMutation = useCreateTransactionMutation();
+
+  const handleCreateSuccess = async (data: CreateTransactionInput) => {
+    try {
+      const newId = await createMutation.mutateAsync(data);
+      return newId;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create transaction");
+    }
+  };
 
   if (isLoading) return <DashboardSkeleton />;
-  if (error || !data) {
+  if (dashboardError || !data) {
     return (
       <Box sx={{ textAlign: "center", py: 4 }}>
         <Typography color="error">Failed to load dashboard</Typography>
@@ -79,6 +96,40 @@ export default function DashboardTab({
           />
         </Box>
       </Box>
+
+      <TransactionForm
+        open={formOpen}
+        onCloseAction={() => setFormOpen(false)}
+        onSubmitAction={handleCreateSuccess}
+        initialData={null}
+      />
+
+      {!formOpen && (
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 32,
+            right: 32,
+            zIndex: 2000,
+          }}
+        >
+          <Fab
+            color="secondary"
+            aria-label="add"
+            onClick={() => setFormOpen(true)}
+          >
+            <AddIcon />
+          </Fab>
+        </Box>
+      )}
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={4000}
+        onClose={() => setError(null)}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Snackbar>
     </Box>
   );
 }

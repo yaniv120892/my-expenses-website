@@ -114,7 +114,7 @@ export default function BatchActionToolbar({
           disabled={isProcessing}
           sx={{ textTransform: "none" }}
         >
-          Approve All ({pendingCount})
+          Approve/Merge All ({pendingCount})
         </Button>
 
         {hasSelection && (
@@ -133,7 +133,7 @@ export default function BatchActionToolbar({
             disabled={isProcessing}
             sx={{ textTransform: "none" }}
           >
-            Approve Selected ({selectedIds.length})
+            Approve/Merge Selected ({selectedIds.length})
           </Button>
         )}
 

@@ -32,13 +32,13 @@ export default function BatchConfirmDialog({
 
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose}>
-      <DialogTitle>Confirm Batch {action === "approve" ? "Approve" : "Ignore"}</DialogTitle>
+      <DialogTitle>Confirm Batch {action === "approve" ? "Approve/Merge" : "Ignore"}</DialogTitle>
       <DialogContent>
         <DialogContentText>
           Are you sure you want to {actionLabel} {count} transaction
           {count !== 1 ? "s" : ""}?
           {action === "approve" &&
-            " Each transaction will be created as a real transaction record."}
+            " Transactions with a match will be merged; others will be created as new records."}
         </DialogContentText>
       </DialogContent>
       <DialogActions>

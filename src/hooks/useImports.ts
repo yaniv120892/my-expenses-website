@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { importService } from "../services/importService";
-import { Import } from "../types/import";
+import { Import, BatchActionRequest, AutoApproveRule } from "../types/import";
 import { pendingTransactionKeys } from "@/hooks/usePendingTransactionsQuery";
 import { transactionKeys } from "@/hooks/useTransactionsQuery";
 import { trendKeys } from "@/hooks/useTrendsQuery";
@@ -110,6 +110,95 @@ export const useDeleteImportedTransactionMutation = (importId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["imported-transactions", importId],
       });
+    },
+  });
+};
+
+export const useBatchActionMutation = (importId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: BatchActionRequest) =>
+      importService.batchAction(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["imported-transactions", importId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: pendingTransactionKeys.lists(),
+      });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.allTransactions(),
+      });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
+      queryClient.invalidateQueries({ queryKey: trendKeys.all });
+    },
+  });
+};
+
+export const useApplyAutoApproveRulesMutation = (importId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => importService.applyAutoApproveRules(importId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["imported-transactions", importId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: pendingTransactionKeys.lists(),
+      });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: transactionKeys.allTransactions(),
+      });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
+      queryClient.invalidateQueries({ queryKey: trendKeys.all });
+    },
+  });
+};
+
+export const useAutoApproveRulesQuery = () => {
+  return useQuery<AutoApproveRule[]>({
+    queryKey: ["auto-approve-rules"],
+    queryFn: () => importService.getAutoApproveRules(),
+  });
+};
+
+export const useCreateAutoApproveRuleMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      data: Pick<AutoApproveRule, "descriptionPattern" | "categoryId" | "type">
+    ) => importService.createAutoApproveRule(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auto-approve-rules"] });
+    },
+  });
+};
+
+export const useUpdateAutoApproveRuleMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ruleId,
+      data,
+    }: {
+      ruleId: string;
+      data: Partial<AutoApproveRule>;
+    }) => importService.updateAutoApproveRule(ruleId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auto-approve-rules"] });
+    },
+  });
+};
+
+export const useDeleteAutoApproveRuleMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ruleId: string) =>
+      importService.deleteAutoApproveRule(ruleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auto-approve-rules"] });
     },
   });
 };

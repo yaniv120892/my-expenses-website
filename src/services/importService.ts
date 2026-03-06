@@ -1,5 +1,11 @@
 import api from "@/services/api";
-import { Import, ImportedTransaction } from "../types/import";
+import {
+  Import,
+  ImportedTransaction,
+  BatchActionRequest,
+  BatchResult,
+  AutoApproveRule,
+} from "../types/import";
 import { CreateTransactionInput } from "../types";
 
 class ImportService {
@@ -48,6 +54,45 @@ class ImportService {
 
   async deleteImportedTransaction(transactionId: string): Promise<void> {
     await api.delete(`/api/imports/transactions/${transactionId}`);
+  }
+
+  async batchAction(request: BatchActionRequest): Promise<BatchResult> {
+    const response = await api.post("/api/imports/batch-action", request);
+    return response.data;
+  }
+
+  async applyAutoApproveRules(importId: string): Promise<BatchResult> {
+    const response = await api.post(
+      `/api/imports/${importId}/apply-auto-approve-rules`
+    );
+    return response.data;
+  }
+
+  async getAutoApproveRules(): Promise<AutoApproveRule[]> {
+    const response = await api.get("/api/imports/auto-approve-rules");
+    return response.data;
+  }
+
+  async createAutoApproveRule(
+    data: Pick<AutoApproveRule, "descriptionPattern" | "categoryId" | "type">
+  ): Promise<AutoApproveRule> {
+    const response = await api.post("/api/imports/auto-approve-rules", data);
+    return response.data;
+  }
+
+  async updateAutoApproveRule(
+    ruleId: string,
+    data: Partial<AutoApproveRule>
+  ): Promise<AutoApproveRule> {
+    const response = await api.put(
+      `/api/imports/auto-approve-rules/${ruleId}`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteAutoApproveRule(ruleId: string): Promise<void> {
+    await api.delete(`/api/imports/auto-approve-rules/${ruleId}`);
   }
 }
 

@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Box, Typography, Fab, Modal, Snackbar, Alert } from "@mui/material";
+import { Box, Typography, Fab, Modal, Snackbar, Alert, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import FileUpload from "../../components/FileUpload";
 import ImportList from "../../components/ImportList";
+import AutoApproveRuleManager from "../../components/AutoApproveRuleManager";
 
 function AddImportFab({
   onClick,
@@ -39,6 +41,7 @@ export default function ImportsTab() {
   const [isModalOpen, setModalOpen] = useState(false);
   const [expandedImport, setExpandedImport] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
 
   const handleUploadComplete = () => {
     setModalOpen(false);
@@ -58,6 +61,13 @@ export default function ImportsTab() {
         <Typography variant="h4" color="var(--text-color)">
           Imports
         </Typography>
+        <IconButton
+          onClick={() => setRulesModalOpen(true)}
+          title="Manage Auto-Approve Rules"
+          color="primary"
+        >
+          <AutoFixHighIcon />
+        </IconButton>
       </Box>
 
       <Box sx={{ mt: 2, flex: 1 }}>
@@ -99,6 +109,30 @@ export default function ImportsTab() {
             Import File
           </Typography>
           <FileUpload onUploadComplete={handleUploadComplete} />
+        </Box>
+      </Modal>
+
+      <Modal
+        open={rulesModalOpen}
+        onClose={() => setRulesModalOpen(false)}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Box
+          sx={{
+            borderRadius: 2,
+            boxShadow: 24,
+            p: 4,
+            width: isMobile ? "90%" : 700,
+            maxHeight: "90vh",
+            overflow: "auto",
+            backgroundColor: "white",
+          }}
+        >
+          <AutoApproveRuleManager />
         </Box>
       </Modal>
 

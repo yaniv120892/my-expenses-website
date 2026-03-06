@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Table,
@@ -8,6 +8,7 @@ import {
   TableCell,
   Typography,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Stack,
@@ -24,6 +25,7 @@ import {
   useMergeImportedTransactionMutation,
   useDeleteImportedTransactionMutation,
   useIgnoreImportedTransactionMutation,
+  useAutoApproveRulesQuery,
 } from "../hooks/useImports";
 import { formatDate } from "../utils/dateUtils";
 import {
@@ -31,6 +33,7 @@ import {
   ImportedTransaction,
 } from "../types/import";
 import TransactionForm from "./TransactionForm";
+import BatchActionToolbar from "./BatchActionToolbar";
 import { CreateTransactionInput } from "../types";
 
 interface ImportedTransactionListProps {
@@ -55,12 +58,46 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   const [pendingOperations, setPendingOperations] = useState<
     Record<string, string>
   >({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { data: autoApproveRules = [] } = useAutoApproveRulesQuery();
 
   const formatAmount = (value: number) => {
     return new Intl.NumberFormat("he-IL", {
       style: "currency",
       currency: "ILS",
     }).format(value);
+  };
+
+  const activeTransactions = useMemo(
+    () => transactions.filter((t) => !t.deleted),
+    [transactions]
+  );
+  const pendingTransactions = useMemo(
+    () =>
+      activeTransactions.filter(
+        (t) => t.status === ImportedTransactionStatus.PENDING
+      ),
+    [activeTransactions]
+  );
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(pendingTransactions.map((t) => t.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const handleMerge = async (transactionId: string) => {
@@ -163,8 +200,6 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     );
   }
 
-  const activeTransactions = transactions.filter((t) => !t.deleted);
-
   if (!activeTransactions.length) {
     return (
       <Typography color="var(--text-color)" align="center" py={2}>
@@ -175,9 +210,32 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
 
   return (
     <>
+      <BatchActionToolbar
+        importId={importId}
+        selectedIds={Array.from(selectedIds)}
+        pendingCount={pendingTransactions.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        hasAutoApproveRules={autoApproveRules.length > 0}
+      />
       <Table size="small">
         <TableHead>
           <TableRow>
+            <TableCell padding="checkbox">
+              <Checkbox
+                indeterminate={
+                  selectedIds.size > 0 &&
+                  selectedIds.size < pendingTransactions.length
+                }
+                checked={
+                  pendingTransactions.length > 0 &&
+                  selectedIds.size === pendingTransactions.length
+                }
+                onChange={(e) =>
+                  e.target.checked ? handleSelectAll() : handleClearSelection()
+                }
+              />
+            </TableCell>
             <TableCell>Transaction Details</TableCell>
             <TableCell>Matching Transaction</TableCell>
             <TableCell>Status</TableCell>
@@ -186,7 +244,15 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         </TableHead>
         <TableBody>
           {activeTransactions.map((transaction) => (
-            <TableRow key={transaction.id}>
+            <TableRow key={transaction.id} selected={selectedIds.has(transaction.id)}>
+              <TableCell padding="checkbox">
+                {transaction.status === ImportedTransactionStatus.PENDING ? (
+                  <Checkbox
+                    checked={selectedIds.has(transaction.id)}
+                    onChange={() => handleToggleSelect(transaction.id)}
+                  />
+                ) : null}
+              </TableCell>
               <TableCell>
                 <Box>
                   <Typography variant="body2">

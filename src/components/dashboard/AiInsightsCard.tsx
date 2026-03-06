@@ -57,8 +57,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
         {!isLoading && !insights && (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ fontStyle: "italic" }}
+            sx={{ color: "var(--text-secondary)", fontStyle: "italic" }}
           >
             Insights unavailable
           </Typography>

@@ -60,7 +60,7 @@ export function TopCategoriesChart({ categories }: Props) {
           <Typography variant="h6" fontWeight={700} color={COLORS.text} mb={2}>
             Top Categories
           </Typography>
-          <Typography color="text.secondary">No expense data yet</Typography>
+          <Typography sx={{ color: "var(--text-secondary)" }}>No expense data yet</Typography>
         </CardContent>
       </Card>
     );
@@ -151,7 +151,7 @@ export function TopCategoriesChart({ categories }: Props) {
                 >
                   {formatNumber(cat.amount)}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
                   ({cat.percentage.toFixed(1)}%)
                 </Typography>
                 <TrendIcon trend={cat.change.trend} />

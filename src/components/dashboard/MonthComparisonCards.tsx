@@ -46,7 +46,7 @@ function ComparisonCard({
       }}
     >
       <CardContent>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" sx={{ color: "var(--text-secondary)" }} gutterBottom>
           {title}
         </Typography>
         <Typography variant="h5" fontWeight={700} color={COLORS.text}>
@@ -57,7 +57,7 @@ function ComparisonCard({
           <Typography variant="body2" sx={{ color, fontWeight: 600 }}>
             {Math.abs(change.percentage).toFixed(1)}%
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
             vs last month
           </Typography>
         </Box>

@@ -50,7 +50,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
           Month Highlights
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" mb={0.5}>
+        <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 0.5 }}>
           Spending Comparison
         </Typography>
         <Box sx={{ mb: 2 }}>
@@ -113,7 +113,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestIncrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
               Biggest Increase
             </Typography>
             <Typography
@@ -129,7 +129,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestDecrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
               Biggest Decrease
             </Typography>
             <Typography

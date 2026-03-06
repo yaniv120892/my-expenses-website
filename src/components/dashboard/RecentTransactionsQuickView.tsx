@@ -43,7 +43,7 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
         </Box>
 
         {!transactions.length && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
             No transactions yet
           </Typography>
         )}
@@ -72,7 +72,7 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
                 <Box
                   sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}
                 >
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
                     {formatTransactionDate(tx.date)}
                   </Typography>
                   <Chip

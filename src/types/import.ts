@@ -64,3 +64,27 @@ export interface ImportedTransaction {
   rawData: unknown;
   deleted?: boolean;
 }
+
+export interface BatchActionRequest {
+  importId: string;
+  transactionIds?: string[];
+  action: 'approve' | 'ignore';
+}
+
+export interface BatchResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  errors: Array<{ id: string; error: string }>;
+}
+
+export interface AutoApproveRule {
+  id: string;
+  descriptionPattern: string;
+  categoryId: string;
+  type: TransactionType;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: string; name: string };
+}

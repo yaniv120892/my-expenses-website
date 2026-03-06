@@ -78,7 +78,12 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
                   <Chip
                     label={tx.categoryName}
                     size="small"
-                    sx={{ height: 20, fontSize: 11 }}
+                    sx={{
+                      height: 20,
+                      fontSize: 11,
+                      bgcolor: "var(--secondary-light)",
+                      color: "var(--text-color)",
+                    }}
                   />
                 </Box>
               </Box>

@@ -55,14 +55,14 @@ function ImportRowMobile({
             <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
               {importItem.originalFileName}
             </div>
-            <div style={{ fontSize: "0.85em", color: "#888" }}>
+            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
               Card: {importItem.creditCardLastFourDigits || "N/A"} &bull; Month:{" "}
               {importItem.paymentMonth || "N/A"}
             </div>
-            <div style={{ fontSize: "0.85em", color: "#888" }}>
+            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
               Created: {formatDate(importItem.createdAt, true)}
             </div>
-            <div style={{ fontSize: "0.85em", color: "#888" }}>
+            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
               Updated: {formatDate(importItem.updatedAt, true)}
             </div>
           </div>

@@ -35,7 +35,7 @@ function PendingTransactionsTabLabel(pendingCount: number) {
             right: -18,
             minWidth: 18,
             height: 18,
-            background: "#e74c3c",
+            background: "var(--accent-red)",
             color: "#fff",
             borderRadius: 9,
             fontSize: 12,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -101,7 +102,7 @@ export const TransactionFiltersDialog = ({
           </Tooltip>
           <CategorySelect
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={(value) => setCategoryId(value)}
             label="Category"
             fullWidth
           />
@@ -124,38 +125,26 @@ export const TransactionFiltersDialog = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, display: "flex", gap: 2 }}>
-        <button
-          className="button-secondary"
-          style={{
-            width: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+        <Button
+          variant="contained"
+          color="primary"
+          sx={{ width: "50%" }}
           onClick={handleApply}
           disabled={loading}
+          startIcon={
+            loading ? <CircularProgress size={20} color="inherit" /> : undefined
+          }
         >
-          {loading ? (
-            <CircularProgress size={20} style={{ color: "#fff" }} />
-          ) : (
-            "Apply"
-          )}
-        </button>
-        <button
-          className="button-primary"
-          style={{
-            width: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+          Apply
+        </Button>
+        <Button
+          variant="outlined"
+          sx={{ width: "50%" }}
           onClick={onClose}
           disabled={loading}
         >
           Close
-        </button>
+        </Button>
       </DialogActions>
     </Dialog>
   );

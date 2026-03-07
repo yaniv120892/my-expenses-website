@@ -110,7 +110,7 @@ const IncomeExpensePieChart: React.FC<Props> = ({
             </Box>
           </>
         ) : error ? (
-          <Box color="#e74c3c">Failed to load summary</Box>
+          <Box color="var(--accent-red)">Failed to load summary</Box>
         ) : (
           <PieChart width={140} height={140} style={{ margin: "0 auto" }}>
             <Pie

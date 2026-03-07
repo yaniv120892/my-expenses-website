@@ -1,10 +1,10 @@
 import React from "react";
-import { TextField, MenuItem } from "@mui/material";
+import { Autocomplete, TextField } from "@mui/material";
 import { useCategoriesQuery } from "../hooks/useTransactionsQuery";
 
 type CategorySelectProps = {
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (value: string) => void;
   error?: boolean;
   helperText?: string;
   label?: string;
@@ -28,26 +28,24 @@ export default function CategorySelect({
   );
 
   return (
-    <TextField
-      select
-      label="Category"
-      name="categoryId"
-      value={value}
-      onChange={onChange}
-      error={error}
-      helperText={helperText}
-      required={required}
+    <Autocomplete
+      options={sortedCategories}
+      getOptionLabel={(option) => option.name}
+      value={sortedCategories.find((c) => c.id === value) || null}
+      onChange={(_, newValue) => onChange(newValue?.id || "")}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Category"
+          error={error}
+          helperText={helperText}
+          required={required}
+        />
+      )}
       fullWidth={fullWidth}
       disabled={disabled}
-    >
-      <MenuItem value="">
-        <em>Choose category</em>
-      </MenuItem>
-      {sortedCategories.map((cat) => (
-        <MenuItem key={cat.id} value={cat.id}>
-          {cat.name}
-        </MenuItem>
-      ))}
-    </TextField>
+      clearOnEscape
+      autoHighlight
+    />
   );
 }

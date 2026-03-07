@@ -100,6 +100,17 @@ export const useMergeImportedTransactionMutation = (importId: string) => {
   });
 };
 
+export const useDeleteImportMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (importId: string) => importService.deleteImport(importId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
+    },
+  });
+};
+
 export const useDeleteImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 

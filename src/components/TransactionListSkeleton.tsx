@@ -14,7 +14,7 @@ function getMobileSkeletonRow() {
                 sx={{ bgcolor: "var(--secondary)" }}
               />
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
               <Skeleton
                 width="60%"
                 sx={{ bgcolor: "var(--secondary)" }}
@@ -33,7 +33,7 @@ function getMobileSkeletonRow() {
                 sx={{ bgcolor: "var(--secondary)" }}
               />
             </div>
-            <div style={{ fontSize: "0.97em", color: "#888" }}>
+            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
               <Skeleton
                 width="50%"
                 sx={{ bgcolor: "var(--secondary)" }}

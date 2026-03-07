@@ -194,8 +194,8 @@ export default function AutoApproveRuleManager() {
             />
             <CategorySelect
               value={form.categoryId}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, categoryId: e.target.value }))
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, categoryId: value }))
               }
               required
             />

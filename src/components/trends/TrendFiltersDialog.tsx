@@ -1,4 +1,5 @@
 import {
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -168,32 +169,21 @@ export const TrendFiltersDialog = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, display: "flex", gap: 2 }}>
-        <button
-          className="button-secondary"
-          style={{
-            width: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+        <Button
+          variant="contained"
+          color="primary"
+          sx={{ width: "50%" }}
           onClick={handleApply}
         >
           Apply
-        </button>
-        <button
-          className="button-primary"
-          style={{
-            width: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+        </Button>
+        <Button
+          variant="outlined"
+          sx={{ width: "50%" }}
           onClick={onClose}
         >
           Close
-        </button>
+        </Button>
       </DialogActions>
     </Dialog>
   );

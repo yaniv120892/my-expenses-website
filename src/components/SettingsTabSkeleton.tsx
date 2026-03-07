@@ -6,13 +6,13 @@ export default function SettingsTabSkeleton() {
     <Box maxWidth={500} mx="auto" mt={4}>
       <Paper
         elevation={3}
-        sx={{ p: 3, mb: 4, backgroundColor: "var(--secondary)" }}
+        sx={{ p: 3, mb: 4 }}
       >
         <Skeleton variant="text" width={120} height={32} sx={{ mb: 2 }} />
         <Divider sx={{ mb: 2 }} />
         <Skeleton variant="text" width={220} height={24} />
       </Paper>
-      <Paper elevation={3} sx={{ p: 3, backgroundColor: "var(--secondary)" }}>
+      <Paper elevation={3} sx={{ p: 3 }}>
         <Skeleton variant="text" width={140} height={32} sx={{ mb: 2 }} />
         <Divider sx={{ mb: 2 }} />
         <Skeleton

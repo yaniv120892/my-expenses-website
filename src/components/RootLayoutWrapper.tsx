@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "../context/AuthContext";
-
+import { ThemeContextProvider } from "../context/ThemeContext";
 
 const DEFAULT_STALE_TIME = 60000;
 const DEFAULT_RETRY = 1;
@@ -32,7 +32,9 @@ export default function RootLayoutWrapper({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <ThemeContextProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </ThemeContextProvider>
       {process.env.NEXT_PUBLIC_SHOW_REACT_QUERY_DEVTOOLS === "true" && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

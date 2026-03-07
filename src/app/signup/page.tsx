@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import React, { useState } from "react";
 import { handleApiError } from "../../utils/api";
+import { Button, TextField, Box, Typography, Link } from "@mui/material";
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -26,44 +27,47 @@ export default function SignupPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: 24 }}>
+    <Box sx={{ maxWidth: 400, margin: "80px auto", padding: 3 }}>
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 16 }}
       >
-        <input
+        <TextField
           type="email"
-          placeholder="Email"
+          label="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          fullWidth
         />
-        <input
+        <TextField
           type="password"
-          placeholder="Password"
+          label="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
           required
+          fullWidth
+          inputProps={{ minLength: 8 }}
         />
-        <button
+        <Button
           type="submit"
-          className="button-primary"
+          variant="contained"
+          color="primary"
           disabled={loading}
-          style={{
-            marginTop: 8,
-            alignItems: "center",
-            display: "flex",
-            justifyContent: "center",
-          }}
+          fullWidth
+          sx={{ mt: 1 }}
         >
           {loading ? "Signing up..." : "Sign Up"}
-        </button>
-        <a href="/login" style={{ marginTop: 8, color: "var(--secondary)" }}>
+        </Button>
+        <Link href="/login" sx={{ mt: 1, color: "primary.main" }}>
           Already have an account? Login
-        </a>
-        {error && <div style={{ color: "#e74c3c", marginTop: 8 }}>{error}</div>}
+        </Link>
+        {error && (
+          <Typography color="error" sx={{ mt: 1 }}>
+            {error}
+          </Typography>
+        )}
       </form>
-    </div>
+    </Box>
   );
 }

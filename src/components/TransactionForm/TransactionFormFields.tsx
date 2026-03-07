@@ -41,7 +41,12 @@ const TransactionFormFields: React.FC<TransactionFormFieldsProps> = ({
     />
     <CategorySelect
       value={form.categoryId}
-      onChange={onChange}
+      onChange={(value) => {
+        const syntheticEvent = {
+          target: { name: "categoryId", value },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(syntheticEvent);
+      }}
       error={!!errors.categoryId}
       helperText={errors.categoryId}
       label="Category"

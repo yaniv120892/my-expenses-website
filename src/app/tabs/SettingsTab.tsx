@@ -16,9 +16,15 @@ import {
   Snackbar,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import SettingsSystemDaydreamIcon from "@mui/icons-material/SettingsSystemDaydream";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import SettingsTabSkeleton from "@/components/SettingsTabSkeleton";
 import { useForm, Controller } from "react-hook-form";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useColorMode } from "@/context/ThemeContext";
 import {
   useTestTelegramMutation,
   useUpdateUserSettingsMutation,
@@ -60,6 +66,7 @@ export default function SettingsTab() {
   });
 
   const isMobile = useIsMobile();
+  const { colorMode, setColorMode } = useColorMode();
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const tooltipAnchorRef = useRef<HTMLButtonElement | null>(null);
 
@@ -163,9 +170,41 @@ export default function SettingsTab() {
     <Box maxWidth={600} mx="auto" mt={4}>
       <Paper
         elevation={3}
-        sx={{ p: 3, mb: 4, backgroundColor: "var(--secondary)" }}
+        sx={{ p: 3, mb: 4 }}
       >
-        <Typography variant="h6" gutterBottom color="var(--primary)">
+        <Typography variant="h6" gutterBottom>
+          Appearance
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <Box display="flex" alignItems="center" gap={2} mb={2}>
+          <Typography variant="body1" fontWeight="bold">
+            Theme:
+          </Typography>
+          <ToggleButtonGroup
+            value={colorMode}
+            exclusive
+            onChange={(_, value) => {
+              if (value) setColorMode(value);
+            }}
+            size="small"
+          >
+            <ToggleButton value="light">
+              <LightModeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Light
+            </ToggleButton>
+            <ToggleButton value="dark">
+              <DarkModeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Dark
+            </ToggleButton>
+            <ToggleButton value="system">
+              <SettingsSystemDaydreamIcon sx={{ mr: 0.5 }} fontSize="small" />
+              System
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        <Divider sx={{ my: 4 }} />
+        <Typography variant="h6" gutterBottom>
           Info
         </Typography>
         <Divider sx={{ mb: 2 }} />
@@ -184,7 +223,7 @@ export default function SettingsTab() {
             >
               <Typography
                 variant="body1"
-                color="var(--primary)"
+                color="text.primary"
                 fontWeight="bold"
                 sx={{ mr: 0 }}
               >
@@ -230,7 +269,7 @@ export default function SettingsTab() {
             >
               <Typography
                 variant="body1"
-                color="var(--primary)"
+                color="text.primary"
                 fontWeight="bold"
               >
                 Telegram chat id:
@@ -289,12 +328,12 @@ export default function SettingsTab() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  backgroundColor: "var(--primary)",
-                  color: "var(--secondary)",
+                  backgroundColor: "primary.main",
+                  color: "primary.contrastText",
                   minWidth: 80,
                   "&.Mui-disabled": {
-                    backgroundColor: "var(--primary)",
-                    color: "var(--secondary)",
+                    backgroundColor: "primary.main",
+                    color: "primary.contrastText",
                     opacity: 0.5,
                   },
                 }}
@@ -320,7 +359,7 @@ export default function SettingsTab() {
         </Box>
 
         <Divider sx={{ my: 4 }} />
-        <Typography variant="h6" gutterBottom color="var(--primary)">
+        <Typography variant="h6" gutterBottom color="text.primary">
           Notifications
         </Typography>
         <Divider sx={{ mb: 2 }} />
@@ -333,7 +372,7 @@ export default function SettingsTab() {
                 <Switch
                   checked={field.value}
                   onChange={(e) => field.onChange(e.target.checked)}
-                  sx={{ color: "var(--primary)" }}
+                  sx={{ color: "text.primary" }}
                 />
               }
               label="Notify on new transaction creation"
@@ -349,7 +388,7 @@ export default function SettingsTab() {
                 <Switch
                   checked={field.value}
                   onChange={(e) => field.onChange(e.target.checked)}
-                  sx={{ color: "var(--primary)" }}
+                  sx={{ color: "text.primary" }}
                 />
               }
               label="Daily summary notification"
@@ -367,8 +406,8 @@ export default function SettingsTab() {
               !!formState.errors.provider?.telegramChatId
             }
             sx={{
-              backgroundColor: "var(--primary)",
-              color: "var(--secondary)",
+              backgroundColor: "primary.main",
+              color: "primary.contrastText",
               minWidth: 80,
               width: "50%",
             }}

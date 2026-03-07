@@ -34,9 +34,9 @@ export const OverallTrendCard = ({
       <Card sx={{ mb: 4 }}>
         <Typography
           variant="body2"
-          color="var(--text-color)"
+          color="text.primary"
           textAlign="center"
-          bgcolor="var(--background)"
+          bgcolor="background.default"
         >
           No transactions found for selected period and category
         </Typography>
@@ -46,8 +46,8 @@ export const OverallTrendCard = ({
 
   return (
     <Card sx={{ mb: 4 }}>
-      <CardContent sx={{ backgroundColor: "var(--background)" }}>
-        <Typography variant="h6" gutterBottom color="var(--text-color)">
+      <CardContent sx={{ backgroundColor: "background.default" }}>
+        <Typography variant="h6" gutterBottom color="text.primary">
           {selectedCategory !== "All Categories"
             ? `${categories.find((c) => c.id === selectedCategory)?.name} `
             : "Overall "}
@@ -56,15 +56,15 @@ export const OverallTrendCard = ({
         </Typography>
         <Box sx={{ display: "flex", gap: 2, mt: 2, flexWrap: "wrap" }}>
           <Box sx={{ flex: "1 1 200px", minWidth: 0 }}>
-            <Typography variant="body2" color="var(--text-color)">
+            <Typography variant="body2" color="text.primary">
               Total {transactionType === "EXPENSE" ? "Spending" : "Income"}
             </Typography>
-            <Typography variant="h6" color="var(--text-color)">
+            <Typography variant="h6" color="text.primary">
               ₪{trend.totalAmount.toFixed(2)}
             </Typography>
           </Box>
           <Box sx={{ flex: "1 1 200px", minWidth: 0 }}>
-            <Typography variant="body2" color="var(--text-color)">
+            <Typography variant="body2" color="text.primary">
               Change from Previous Period
             </Typography>
             <Typography
@@ -81,7 +81,8 @@ export const OverallTrendCard = ({
             <LineChart data={trend.points}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(255, 255, 255, 0.1)"
+                stroke="var(--text-secondary)"
+                strokeOpacity={0.3}
               />
               <XAxis
                 dataKey="date"

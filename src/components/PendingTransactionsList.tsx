@@ -1,8 +1,18 @@
 import React, { useState } from "react";
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+} from "@mui/material";
 import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import EmptyState from "./EmptyState";
 import NotificationSnackbar from "./NotificationSnackbar";
+import SwipeableRow from "./SwipeableRow";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Props = {
   transactions: Transaction[];
@@ -21,16 +31,6 @@ function getFormattedValue(value: number) {
   return value.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
 }
 
-function getButtonClass(type: string) {
-  if (type === "approve") {
-    return "button-secondary";
-  }
-  if (type === "delete") {
-    return "button-secondary delete-button-red";
-  }
-  return "button-primary";
-}
-
 export default function PendingTransactionsList({
   transactions,
   onConfirmAction,
@@ -44,6 +44,7 @@ export default function PendingTransactionsList({
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
     "success"
   );
+  const isMobile = useIsMobile();
 
   function showSnackbar(
     message: string,
@@ -88,97 +89,137 @@ export default function PendingTransactionsList({
     }
   }
 
+  async function handleQuickApprove(id: string) {
+    try {
+      await onConfirmAction(id);
+      showSnackbar("Transaction approved successfully", "success");
+    } catch {
+      showSnackbar("Failed to approve transaction", "error");
+    }
+  }
+
+  async function handleQuickDelete(id: string) {
+    try {
+      await onDeleteAction(id);
+      showSnackbar("Transaction rejected successfully", "success");
+    } catch {
+      showSnackbar("Failed to reject transaction", "error");
+    }
+  }
+
   if (transactions.length === 0) {
     return <EmptyState message="No pending transactions found." />;
   }
 
+  const renderRow = (tx: Transaction) => (
+    <div
+      style={{ cursor: "pointer", padding: "0.7rem 0.5rem" }}
+      onClick={() => openDialog(tx)}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: 600 }}>{tx.description}</div>
+          <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
+            {tx.category?.name}
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ color: getValueColor(tx.type), fontWeight: 600 }}>
+            {getFormattedValue(tx.value)}
+          </div>
+          <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
+            {formatTransactionDate(tx.date)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div className="card-accent" style={{ padding: 0 }}>
-        <table className="table">
-          <tbody>
+        {isMobile ? (
+          <div>
             {transactions.map((tx) => (
-              <tr
+              <SwipeableRow
                 key={tx.id}
-                style={{ cursor: "pointer" }}
-                onClick={() => openDialog(tx)}
+                onSwipeRight={() => handleQuickApprove(tx.id)}
+                onSwipeLeft={() => handleQuickDelete(tx.id)}
+                rightLabel="Approve"
+                rightColor="success.main"
+                leftLabel="Delete"
+                leftColor="error.main"
               >
-                <td>
-                  <div style={{ fontWeight: 600 }}>{tx.description}</div>
-                  <div style={{ fontSize: "0.95em", color: "#888" }}>
-                    {tx.category?.name}
-                  </div>
-                </td>
-                <td>
-                  <div
-                    style={{ color: getValueColor(tx.type), fontWeight: 600 }}
-                  >
-                    {getFormattedValue(tx.value)}
-                  </div>
-                  <div style={{ fontSize: "0.95em", color: "#888" }}>
-                    {formatTransactionDate(tx.date)}
-                  </div>
-                </td>
-              </tr>
+                {renderRow(tx)}
+              </SwipeableRow>
             ))}
-          </tbody>
-        </table>
-        {isDialogOpen && selectedTransaction && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0,0,0,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: 8,
-                padding: 24,
-                minWidth: 300,
-                boxShadow: "0 2px 16px rgba(0,0,0,0.15)",
-              }}
-            >
-              <div style={{ marginBottom: 16, fontWeight: 600 }}>
+          </div>
+        ) : (
+          <table className="table">
+            <tbody>
+              {transactions.map((tx) => (
+                <tr
+                  key={tx.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => openDialog(tx)}
+                >
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{tx.description}</div>
+                    <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
+                      {tx.category?.name}
+                    </div>
+                  </td>
+                  <td>
+                    <div
+                      style={{ color: getValueColor(tx.type), fontWeight: 600 }}
+                    >
+                      {getFormattedValue(tx.value)}
+                    </div>
+                    <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
+                      {formatTransactionDate(tx.date)}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <Dialog open={isDialogOpen && !!selectedTransaction} onClose={closeDialog}>
+          {selectedTransaction && (
+            <>
+              <DialogTitle sx={{ fontWeight: 600 }}>
                 {selectedTransaction.description}
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                Approve or delete this transaction?
-              </div>
-              <div
-                style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
-              >
-                <button
+              </DialogTitle>
+              <DialogContent>
+                <Typography>
+                  Approve or delete this transaction?
+                </Typography>
+              </DialogContent>
+              <DialogActions sx={{ p: 2, gap: 1 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
                   onClick={handleApprove}
-                  className={getButtonClass("approve")}
                 >
                   Approve
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
                   onClick={handleDelete}
-                  className={getButtonClass("delete")}
-                  style={{ background: "#e74c3c", color: "#fff" }}
                 >
                   Delete
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outlined"
                   onClick={closeDialog}
-                  className={getButtonClass("close")}
                 >
                   Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                </Button>
+              </DialogActions>
+            </>
+          )}
+        </Dialog>
       </div>
       <NotificationSnackbar
         open={snackbarOpen}

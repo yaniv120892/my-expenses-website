@@ -8,25 +8,25 @@ function renderLeftSection() {
         variant="text"
         width={160}
         height={24}
-        sx={{ mb: 1, bgcolor: "var(--secondary)" }}
+        sx={{ mb: 1 }}
       />
       <Skeleton
         variant="rectangular"
         width="60%"
         height={180}
-        sx={{ mb: 2, borderRadius: 2, bgcolor: "var(--secondary)" }}
+        sx={{ mb: 2, borderRadius: 2 }}
       />
       <Skeleton
         variant="text"
         width={180}
         height={24}
-        sx={{ mb: 1, bgcolor: "var(--secondary)" }}
+        sx={{ mb: 1 }}
       />
       <Skeleton
         variant="circular"
         width={140}
         height={140}
-        sx={{ bgcolor: "var(--secondary)" }}
+        sx={{}}
       />
     </Box>
   );
@@ -39,7 +39,7 @@ function renderRightSection() {
         variant="text"
         width={160}
         height={24}
-        sx={{ mb: 1, bgcolor: "var(--secondary)" }}
+        sx={{ mb: 1 }}
       />
       <Box display="flex" flexDirection="column" gap={3}>
         {[...Array(3)].map((_, idx) => (
@@ -54,26 +54,26 @@ function renderRightSection() {
               variant="circular"
               width={80}
               height={80}
-              sx={{ bgcolor: "var(--secondary)" }}
+              sx={{}}
             />
             <Box display="flex" flexDirection="column" gap={1}>
               <Skeleton
                 variant="text"
                 width={100}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
               <Skeleton
                 variant="text"
                 width={100}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
               <Skeleton
                 variant="text"
                 width={80}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </Box>
           </Box>
@@ -91,14 +91,14 @@ export default function SummaryChartSkeleton() {
         borderRadius: 4,
         boxShadow: 6,
         mb: 4,
-        backgroundColor: "var(--primary)",
+        backgroundColor: "background.paper",
       }}
     >
       <Skeleton
         variant="text"
         width={200}
         height={32}
-        sx={{ mb: 2, bgcolor: "var(--secondary)" }}
+        sx={{ mb: 2 }}
       />
       <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={4}>
         {renderLeftSection()}

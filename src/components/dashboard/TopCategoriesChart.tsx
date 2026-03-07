@@ -5,7 +5,8 @@ import { Box, Card, CardContent, Typography } from "@mui/material";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { TopCategory } from "@/types/dashboard";
 import { formatNumber } from "@/utils/format";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 import { TrendIcon } from "@/components/trends/TrendIcon";
 
 const DOUGHNUT_COLORS = [
@@ -22,36 +23,38 @@ interface Props {
   categories: TopCategory[];
 }
 
-const CompactTooltip: React.FC<{
-  active?: boolean;
-  payload?: { name: string; value: number }[];
-}> = ({ active, payload }) => {
-  if (!active || !payload || !payload.length) return null;
-  const { name, value } = payload[0];
-  return (
-    <div
-      style={{
-        background: COLORS.background,
-        color: COLORS.text,
-        fontSize: 12,
-        padding: "2px 8px",
-        borderRadius: 6,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
-    </div>
-  );
-};
-
 export function TopCategoriesChart({ categories }: Props) {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
+
+  const CompactTooltip: React.FC<{
+    active?: boolean;
+    payload?: { name: string; value: number }[];
+  }> = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const { name, value } = payload[0];
+    return (
+      <div
+        style={{
+          background: COLORS.background,
+          color: COLORS.text,
+          fontSize: 12,
+          padding: "2px 8px",
+          borderRadius: 6,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
+      </div>
+    );
+  };
   if (!categories.length) {
     return (
       <Card
         sx={{
           borderRadius: 3,
-          bgcolor: "var(--background)",
+          bgcolor: "background.default",
           boxShadow: 3,
           height: "100%",
         }}
@@ -60,7 +63,7 @@ export function TopCategoriesChart({ categories }: Props) {
           <Typography variant="h6" fontWeight={700} color={COLORS.text} mb={2}>
             Top Categories
           </Typography>
-          <Typography sx={{ color: "var(--text-secondary)" }}>No expense data yet</Typography>
+          <Typography sx={{ color: "text.secondary" }}>No expense data yet</Typography>
         </CardContent>
       </Card>
     );
@@ -75,7 +78,7 @@ export function TopCategoriesChart({ categories }: Props) {
     <Card
       sx={{
         borderRadius: 3,
-        bgcolor: "var(--background)",
+        bgcolor: "background.default",
         boxShadow: 3,
         height: "100%",
       }}
@@ -151,7 +154,7 @@ export function TopCategoriesChart({ categories }: Props) {
                 >
                   {formatNumber(cat.amount)}
                 </Typography>
-                <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   ({cat.percentage.toFixed(1)}%)
                 </Typography>
                 <TrendIcon trend={cat.change.trend} />

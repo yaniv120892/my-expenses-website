@@ -15,6 +15,26 @@ import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
 import ProtectedRoute from "../components/ProtectedRoute";
 
+const tabToHash: Record<TabOption, string> = {
+  [TabOption.Dashboard]: "dashboard",
+  [TabOption.Transactions]: "transactions",
+  [TabOption.PendingTransactions]: "pending",
+  [TabOption.ScheduledTransactions]: "scheduled",
+  [TabOption.Settings]: "settings",
+  [TabOption.Trends]: "trends",
+  [TabOption.Imports]: "imports",
+};
+
+const hashToTab: Record<string, TabOption> = Object.fromEntries(
+  Object.entries(tabToHash).map(([tab, hash]) => [hash, tab as TabOption])
+) as Record<string, TabOption>;
+
+function getTabFromHash(): TabOption {
+  if (typeof window === "undefined") return TabOption.Dashboard;
+  const hash = window.location.hash.replace("#", "");
+  return hashToTab[hash] ?? TabOption.Dashboard;
+}
+
 function getTabLabel(tab: TabOption) {
   if (tab === TabOption.Transactions) return "Transactions";
   if (tab === TabOption.PendingTransactions) return "Pending Transactions";
@@ -33,6 +53,7 @@ export default function HomePage() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    setActiveTab(getTabFromHash());
     setIsMounted(true);
   }, []);
 
@@ -46,6 +67,7 @@ export default function HomePage() {
 
   function handleTabChange(tab: TabOption) {
     setActiveTab(tab);
+    window.location.hash = tabToHash[tab];
     setMobileNavOpen(false);
   }
 
@@ -185,7 +207,7 @@ export default function HomePage() {
           }}
         >
           <Box sx={{ width: "100%", position: "sticky", top: 0, zIndex: 10 }}>
-            <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+            <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
           </Box>
           <Box sx={{ flex: 1, pt: 0, pr: 3, pb: 3, pl: 3 }}>
             {renderTabContent(activeTab)}

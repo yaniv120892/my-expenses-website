@@ -15,7 +15,8 @@ import {
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
 import { DashboardInsightsResponse } from "@/types/dashboard";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 
 interface Props {
   insights: DashboardInsightsResponse | null | undefined;
@@ -23,11 +24,13 @@ interface Props {
 }
 
 export function AiInsightsCard({ insights, isLoading }: Props) {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
   return (
     <Card
       sx={{
         borderRadius: 3,
-        bgcolor: "var(--background)",
+        bgcolor: "background.default",
         boxShadow: 3,
         height: "100%",
       }}
@@ -48,7 +51,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
                 variant="text"
                 width="90%"
                 height={20}
-                sx={{ bgcolor: "var(--secondary)", mb: 1 }}
+                sx={{ mb: 1 }}
               />
             ))}
           </Box>
@@ -57,7 +60,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
         {!isLoading && !insights && (
           <Typography
             variant="body2"
-            sx={{ color: "var(--text-secondary)", fontStyle: "italic" }}
+            sx={{ color: "text.secondary", fontStyle: "italic" }}
           >
             Insights unavailable
           </Typography>
@@ -87,7 +90,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
                   mt: 2,
                   p: 1.5,
                   borderRadius: 2,
-                  bgcolor: "var(--secondary-light)",
+                  bgcolor: "action.selected",
                 }}
               >
                 <Typography variant="body2" color={COLORS.text}>

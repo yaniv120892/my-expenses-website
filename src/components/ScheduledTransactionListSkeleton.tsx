@@ -9,13 +9,13 @@ function getMobileSkeletonRow() {
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              <Skeleton width="80%" sx={{ bgcolor: "var(--secondary)" }} />
+              <Skeleton width="80%" sx={{}} />
             </div>
             <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
+              <Skeleton width="60%" sx={{}} />
             </div>
             <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
+              <Skeleton width="50%" sx={{}} />
             </div>
           </div>
           <div style={{ textAlign: "right", minWidth: 110 }}>
@@ -26,10 +26,10 @@ function getMobileSkeletonRow() {
                 fontSize: "1.1em",
               }}
             >
-              <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
+              <Skeleton width="60%" sx={{}} />
             </div>
             <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
+              <Skeleton width="50%" sx={{}} />
             </div>
           </div>
         </div>
@@ -42,22 +42,22 @@ function getDesktopSkeletonRow() {
   return (
     <tr>
       <td>
-        <Skeleton width="80%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="80%" sx={{}} />
       </td>
       <td>
-        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="60%" sx={{}} />
       </td>
       <td>
-        <Skeleton width="50%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="50%" sx={{}} />
       </td>
       <td>
-        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="60%" sx={{}} />
       </td>
       <td>
-        <Skeleton width="70%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="70%" sx={{}} />
       </td>
       <td>
-        <Skeleton width="60%" sx={{ bgcolor: "var(--secondary)" }} />
+        <Skeleton width="60%" sx={{}} />
       </td>
     </tr>
   );

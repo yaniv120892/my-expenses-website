@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import React, { useState, Suspense } from "react";
 import { handleApiError } from "../../utils/api";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import { Button, TextField, Box, Typography } from "@mui/material";
 
 function getEmailFromUrl(searchParams: ReadonlyURLSearchParams | null) {
   if (!searchParams) {
@@ -36,30 +37,43 @@ function VerifyPageContent() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: 24 }}>
+    <Box sx={{ maxWidth: 400, margin: "80px auto", padding: 3 }}>
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 16 }}
       >
-        <input
+        <TextField
           type="text"
+          label="Verification Code"
           placeholder="Enter code from email"
           value={code}
           onChange={(e) => setCode(e.target.value)}
           required
+          fullWidth
         />
-        <input
+        <TextField
           type="email"
+          label="Email"
           value={email}
           disabled
-          style={{ background: "#f5f5f5" }}
+          fullWidth
         />
-        <button type="submit" className="button-primary" disabled={loading}>
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={loading}
+          fullWidth
+        >
           {loading ? "Verifying..." : "Verify"}
-        </button>
-        {error && <div style={{ color: "#e74c3c", marginTop: 8 }}>{error}</div>}
+        </Button>
+        {error && (
+          <Typography color="error" sx={{ mt: 1 }}>
+            {error}
+          </Typography>
+        )}
       </form>
-    </div>
+    </Box>
   );
 }
 

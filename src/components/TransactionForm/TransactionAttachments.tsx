@@ -254,7 +254,8 @@ export default function TransactionAttachments({
                         alignItems="center"
                         gap={2}
                         sx={{
-                          borderBottom: "1px solid #eee",
+                          borderBottom: "1px solid",
+                      borderColor: "divider",
                           pb: 1,
                           mb: 1,
                           opacity: markedForRemoval ? 0.5 : 1,
@@ -345,8 +346,9 @@ export default function TransactionAttachments({
                     alignItems="center"
                     gap={2}
                     sx={{
-                      border: "1px dashed #90caf9",
-                      background: "#e3f2fd",
+                      border: "1px dashed",
+                      borderColor: "primary.light",
+                      bgcolor: "action.hover",
                       borderRadius: 2,
                       p: 1,
                       mb: 1,
@@ -370,9 +372,10 @@ export default function TransactionAttachments({
                       {file.name}{" "}
                       <span
                         style={{
-                          color: "#1976d2",
+                          color: "inherit",
                           fontWeight: 500,
                           marginLeft: 8,
+                          opacity: 0.7,
                         }}
                       >
                         (will be uploaded)

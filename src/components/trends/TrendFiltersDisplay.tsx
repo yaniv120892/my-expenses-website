@@ -42,7 +42,7 @@ export const TrendFiltersDisplay = ({
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Typography variant="h4" color="var(--text-color)">
+        <Typography variant="h4" color="text.primary">
           {transactionType === "EXPENSE" ? "Spending" : "Income"} Trends
         </Typography>
         <Button
@@ -51,8 +51,8 @@ export const TrendFiltersDisplay = ({
           onClick={onOpenFilters}
           size="small"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         >
@@ -66,8 +66,8 @@ export const TrendFiltersDisplay = ({
           }`}
           variant="outlined"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         />
@@ -75,8 +75,8 @@ export const TrendFiltersDisplay = ({
           label={`Period: ${formatPeriod(period)}`}
           variant="outlined"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         />
@@ -84,8 +84,8 @@ export const TrendFiltersDisplay = ({
           label={`Category: ${getCategoryName()}`}
           variant="outlined"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         />
@@ -93,8 +93,8 @@ export const TrendFiltersDisplay = ({
           label={`From: ${dayjs(startDate).format("MMM D, YYYY")}`}
           variant="outlined"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         />
@@ -102,8 +102,8 @@ export const TrendFiltersDisplay = ({
           label={`To: ${dayjs(endDate).format("MMM D, YYYY")}`}
           variant="outlined"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         />

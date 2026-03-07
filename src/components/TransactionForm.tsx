@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
+  Button,
   MenuItem,
   TextField,
   Dialog,
@@ -231,9 +232,9 @@ export default function TransactionForm({
         disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
       >
         <DialogTitle
-          style={{
+          sx={{
             fontWeight: 700,
-            color: "black",
+            color: "text.primary",
           }}
         >
           {getDialogTitle()}
@@ -261,7 +262,7 @@ export default function TransactionForm({
             />
             <CategorySelect
               value={form.categoryId}
-              onChange={handleChange}
+              onChange={(value) => setForm({ ...form, categoryId: value })}
               error={!!errors.categoryId}
               helperText={errors.categoryId}
               label="Category"
@@ -314,86 +315,49 @@ export default function TransactionForm({
           style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
         >
           <Box display="flex" width="100%" gap={2}>
-            <button
-              className="button-secondary"
-              style={{
-                width: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                background: "var(--secondary)",
-              }}
+            <Button
+              variant="contained"
+              color="primary"
+              sx={{ width: "50%" }}
               onClick={handleSubmit}
               disabled={isLoadingUpdate || isLoadingDelete}
+              startIcon={
+                isLoadingUpdate ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <SaveIcon />
+                )
+              }
             >
-              {isLoadingUpdate ? (
-                <>
-                  <CircularProgress size={20} style={{ color: "#fff" }} />
-                  {getSubmitButtonText()}
-                </>
-              ) : (
-                <>
-                  <SaveIcon style={{ fontSize: 20 }} />
-                  {getSubmitButtonText()}
-                </>
-              )}
-            </button>
-            <button
-              className="button-primary"
-              style={{
-                width: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
+              {getSubmitButtonText()}
+            </Button>
+            <Button
+              variant="outlined"
+              sx={{ width: "50%" }}
               onClick={onCloseAction}
               disabled={isLoadingUpdate || isLoadingDelete}
+              startIcon={<CloseIcon />}
             >
-              <CloseIcon style={{ fontSize: 20 }} />
               Close
-            </button>
+            </Button>
           </Box>
           {initialData && (
-            <button
-              className="button-secondary"
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                background: "#e74c3c",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontWeight: 600,
-                transition: "background-color 0.2s",
-              }}
-              onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.background = "#c0392b";
-              }}
-              onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.background = "#e74c3c";
-              }}
+            <Button
+              variant="contained"
+              color="error"
+              fullWidth
               onClick={handleDelete}
               disabled={isLoadingUpdate || isLoadingDelete}
+              startIcon={
+                isLoadingDelete ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <DeleteIcon />
+                )
+              }
             >
-              {isLoadingDelete ? (
-                <>
-                  <CircularProgress size={20} style={{ color: "#fff" }} />
-                  Delete
-                </>
-              ) : (
-                <>
-                  <DeleteIcon style={{ fontSize: 20 }} />
-                  Delete
-                </>
-              )}
-            </button>
+              Delete
+            </Button>
           )}
         </DialogActions>
       </Dialog>

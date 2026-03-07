@@ -34,13 +34,13 @@ export const TransactionFiltersDisplay = ({
   };
 
   const chipSx = {
-    backgroundColor: "var(--primary)",
-    color: "var(--secondary)",
+    backgroundColor: "background.paper",
+    color: "primary.main",
     fontWeight: "bold",
     "& .MuiChip-deleteIcon": {
-      color: "var(--secondary)",
+      color: "primary.main",
       "&:hover": {
-        color: "var(--secondary)",
+        color: "primary.main",
         opacity: 0.7,
       },
     },
@@ -49,7 +49,7 @@ export const TransactionFiltersDisplay = ({
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Typography variant="h4" color="var(--text-color)">
+        <Typography variant="h4" color="text.primary">
           Transactions
         </Typography>
         <Button
@@ -58,8 +58,8 @@ export const TransactionFiltersDisplay = ({
           onClick={onOpenFilters}
           size="small"
           sx={{
-            backgroundColor: "var(--primary)",
-            color: "var(--secondary)",
+            backgroundColor: "background.paper",
+            color: "primary.main",
             fontWeight: "bold",
           }}
         >

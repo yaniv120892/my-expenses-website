@@ -119,8 +119,8 @@ export default function HomePage() {
               alignItems: "center",
               height: 64,
               px: 2,
-              background: "var(--background)",
-              borderBottom: "2px solid var(--secondary)",
+              bgcolor: "background.default",
+              borderBottom: 2, borderColor: "primary.main",
               position: "sticky",
               top: 0,
               zIndex: 20,
@@ -170,7 +170,7 @@ export default function HomePage() {
                   width: 260,
                   maxWidth: "80vw",
                   height: "100vh",
-                  background: "var(--background)",
+                  bgcolor: "background.default",
                   boxShadow: 6,
                   p: 0,
                   display: "flex",
@@ -190,7 +190,11 @@ export default function HomePage() {
               />
             </Box>
           </Fade>
-          <Box sx={{ p: 2 }}>{renderTabContent(activeTab)}</Box>
+          <Box sx={{ p: 2 }}>
+            <Fade in key={activeTab} timeout={200}>
+              <div>{renderTabContent(activeTab)}</div>
+            </Fade>
+          </Box>
         </div>
       </ProtectedRoute>
     );
@@ -210,7 +214,9 @@ export default function HomePage() {
             <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
           </Box>
           <Box sx={{ flex: 1, pt: 0, pr: 3, pb: 3, pl: 3 }}>
-            {renderTabContent(activeTab)}
+            <Fade in key={activeTab} timeout={200}>
+              <div>{renderTabContent(activeTab)}</div>
+            </Fade>
           </Box>
         </Box>
       </div>

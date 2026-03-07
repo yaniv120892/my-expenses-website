@@ -5,6 +5,7 @@ import { Transaction } from "../types";
 import { formatTransactionDate } from "../utils/format";
 import EmptyState from "./EmptyState";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import SwipeableRow from "./SwipeableRow";
 
 function getValueColor(type: string) {
   if (type === "INCOME") {
@@ -28,40 +29,41 @@ function TransactionRowMobile({
     onEdit(transaction);
   }
   return (
-    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
-      <td style={{ padding: "0.7rem 0.5rem", border: "none" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
-              {transaction.description}
-            </div>
-            <div style={{ fontSize: "0.85em", color: "#888" }}>
-              {transaction.category?.name}
-            </div>
+    <div
+      style={{ cursor: "pointer", padding: "0.7rem 0.5rem" }}
+      onClick={handleRowClick}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ textAlign: "left" }}>
+          <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
+            {transaction.description}
           </div>
-          <div style={{ textAlign: "right", minWidth: 90 }}>
-            <div
-              style={{
-                color: getValueColor(transaction.type),
-                fontWeight: 600,
-                fontSize: "0.98em",
-              }}
-            >
-              {getFormattedValue(transaction.value)}
-            </div>
-            <div style={{ fontSize: "0.85em", color: "#888" }}>
-              {formatTransactionDate(transaction.date)}
-            </div>
+          <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
+            {transaction.category?.name}
           </div>
         </div>
-      </td>
-    </tr>
+        <div style={{ textAlign: "right", minWidth: 90 }}>
+          <div
+            style={{
+              color: getValueColor(transaction.type),
+              fontWeight: 600,
+              fontSize: "0.98em",
+            }}
+          >
+            {getFormattedValue(transaction.value)}
+          </div>
+          <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
+            {formatTransactionDate(transaction.date)}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -123,11 +125,20 @@ export default function TransactionList({
         >
           <tbody>
             {transactions.map((tx) => (
-              <TransactionRowMobile
-                key={tx.id}
-                transaction={tx}
-                onEdit={handleEdit}
-              />
+              <tr key={tx.id} style={{ display: "table-row" }}>
+                <td style={{ padding: 0, border: "none" }}>
+                  <SwipeableRow
+                    onSwipeRight={() => handleEdit(tx)}
+                    rightLabel="Edit"
+                    rightColor="primary.main"
+                  >
+                    <TransactionRowMobile
+                      transaction={tx}
+                      onEdit={handleEdit}
+                    />
+                  </SwipeableRow>
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>

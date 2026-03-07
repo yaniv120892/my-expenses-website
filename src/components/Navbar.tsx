@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { Tabs, Tab, Button } from "@mui/material";
+import { Box, Tabs, Tab, Button } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAuth } from "@/context/AuthContext";
@@ -10,12 +10,12 @@ import { usePendingTransactionsQuery } from "@/hooks/usePendingTransactionsQuery
 
 function getTabStyle(isSelected: boolean, isMobile: boolean) {
   return {
-    color: "var(--secondary)",
+    color: "primary.main",
     fontWeight: 700,
     borderRadius: 2,
     mb: 0,
     fontSize: isMobile ? 13 : 16,
-    background: isSelected ? "var(--secondary-light)" : "transparent",
+    background: isSelected ? "action.selected" : "transparent",
     transition: "background 0.2s, color 0.2s",
     minHeight: isMobile ? 36 : 48,
     minWidth: 120,
@@ -35,7 +35,7 @@ function PendingTransactionsTabLabel(pendingCount: number) {
             right: -18,
             minWidth: 18,
             height: 18,
-            background: "#e74c3c",
+            background: "var(--accent-red)",
             color: "#fff",
             borderRadius: 9,
             fontSize: 12,
@@ -67,15 +67,17 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
   const { logout } = useAuth();
 
   return (
-    <nav
-      style={
+    <Box
+      component="nav"
+      sx={
         isMobile
           ? {
               minWidth: 220,
               maxWidth: 260,
               padding: "2rem 1rem 1rem 1rem",
-              borderRight: "2px solid var(--secondary)",
-              background: "var(--background)",
+              borderRight: 2,
+              borderColor: "primary.main",
+              bgcolor: "background.default",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -90,8 +92,9 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               maxWidth: "100vw",
               padding: "0.5rem 0.5rem 0 0.5rem",
               borderRight: "none",
-              borderBottom: "2px solid var(--secondary)",
-              background: "var(--background)",
+              borderBottom: 2,
+              borderColor: "primary.main",
+              bgcolor: "background.default",
               display: "flex",
               flexDirection: "row",
               alignItems: "center",
@@ -139,7 +142,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               ml: 0,
               flex: 1,
               "& .MuiTabs-indicator": {
-                background: "var(--secondary)",
+                background: "primary.main",
                 width: 3,
                 right: 0,
                 left: "unset",
@@ -192,11 +195,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               sx={getTabStyle(activeTab === TabOption.Settings, isMobile)}
             />
           </Tabs>
-          <div
-            style={{
+          <Box
+            sx={{
               width: "100%",
               height: 1,
-              background: "var(--secondary)",
+              bgcolor: "primary.main",
               margin: "2px 0 16px 0",
             }}
           />
@@ -230,7 +233,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               flexDirection: "row",
               gap: 8,
               "& .MuiTabs-indicator": {
-                background: "var(--secondary)",
+                background: "primary.main",
                 height: 3,
               },
             }}
@@ -303,7 +306,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
           </div>
         </>
       )}
-    </nav>
+    </Box>
   );
 };
 

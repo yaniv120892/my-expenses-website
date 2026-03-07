@@ -21,7 +21,8 @@ import {
   useAllTransactionsQuery,
 } from "@/hooks/useTransactionsQuery";
 import IncomeExpensePieChart from "./IncomeExpensePieChart";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 
 // 5 distinct colors for doughnut chart (not black/purple/red/green)
 const DOUGHNUT_COLORS = [
@@ -48,32 +49,9 @@ const getLast6Months = () => {
 };
 
 // Custom compact tooltip for PieChart
-const CompactTooltip: React.FC<{
-  active?: boolean;
-  payload?: { name: string; value: number }[];
-}> = ({ active, payload }) => {
-  if (!active || !payload || !payload.length) return null;
-  const { name, value } = payload[0];
-  return (
-    <div
-      style={{
-        background: COLORS.background,
-        color: COLORS.text,
-        fontSize: 12,
-        padding: "2px 8px",
-        borderRadius: 6,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        minWidth: 0,
-        pointerEvents: "auto",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
-    </div>
-  );
-};
-
 const SummaryChart: React.FC = () => {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
   const months = getLast6Months();
   const startDate = dayjs()
     .subtract(5, "month")
@@ -203,6 +181,31 @@ const SummaryChart: React.FC = () => {
     { name: "Income", value: totalIncome },
     { name: "Expense", value: totalExpense },
   ];
+
+  const CompactTooltip: React.FC<{
+    active?: boolean;
+    payload?: { name: string; value: number }[];
+  }> = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const { name, value } = payload[0];
+    return (
+      <div
+        style={{
+          background: COLORS.background,
+          color: COLORS.text,
+          fontSize: 12,
+          padding: "2px 8px",
+          borderRadius: 6,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          minWidth: 0,
+          pointerEvents: "auto",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
+      </div>
+    );
+  };
 
   return (
     <Paper

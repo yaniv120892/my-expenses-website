@@ -22,6 +22,8 @@ import {
   useTransactionsSummaryQuery,
 } from "../../hooks/useTransactionsQuery";
 import IncomeExpensePieChart from "../../components/IncomeExpensePieChart";
+import CategoryConfirmationSnackbar from "../../components/CategoryConfirmationSnackbar";
+import { CreateTransactionResponse } from "../../services/transactions";
 import dayjs from "dayjs";
 
 function TransactionTableArea({
@@ -93,6 +95,11 @@ export default function TransactionsTab() {
     ...getDefaultFilters(),
   });
   const [error, setError] = useState<string | null>(null);
+  const [categoryConfirmation, setCategoryConfirmation] = useState<{
+    transactionId: string;
+    description: string;
+    suggestedCategory: { id: string; name: string };
+  } | null>(null);
 
   const { data: transactions = [], isLoading: loading } =
     useTransactionsQuery(filters);
@@ -126,8 +133,16 @@ export default function TransactionsTab() {
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
     try {
-      const newId = await createMutation.mutateAsync(data);
-      return newId;
+      const result: CreateTransactionResponse =
+        await createMutation.mutateAsync(data);
+      if (result.suggestedCategory) {
+        setCategoryConfirmation({
+          transactionId: result.id,
+          description: data.description,
+          suggestedCategory: result.suggestedCategory,
+        });
+      }
+      return result.id;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create transaction");
     }
@@ -232,6 +247,16 @@ export default function TransactionsTab() {
         onApply={handleApplyFilters}
         initialFilters={filters}
       />
+
+      {categoryConfirmation && (
+        <CategoryConfirmationSnackbar
+          open={!!categoryConfirmation}
+          transactionId={categoryConfirmation.transactionId}
+          description={categoryConfirmation.description}
+          suggestedCategory={categoryConfirmation.suggestedCategory}
+          onClose={() => setCategoryConfirmation(null)}
+        />
+      )}
 
       <Snackbar
         open={!!error}

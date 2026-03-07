@@ -34,9 +34,17 @@ export async function getTransactionSummary(params?: {
   return res.data;
 }
 
+export interface CreateTransactionResponse {
+  id: string;
+  suggestedCategory?: {
+    id: string;
+    name: string;
+  };
+}
+
 export async function createTransaction(
   data: CreateTransactionInput
-): Promise<string> {
+): Promise<CreateTransactionResponse> {
   const res = await api.post("/api/transactions", data);
   return res.data;
 }

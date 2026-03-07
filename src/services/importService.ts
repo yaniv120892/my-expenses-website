@@ -52,6 +52,10 @@ class ImportService {
     await api.post(`/api/imports/transactions/${transactionId}/ignore`);
   }
 
+  async deleteImport(importId: string): Promise<void> {
+    await api.delete(`/api/imports/${importId}`);
+  }
+
   async deleteImportedTransaction(transactionId: string): Promise<void> {
     await api.delete(`/api/imports/transactions/${transactionId}`);
   }

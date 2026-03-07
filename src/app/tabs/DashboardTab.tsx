@@ -36,8 +36,8 @@ export default function DashboardTab({
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
     try {
-      const newId = await createMutation.mutateAsync(data);
-      return newId;
+      const result = await createMutation.mutateAsync(data);
+      return result.id;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create transaction");
     }

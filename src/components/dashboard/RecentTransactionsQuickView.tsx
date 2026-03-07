@@ -4,7 +4,8 @@ import React from "react";
 import { Box, Card, CardContent, Typography, Button, Chip } from "@mui/material";
 import { RecentTransaction } from "@/types/dashboard";
 import { formatNumber, formatTransactionDate } from "@/utils/format";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 
 interface Props {
   transactions: RecentTransaction[];
@@ -12,11 +13,13 @@ interface Props {
 }
 
 export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
   return (
     <Card
       sx={{
         borderRadius: 3,
-        bgcolor: "var(--background)",
+        bgcolor: "background.default",
         boxShadow: 3,
         height: "100%",
       }}
@@ -43,7 +46,7 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
         </Box>
 
         {!transactions.length && (
-          <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             No transactions yet
           </Typography>
         )}
@@ -57,7 +60,7 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
                 alignItems: "center",
                 gap: 1.5,
                 py: 0.5,
-                borderBottom: "1px solid var(--secondary-light)",
+                borderBottom: 1, borderColor: "divider",
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -72,7 +75,7 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
                 <Box
                   sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}
                 >
-                  <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {formatTransactionDate(tx.date)}
                   </Typography>
                   <Chip
@@ -81,8 +84,8 @@ export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) 
                     sx={{
                       height: 20,
                       fontSize: 11,
-                      bgcolor: "var(--secondary-light)",
-                      color: "var(--text-color)",
+                      bgcolor: "action.selected",
+                      color: "text.primary",
                     }}
                   />
                 </Box>

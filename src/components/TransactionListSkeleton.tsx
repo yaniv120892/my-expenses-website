@@ -11,13 +11,13 @@ function getMobileSkeletonRow() {
             <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
               <Skeleton
                 width="80%"
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </div>
             <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
               <Skeleton
                 width="60%"
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </div>
           </div>
@@ -30,13 +30,13 @@ function getMobileSkeletonRow() {
             >
               <Skeleton
                 width="60%"
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </div>
             <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
               <Skeleton
                 width="50%"
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </div>
           </div>
@@ -52,25 +52,25 @@ function getDesktopSkeletonRow() {
       <td>
         <Skeleton
           width="80%"
-          sx={{ bgcolor: "var(--secondary)" }}
+          sx={{}}
         />
       </td>
       <td>
         <Skeleton
           width="60%"
-          sx={{ bgcolor: "var(--secondary)" }}
+          sx={{}}
         />
       </td>
       <td>
         <Skeleton
           width="70%"
-          sx={{ bgcolor: "var(--secondary)" }}
+          sx={{}}
         />
       </td>
       <td>
         <Skeleton
           width="60%"
-          sx={{ bgcolor: "var(--secondary)" }}
+          sx={{}}
         />
       </td>
     </tr>

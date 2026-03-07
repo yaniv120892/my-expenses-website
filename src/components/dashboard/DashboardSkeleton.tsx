@@ -16,7 +16,7 @@ export function DashboardSkeleton() {
               minWidth: 200,
               p: 2,
               borderRadius: 3,
-              bgcolor: "var(--background)",
+              bgcolor: "background.default",
               boxShadow: 3,
             }}
           >
@@ -24,19 +24,19 @@ export function DashboardSkeleton() {
               variant="text"
               width={80}
               height={20}
-              sx={{ bgcolor: "var(--secondary)", mb: 1 }}
+              sx={{mb: 1 }}
             />
             <Skeleton
               variant="text"
               width={120}
               height={32}
-              sx={{ bgcolor: "var(--secondary)", mb: 1 }}
+              sx={{mb: 1 }}
             />
             <Skeleton
               variant="text"
               width={100}
               height={16}
-              sx={{ bgcolor: "var(--secondary)" }}
+              sx={{}}
             />
           </Paper>
         ))}
@@ -63,13 +63,13 @@ export function DashboardSkeleton() {
             variant="text"
             width={160}
             height={24}
-            sx={{ bgcolor: "var(--secondary)", mb: 2 }}
+            sx={{mb: 2 }}
           />
           <Skeleton
             variant="circular"
             width={200}
             height={200}
-            sx={{ bgcolor: "var(--secondary)", mx: "auto" }}
+            sx={{mx: "auto" }}
           />
         </Paper>
         <Paper
@@ -85,7 +85,7 @@ export function DashboardSkeleton() {
             variant="text"
             width={120}
             height={24}
-            sx={{ bgcolor: "var(--secondary)", mb: 2 }}
+            sx={{mb: 2 }}
           />
           {[1, 2, 3].map((i) => (
             <Skeleton
@@ -93,7 +93,7 @@ export function DashboardSkeleton() {
               variant="text"
               width="90%"
               height={20}
-              sx={{ bgcolor: "var(--secondary)", mb: 1 }}
+              sx={{mb: 1 }}
             />
           ))}
         </Paper>
@@ -120,13 +120,13 @@ export function DashboardSkeleton() {
             variant="text"
             width={180}
             height={24}
-            sx={{ bgcolor: "var(--secondary)", mb: 2 }}
+            sx={{mb: 2 }}
           />
           <Skeleton
             variant="rectangular"
             width="100%"
             height={80}
-            sx={{ bgcolor: "var(--secondary)", borderRadius: 1 }}
+            sx={{borderRadius: 1 }}
           />
         </Paper>
         <Paper
@@ -142,7 +142,7 @@ export function DashboardSkeleton() {
             variant="text"
             width={160}
             height={24}
-            sx={{ bgcolor: "var(--secondary)", mb: 2 }}
+            sx={{mb: 2 }}
           />
           {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton
@@ -150,7 +150,7 @@ export function DashboardSkeleton() {
               variant="text"
               width="100%"
               height={20}
-              sx={{ bgcolor: "var(--secondary)", mb: 1 }}
+              sx={{mb: 1 }}
             />
           ))}
         </Paper>

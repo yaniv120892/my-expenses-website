@@ -62,6 +62,40 @@ export function ThemeContextProvider({ children }: { children: React.ReactNode }
     [resolvedMode]
   );
 
+  // Sync CSS custom properties with MUI theme so var(--*) usages stay in sync
+  useEffect(() => {
+    const root = document.documentElement;
+    if (resolvedMode === "dark") {
+      root.style.setProperty("--background", "#181a20");
+      root.style.setProperty("--card-bg", "#23263a");
+      root.style.setProperty("--foreground", "#fff");
+      root.style.setProperty("--text-color", "#fff");
+      root.style.setProperty("--text-secondary", "#b0b0b0");
+      root.style.setProperty("--primary", "#e0e0e0");
+      root.style.setProperty("--secondary", "#9b85ff");
+      root.style.setProperty("--secondary-light", "#2d2b45");
+      root.style.setProperty("--accent-red-light", "#3a1a24");
+      root.style.setProperty(
+        "--card-shadow",
+        "0 4px 24px rgba(0,0,0,0.25)"
+      );
+    } else {
+      root.style.setProperty("--background", "#f7f8fa");
+      root.style.setProperty("--card-bg", "#ffffff");
+      root.style.setProperty("--foreground", "#000");
+      root.style.setProperty("--text-color", "#000");
+      root.style.setProperty("--text-secondary", "#6c6c6c");
+      root.style.setProperty("--primary", "#070707");
+      root.style.setProperty("--secondary", "#7b61ff");
+      root.style.setProperty("--secondary-light", "#f3edff");
+      root.style.setProperty("--accent-red-light", "#ffe6ec");
+      root.style.setProperty(
+        "--card-shadow",
+        "0 2px 8px rgba(58,90,255,0.1)"
+      );
+    }
+  }, [resolvedMode]);
+
   const contextValue = useMemo(
     () => ({ colorMode, setColorMode, resolvedMode }),
     [colorMode, resolvedMode]

@@ -2,40 +2,14 @@ import React from "react";
 import { Box, Typography, Skeleton } from "@mui/material";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import type { TooltipProps } from "recharts";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 import { formatNumber } from "@/utils/format";
-
-const PIE_COLORS = [COLORS.income, COLORS.expense];
 
 interface PieTooltipPayload {
   name: string;
   value: number;
 }
-
-const CompactTooltip: React.FC<
-  Pick<TooltipProps<number, string>, "active" | "payload">
-> = ({ active, payload }) => {
-  if (!active || !payload || !payload.length) return null;
-  const { name, value } = payload[0] as PieTooltipPayload;
-  return (
-    <div
-      style={{
-        background: "var(--background)",
-        color: "var(--text-color)",
-        fontSize: 12,
-        padding: "2px 8px",
-        borderRadius: 6,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        minWidth: 0,
-        pointerEvents: "auto",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ fontWeight: 500 }}>{name}:</span> ₪
-      {value.toLocaleString("he-IL")}
-    </div>
-  );
-};
 
 interface Props {
   income: number;
@@ -52,6 +26,35 @@ const IncomeExpensePieChart: React.FC<Props> = ({
   error,
   title,
 }) => {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
+  const PIE_COLORS = [COLORS.income, COLORS.expense];
+
+  const CompactTooltip: React.FC<
+    Pick<TooltipProps<number, string>, "active" | "payload">
+  > = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const { name, value } = payload[0] as PieTooltipPayload;
+    return (
+      <div
+        style={{
+          background: COLORS.background,
+          color: COLORS.text,
+          fontSize: 12,
+          padding: "2px 8px",
+          borderRadius: 6,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          minWidth: 0,
+          pointerEvents: "auto",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>{name}:</span> ₪
+        {value.toLocaleString("he-IL")}
+      </div>
+    );
+  };
+
   const pieData = [
     { name: "Income", value: income },
     { name: "Expense", value: expense },
@@ -80,7 +83,7 @@ const IncomeExpensePieChart: React.FC<Props> = ({
               variant="circular"
               width={140}
               height={140}
-              sx={{ bgcolor: "var(--secondary)" }}
+              sx={{}}
             />
             <Box
               display="flex"
@@ -93,19 +96,19 @@ const IncomeExpensePieChart: React.FC<Props> = ({
                 variant="text"
                 width={80}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
               <Skeleton
                 variant="text"
                 width={80}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
               <Skeleton
                 variant="text"
                 width={80}
                 height={18}
-                sx={{ bgcolor: "var(--secondary)" }}
+                sx={{}}
               />
             </Box>
           </>
@@ -121,7 +124,7 @@ const IncomeExpensePieChart: React.FC<Props> = ({
               cy="50%"
               outerRadius={60}
               innerRadius={36}
-              stroke="#fff"
+              stroke={COLORS.background}
               strokeWidth={2}
               startAngle={90}
               endAngle={-270}

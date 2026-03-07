@@ -406,8 +406,8 @@ export default function SettingsTab() {
               !!formState.errors.provider?.telegramChatId
             }
             sx={{
-              backgroundColor: "var(--primary)",
-              color: "var(--secondary)",
+              backgroundColor: "primary.main",
+              color: "primary.contrastText",
               minWidth: 80,
               width: "50%",
             }}

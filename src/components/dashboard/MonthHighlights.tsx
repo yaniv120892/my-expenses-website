@@ -10,7 +10,8 @@ import {
 } from "@mui/material";
 import { MonthComparison, TopCategory } from "@/types/dashboard";
 import { formatNumber } from "@/utils/format";
-import { COLORS } from "@/utils/constants";
+import { getChartColors } from "@/utils/constants";
+import { useColorMode } from "@/context/ThemeContext";
 
 interface Props {
   comparison: MonthComparison;
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export function MonthHighlights({ comparison, categories }: Props) {
+  const { resolvedMode } = useColorMode();
+  const COLORS = getChartColors(resolvedMode);
   const { currentMonth, previousMonth } = comparison;
   const maxExpense = Math.max(
     currentMonth.totalExpense,
@@ -40,7 +43,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
     <Card
       sx={{
         borderRadius: 3,
-        bgcolor: "var(--background)",
+        bgcolor: "background.default",
         boxShadow: 3,
         height: "100%",
       }}
@@ -50,7 +53,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
           Month Highlights
         </Typography>
 
-        <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 0.5 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
           Spending Comparison
         </Typography>
         <Box sx={{ mb: 2 }}>
@@ -74,7 +77,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             sx={{
               height: 8,
               borderRadius: 4,
-              bgcolor: "var(--secondary-light)",
+              bgcolor: "action.selected",
               "& .MuiLinearProgress-bar": {
                 bgcolor: COLORS.expense,
                 borderRadius: 4,
@@ -102,7 +105,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             sx={{
               height: 8,
               borderRadius: 4,
-              bgcolor: "var(--secondary-light)",
+              bgcolor: "action.selected",
               "& .MuiLinearProgress-bar": {
                 bgcolor: COLORS.purple,
                 borderRadius: 4,
@@ -113,7 +116,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestIncrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               Biggest Increase
             </Typography>
             <Typography
@@ -129,7 +132,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestDecrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               Biggest Decrease
             </Typography>
             <Typography

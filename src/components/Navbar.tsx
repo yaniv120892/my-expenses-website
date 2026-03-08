@@ -198,7 +198,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
           <Box
             sx={{
               width: "100%",
-              height: 1,
+              height: "1px",
               bgcolor: "primary.main",
               margin: "2px 0 16px 0",
             }}

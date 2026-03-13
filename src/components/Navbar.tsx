@@ -180,6 +180,14 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               )}
             />
             <Tab
+              label="Subscriptions"
+              value={TabOption.Subscriptions}
+              sx={getTabStyle(
+                activeTab === TabOption.Subscriptions,
+                isMobile
+              )}
+            />
+            <Tab
               label="Imports"
               value={TabOption.Imports}
               sx={getTabStyle(activeTab === TabOption.Imports, isMobile)}
@@ -263,6 +271,14 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
               value={TabOption.ScheduledTransactions}
               sx={getTabStyle(
                 activeTab === TabOption.ScheduledTransactions,
+                isMobile
+              )}
+            />
+            <Tab
+              label="Subscriptions"
+              value={TabOption.Subscriptions}
+              sx={getTabStyle(
+                activeTab === TabOption.Subscriptions,
                 isMobile
               )}
             />

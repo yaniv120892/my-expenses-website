@@ -15,15 +15,18 @@ import { TopCategoriesChart } from "@/components/dashboard/TopCategoriesChart";
 import { MonthHighlights } from "@/components/dashboard/MonthHighlights";
 import { AiInsightsCard } from "@/components/dashboard/AiInsightsCard";
 import { RecentTransactionsQuickView } from "@/components/dashboard/RecentTransactionsQuickView";
+import { SubscriptionsCard } from "@/components/dashboard/SubscriptionsCard";
 import TransactionForm from "@/components/TransactionForm";
 import { CreateTransactionInput } from "@/types";
 
 interface DashboardTabProps {
   onNavigateToTransactions: () => void;
+  onNavigateToSubscriptions: () => void;
 }
 
 export default function DashboardTab({
   onNavigateToTransactions,
+  onNavigateToSubscriptions,
 }: DashboardTabProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +98,13 @@ export default function DashboardTab({
             onViewAll={onNavigateToTransactions}
           />
         </Box>
+      </Box>
+
+      <Box sx={{ mt: 3 }}>
+        <SubscriptionsCard
+          subscriptions={data.subscriptions}
+          onViewAll={onNavigateToSubscriptions}
+        />
       </Box>
 
       <TransactionForm

@@ -2,6 +2,7 @@ export enum TabOption {
   Transactions = "TRANSACTIONS",
   PendingTransactions = "PENDING_TRANSACTIONS",
   ScheduledTransactions = "SCHEDULED_TRANSACTIONS",
+  Subscriptions = "SUBSCRIPTIONS",
   Dashboard = "DASHBOARD",
   Settings = "SETTINGS",
   Trends = "TRENDS",
@@ -124,6 +125,7 @@ export interface UserSettings {
   notifications: {
     createTransaction: boolean;
     dailySummary: boolean;
+    subscriptionAudit: boolean;
   };
   provider: {
     enabled: boolean;

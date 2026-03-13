@@ -10,6 +10,7 @@ import PendingTransactionsTab from "./tabs/PendingTransactionsTab";
 import SettingsTab from "./tabs/SettingsTab";
 import TrendsTab from "./tabs/TrendsTab";
 import ImportsTab from "./tabs/ImportsTab";
+import SubscriptionsTab from "./tabs/SubscriptionsTab";
 import { Box, Fade } from "@mui/material";
 import { TabOption } from "../types";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -20,6 +21,7 @@ const tabToHash: Record<TabOption, string> = {
   [TabOption.Transactions]: "transactions",
   [TabOption.PendingTransactions]: "pending",
   [TabOption.ScheduledTransactions]: "scheduled",
+  [TabOption.Subscriptions]: "subscriptions",
   [TabOption.Settings]: "settings",
   [TabOption.Trends]: "trends",
   [TabOption.Imports]: "imports",
@@ -43,6 +45,7 @@ function getTabLabel(tab: TabOption) {
   if (tab === TabOption.Settings) return "Settings";
   if (tab === TabOption.Trends) return "Trends";
   if (tab === TabOption.Imports) return "Imports";
+  if (tab === TabOption.Subscriptions) return "Subscriptions";
   return "";
 }
 
@@ -79,8 +82,14 @@ export default function HomePage() {
             onNavigateToTransactions={() =>
               handleTabChange(TabOption.Transactions)
             }
+            onNavigateToSubscriptions={() =>
+              handleTabChange(TabOption.Subscriptions)
+            }
           />
         );
+      }
+      case TabOption.Subscriptions: {
+        return <SubscriptionsTab />;
       }
       case TabOption.ScheduledTransactions: {
         return <ScheduledTransactionsTab />;

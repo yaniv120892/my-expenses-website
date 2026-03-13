@@ -1,7 +1,15 @@
+export interface SubscriptionSnapshot {
+  activeCount: number;
+  totalMonthlyEstimate: number;
+  totalAnnualEstimate: number;
+  detectedCount: number;
+}
+
 export interface DashboardResponse {
   monthComparison: MonthComparison;
   topCategories: TopCategory[];
   recentTransactions: RecentTransaction[];
+  subscriptions?: SubscriptionSnapshot;
 }
 
 export interface DashboardInsightsResponse {

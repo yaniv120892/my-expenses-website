@@ -38,6 +38,7 @@ type UserSettingsForm = {
   notifications: {
     createTransaction: boolean;
     dailySummary: boolean;
+    subscriptionAudit: boolean;
   };
   info: {
     email: string;
@@ -59,7 +60,7 @@ export default function SettingsTab() {
   const { control, handleSubmit, reset, watch, formState } = useForm({
     defaultValues: {
       provider: { telegramChatId: "" },
-      notifications: { createTransaction: false, dailySummary: false },
+      notifications: { createTransaction: false, dailySummary: false, subscriptionAudit: false },
       info: { email: "" },
     },
     mode: "onChange",
@@ -141,6 +142,7 @@ export default function SettingsTab() {
       notifications: {
         createTransaction: data.notifications.createTransaction,
         dailySummary: data.notifications.dailySummary,
+        subscriptionAudit: data.notifications.subscriptionAudit,
       },
       info: {
         email: data.info.email,
@@ -392,6 +394,22 @@ export default function SettingsTab() {
                 />
               }
               label="Daily summary notification"
+            />
+          )}
+        />
+        <Controller
+          name="notifications.subscriptionAudit"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  sx={{ color: "text.primary" }}
+                />
+              }
+              label="Monthly subscription audit"
             />
           )}
         />

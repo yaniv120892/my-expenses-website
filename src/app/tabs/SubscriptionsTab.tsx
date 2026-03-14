@@ -71,14 +71,15 @@ export default function SubscriptionsTab() {
             <Paper
               sx={{
                 display: "flex",
-                gap: 3,
+                flexWrap: "wrap",
+                gap: { xs: 1.5, md: 3 },
                 p: 2,
                 mb: 3,
                 borderRadius: 2,
                 boxShadow: 2,
               }}
             >
-              <Box>
+              <Box sx={{ minWidth: 80 }}>
                 <Typography variant="body2" color="text.secondary">
                   Active
                 </Typography>
@@ -86,7 +87,7 @@ export default function SubscriptionsTab() {
                   {data.activeCount}
                 </Typography>
               </Box>
-              <Box>
+              <Box sx={{ minWidth: 80 }}>
                 <Typography variant="body2" color="text.secondary">
                   Detected
                 </Typography>
@@ -94,7 +95,7 @@ export default function SubscriptionsTab() {
                   {data.detectedCount}
                 </Typography>
               </Box>
-              <Box>
+              <Box sx={{ minWidth: 80 }}>
                 <Typography variant="body2" color="text.secondary">
                   Monthly
                 </Typography>
@@ -102,7 +103,7 @@ export default function SubscriptionsTab() {
                   ${data.totalMonthlyEstimate.toFixed(0)}
                 </Typography>
               </Box>
-              <Box>
+              <Box sx={{ minWidth: 80 }}>
                 <Typography variant="body2" color="text.secondary">
                   Annual
                 </Typography>
@@ -115,6 +116,8 @@ export default function SubscriptionsTab() {
             <Tabs
               value={filterTab}
               onChange={(_, v) => setFilterTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
               sx={{ mb: 2 }}
             >
               <Tab label="All" value="ALL" />

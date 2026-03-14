@@ -46,22 +46,24 @@ const Chat: React.FC = () => {
 
   return (
     <>
-      <Fab
-        color="secondary"
-        aria-label="chat"
-        onClick={handleOpen}
-        sx={{
-          position: "fixed",
-          bottom: 96,
-          right: 32,
-          display: "flex",
-          flexDirection: "row",
-          gap: 2,
-          zIndex: 2000,
-        }}
-      >
-        <ChatIcon />
-      </Fab>
+      {!isOpen && (
+        <Fab
+          color="secondary"
+          aria-label="chat"
+          onClick={handleOpen}
+          sx={{
+            position: "fixed",
+            bottom: 96,
+            right: 32,
+            display: "flex",
+            flexDirection: "row",
+            gap: 2,
+            zIndex: 2000,
+          }}
+        >
+          <ChatIcon />
+        </Fab>
+      )}
       <Dialog
         open={isOpen}
         onClose={handleClose}

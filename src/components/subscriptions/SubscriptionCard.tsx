@@ -144,7 +144,7 @@ export default function SubscriptionCard({
         )}
 
         {subscription.status !== "DISMISSED" && (
-          <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
             {subscription.status === "DETECTED" && (
               <>
                 <Button

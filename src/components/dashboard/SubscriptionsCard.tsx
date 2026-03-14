@@ -46,8 +46,8 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
           )}
         </Box>
 
-        <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
-          <Box>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: { xs: 1.5, md: 3 }, mb: 2 }}>
+          <Box sx={{ minWidth: 80 }}>
             <Typography variant="body2" color="text.secondary">
               Active
             </Typography>
@@ -55,7 +55,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
               {activeCount}
             </Typography>
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 80 }}>
             <Typography variant="body2" color="text.secondary">
               Monthly
             </Typography>
@@ -63,7 +63,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
               ${totalMonthlyEstimate.toFixed(0)}
             </Typography>
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 80 }}>
             <Typography variant="body2" color="text.secondary">
               Annual
             </Typography>

@@ -38,8 +38,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         setIsUploading(true);
         setUploadProgress(0);
 
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], {
+          type: file.type || "application/octet-stream",
+        });
+
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", blob, file.name);
         formData.append("paymentMonth", paymentMonth);
 
         const { fileUrl } = await importUploadMutation.mutateAsync({

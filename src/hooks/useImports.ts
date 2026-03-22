@@ -246,7 +246,19 @@ export function useImportUploadMutation() {
           }
         };
         xhr.onerror = () => {
-          reject(new Error("Network error during upload"));
+          reject(
+            new Error(
+              `Network error during upload (readyState: ${xhr.readyState}, status: ${xhr.status})`
+            )
+          );
+        };
+        xhr.timeout = 120000;
+        xhr.ontimeout = () => {
+          reject(
+            new Error(
+              "Upload timed out — please check your connection and try again"
+            )
+          );
         };
         xhr.send(formData);
       });

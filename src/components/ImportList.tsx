@@ -18,6 +18,8 @@ import {
   Select,
   MenuItem,
   Stack,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import {
   KeyboardArrowDown,
@@ -211,6 +213,7 @@ export default function ImportList({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [paymentMonthFilter, setPaymentMonthFilter] = useState<string>("ALL");
   const [cardFilter, setCardFilter] = useState<string>("ALL");
+  const [isVerifiedFilter, setIsVerifiedFilter] = useState<"ALL" | "true" | "false">("ALL");
 
   // Sort state
   const [sortField, setSortField] = useState<SortField>("createdAt");
@@ -243,6 +246,11 @@ export default function ImportList({
         imp.creditCardLastFourDigits !== cardFilter
       )
         return false;
+      if (
+        isVerifiedFilter !== "ALL" &&
+        imp.isVerified !== (isVerifiedFilter === "true")
+      )
+        return false;
       return true;
     });
 
@@ -264,7 +272,7 @@ export default function ImportList({
     });
 
     return result;
-  }, [imports, statusFilter, paymentMonthFilter, cardFilter, sortField, sortDirection]);
+  }, [imports, statusFilter, paymentMonthFilter, cardFilter, isVerifiedFilter, sortField, sortDirection]);
 
   const handleSortClick = (field: SortField) => {
     if (sortField === field) {
@@ -341,6 +349,18 @@ export default function ImportList({
           ))}
         </Select>
       </FormControl>
+      <ToggleButtonGroup
+        value={isVerifiedFilter}
+        exclusive
+        size="small"
+        onChange={(_, newValue) => {
+          if (newValue !== null) setIsVerifiedFilter(newValue);
+        }}
+      >
+        <ToggleButton value="ALL">All</ToggleButton>
+        <ToggleButton value="true">Verified</ToggleButton>
+        <ToggleButton value="false">Not Verified</ToggleButton>
+      </ToggleButtonGroup>
     </Stack>
   );
 

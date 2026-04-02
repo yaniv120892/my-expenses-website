@@ -29,9 +29,10 @@ import {
   Delete,
   ArrowUpward,
   ArrowDownward,
+  Refresh,
 } from "@mui/icons-material";
 import { Import, ImportStatus } from "../types/import";
-import { useImportsQuery, useDeleteImportMutation } from "../hooks/useImports";
+import { useImportsQuery, useDeleteImportMutation, useRematchImportMutation } from "../hooks/useImports";
 import ImportedTransactionList from "./ImportedTransactionList";
 import { formatDate } from "../utils/dateUtils";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -76,11 +77,15 @@ function ImportRowMobile({
   onImportClick,
   isExpanded,
   onDeleteClick,
+  onRematchClick,
+  isRematching,
 }: {
   importItem: Import;
   onImportClick: (id: string) => void;
   isExpanded: boolean;
   onDeleteClick: (importItem: Import) => void;
+  onRematchClick: (importItem: Import) => void;
+  isRematching: boolean;
 }) {
   return (
     <tr
@@ -111,6 +116,19 @@ function ImportRowMobile({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {importItem.status === ImportStatus.COMPLETED && !importItem.isVerified && (
+              <IconButton
+                size="small"
+                color="primary"
+                disabled={isRematching}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRematchClick(importItem);
+                }}
+              >
+                <Refresh fontSize="small" />
+              </IconButton>
+            )}
             <IconButton
               size="small"
               color="error"
@@ -144,11 +162,15 @@ function ImportRowDesktop({
   onImportClick,
   isExpanded,
   onDeleteClick,
+  onRematchClick,
+  isRematching,
 }: {
   importItem: Import;
   onImportClick: (id: string) => void;
   isExpanded: boolean;
   onDeleteClick: (importItem: Import) => void;
+  onRematchClick: (importItem: Import) => void;
+  isRematching: boolean;
 }) {
   return (
     <tr
@@ -178,16 +200,32 @@ function ImportRowDesktop({
       <td>{formatDate(importItem.createdAt, true)}</td>
       <td>{formatDate(importItem.updatedAt, true)}</td>
       <td style={{ textAlign: "center" }}>
-        <IconButton
-          size="small"
-          color="error"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteClick(importItem);
-          }}
-        >
-          <Delete fontSize="small" />
-        </IconButton>
+        <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
+          {importItem.status === ImportStatus.COMPLETED && !importItem.isVerified && (
+            <IconButton
+              size="small"
+              color="primary"
+              disabled={isRematching}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRematchClick(importItem);
+              }}
+              title="Re-match"
+            >
+              <Refresh fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteClick(importItem);
+            }}
+          >
+            <Delete fontSize="small" />
+          </IconButton>
+        </Box>
       </td>
     </tr>
   );
@@ -204,6 +242,7 @@ export default function ImportList({
 }: ImportListProps) {
   const { data: imports = [], isLoading } = useImportsQuery();
   const deleteImportMutation = useDeleteImportMutation();
+  const rematchImportMutation = useRematchImportMutation();
   const isMobile = useIsMobile();
 
   // Delete confirmation state
@@ -408,6 +447,8 @@ export default function ImportList({
                     onImportClick={onImportClick}
                     isExpanded={expandedImportId === importItem.id}
                     onDeleteClick={setDeleteTarget}
+                    onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
+                    isRematching={rematchImportMutation.isPending}
                   />
                   {importItem.status === ImportStatus.COMPLETED && (
                     <tr>
@@ -501,6 +542,8 @@ export default function ImportList({
                   onImportClick={onImportClick}
                   isExpanded={expandedImportId === importItem.id}
                   onDeleteClick={setDeleteTarget}
+                  onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
+                  isRematching={rematchImportMutation.isPending}
                 />
                 <tr>
                   <td colSpan={9} style={{ padding: 0 }}>

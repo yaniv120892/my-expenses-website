@@ -111,6 +111,20 @@ export const useDeleteImportMutation = () => {
   });
 };
 
+export const useRematchImportMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (importId: string) => importService.rematchImport(importId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
+      queryClient.invalidateQueries({
+        queryKey: ["imported-transactions"],
+      });
+    },
+  });
+};
+
 export const useDeleteImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 

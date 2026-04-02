@@ -72,6 +72,10 @@ class ImportService {
     return response.data;
   }
 
+  async rematchImport(importId: string): Promise<void> {
+    await api.post(`/api/imports/${importId}/rematch`);
+  }
+
   async getAutoApproveRules(): Promise<AutoApproveRule[]> {
     const response = await api.get("/api/imports/auto-approve-rules");
     return response.data;

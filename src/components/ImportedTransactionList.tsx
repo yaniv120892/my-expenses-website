@@ -294,7 +294,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                 <Stack direction="row" spacing={1} justifyContent="center">
                   {transaction.status === ImportedTransactionStatus.PENDING && (
                     <>
-                      {transaction.matchingTransaction ? (
+                      {transaction.matchingTransaction && (
                         <Button
                           variant="contained"
                           size="small"
@@ -311,24 +311,23 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         >
                           {isMobile ? <MergeIcon /> : "Merge"}
                         </Button>
-                      ) : (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          color="success"
-                          onClick={() => handleApprove(transaction.id)}
-                          disabled={!!pendingOperations[transaction.id]}
-                          startIcon={!isMobile && <CheckIcon />}
-                          sx={{
-                            textTransform: "none",
-                            fontWeight: 700,
-                            minWidth: isMobile ? 40 : 80,
-                            p: isMobile ? 1 : undefined,
-                          }}
-                        >
-                          {isMobile ? <CheckIcon /> : "Approve"}
-                        </Button>
                       )}
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color="success"
+                        onClick={() => handleApprove(transaction.id)}
+                        disabled={!!pendingOperations[transaction.id]}
+                        startIcon={!isMobile && <CheckIcon />}
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 700,
+                          minWidth: isMobile ? 40 : 80,
+                          p: isMobile ? 1 : undefined,
+                        }}
+                      >
+                        {isMobile ? <CheckIcon /> : "Approve"}
+                      </Button>
                       <Button
                         variant="contained"
                         size="small"

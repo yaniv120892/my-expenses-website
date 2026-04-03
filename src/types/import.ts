@@ -1,5 +1,10 @@
 import { TransactionType } from "./index";
 
+export enum TransactionApprovalStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+}
+
 export enum ImportFileType {
   VISA_CREDIT = "VISA_CREDIT",
   MASTERCARD_CREDIT = "MASTERCARD_CREDIT",
@@ -47,7 +52,7 @@ export interface MatchingTransaction {
   date: string;
   categoryId: string;
   type: TransactionType;
-  status: ImportedTransactionStatus;
+  status: TransactionApprovalStatus;
   userId: string;
 }
 

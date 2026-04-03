@@ -12,10 +12,12 @@ import {
   Chip,
   CircularProgress,
   Stack,
+  Tooltip,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EventRepeatIcon from "@mui/icons-material/EventRepeat";
 import MergeIcon from "@mui/icons-material/MergeType";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
@@ -31,6 +33,7 @@ import { formatDate } from "../utils/dateUtils";
 import {
   ImportedTransactionStatus,
   ImportedTransaction,
+  TransactionApprovalStatus,
 } from "../types/import";
 import TransactionForm from "./TransactionForm";
 import BatchActionToolbar from "./BatchActionToolbar";
@@ -268,9 +271,20 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
               <TableCell>
                 {transaction.matchingTransaction ? (
                   <Box>
-                    <Typography variant="body2">
-                      {transaction.matchingTransaction.description}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Typography variant="body2">
+                        {transaction.matchingTransaction.description}
+                      </Typography>
+                      {transaction.matchingTransaction.status ===
+                        TransactionApprovalStatus.PENDING_APPROVAL && (
+                        <Tooltip title="From scheduled transaction">
+                          <EventRepeatIcon
+                            fontSize="small"
+                            color="info"
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
                     <Typography variant="caption" color="var(--text-color)">
                       {formatAmount(transaction.matchingTransaction.value)} on{" "}
                       {formatDate(transaction.matchingTransaction.date)}{" "}

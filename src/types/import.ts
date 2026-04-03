@@ -16,6 +16,7 @@ export enum ImportStatus {
   PROCESSING = "PROCESSING",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
+  REMATCHING = "REMATCHING",
 }
 
 export enum ImportedTransactionStatus {

@@ -49,6 +49,7 @@ function getStatusColor(status: ImportStatus) {
     case ImportStatus.FAILED:
       return "error";
     case ImportStatus.PROCESSING:
+    case ImportStatus.REMATCHING:
       return "primary";
     default:
       return "default";

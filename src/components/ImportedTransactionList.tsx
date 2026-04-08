@@ -68,7 +68,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   >({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { data: autoApproveRules = [] } = useAutoApproveRulesQuery();
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>(ImportedTransactionStatus.PENDING);
 
   const formatAmount = (value: number) => {
     return new Intl.NumberFormat("he-IL", {

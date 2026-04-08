@@ -253,7 +253,7 @@ export default function ImportList({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [paymentMonthFilter, setPaymentMonthFilter] = useState<string>("ALL");
   const [cardFilter, setCardFilter] = useState<string>("ALL");
-  const [isVerifiedFilter, setIsVerifiedFilter] = useState<"ALL" | "true" | "false">("ALL");
+  const [isVerifiedFilter, setIsVerifiedFilter] = useState<"ALL" | "true" | "false">("false");
 
   // Sort state
   const [sortField, setSortField] = useState<SortField>("createdAt");

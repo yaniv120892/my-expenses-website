@@ -10,14 +10,27 @@ import {
   Paper,
   Typography,
   CircularProgress,
+  Button,
+  Stack,
 } from "@mui/material";
-import { Send as SendIcon, Chat as ChatIcon } from "@mui/icons-material";
-import { useChat } from "../../hooks/useChat";
+import {
+  Send as SendIcon,
+  Chat as ChatIcon,
+  CheckCircle as CheckCircleIcon,
+} from "@mui/icons-material";
+import { Message, useChat } from "../../hooks/useChat";
+import { AgentPendingAction } from "@/types/agent";
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const { messages, handleSendMessage, isLoading } = useChat();
+  const {
+    messages,
+    handleSendMessage,
+    handleConfirmPendingAction,
+    isLoading,
+    isConfirming,
+  } = useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -43,6 +56,78 @@ const Chat: React.FC = () => {
     handleSendMessage(inputValue);
     setInputValue("");
   };
+
+  const renderPendingAction = (pendingAction: AgentPendingAction) => {
+    const payload = pendingAction.payload;
+    const isConfirmed = pendingAction.status === "CONFIRMED";
+
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 1.5,
+          p: 1.5,
+          border: "1px solid var(--text-secondary)",
+          backgroundColor: "var(--background)",
+        }}
+      >
+        <Stack spacing={0.75}>
+          <Typography variant="subtitle2">
+            {payload.description}
+          </Typography>
+          <Typography variant="body2" color="var(--text-secondary)">
+            {formatCurrency(payload.value)} · {payload.type} · {payload.date}
+          </Typography>
+          <Typography variant="caption" color="var(--text-secondary)">
+            Category ID: {payload.categoryId}
+          </Typography>
+          {isConfirmed ? (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CheckCircleIcon />}
+              disabled
+            >
+              Confirmed
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => handleConfirmPendingAction(pendingAction.id)}
+              disabled={isConfirming}
+              startIcon={<CheckCircleIcon />}
+            >
+              Confirm
+            </Button>
+          )}
+        </Stack>
+      </Paper>
+    );
+  };
+
+  const renderMessage = (msg: Message, index: number) => (
+    <Paper
+      key={index}
+      elevation={0}
+      sx={{
+        p: 1.5,
+        mb: 1,
+        maxWidth: "80%",
+        alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
+        color: msg.sender === "user" ? "white" : "var(--text-color)",
+        backgroundColor:
+          msg.sender === "user" ? "var(--secondary)" : "var(--card-bg)",
+        border:
+          msg.sender === "user"
+            ? "none"
+            : "1px solid var(--text-secondary)",
+      }}
+    >
+      <Typography variant="body1">{msg.text}</Typography>
+      {msg.pendingAction && renderPendingAction(msg.pendingAction)}
+    </Paper>
+  );
 
   return (
     <>
@@ -98,29 +183,7 @@ const Chat: React.FC = () => {
               flexDirection: "column",
             }}
           >
-            {messages.map((msg, index) => (
-              <Paper
-                key={index}
-                elevation={0}
-                sx={{
-                  p: 1.5,
-                  mb: 1,
-                  maxWidth: "80%",
-                  alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
-                  color: msg.sender === "user" ? "white" : "var(--text-color)",
-                  backgroundColor:
-                    msg.sender === "user"
-                      ? "var(--secondary)"
-                      : "var(--card-bg)",
-                  border:
-                    msg.sender === "user"
-                      ? "none"
-                      : "1px solid var(--text-secondary)",
-                }}
-              >
-                <Typography variant="body1">{msg.text}</Typography>
-              </Paper>
-            ))}
+            {messages.map((msg, index) => renderMessage(msg, index))}
             {isLoading && (
               <CircularProgress
                 size={24}
@@ -183,5 +246,12 @@ const Chat: React.FC = () => {
     </>
   );
 };
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("he-IL", {
+    style: "currency",
+    currency: "ILS",
+  }).format(value);
+}
 
 export default Chat;

@@ -17,7 +17,8 @@ import { useChat } from "../../hooks/useChat";
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const { messages, handleSendMessage, isLoading } = useChat();
+  const { messages, handleSendMessage, isLoading, isAwaitingFirstToken, cancel } =
+    useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -32,7 +33,12 @@ const Chat: React.FC = () => {
     setIsOpen(true);
   };
 
-  const handleClose = () => setIsOpen(false);
+  // Closing the dialog stops the in-flight run rather than leaving the agent
+  // and its tool calls going server-side.
+  const handleClose = () => {
+    cancel();
+    setIsOpen(false);
+  };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
@@ -98,7 +104,11 @@ const Chat: React.FC = () => {
               flexDirection: "column",
             }}
           >
-            {messages.map((msg, index) => (
+            {messages
+              // While waiting on the first token the streaming bubble is still
+              // empty; the spinner below stands in for it.
+              .filter((msg) => msg.text.length > 0 || msg.sender === "user")
+              .map((msg, index) => (
               <Paper
                 key={index}
                 elevation={0}
@@ -118,10 +128,12 @@ const Chat: React.FC = () => {
                       : "1px solid var(--text-secondary)",
                 }}
               >
-                <Typography variant="body1">{msg.text}</Typography>
+                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                  {msg.text}
+                </Typography>
               </Paper>
             ))}
-            {isLoading && (
+            {isAwaitingFirstToken && (
               <CircularProgress
                 size={24}
                 sx={{ alignSelf: "center", color: "var(--secondary)" }}

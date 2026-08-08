@@ -1,108 +1,101 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  confirmAgentPendingAction,
-  sendAgentMessage,
-} from "@/services/agentService";
-import { AgentPendingAction } from "@/types/agent";
-import { transactionKeys } from "@/hooks/useTransactionsQuery";
-import { trendKeys } from "@/hooks/useTrendsQuery";
-import { dashboardKeys } from "@/hooks/useDashboardQuery";
+import { useCallback, useRef, useState } from "react";
+import { handleApiError } from "@/utils/api";
+import { streamMessage } from "../services/chatService";
 
 export interface Message {
   sender: "user" | "bot";
   text: string;
-  pendingAction?: AgentPendingAction;
 }
 
 export const useChat = () => {
-  const queryClient = useQueryClient();
-  const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const sendMutation = useMutation({
-    mutationFn: sendAgentMessage,
-    onSuccess: (data) => {
-      setConversationId(data.conversationId);
-      const assistantMessage: Message = {
-        text: data.message.content,
-        sender: "bot",
-        ...(data.pendingAction ? { pendingAction: data.pendingAction } : {}),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    },
-    onError: (error: Error) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: `Sorry, I encountered an error: ${error.message}`,
-        },
-      ]);
-    },
-  });
+  // Derived rather than stored: the streaming bubble is the last message, and
+  // it stays empty until the first delta lands. Keeping a second flag in sync
+  // by hand across every callback is how the spinner and the bubble end up
+  // disagreeing.
+  const last = messages[messages.length - 1];
+  const isAwaitingFirstToken =
+    isLoading && last?.sender === "bot" && last.text === "";
 
-  const confirmMutation = useMutation({
-    mutationFn: confirmAgentPendingAction,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
+  const appendToLastMessage = useCallback(
+    (delta: string, opts: { onlyIfEmpty?: boolean } = {}) => {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const target = updated[updated.length - 1];
+        if (!target || target.sender !== "bot") return prev;
+        if (opts.onlyIfEmpty && target.text) return prev;
+
+        updated[updated.length - 1] = {
+          ...target,
+          text: target.text + delta,
+        };
+        return updated;
       });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.pendingAction?.id === data.pendingActionId
-            ? {
-                ...message,
-                pendingAction: {
-                  ...message.pendingAction,
-                  status: "CONFIRMED",
-                  resultTransactionId: data.transactionId,
-                },
-              }
-            : message
-        )
-      );
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: "Done. I created the transaction.",
-        },
-      ]);
     },
-    onError: (error: Error) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: `I could not confirm that action: ${error.message}`,
-        },
-      ]);
+    []
+  );
+
+  const handleSendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading) {
+        return;
+      }
+
+      const outgoing: Message[] = [
+        ...messages,
+        { sender: "user" as const, text },
+      ];
+
+      // The empty bot message is the bubble that the deltas stream into.
+      setMessages([...outgoing, { sender: "bot" as const, text: "" }]);
+      setIsLoading(true);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        await streamMessage(
+          outgoing,
+          {
+            onDelta: appendToLastMessage,
+            // An empty reply would otherwise leave a blank bubble behind.
+            // Appending makes the bubble non-empty, so this is a no-op once
+            // any text has arrived.
+            onDone: () =>
+              appendToLastMessage(
+                "Sorry, I wasn't able to produce an answer. Please try again.",
+                { onlyIfEmpty: true }
+              ),
+            onError: appendToLastMessage,
+          },
+          controller.signal
+        );
+      } catch (error) {
+        if ((error as Error)?.name !== "AbortError") {
+          appendToLastMessage(
+            `Sorry, I encountered an error: ${handleApiError(error)}`
+          );
+        }
+      } finally {
+        setIsLoading(false);
+        abortRef.current = null;
+      }
     },
-  });
+    [appendToLastMessage, isLoading, messages]
+  );
 
-  const handleSendMessage = (text: string) => {
-    if (!text.trim()) {
-      return;
-    }
-
-    setMessages((prev) => [...prev, { sender: "user", text }]);
-    sendMutation.mutate({ conversationId, message: text.trim() });
-  };
-
-  const handleConfirmPendingAction = (pendingActionId: string) => {
-    confirmMutation.mutate(pendingActionId);
-  };
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   return {
     messages,
     handleSendMessage,
-    handleConfirmPendingAction,
-    isLoading: sendMutation.isPending,
-    isConfirming: confirmMutation.isPending,
+    isLoading,
+    isAwaitingFirstToken,
+    cancel,
   };
 };

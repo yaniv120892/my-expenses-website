@@ -25,9 +25,12 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Keyed on the message count, not the array: streaming replaces the array on
+  // every token, and a smooth scroll restarted per token cancels itself
+  // hundreds of times over one reply.
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages.length]);
 
   const handleOpen = () => {
     setIsOpen(true);
@@ -112,6 +115,8 @@ const Chat: React.FC = () => {
               <Paper
                 key={index}
                 elevation={0}
+                data-testid="chat-message"
+                data-sender={msg.sender}
                 sx={{
                   p: 1.5,
                   mb: 1,

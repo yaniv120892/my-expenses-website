@@ -130,7 +130,9 @@ Schema at `my-expenses-api/src/prisma/schema.prisma`. Core models:
 
 ## Pre-commit Hooks
 
-The API has pre-commit hooks that run: `ts.check`, `build`, `add-build`. Ensure TypeScript compiles cleanly before committing API changes.
+The API has a pre-commit hook that runs `ts.check`. Ensure TypeScript compiles cleanly before committing API changes.
+
+The API no longer commits `dist` — Vercel compiles `src/index.ts` at deploy time. Do not re-add build artifacts to git.
 
 ## Deployment
 

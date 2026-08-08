@@ -35,12 +35,20 @@ test('assistant reply renders incrementally', async ({ page }) => {
   await input.fill('Compare my grocery spending in January versus February');
   await input.press('Enter');
 
-  const bubbles = page.locator('.MuiDialogContent-root .MuiPaper-root');
+  // Scoped to the assistant's bubble specifically. Taking "the last bubble"
+  // instead would straddle two elements: the user's message is last until the
+  // reply's first token lands, so the observed length drops as the assistant
+  // bubble takes over — a decrease that has nothing to do with streaming.
+  const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
 
   // Sample the assistant bubble while the response is still arriving.
   const lengths: number[] = [];
   for (let i = 0; i < 25; i++) {
-    const text = await bubbles.last().textContent();
+    // The bubble does not exist until the first token renders; a missing one
+    // counts as zero length and is filtered out below.
+    const text = (await reply.count())
+      ? await reply.last().textContent()
+      : '';
     lengths.push((text || '').length);
     if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) break;
     await page.waitForTimeout(120);
@@ -59,6 +67,6 @@ test('assistant reply renders incrementally', async ({ page }) => {
   }
 
   // And the figures the user ends up seeing are the TypeScript-computed ones.
-  await expect(bubbles.last()).toContainText('1,100.00');
-  await expect(bubbles.last()).toContainText('26.83%');
+  await expect(reply.last()).toContainText('1,100.00');
+  await expect(reply.last()).toContainText('26.83%');
 });

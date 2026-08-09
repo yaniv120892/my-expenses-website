@@ -62,7 +62,10 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
     );
   }
   if (err instanceof ZodError) {
-    return NextResponse.json({ message: formatZodIssues(err) }, { status: 400 });
+    return NextResponse.json(
+      { message: formatZodIssues(err) },
+      { status: 400 },
+    );
   }
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
@@ -96,9 +99,16 @@ export function createHandler<
     try {
       userId = await resolveAuth(req, options.auth);
       const params = routeContext ? await routeContext.params : {};
-      const body = options.bodySchema
-        ? options.bodySchema.parse(await req.json())
-        : (undefined as TBody);
+      let body = undefined as TBody;
+      if (options.bodySchema) {
+        let raw: unknown;
+        try {
+          raw = await req.json();
+        } catch {
+          throw new HttpError(400, 'Invalid JSON body');
+        }
+        body = options.bodySchema.parse(raw);
+      }
       const query = options.querySchema
         ? options.querySchema.parse(
             Object.fromEntries(req.nextUrl.searchParams.entries()),

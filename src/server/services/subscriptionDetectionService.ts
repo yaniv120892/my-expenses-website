@@ -121,9 +121,11 @@ class SubscriptionDetectionService {
           subscription.frequency === 'MONTHLY'
             ? subscription.lastChargeDate.getDate()
             : undefined,
+        // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
+        // getDay() is 0-based.
         dayOfWeek:
           subscription.frequency === 'WEEKLY'
-            ? subscription.lastChargeDate.getDay()
+            ? subscription.lastChargeDate.getDay() + 1
             : undefined,
       });
 

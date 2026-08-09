@@ -16,33 +16,47 @@ import {
   ScheduledTransactionDomain,
 } from '@/shared/types/scheduledTransaction';
 import { ScheduleType } from '@prisma/client';
+import logger from '@/server/logging/logger';
 
 class ScheduledTransactionService {
   public async processDueScheduledTransactions(date: Date) {
     const dueScheduledTransactions =
       await scheduledTransactionRepository.getDueScheduledTransactions(date);
     for (const scheduled of dueScheduledTransactions) {
-      await transactionService.createTransaction({
-        description: scheduled.description,
-        value: scheduled.value,
-        categoryId: scheduled.categoryId,
-        type: scheduled.type,
-        date,
-        status: 'PENDING_APPROVAL',
-        userId: scheduled.userId,
-      });
-      const nextRunDate = this.calculateNextRunDate(
-        scheduled.scheduleType,
-        scheduled.interval,
-        date,
-        scheduled.dayOfWeek,
-        scheduled.dayOfMonth,
-      );
-      await scheduledTransactionRepository.updateLastRunAndNextRun(
-        scheduled.id,
-        date,
-        nextRunDate,
-      );
+      // Guarded per item so one failing schedule cannot abort the whole
+      // cron run for every other user.
+      try {
+        await transactionService.createTransaction({
+          description: scheduled.description,
+          value: scheduled.value,
+          categoryId: scheduled.categoryId,
+          type: scheduled.type,
+          date,
+          status: 'PENDING_APPROVAL',
+          userId: scheduled.userId,
+        });
+        const nextRunDate = this.calculateNextRunDate(
+          scheduled.scheduleType,
+          scheduled.interval,
+          date,
+          scheduled.dayOfWeek,
+          scheduled.dayOfMonth,
+        );
+        await scheduledTransactionRepository.updateLastRunAndNextRun(
+          scheduled.id,
+          date,
+          nextRunDate,
+        );
+      } catch (err) {
+        logger.error(
+          {
+            err,
+            scheduledTransactionId: scheduled.id,
+            userId: scheduled.userId,
+          },
+          'Failed to process scheduled transaction',
+        );
+      }
     }
   }
 

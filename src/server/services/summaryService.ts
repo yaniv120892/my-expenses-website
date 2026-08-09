@@ -3,6 +3,7 @@ import userSettingsService from '@/server/services/userSettingsService';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
+import logger from '@/server/logging/logger';
 
 interface SummaryTransaction {
   description?: string | null;
@@ -17,8 +18,13 @@ class SummaryService {
     const notifier = TransactionNotifierFactory.getNotifier();
     const users = await userSettingsService.getUsersRequiredDailySummary();
     for (const userId of users) {
-      const message = await this.getTodaySummaryMessage(userId);
-      await notifier.sendDailySummary(message, userId);
+      // Guarded per user so one failure cannot abort the run for the rest.
+      try {
+        const message = await this.getTodaySummaryMessage(userId);
+        await notifier.sendDailySummary(message, userId);
+      } catch (err) {
+        logger.error({ err, userId }, 'Failed to send daily summary');
+      }
     }
   }
 

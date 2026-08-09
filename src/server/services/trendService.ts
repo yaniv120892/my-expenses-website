@@ -1,4 +1,4 @@
-import { subMonths, format } from 'date-fns';
+import { subDays, subMonths, format } from 'date-fns';
 import {
   GetSpendingTrendsRequest,
   SpendingTrend,
@@ -15,10 +15,11 @@ import { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';
 
 const DEFAULT_PERIOD_FORMAT = 'yyyy-MM-dd';
-// 'yyyy-ww' is the ISO week number.
+// Weekly uses ISO week-year + ISO week ('RRRR-II') so year-boundary weeks
+// don't collide with week 1 of the same calendar year.
 const PERIOD_FORMATS: Record<string, string> = {
   daily: 'yyyy-MM-dd',
-  weekly: 'yyyy-ww',
+  weekly: 'RRRR-II',
   monthly: 'yyyy-MM',
   yearly: 'yyyy',
 };
@@ -195,16 +196,28 @@ class TrendService {
     transactionType?: TransactionType,
     categoryId?: string,
   ) {
-    return transactionRepository.getTransactions({
-      startDate,
-      endDate,
-      categoryId,
-      userId,
-      status: TransactionStatus.APPROVED,
-      page: 1,
-      perPage: 1000,
-      transactionType: transactionType || TransactionType.EXPENSE,
-    });
+    // Paginated to exhaustion — a single capped page would silently truncate
+    // trend totals for heavy months.
+    const transactions: Transaction[] = [];
+    const perPage = 1000;
+    let page = 1;
+    for (;;) {
+      const batch = await transactionRepository.getTransactions({
+        startDate,
+        endDate,
+        categoryId,
+        userId,
+        status: TransactionStatus.APPROVED,
+        page,
+        perPage,
+        transactionType: transactionType || TransactionType.EXPENSE,
+      });
+      transactions.push(...batch);
+      if (batch.length < perPage) {
+        return transactions;
+      }
+      page += 1;
+    }
   }
 
   private async fetchPreviousPeriodData(
@@ -218,10 +231,13 @@ class TrendService {
     const previousPeriodStartDate = new Date(
       startDate.getTime() - previousPeriodLength,
     );
+    // Ends the day before the current period starts — the repository widens
+    // endDate to endOfDay, so passing startDate itself double-counts that day.
+    const previousPeriodEndDate = subDays(startDate, 1);
 
     return this.fetchTransactionsForPeriod(
       previousPeriodStartDate,
-      startDate,
+      previousPeriodEndDate,
       userId,
       transactionType,
       categoryId,

@@ -37,7 +37,8 @@ interface MergeImportedTransactionData {
   value: number;
   date: Date;
   type: TransactionType;
-  categoryId: string;
+  // Absent means keep the matched transaction's existing category.
+  categoryId?: string;
 }
 
 interface BatchImportedTransaction {
@@ -332,9 +333,8 @@ class ImportService {
       ).matchingTransaction;
       return {
         transaction,
-        categoryId: transaction.matchingTransactionId
-          ? matchingTx?.categoryId || transaction.matchingTransactionId
-          : null,
+        // Never fall back to the transaction id — it is not a category id.
+        categoryId: matchingTx?.categoryId ?? null,
       };
     });
 
@@ -439,7 +439,7 @@ class ImportService {
     if (transaction.matchingTransactionId) {
       await this.mergeImportedTransaction(transaction.id, userId, {
         ...payload,
-        categoryId: categoryId ?? transaction.matchingTransactionId,
+        categoryId: categoryId ?? undefined,
       });
       return;
     }

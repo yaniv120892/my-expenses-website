@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -9,9 +9,12 @@ import {
   Button,
   Typography,
   Box,
-} from "@mui/material";
-import CategorySelect from "@/components/CategorySelect";
-import { DetectedSubscription } from "@/types/subscription";
+  Stack,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import CategorySelect from '@/components/CategorySelect';
+import { DetectedSubscription } from '@/types/subscription';
 
 interface Props {
   open: boolean;
@@ -28,11 +31,13 @@ export default function ConvertToScheduledDialog({
   onConvert,
   isLoading,
 }: Props) {
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState('');
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     if (open) {
-      setCategoryId("");
+      setCategoryId('');
     }
   }, [open]);
 
@@ -42,22 +47,36 @@ export default function ConvertToScheduledDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={fullScreen}
+    >
       <DialogTitle>Convert to Scheduled Transaction</DialogTitle>
       <DialogContent>
         {subscription && (
           <>
             <Box sx={{ mb: 2, mt: 1 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 0.5 }}
+              >
                 Description
               </Typography>
               <Typography variant="body1" fontWeight={600}>
                 {subscription.displayName}
               </Typography>
             </Box>
-            <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+            <Stack direction="row" spacing={4} sx={{ mb: 2 }}>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 0.5 }}
+                >
                   Amount
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
@@ -65,14 +84,18 @@ export default function ConvertToScheduledDialog({
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 0.5 }}
+                >
                   Frequency
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
                   {subscription.frequency}
                 </Typography>
               </Box>
-            </Box>
+            </Stack>
             <CategorySelect
               value={categoryId}
               onChange={setCategoryId}
@@ -81,8 +104,8 @@ export default function ConvertToScheduledDialog({
           </>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button variant="outlined" onClick={onClose} disabled={isLoading}>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={isLoading}>
           Cancel
         </Button>
         <Button
@@ -90,7 +113,7 @@ export default function ConvertToScheduledDialog({
           onClick={handleSubmit}
           disabled={!categoryId || isLoading}
         >
-          {isLoading ? "Converting..." : "Convert"}
+          {isLoading ? 'Converting...' : 'Convert'}
         </Button>
       </DialogActions>
     </Dialog>

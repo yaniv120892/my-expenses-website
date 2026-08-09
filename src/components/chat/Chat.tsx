@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Fab,
@@ -10,19 +12,30 @@ import {
   Paper,
   Typography,
   CircularProgress,
-} from "@mui/material";
-import { Send as SendIcon, Chat as ChatIcon } from "@mui/icons-material";
-import { useChat } from "../../hooks/useChat";
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { useChat } from '../../hooks/useChat';
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const { messages, handleSendMessage, isLoading, isAwaitingFirstToken, cancel } =
-    useChat();
+  const [inputValue, setInputValue] = useState('');
+  const {
+    messages,
+    handleSendMessage,
+    isLoading,
+    isAwaitingFirstToken,
+    cancel,
+  } = useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // Keyed on the message count, not the array: streaming replaces the array on
@@ -50,27 +63,24 @@ const Chat: React.FC = () => {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     handleSendMessage(inputValue);
-    setInputValue("");
+    setInputValue('');
   };
 
   return (
     <>
       {!isOpen && (
         <Fab
-          color="secondary"
-          aria-label="chat"
+          color="primary"
+          aria-label="Open chat"
           onClick={handleOpen}
           sx={{
-            position: "fixed",
-            bottom: 96,
-            right: 32,
-            display: "flex",
-            flexDirection: "row",
-            gap: 2,
-            zIndex: 2000,
+            position: 'fixed',
+            bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+            right: 24,
+            zIndex: (t) => t.zIndex.speedDial,
           }}
         >
-          <ChatIcon />
+          <ChatBubbleOutlineRoundedIcon />
         </Fab>
       )}
       <Dialog
@@ -78,71 +88,79 @@ const Chat: React.FC = () => {
         onClose={handleClose}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            backgroundColor: "var(--card-bg)",
-            color: "var(--text-color)",
-            border: "1px solid var(--text-secondary)",
-          },
-        }}
+        fullScreen={fullScreen}
       >
-        <DialogTitle sx={{ borderBottom: "1px solid var(--text-secondary)" }}>
-          Chat with your Financial Assistant
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: 1,
+            borderColor: 'divider',
+            py: 1.5,
+          }}
+        >
+          Financial Assistant
+          <IconButton
+            onClick={handleClose}
+            aria-label="Close chat"
+            size="small"
+            edge="end"
+          >
+            <CloseRoundedIcon fontSize="small" />
+          </IconButton>
         </DialogTitle>
         <DialogContent
           sx={{
-            display: "flex",
-            flexDirection: "column",
-            height: "60vh",
-            p: 1,
-            backgroundColor: "var(--background)",
+            display: 'flex',
+            flexDirection: 'column',
+            height: { xs: '100%', sm: '60vh' },
+            p: 0,
+            bgcolor: 'background.default',
           }}
         >
           <Box
             sx={{
               flexGrow: 1,
-              overflowY: "auto",
+              overflowY: 'auto',
               p: 2,
-              display: "flex",
-              flexDirection: "column",
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             {messages
               // While waiting on the first token the streaming bubble is still
               // empty; the spinner below stands in for it.
-              .filter((msg) => msg.text.length > 0 || msg.sender === "user")
+              .filter((msg) => msg.text.length > 0 || msg.sender === 'user')
               .map((msg, index) => (
-              <Paper
-                key={index}
-                elevation={0}
-                data-testid="chat-message"
-                data-sender={msg.sender}
-                sx={{
-                  p: 1.5,
-                  mb: 1,
-                  maxWidth: "80%",
-                  alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
-                  color: msg.sender === "user" ? "white" : "var(--text-color)",
-                  backgroundColor:
-                    msg.sender === "user"
-                      ? "var(--secondary)"
-                      : "var(--card-bg)",
-                  border:
-                    msg.sender === "user"
-                      ? "none"
-                      : "1px solid var(--text-secondary)",
-                }}
-              >
-                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-                  {msg.text}
-                </Typography>
-              </Paper>
-            ))}
+                <Paper
+                  key={index}
+                  elevation={0}
+                  data-testid="chat-message"
+                  data-sender={msg.sender}
+                  sx={{
+                    p: 1.5,
+                    mb: 1,
+                    maxWidth: '80%',
+                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    color:
+                      msg.sender === 'user'
+                        ? 'primary.contrastText'
+                        : 'text.primary',
+                    bgcolor:
+                      msg.sender === 'user' ? 'primary.main' : 'background.paper',
+                    border: msg.sender === 'user' ? 'none' : 1,
+                    borderColor: 'divider',
+                    borderRadius: 2.5,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {msg.text}
+                  </Typography>
+                </Paper>
+              ))}
             {isAwaitingFirstToken && (
-              <CircularProgress
-                size={24}
-                sx={{ alignSelf: "center", color: "var(--secondary)" }}
-              />
+              <CircularProgress size={24} sx={{ alignSelf: 'center', my: 1 }} />
             )}
             <div ref={messagesEndRef} />
           </Box>
@@ -150,49 +168,33 @@ const Chat: React.FC = () => {
             component="form"
             onSubmit={handleSubmit}
             sx={{
-              display: "flex",
-              alignItems: "center",
-              p: 1,
-              borderTop: "1px solid var(--text-secondary)",
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              p: 1.5,
+              borderTop: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              pb: {
+                xs: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+                sm: 1.5,
+              },
             }}
           >
             <TextField
               fullWidth
-              variant="outlined"
               placeholder="Ask about your transactions..."
               value={inputValue}
               onChange={handleInputChange}
               disabled={isLoading}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  color: "var(--text-color)",
-                  backgroundColor: "var(--background)",
-                  "& fieldset": {
-                    borderColor: "var(--text-secondary)",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "var(--secondary)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "var(--secondary)",
-                  },
-                },
-                input: {
-                  color: "var(--text-color)",
-                  backgroundColor: "var(--background)",
-                },
-              }}
-              InputLabelProps={{
-                style: { color: "var(--text-secondary)" },
-              }}
             />
             <IconButton
               type="submit"
               color="primary"
-              disabled={isLoading}
-              sx={{ color: "var(--secondary)" }}
+              disabled={isLoading || !inputValue.trim()}
+              aria-label="Send message"
             >
-              <SendIcon />
+              <SendRoundedIcon />
             </IconButton>
           </Box>
         </DialogContent>

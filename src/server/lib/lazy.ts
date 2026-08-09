@@ -1,8 +1,10 @@
 export function lazy<T>(create: () => T): () => T {
-  let value: T | undefined;
+  let created = false;
+  let value: T;
   return () => {
-    if (value === undefined) {
+    if (!created) {
       value = create();
+      created = true;
     }
     return value;
   };

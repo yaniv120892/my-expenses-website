@@ -5,8 +5,7 @@ import {
   TokenExpiredError,
   verifyToken,
 } from '@/server/auth/tokens';
-
-export const SESSION_COOKIE = 'session';
+import { SESSION_COOKIE } from '@/server/auth/cookies';
 
 export class AuthError extends Error {
   constructor(

@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createHandler } from '@/server/http/handler';
 import { signupSchema } from '@/shared/schemas/auth';
 import authService from '@/server/services/authService';
-import { handleAuthRoute } from '@/server/auth/routeUtils';
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  return handleAuthRoute(req, async () => {
-    const body = signupSchema.parse(await req.json());
+export const POST = createHandler({
+  auth: 'public',
+  bodySchema: signupSchema,
+  handler: async ({ body }) => {
     const result = await authService.signupUser(
       body.email,
       body.username,
@@ -17,6 +18,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400 },
       );
     }
-    return NextResponse.json({ success: true });
-  });
-}
+    return { success: true };
+  },
+});

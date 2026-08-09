@@ -7,25 +7,12 @@ const coreEnvSchema = z.object({
   REDIS_URL: z.string().min(1),
   REDIS_TOKEN: z.string().min(1),
   CRON_SECRET: z.string().min(1),
-  LOG_LEVEL: z.string().default('info'),
-  NODE_ENV: z.string().default('development'),
 });
-
-export type CoreEnv = z.infer<typeof coreEnvSchema>;
-
-let cachedCoreEnv: CoreEnv | undefined;
-
-export function coreEnv(): CoreEnv {
-  if (!cachedCoreEnv) {
-    cachedCoreEnv = coreEnvSchema.parse(process.env);
-  }
-  return cachedCoreEnv;
-}
 
 // Called from instrumentation.ts so a misconfigured deployment fails at boot
 // instead of on the first request.
 export function assertCoreEnv(): void {
-  coreEnv();
+  coreEnvSchema.parse(process.env);
 }
 
 export function requireEnv(name: string): string {

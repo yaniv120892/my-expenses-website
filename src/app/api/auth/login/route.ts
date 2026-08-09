@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createHandler } from '@/server/http/handler';
 import { loginSchema } from '@/shared/schemas/auth';
 import authService from '@/server/services/authService';
-import { handleAuthRoute } from '@/server/auth/routeUtils';
 import { setSessionCookie } from '@/server/auth/cookies';
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  return handleAuthRoute(req, async () => {
-    const body = loginSchema.parse(await req.json());
+export const POST = createHandler({
+  auth: 'public',
+  bodySchema: loginSchema,
+  handler: async ({ body }) => {
     const result = await authService.loginUser(
       body.email,
       body.username,
@@ -21,5 +22,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = NextResponse.json({ success: true, token: result.token });
     setSessionCookie(response, result.token);
     return response;
-  });
-}
+  },
+});

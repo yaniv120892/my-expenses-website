@@ -117,12 +117,20 @@ class TransactionManager {
   }
 
   private async resolveUserId(chatId: string): Promise<string | null> {
-    const providers = await prisma.userNotificationProvider.findMany({
-      where: { provider: 'TELEGRAM', enabled: true },
-    });
-    const match = providers.find((provider) => {
-      const data = provider.data as { chatId?: string | number } | null;
-      return data?.chatId != null && String(data.chatId) === chatId;
+    // chatId may be stored as a string or a number, so both forms are queried
+    // instead of scanning every provider row.
+    const numericChatId = Number(chatId);
+    const match = await prisma.userNotificationProvider.findFirst({
+      where: {
+        provider: 'TELEGRAM',
+        enabled: true,
+        OR: [
+          { data: { path: ['chatId'], equals: chatId } },
+          ...(Number.isNaN(numericChatId)
+            ? []
+            : [{ data: { path: ['chatId'], equals: numericChatId } }]),
+        ],
+      },
     });
     return match?.userId ?? null;
   }

@@ -6,15 +6,14 @@ import {
   deleteTransaction,
   getCategories,
   getTransactionSummary,
-} from '../services/transactions';
+} from '@/services/transactions';
 import {
   TransactionFilters,
   CreateTransactionInput,
   UpdateTransactionInput,
   TransactionSummary,
-} from '../types';
-import { trendKeys } from '@/hooks/useTrendsQuery';
-import { dashboardKeys } from '@/hooks/useDashboardQuery';
+} from '@/types';
+import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 
 export const transactionKeys = {
   all: ['transactions'] as const,
@@ -23,8 +22,11 @@ export const transactionKeys = {
     [...transactionKeys.lists(), filters] as const,
   categories: () => [...transactionKeys.all, 'categories'] as const,
   allTransactions: () => [...transactionKeys.all, 'allTransactions'] as const,
+  // Prefix without the filters argument, so invalidation matches every
+  // filtered summary query.
+  summaries: () => [...transactionKeys.all, 'summary'] as const,
   summary: (filters?: Omit<TransactionFilters, 'page' | 'perPage'>) =>
-    [...transactionKeys.all, 'summary', filters] as const,
+    [...transactionKeys.summaries(), filters] as const,
 };
 
 export const useTransactionsQuery = (filters?: TransactionFilters) => {
@@ -46,15 +48,7 @@ export const useCreateTransactionMutation = () => {
 
   return useMutation({
     mutationFn: (data: CreateTransactionInput) => createTransaction(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-    },
+    onSuccess: () => invalidateTransactionData(queryClient),
   });
 };
 
@@ -64,15 +58,7 @@ export const useUpdateTransactionMutation = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTransactionInput }) =>
       updateTransaction(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-    },
+    onSuccess: () => invalidateTransactionData(queryClient),
   });
 };
 
@@ -81,15 +67,7 @@ export const useDeleteTransactionMutation = () => {
 
   return useMutation({
     mutationFn: (id: string) => deleteTransaction(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
-    },
+    onSuccess: () => invalidateTransactionData(queryClient),
   });
 };
 

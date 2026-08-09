@@ -1,49 +1,87 @@
-import transactionRepository from '@/server/repositories/transactionRepository';
+import transactionService from '@/server/services/transactionService';
+import userSettingsService from '@/server/services/userSettingsService';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
-import { Transaction } from '@/shared/types/transaction';
+import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
+
+interface SummaryTransaction {
+  description?: string | null;
+  value: number;
+  category?: { name: string } | null;
+}
 
 class SummaryService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
 
-  public async getTodaySummary(userId: string) {
+  public async sendTodaySummaryToAllUsers(): Promise<void> {
+    const notifier = TransactionNotifierFactory.getNotifier();
+    const users = await userSettingsService.getUsersRequiredDailySummary();
+    for (const userId of users) {
+      const message = await this.getTodaySummaryMessage(userId);
+      await notifier.sendDailySummary(message, userId);
+    }
+  }
+
+  private async getTodaySummaryMessage(userId: string): Promise<string> {
     const transactions = await this.getTodayTransactions(userId);
-    const summary = this.buildSummary(transactions);
-    const aiSummary = await this.getFunnyAiSummary(transactions);
-    return { summary, aiSummary };
+    if (transactions.length === 0) {
+      return 'לא נוספו הוצאות היום.';
+    }
+
+    const transactionsTextForAiAnalyzer = transactions
+      .map(
+        (t) =>
+          `description:${t.description}, category: ${t.category?.name}, amount: ${t.value}`,
+      )
+      .join('\n');
+    const aiInsights = await this.getAiService().analyzeExpenses(
+      transactionsTextForAiAnalyzer,
+      'add a funny summary based on my expenses at the end',
+    );
+    const total = transactions.reduce((sum, t) => sum + t.value, 0);
+    return this.formatSummaryMessage(transactions, total, aiInsights);
   }
 
-  private getTodayDateRange() {
+  private async getTodayTransactions(
+    userId: string,
+  ): Promise<SummaryTransaction[]> {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return { start, end };
-  }
-
-  private async getTodayTransactions(userId: string) {
-    const { start, end } = this.getTodayDateRange();
-    return transactionRepository.getTransactions({
-      startDate: start,
-      endDate: end,
-      page: 1,
-      perPage: 100,
-      status: 'APPROVED',
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    );
+    return transactionService.getAllTransactions({
+      startDate: startOfToday,
+      endDate: endOfToday,
       userId,
     });
   }
 
-  private buildSummary(transactions: Transaction[]) {
-    const total = transactions.reduce((sum, t) => sum + t.value, 0);
-    return `Today's expenses: ${total.toFixed(2)} NIS (${transactions.length} transactions)`;
-  }
-
-  private async getFunnyAiSummary(transactions: Transaction[]) {
-    const descriptions = transactions
-      .map((t) => `${t.description} (${t.category?.name})`)
-      .join(', ');
-    const prompt = `Write a short and funny summary about these expenses: ${descriptions}`;
-    return this.getAiService().analyzeExpenses(prompt);
+  private formatSummaryMessage(
+    transactions: SummaryTransaction[],
+    totalAmount: number,
+    aiInsights: string,
+  ): string {
+    const list = transactions
+      .map(
+        (t) =>
+          `${t.category?.name || ''}, ${t.description || ''}, ${t.value || 0} ש״ח`,
+      )
+      .join('\n');
+    return [
+      '*ההוצאות של היום:*',
+      list,
+      '',
+      `*סך הכל הוצאות:*\n${totalAmount} ש״ח\n`,
+      '',
+      `*סיכום:*\n${aiInsights}`,
+    ].join('\n');
   }
 }
 

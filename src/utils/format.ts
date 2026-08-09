@@ -15,8 +15,14 @@ export function formatNumber(value: number) {
   return value.toLocaleString();
 }
 
+// Module-level so a formatter is not constructed per table cell.
+const ilsFormatter = new Intl.NumberFormat('he-IL', {
+  style: 'currency',
+  currency: 'ILS',
+});
+
 export function formatCurrency(value: number) {
-  return value.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+  return ilsFormatter.format(value);
 }
 
 export function translateToScheduleSummary(

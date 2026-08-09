@@ -1,21 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import {
+  InvalidTokenError,
+  TokenExpiredError,
+  verifyToken,
+} from '@/server/auth/tokens';
+import { SESSION_COOKIE } from '@/server/auth/cookies';
 
-const SESSION_COOKIE = 'session';
 const AUTH_PAGES = ['/login', '/signup', '/verify'];
 
 // Signature/expiry check only — the full Redis session check runs in every
-// API handler, keeping Redis off the page navigation hot path.
+// API handler, keeping Redis off the page navigation hot path. A missing
+// JWT_SECRET throws (loud misconfiguration) instead of redirect-looping.
 async function hasValidToken(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token || !process.env.JWT_SECRET) {
+  if (!token) {
     return false;
   }
   try {
-    await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET));
+    await verifyToken(token);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    if (err instanceof TokenExpiredError || err instanceof InvalidTokenError) {
+      return false;
+    }
+    throw err;
   }
 }
 
@@ -38,9 +46,10 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // CSRF defense-in-depth on top of SameSite=Lax cookies.
   if (pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && isCrossOrigin(req)) {
-      return NextResponse.json({ error: 'Cross-origin request rejected' }, {
-        status: 403,
-      });
+      return NextResponse.json(
+        { error: 'Cross-origin request rejected' },
+        { status: 403 },
+      );
     }
     return NextResponse.next();
   }

@@ -1,15 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getPendingTransactions,
   updateTransactionStatus,
   deleteTransaction,
-} from "../services/transactions";
-import { trendKeys } from "@/hooks/useTrendsQuery";
-import { transactionKeys } from "@/hooks/useTransactionsQuery";
+} from '@/services/transactions';
+import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 
 export const pendingTransactionKeys = {
-  all: ["pendingTransactions"] as const,
-  lists: () => [...pendingTransactionKeys.all, "list"] as const,
+  all: ['pendingTransactions'] as const,
+  lists: () => [...pendingTransactionKeys.all, 'list'] as const,
 };
 
 export const usePendingTransactionsQuery = () => {
@@ -23,18 +22,8 @@ export const useConfirmTransactionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => updateTransactionStatus(id, "APPROVED"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: pendingTransactionKeys.lists(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-    },
+    mutationFn: (id: string) => updateTransactionStatus(id, 'APPROVED'),
+    onSuccess: () => invalidateTransactionData(queryClient),
   });
 };
 
@@ -43,16 +32,6 @@ export const useDeletePendingTransactionMutation = () => {
 
   return useMutation({
     mutationFn: (id: string) => deleteTransaction(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: pendingTransactionKeys.lists(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: transactionKeys.allTransactions(),
-      });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.summary() });
-      queryClient.invalidateQueries({ queryKey: trendKeys.all });
-    },
+    onSuccess: () => invalidateTransactionData(queryClient),
   });
 };

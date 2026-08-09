@@ -1,7 +1,8 @@
-import { Box, Button, Typography, Chip, Stack } from '@mui/material';
+'use client';
+
+import { Chip, Stack } from '@mui/material';
 import { TrendPeriod, TransactionType } from '@/types/trends';
 import { Category } from '@/types';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import { format } from 'date-fns';
 
 interface TrendFiltersDisplayProps {
@@ -23,8 +24,8 @@ export const TrendFiltersDisplay = ({
   categories,
   onOpenFilters,
 }: TrendFiltersDisplayProps) => {
-  const formatPeriod = (period: TrendPeriod) => {
-    switch (period) {
+  const formatPeriod = (p: TrendPeriod) => {
+    switch (p) {
       case 'weekly':
         return 'Weekly';
       case 'monthly':
@@ -39,75 +40,33 @@ export const TrendFiltersDisplay = ({
     return categories.find((c) => c.id === selectedCategory)?.name || '';
   };
 
+  const labels = [
+    transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
+    formatPeriod(period),
+    getCategoryName(),
+    `${format(new Date(startDate), 'MMM d, yyyy')} – ${format(
+      new Date(endDate),
+      'MMM d, yyyy',
+    )}`,
+  ];
+
   return (
-    <Box sx={{ mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <Typography variant="h4" color="text.primary">
-          {transactionType === 'EXPENSE' ? 'Spending' : 'Income'} Trends
-        </Typography>
-        <Button
+    <Stack
+      direction="row"
+      spacing={1}
+      flexWrap="wrap"
+      useFlexGap
+      sx={{ mb: 2 }}
+    >
+      {labels.map((label) => (
+        <Chip
+          key={label}
+          label={label}
           variant="outlined"
-          startIcon={<FilterListIcon />}
-          onClick={onOpenFilters}
           size="small"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        >
-          Filters
-        </Button>
-      </Box>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip
-          label={`Type: ${
-            transactionType === 'EXPENSE' ? 'Expenses' : 'Income'
-          }`}
-          variant="outlined"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
+          onClick={onOpenFilters}
         />
-        <Chip
-          label={`Period: ${formatPeriod(period)}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        />
-        <Chip
-          label={`Category: ${getCategoryName()}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        />
-        <Chip
-          label={`From: ${format(new Date(startDate), 'MMM d, yyyy')}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        />
-        <Chip
-          label={`To: ${format(new Date(endDate), 'MMM d, yyyy')}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        />
-      </Stack>
-    </Box>
+      ))}
+    </Stack>
   );
 };

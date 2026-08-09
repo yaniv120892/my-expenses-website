@@ -1,90 +1,29 @@
-import React from "react";
-import { Skeleton } from "@mui/material";
-import { useIsMobile } from "@/hooks/useIsMobile";
+'use client';
 
-function getMobileSkeletonRow() {
-  return (
-    <tr>
-      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              <Skeleton width="80%" sx={{}} />
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="60%" sx={{}} />
-            </div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              <Skeleton width="80%" sx={{}} />
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="60%" sx={{}} />
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function getDesktopSkeletonRow() {
-  return (
-    <tr>
-      <td>
-        <Skeleton width="80%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="60%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="60%" sx={{}} />
-      </td>
-    </tr>
-  );
-}
+import React from 'react';
+import { Box, Paper, Skeleton, Stack } from '@mui/material';
 
 export default function ImportListSkeleton({ rows = 5 }: { rows?: number }) {
-  const isMobile = useIsMobile();
-
-  if (isMobile) {
-    return (
-      <div className="card-accent" style={{ padding: 0 }}>
-        <table
-          className="table"
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            width: "100%",
-          }}
-        >
-          <tbody>
-            {[...Array(rows)].map((_, idx) =>
-              React.cloneElement(getMobileSkeletonRow(), { key: idx })
-            )}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
   return (
-    <div className="card-accent" style={{ padding: 0 }}>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Import Type</th>
-            <th>Status</th>
-            <th>Created At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...Array(rows)].map((_, idx) =>
-            React.cloneElement(getDesktopSkeletonRow(), { key: idx })
-          )}
-        </tbody>
-      </table>
-    </div>
+    <Paper variant="outlined">
+      <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
+        {[...Array(rows)].map((_, idx) => (
+          <Stack
+            key={idx}
+            direction="row"
+            alignItems="center"
+            spacing={2}
+            sx={{ px: 2, py: 1.5 }}
+          >
+            <Box sx={{ flex: 1 }}>
+              <Skeleton width="45%" />
+              <Skeleton width="30%" />
+            </Box>
+            <Skeleton variant="rounded" width={80} height={24} />
+            <Skeleton variant="circular" width={24} height={24} />
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
   );
 }

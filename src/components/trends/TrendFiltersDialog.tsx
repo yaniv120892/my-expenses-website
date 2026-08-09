@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Button,
   Dialog,
@@ -11,6 +13,8 @@ import {
   TextField,
   SelectChangeEvent,
   Box,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { TrendPeriod, TransactionType, TrendFilters } from '@/types/trends';
 import { Category } from '@/types';
@@ -43,6 +47,8 @@ export const TrendFiltersDialog = ({
   transactionType: initialTransactionType,
   categories,
 }: TrendFiltersDialogProps) => {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [period, setPeriod] = useState(initialPeriod);
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -105,7 +111,13 @@ export const TrendFiltersDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      fullScreen={fullScreen}
+    >
       <DialogTitle>Filter Trends</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -167,17 +179,10 @@ export const TrendFiltersDialog = ({
           />
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2, display: 'flex', gap: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          sx={{ width: '50%' }}
-          onClick={handleApply}
-        >
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={handleApply}>
           Apply
-        </Button>
-        <Button variant="outlined" sx={{ width: '50%' }} onClick={onClose}>
-          Close
         </Button>
       </DialogActions>
     </Dialog>

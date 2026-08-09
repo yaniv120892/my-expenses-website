@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -6,15 +8,17 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Box,
   CircularProgress,
+  Stack,
   Switch,
   FormControlLabel,
   Tooltip,
-} from "@mui/material";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import { TransactionFilters } from "@/types";
-import CategorySelect from "../CategorySelect";
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { TransactionFilters } from '@/types';
+import CategorySelect from '../CategorySelect';
 
 interface TransactionFiltersDialogProps {
   open: boolean;
@@ -29,23 +33,25 @@ export const TransactionFiltersDialog = ({
   onApply,
   initialFilters,
 }: TransactionFiltersDialogProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [smartSearch, setSmartSearch] = useState(true);
 
   useEffect(() => {
     if (open) {
-      setSearchTerm(initialFilters?.searchTerm || "");
-      setCategoryId(initialFilters?.categoryId || "");
-      setStartDate(initialFilters?.startDate || "");
-      setEndDate(initialFilters?.endDate || "");
+      setSearchTerm(initialFilters?.searchTerm || '');
+      setCategoryId(initialFilters?.categoryId || '');
+      setStartDate(initialFilters?.startDate || '');
+      setEndDate(initialFilters?.endDate || '');
       setSmartSearch(
         initialFilters?.smartSearch !== undefined
           ? initialFilters.smartSearch
-          : true
+          : true,
       );
     }
   }, [initialFilters, open]);
@@ -54,11 +60,11 @@ export const TransactionFiltersDialog = ({
     setLoading(true);
     try {
       onApply({
-        searchTerm: searchTerm.trim() === "" ? undefined : searchTerm,
-        categoryId: categoryId === "" ? undefined : categoryId,
-        startDate: startDate === "" ? undefined : startDate,
-        endDate: endDate === "" ? undefined : endDate,
-        smartSearch: searchTerm.trim() === "" ? undefined : smartSearch,
+        searchTerm: searchTerm.trim() === '' ? undefined : searchTerm,
+        categoryId: categoryId === '' ? undefined : categoryId,
+        startDate: startDate === '' ? undefined : startDate,
+        endDate: endDate === '' ? undefined : endDate,
+        smartSearch: searchTerm.trim() === '' ? undefined : smartSearch,
       });
       onClose();
     } finally {
@@ -67,15 +73,20 @@ export const TransactionFiltersDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth>
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onClose}
+      fullWidth
+      fullScreen={fullScreen}
+    >
       <DialogTitle>
-        <Box display="flex" alignItems="center" gap={1}>
+        <Stack direction="row" alignItems="center" spacing={1}>
           <FilterListIcon />
-          Filter Transactions
-        </Box>
+          <span>Filter Transactions</span>
+        </Stack>
       </DialogTitle>
       <DialogContent>
-        <Box display="flex" flexDirection="column" gap={2} mt={1}>
+        <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             label="Search"
             value={searchTerm}
@@ -93,7 +104,7 @@ export const TransactionFiltersDialog = ({
                     checked={smartSearch}
                     onChange={(_, checked) => setSmartSearch(checked)}
                     color="primary"
-                    disabled={searchTerm.trim() === ""}
+                    disabled={searchTerm.trim() === ''}
                   />
                 }
                 label="Smart Search"
@@ -122,28 +133,21 @@ export const TransactionFiltersDialog = ({
             fullWidth
             InputLabelProps={{ shrink: true }}
           />
-        </Box>
+        </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 2, display: "flex", gap: 2 }}>
+      <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1 }}>
+        <Button variant="outlined" onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
-          color="primary"
-          sx={{ width: "50%" }}
           onClick={handleApply}
           disabled={loading}
           startIcon={
-            loading ? <CircularProgress size={20} color="inherit" /> : undefined
+            loading ? <CircularProgress size={18} color="inherit" /> : undefined
           }
         >
           Apply
-        </Button>
-        <Button
-          variant="outlined"
-          sx={{ width: "50%" }}
-          onClick={onClose}
-          disabled={loading}
-        >
-          Close
         </Button>
       </DialogActions>
     </Dialog>

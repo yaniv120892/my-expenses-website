@@ -174,10 +174,13 @@ async function handleCompletedExtraction(
 
   // A previous import for the same card and month means this one is a
   // duplicate upload: merge new transactions into it and drop this record.
+  // Excluding the import being processed — its metadata was just written
+  // above, so it would otherwise match itself and the merge would never fire.
   const existingImport = await importRepository.findExisting(
     importRecord.userId,
     result.metadata.paymentMonth,
     result.metadata.creditCardLastFour,
+    importId,
   );
 
   let finalImportId = importId;
@@ -269,7 +272,10 @@ async function handleFailedExtraction(
 ): Promise<void> {
   const errorMessage = payload.error || 'Unknown extraction error';
 
-  logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
+  logger.error(
+    { importId, error: errorMessage },
+    'Processing failed extraction',
+  );
 
   await importRepository.updateStatus(
     importId,

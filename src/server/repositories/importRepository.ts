@@ -70,11 +70,14 @@ export class ImportRepository {
     userId: string,
     paymentMonth: string,
     creditCardLastFourDigits: string,
+    excludeImportId?: string,
   ): Promise<Import | null> {
     const imports = await prisma.import.findMany({
       where: {
         userId,
         paymentMonth,
+        deleted: false,
+        ...(excludeImportId ? { id: { not: excludeImportId } } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

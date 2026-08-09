@@ -116,6 +116,21 @@ class TransactionManager {
     await setValue(stateKey(chatId), state, STATE_TTL_SECONDS);
   }
 
+  // The bot prompts for DD/MM/YYYY; new Date() would read it as MM/DD/YYYY.
+  private parseDdMmYyyy(text: string): Date | null {
+    const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) {
+      return null;
+    }
+    const [, day, month, year] = match.map(Number);
+    const date = new Date(year, month - 1, day);
+    const valid =
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day;
+    return valid ? date : null;
+  }
+
   private async resolveUserId(chatId: string): Promise<string | null> {
     // chatId may be stored as a string or a number, so both forms are queried
     // instead of scanning every provider row.
@@ -216,7 +231,14 @@ class TransactionManager {
 
     const date = ['now', 'today'].includes(sanitizedText)
       ? new Date()
-      : new Date(sanitizedText);
+      : this.parseDdMmYyyy(sanitizedText);
+    if (!date) {
+      return {
+        message:
+          'Invalid date. Please use DD/MM/YYYY, or /now for the current date.',
+        nextStep: UserStatus.AWAITING_DATE,
+      };
+    }
 
     const createdResult = await transactionService.createTransaction({
       type: inProcessTransaction.type as TransactionType,

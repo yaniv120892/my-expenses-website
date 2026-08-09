@@ -11,17 +11,16 @@ import {
   TextField,
   SelectChangeEvent,
   Box,
-} from "@mui/material";
-import { TrendPeriod, TransactionType, TrendFilters } from "@/types/trends";
-import { Category } from "@/types";
-import dayjs from "dayjs";
-import { useState, useEffect } from "react";
+} from '@mui/material';
+import { TrendPeriod, TransactionType, TrendFilters } from '@/types/trends';
+import { Category } from '@/types';
+import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
 
-interface TrendFiltersDialogProps
-  extends Omit<
-    TrendFilters,
-    "period" | "startDate" | "endDate" | "selectedCategory" | "transactionType"
-  > {
+interface TrendFiltersDialogProps extends Omit<
+  TrendFilters,
+  'period' | 'startDate' | 'endDate' | 'selectedCategory' | 'transactionType'
+> {
   open: boolean;
   onClose: () => void;
   onApply: (filters: TrendFilters) => void;
@@ -48,10 +47,10 @@ export const TrendFiltersDialog = ({
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [selectedCategory, setSelectedCategory] = useState(
-    initialSelectedCategory
+    initialSelectedCategory,
   );
   const [transactionType, setTransactionType] = useState(
-    initialTransactionType
+    initialTransactionType,
   );
 
   useEffect(() => {
@@ -76,7 +75,7 @@ export const TrendFiltersDialog = ({
   };
 
   const handleStartDateChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     setStartDate(new Date(event.target.value));
   };
@@ -90,7 +89,7 @@ export const TrendFiltersDialog = ({
   };
 
   const handleTransactionTypeChange = (
-    event: SelectChangeEvent<TransactionType>
+    event: SelectChangeEvent<TransactionType>,
   ) => {
     setTransactionType(event.target.value as TransactionType);
   };
@@ -109,7 +108,7 @@ export const TrendFiltersDialog = ({
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Filter Trends</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <FormControl fullWidth>
             <InputLabel>Type</InputLabel>
             <Select
@@ -152,7 +151,7 @@ export const TrendFiltersDialog = ({
           <TextField
             label="Start Date"
             type="date"
-            value={dayjs(startDate).format("YYYY-MM-DD")}
+            value={format(new Date(startDate), 'yyyy-MM-dd')}
             onChange={handleStartDateChange}
             fullWidth
             slotProps={{ inputLabel: { shrink: true } }}
@@ -161,27 +160,23 @@ export const TrendFiltersDialog = ({
           <TextField
             label="End Date"
             type="date"
-            value={dayjs(endDate).format("YYYY-MM-DD")}
+            value={format(new Date(endDate), 'yyyy-MM-dd')}
             onChange={handleEndDateChange}
             fullWidth
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2, display: "flex", gap: 2 }}>
+      <DialogActions sx={{ p: 2, display: 'flex', gap: 2 }}>
         <Button
           variant="contained"
           color="primary"
-          sx={{ width: "50%" }}
+          sx={{ width: '50%' }}
           onClick={handleApply}
         >
           Apply
         </Button>
-        <Button
-          variant="outlined"
-          sx={{ width: "50%" }}
-          onClick={onClose}
-        >
+        <Button variant="outlined" sx={{ width: '50%' }} onClick={onClose}>
           Close
         </Button>
       </DialogActions>

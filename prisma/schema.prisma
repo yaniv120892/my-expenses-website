@@ -1,0 +1,273 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionStatus {
+  APPROVED
+  PENDING_APPROVAL
+}
+
+enum NotificationProvider {
+  TELEGRAM
+}
+
+enum ScheduleType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REMATCHING
+}
+
+enum ImportFileType {
+  VISA_CREDIT
+  MASTERCARD_CREDIT
+  AMERICAN_EXPRESS_CREDIT
+}
+
+enum ImportBankSourceType {
+  NON_BANK_CREDIT
+  BANK_CREDIT
+}
+
+enum SubscriptionStatus {
+  DETECTED
+  CONFIRMED
+  DISMISSED
+}
+
+enum SubscriptionFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum ImportedTransactionStatus {
+  PENDING
+  APPROVED
+  MERGED
+  IGNORED
+}
+
+enum TransactionFileStatus {
+  ACTIVE
+  MARKED_FOR_DELETION
+  DELETED
+}
+
+model User {
+  id                        String                @id @default(uuid()) @db.Uuid
+  username                  String                @unique
+  email                     String                @unique
+  password                  String
+  verified                  Boolean               @default(false)
+  transactions              Transaction[]
+  scheduledTransactions     ScheduledTransaction[]
+  userNotification          UserNotificationPreference?
+  userNotificationProviders UserNotificationProvider[]
+  imports                   Import[]
+  importedTransactions      ImportedTransaction[]
+  autoApproveRules          AutoApproveRule[]
+  categoryMappings          UserCategoryMapping[]
+  detectedSubscriptions     DetectedSubscription[]
+}
+
+model UserNotificationPreference {
+  userId             String   @id @db.Uuid
+  user               User     @relation(fields: [userId], references: [id])
+  createTransaction  Boolean  @default(false)
+  dailySummary       Boolean  @default(false)
+  subscriptionAudit  Boolean  @default(false)
+}
+
+model UserNotificationProvider {
+  userId    String              @db.Uuid
+  user      User               @relation(fields: [userId], references: [id])
+  provider  NotificationProvider
+  data      Json
+  enabled   Boolean            @default(true)
+
+  @@id([userId, provider])
+}
+
+model Transaction {
+  id                    String               @id @default(uuid()) @db.Uuid
+  description           String
+  value                Float
+  date                 DateTime
+  categoryId           String               @db.Uuid
+  category             Category             @relation(fields: [categoryId], references: [id])
+  type                 TransactionType
+  status               TransactionStatus    @default(APPROVED)
+  userId               String               @db.Uuid
+  user                 User                 @relation(fields: [userId], references: [id])
+  importedTransactions ImportedTransaction[]
+  files                TransactionFile[]
+
+  @@index([userId])
+  @@index([categoryId])
+}
+
+model Import {
+  id            String               @id @default(uuid()) @db.Uuid
+  userId        String               @db.Uuid
+  fileUrl       String
+  originalFileName String
+  importType               ImportFileType?
+  bankSourceType           ImportBankSourceType?
+  status        ImportStatus         @default(PENDING)
+  error         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  completedAt   DateTime?
+  transactions  ImportedTransaction[]
+  
+  creditCardLastFourDigits String? /// @encrypted
+  paymentMonth             String? // Format: MM/YYYY
+  deleted                  Boolean @default(false)
+  excelExtractionRequestId String?
+  user                     User    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([excelExtractionRequestId])
+}
+
+model ImportedTransaction {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  importId             String                   @db.Uuid
+  description          String
+  value                Float
+  date                 DateTime
+  type                 TransactionType
+  status               ImportedTransactionStatus @default(PENDING)
+  matchingTransactionId String?                 @db.Uuid
+  rawData              Json
+  userId               String                   @db.Uuid
+  deleted              Boolean                  @default(false)
+  import               Import                   @relation(fields: [importId], references: [id])
+  user                 User                     @relation(fields: [userId], references: [id])
+  matchingTransaction  Transaction?             @relation(fields: [matchingTransactionId], references: [id])
+
+  @@index([importId])
+  @@index([userId])
+  @@index([matchingTransactionId])
+}
+
+model Category {
+  id                    String                @id @default(uuid()) @db.Uuid
+  name                  String                @unique
+  parentId              String?              @db.Uuid
+  parent                Category?            @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children              Category[]           @relation("CategoryToCategory")
+  transactions          Transaction[]
+  scheduledTransactions ScheduledTransaction[]
+  autoApproveRules      AutoApproveRule[]
+  categoryMappings      UserCategoryMapping[]
+}
+
+model ScheduledTransaction {
+  id            String          @id @default(uuid()) @db.Uuid
+  description   String
+  value         Float
+  type          TransactionType
+  categoryId    String          @db.Uuid
+  category      Category        @relation(fields: [categoryId], references: [id])
+  scheduleType  ScheduleType
+  interval      Int?
+  dayOfWeek     Int?
+  dayOfMonth    Int?
+  monthOfYear   Int?
+  lastRunDate   DateTime?
+  nextRunDate   DateTime?
+  userId        String          @db.Uuid
+  user          User            @relation(fields: [userId], references: [id])
+}
+
+model TransactionFile {
+  id            String                @id @default(uuid()) @db.Uuid
+  transactionId String                @db.Uuid
+  fileName      String
+  fileKey       String
+  fileSize      Int
+  mimeType      String
+  status        TransactionFileStatus @default(ACTIVE)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  transaction   Transaction          @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([status])
+}
+
+model UserCategoryMapping {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  descriptionPattern String
+  categoryId         String   @db.Uuid
+  hitCount           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id])
+  category           Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, descriptionPattern])
+  @@index([userId])
+}
+
+model AutoApproveRule {
+  id                 String          @id @default(uuid()) @db.Uuid
+  userId             String          @db.Uuid
+  descriptionPattern String
+  categoryId         String          @db.Uuid
+  type               TransactionType
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  user               User            @relation(fields: [userId], references: [id])
+  category           Category        @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+}
+
+model DetectedSubscription {
+  id                     String                @id @default(uuid()) @db.Uuid
+  userId                 String                @db.Uuid
+  merchantName           String
+  displayName            String
+  averageAmount          Float
+  frequency              SubscriptionFrequency
+  lastChargeDate         DateTime
+  nextExpectedDate       DateTime
+  annualCost             Float
+  status                 SubscriptionStatus    @default(DETECTED)
+  matchingDescriptions   String[]
+  scheduledTransactionId String?               @db.Uuid
+  confidence             Float                 @default(0)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  user                   User                  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, merchantName, frequency])
+  @@index([userId])
+  @@index([status])
+}

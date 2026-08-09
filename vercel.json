@@ -1,0 +1,24 @@
+{
+  "crons": [
+    {
+      "path": "/api/scheduled-transactions/process",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/summary/today",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/backup/transactions",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/subscriptions/detect",
+      "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/subscriptions/audit-notify",
+      "schedule": "0 8 * * 1"
+    }
+  ]
+}

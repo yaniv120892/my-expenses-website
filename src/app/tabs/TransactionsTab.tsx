@@ -1,18 +1,18 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Transaction,
   TransactionFilters,
   CreateTransactionInput,
-} from "../../types";
-import TransactionList from "../../components/TransactionList";
-import TransactionForm from "../../components/TransactionForm";
-import Chat from "../../components/chat/Chat";
-import TransactionListSkeleton from "../../components/TransactionListSkeleton";
-import { Fab, Box, Alert, Snackbar } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import { TransactionFiltersDialog } from "../../components/transactions/TransactionFiltersDialog";
-import { TransactionFiltersDisplay } from "../../components/transactions/TransactionFiltersDisplay";
-import PendingTransactionsPopup from "../../components/PendingTransactionsPopup";
+} from '../../types';
+import TransactionList from '../../components/TransactionList';
+import TransactionForm from '../../components/TransactionForm';
+import Chat from '../../components/chat/Chat';
+import TransactionListSkeleton from '../../components/TransactionListSkeleton';
+import { Fab, Box, Alert, Snackbar } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import { TransactionFiltersDialog } from '../../components/transactions/TransactionFiltersDialog';
+import { TransactionFiltersDisplay } from '../../components/transactions/TransactionFiltersDisplay';
+import PendingTransactionsPopup from '../../components/PendingTransactionsPopup';
 import {
   useTransactionsQuery,
   useCategoriesQuery,
@@ -20,11 +20,11 @@ import {
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
   useTransactionsSummaryQuery,
-} from "../../hooks/useTransactionsQuery";
-import IncomeExpensePieChart from "../../components/IncomeExpensePieChart";
-import CategoryConfirmationSnackbar from "../../components/CategoryConfirmationSnackbar";
-import { CreateTransactionResponse } from "../../services/transactions";
-import dayjs from "dayjs";
+} from '../../hooks/useTransactionsQuery';
+import IncomeExpensePieChart from '../../components/IncomeExpensePieChart';
+import CategoryConfirmationSnackbar from '../../components/CategoryConfirmationSnackbar';
+import { CreateTransactionResponse } from '../../services/transactions';
+import { endOfMonth, format, startOfMonth } from 'date-fns';
 
 function TransactionTableArea({
   loading,
@@ -38,7 +38,7 @@ function TransactionTableArea({
   onDelete: (id: string) => void;
 }) {
   return (
-    <Box flex={1} sx={{ position: "relative" }}>
+    <Box flex={1} sx={{ position: 'relative' }}>
       {loading ? (
         <TransactionListSkeleton rows={6} />
       ) : (
@@ -63,11 +63,11 @@ function AddTransactionFab({
     return (
       <Box
         sx={{
-          position: "fixed",
+          position: 'fixed',
           bottom: 32,
           right: 32,
-          display: "flex",
-          flexDirection: "row",
+          display: 'flex',
+          flexDirection: 'row',
           gap: 2,
           zIndex: 2000,
         }}
@@ -82,8 +82,8 @@ function AddTransactionFab({
 }
 
 const getDefaultFilters = () => ({
-  startDate: dayjs().startOf("month").format("YYYY-MM-DD"),
-  endDate: dayjs().endOf("month").format("YYYY-MM-DD"),
+  startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+  endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
 });
 
 export default function TransactionsTab() {
@@ -144,18 +144,18 @@ export default function TransactionsTab() {
       }
       return result.id;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create transaction");
+      setError(e instanceof Error ? e.message : 'Failed to create transaction');
     }
   };
 
   const handleUpdateSuccess = async (
     id: string,
-    data: CreateTransactionInput
+    data: CreateTransactionInput,
   ) => {
     try {
       await updateMutation.mutateAsync({ id, data });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update transaction");
+      setError(e instanceof Error ? e.message : 'Failed to update transaction');
     }
   };
 
@@ -163,7 +163,7 @@ export default function TransactionsTab() {
     try {
       await deleteMutation.mutateAsync(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete transaction");
+      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
     }
   };
 
@@ -191,7 +191,11 @@ export default function TransactionsTab() {
         expense={summary?.totalExpense || 0}
         loading={summaryLoading}
         error={summaryError as string | null}
-        title={dayjs(filters.startDate).format("MMMM YYYY")}
+        title={
+          filters.startDate
+            ? format(new Date(filters.startDate), 'MMMM yyyy')
+            : ''
+        }
       />
       <TransactionFiltersDisplay
         {...filters}

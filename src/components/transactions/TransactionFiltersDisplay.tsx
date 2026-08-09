@@ -1,9 +1,9 @@
-import { Box, Chip, Button, Typography, Stack, Tooltip } from "@mui/material";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import { TransactionFilters } from "@/types";
-import { Category } from "@/types";
-import dayjs from "dayjs";
+import { Box, Chip, Button, Typography, Stack, Tooltip } from '@mui/material';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { TransactionFilters } from '@/types';
+import { Category } from '@/types';
+import { format } from 'date-fns';
 
 interface TransactionFiltersDisplayProps extends TransactionFilters {
   onOpenFilters: () => void;
@@ -34,13 +34,13 @@ export const TransactionFiltersDisplay = ({
   };
 
   const chipSx = {
-    backgroundColor: "background.paper",
-    color: "primary.main",
-    fontWeight: "bold",
-    "& .MuiChip-deleteIcon": {
-      color: "primary.main",
-      "&:hover": {
-        color: "primary.main",
+    backgroundColor: 'background.paper',
+    color: 'primary.main',
+    fontWeight: 'bold',
+    '& .MuiChip-deleteIcon': {
+      color: 'primary.main',
+      '&:hover': {
+        color: 'primary.main',
         opacity: 0.7,
       },
     },
@@ -48,7 +48,7 @@ export const TransactionFiltersDisplay = ({
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Typography variant="h4" color="text.primary">
           Transactions
         </Typography>
@@ -58,9 +58,9 @@ export const TransactionFiltersDisplay = ({
           onClick={onOpenFilters}
           size="small"
           sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
+            backgroundColor: 'background.paper',
+            color: 'primary.main',
+            fontWeight: 'bold',
           }}
         >
           Filters
@@ -69,7 +69,7 @@ export const TransactionFiltersDisplay = ({
 
       {hasActiveFilters && (
         <Box
-          sx={{ cursor: "pointer", "&:hover": { opacity: 0.85 } }}
+          sx={{ cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
           onClick={onOpenFilters}
         >
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -87,7 +87,7 @@ export const TransactionFiltersDisplay = ({
                         <AutoFixHighIcon
                           color="primary"
                           fontSize="small"
-                          style={{ verticalAlign: "middle" }}
+                          style={{ verticalAlign: 'middle' }}
                         />
                       </Tooltip>
                     )}
@@ -116,8 +116,8 @@ export const TransactionFiltersDisplay = ({
             {(startDate || endDate) && (
               <Chip
                 label={`Date: ${
-                  startDate ? dayjs(startDate).format("MMM D, YYYY") : ""
-                } - ${endDate ? dayjs(endDate).format("MMM D, YYYY") : ""}`}
+                  startDate ? format(new Date(startDate), 'MMM d, yyyy') : ''
+                } - ${endDate ? format(new Date(endDate), 'MMM d, yyyy') : ''}`}
                 variant="outlined"
                 onDelete={(e) => {
                   e.stopPropagation();

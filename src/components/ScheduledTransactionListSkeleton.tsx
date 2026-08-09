@@ -1,115 +1,95 @@
-import React from "react";
-import { Skeleton } from "@mui/material";
-import { useIsMobile } from "@/hooks/useIsMobile";
+'use client';
 
-function getMobileSkeletonRow() {
-  return (
-    <tr>
-      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              <Skeleton width="80%" sx={{}} />
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="60%" sx={{}} />
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="50%" sx={{}} />
-            </div>
-          </div>
-          <div style={{ textAlign: "right", minWidth: 110 }}>
-            <div
-              style={{
-                color: "var(--accent-red)",
-                fontWeight: 600,
-                fontSize: "1.1em",
-              }}
-            >
-              <Skeleton width="60%" sx={{}} />
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-secondary)" }}>
-              <Skeleton width="50%" sx={{}} />
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function getDesktopSkeletonRow() {
-  return (
-    <tr>
-      <td>
-        <Skeleton width="80%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="60%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="50%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="60%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="70%" sx={{}} />
-      </td>
-      <td>
-        <Skeleton width="60%" sx={{}} />
-      </td>
-    </tr>
-  );
-}
+import React from 'react';
+import {
+  Box,
+  Paper,
+  Skeleton,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 
 export default function ScheduledTransactionListSkeleton({
   rows = 5,
 }: {
   rows?: number;
 }) {
-  const isMobile = useIsMobile();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   if (isMobile) {
     return (
-      <div className="card-accent" style={{ padding: 0 }}>
-        <table
-          className="table"
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            width: "100%",
-          }}
-        >
-          <tbody>
-            {[...Array(rows)].map((_, idx) =>
-              React.cloneElement(getMobileSkeletonRow(), { key: idx })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
+          {[...Array(rows)].map((_, idx) => (
+            <Box
+              key={idx}
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 2,
+                px: 2,
+                py: 1.5,
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                <Skeleton width="60%" />
+                <Skeleton width="40%" />
+                <Skeleton width="50%" />
+              </Box>
+              <Box sx={{ width: 90 }}>
+                <Skeleton width="100%" />
+                <Skeleton width="80%" />
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      </Paper>
     );
   }
 
   return (
-    <div className="card-accent" style={{ padding: 0 }}>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Value</th>
-            <th>Type</th>
-            <th>Category</th>
-            <th>Schedule</th>
-            <th>Next Run</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...Array(rows)].map((_, idx) =>
-            React.cloneElement(getDesktopSkeletonRow(), { key: idx })
-          )}
-        </tbody>
-      </table>
-    </div>
+    <TableContainer component={Paper} variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Description</TableCell>
+            <TableCell>Category</TableCell>
+            <TableCell>Schedule</TableCell>
+            <TableCell>Next run</TableCell>
+            <TableCell align="right">Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {[...Array(rows)].map((_, idx) => (
+            <TableRow key={idx} sx={{ '&:last-child td': { border: 0 } }}>
+              <TableCell>
+                <Skeleton width="70%" />
+              </TableCell>
+              <TableCell>
+                <Skeleton width="50%" />
+              </TableCell>
+              <TableCell>
+                <Skeleton width="70%" />
+              </TableCell>
+              <TableCell>
+                <Skeleton width="60%" />
+              </TableCell>
+              <TableCell align="right">
+                <Skeleton width="50%" sx={{ ml: 'auto' }} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

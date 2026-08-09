@@ -1,8 +1,9 @@
-import { Box, Chip, Button, Typography, Stack, Tooltip } from '@mui/material';
+'use client';
+
+import { Box, Chip, Button, Stack, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import { TransactionFilters } from '@/types';
-import { Category } from '@/types';
+import { TransactionFilters, Category } from '@/types';
 import { format } from 'date-fns';
 
 interface TransactionFiltersDisplayProps extends TransactionFilters {
@@ -33,102 +34,65 @@ export const TransactionFiltersDisplay = ({
     return category ? category.name : id;
   };
 
-  const chipSx = {
-    backgroundColor: 'background.paper',
-    color: 'primary.main',
-    fontWeight: 'bold',
-    '& .MuiChip-deleteIcon': {
-      color: 'primary.main',
-      '&:hover': {
-        color: 'primary.main',
-        opacity: 0.7,
-      },
-    },
-  };
-
   return (
-    <Box sx={{ mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <Typography variant="h4" color="text.primary">
-          Transactions
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<FilterListIcon />}
-          onClick={onOpenFilters}
-          size="small"
-          sx={{
-            backgroundColor: 'background.paper',
-            color: 'primary.main',
-            fontWeight: 'bold',
-          }}
-        >
-          Filters
-        </Button>
-      </Box>
+    <Stack
+      direction="row"
+      alignItems="center"
+      flexWrap="wrap"
+      useFlexGap
+      spacing={1}
+    >
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<FilterListIcon />}
+        onClick={onOpenFilters}
+      >
+        Filters
+      </Button>
 
       {hasActiveFilters && (
-        <Box
-          sx={{ cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
-          onClick={onOpenFilters}
-        >
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {searchTerm && (
-              <Chip
-                label={
-                  <Box
-                    component="span"
-                    display="flex"
-                    alignItems="center"
-                    gap={0.5}
-                  >
-                    {smartSearch && (
-                      <Tooltip title="Smart Search is enabled (typo-tolerant, flexible search)">
-                        <AutoFixHighIcon
-                          color="primary"
-                          fontSize="small"
-                          style={{ verticalAlign: 'middle' }}
-                        />
-                      </Tooltip>
-                    )}
-                    <span>{`Search: ${searchTerm}`}</span>
-                  </Box>
-                }
-                variant="outlined"
-                onDelete={(e) => {
-                  e.stopPropagation();
-                  onResetSearch();
-                }}
-                sx={chipSx}
-              />
-            )}
-            {categoryId && (
-              <Chip
-                label={`Category: ${getCategoryName(categoryId)}`}
-                variant="outlined"
-                onDelete={(e) => {
-                  e.stopPropagation();
-                  onResetCategory();
-                }}
-                sx={chipSx}
-              />
-            )}
-            {(startDate || endDate) && (
-              <Chip
-                label={`Date: ${
-                  startDate ? format(new Date(startDate), 'MMM d, yyyy') : ''
-                } - ${endDate ? format(new Date(endDate), 'MMM d, yyyy') : ''}`}
-                variant="outlined"
-                onDelete={(e) => {
-                  e.stopPropagation();
-                  onResetDateRange();
-                }}
-                sx={chipSx}
-              />
-            )}
-          </Stack>
-        </Box>
+        <>
+          {searchTerm && (
+            <Chip
+              label={
+                <Box
+                  component="span"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  {smartSearch && (
+                    <Tooltip title="Smart Search is enabled (typo-tolerant, flexible search)">
+                      <AutoFixHighIcon color="primary" fontSize="small" />
+                    </Tooltip>
+                  )}
+                  <span>{`Search: ${searchTerm}`}</span>
+                </Box>
+              }
+              variant="outlined"
+              onClick={onOpenFilters}
+              onDelete={onResetSearch}
+            />
+          )}
+          {categoryId && (
+            <Chip
+              label={`Category: ${getCategoryName(categoryId)}`}
+              variant="outlined"
+              onClick={onOpenFilters}
+              onDelete={onResetCategory}
+            />
+          )}
+          {(startDate || endDate) && (
+            <Chip
+              label={`Date: ${
+                startDate ? format(new Date(startDate), 'MMM d, yyyy') : ''
+              } - ${endDate ? format(new Date(endDate), 'MMM d, yyyy') : ''}`}
+              variant="outlined"
+              onClick={onOpenFilters}
+              onDelete={onResetDateRange}
+            />
+          )}
+        </>
       )}
-    </Box>
+    </Stack>
   );
 };

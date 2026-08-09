@@ -1,5 +1,7 @@
-import React, { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+'use client';
+
+import React, { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 import {
   Box,
   Button,
@@ -9,12 +11,12 @@ import {
   Snackbar,
   Alert,
   TextField,
-} from "@mui/material";
-import { UploadFile } from "@mui/icons-material";
+} from '@mui/material';
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import {
   useProcessImportMutation,
   useImportUploadMutation,
-} from "../hooks/useImports";
+} from '../hooks/useImports';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -24,7 +26,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [paymentMonth, setPaymentMonth] = useState<string>("");
+  const [paymentMonth, setPaymentMonth] = useState<string>('');
   const processImportMutation = useProcessImportMutation();
   const importUploadMutation = useImportUploadMutation();
 
@@ -40,12 +42,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
         const arrayBuffer = await file.arrayBuffer();
         const blob = new Blob([arrayBuffer], {
-          type: file.type || "application/octet-stream",
+          type: file.type || 'application/octet-stream',
         });
 
         const formData = new FormData();
-        formData.append("file", blob, file.name);
-        formData.append("paymentMonth", paymentMonth);
+        formData.append('file', blob, file.name);
+        formData.append('paymentMonth', paymentMonth);
 
         const { fileUrl } = await importUploadMutation.mutateAsync({
           formData,
@@ -60,9 +62,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
         onUploadComplete?.();
       } catch (error) {
-        console.error("Upload failed with error:", error);
+        console.error('Upload failed with error:', error);
         setError(
-          error instanceof Error ? error.message : "Failed to upload file"
+          error instanceof Error ? error.message : 'Failed to upload file',
         );
       } finally {
         setIsUploading(false);
@@ -74,16 +76,16 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       onUploadComplete,
       paymentMonth,
       importUploadMutation,
-    ]
+    ],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
-        ".xlsx",
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+        '.xlsx',
       ],
-      "text/csv": [".csv"],
+      'text/csv': ['.csv'],
     },
     maxFiles: 1,
     disabled: isUploading || processImportMutation.isPending,
@@ -92,11 +94,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const isDisabled = isUploading || processImportMutation.isPending;
 
   return (
-    <Box>
+    <Box sx={{ pt: 1 }}>
       <TextField
         fullWidth
         label="Payment Month (MM/YYYY)"
-        variant="outlined"
         value={paymentMonth}
         onChange={(e) => setPaymentMonth(e.target.value)}
         sx={{ mb: 3 }}
@@ -108,51 +109,41 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       <Box
         {...getRootProps()}
         sx={{
-          p: 3,
-          border: "2px dashed",
-          borderColor: isDragActive ? "primary.main" : "grey.300",
-          borderRadius: 1,
-          bgcolor: isDragActive ? "primary.50" : "background.paper",
-          cursor: isDisabled ? "not-allowed" : "pointer",
-          transition: "all 0.2s",
-          "&:hover": {
-            borderColor: "primary.main",
-            bgcolor: "primary.50",
+          p: { xs: 3, sm: 4 },
+          border: 2,
+          borderStyle: 'dashed',
+          borderColor: isDragActive ? 'primary.main' : 'divider',
+          borderRadius: 2,
+          bgcolor: isDragActive ? 'action.hover' : 'background.paper',
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
+          transition: 'border-color 0.2s, background-color 0.2s',
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: 'action.hover',
           },
         }}
       >
         <input {...getInputProps()} />
-        <Stack spacing={2} alignItems="center">
-          <UploadFile
+        <Stack spacing={1.5} alignItems="center">
+          <UploadFileOutlinedIcon
             sx={{
-              fontSize: 48,
-              color: isDragActive ? "primary.main" : "grey.400",
+              fontSize: 44,
+              color: isDragActive ? 'primary.main' : 'text.secondary',
             }}
           />
           <Typography
             align="center"
-            color={isDragActive ? "primary.main" : "text.primary"}
+            color={isDragActive ? 'primary.main' : 'text.primary'}
           >
             {isDragActive
-              ? "Drop the file here"
-              : "Drag and drop a file here, or click to select"}
+              ? 'Drop the file here'
+              : 'Drag and drop a file here, or click to select'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Supported formats: XLSX, CSV
           </Typography>
           {!isDisabled && (
-            <Button
-              variant="contained"
-              size="small"
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                backgroundColor: "var(--accent-red)",
-                "&:hover": {
-                  backgroundColor: "var(--accent-red-dark)",
-                },
-              }}
-            >
+            <Button variant="contained" size="small">
               Select File
             </Button>
           )}
@@ -163,11 +154,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           <LinearProgress
             variant="determinate"
             value={isUploading ? uploadProgress : 100}
-            sx={{
-              "& .MuiLinearProgress-bar": {
-                backgroundColor: "var(--accent-red)",
-              },
-            }}
+            sx={{ borderRadius: 1 }}
           />
           <Typography
             mt={1}
@@ -178,7 +165,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           >
             {isUploading
               ? `Uploading... ${Math.round(uploadProgress)}%`
-              : "Processing import..."}
+              : 'Processing import...'}
           </Typography>
         </Box>
       )}

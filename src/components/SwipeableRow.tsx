@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import React, { useRef, useState, useCallback } from "react";
-import { Box } from "@mui/material";
+import React, { useRef, useState, useCallback } from 'react';
+import { Box } from '@mui/material';
 
 const THRESHOLD = 80;
 
@@ -19,10 +19,10 @@ export default function SwipeableRow({
   children,
   onSwipeLeft,
   onSwipeRight,
-  leftLabel = "Delete",
-  rightLabel = "Edit",
-  leftColor = "error.main",
-  rightColor = "success.main",
+  leftLabel = 'Delete',
+  rightLabel = 'Edit',
+  leftColor = 'error.main',
+  rightColor = 'success.main',
 }: SwipeableRowProps) {
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);
@@ -73,55 +73,29 @@ export default function SwipeableRow({
   const showLeft = offsetX < -20 && onSwipeLeft;
   const showRight = offsetX > 20 && onSwipeRight;
 
+  const actionSx = {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: Math.abs(offsetX),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'common.white',
+    fontWeight: 700,
+    fontSize: 14,
+    zIndex: 0,
+  } as const;
+
   return (
-    <Box
-      sx={{
-        position: "relative",
-        overflow: "hidden",
-        touchAction: "pan-y",
-      }}
-    >
+    <Box sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
       {showRight && (
-        <Box
-          sx={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: Math.abs(offsetX),
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: rightColor,
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: "8px 0 0 8px",
-            zIndex: 0,
-          }}
-        >
+        <Box sx={{ ...actionSx, left: 0, bgcolor: rightColor }}>
           {rightLabel}
         </Box>
       )}
       {showLeft && (
-        <Box
-          sx={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: Math.abs(offsetX),
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: leftColor,
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: "0 8px 8px 0",
-            zIndex: 0,
-          }}
-        >
+        <Box sx={{ ...actionSx, right: 0, bgcolor: leftColor }}>
           {leftLabel}
         </Box>
       )}
@@ -130,12 +104,12 @@ export default function SwipeableRow({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         sx={{
-          position: "relative",
+          position: 'relative',
           zIndex: 1,
           transform: `translateX(${offsetX}px)`,
-          transition: isDragging.current ? "none" : "transform 0.25s ease-out",
-          willChange: "transform",
-          bgcolor: "background.paper",
+          transition: isDragging.current ? 'none' : 'transform 0.25s ease-out',
+          willChange: 'transform',
+          bgcolor: 'background.paper',
         }}
       >
         {children}

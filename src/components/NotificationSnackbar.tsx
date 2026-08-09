@@ -1,10 +1,10 @@
-import React from "react";
-import { Snackbar, Alert } from "@mui/material";
+import React from 'react';
+import { Snackbar, Alert } from '@mui/material';
 
 type NotificationSnackbarProps = {
   open: boolean;
   message: string;
-  severity?: "success" | "error" | "info" | "warning";
+  severity?: 'success' | 'error' | 'info' | 'warning';
   onClose: () => void;
   autoHideDuration?: number;
 };
@@ -12,7 +12,7 @@ type NotificationSnackbarProps = {
 export default function NotificationSnackbar({
   open,
   message,
-  severity = "success",
+  severity = 'success',
   onClose,
   autoHideDuration = 4000,
 }: NotificationSnackbarProps) {
@@ -21,9 +21,9 @@ export default function NotificationSnackbar({
       open={open}
       autoHideDuration={autoHideDuration}
       onClose={onClose}
-      anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
     >
-      <Alert severity={severity} sx={{ width: "100%" }}>
+      <Alert severity={severity} variant="filled" sx={{ width: '100%' }}>
         {message}
       </Alert>
     </Snackbar>

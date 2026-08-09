@@ -1,18 +1,34 @@
-import React, { useState } from "react";
+'use client';
+
+import React, { useState } from 'react';
 import {
+  Box,
   Button,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
   Typography,
-} from "@mui/material";
-import { Transaction } from "../types";
-import { formatTransactionDate } from "../utils/format";
-import EmptyState from "./EmptyState";
-import NotificationSnackbar from "./NotificationSnackbar";
-import SwipeableRow from "./SwipeableRow";
-import { useIsMobile } from "@/hooks/useIsMobile";
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { Transaction } from '../types';
+import { formatCurrency, formatTransactionDate } from '../utils/format';
+import EmptyState from './EmptyState';
+import NotificationSnackbar from './NotificationSnackbar';
+import SwipeableRow from './SwipeableRow';
 
 type Props = {
   transactions: Transaction[];
@@ -20,35 +36,25 @@ type Props = {
   onDeleteAction: (id: string) => void;
 };
 
-function getValueColor(type: string) {
-  if (type === "INCOME") {
-    return "var(--accent-green)";
-  }
-  return "var(--accent-red)";
-}
-
-function getFormattedValue(value: number) {
-  return value.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
-}
-
 export default function PendingTransactionsList({
   transactions,
   onConfirmAction,
   onDeleteAction,
 }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
-    "success"
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
+    'success',
   );
-  const isMobile = useIsMobile();
 
   function showSnackbar(
     message: string,
-    severity: "success" | "error" = "success"
+    severity: 'success' | 'error' = 'success',
   ) {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -65,45 +71,35 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
+  async function approve(id: string) {
+    try {
+      await onConfirmAction(id);
+      showSnackbar('Transaction approved successfully', 'success');
+    } catch {
+      showSnackbar('Failed to approve transaction', 'error');
+    }
+  }
+
+  async function reject(id: string) {
+    try {
+      await onDeleteAction(id);
+      showSnackbar('Transaction rejected successfully', 'success');
+    } catch {
+      showSnackbar('Failed to reject transaction', 'error');
+    }
+  }
+
   async function handleApprove() {
     if (selectedTransaction) {
-      try {
-        await onConfirmAction(selectedTransaction.id);
-        showSnackbar("Transaction approved successfully", "success");
-      } catch {
-        showSnackbar("Failed to approve transaction", "error");
-      }
+      await approve(selectedTransaction.id);
       closeDialog();
     }
   }
 
   async function handleDelete() {
     if (selectedTransaction) {
-      try {
-        await onDeleteAction(selectedTransaction.id);
-        showSnackbar("Transaction rejected successfully", "success");
-      } catch {
-        showSnackbar("Failed to reject transaction", "error");
-      }
+      await reject(selectedTransaction.id);
       closeDialog();
-    }
-  }
-
-  async function handleQuickApprove(id: string) {
-    try {
-      await onConfirmAction(id);
-      showSnackbar("Transaction approved successfully", "success");
-    } catch {
-      showSnackbar("Failed to approve transaction", "error");
-    }
-  }
-
-  async function handleQuickDelete(id: string) {
-    try {
-      await onDeleteAction(id);
-      showSnackbar("Transaction rejected successfully", "success");
-    } catch {
-      showSnackbar("Failed to reject transaction", "error");
     }
   }
 
@@ -111,116 +107,165 @@ export default function PendingTransactionsList({
     return <EmptyState message="No pending transactions found." />;
   }
 
-  const renderRow = (tx: Transaction) => (
-    <div
-      style={{ cursor: "pointer", padding: "0.7rem 0.5rem" }}
-      onClick={() => openDialog(tx)}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontWeight: 600 }}>{tx.description}</div>
-          <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
-            {tx.category?.name}
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ color: getValueColor(tx.type), fontWeight: 600 }}>
-            {getFormattedValue(tx.value)}
-          </div>
-          <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
-            {formatTransactionDate(tx.date)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const amountColor = (type: Transaction['type']) =>
+    type === 'INCOME'
+      ? theme.palette.charts.income
+      : theme.palette.charts.expense;
 
   return (
     <>
-      <div className="card-accent" style={{ padding: 0 }}>
-        {isMobile ? (
-          <div>
+      {isMobile ? (
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+          <Stack
+            divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
+          >
             {transactions.map((tx) => (
               <SwipeableRow
                 key={tx.id}
-                onSwipeRight={() => handleQuickApprove(tx.id)}
-                onSwipeLeft={() => handleQuickDelete(tx.id)}
+                onSwipeRight={() => approve(tx.id)}
+                onSwipeLeft={() => reject(tx.id)}
                 rightLabel="Approve"
                 rightColor="success.main"
                 leftLabel="Delete"
                 leftColor="error.main"
               >
-                {renderRow(tx)}
+                <Box
+                  onClick={() => openDialog(tx)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    px: 2,
+                    py: 1.5,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                      {tx.description}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {tx.category?.name}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600, color: amountColor(tx.type) }}
+                    >
+                      {formatCurrency(tx.value)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatTransactionDate(tx.date)}
+                    </Typography>
+                  </Box>
+                </Box>
               </SwipeableRow>
             ))}
-          </div>
-        ) : (
-          <table className="table">
-            <tbody>
+          </Stack>
+        </Paper>
+      ) : (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Description</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell align="right">Amount</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {transactions.map((tx) => (
-                <tr
+                <TableRow
                   key={tx.id}
-                  style={{ cursor: "pointer" }}
+                  hover
                   onClick={() => openDialog(tx)}
+                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
                 >
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{tx.description}</div>
-                    <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
-                      {tx.category?.name}
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      style={{ color: getValueColor(tx.type), fontWeight: 600 }}
-                    >
-                      {getFormattedValue(tx.value)}
-                    </div>
-                    <div style={{ fontSize: "0.95em", color: "var(--text-secondary)" }}>
-                      {formatTransactionDate(tx.date)}
-                    </div>
-                  </td>
-                </tr>
+                  <TableCell sx={{ fontWeight: 500 }}>
+                    {tx.description}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    {tx.category?.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    {formatTransactionDate(tx.date)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: 600, color: amountColor(tx.type) }}
+                  >
+                    {formatCurrency(tx.value)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                    <Tooltip title="Approve">
+                      <IconButton
+                        size="small"
+                        color="success"
+                        aria-label="Approve transaction"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          approve(tx.id);
+                        }}
+                      >
+                        <CheckRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        aria-label="Delete transaction"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reject(tx.id);
+                        }}
+                      >
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      <Dialog
+        open={isDialogOpen && !!selectedTransaction}
+        onClose={closeDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        {selectedTransaction && (
+          <>
+            <DialogTitle sx={{ fontWeight: 600 }}>
+              {selectedTransaction.description}
+            </DialogTitle>
+            <DialogContent>
+              <Typography color="text.secondary">
+                Approve or delete this transaction?
+              </Typography>
+            </DialogContent>
+            <DialogActions sx={{ p: 2, gap: 1 }}>
+              <Button variant="outlined" onClick={closeDialog}>
+                Cancel
+              </Button>
+              <Button variant="contained" color="error" onClick={handleDelete}>
+                Delete
+              </Button>
+              <Button variant="contained" onClick={handleApprove}>
+                Approve
+              </Button>
+            </DialogActions>
+          </>
         )}
-        <Dialog open={isDialogOpen && !!selectedTransaction} onClose={closeDialog}>
-          {selectedTransaction && (
-            <>
-              <DialogTitle sx={{ fontWeight: 600 }}>
-                {selectedTransaction.description}
-              </DialogTitle>
-              <DialogContent>
-                <Typography>
-                  Approve or delete this transaction?
-                </Typography>
-              </DialogContent>
-              <DialogActions sx={{ p: 2, gap: 1 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleApprove}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={closeDialog}
-                >
-                  Cancel
-                </Button>
-              </DialogActions>
-            </>
-          )}
-        </Dialog>
-      </div>
+      </Dialog>
+
       <NotificationSnackbar
         open={snackbarOpen}
         message={snackbarMessage}

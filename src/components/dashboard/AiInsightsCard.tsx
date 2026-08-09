@@ -45,7 +45,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
           </Box>
         )}
 
-        {!isLoading && !insights && (
+        {!isLoading && !insights?.unusualSpending && (
           <Typography
             variant="body2"
             sx={{ color: 'text.secondary', fontStyle: 'italic' }}
@@ -54,7 +54,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
           </Typography>
         )}
 
-        {!isLoading && insights && (
+        {!isLoading && insights?.unusualSpending && (
           <>
             <List dense disablePadding>
               {insights.unusualSpending.map((insight, idx) => (

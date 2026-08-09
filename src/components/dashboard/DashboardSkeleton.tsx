@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Box, Paper, Skeleton } from "@mui/material";
+import React from 'react';
+import { Box, Paper, Skeleton } from '@mui/material';
 
 export function DashboardSkeleton() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Month comparison cards skeleton */}
-      <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {[1, 2, 3].map((i) => (
           <Paper
             key={i}
@@ -16,38 +16,23 @@ export function DashboardSkeleton() {
               minWidth: 200,
               p: 2,
               borderRadius: 3,
-              bgcolor: "background.default",
+              bgcolor: 'background.default',
               boxShadow: 3,
             }}
           >
-            <Skeleton
-              variant="text"
-              width={80}
-              height={20}
-              sx={{mb: 1 }}
-            />
-            <Skeleton
-              variant="text"
-              width={120}
-              height={32}
-              sx={{mb: 1 }}
-            />
-            <Skeleton
-              variant="text"
-              width={100}
-              height={16}
-              sx={{}}
-            />
+            <Skeleton variant="text" width={80} height={20} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width={120} height={32} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width={100} height={16} sx={{}} />
           </Paper>
         ))}
       </Box>
       {/* Chart + insights skeleton */}
       <Box
         sx={{
-          display: "flex",
+          display: 'flex',
           gap: 3,
           mt: 3,
-          flexDirection: { xs: "column", md: "row" },
+          flexDirection: { xs: 'column', md: 'row' },
         }}
       >
         <Paper
@@ -55,21 +40,16 @@ export function DashboardSkeleton() {
             flex: 2,
             p: 2,
             borderRadius: 3,
-            bgcolor: "var(--background)",
+            bgcolor: 'background.default',
             boxShadow: 3,
           }}
         >
-          <Skeleton
-            variant="text"
-            width={160}
-            height={24}
-            sx={{mb: 2 }}
-          />
+          <Skeleton variant="text" width={160} height={24} sx={{ mb: 2 }} />
           <Skeleton
             variant="circular"
             width={200}
             height={200}
-            sx={{mx: "auto" }}
+            sx={{ mx: 'auto' }}
           />
         </Paper>
         <Paper
@@ -77,23 +57,18 @@ export function DashboardSkeleton() {
             flex: 1,
             p: 2,
             borderRadius: 3,
-            bgcolor: "var(--background)",
+            bgcolor: 'background.default',
             boxShadow: 3,
           }}
         >
-          <Skeleton
-            variant="text"
-            width={120}
-            height={24}
-            sx={{mb: 2 }}
-          />
+          <Skeleton variant="text" width={120} height={24} sx={{ mb: 2 }} />
           {[1, 2, 3].map((i) => (
             <Skeleton
               key={i}
               variant="text"
               width="90%"
               height={20}
-              sx={{mb: 1 }}
+              sx={{ mb: 1 }}
             />
           ))}
         </Paper>
@@ -101,10 +76,10 @@ export function DashboardSkeleton() {
       {/* Bottom row skeleton */}
       <Box
         sx={{
-          display: "flex",
+          display: 'flex',
           gap: 3,
           mt: 3,
-          flexDirection: { xs: "column", md: "row" },
+          flexDirection: { xs: 'column', md: 'row' },
         }}
       >
         <Paper
@@ -112,21 +87,16 @@ export function DashboardSkeleton() {
             flex: 1,
             p: 2,
             borderRadius: 3,
-            bgcolor: "var(--background)",
+            bgcolor: 'background.default',
             boxShadow: 3,
           }}
         >
-          <Skeleton
-            variant="text"
-            width={180}
-            height={24}
-            sx={{mb: 2 }}
-          />
+          <Skeleton variant="text" width={180} height={24} sx={{ mb: 2 }} />
           <Skeleton
             variant="rectangular"
             width="100%"
             height={80}
-            sx={{borderRadius: 1 }}
+            sx={{ borderRadius: 1 }}
           />
         </Paper>
         <Paper
@@ -134,23 +104,18 @@ export function DashboardSkeleton() {
             flex: 1,
             p: 2,
             borderRadius: 3,
-            bgcolor: "var(--background)",
+            bgcolor: 'background.default',
             boxShadow: 3,
           }}
         >
-          <Skeleton
-            variant="text"
-            width={160}
-            height={24}
-            sx={{mb: 2 }}
-          />
+          <Skeleton variant="text" width={160} height={24} sx={{ mb: 2 }} />
           {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton
               key={i}
               variant="text"
               width="100%"
               height={20}
-              sx={{mb: 1 }}
+              sx={{ mb: 1 }}
             />
           ))}
         </Paper>

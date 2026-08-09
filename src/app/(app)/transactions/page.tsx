@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+'use client';
+
+import { useState } from 'react';
+import { Box, Button } from '@mui/material';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { format } from 'date-fns';
 import {
   Transaction,
   TransactionFilters,
   CreateTransactionInput,
-} from '../../types';
-import TransactionList from '../../components/TransactionList';
-import TransactionForm from '../../components/TransactionForm';
-import Chat from '../../components/chat/Chat';
-import TransactionListSkeleton from '../../components/TransactionListSkeleton';
-import { Fab, Box, Alert, Snackbar } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { TransactionFiltersDialog } from '../../components/transactions/TransactionFiltersDialog';
-import { TransactionFiltersDisplay } from '../../components/transactions/TransactionFiltersDisplay';
-import PendingTransactionsPopup from '../../components/PendingTransactionsPopup';
+} from '@/types';
+import TransactionList from '@/components/TransactionList';
+import TransactionForm from '@/components/TransactionForm';
+import TransactionListSkeleton from '@/components/TransactionListSkeleton';
+import { TransactionFiltersDialog } from '@/components/transactions/TransactionFiltersDialog';
+import { TransactionFiltersDisplay } from '@/components/transactions/TransactionFiltersDisplay';
+import PendingTransactionsPopup from '@/components/PendingTransactionsPopup';
+import IncomeExpensePieChart from '@/components/IncomeExpensePieChart';
+import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
+import NotificationSnackbar from '@/components/NotificationSnackbar';
+import PageHeader from '@/components/shell/PageHeader';
 import {
   useTransactionsQuery,
   useCategoriesQuery,
@@ -20,80 +26,17 @@ import {
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
   useTransactionsSummaryQuery,
-} from '../../hooks/useTransactionsQuery';
-import IncomeExpensePieChart from '../../components/IncomeExpensePieChart';
-import CategoryConfirmationSnackbar from '../../components/CategoryConfirmationSnackbar';
-import { CreateTransactionResponse } from '../../services/transactions';
-import { endOfMonth, format, startOfMonth } from 'date-fns';
+} from '@/hooks/useTransactionsQuery';
+import { CreateTransactionResponse } from '@/services/transactions';
+import { defaultMonthFilters } from '@/utils/dateUtils';
 
-function TransactionTableArea({
-  loading,
-  transactions,
-  onEdit,
-  onDelete,
-}: {
-  loading: boolean;
-  transactions: Transaction[];
-  onEdit: (tx: Transaction) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <Box flex={1} sx={{ position: 'relative' }}>
-      {loading ? (
-        <TransactionListSkeleton rows={6} />
-      ) : (
-        <TransactionList
-          transactions={transactions}
-          onEditAction={onEdit}
-          onDeleteAction={onDelete}
-        />
-      )}
-    </Box>
-  );
-}
-
-function AddTransactionFab({
-  onAddClick,
-  visible,
-}: {
-  onAddClick: () => void;
-  visible: boolean;
-}) {
-  if (visible) {
-    return (
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 32,
-          right: 32,
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 2,
-          zIndex: 2000,
-        }}
-      >
-        <Fab color="secondary" aria-label="add" onClick={onAddClick}>
-          <AddIcon />
-        </Fab>
-      </Box>
-    );
-  }
-  return null;
-}
-
-const getDefaultFilters = () => ({
-  startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-  endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-});
-
-export default function TransactionsTab() {
+export default function TransactionsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
-
-  const [filters, setFilters] = useState<TransactionFilters>({
-    ...getDefaultFilters(),
-  });
+  const [filters, setFilters] = useState<TransactionFilters>(
+    defaultMonthFilters(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
@@ -104,31 +47,19 @@ export default function TransactionsTab() {
   const { data: transactions = [], isLoading: loading } =
     useTransactionsQuery(filters);
   const { data: categories = [] } = useCategoriesQuery();
-
   const {
     data: summary,
     isLoading: summaryLoading,
     error: summaryError,
-  } = useTransactionsSummaryQuery({
-    ...filters,
-  });
+  } = useTransactionsSummaryQuery({ ...filters });
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
   const deleteMutation = useDeleteTransactionMutation();
 
-  const handleApplyFilters = (newFilters: TransactionFilters) => {
-    setFilters(newFilters);
-  };
-
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);
     setFormOpen(true);
-  };
-
-  const handleAddFabClick = () => {
-    setFormOpen(true);
-    setEditTx(null);
   };
 
   const handleCreateSuccess = async (data: CreateTransactionInput) => {
@@ -167,25 +98,26 @@ export default function TransactionsTab() {
     }
   };
 
-  const handleResetSearch = () => {
-    setFilters((prev) => ({ ...prev, searchTerm: undefined }));
-  };
-
-  const handleResetCategory = () => {
-    setFilters((prev) => ({ ...prev, categoryId: undefined }));
-  };
-
-  const handleResetDateRange = () => {
-    setFilters((prev) => ({
-      ...prev,
-      startDate: undefined,
-      endDate: undefined,
-    }));
-  };
-
   return (
-    <Box sx={{ p: 3 }}>
+    <>
+      <PageHeader
+        title="Transactions"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => {
+              setEditTx(null);
+              setFormOpen(true);
+            }}
+          >
+            Add transaction
+          </Button>
+        }
+      />
+
       <PendingTransactionsPopup />
+
       <IncomeExpensePieChart
         income={summary?.totalIncome || 0}
         expense={summary?.totalExpense || 0}
@@ -197,21 +129,36 @@ export default function TransactionsTab() {
             : ''
         }
       />
+
       <TransactionFiltersDisplay
         {...filters}
         onOpenFilters={() => setFiltersDialogOpen(true)}
         categories={categories}
-        onResetSearch={handleResetSearch}
-        onResetCategory={handleResetCategory}
-        onResetDateRange={handleResetDateRange}
+        onResetSearch={() =>
+          setFilters((prev) => ({ ...prev, searchTerm: undefined }))
+        }
+        onResetCategory={() =>
+          setFilters((prev) => ({ ...prev, categoryId: undefined }))
+        }
+        onResetDateRange={() =>
+          setFilters((prev) => ({
+            ...prev,
+            startDate: undefined,
+            endDate: undefined,
+          }))
+        }
       />
-      <Box sx={{ mt: 2, flex: 1 }}>
-        <TransactionTableArea
-          loading={loading}
-          transactions={transactions}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+
+      <Box sx={{ mt: 2 }}>
+        {loading ? (
+          <TransactionListSkeleton rows={6} />
+        ) : (
+          <TransactionList
+            transactions={transactions}
+            onEditAction={handleEdit}
+            onDeleteAction={handleDelete}
+          />
+        )}
       </Box>
 
       <TransactionForm
@@ -240,15 +187,10 @@ export default function TransactionsTab() {
         }
       />
 
-      <Chat />
-      {!formOpen && (
-        <AddTransactionFab onAddClick={handleAddFabClick} visible={true} />
-      )}
-
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        onApply={handleApplyFilters}
+        onApply={setFilters}
         initialFilters={filters}
       />
 
@@ -262,13 +204,12 @@ export default function TransactionsTab() {
         />
       )}
 
-      <Snackbar
+      <NotificationSnackbar
         open={!!error}
-        autoHideDuration={4000}
+        message={error ?? ''}
+        severity="error"
         onClose={() => setError(null)}
-      >
-        <Alert severity="error">{error}</Alert>
-      </Snackbar>
-    </Box>
+      />
+    </>
   );
 }

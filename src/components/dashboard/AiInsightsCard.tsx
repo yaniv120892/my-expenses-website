@@ -1,6 +1,5 @@
-"use client";
+'use client';
 
-import React from "react";
 import {
   Box,
   Card,
@@ -11,12 +10,10 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-} from "@mui/material";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import { DashboardInsightsResponse } from "@/types/dashboard";
-import { getChartColors } from "@/utils/constants";
-import { useColorMode } from "@/context/ThemeContext";
+} from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import { DashboardInsightsResponse } from '@/types/dashboard';
 
 interface Props {
   insights: DashboardInsightsResponse | null | undefined;
@@ -24,21 +21,12 @@ interface Props {
 }
 
 export function AiInsightsCard({ insights, isLoading }: Props) {
-  const { resolvedMode } = useColorMode();
-  const COLORS = getChartColors(resolvedMode);
   return (
-    <Card
-      sx={{
-        borderRadius: 3,
-        bgcolor: "background.default",
-        boxShadow: 3,
-        height: "100%",
-      }}
-    >
+    <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-          <AutoAwesomeIcon sx={{ color: COLORS.purple }} />
-          <Typography variant="h6" fontWeight={700} color={COLORS.text}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <AutoAwesomeIcon color="primary" />
+          <Typography variant="h4" component="h2">
             AI Insights
           </Typography>
         </Box>
@@ -60,7 +48,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
         {!isLoading && !insights && (
           <Typography
             variant="body2"
-            sx={{ color: "text.secondary", fontStyle: "italic" }}
+            sx={{ color: 'text.secondary', fontStyle: 'italic' }}
           >
             Insights unavailable
           </Typography>
@@ -72,13 +60,15 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
               {insights.unusualSpending.map((insight, idx) => (
                 <ListItem key={idx} disableGutters sx={{ py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <LightbulbIcon sx={{ color: "#f39c12", fontSize: 18 }} />
+                    <LightbulbIcon
+                      sx={{ color: 'warning.main', fontSize: 18 }}
+                    />
                   </ListItemIcon>
                   <ListItemText
                     primary={insight}
                     primaryTypographyProps={{
-                      variant: "body2",
-                      color: COLORS.text,
+                      variant: 'body2',
+                      color: 'text.primary',
                     }}
                   />
                 </ListItem>
@@ -90,10 +80,10 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
                   mt: 2,
                   p: 1.5,
                   borderRadius: 2,
-                  bgcolor: "action.selected",
+                  bgcolor: 'action.selected',
                 }}
               >
-                <Typography variant="body2" color={COLORS.text}>
+                <Typography variant="body2" color="text.primary">
                   {insights.summary}
                 </Typography>
               </Box>

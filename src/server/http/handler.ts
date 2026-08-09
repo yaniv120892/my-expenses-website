@@ -24,6 +24,8 @@ interface HandlerOptions<TBody, TQuery, TResult> {
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
+// Next passes segment params for dynamic routes; static routes get an empty
+// object, so the loose Record type covers both.
 type RouteContext = { params: Promise<Record<string, string>> };
 
 async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
@@ -64,7 +66,9 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
   if (err instanceof ZodError) {
     const message = err.issues
       .map((issue) =>
-        issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
+        issue.path.length
+          ? `${issue.path.join('.')}: ${issue.message}`
+          : issue.message,
       )
       .join('; ');
     return NextResponse.json({ message }, { status: 400 });
@@ -72,7 +76,11 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const error = (err ?? {}) as { name?: string; message?: string; status?: number };
+  const error = (err ?? {}) as {
+    name?: string;
+    message?: string;
+    status?: number;
+  };
   if (error.name === 'CustomValidationError') {
     return NextResponse.json({ message: error.message }, { status: 400 });
   }
@@ -86,12 +94,14 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
   );
 }
 
-export function createHandler<TBody = unknown, TQuery = unknown, TResult = unknown>(
-  options: HandlerOptions<TBody, TQuery, TResult>,
-) {
+export function createHandler<
+  TBody = unknown,
+  TQuery = unknown,
+  TResult = unknown,
+>(options: HandlerOptions<TBody, TQuery, TResult>) {
   return async (
     req: NextRequest,
-    routeContext?: RouteContext,
+    routeContext: RouteContext,
   ): Promise<NextResponse> => {
     const requestId = crypto.randomUUID();
     const started = Date.now();
@@ -109,7 +119,13 @@ export function createHandler<TBody = unknown, TQuery = unknown, TResult = unkno
         ? options.querySchema.parse(queryToObject(req))
         : (undefined as TQuery);
 
-      const result = await options.handler({ req, userId, body, query, params });
+      const result = await options.handler({
+        req,
+        userId,
+        body,
+        query,
+        params,
+      });
       response =
         options.status === 204
           ? new NextResponse(null, { status: 204 })

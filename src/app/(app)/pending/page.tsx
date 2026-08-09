@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import PendingTransactionsList from "../../components/PendingTransactionsList";
-import PendingTransactionListSkeleton from "../../components/PendingTransactionListSkeleton";
-import { Box, Snackbar, Alert } from "@mui/material";
+'use client';
+
+import { useState } from 'react';
+import PendingTransactionsList from '@/components/PendingTransactionsList';
+import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
+import NotificationSnackbar from '@/components/NotificationSnackbar';
+import PageHeader from '@/components/shell/PageHeader';
 import {
   usePendingTransactionsQuery,
   useConfirmTransactionMutation,
   useDeletePendingTransactionMutation,
-} from "../../hooks/usePendingTransactionsQuery";
+} from '@/hooks/usePendingTransactionsQuery';
 
-export default function PendingTransactionsTab() {
+export default function PendingPage() {
   const [error, setError] = useState<string | null>(null);
   const { data: pendingTransactions = [], isLoading } =
     usePendingTransactionsQuery();
@@ -20,7 +23,7 @@ export default function PendingTransactionsTab() {
       await confirmMutation.mutateAsync(id);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Failed to confirm transaction"
+        e instanceof Error ? e.message : 'Failed to confirm transaction',
       );
     }
   }
@@ -29,19 +32,16 @@ export default function PendingTransactionsTab() {
     try {
       await deleteMutation.mutateAsync(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete transaction");
+      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
     }
   }
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
-        position: "relative",
-      }}
-    >
+    <>
+      <PageHeader
+        title="Pending"
+        subtitle="Transactions waiting for your approval"
+      />
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />
       ) : (
@@ -51,13 +51,12 @@ export default function PendingTransactionsTab() {
           onDeleteAction={handleDelete}
         />
       )}
-      <Snackbar
+      <NotificationSnackbar
         open={!!error}
-        autoHideDuration={4000}
+        message={error ?? ''}
+        severity="error"
         onClose={() => setError(null)}
-      >
-        <Alert severity="error">{error}</Alert>
-      </Snackbar>
-    </Box>
+      />
+    </>
   );
 }

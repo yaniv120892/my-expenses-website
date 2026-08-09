@@ -12,13 +12,12 @@ import {
   Paper,
   Typography,
   CircularProgress,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useChat } from '../../hooks/useChat';
+import { useIsCompact } from '../../hooks/useBreakpoints';
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,8 +30,7 @@ const Chat: React.FC = () => {
     cancel,
   } = useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -142,13 +140,16 @@ const Chat: React.FC = () => {
                     p: 1.5,
                     mb: 1,
                     maxWidth: '80%',
-                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    alignSelf:
+                      msg.sender === 'user' ? 'flex-end' : 'flex-start',
                     color:
                       msg.sender === 'user'
                         ? 'primary.contrastText'
                         : 'text.primary',
                     bgcolor:
-                      msg.sender === 'user' ? 'primary.main' : 'background.paper',
+                      msg.sender === 'user'
+                        ? 'primary.main'
+                        : 'background.paper',
                     border: msg.sender === 'user' ? 'none' : 1,
                     borderColor: 'divider',
                     borderRadius: 2.5,

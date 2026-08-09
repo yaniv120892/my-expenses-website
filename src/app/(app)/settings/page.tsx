@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -46,6 +46,18 @@ type UserSettingsForm = {
     email: string;
   };
 };
+
+const NOTIFICATION_FIELDS = [
+  {
+    name: 'notifications.createTransaction',
+    label: 'Notify on new transaction creation',
+  },
+  { name: 'notifications.dailySummary', label: 'Daily summary notification' },
+  {
+    name: 'notifications.subscriptionAudit',
+    label: 'Monthly subscription audit',
+  },
+] as const;
 
 function SettingsSection({
   title,
@@ -93,7 +105,10 @@ function AppearanceSection() {
             Light
           </ToggleButton>
           <ToggleButton value="system">
-            <SettingsBrightnessOutlinedIcon sx={{ mr: 0.75 }} fontSize="small" />
+            <SettingsBrightnessOutlinedIcon
+              sx={{ mr: 0.75 }}
+              fontSize="small"
+            />
             System
           </ToggleButton>
           <ToggleButton value="dark">
@@ -133,8 +148,6 @@ export default function SettingsPage() {
   const [testLoading, setTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [testSnackbarOpen, setTestSnackbarOpen] = useState(false);
-  const testResultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { control, handleSubmit, reset, watch, formState } = useForm({
     defaultValues: {
@@ -179,57 +192,29 @@ export default function SettingsPage() {
       setTestResult('Failed to send test message');
     } finally {
       setTestLoading(false);
-      setTestSnackbarOpen(true);
     }
   };
-
-  useEffect(() => {
-    if (testResult) {
-      if (testResultTimeoutRef.current) {
-        clearTimeout(testResultTimeoutRef.current);
-      }
-      testResultTimeoutRef.current = setTimeout(() => {
-        setTestResult('');
-        setTestSnackbarOpen(false);
-      }, 5000);
-    }
-    return () => {
-      if (testResultTimeoutRef.current) {
-        clearTimeout(testResultTimeoutRef.current);
-      }
-    };
-  }, [testResult]);
 
   const onSave = async (data: UserSettingsForm) => {
     setSaveLoading(true);
     await saveUserSettings({
       ...data,
       provider: {
-        enabled: data.provider.telegramChatId ? true : false,
+        enabled: Boolean(data.provider.telegramChatId),
         telegramChatId: data.provider.telegramChatId,
       },
     });
-    reset({
-      provider: {
-        telegramChatId: data.provider.telegramChatId,
-      },
-      notifications: {
-        createTransaction: data.notifications.createTransaction,
-        dailySummary: data.notifications.dailySummary,
-        subscriptionAudit: data.notifications.subscriptionAudit,
-      },
-      info: {
-        email: data.info.email,
-      },
-    });
+    reset(data);
     setSaveLoading(false);
     setSaveSuccess(true);
   };
 
+  const header = <PageHeader title="Settings" />;
+
   if (loading) {
     return (
       <>
-        <PageHeader title="Settings" />
+        {header}
         <SettingsSkeleton />
       </>
     );
@@ -238,7 +223,7 @@ export default function SettingsPage() {
   if (error) {
     return (
       <>
-        <PageHeader title="Settings" />
+        {header}
         <Alert severity="error">
           {error instanceof Error ? error.message : String(error)}
         </Alert>
@@ -249,7 +234,7 @@ export default function SettingsPage() {
   if (!settings) {
     return (
       <>
-        <PageHeader title="Settings" />
+        {header}
         <Alert severity="error">Failed to load settings</Alert>
       </>
     );
@@ -269,7 +254,9 @@ export default function SettingsPage() {
               !!formState.errors.provider?.telegramChatId
             }
             startIcon={
-              saveLoading ? <CircularProgress size={16} color="inherit" /> : null
+              saveLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : null
             }
           >
             {saveLoading ? 'Saving...' : 'Save'}
@@ -301,7 +288,14 @@ export default function SettingsPage() {
               spacing={1.5}
               alignItems={{ xs: 'stretch', sm: 'center' }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flex: 1,
+                }}
+              >
                 <Controller
                   name="provider.telegramChatId"
                   control={control}
@@ -351,51 +345,24 @@ export default function SettingsPage() {
 
         <SettingsSection title="Notifications">
           <Stack>
-            <Controller
-              name="notifications.createTransaction"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                    />
-                  }
-                  label="Notify on new transaction creation"
-                />
-              )}
-            />
-            <Controller
-              name="notifications.dailySummary"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                    />
-                  }
-                  label="Daily summary notification"
-                />
-              )}
-            />
-            <Controller
-              name="notifications.subscriptionAudit"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                    />
-                  }
-                  label="Monthly subscription audit"
-                />
-              )}
-            />
+            {NOTIFICATION_FIELDS.map(({ name, label }) => (
+              <Controller
+                key={name}
+                name={name}
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label={label}
+                  />
+                )}
+              />
+            ))}
           </Stack>
         </SettingsSection>
       </Stack>
@@ -411,12 +378,9 @@ export default function SettingsPage() {
         </Alert>
       </Snackbar>
       <Snackbar
-        open={!!testResult && testSnackbarOpen}
+        open={!!testResult}
         autoHideDuration={4000}
-        onClose={() => {
-          setTestSnackbarOpen(false);
-          setTestResult('');
-        }}
+        onClose={() => setTestResult('')}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert

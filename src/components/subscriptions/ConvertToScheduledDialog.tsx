@@ -10,9 +10,8 @@ import {
   Typography,
   Box,
   Stack,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
+import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
 import { DetectedSubscription } from '@/types/subscription';
 
@@ -32,8 +31,7 @@ export default function ConvertToScheduledDialog({
   isLoading,
 }: Props) {
   const [categoryId, setCategoryId] = useState('');
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
 
   useEffect(() => {
     if (open) {

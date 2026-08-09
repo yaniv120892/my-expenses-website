@@ -31,6 +31,17 @@ export const formatDate = (
   return date.toLocaleDateString();
 };
 
+/** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */
+export function formatDateRange(
+  start?: string | Date,
+  end?: string | Date,
+  separator: string = '-',
+): string {
+  const startLabel = start ? format(new Date(start), 'MMM d, yyyy') : '';
+  const endLabel = end ? format(new Date(end), 'MMM d, yyyy') : '';
+  return `${startLabel} ${separator} ${endLabel}`;
+}
+
 export function defaultMonthFilters(): {
   startDate: string;
   endDate: string;

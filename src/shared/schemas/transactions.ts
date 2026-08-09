@@ -21,14 +21,10 @@ export const updateTransactionSchema = z.object({
   type: transactionTypeSchema,
   date: z.coerce.date(),
 });
-export type UpdateTransactionRequest = z.infer<typeof updateTransactionSchema>;
 
 export const updateTransactionStatusSchema = z.object({
   status: transactionStatusSchema,
 });
-export type UpdateTransactionStatusRequest = z.infer<
-  typeof updateTransactionStatusSchema
->;
 
 export const getTransactionsSummarySchema = z.object({
   startDate: z.coerce.date().optional(),
@@ -36,9 +32,6 @@ export const getTransactionsSummarySchema = z.object({
   categoryId: z.string().uuid().optional(),
   type: transactionTypeSchema.optional(),
 });
-export type GetTransactionsSummaryRequest = z.infer<
-  typeof getTransactionsSummarySchema
->;
 
 export const getTransactionsSchema = z.object({
   startDate: z.coerce.date().optional(),
@@ -52,7 +45,6 @@ export const getTransactionsSchema = z.object({
   page: z.coerce.number().min(1),
   perPage: z.coerce.number().min(10),
 });
-export type GetTransactionsRequest = z.infer<typeof getTransactionsSchema>;
 
 // The original AttachFileRequest / GetPresignedUploadUrlRequest classes had no
 // class-validator decorators, so the old middleware accepted any body; these
@@ -63,12 +55,8 @@ export const attachFileSchema = z.object({
   fileSize: z.number(),
   mimeType: z.string(),
 });
-export type AttachFileRequest = z.infer<typeof attachFileSchema>;
 
 export const getPresignedUploadUrlSchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
 });
-export type GetPresignedUploadUrlRequest = z.infer<
-  typeof getPresignedUploadUrlSchema
->;

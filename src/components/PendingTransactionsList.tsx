@@ -19,13 +19,13 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Transaction } from '../types';
-import { formatCurrency, formatTransactionDate } from '../utils/format';
+import { formatTransactionDate } from '../utils/format';
+import { useIsMobile } from '../hooks/useBreakpoints';
+import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import NotificationSnackbar from './NotificationSnackbar';
 import SwipeableRow from './SwipeableRow';
@@ -41,8 +41,7 @@ export default function PendingTransactionsList({
   onConfirmAction,
   onDeleteAction,
 }: Props) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useIsMobile();
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -107,11 +106,6 @@ export default function PendingTransactionsList({
     return <EmptyState message="No pending transactions found." />;
   }
 
-  const amountColor = (type: Transaction['type']) =>
-    type === 'INCOME'
-      ? theme.palette.charts.income
-      : theme.palette.charts.expense;
-
   return (
     <>
       {isMobile ? (
@@ -150,12 +144,7 @@ export default function PendingTransactionsList({
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 600, color: amountColor(tx.type) }}
-                    >
-                      {formatCurrency(tx.value)}
-                    </Typography>
+                    <AmountText type={tx.type} value={tx.value} />
                     <Typography variant="caption" color="text.secondary">
                       {formatTransactionDate(tx.date)}
                     </Typography>
@@ -194,11 +183,8 @@ export default function PendingTransactionsList({
                   <TableCell sx={{ color: 'text.secondary' }}>
                     {formatTransactionDate(tx.date)}
                   </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ fontWeight: 600, color: amountColor(tx.type) }}
-                  >
-                    {formatCurrency(tx.value)}
+                  <TableCell align="right">
+                    <AmountText type={tx.type} value={tx.value} />
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <Tooltip title="Approve">

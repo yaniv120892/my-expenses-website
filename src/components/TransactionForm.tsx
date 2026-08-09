@@ -13,13 +13,12 @@ import {
   CircularProgress,
   Stack,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { CreateTransactionInput } from '../types';
 import { format } from 'date-fns';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
+import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import NotificationSnackbar from './NotificationSnackbar';
 import TransactionAttachments from './TransactionForm/TransactionAttachments';
@@ -63,8 +62,7 @@ export default function TransactionForm({
   initialData,
   mode,
 }: Props) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
   const [form, setForm] = useState<TransactionFormType>(defaultForm);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);

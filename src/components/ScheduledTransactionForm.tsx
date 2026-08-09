@@ -13,8 +13,6 @@ import {
   CircularProgress,
   Stack,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import {
   ScheduledTransaction,
@@ -25,6 +23,7 @@ import {
 import { translateToScheduleSummary } from '../utils/format';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
+import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import NotificationSnackbar from './NotificationSnackbar';
 
@@ -54,8 +53,7 @@ export default function ScheduledTransactionForm({
   onDeleteAction,
   initialData,
 }: Props) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
   const [form, setForm] = useState<CreateScheduledTransactionInput>({
     ...defaultForm,
   });

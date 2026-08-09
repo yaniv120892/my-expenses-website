@@ -12,14 +12,13 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { ScheduledTransaction, Category } from '../types';
+import { useIsMobile } from '../hooks/useBreakpoints';
+import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
 import {
-  formatCurrency,
   formatTransactionDate,
   translateToScheduleSummary,
 } from '../utils/format';
@@ -38,17 +37,11 @@ export default function ScheduledTransactionList({
   categories: Category[];
   onEditAction: (tx: ScheduledTransaction) => void;
 }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useIsMobile();
 
   if (!scheduledTransactions.length) {
     return <EmptyState message="No scheduled transactions found." />;
   }
-
-  const amountColor = (type: ScheduledTransaction['type']) =>
-    type === 'INCOME'
-      ? theme.palette.charts.income
-      : theme.palette.charts.expense;
 
   if (isMobile) {
     return (
@@ -96,12 +89,7 @@ export default function ScheduledTransactionList({
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 600, color: amountColor(tx.type) }}
-                  >
-                    {formatCurrency(tx.value)}
-                  </Typography>
+                  <AmountText type={tx.type} value={tx.value} />
                   <Typography variant="caption" color="text.secondary">
                     {tx.nextRunDate
                       ? formatTransactionDate(tx.nextRunDate)
@@ -151,11 +139,8 @@ export default function ScheduledTransactionList({
               <TableCell sx={{ color: 'text.secondary' }}>
                 {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : 'N/A'}
               </TableCell>
-              <TableCell
-                align="right"
-                sx={{ fontWeight: 600, color: amountColor(tx.type) }}
-              >
-                {formatCurrency(tx.value)}
+              <TableCell align="right">
+                <AmountText type={tx.type} value={tx.value} />
               </TableCell>
             </TableRow>
           ))}

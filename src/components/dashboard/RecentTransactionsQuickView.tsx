@@ -8,9 +8,9 @@ import {
   Button,
   Chip,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import { RecentTransaction } from '@/types/dashboard';
-import { formatNumber, formatTransactionDate } from '@/utils/format';
+import { formatTransactionDate } from '@/utils/format';
+import AmountText from '@/components/AmountText';
 
 interface Props {
   transactions: RecentTransaction[];
@@ -21,7 +21,6 @@ export function RecentTransactionsQuickView({
   transactions,
   onViewAll,
 }: Props) {
-  const theme = useTheme();
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
@@ -85,20 +84,12 @@ export function RecentTransactionsQuickView({
                   />
                 </Box>
               </Box>
-              <Typography
-                variant="body2"
+              <AmountText
+                type={tx.type}
+                value={tx.value}
                 fontWeight={700}
-                sx={{
-                  color:
-                    tx.type === 'INCOME'
-                      ? theme.palette.charts.income
-                      : theme.palette.charts.expense,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {tx.type === 'INCOME' ? '+' : '-'}
-                {formatNumber(tx.value)}
-              </Typography>
+                format="signed"
+              />
             </Box>
           ))}
         </Box>

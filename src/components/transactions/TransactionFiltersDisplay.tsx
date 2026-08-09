@@ -4,7 +4,7 @@ import { Box, Chip, Button, Stack, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { TransactionFilters, Category } from '@/types';
-import { format } from 'date-fns';
+import { formatDateRange } from '@/utils/dateUtils';
 
 interface TransactionFiltersDisplayProps extends TransactionFilters {
   onOpenFilters: () => void;
@@ -83,9 +83,7 @@ export const TransactionFiltersDisplay = ({
           )}
           {(startDate || endDate) && (
             <Chip
-              label={`Date: ${
-                startDate ? format(new Date(startDate), 'MMM d, yyyy') : ''
-              } - ${endDate ? format(new Date(endDate), 'MMM d, yyyy') : ''}`}
+              label={`Date: ${formatDateRange(startDate, endDate)}`}
               variant="outlined"
               onClick={onOpenFilters}
               onDelete={onResetDateRange}

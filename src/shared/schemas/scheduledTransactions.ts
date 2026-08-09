@@ -34,14 +34,6 @@ export const createScheduledTransactionSchema =
   scheduledTransactionBaseSchema.refine(hasValidScheduledCombination, {
     message: scheduledCombinationMessage,
   });
-export type CreateScheduledTransactionRequest = z.infer<
-  typeof createScheduledTransactionSchema
->;
 
 export const updateScheduledTransactionSchema =
-  scheduledTransactionBaseSchema.refine(hasValidScheduledCombination, {
-    message: scheduledCombinationMessage,
-  });
-export type UpdateScheduledTransactionRequest = z.infer<
-  typeof updateScheduledTransactionSchema
->;
+  createScheduledTransactionSchema;

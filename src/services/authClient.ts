@@ -1,3 +1,5 @@
+// Raw fetch, not the axios client: its 401 interceptor would redirect away from
+// these pre-auth flows, whose error bodies carry the message shown to the user.
 async function post(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
     method: 'POST',

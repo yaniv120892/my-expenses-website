@@ -40,6 +40,20 @@ interface MergeImportedTransactionData {
   categoryId: string;
 }
 
+interface BatchImportedTransaction {
+  id: string;
+  description: string;
+  value: number;
+  date: Date;
+  type: TransactionType;
+  matchingTransactionId: string | null;
+}
+
+interface BatchItem {
+  transaction: BatchImportedTransaction;
+  categoryId: string | null;
+}
+
 class ImportService {
   private getAiProvider = lazy(() => AIServiceFactory.getAIService());
 
@@ -310,49 +324,21 @@ class ImportService {
         t.status === ImportedTransactionStatus.PENDING && t.userId === userId,
     );
 
-    const result: BatchResult = {
-      total: pendingTransactions.length,
-      succeeded: 0,
-      failed: 0,
-      errors: [],
-    };
+    const items = pendingTransactions.map((transaction) => {
+      // The query that loaded these rows includes the matched transaction,
+      // which the row's declared type does not describe.
+      const matchingTx = (
+        transaction as { matchingTransaction?: { categoryId?: string } }
+      ).matchingTransaction;
+      return {
+        transaction,
+        categoryId: transaction.matchingTransactionId
+          ? matchingTx?.categoryId || transaction.matchingTransactionId
+          : null,
+      };
+    });
 
-    for (const transaction of pendingTransactions) {
-      try {
-        if (transaction.matchingTransactionId) {
-          // The query that loaded these rows includes the matched transaction,
-          // which the row's declared type does not describe.
-          const matchingTx = (
-            transaction as { matchingTransaction?: { categoryId?: string } }
-          ).matchingTransaction;
-          await this.mergeImportedTransaction(transaction.id, userId, {
-            description: transaction.description,
-            value: transaction.value,
-            date: transaction.date,
-            type: transaction.type,
-            categoryId:
-              matchingTx?.categoryId || transaction.matchingTransactionId,
-          });
-        } else {
-          await this.approveImportedTransaction(transaction.id, userId, {
-            description: transaction.description,
-            value: transaction.value,
-            date: transaction.date,
-            type: transaction.type,
-            categoryId: null,
-          });
-        }
-        result.succeeded++;
-      } catch (error) {
-        result.failed++;
-        result.errors.push({
-          id: transaction.id,
-          error: getErrorMessage(error),
-        });
-      }
-    }
-
-    return result;
+    return this.runMergeOrApproveBatch(items, userId);
   }
 
   public async batchIgnoreImportedTransactions(
@@ -395,13 +381,7 @@ class ImportService {
       autoApproveRuleRepository.findActiveByUserId(userId),
     ]);
 
-    const result: BatchResult = {
-      total: 0,
-      succeeded: 0,
-      failed: 0,
-      errors: [],
-    };
-
+    const items: BatchItem[] = [];
     for (const transaction of pendingTransactions) {
       const matchingRule = rules.find((rule) =>
         transaction.description
@@ -411,25 +391,26 @@ class ImportService {
 
       if (!matchingRule) continue;
 
-      result.total++;
+      items.push({ transaction, categoryId: matchingRule.categoryId });
+    }
+
+    return this.runMergeOrApproveBatch(items, userId);
+  }
+
+  private async runMergeOrApproveBatch(
+    items: BatchItem[],
+    userId: string,
+  ): Promise<BatchResult> {
+    const result: BatchResult = {
+      total: items.length,
+      succeeded: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    for (const { transaction, categoryId } of items) {
       try {
-        if (transaction.matchingTransactionId) {
-          await this.mergeImportedTransaction(transaction.id, userId, {
-            description: transaction.description,
-            value: transaction.value,
-            date: transaction.date,
-            type: transaction.type,
-            categoryId: matchingRule.categoryId,
-          });
-        } else {
-          await this.approveImportedTransaction(transaction.id, userId, {
-            description: transaction.description,
-            value: transaction.value,
-            date: transaction.date,
-            type: transaction.type,
-            categoryId: matchingRule.categoryId,
-          });
-        }
+        await this.mergeOrApprove(transaction, userId, categoryId);
         result.succeeded++;
       } catch (error) {
         result.failed++;
@@ -441,6 +422,32 @@ class ImportService {
     }
 
     return result;
+  }
+
+  private async mergeOrApprove(
+    transaction: BatchImportedTransaction,
+    userId: string,
+    categoryId: string | null,
+  ): Promise<void> {
+    const payload = {
+      description: transaction.description,
+      value: transaction.value,
+      date: transaction.date,
+      type: transaction.type,
+    };
+
+    if (transaction.matchingTransactionId) {
+      await this.mergeImportedTransaction(transaction.id, userId, {
+        ...payload,
+        categoryId: categoryId ?? transaction.matchingTransactionId,
+      });
+      return;
+    }
+
+    await this.approveImportedTransaction(transaction.id, userId, {
+      ...payload,
+      categoryId,
+    });
   }
 
   public async rematchImport(importId: string, userId: string): Promise<void> {

@@ -13,11 +13,10 @@ import {
   TextField,
   SelectChangeEvent,
   Box,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { TrendPeriod, TransactionType, TrendFilters } from '@/types/trends';
 import { Category } from '@/types';
+import { useIsCompact } from '@/hooks/useBreakpoints';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 
@@ -47,8 +46,7 @@ export const TrendFiltersDialog = ({
   transactionType: initialTransactionType,
   categories,
 }: TrendFiltersDialogProps) => {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
   const [period, setPeriod] = useState(initialPeriod);
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);

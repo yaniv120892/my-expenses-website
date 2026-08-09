@@ -12,17 +12,14 @@ import {
 import logger from '@/server/logging/logger';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
+import { classifyTrend } from '@/server/utils/trendMath';
 
 class DashboardService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
 
   public async getDashboard(userId: string): Promise<DashboardResponse> {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevYear = prevDate.getFullYear();
-    const prevMonth = prevDate.getMonth() + 1;
+    const { currentYear, currentMonth, prevYear, prevMonth } =
+      this.getMonthCursors();
 
     const [
       currentMonthSummary,
@@ -82,17 +79,11 @@ class DashboardService {
         return typeof cached === 'string' ? JSON.parse(cached) : cached;
       }
     } catch (error) {
-      logger.error(
-        { err: error },
-        'Failed to read dashboard insights cache',
-      );
+      logger.error({ err: error }, 'Failed to read dashboard insights cache');
     }
 
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevYear = prevDate.getFullYear();
-    const prevMonth = prevDate.getMonth() + 1;
+    const { currentYear, currentMonth, prevYear, prevMonth } =
+      this.getMonthCursors(now);
 
     try {
       const [currentMonthSummary, previousMonthSummary, topCategories] =
@@ -133,17 +124,21 @@ class DashboardService {
     }
   }
 
+  private getMonthCursors(now: Date = new Date()) {
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return {
+      currentYear: now.getFullYear(),
+      currentMonth: now.getMonth() + 1,
+      prevYear: prevDate.getFullYear(),
+      prevMonth: prevDate.getMonth() + 1,
+    };
+  }
+
   private calculatePercentageChange(
     current: number,
     previous: number,
   ): PercentageChange {
-    const amount = current - previous;
-    const percentage =
-      previous === 0 ? 0 : ((current - previous) / previous) * 100;
-    let trend: 'up' | 'down' | 'stable' = 'stable';
-    if (percentage > 5) trend = 'up';
-    else if (percentage < -5) trend = 'down';
-    return { amount, percentage, trend };
+    return { amount: current - previous, ...classifyTrend(current, previous) };
   }
 
   private buildMonthComparison(
@@ -223,8 +218,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      const parsed = JSON.parse(cleaned) as DashboardInsightsResponse;
-      return parsed;
+      return JSON.parse(cleaned) as DashboardInsightsResponse;
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

@@ -14,6 +14,7 @@ import {
   toDisplayName,
 } from '@/server/utils/merchantNormalizer';
 import logger from '@/server/logging/logger';
+import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
 
 interface TransactionGroup {
   merchantKey: string;
@@ -66,17 +67,11 @@ class SubscriptionDetectionService {
     for (const s of subscriptions) {
       if (s.status === 'CONFIRMED') {
         activeCount++;
-        totalMonthlyEstimate += this.toMonthlyAmount(
-          s.averageAmount,
-          s.frequency,
-        );
+        totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
         totalAnnualEstimate += s.annualCost;
       } else if (s.status === 'DETECTED') {
         detectedCount++;
-        totalMonthlyEstimate += this.toMonthlyAmount(
-          s.averageAmount,
-          s.frequency,
-        );
+        totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
         totalAnnualEstimate += s.annualCost;
       }
     }
@@ -183,10 +178,7 @@ class SubscriptionDetectionService {
           let totalMonthly = 0;
           let totalAnnual = 0;
           for (const sub of confirmed) {
-            const monthly = this.toMonthlyAmount(
-              sub.averageAmount,
-              sub.frequency,
-            );
+            const monthly = toMonthlyAmount(sub.averageAmount, sub.frequency);
             totalMonthly += monthly;
             totalAnnual += sub.annualCost;
             lines.push(
@@ -375,20 +367,6 @@ class SubscriptionDetectionService {
         return amount * 12;
       case 'YEARLY':
         return amount;
-    }
-  }
-
-  private toMonthlyAmount(
-    amount: number,
-    frequency: SubscriptionFrequency,
-  ): number {
-    switch (frequency) {
-      case 'WEEKLY':
-        return (amount * 52) / 12;
-      case 'MONTHLY':
-        return amount;
-      case 'YEARLY':
-        return amount / 12;
     }
   }
 

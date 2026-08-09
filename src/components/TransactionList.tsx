@@ -12,40 +12,13 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { Transaction } from '../types';
-import { formatCurrency, formatTransactionDate } from '../utils/format';
+import { formatTransactionDate } from '../utils/format';
+import { useIsMobile } from '../hooks/useBreakpoints';
+import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
-
-function AmountText({
-  type,
-  value,
-  variant = 'body2',
-}: {
-  type: Transaction['type'];
-  value: number;
-  variant?: 'body2' | 'subtitle2';
-}) {
-  const theme = useTheme();
-  return (
-    <Typography
-      variant={variant}
-      sx={{
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        color:
-          type === 'INCOME'
-            ? theme.palette.charts.income
-            : theme.palette.charts.expense,
-      }}
-    >
-      {formatCurrency(value)}
-    </Typography>
-  );
-}
 
 function MobileRow({
   transaction,
@@ -93,8 +66,7 @@ export default function TransactionList({
   onEditAction: (tx: Transaction) => void;
   onDeleteAction: (id: string) => void;
 }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useIsMobile();
 
   if (!transactions.length) {
     return <EmptyState message="No transactions found." />;
@@ -103,7 +75,9 @@ export default function TransactionList({
   if (isMobile) {
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
+        <Stack
+          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
+        >
           {transactions.map((tx) => (
             <SwipeableRow
               key={tx.id}

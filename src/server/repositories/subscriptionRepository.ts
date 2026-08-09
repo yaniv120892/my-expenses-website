@@ -8,6 +8,7 @@ import {
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
 } from '@/shared/types/subscription';
+import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
 
 class SubscriptionRepository {
   public async getByUserId(
@@ -142,13 +143,7 @@ class SubscriptionRepository {
     let totalAnnualEstimate = 0;
 
     for (const s of subscriptions) {
-      const monthly =
-        s.frequency === 'WEEKLY'
-          ? (s.averageAmount * 52) / 12
-          : s.frequency === 'YEARLY'
-            ? s.averageAmount / 12
-            : s.averageAmount;
-      totalMonthlyEstimate += monthly;
+      totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
       totalAnnualEstimate += s.annualCost;
 
       if (s.status === 'CONFIRMED') activeCount++;

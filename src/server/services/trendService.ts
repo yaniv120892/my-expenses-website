@@ -12,6 +12,16 @@ import categoryRepository from '@/server/repositories/categoryRepository';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
 import { Transaction } from '@/shared/types/transaction';
+import { classifyTrend } from '@/server/utils/trendMath';
+
+const DEFAULT_PERIOD_FORMAT = 'yyyy-MM-dd';
+// 'yyyy-ww' is the ISO week number.
+const PERIOD_FORMATS: Record<string, string> = {
+  daily: 'yyyy-MM-dd',
+  weekly: 'yyyy-ww',
+  monthly: 'yyyy-MM',
+  yearly: 'yyyy',
+};
 
 interface CategoryTrendData {
   points: CategoryTrendPoint[];
@@ -25,176 +35,151 @@ class TrendService {
     request: GetSpendingTrendsRequest,
     userId: string,
   ): Promise<SpendingTrend> {
-    try {
-      const endDate = request.endDate || new Date();
-      const startDate = request.startDate || subMonths(endDate, 6);
+    const { startDate, endDate } = this.getDateRange(request);
 
-      const currentPeriodData = await transactionRepository.getTransactions({
+    const [currentPeriodData, previousPeriodData] = await Promise.all([
+      this.fetchTransactionsForPeriod(
         startDate,
         endDate,
-        categoryId: request.categoryId,
         userId,
-        status: TransactionStatus.APPROVED,
-        page: 1,
-        perPage: 1000,
-        transactionType: request.transactionType || TransactionType.EXPENSE,
-      });
-
-      const previousPeriodLength = endDate.getTime() - startDate.getTime();
-      const previousPeriodStartDate = new Date(
-        startDate.getTime() - previousPeriodLength,
-      );
-      const previousPeriodData = await transactionRepository.getTransactions({
-        startDate: previousPeriodStartDate,
-        endDate: startDate,
-        categoryId: request.categoryId,
+        request.transactionType,
+        request.categoryId,
+      ),
+      this.fetchPreviousPeriodData(
+        startDate,
+        endDate,
         userId,
-        status: TransactionStatus.APPROVED,
-        page: 1,
-        perPage: 1000,
-        transactionType: request.transactionType || TransactionType.EXPENSE,
-      });
+        request.transactionType,
+        request.categoryId,
+      ),
+    ]);
 
-      const points = this.groupTransactionsByPeriod(
-        currentPeriodData,
-        request.period,
-      );
-      const totalAmount = points.reduce((sum, point) => sum + point.amount, 0);
+    const points = this.groupTransactionsByPeriod(
+      currentPeriodData,
+      request.period,
+    );
+    const totalAmount = points.reduce((sum, point) => sum + point.amount, 0);
+    const previousTotalAmount = this.calculateTotalAmount(previousPeriodData);
+    const { percentage, trend } = classifyTrend(
+      totalAmount,
+      previousTotalAmount,
+    );
 
-      const previousTotalAmount = previousPeriodData.reduce(
-        (sum, transaction) => sum + transaction.value,
-        0,
-      );
-
-      return {
-        period: request.period,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        points,
-        totalAmount,
-        percentageChange: this.calculatePercentageChange(
-          totalAmount,
-          previousTotalAmount,
-        ),
-        trend: this.calculateTrend(totalAmount, previousTotalAmount),
-      };
-    } catch (error) {
-      logger.error({ err: error }, 'Error in getSpendingTrends');
-      throw error;
-    }
+    return {
+      period: request.period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      points,
+      totalAmount,
+      percentageChange: percentage,
+      trend,
+    };
   }
 
   public async getCategorySpendingTrends(
     request: GetSpendingTrendsRequest,
     userId: string,
   ): Promise<CategorySpendingTrend[]> {
-    try {
-      const { startDate, endDate } = this.getDateRange(request);
+    const { startDate, endDate } = this.getDateRange(request);
 
-      const [
-        currentPeriodData,
-        previousPeriodData,
-        topLevelCategories,
-        categoryParentMap,
-      ] = await Promise.all([
-        this.fetchTransactionsForPeriod(
-          startDate,
-          endDate,
-          userId,
-          request.transactionType,
-        ),
-        this.fetchPreviousPeriodData(
-          startDate,
-          endDate,
-          userId,
-          request.transactionType,
-        ),
-        categoryRepository.getTopLevelCategories(),
-        buildCategoryParentMap(),
-      ]);
+    const [
+      currentPeriodData,
+      previousPeriodData,
+      topLevelCategories,
+      categoryParentMap,
+    ] = await Promise.all([
+      this.fetchTransactionsForPeriod(
+        startDate,
+        endDate,
+        userId,
+        request.transactionType,
+      ),
+      this.fetchPreviousPeriodData(
+        startDate,
+        endDate,
+        userId,
+        request.transactionType,
+      ),
+      categoryRepository.getTopLevelCategories(),
+      buildCategoryParentMap(),
+    ]);
 
-      const categoryTrends = new Map<string, CategoryTrendData>();
-      topLevelCategories.forEach((cat) => {
-        categoryTrends.set(cat.id, {
-          points: [],
-          totalAmount: 0,
-          categoryName: cat.name,
-          childCategories: new Set<string>(),
-        });
+    const categoryTrends = new Map<string, CategoryTrendData>();
+    topLevelCategories.forEach((cat) => {
+      categoryTrends.set(cat.id, {
+        points: [],
+        totalAmount: 0,
+        categoryName: cat.name,
+        childCategories: new Set<string>(),
       });
+    });
 
-      for (const transaction of currentPeriodData) {
-        if (!transaction.category) {
-          logger.warn(`Transaction ${transaction.id} has no category`);
-          continue;
-        }
-
-        const topLevelCategoryId = categoryParentMap.get(
-          transaction.category.id,
-        );
-        if (!topLevelCategoryId) {
-          logger.warn(
-            `Top level category not found for transaction ${transaction.id}`,
-          );
-          continue;
-        }
-
-        const existing = categoryTrends.get(topLevelCategoryId);
-        if (!existing) {
-          continue;
-        }
-
-        existing.totalAmount += transaction.value;
-        existing.childCategories.add(transaction.category.id);
+    for (const transaction of currentPeriodData) {
+      if (!transaction.category) {
+        logger.warn(`Transaction ${transaction.id} has no category`);
+        continue;
       }
 
-      const results: CategorySpendingTrend[] = [];
-      for (const [categoryId, data] of categoryTrends.entries()) {
-        if (data.childCategories.size === 0) {
-          continue;
-        }
-
-        const categoryTransactions = this.filterTransactionsByCategory(
-          currentPeriodData,
-          data.childCategories,
+      const topLevelCategoryId = categoryParentMap.get(transaction.category.id);
+      if (!topLevelCategoryId) {
+        logger.warn(
+          `Top level category not found for transaction ${transaction.id}`,
         );
-
-        const points = this.groupTransactionsByPeriod(
-          categoryTransactions,
-          request.period,
-        ).map((point) => ({
-          ...point,
-          categoryId,
-          categoryName: data.categoryName,
-        }));
-
-        const previousCategoryTransactions = this.filterTransactionsByCategory(
-          previousPeriodData,
-          data.childCategories,
-        );
-
-        const previousTotalAmount = this.calculateTotalAmount(
-          previousCategoryTransactions,
-        );
-
-        results.push(
-          this.createCategoryTrend(
-            request,
-            startDate,
-            endDate,
-            points,
-            data,
-            previousTotalAmount,
-            categoryId,
-          ),
-        );
+        continue;
       }
 
-      return results.sort((a, b) => b.totalAmount - a.totalAmount);
-    } catch (error) {
-      logger.error({ err: error }, 'Error in getCategorySpendingTrends');
-      throw error;
+      const existing = categoryTrends.get(topLevelCategoryId);
+      if (!existing) {
+        continue;
+      }
+
+      existing.totalAmount += transaction.value;
+      existing.childCategories.add(transaction.category.id);
     }
+
+    const results: CategorySpendingTrend[] = [];
+    for (const [categoryId, data] of categoryTrends.entries()) {
+      if (data.childCategories.size === 0) {
+        continue;
+      }
+
+      const categoryTransactions = this.filterTransactionsByCategory(
+        currentPeriodData,
+        data.childCategories,
+      );
+
+      const points = this.groupTransactionsByPeriod(
+        categoryTransactions,
+        request.period,
+      ).map((point) => ({
+        ...point,
+        categoryId,
+        categoryName: data.categoryName,
+      }));
+
+      const previousCategoryTransactions = this.filterTransactionsByCategory(
+        previousPeriodData,
+        data.childCategories,
+      );
+
+      const previousTotalAmount = this.calculateTotalAmount(
+        previousCategoryTransactions,
+      );
+
+      results.push(
+        this.createCategoryTrend(
+          request,
+          startDate,
+          endDate,
+          points,
+          data,
+          previousTotalAmount,
+          categoryId,
+        ),
+      );
+    }
+
+    return results.sort((a, b) => b.totalAmount - a.totalAmount);
   }
 
   private getDateRange(request: GetSpendingTrendsRequest) {
@@ -208,10 +193,12 @@ class TrendService {
     endDate: Date,
     userId: string,
     transactionType?: TransactionType,
+    categoryId?: string,
   ) {
     return transactionRepository.getTransactions({
       startDate,
       endDate,
+      categoryId,
       userId,
       status: TransactionStatus.APPROVED,
       page: 1,
@@ -225,6 +212,7 @@ class TrendService {
     endDate: Date,
     userId: string,
     transactionType?: TransactionType,
+    categoryId?: string,
   ) {
     const previousPeriodLength = endDate.getTime() - startDate.getTime();
     const previousPeriodStartDate = new Date(
@@ -236,6 +224,7 @@ class TrendService {
       startDate,
       userId,
       transactionType,
+      categoryId,
     );
   }
 
@@ -264,40 +253,22 @@ class TrendService {
     previousTotalAmount: number,
     categoryId: string,
   ): CategorySpendingTrend {
+    const { percentage, trend } = classifyTrend(
+      data.totalAmount,
+      previousTotalAmount,
+    );
+
     return {
       period: request.period,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       points,
       totalAmount: data.totalAmount,
-      percentageChange: this.calculatePercentageChange(
-        data.totalAmount,
-        previousTotalAmount,
-      ),
-      trend: this.calculateTrend(data.totalAmount, previousTotalAmount),
+      percentageChange: percentage,
+      trend,
       categoryId,
       categoryName: data.categoryName,
     };
-  }
-
-  private calculateTrend(
-    currentAmount: number,
-    previousAmount: number,
-  ): 'up' | 'down' | 'stable' {
-    if (previousAmount === 0) return 'stable';
-    const percentageChange =
-      ((currentAmount - previousAmount) / previousAmount) * 100;
-    if (percentageChange > 5) return 'up';
-    if (percentageChange < -5) return 'down';
-    return 'stable';
-  }
-
-  private calculatePercentageChange(
-    currentAmount: number,
-    previousAmount: number,
-  ): number {
-    if (previousAmount === 0) return 0;
-    return ((currentAmount - previousAmount) / previousAmount) * 100;
   }
 
   private groupTransactionsByPeriod(
@@ -306,26 +277,11 @@ class TrendService {
   ): TrendPoint[] {
     const groupedData = new Map<string, { amount: number; count: number }>();
 
+    const formatString = PERIOD_FORMATS[period] ?? DEFAULT_PERIOD_FORMAT;
+
     transactions.forEach((transaction) => {
       const date = new Date(transaction.date);
-      let key: string;
-
-      switch (period) {
-        case 'daily':
-          key = format(date, 'yyyy-MM-dd');
-          break;
-        case 'weekly':
-          key = format(date, 'yyyy-ww'); // ISO week number
-          break;
-        case 'monthly':
-          key = format(date, 'yyyy-MM');
-          break;
-        case 'yearly':
-          key = format(date, 'yyyy');
-          break;
-        default:
-          key = format(date, 'yyyy-MM-dd');
-      }
+      const key = format(date, formatString);
 
       const existing = groupedData.get(key) || { amount: 0, count: 0 };
       groupedData.set(key, {

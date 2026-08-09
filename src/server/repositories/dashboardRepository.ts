@@ -4,13 +4,19 @@ import { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
 
 class DashboardRepository {
+  private monthBounds(year: number, month: number) {
+    return {
+      startOfMonth: new Date(year, month - 1, 1),
+      endOfMonth: new Date(year, month, 0, 23, 59, 59, 999),
+    };
+  }
+
   public async getMonthSummary(
     userId: string,
     year: number,
     month: number,
   ): Promise<MonthSummary> {
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({
       by: ['type'],
@@ -44,8 +50,7 @@ class DashboardRepository {
     month: number,
     limit: number = 7,
   ): Promise<{ categoryId: string; categoryName: string; amount: number }[]> {
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({
       by: ['categoryId'],

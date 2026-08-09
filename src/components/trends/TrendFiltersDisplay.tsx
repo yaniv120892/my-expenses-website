@@ -3,7 +3,7 @@
 import { Chip, Stack } from '@mui/material';
 import { TrendPeriod, TransactionType } from '@/types/trends';
 import { Category } from '@/types';
-import { format } from 'date-fns';
+import { formatDateRange } from '@/utils/dateUtils';
 
 interface TrendFiltersDisplayProps {
   period: TrendPeriod;
@@ -44,10 +44,7 @@ export const TrendFiltersDisplay = ({
     transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
     formatPeriod(period),
     getCategoryName(),
-    `${format(new Date(startDate), 'MMM d, yyyy')} – ${format(
-      new Date(endDate),
-      'MMM d, yyyy',
-    )}`,
+    formatDateRange(startDate, endDate, '–'),
   ];
 
   return (

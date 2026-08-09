@@ -13,11 +13,10 @@ import {
   Switch,
   FormControlLabel,
   Tooltip,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { TransactionFilters } from '@/types';
+import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '../CategorySelect';
 
 interface TransactionFiltersDialogProps {
@@ -33,8 +32,7 @@ export const TransactionFiltersDialog = ({
   onApply,
   initialFilters,
 }: TransactionFiltersDialogProps) => {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useIsCompact();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [startDate, setStartDate] = useState('');

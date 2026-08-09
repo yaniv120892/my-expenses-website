@@ -23,7 +23,6 @@ import {
   Select,
   Stack,
   Tooltip,
-  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -40,6 +39,7 @@ import {
   useAutoApproveRulesQuery,
 } from '../hooks/useImports';
 import { formatDate } from '../utils/dateUtils';
+import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   ImportedTransactionStatus,
   ImportedTransaction,
@@ -272,7 +272,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   const ignoreMutation = useIgnoreImportedTransactionMutation(importId);
   const deleteMutation = useDeleteImportedTransactionMutation(importId);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     useState<ImportedTransaction | null>(null);
@@ -512,7 +512,10 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         <Stack spacing={2}>
           {sections.map((section) => (
             <Box key={section.label}>
-              <Typography variant="subtitle2" sx={{ ...sectionHeaderSx(section.color), mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{ ...sectionHeaderSx(section.color), mb: 1 }}
+              >
                 {section.label}
               </Typography>
               <Stack spacing={1}>

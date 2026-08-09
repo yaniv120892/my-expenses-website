@@ -49,7 +49,9 @@ export async function seed(): Promise<SeedResult> {
   const prisma = directClient();
 
   try {
-    // Order matters: transactions reference users and categories.
+    // Order matters: dependents first, then categories and users.
+    await prisma.detectedSubscription.deleteMany({});
+    await prisma.scheduledTransaction.deleteMany({});
     await prisma.transaction.deleteMany({});
     await prisma.category.deleteMany({});
     await prisma.user.deleteMany({});

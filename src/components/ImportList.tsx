@@ -29,8 +29,6 @@ import {
   TableSortLabel,
   ToggleButtonGroup,
   ToggleButton,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -39,6 +37,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { Import, ImportStatus } from '../types/import';
+import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   useImportsQuery,
   useDeleteImportMutation,
@@ -139,8 +138,7 @@ export default function ImportList({
   const { data: imports = [], isLoading } = useImportsQuery();
   const deleteImportMutation = useDeleteImportMutation();
   const rematchImportMutation = useRematchImportMutation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useIsMobile();
 
   const [deleteTarget, setDeleteTarget] = useState<Import | null>(null);
 
@@ -382,7 +380,10 @@ export default function ImportList({
                       size="small"
                     />
                     {importItem.isVerified ? (
-                      <CheckCircleOutlineIcon color="success" fontSize="small" />
+                      <CheckCircleOutlineIcon
+                        color="success"
+                        fontSize="small"
+                      />
                     ) : (
                       <CancelOutlinedIcon color="warning" fontSize="small" />
                     )}
@@ -441,7 +442,9 @@ export default function ImportList({
                 </TableSortLabel>
               </TableCell>
               <TableCell>File Name</TableCell>
-              <TableCell sortDirection={sortField === 'status' ? sortDirection : false}>
+              <TableCell
+                sortDirection={sortField === 'status' ? sortDirection : false}
+              >
                 <TableSortLabel
                   active={sortField === 'status'}
                   direction={sortField === 'status' ? sortDirection : 'asc'}
@@ -452,7 +455,9 @@ export default function ImportList({
               </TableCell>
               <TableCell align="center">Verified</TableCell>
               <TableCell
-                sortDirection={sortField === 'createdAt' ? sortDirection : false}
+                sortDirection={
+                  sortField === 'createdAt' ? sortDirection : false
+                }
               >
                 <TableSortLabel
                   active={sortField === 'createdAt'}
@@ -480,7 +485,10 @@ export default function ImportList({
                       {isExpanded ? (
                         <KeyboardArrowUpIcon fontSize="small" color="action" />
                       ) : (
-                        <KeyboardArrowDownIcon fontSize="small" color="action" />
+                        <KeyboardArrowDownIcon
+                          fontSize="small"
+                          color="action"
+                        />
                       )}
                     </TableCell>
                     <TableCell>
@@ -488,7 +496,11 @@ export default function ImportList({
                     </TableCell>
                     <TableCell>{importItem.paymentMonth || 'N/A'}</TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2" noWrap title={importItem.originalFileName}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={importItem.originalFileName}
+                      >
                         {importItem.originalFileName}
                       </Typography>
                     </TableCell>

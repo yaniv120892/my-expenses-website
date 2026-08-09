@@ -126,10 +126,14 @@ export function createHandler<
         query,
         params,
       });
+      // null must serialize as null (some routes legitimately return it);
+      // only a bare undefined becomes an empty object.
       response =
         options.status === 204
           ? new NextResponse(null, { status: 204 })
-          : NextResponse.json(result ?? {}, { status: options.status ?? 200 });
+          : NextResponse.json(result === undefined ? {} : result, {
+              status: options.status ?? 200,
+            });
     } catch (err) {
       response = errorResponse(err, requestId);
       if (response.status >= 500) {

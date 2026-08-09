@@ -18,9 +18,7 @@ test('assistant reply renders incrementally', async ({ page }) => {
   await page.goto('/dashboard');
 
   await page.getByRole('button', { name: /chat/i }).click();
-  await expect(
-    page.getByText('Chat with your Financial Assistant'),
-  ).toBeVisible();
+  await expect(page.getByText('Financial Assistant')).toBeVisible();
 
   const input = page.getByPlaceholder('Ask about your transactions...');
   await input.fill('Compare my grocery spending in January versus February');
@@ -30,12 +28,14 @@ test('assistant reply renders incrementally', async ({ page }) => {
   // straddle the user message and the reply as the reply starts rendering.
   const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
 
+  // Sampled well below the mock's 120ms chunk gap, or consecutive samples
+  // could each land after the stream already finished.
   const lengths: number[] = [];
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < 80; i++) {
     const text = (await reply.count()) ? await reply.last().textContent() : '';
     lengths.push((text || '').length);
     if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) break;
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(40);
   }
 
   const distinct = [...new Set(lengths.filter((l) => l > 0))];

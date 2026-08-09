@@ -1,9 +1,4 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  useInfiniteQuery,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTransactions,
   createTransaction,
@@ -11,26 +6,25 @@ import {
   deleteTransaction,
   getCategories,
   getTransactionSummary,
-} from "../services/transactions";
+} from '../services/transactions';
 import {
   TransactionFilters,
   CreateTransactionInput,
   UpdateTransactionInput,
-  Transaction,
   TransactionSummary,
-} from "../types";
-import { trendKeys } from "@/hooks/useTrendsQuery";
-import { dashboardKeys } from "@/hooks/useDashboardQuery";
+} from '../types';
+import { trendKeys } from '@/hooks/useTrendsQuery';
+import { dashboardKeys } from '@/hooks/useDashboardQuery';
 
 export const transactionKeys = {
-  all: ["transactions"] as const,
-  lists: () => [...transactionKeys.all, "list"] as const,
+  all: ['transactions'] as const,
+  lists: () => [...transactionKeys.all, 'list'] as const,
   list: (filters: TransactionFilters) =>
     [...transactionKeys.lists(), filters] as const,
-  categories: () => [...transactionKeys.all, "categories"] as const,
-  allTransactions: () => [...transactionKeys.all, "allTransactions"] as const,
-  summary: (filters?: Omit<TransactionFilters, "page" | "perPage">) =>
-    [...transactionKeys.all, "summary", filters] as const,
+  categories: () => [...transactionKeys.all, 'categories'] as const,
+  allTransactions: () => [...transactionKeys.all, 'allTransactions'] as const,
+  summary: (filters?: Omit<TransactionFilters, 'page' | 'perPage'>) =>
+    [...transactionKeys.all, 'summary', filters] as const,
 };
 
 export const useTransactionsQuery = (filters?: TransactionFilters) => {
@@ -99,34 +93,8 @@ export const useDeleteTransactionMutation = () => {
   });
 };
 
-export const useAllTransactionsQuery = (
-  filters?: Omit<TransactionFilters, "page" | "limit">
-) => {
-  return useInfiniteQuery<Transaction[]>({
-    queryKey: transactionKeys.allTransactions(),
-    initialPageParam: 1,
-    queryFn: async ({ pageParam }) => {
-      const response = await getTransactions({
-        ...filters,
-        page: pageParam as number,
-        perPage: 100,
-      });
-      return response;
-    },
-    getNextPageParam: (lastPage: Transaction[], allPages) => {
-      if (!lastPage || lastPage.length < 100) return undefined;
-      return allPages.length + 1;
-    },
-    select: (data) => ({
-      pages: data.pages,
-      pageParams: data.pageParams,
-      allTransactions: data.pages.flat(),
-    }),
-  });
-};
-
 export const useTransactionsSummaryQuery = (
-  filters?: Omit<TransactionFilters, "page" | "perPage">
+  filters?: Omit<TransactionFilters, 'page' | 'perPage'>,
 ) => {
   return useQuery<TransactionSummary>({
     queryKey: transactionKeys.summary(filters),

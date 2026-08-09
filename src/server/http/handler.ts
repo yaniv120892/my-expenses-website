@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { ZodType, ZodError } from 'zod';
+import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { AuthError, requireUser } from '@/server/auth/session';
-import { HttpError } from '@/server/http/errors';
+import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { optionalEnv, requireEnv } from '@/server/env';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
@@ -18,8 +18,10 @@ export interface HandlerContext<TBody, TQuery> {
 
 interface HandlerOptions<TBody, TQuery, TResult> {
   auth: AuthMode;
-  bodySchema?: ZodType<TBody>;
-  querySchema?: ZodType<TQuery>;
+  // Input is `unknown` because request data arrives as strings/JSON and the
+  // schemas coerce (z.coerce, transforms), so schema input differs from output.
+  bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
+  querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   status?: number;
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
@@ -52,10 +54,6 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-function queryToObject(req: NextRequest): Record<string, string> {
-  return Object.fromEntries(req.nextUrl.searchParams.entries());
-}
-
 function errorResponse(err: unknown, requestId: string): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
@@ -64,26 +62,12 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
     );
   }
   if (err instanceof ZodError) {
-    const message = err.issues
-      .map((issue) =>
-        issue.path.length
-          ? `${issue.path.join('.')}: ${issue.message}`
-          : issue.message,
-      )
-      .join('; ');
-    return NextResponse.json({ message }, { status: 400 });
+    return NextResponse.json({ message: formatZodIssues(err) }, { status: 400 });
   }
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const error = (err ?? {}) as {
-    name?: string;
-    message?: string;
-    status?: number;
-  };
-  if (error.name === 'CustomValidationError') {
-    return NextResponse.json({ message: error.message }, { status: 400 });
-  }
+  const error = (err ?? {}) as { message?: string; status?: number };
   const status = error.status ?? 500;
   if (status >= 500) {
     Sentry.captureException(err, { tags: { requestId } });
@@ -102,11 +86,11 @@ export function createHandler<
   return async (
     req: NextRequest,
     routeContext: RouteContext,
-  ): Promise<NextResponse> => {
+  ): Promise<Response> => {
     const requestId = crypto.randomUUID();
     const started = Date.now();
     const path = req.nextUrl.pathname;
-    let response: NextResponse;
+    let response: Response;
     let userId = '';
 
     try {
@@ -116,7 +100,9 @@ export function createHandler<
         ? options.bodySchema.parse(await req.json())
         : (undefined as TBody);
       const query = options.querySchema
-        ? options.querySchema.parse(queryToObject(req))
+        ? options.querySchema.parse(
+            Object.fromEntries(req.nextUrl.searchParams.entries()),
+          )
         : (undefined as TQuery);
 
       const result = await options.handler({
@@ -126,14 +112,18 @@ export function createHandler<
         query,
         params,
       });
-      // null must serialize as null (some routes legitimately return it);
-      // only a bare undefined becomes an empty object.
-      response =
-        options.status === 204
-          ? new NextResponse(null, { status: 204 })
-          : NextResponse.json(result === undefined ? {} : result, {
-              status: options.status ?? 200,
-            });
+      // A handler may return a full Response (cookies, streams); anything
+      // else is JSON-wrapped. null serializes as null; undefined becomes {}.
+      if (result instanceof Response) {
+        response = result;
+      } else {
+        response =
+          options.status === 204
+            ? new NextResponse(null, { status: 204 })
+            : NextResponse.json(result === undefined ? {} : result, {
+                status: options.status ?? 200,
+              });
+      }
     } catch (err) {
       response = errorResponse(err, requestId);
       if (response.status >= 500) {

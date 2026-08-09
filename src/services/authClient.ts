@@ -6,7 +6,7 @@ async function post(path: string, body: Record<string, unknown>) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(data?.error ?? 'Request failed');
+    throw new Error(data?.error ?? data?.message ?? 'Request failed');
   }
   return response.json();
 }

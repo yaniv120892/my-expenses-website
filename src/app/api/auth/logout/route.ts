@@ -1,21 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createHandler } from '@/server/http/handler';
 import authService from '@/server/services/authService';
-import { handleAuthRoute } from '@/server/auth/routeUtils';
 import { clearSessionCookie } from '@/server/auth/cookies';
-import { extractToken } from '@/server/auth/session';
+import { AuthError, extractToken } from '@/server/auth/session';
 import { verifyToken } from '@/server/auth/tokens';
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  return handleAuthRoute(req, async () => {
+// auth: 'public' because logout must also accept an expired-but-well-formed
+// token — the Redis session still gets invalidated.
+export const POST = createHandler({
+  auth: 'public',
+  handler: async ({ req }) => {
     const token = extractToken(req);
     if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
+      throw new AuthError('AUTH_REQUIRED', 'Authentication required');
     }
 
-    // Invalidate the Redis session even for an expired-but-well-formed token.
     try {
       const { userId } = await verifyToken(token);
       await authService.logoutUser(userId, token);
@@ -26,5 +25,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = NextResponse.json({ success: true });
     clearSessionCookie(response);
     return response;
-  });
-}
+  },
+});

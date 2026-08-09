@@ -7,18 +7,13 @@ import transactionService from '@/server/services/transactionService';
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ req, userId }) => {
-    // Parsed here because the schema's input (query strings) differs from its
-    // output, which the factory's single-generic ZodType cannot express.
-    const query = getTransactionsSchema.parse(
-      Object.fromEntries(req.nextUrl.searchParams.entries()),
-    );
-    return transactionService.getTransactions({
+  querySchema: getTransactionsSchema,
+  handler: async ({ userId, query }) =>
+    transactionService.getTransactions({
       ...query,
       transactionType: query.type,
       userId,
-    });
-  },
+    }),
 });
 
 export const POST = createHandler({

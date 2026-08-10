@@ -1,11 +1,17 @@
 import { useCallback, useRef, useState } from 'react';
 import { handleApiError } from '@/utils/api';
+import { AssistantView } from '@/shared/types/chat';
 import { streamMessage } from '../services/chatService';
 
 export interface Message {
   sender: 'user' | 'bot';
   text: string;
+  /** Structured tool results rendered as cards alongside the text. */
+  views?: AssistantView[];
 }
+
+const isEmptyReply = (message: Message): boolean =>
+  message.text === '' && !message.views?.length;
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -14,9 +20,11 @@ export const useChat = () => {
 
   // Derived rather than stored: the streaming bubble is the last message and
   // stays empty until the first delta lands, so a hand-synced flag would drift.
+  // A tool result counts as progress too — a card can render before the model
+  // has written a word, and the spinner should give way to it.
   const last = messages[messages.length - 1];
   const isAwaitingFirstToken =
-    isLoading && last?.sender === 'bot' && last.text === '';
+    isLoading && last?.sender === 'bot' && isEmptyReply(last);
 
   const appendToLastMessage = useCallback(
     (delta: string, opts: { onlyIfEmpty?: boolean } = {}) => {
@@ -24,7 +32,7 @@ export const useChat = () => {
         const updated = [...prev];
         const target = updated[updated.length - 1];
         if (!target || target.sender !== 'bot') return prev;
-        if (opts.onlyIfEmpty && target.text) return prev;
+        if (opts.onlyIfEmpty && !isEmptyReply(target)) return prev;
 
         updated[updated.length - 1] = {
           ...target,
@@ -35,6 +43,20 @@ export const useChat = () => {
     },
     [],
   );
+
+  const appendViewToLastMessage = useCallback((view: AssistantView) => {
+    setMessages((prev) => {
+      const updated = [...prev];
+      const target = updated[updated.length - 1];
+      if (!target || target.sender !== 'bot') return prev;
+
+      updated[updated.length - 1] = {
+        ...target,
+        views: [...(target.views ?? []), view],
+      };
+      return updated;
+    });
+  }, []);
 
   const handleSendMessage = useCallback(
     async (text: string) => {
@@ -59,8 +81,9 @@ export const useChat = () => {
           outgoing,
           {
             onDelta: appendToLastMessage,
+            onView: appendViewToLastMessage,
             // An empty reply would otherwise leave a blank bubble behind; this
-            // is a no-op once any text has arrived.
+            // is a no-op once any text or any card has arrived.
             onDone: () =>
               appendToLastMessage(
                 "Sorry, I wasn't able to produce an answer. Please try again.",
@@ -81,7 +104,7 @@ export const useChat = () => {
         abortRef.current = null;
       }
     },
-    [appendToLastMessage, isLoading, messages],
+    [appendToLastMessage, appendViewToLastMessage, isLoading, messages],
   );
 
   const cancel = useCallback(() => {

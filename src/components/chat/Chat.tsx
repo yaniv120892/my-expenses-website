@@ -18,6 +18,7 @@ import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineR
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useChat } from '../../hooks/useChat';
 import { useIsCompact } from '../../hooks/useBreakpoints';
+import AssistantViewBlock from '@/components/chat/blocks/AssistantViewBlock';
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -128,8 +129,14 @@ const Chat: React.FC = () => {
           >
             {messages
               // While waiting on the first token the streaming bubble is still
-              // empty; the spinner below stands in for it.
-              .filter((msg) => msg.text.length > 0 || msg.sender === 'user')
+              // empty; the spinner below stands in for it. A reply whose tool
+              // results arrived before any prose is not empty — it has cards.
+              .filter(
+                (msg) =>
+                  msg.sender === 'user' ||
+                  msg.text.length > 0 ||
+                  !!msg.views?.length,
+              )
               .map((msg, index) => (
                 <Paper
                   key={index}
@@ -139,7 +146,10 @@ const Chat: React.FC = () => {
                   sx={{
                     p: 1.5,
                     mb: 1,
-                    maxWidth: '80%',
+                    // Cards need the room; plain prose reads better narrow, and
+                    // keeping the user side at 80% preserves the dialogue shape.
+                    maxWidth: msg.views?.length ? '95%' : '80%',
+                    width: msg.views?.length ? '95%' : 'auto',
                     alignSelf:
                       msg.sender === 'user' ? 'flex-end' : 'flex-start',
                     color:
@@ -155,9 +165,20 @@ const Chat: React.FC = () => {
                     borderRadius: 2.5,
                   }}
                 >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {msg.text}
-                  </Typography>
+                  {msg.text.length > 0 && (
+                    <Typography
+                      variant="body2"
+                      // Hebrew replies right-align and English stay left,
+                      // decided per message rather than app-wide.
+                      dir="auto"
+                      sx={{ whiteSpace: 'pre-wrap' }}
+                    >
+                      {msg.text}
+                    </Typography>
+                  )}
+                  {msg.views?.map((view, viewIndex) => (
+                    <AssistantViewBlock key={viewIndex} view={view} />
+                  ))}
                 </Paper>
               ))}
             {isAwaitingFirstToken && (

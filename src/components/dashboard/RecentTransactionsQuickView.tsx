@@ -1,16 +1,8 @@
 'use client';
 
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Chip,
-} from '@mui/material';
+import { Box, Card, CardContent, Typography, Button } from '@mui/material';
 import { RecentTransaction } from '@/types/dashboard';
-import { formatTransactionDate } from '@/utils/format';
-import AmountText from '@/components/AmountText';
+import TransactionRow from '@/components/transactions/TransactionRow';
 
 interface Props {
   transactions: RecentTransaction[];
@@ -48,49 +40,14 @@ export function RecentTransactionsQuickView({
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {transactions.map((tx) => (
-            <Box
+            <TransactionRow
               key={tx.id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                py: 0.5,
-                borderBottom: 1,
-                borderColor: 'divider',
-              }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" fontWeight={600} noWrap>
-                  {tx.description}
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mt: 0.25,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary' }}
-                  >
-                    {formatTransactionDate(tx.date)}
-                  </Typography>
-                  <Chip
-                    label={tx.categoryName}
-                    size="small"
-                    sx={{ height: 20, fontSize: 11 }}
-                  />
-                </Box>
-              </Box>
-              <AmountText
-                type={tx.type}
-                value={tx.value}
-                fontWeight={700}
-                format="signed"
-              />
-            </Box>
+              description={tx.description}
+              value={tx.value}
+              date={tx.date}
+              type={tx.type}
+              categoryName={tx.categoryName}
+            />
           ))}
         </Box>
       </CardContent>

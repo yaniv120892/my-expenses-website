@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -9,8 +9,9 @@ import {
   Chip,
   Button,
   LinearProgress,
-} from "@mui/material";
-import { DetectedSubscription } from "@/types/subscription";
+  Stack,
+} from '@mui/material';
+import { DetectedSubscription } from '@/types/subscription';
 
 interface Props {
   subscription: DetectedSubscription;
@@ -21,44 +22,44 @@ interface Props {
 
 function formatFrequency(frequency: string): string {
   switch (frequency) {
-    case "WEEKLY":
-      return "Weekly";
-    case "MONTHLY":
-      return "Monthly";
-    case "YEARLY":
-      return "Yearly";
+    case 'WEEKLY':
+      return 'Weekly';
+    case 'MONTHLY':
+      return 'Monthly';
+    case 'YEARLY':
+      return 'Yearly';
     default:
       return frequency;
   }
 }
 
 function frequencyColor(
-  frequency: string
-): "primary" | "secondary" | "warning" {
+  frequency: string,
+): 'primary' | 'secondary' | 'warning' {
   switch (frequency) {
-    case "WEEKLY":
-      return "warning";
-    case "MONTHLY":
-      return "primary";
-    case "YEARLY":
-      return "secondary";
+    case 'WEEKLY':
+      return 'warning';
+    case 'MONTHLY':
+      return 'primary';
+    case 'YEARLY':
+      return 'secondary';
     default:
-      return "primary";
+      return 'primary';
   }
 }
 
 function statusColor(
-  status: string
-): "default" | "success" | "warning" | "error" {
+  status: string,
+): 'default' | 'success' | 'warning' | 'error' {
   switch (status) {
-    case "DETECTED":
-      return "warning";
-    case "CONFIRMED":
-      return "success";
-    case "DISMISSED":
-      return "default";
+    case 'DETECTED':
+      return 'warning';
+    case 'CONFIRMED':
+      return 'success';
+    case 'DISMISSED':
+      return 'default';
     default:
-      return "default";
+      return 'default';
   }
 }
 
@@ -71,27 +72,27 @@ export default function SubscriptionCard({
   const nextDate = new Date(subscription.nextExpectedDate).toLocaleDateString();
 
   return (
-    <Card
-      sx={{
-        borderRadius: 2,
-        boxShadow: 2,
-        bgcolor: "background.paper",
-      }}
-    >
-      <CardContent sx={{ pb: "16px !important" }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: 1,
-          }}
+    <Card variant="outlined" sx={{ height: '100%' }}>
+      <CardContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          '&:last-child': { pb: 2 },
+        }}
+      >
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          spacing={1}
+          sx={{ mb: 1 }}
         >
-          <Box>
-            <Typography variant="subtitle1" fontWeight={700}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" fontWeight={700} noWrap>
               {subscription.displayName}
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
               <Chip
                 label={formatFrequency(subscription.frequency)}
                 color={frequencyColor(subscription.frequency)}
@@ -103,9 +104,9 @@ export default function SubscriptionCard({
                 color={statusColor(subscription.status)}
                 size="small"
               />
-            </Box>
+            </Stack>
           </Box>
-          <Box sx={{ textAlign: "right" }}>
+          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
             <Typography variant="h6" fontWeight={700}>
               ${subscription.averageAmount.toFixed(2)}
             </Typography>
@@ -113,20 +114,18 @@ export default function SubscriptionCard({
               ${subscription.annualCost.toFixed(2)}/yr
             </Typography>
           </Box>
-        </Box>
+        </Stack>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Next expected: {nextDate}
         </Typography>
 
-        {subscription.status === "DETECTED" && (
+        {subscription.status === 'DETECTED' && (
           <Box sx={{ mb: 1.5 }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                mb: 0.5,
-              }}
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              sx={{ mb: 0.5 }}
             >
               <Typography variant="caption" color="text.secondary">
                 Confidence
@@ -134,7 +133,7 @@ export default function SubscriptionCard({
               <Typography variant="caption" color="text.secondary">
                 {Math.round(subscription.confidence * 100)}%
               </Typography>
-            </Box>
+            </Stack>
             <LinearProgress
               variant="determinate"
               value={subscription.confidence * 100}
@@ -143,13 +142,18 @@ export default function SubscriptionCard({
           </Box>
         )}
 
-        {subscription.status !== "DISMISSED" && (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
-            {subscription.status === "DETECTED" && (
+        {subscription.status !== 'DISMISSED' && (
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ mt: 'auto', pt: 1 }}
+          >
+            {subscription.status === 'DETECTED' && (
               <>
                 <Button
                   variant="contained"
-                  color="primary"
                   size="small"
                   onClick={() => onConfirm(subscription.id)}
                 >
@@ -168,14 +172,13 @@ export default function SubscriptionCard({
             {!subscription.scheduledTransactionId && (
               <Button
                 variant="outlined"
-                color="primary"
                 size="small"
                 onClick={() => onConvert(subscription)}
               >
                 Convert to Scheduled
               </Button>
             )}
-          </Box>
+          </Stack>
         )}
       </CardContent>
     </Card>

@@ -1,4 +1,6 @@
-import { Box, Typography, Card, CardContent } from "@mui/material";
+'use client';
+
+import { Box, Typography, Card, CardContent, useTheme } from '@mui/material';
 import {
   LineChart,
   Line,
@@ -8,11 +10,11 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
-import { SpendingTrend, TransactionType, TrendPeriod } from "@/types/trends";
-import { Category } from "@/types";
-import { TrendIcon } from "./TrendIcon";
-import { formatTrendDate } from "@/utils/dateUtils";
+} from 'recharts';
+import { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
+import { Category } from '@/types';
+import { TrendIcon } from './TrendIcon';
+import { formatTrendDate } from '@/utils/dateUtils';
 
 interface OverallTrendCardProps {
   trend: SpendingTrend;
@@ -29,96 +31,108 @@ export const OverallTrendCard = ({
   transactionType,
   period,
 }: OverallTrendCardProps) => {
+  const theme = useTheme();
+  const palette = (theme.vars ?? theme).palette;
+  const lineColor =
+    transactionType === 'EXPENSE'
+      ? palette.charts.expense
+      : palette.charts.income;
+
+  const categoryName =
+    selectedCategory !== 'All Categories'
+      ? categories.find((c) => c.id === selectedCategory)?.name
+      : undefined;
+  const typeLabel = transactionType === 'EXPENSE' ? 'Spending' : 'Income';
+
   if (!trend.points.length) {
     return (
-      <Card sx={{ mb: 4 }}>
-        <Typography
-          variant="body2"
-          color="text.primary"
-          textAlign="center"
-          bgcolor="background.default"
-        >
-          No transactions found for selected period and category
-        </Typography>
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            No transactions found for selected period and category
+          </Typography>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card sx={{ mb: 4 }}>
-      <CardContent sx={{ backgroundColor: "background.default" }}>
-        <Typography variant="h6" gutterBottom color="text.primary">
-          {selectedCategory !== "All Categories"
-            ? `${categories.find((c) => c.id === selectedCategory)?.name} `
-            : "Overall "}
-          {transactionType === "EXPENSE" ? "Spending" : "Income"} Trend
+    <Card variant="outlined" sx={{ mb: 3 }}>
+      <CardContent>
+        <Typography
+          variant="h4"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
+          {categoryName ? `${categoryName} ` : 'Overall '}
+          {typeLabel} Trend
           <TrendIcon trend={trend.trend} />
         </Typography>
-        <Box sx={{ display: "flex", gap: 2, mt: 2, flexWrap: "wrap" }}>
-          <Box sx={{ flex: "1 1 200px", minWidth: 0 }}>
-            <Typography variant="body2" color="text.primary">
-              Total {transactionType === "EXPENSE" ? "Spending" : "Income"}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: { xs: 3, md: 6 },
+            mt: 2,
+            mb: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Total {typeLabel}
             </Typography>
-            <Typography variant="h6" color="text.primary">
-              ₪{trend.totalAmount.toFixed(2)}
-            </Typography>
+            <Typography variant="h4">₪{trend.totalAmount.toFixed(2)}</Typography>
           </Box>
-          <Box sx={{ flex: "1 1 200px", minWidth: 0 }}>
-            <Typography variant="body2" color="text.primary">
+          <Box>
+            <Typography variant="body2" color="text.secondary">
               Change from Previous Period
             </Typography>
             <Typography
-              variant="h6"
-              color={trend.percentageChange > 0 ? "error.main" : "success.main"}
+              variant="h4"
+              color={trend.percentageChange > 0 ? 'error.main' : 'success.main'}
             >
-              {trend.percentageChange > 0 ? "+" : ""}
+              {trend.percentageChange > 0 ? '+' : ''}
               {trend.percentageChange.toFixed(1)}%
             </Typography>
           </Box>
         </Box>
-        <Box sx={{ height: 300 }}>
+        <Box sx={{ height: { xs: 240, md: 300 } }}>
           <ResponsiveContainer>
             <LineChart data={trend.points}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="var(--text-secondary)"
-                strokeOpacity={0.3}
+                stroke={palette.divider}
               />
               <XAxis
                 dataKey="date"
                 tickFormatter={(date) => formatTrendDate(date, period)}
-                stroke="var(--text-color)"
-                tick={{ fill: "var(--text-color)" }}
+                stroke={palette.text.secondary}
+                tick={{ fill: palette.text.secondary, fontSize: 12 }}
                 reversed={true}
               />
               <YAxis
-                stroke="var(--text-color)"
-                tick={{ fill: "var(--text-color)" }}
+                stroke={palette.text.secondary}
+                tick={{ fill: palette.text.secondary, fontSize: 12 }}
+                width={48}
               />
               <Tooltip
                 labelFormatter={(date) => formatTrendDate(date, period)}
-                formatter={(value: number) => [
-                  `₪${value.toFixed(2)}`,
-                  "Amount",
-                ]}
+                formatter={(value: number) => [`₪${value.toFixed(2)}`, 'Amount']}
                 contentStyle={{
-                  backgroundColor: "var(--background)",
-                  border: "1px solid var(--text-color)",
-                  color: "var(--text-color)",
+                  backgroundColor: palette.background.paper,
+                  border: `1px solid ${palette.divider}`,
+                  borderRadius: 10,
+                  color: palette.text.primary,
                 }}
               />
-              <Legend wrapperStyle={{ color: "var(--text-color)" }} />
+              <Legend />
               <Line
                 type="monotone"
                 dataKey="amount"
-                name={`${
-                  selectedCategory !== "All Categories"
-                    ? categories.find((c) => c.id === selectedCategory)?.name +
-                      " "
-                    : ""
-                }${transactionType === "EXPENSE" ? "Spending" : "Income"}`}
-                stroke="#8884d8"
-                activeDot={{ r: 8 }}
+                name={`${categoryName ? `${categoryName} ` : ''}${typeLabel}`}
+                stroke={lineColor}
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 6 }}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -1,118 +1,31 @@
-"use client";
+'use client';
 
-import React from "react";
-import { ScheduledTransaction, Category } from "../types";
-import EmptyState from "./EmptyState";
+import React from 'react';
+import {
+  Box,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
+import { ScheduledTransaction, Category } from '../types';
+import { useIsMobile } from '../hooks/useBreakpoints';
+import AmountText from './AmountText';
+import EmptyState from './EmptyState';
+import SwipeableRow from './SwipeableRow';
 import {
   formatTransactionDate,
   translateToScheduleSummary,
-} from "../utils/format";
-import { useIsMobile } from "@/hooks/useIsMobile";
+} from '../utils/format';
 
 function getCategoryName(categoryId: string, categories: Category[]) {
   const found = categories.find((cat) => cat.id === categoryId);
-  return found ? found.name : "N/A";
-}
-
-function getValueColor(type: string) {
-  if (type === "INCOME") {
-    return "var(--accent-green)";
-  }
-  return "var(--accent-red)";
-}
-
-function getFormattedValue(value: number) {
-  return value.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
-}
-
-function ScheduledTransactionRowMobile({
-  tx,
-  categories,
-  onEdit,
-}: {
-  tx: ScheduledTransaction;
-  categories: Category[];
-  onEdit: (tx: ScheduledTransaction) => void;
-}) {
-  function handleRowClick() {
-    onEdit(tx);
-  }
-  return (
-    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
-      <td style={{ padding: "1.2rem 0.5rem", border: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: "1.1em" }}>
-              {tx.description}
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
-              {getCategoryName(tx.categoryId, categories)}
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
-              {translateToScheduleSummary(
-                tx.scheduleType,
-                tx.interval,
-                tx.dayOfWeek,
-                tx.dayOfMonth
-              )}
-            </div>
-          </div>
-          <div style={{ textAlign: "right", minWidth: 110 }}>
-            <div
-              style={{
-                color: getValueColor(tx.type),
-                fontWeight: 600,
-                fontSize: "1.1em",
-              }}
-            >
-              {getFormattedValue(tx.value)}
-            </div>
-            <div style={{ fontSize: "0.97em", color: "var(--text-color)" }}>
-              {formatTransactionDate(tx.nextRunDate)}
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function ScheduledTransactionRowDesktop({
-  tx,
-  categories,
-  onEdit,
-}: {
-  tx: ScheduledTransaction;
-  categories: Category[];
-  onEdit: (tx: ScheduledTransaction) => void;
-}) {
-  function handleRowClick() {
-    onEdit(tx);
-  }
-  return (
-    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
-      <td>{tx.description}</td>
-      <td
-        style={{
-          color: getValueColor(tx.type),
-          fontWeight: 600,
-        }}
-      >
-        {getFormattedValue(tx.value)}
-      </td>
-      <td style={{ textTransform: "uppercase" }}>{tx.type}</td>
-      <td>{getCategoryName(tx.categoryId, categories)}</td>
-      <td>
-        {translateToScheduleSummary(
-          tx.scheduleType,
-          tx.interval,
-          tx.dayOfWeek,
-          tx.dayOfMonth
-        )}
-      </td>
-      <td>{tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : "N/A"}</td>
-    </tr>
-  );
+  return found ? found.name : 'N/A';
 }
 
 export default function ScheduledTransactionList({
@@ -130,60 +43,109 @@ export default function ScheduledTransactionList({
     return <EmptyState message="No scheduled transactions found." />;
   }
 
-  async function handleEdit(tx: ScheduledTransaction) {
-    await onEditAction(tx);
-  }
-
   if (isMobile) {
     return (
-      <div className="card-accent" style={{ padding: 0 }}>
-        <table
-          className="table"
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            width: "100%",
-          }}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Stack
+          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
         >
-          <tbody>
-            {scheduledTransactions.map((tx) => (
-              <ScheduledTransactionRowMobile
-                key={tx.id}
-                tx={tx}
-                categories={categories}
-                onEdit={handleEdit}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {scheduledTransactions.map((tx) => (
+            <SwipeableRow
+              key={tx.id}
+              onSwipeRight={() => onEditAction(tx)}
+              rightLabel="Edit"
+              rightColor="primary.main"
+            >
+              <Box
+                onClick={() => onEditAction(tx)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  px: 2,
+                  py: 1.5,
+                  cursor: 'pointer',
+                }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                    {tx.description}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {getCategoryName(tx.categoryId, categories)}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    component="div"
+                  >
+                    {translateToScheduleSummary(
+                      tx.scheduleType,
+                      tx.interval,
+                      tx.dayOfWeek,
+                      tx.dayOfMonth,
+                    )}
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                  <AmountText type={tx.type} value={tx.value} />
+                  <Typography variant="caption" color="text.secondary">
+                    {tx.nextRunDate
+                      ? formatTransactionDate(tx.nextRunDate)
+                      : 'N/A'}
+                  </Typography>
+                </Box>
+              </Box>
+            </SwipeableRow>
+          ))}
+        </Stack>
+      </Paper>
     );
   }
 
   return (
-    <div className="card-accent" style={{ padding: 0 }}>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Value</th>
-            <th>Type</th>
-            <th>Category</th>
-            <th>Schedule</th>
-            <th>Next Run</th>
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer component={Paper} variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Description</TableCell>
+            <TableCell>Category</TableCell>
+            <TableCell>Schedule</TableCell>
+            <TableCell>Next run</TableCell>
+            <TableCell align="right">Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {scheduledTransactions.map((tx) => (
-            <ScheduledTransactionRowDesktop
+            <TableRow
               key={tx.id}
-              tx={tx}
-              categories={categories}
-              onEdit={handleEdit}
-            />
+              hover
+              onClick={() => onEditAction(tx)}
+              sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+            >
+              <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {getCategoryName(tx.categoryId, categories)}
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {translateToScheduleSummary(
+                  tx.scheduleType,
+                  tx.interval,
+                  tx.dayOfWeek,
+                  tx.dayOfMonth,
+                )}
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : 'N/A'}
+              </TableCell>
+              <TableCell align="right">
+                <AmountText type={tx.type} value={tx.value} />
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

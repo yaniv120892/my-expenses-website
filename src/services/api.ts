@@ -1,30 +1,20 @@
-import axios from "axios";
-import { forceLogout, getStoredToken } from "@/services/authService";
+import axios from 'axios';
 
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
-});
-
-api.interceptors.request.use(
-  (config) => {
-    const token = getStoredToken();
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Same-origin API: the httpOnly session cookie rides along automatically.
+const api = axios.create();
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      forceLogout();
+    if (
+      error.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/login')
+    ) {
+      window.location.href = '/login?reason=session-expired';
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

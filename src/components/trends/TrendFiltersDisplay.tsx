@@ -1,8 +1,9 @@
-import { Box, Button, Typography, Chip, Stack } from "@mui/material";
-import { TrendPeriod, TransactionType } from "@/types/trends";
-import { Category } from "@/types";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import dayjs from "dayjs";
+'use client';
+
+import { Chip, Stack } from '@mui/material';
+import { TrendPeriod, TransactionType } from '@/types/trends';
+import { Category } from '@/types';
+import { formatDateRange } from '@/utils/dateUtils';
 
 interface TrendFiltersDisplayProps {
   period: TrendPeriod;
@@ -23,91 +24,46 @@ export const TrendFiltersDisplay = ({
   categories,
   onOpenFilters,
 }: TrendFiltersDisplayProps) => {
-  const formatPeriod = (period: TrendPeriod) => {
-    switch (period) {
-      case "weekly":
-        return "Weekly";
-      case "monthly":
-        return "Monthly";
-      case "yearly":
-        return "Yearly";
+  const formatPeriod = (p: TrendPeriod) => {
+    switch (p) {
+      case 'weekly':
+        return 'Weekly';
+      case 'monthly':
+        return 'Monthly';
+      case 'yearly':
+        return 'Yearly';
     }
   };
 
   const getCategoryName = () => {
-    if (selectedCategory === "All Categories") return "All Categories";
-    return categories.find((c) => c.id === selectedCategory)?.name || "";
+    if (selectedCategory === 'All Categories') return 'All Categories';
+    return categories.find((c) => c.id === selectedCategory)?.name || '';
   };
 
+  const labels = [
+    transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
+    formatPeriod(period),
+    getCategoryName(),
+    formatDateRange(startDate, endDate, '–'),
+  ];
+
   return (
-    <Box sx={{ mb: 3 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Typography variant="h4" color="text.primary">
-          {transactionType === "EXPENSE" ? "Spending" : "Income"} Trends
-        </Typography>
-        <Button
+    <Stack
+      direction="row"
+      spacing={1}
+      flexWrap="wrap"
+      useFlexGap
+      sx={{ mb: 2 }}
+    >
+      {labels.map((label) => (
+        <Chip
+          key={label}
+          label={label}
           variant="outlined"
-          startIcon={<FilterListIcon />}
-          onClick={onOpenFilters}
           size="small"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
-        >
-          Filters
-        </Button>
-      </Box>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip
-          label={`Type: ${
-            transactionType === "EXPENSE" ? "Expenses" : "Income"
-          }`}
-          variant="outlined"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
+          onClick={onOpenFilters}
         />
-        <Chip
-          label={`Period: ${formatPeriod(period)}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
-        />
-        <Chip
-          label={`Category: ${getCategoryName()}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
-        />
-        <Chip
-          label={`From: ${dayjs(startDate).format("MMM D, YYYY")}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
-        />
-        <Chip
-          label={`To: ${dayjs(endDate).format("MMM D, YYYY")}`}
-          variant="outlined"
-          sx={{
-            backgroundColor: "background.paper",
-            color: "primary.main",
-            fontWeight: "bold",
-          }}
-        />
-      </Stack>
-    </Box>
+      ))}
+    </Stack>
   );
 };

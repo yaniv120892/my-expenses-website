@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { signIn } from './helpers';
 
 /**
  * Verifies that the assistant's reply renders *incrementally*.
@@ -10,48 +11,31 @@ import { test, expect, Page } from '@playwright/test';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
 
-async function signIn(page: Page): Promise<void> {
-  // Seeded before any app script runs, so the client boots authenticated and
-  // the email-verification flow is skipped entirely. These are the keys read
-  // by src/services/authService.ts.
-  await page.addInitScript((token) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('isVerified', 'true');
-  }, TOKEN);
-}
-
 test('assistant reply renders incrementally', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
 
-  await signIn(page);
-  await page.goto('/');
+  await signIn(page, TOKEN);
+  await page.goto('/dashboard');
 
   await page.getByRole('button', { name: /chat/i }).click();
-  await expect(
-    page.getByText('Chat with your Financial Assistant'),
-  ).toBeVisible();
+  await expect(page.getByText('Financial Assistant')).toBeVisible();
 
   const input = page.getByPlaceholder('Ask about your transactions...');
   await input.fill('Compare my grocery spending in January versus February');
   await input.press('Enter');
 
-  // Scoped to the assistant's bubble specifically. Taking "the last bubble"
-  // instead would straddle two elements: the user's message is last until the
-  // reply's first token lands, so the observed length drops as the assistant
-  // bubble takes over — a decrease that has nothing to do with streaming.
+  // Scoped to the assistant's bubble specifically — "the last bubble" would
+  // straddle the user message and the reply as the reply starts rendering.
   const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
 
-  // Sample the assistant bubble while the response is still arriving.
+  // Sampled well below the mock's 120ms chunk gap, or consecutive samples
+  // could each land after the stream already finished.
   const lengths: number[] = [];
-  for (let i = 0; i < 25; i++) {
-    // The bubble does not exist until the first token renders; a missing one
-    // counts as zero length and is filtered out below.
-    const text = (await reply.count())
-      ? await reply.last().textContent()
-      : '';
+  for (let i = 0; i < 80; i++) {
+    const text = (await reply.count()) ? await reply.last().textContent() : '';
     lengths.push((text || '').length);
     if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) break;
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(40);
   }
 
   const distinct = [...new Set(lengths.filter((l) => l > 0))];
@@ -66,7 +50,6 @@ test('assistant reply renders incrementally', async ({ page }) => {
     expect(growing[i]).toBeGreaterThanOrEqual(growing[i - 1]);
   }
 
-  // And the figures the user ends up seeing are the TypeScript-computed ones.
   await expect(reply.last()).toContainText('1,100.00');
   await expect(reply.last()).toContainText('26.83%');
 });

@@ -6,10 +6,10 @@ import {
   MenuItem,
   TextField,
   SelectChangeEvent,
-} from "@mui/material";
-import { TrendPeriod, TransactionType } from "@/types/trends";
-import { Category } from "@/types";
-import dayjs from "dayjs";
+} from '@mui/material';
+import { TrendPeriod, TransactionType } from '@/types/trends';
+import { Category } from '@/types';
+import { format } from 'date-fns';
 
 interface TrendFiltersProps {
   period: TrendPeriod;
@@ -39,8 +39,8 @@ export const TrendFilters = ({
   onTransactionTypeChange,
 }: TrendFiltersProps) => {
   return (
-    <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
-      <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
+    <Box sx={{ display: 'flex', gap: 3, mb: 4, flexWrap: 'wrap' }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <FormControl fullWidth>
           <InputLabel>Type</InputLabel>
           <Select
@@ -53,7 +53,7 @@ export const TrendFilters = ({
           </Select>
         </FormControl>
       </Box>
-      <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <FormControl fullWidth>
           <InputLabel>Period</InputLabel>
           <Select value={period} label="Period" onChange={onPeriodChange}>
@@ -63,7 +63,7 @@ export const TrendFilters = ({
           </Select>
         </FormControl>
       </Box>
-      <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <FormControl fullWidth>
           <InputLabel>Category</InputLabel>
           <Select
@@ -82,21 +82,21 @@ export const TrendFilters = ({
           </Select>
         </FormControl>
       </Box>
-      <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <TextField
           label="Start Date"
           type="date"
-          value={dayjs(startDate).format("YYYY-MM-DD")}
+          value={format(new Date(startDate), 'yyyy-MM-dd')}
           onChange={onStartDateChange}
           fullWidth
           slotProps={{ inputLabel: { shrink: true } }}
         />
       </Box>
-      <Box sx={{ flex: "1 1 300px", minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <TextField
           label="End Date"
           type="date"
-          value={dayjs(endDate).format("YYYY-MM-DD")}
+          value={format(new Date(endDate), 'yyyy-MM-dd')}
           onChange={onEndDateChange}
           fullWidth
           slotProps={{ inputLabel: { shrink: true } }}

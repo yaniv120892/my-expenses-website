@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
+  Card,
   Chip,
   Collapse,
   IconButton,
@@ -17,218 +18,111 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
   ToggleButtonGroup,
   ToggleButton,
-} from "@mui/material";
+} from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { Import, ImportStatus } from '../types/import';
+import { useIsMobile } from '../hooks/useBreakpoints';
 import {
-  KeyboardArrowDown,
-  KeyboardArrowUp,
-  CheckCircle,
-  Cancel,
-  Delete,
-  ArrowUpward,
-  ArrowDownward,
-  Refresh,
-} from "@mui/icons-material";
-import { Import, ImportStatus } from "../types/import";
-import { useImportsQuery, useDeleteImportMutation, useRematchImportMutation } from "../hooks/useImports";
-import ImportedTransactionList from "./ImportedTransactionList";
-import { formatDate } from "../utils/dateUtils";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import EmptyState from "./EmptyState";
-import ImportListSkeleton from "./ImportListSkeleton";
+  useImportsQuery,
+  useDeleteImportMutation,
+  useRematchImportMutation,
+} from '../hooks/useImports';
+import ImportedTransactionList from './ImportedTransactionList';
+import { formatDate } from '../utils/dateUtils';
+import EmptyState from './EmptyState';
+import ImportListSkeleton from './ImportListSkeleton';
 
-type SortField = "createdAt" | "paymentMonth" | "status";
-type SortDirection = "asc" | "desc";
+type SortField = 'createdAt' | 'paymentMonth' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 function getStatusColor(status: ImportStatus) {
   switch (status) {
     case ImportStatus.COMPLETED:
-      return "success";
+      return 'success';
     case ImportStatus.FAILED:
-      return "error";
+      return 'error';
     case ImportStatus.PROCESSING:
     case ImportStatus.REMATCHING:
-      return "primary";
+      return 'primary';
     default:
-      return "default";
+      return 'default';
   }
 }
 
-function SortIndicator({
-  field,
-  sortField,
-  sortDirection,
-}: {
-  field: SortField;
-  sortField: SortField;
-  sortDirection: SortDirection;
-}) {
-  if (field !== sortField) return null;
-  return sortDirection === "asc" ? (
-    <ArrowUpward sx={{ fontSize: 16, ml: 0.5, verticalAlign: "middle" }} />
-  ) : (
-    <ArrowDownward sx={{ fontSize: 16, ml: 0.5, verticalAlign: "middle" }} />
-  );
-}
-
-function ImportRowMobile({
-  importItem,
-  onImportClick,
-  isExpanded,
-  onDeleteClick,
-  onRematchClick,
-  isRematching,
-}: {
+interface RowActionsProps {
   importItem: Import;
-  onImportClick: (id: string) => void;
-  isExpanded: boolean;
   onDeleteClick: (importItem: Import) => void;
   onRematchClick: (importItem: Import) => void;
   isRematching: boolean;
-}) {
-  return (
-    <tr
-      style={{ cursor: "pointer" }}
-      onClick={() => onImportClick(importItem.id)}
-    >
-      <td style={{ padding: "0.7rem 0.5rem", border: "none" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
-              {importItem.originalFileName}
-            </div>
-            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
-              Card: {importItem.creditCardLastFourDigits || "N/A"} &bull; Month:{" "}
-              {importItem.paymentMonth || "N/A"}
-            </div>
-            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
-              Created: {formatDate(importItem.createdAt, true)}
-            </div>
-            <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
-              Updated: {formatDate(importItem.updatedAt, true)}
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {importItem.status === ImportStatus.COMPLETED && !importItem.isVerified && (
-              <IconButton
-                size="small"
-                color="primary"
-                disabled={isRematching}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRematchClick(importItem);
-                }}
-              >
-                <Refresh fontSize="small" />
-              </IconButton>
-            )}
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteClick(importItem);
-              }}
-            >
-              <Delete fontSize="small" />
-            </IconButton>
-            {importItem.isVerified ? (
-              <CheckCircle color="success" fontSize="small" />
-            ) : (
-              <Cancel color="warning" fontSize="small" />
-            )}
-            <Chip
-              label={importItem.status}
-              color={getStatusColor(importItem.status)}
-              size="small"
-            />
-            {isExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
 }
 
-function ImportRowDesktop({
+function RowActions({
   importItem,
-  onImportClick,
-  isExpanded,
   onDeleteClick,
   onRematchClick,
   isRematching,
-}: {
-  importItem: Import;
-  onImportClick: (id: string) => void;
-  isExpanded: boolean;
-  onDeleteClick: (importItem: Import) => void;
-  onRematchClick: (importItem: Import) => void;
-  isRematching: boolean;
-}) {
+}: RowActionsProps) {
   return (
-    <tr
-      style={{ cursor: "pointer" }}
-      onClick={() => onImportClick(importItem.id)}
-    >
-      <td style={{ width: 48, padding: "8px 0" }}>
-        {isExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-      </td>
-      <td>{importItem.creditCardLastFourDigits || "N/A"}</td>
-      <td>{importItem.paymentMonth || "N/A"}</td>
-      <td>{importItem.originalFileName}</td>
-      <td>
-        <Chip
-          label={importItem.status}
-          color={getStatusColor(importItem.status)}
-          size="small"
-        />
-      </td>
-      <td style={{ textAlign: "center" }}>
-        {importItem.isVerified ? (
-          <CheckCircle color="success" />
-        ) : (
-          <Cancel color="warning" />
-        )}
-      </td>
-      <td>{formatDate(importItem.createdAt, true)}</td>
-      <td>{formatDate(importItem.updatedAt, true)}</td>
-      <td style={{ textAlign: "center" }}>
-        <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
-          {importItem.status === ImportStatus.COMPLETED && !importItem.isVerified && (
-            <IconButton
-              size="small"
-              color="primary"
-              disabled={isRematching}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRematchClick(importItem);
-              }}
-              title="Re-match"
-            >
-              <Refresh fontSize="small" />
-            </IconButton>
-          )}
+    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+      {importItem.status === ImportStatus.COMPLETED &&
+        !importItem.isVerified && (
           <IconButton
             size="small"
-            color="error"
+            color="primary"
+            disabled={isRematching}
+            aria-label="Re-match"
+            title="Re-match"
             onClick={(e) => {
               e.stopPropagation();
-              onDeleteClick(importItem);
+              onRematchClick(importItem);
             }}
           >
-            <Delete fontSize="small" />
+            <RefreshIcon fontSize="small" />
           </IconButton>
-        </Box>
-      </td>
-    </tr>
+        )}
+      <IconButton
+        size="small"
+        color="error"
+        aria-label="Delete import"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteClick(importItem);
+        }}
+      >
+        <DeleteOutlineIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  );
+}
+
+function ExpandedContent({ importItem }: { importItem: Import }) {
+  return (
+    <Box sx={{ py: 2, px: { xs: 1, md: 3 } }}>
+      {importItem.status === ImportStatus.COMPLETED && (
+        <ImportedTransactionList importId={importItem.id} />
+      )}
+      {importItem.status === ImportStatus.FAILED && (
+        <Typography color="error" variant="body2">
+          Error: {importItem.error}
+        </Typography>
+      )}
+    </Box>
   );
 }
 
@@ -246,80 +140,78 @@ export default function ImportList({
   const rematchImportMutation = useRematchImportMutation();
   const isMobile = useIsMobile();
 
-  // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<Import | null>(null);
 
-  // Filter state
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [paymentMonthFilter, setPaymentMonthFilter] = useState<string>("ALL");
-  const [cardFilter, setCardFilter] = useState<string>("ALL");
-  const [isVerifiedFilter, setIsVerifiedFilter] = useState<"ALL" | "true" | "false">("false");
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [paymentMonthFilter, setPaymentMonthFilter] = useState<string>('ALL');
+  const [cardFilter, setCardFilter] = useState<string>('ALL');
+  const [isVerifiedFilter, setIsVerifiedFilter] = useState<
+    'ALL' | 'true' | 'false'
+  >('false');
 
-  // Sort state
-  const [sortField, setSortField] = useState<SortField>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Derive unique filter options from data
   const filterOptions = useMemo(() => {
     const paymentMonths = Array.from(
-      new Set(imports.map((i) => i.paymentMonth).filter(Boolean))
+      new Set(imports.map((i) => i.paymentMonth).filter(Boolean)),
     ).sort() as string[];
     const cards = Array.from(
-      new Set(
-        imports.map((i) => i.creditCardLastFourDigits).filter(Boolean)
-      )
+      new Set(imports.map((i) => i.creditCardLastFourDigits).filter(Boolean)),
     ).sort() as string[];
     return { paymentMonths, cards };
   }, [imports]);
 
-  // Filtered + sorted list
   const filteredImports = useMemo(() => {
-    let result = imports.filter((imp) => {
-      if (statusFilter !== "ALL" && imp.status !== statusFilter) return false;
+    const result = imports.filter((imp) => {
+      if (statusFilter !== 'ALL' && imp.status !== statusFilter) return false;
       if (
-        paymentMonthFilter !== "ALL" &&
+        paymentMonthFilter !== 'ALL' &&
         imp.paymentMonth !== paymentMonthFilter
       )
         return false;
-      if (
-        cardFilter !== "ALL" &&
-        imp.creditCardLastFourDigits !== cardFilter
-      )
+      if (cardFilter !== 'ALL' && imp.creditCardLastFourDigits !== cardFilter)
         return false;
       if (
-        isVerifiedFilter !== "ALL" &&
-        imp.isVerified !== (isVerifiedFilter === "true")
+        isVerifiedFilter !== 'ALL' &&
+        imp.isVerified !== (isVerifiedFilter === 'true')
       )
         return false;
       return true;
     });
 
-    result = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "createdAt":
+        case 'createdAt':
           cmp =
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
-        case "paymentMonth":
-          cmp = (a.paymentMonth || "").localeCompare(b.paymentMonth || "");
+        case 'paymentMonth':
+          cmp = (a.paymentMonth || '').localeCompare(b.paymentMonth || '');
           break;
-        case "status":
+        case 'status':
           cmp = a.status.localeCompare(b.status);
           break;
       }
-      return sortDirection === "asc" ? cmp : -cmp;
+      return sortDirection === 'asc' ? cmp : -cmp;
     });
-
-    return result;
-  }, [imports, statusFilter, paymentMonthFilter, cardFilter, isVerifiedFilter, sortField, sortDirection]);
+  }, [
+    imports,
+    statusFilter,
+    paymentMonthFilter,
+    cardFilter,
+    isVerifiedFilter,
+    sortField,
+    sortDirection,
+  ]);
 
   const handleSortClick = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection('asc');
     }
   };
 
@@ -340,9 +232,12 @@ export default function ImportList({
 
   const filterBar = (
     <Stack
-      direction={isMobile ? "column" : "row"}
+      direction="row"
       spacing={1.5}
-      sx={{ p: 2 }}
+      useFlexGap
+      flexWrap="wrap"
+      alignItems="center"
+      sx={{ mb: 2 }}
     >
       <FormControl size="small" sx={{ minWidth: 130 }}>
         <InputLabel>Status</InputLabel>
@@ -359,7 +254,7 @@ export default function ImportList({
           ))}
         </Select>
       </FormControl>
-      <FormControl size="small" sx={{ minWidth: 150 }}>
+      <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Payment Month</InputLabel>
         <Select
           value={paymentMonthFilter}
@@ -374,7 +269,7 @@ export default function ImportList({
           ))}
         </Select>
       </FormControl>
-      <FormControl size="small" sx={{ minWidth: 140 }}>
+      <FormControl size="small" sx={{ minWidth: 130 }}>
         <InputLabel>Card (Last 4)</InputLabel>
         <Select
           value={cardFilter}
@@ -431,57 +326,92 @@ export default function ImportList({
     return (
       <>
         {filterBar}
-        <div className="card-accent" style={{ padding: 0 }}>
-          <table
-            className="table"
-            style={{
-              borderCollapse: "separate",
-              borderSpacing: 0,
-              width: "100%",
-            }}
-          >
-            <tbody>
-              {filteredImports.map((importItem) => (
-                <React.Fragment key={importItem.id}>
-                  <ImportRowMobile
-                    importItem={importItem}
-                    onImportClick={onImportClick}
-                    isExpanded={expandedImportId === importItem.id}
-                    onDeleteClick={setDeleteTarget}
-                    onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
-                    isRematching={rematchImportMutation.isPending}
-                  />
-                  {importItem.status === ImportStatus.COMPLETED && (
-                    <tr>
-                      <td style={{ padding: 0 }}>
-                        <Collapse
-                          in={expandedImportId === importItem.id}
-                          timeout="auto"
-                          unmountOnExit
-                        >
-                          <Box sx={{ py: 2, px: 1 }}>
-                            <ImportedTransactionList
-                              importId={importItem.id}
-                            />
-                          </Box>
-                        </Collapse>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-              {filteredImports.length === 0 && (
-                <tr>
-                  <td style={{ padding: "2rem", textAlign: "center" }}>
-                    <Typography color="text.secondary">
-                      No imports match the selected filters.
-                    </Typography>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Stack spacing={1.5}>
+          {filteredImports.map((importItem) => {
+            const isExpanded = expandedImportId === importItem.id;
+            return (
+              <Card key={importItem.id} variant="outlined">
+                <Box
+                  onClick={() => onImportClick(importItem.id)}
+                  sx={{ p: 1.5, cursor: 'pointer' }}
+                >
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                    spacing={1}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        sx={{ wordBreak: 'break-all' }}
+                      >
+                        {importItem.originalFileName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Card: {importItem.creditCardLastFourDigits || 'N/A'}{' '}
+                        &bull; Month: {importItem.paymentMonth || 'N/A'}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        Created: {formatDate(importItem.createdAt, true)} &bull;
+                        Updated: {formatDate(importItem.updatedAt, true)}
+                      </Typography>
+                    </Box>
+                    {isExpanded ? (
+                      <KeyboardArrowUpIcon color="action" />
+                    ) : (
+                      <KeyboardArrowDownIcon color="action" />
+                    )}
+                  </Stack>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ mt: 1 }}
+                  >
+                    <Chip
+                      label={importItem.status}
+                      color={getStatusColor(importItem.status)}
+                      size="small"
+                    />
+                    {importItem.isVerified ? (
+                      <CheckCircleOutlineIcon
+                        color="success"
+                        fontSize="small"
+                      />
+                    ) : (
+                      <CancelOutlinedIcon color="warning" fontSize="small" />
+                    )}
+                    <Box sx={{ flex: 1 }} />
+                    <RowActions
+                      importItem={importItem}
+                      onDeleteClick={setDeleteTarget}
+                      onRematchClick={(imp) =>
+                        rematchImportMutation.mutate(imp.id)
+                      }
+                      isRematching={rematchImportMutation.isPending}
+                    />
+                  </Stack>
+                </Box>
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+                    <ExpandedContent importItem={importItem} />
+                  </Box>
+                </Collapse>
+              </Card>
+            );
+          })}
+          {filteredImports.length === 0 && (
+            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+              No imports match the selected filters.
+            </Typography>
+          )}
+        </Stack>
         {deleteDialog}
       </>
     );
@@ -490,98 +420,146 @@ export default function ImportList({
   return (
     <>
       {filterBar}
-      <div className="card-accent" style={{ padding: 0 }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th style={{ width: 48 }}></th>
-              <th>Card (Last 4)</th>
-              <th
-                style={{ cursor: "pointer" }}
-                onClick={() => handleSortClick("paymentMonth")}
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ width: 48 }} />
+              <TableCell>Card (Last 4)</TableCell>
+              <TableCell
+                sortDirection={
+                  sortField === 'paymentMonth' ? sortDirection : false
+                }
               >
-                Payment Month
-                <SortIndicator
-                  field="paymentMonth"
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                />
-              </th>
-              <th>File Name</th>
-              <th
-                style={{ cursor: "pointer" }}
-                onClick={() => handleSortClick("status")}
+                <TableSortLabel
+                  active={sortField === 'paymentMonth'}
+                  direction={
+                    sortField === 'paymentMonth' ? sortDirection : 'asc'
+                  }
+                  onClick={() => handleSortClick('paymentMonth')}
+                >
+                  Payment Month
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>File Name</TableCell>
+              <TableCell
+                sortDirection={sortField === 'status' ? sortDirection : false}
               >
-                Status
-                <SortIndicator
-                  field="status"
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                />
-              </th>
-              <th>Verified</th>
-              <th
-                style={{ cursor: "pointer" }}
-                onClick={() => handleSortClick("createdAt")}
+                <TableSortLabel
+                  active={sortField === 'status'}
+                  direction={sortField === 'status' ? sortDirection : 'asc'}
+                  onClick={() => handleSortClick('status')}
+                >
+                  Status
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center">Verified</TableCell>
+              <TableCell
+                sortDirection={
+                  sortField === 'createdAt' ? sortDirection : false
+                }
               >
-                Created At
-                <SortIndicator
-                  field="createdAt"
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                />
-              </th>
-              <th>Updated At</th>
-              <th style={{ width: 60 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredImports.map((importItem) => (
-              <React.Fragment key={importItem.id}>
-                <ImportRowDesktop
-                  importItem={importItem}
-                  onImportClick={onImportClick}
-                  isExpanded={expandedImportId === importItem.id}
-                  onDeleteClick={setDeleteTarget}
-                  onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
-                  isRematching={rematchImportMutation.isPending}
-                />
-                <tr>
-                  <td colSpan={9} style={{ padding: 0 }}>
-                    <Collapse
-                      in={expandedImportId === importItem.id}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box sx={{ py: 2, px: 3 }}>
-                        <ImportedTransactionList importId={importItem.id} />
-                        {importItem.status === ImportStatus.FAILED && (
-                          <Typography
-                            color="error"
-                            variant="body2"
-                            sx={{ mt: 2 }}
-                          >
-                            Error: {importItem.error}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Collapse>
-                  </td>
-                </tr>
-              </React.Fragment>
-            ))}
+                <TableSortLabel
+                  active={sortField === 'createdAt'}
+                  direction={sortField === 'createdAt' ? sortDirection : 'asc'}
+                  onClick={() => handleSortClick('createdAt')}
+                >
+                  Created At
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>Updated At</TableCell>
+              <TableCell sx={{ width: 80 }} />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredImports.map((importItem) => {
+              const isExpanded = expandedImportId === importItem.id;
+              return (
+                <React.Fragment key={importItem.id}>
+                  <TableRow
+                    hover
+                    onClick={() => onImportClick(importItem.id)}
+                    sx={{ cursor: 'pointer', '& > td': { borderBottom: 0 } }}
+                  >
+                    <TableCell>
+                      {isExpanded ? (
+                        <KeyboardArrowUpIcon fontSize="small" color="action" />
+                      ) : (
+                        <KeyboardArrowDownIcon
+                          fontSize="small"
+                          color="action"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {importItem.creditCardLastFourDigits || 'N/A'}
+                    </TableCell>
+                    <TableCell>{importItem.paymentMonth || 'N/A'}</TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={importItem.originalFileName}
+                      >
+                        {importItem.originalFileName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={importItem.status}
+                        color={getStatusColor(importItem.status)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {importItem.isVerified ? (
+                        <CheckCircleOutlineIcon
+                          color="success"
+                          fontSize="small"
+                        />
+                      ) : (
+                        <CancelOutlinedIcon color="warning" fontSize="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {formatDate(importItem.createdAt, true)}
+                    </TableCell>
+                    <TableCell>
+                      {formatDate(importItem.updatedAt, true)}
+                    </TableCell>
+                    <TableCell align="right">
+                      <RowActions
+                        importItem={importItem}
+                        onDeleteClick={setDeleteTarget}
+                        onRematchClick={(imp) =>
+                          rematchImportMutation.mutate(imp.id)
+                        }
+                        isRematching={rematchImportMutation.isPending}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={9} sx={{ p: 0 }}>
+                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                        <ExpandedContent importItem={importItem} />
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </React.Fragment>
+              );
+            })}
             {filteredImports.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ padding: "2rem", textAlign: "center" }}>
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     No imports match the selected filters.
                   </Typography>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
       {deleteDialog}
     </>
   );

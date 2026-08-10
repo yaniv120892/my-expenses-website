@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -11,26 +11,28 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
-} from "@mui/material";
-import { CreateTransactionInput } from "../types";
-import dayjs from "dayjs";
-import DeleteIcon from "@mui/icons-material/Delete";
-import SaveIcon from "@mui/icons-material/Save";
-import CloseIcon from "@mui/icons-material/Close";
-import CategorySelect from "./CategorySelect";
-import NotificationSnackbar from "./NotificationSnackbar";
-import TransactionAttachments from "./TransactionForm/TransactionAttachments";
+  Stack,
+  Typography,
+} from '@mui/material';
+import { CreateTransactionInput } from '../types';
+import { format } from 'date-fns';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
+import { useIsCompact } from '../hooks/useBreakpoints';
+import CategorySelect from './CategorySelect';
+import NotificationSnackbar from './NotificationSnackbar';
+import TransactionAttachments from './TransactionForm/TransactionAttachments';
 import {
   useRemoveFileMutation,
   useDirectS3UploadForAttachment,
-} from "@/hooks/useTransactionFilesQuery";
+} from '@/hooks/useTransactionFilesQuery';
 
 type TransactionFormType = {
   id: string;
   description: string;
   value: number | string;
   categoryId: string;
-  type: "EXPENSE" | "INCOME";
+  type: 'EXPENSE' | 'INCOME';
   date: string;
 };
 
@@ -40,16 +42,16 @@ type Props = {
   onSubmitAction: (data: CreateTransactionInput) => Promise<string | void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: TransactionFormType | null;
-  mode?: "approve" | "merge";
+  mode?: 'approve' | 'merge';
 };
 
 const defaultForm: TransactionFormType = {
-  id: "",
-  description: "",
-  value: "",
-  categoryId: "",
-  type: "EXPENSE",
-  date: dayjs().format("YYYY-MM-DD"),
+  id: '',
+  description: '',
+  value: '',
+  categoryId: '',
+  type: 'EXPENSE',
+  date: format(new Date(), 'yyyy-MM-dd'),
 };
 
 export default function TransactionForm({
@@ -60,21 +62,22 @@ export default function TransactionForm({
   initialData,
   mode,
 }: Props) {
+  const fullScreen = useIsCompact();
   const [form, setForm] = useState<TransactionFormType>(defaultForm);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
-    "success"
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
+    'success',
   );
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
 
   const directS3Upload = useDirectS3UploadForAttachment();
-  const removeFileMutation = useRemoveFileMutation(initialData?.id || "");
+  const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
 
   useEffect(() => {
     if (initialData) {
@@ -82,14 +85,14 @@ export default function TransactionForm({
         id: initialData.id,
         description: initialData.description,
         value: initialData.value,
-        categoryId: initialData.categoryId || "",
+        categoryId: initialData.categoryId || '',
         type: initialData.type,
-        date: dayjs(initialData.date).format("YYYY-MM-DD"),
+        date: format(new Date(initialData.date), 'yyyy-MM-dd'),
       });
     } else {
       setForm({
         ...defaultForm,
-        date: dayjs().format("YYYY-MM-DD"),
+        date: format(new Date(), 'yyyy-MM-dd'),
       });
     }
     setErrors({});
@@ -98,20 +101,20 @@ export default function TransactionForm({
   const validate = () => {
     const errs: { [k: string]: string } = {};
     if (!form.description) {
-      errs.description = "Description is required";
+      errs.description = 'Description is required';
     }
     if (isNaN(Number(form.value))) {
-      errs.value = "Value must be a number";
+      errs.value = 'Value must be a number';
     } else {
       if (Number(form.value) <= 0) {
-        errs.value = "Value must be greater than 0";
+        errs.value = 'Value must be greater than 0';
       }
     }
     if (!form.type) {
-      errs.type = "Type is required";
+      errs.type = 'Type is required';
     }
     if (!form.date) {
-      errs.date = "Date is required";
+      errs.date = 'Date is required';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -122,12 +125,12 @@ export default function TransactionForm({
   };
 
   const getCurrentDateTimeString = () => {
-    return dayjs().format("YYYY-MM-DDTHH:mm:ss");
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
   };
 
   const showSnackbar = (
     message: string,
-    severity: "success" | "error" = "success"
+    severity: 'success' | 'error' = 'success',
   ) => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -135,10 +138,10 @@ export default function TransactionForm({
   };
 
   const handleUploadError = (err: unknown) => {
-    let message = "Direct S3 upload failed.";
+    let message = 'Direct S3 upload failed.';
     if (err instanceof Error) {
       message += ` Error: ${err.message}`;
-    } else if (typeof err === "string") {
+    } else if (typeof err === 'string') {
       message += ` Error: ${err}`;
     }
     setFileUploadError(message);
@@ -153,7 +156,7 @@ export default function TransactionForm({
     try {
       let dateToUse = form.date;
       if (!initialData) {
-        const today = dayjs().format("YYYY-MM-DD");
+        const today = format(new Date(), 'yyyy-MM-dd');
         if (form.date === today) {
           dateToUse = getCurrentDateTimeString();
         }
@@ -161,7 +164,7 @@ export default function TransactionForm({
       const submitData = {
         ...form,
         value: Number(form.value),
-        categoryId: form.categoryId === "" ? undefined : form.categoryId,
+        categoryId: form.categoryId === '' ? undefined : form.categoryId,
         date: dateToUse,
       };
       const newId = await onSubmitAction(submitData);
@@ -184,13 +187,13 @@ export default function TransactionForm({
       }
       showSnackbar(
         initialData
-          ? "Transaction updated successfully"
-          : "Transaction created successfully",
-        "success"
+          ? 'Transaction updated successfully'
+          : 'Transaction created successfully',
+        'success',
       );
       onCloseAction();
     } catch {
-      showSnackbar("Failed to save transaction", "error");
+      showSnackbar('Failed to save transaction', 'error');
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -201,10 +204,10 @@ export default function TransactionForm({
       setIsLoadingDelete(true);
       try {
         await onDeleteAction(initialData.id);
-        showSnackbar("Transaction deleted successfully", "success");
+        showSnackbar('Transaction deleted successfully', 'success');
         onCloseAction();
       } catch {
-        showSnackbar("Failed to delete transaction", "error");
+        showSnackbar('Failed to delete transaction', 'error');
       } finally {
         setIsLoadingDelete(false);
       }
@@ -212,35 +215,31 @@ export default function TransactionForm({
   }
 
   const getDialogTitle = () => {
-    if (mode === "approve") return "Approve Imported Transaction";
-    if (mode === "merge") return "Merge Imported Transaction";
-    return initialData ? "Edit Transaction" : "New Transaction";
+    if (mode === 'approve') return 'Approve Imported Transaction';
+    if (mode === 'merge') return 'Merge Imported Transaction';
+    return initialData ? 'Edit Transaction' : 'New Transaction';
   };
 
   const getSubmitButtonText = () => {
-    if (mode === "approve") return "Approve";
-    if (mode === "merge") return "Merge";
-    return initialData ? "Update" : "Create";
+    if (mode === 'approve') return 'Approve';
+    if (mode === 'merge') return 'Merge';
+    return initialData ? 'Update' : 'Create';
   };
+
+  const busy = isLoadingUpdate || isLoadingDelete;
 
   return (
     <>
       <Dialog
         open={open}
-        onClose={isLoadingUpdate || isLoadingDelete ? undefined : onCloseAction}
+        onClose={busy ? undefined : onCloseAction}
         fullWidth
-        disableEscapeKeyDown={isLoadingUpdate || isLoadingDelete}
+        fullScreen={fullScreen}
+        disableEscapeKeyDown={busy}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 700,
-            color: "text.primary",
-          }}
-        >
-          {getDialogTitle()}
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{getDialogTitle()}</DialogTitle>
         <DialogContent>
-          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Description"
               name="description"
@@ -268,10 +267,13 @@ export default function TransactionForm({
               label="Category"
               fullWidth
             />
-            {form.categoryId === "" && (
-              <Box sx={{ color: "orange", fontSize: 13, mt: -1, mb: 1 }}>
+            {form.categoryId === '' && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'warning.main', mt: -1 }}
+              >
                 If category is not filled, it will be generated by AI.
-              </Box>
+              </Typography>
             )}
             <TextField
               select
@@ -296,61 +298,32 @@ export default function TransactionForm({
               helperText={errors.date}
               fullWidth
             />
-          </Box>
+            <TransactionAttachments
+              transactionId={initialData?.id}
+              pendingFiles={pendingFiles}
+              setPendingFiles={setPendingFiles}
+              filesToRemove={filesToRemove}
+              setFilesToRemove={setFilesToRemove}
+              submitButtonLabel={getSubmitButtonText()}
+            />
+            {fileUploadError && (
+              <Typography variant="body2" color="error.main">
+                {fileUploadError}
+              </Typography>
+            )}
+          </Stack>
         </DialogContent>
-        <TransactionAttachments
-          transactionId={initialData?.id}
-          pendingFiles={pendingFiles}
-          setPendingFiles={setPendingFiles}
-          filesToRemove={filesToRemove}
-          setFilesToRemove={setFilesToRemove}
-          submitButtonLabel={getSubmitButtonText()}
-        />
-        {fileUploadError && (
-          <Box color="error.main" mt={1} mb={1}>
-            {fileUploadError}
-          </Box>
-        )}
         <DialogActions
-          style={{ padding: "1.5rem", flexDirection: "column", gap: 12 }}
+          sx={{ px: 3, pb: 2.5, pt: 1, justifyContent: 'space-between' }}
         >
-          <Box display="flex" width="100%" gap={2}>
+          {initialData && onDeleteAction ? (
             <Button
-              variant="contained"
-              color="primary"
-              sx={{ width: "50%" }}
-              onClick={handleSubmit}
-              disabled={isLoadingUpdate || isLoadingDelete}
-              startIcon={
-                isLoadingUpdate ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <SaveIcon />
-                )
-              }
-            >
-              {getSubmitButtonText()}
-            </Button>
-            <Button
-              variant="outlined"
-              sx={{ width: "50%" }}
-              onClick={onCloseAction}
-              disabled={isLoadingUpdate || isLoadingDelete}
-              startIcon={<CloseIcon />}
-            >
-              Close
-            </Button>
-          </Box>
-          {initialData && (
-            <Button
-              variant="contained"
               color="error"
-              fullWidth
               onClick={handleDelete}
-              disabled={isLoadingUpdate || isLoadingDelete}
+              disabled={busy}
               startIcon={
                 isLoadingDelete ? (
-                  <CircularProgress size={20} color="inherit" />
+                  <CircularProgress size={18} color="inherit" />
                 ) : (
                   <DeleteIcon />
                 )
@@ -358,7 +331,28 @@ export default function TransactionForm({
             >
               Delete
             </Button>
+          ) : (
+            <Box />
           )}
+          <Stack direction="row" spacing={1.5}>
+            <Button variant="outlined" onClick={onCloseAction} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={busy}
+              startIcon={
+                isLoadingUpdate ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <SaveIcon />
+                )
+              }
+            >
+              {getSubmitButtonText()}
+            </Button>
+          </Stack>
         </DialogActions>
       </Dialog>
       <NotificationSnackbar

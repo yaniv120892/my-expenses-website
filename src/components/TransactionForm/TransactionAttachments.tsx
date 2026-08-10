@@ -1,39 +1,40 @@
-import React, { useCallback, useState, useEffect } from "react";
-import { useDropzone } from "react-dropzone";
+import React, { useCallback, useState, useEffect } from 'react';
+import { useDropzone } from 'react-dropzone';
 import {
-  Box,
-  Typography,
-  IconButton,
-  Snackbar,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
+  Box,
+  IconButton,
   Link,
-} from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
-import CloseIcon from "@mui/icons-material/Close";
-import Image from "next/image";
-import { useTransactionFilesQuery } from "../../hooks/useTransactionFilesQuery";
-import { TransactionFile } from "../../types";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import DownloadIcon from "@mui/icons-material/Download";
-import Tooltip from "@mui/material/Tooltip";
+  Snackbar,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DownloadIcon from '@mui/icons-material/Download';
+import Image from 'next/image';
+import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
+import { TransactionFile } from '../../types';
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
 ];
 
-const ATTACHMENTS_TOOLTIP_SEEN_KEY = "attachmentsTooltipSeen";
+const ATTACHMENTS_TOOLTIP_SEEN_KEY = 'attachmentsTooltipSeen';
 
 interface Props {
   transactionId?: string;
@@ -44,24 +45,41 @@ interface Props {
   submitButtonLabel?: string;
 }
 
+function FileThumbnail({ src, alt }: { src: string; alt: string }) {
+  return (
+    <Box
+      sx={{
+        width: 40,
+        height: 40,
+        flexShrink: 0,
+        borderRadius: 1,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
+      <Image src={src} alt={alt} fill sizes="40px" unoptimized />
+    </Box>
+  );
+}
+
 export default function TransactionAttachments({
   transactionId,
   pendingFiles = [],
   setPendingFiles,
   filesToRemove = [],
   setFilesToRemove,
-  submitButtonLabel = "Update",
+  submitButtonLabel = 'Update',
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showAttachmentsTooltip, setShowAttachmentsTooltip] = useState(false);
 
   useEffect(() => {
     if (
-      typeof window !== "undefined" &&
+      typeof window !== 'undefined' &&
       !localStorage.getItem(ATTACHMENTS_TOOLTIP_SEEN_KEY)
     ) {
       setShowAttachmentsTooltip(true);
-      localStorage.setItem(ATTACHMENTS_TOOLTIP_SEEN_KEY, "true");
+      localStorage.setItem(ATTACHMENTS_TOOLTIP_SEEN_KEY, 'true');
     }
   }, []);
 
@@ -70,31 +88,34 @@ export default function TransactionAttachments({
   };
 
   const { data: files = [], isLoading: isFilesLoading } =
-    useTransactionFilesQuery(transactionId || "");
+    useTransactionFilesQuery(transactionId || '');
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       const file = acceptedFiles[0];
       if (!file) return;
       if (file.size > MAX_SIZE) {
-        setError("File size exceeds 10MB limit");
+        setError('File size exceeds 10MB limit');
         return;
       }
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setError("File type not allowed");
+        setError('File type not allowed');
         return;
       }
       setPendingFiles([...pendingFiles, file]);
     },
-    [setPendingFiles, pendingFiles]
+    [setPendingFiles, pendingFiles],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: ALLOWED_TYPES.reduce((acc, type) => {
-      acc[type] = [];
-      return acc;
-    }, {} as Record<string, string[]>),
+    accept: ALLOWED_TYPES.reduce(
+      (acc, type) => {
+        acc[type] = [];
+        return acc;
+      },
+      {} as Record<string, string[]>,
+    ),
     maxFiles: 1,
     disabled: false,
   });
@@ -112,10 +133,10 @@ export default function TransactionAttachments({
   };
 
   const handleDownloadFileError = (err: unknown) => {
-    let message = "Failed to download file.";
+    let message = 'Failed to download file.';
     if (err instanceof Error) {
       message += ` Error: ${err.message}`;
-    } else if (typeof err === "string") {
+    } else if (typeof err === 'string') {
       message += ` Error: ${err}`;
     }
     setError(message);
@@ -123,16 +144,16 @@ export default function TransactionAttachments({
 
   const downloadFile = async (
     file: TransactionFile,
-    fileUrlOverride?: string
+    fileUrlOverride?: string,
   ) => {
     try {
       const isMobile =
         /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(
-          navigator.userAgent
+          navigator.userAgent,
         );
       const fileUrl = fileUrlOverride || file.previewFileUrl;
       if (isMobile) {
-        window.open(fileUrl, "_blank");
+        window.open(fileUrl, '_blank');
         return;
       }
       const response = await fetch(fileUrl);
@@ -141,7 +162,7 @@ export default function TransactionAttachments({
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const link = document.createElement('a');
       link.href = url;
       link.download = file.fileName;
       document.body.appendChild(link);
@@ -155,16 +176,16 @@ export default function TransactionAttachments({
 
   const attachedCount = Math.max(
     0,
-    files.length - filesToRemove.length + pendingFiles.length
+    files.length - filesToRemove.length + pendingFiles.length,
   );
 
   return (
-    <Box mt={3} mb={2}>
-      <Accordion defaultExpanded={false}>
+    <Box>
+      <Accordion variant="outlined" disableGutters defaultExpanded={false}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2 }}>
           <Tooltip
             title={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
                 <span>
                   📎 <b>New!</b> You can now attach files to transactions
                 </span>
@@ -174,18 +195,11 @@ export default function TransactionAttachments({
                     e.stopPropagation();
                     handleAttachmentsTooltipClose();
                   }}
-                  sx={{
-                    color: "white",
-                    p: 0.5,
-                    minWidth: "auto",
-                    "&:hover": {
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    },
-                  }}
+                  sx={{ color: 'common.white', p: 0.5 }}
                 >
                   <CloseIcon fontSize="small" />
                 </IconButton>
-              </Box>
+              </Stack>
             }
             open={showAttachmentsTooltip}
             arrow
@@ -195,7 +209,7 @@ export default function TransactionAttachments({
             disableHoverListener
             disableTouchListener
           >
-            <Typography variant="subtitle1" fontWeight={600}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
               Attachments ({attachedCount})
             </Typography>
           </Tooltip>
@@ -204,40 +218,33 @@ export default function TransactionAttachments({
           <Box
             {...getRootProps()}
             sx={{
-              p: 3,
-              border: "2px dashed",
-              borderColor: isDragActive ? "primary.main" : "grey.300",
+              p: 2.5,
+              border: '2px dashed',
+              borderColor: isDragActive ? 'primary.main' : 'divider',
               borderRadius: 2,
-              bgcolor: isDragActive ? "primary.50" : "background.paper",
-              cursor: "pointer",
-              transition: "all 0.2s",
+              bgcolor: isDragActive ? 'action.hover' : 'transparent',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
               mb: 2,
-              display: "flex",
-              alignItems: "center",
+              display: 'flex',
+              alignItems: 'center',
               gap: 2,
             }}
           >
             <input {...getInputProps()} />
-            <CloudUploadIcon sx={{ fontSize: 32, color: "grey.500" }} />
-            <Typography color={isDragActive ? "primary.main" : "text.primary"}>
+            <CloudUploadIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
+            <Typography
+              variant="body2"
+              color={isDragActive ? 'primary.main' : 'text.primary'}
+            >
               {isDragActive
-                ? "Drop the file here"
-                : "Drag and drop or click to select a file (max 10MB)"}
+                ? 'Drop the file here'
+                : 'Drag and drop or click to select a file (max 10MB)'}
             </Typography>
           </Box>
           {transactionId && (
-            <Box
-              sx={{
-                maxHeight: 220,
-                overflowY: "auto",
-                maxWidth: 440,
-                width: "100%",
-                mx: "auto",
-                mt: 1,
-                mb: 2,
-              }}
-            >
-              <Box display="flex" flexDirection="column" gap={1}>
+            <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 2 }}>
+              <Stack spacing={1}>
                 {isFilesLoading ? (
                   <Typography variant="body2">Loading files...</Typography>
                 ) : files.length === 0 ? (
@@ -248,27 +255,22 @@ export default function TransactionAttachments({
                   files.map((file: TransactionFile) => {
                     const markedForRemoval = filesToRemove.includes(file.id);
                     return (
-                      <Box
+                      <Stack
                         key={file.id}
-                        display="flex"
+                        direction="row"
                         alignItems="center"
-                        gap={2}
+                        spacing={2}
                         sx={{
-                          borderBottom: "1px solid",
-                      borderColor: "divider",
+                          borderBottom: 1,
+                          borderColor: 'divider',
                           pb: 1,
-                          mb: 1,
                           opacity: markedForRemoval ? 0.5 : 1,
                         }}
                       >
-                        {file.mimeType.startsWith("image/") ? (
-                          <Image
+                        {file.mimeType.startsWith('image/') ? (
+                          <FileThumbnail
                             src={file.previewFileUrl}
                             alt={file.fileName}
-                            width={40}
-                            height={40}
-                            style={{ objectFit: "cover", borderRadius: 4 }}
-                            unoptimized
                           />
                         ) : (
                           <Link
@@ -284,15 +286,15 @@ export default function TransactionAttachments({
                           sx={{
                             flex: 1,
                             textDecoration: markedForRemoval
-                              ? "line-through"
-                              : "none",
+                              ? 'line-through'
+                              : 'none',
                           }}
                         >
                           {file.fileName}
                         </Typography>
                         <IconButton
                           aria-label={
-                            markedForRemoval ? "Undo remove" : "Remove file"
+                            markedForRemoval ? 'Undo remove' : 'Remove file'
                           }
                           onClick={() => handleToggleRemove(file.id)}
                           size="small"
@@ -308,78 +310,58 @@ export default function TransactionAttachments({
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>
-                      </Box>
+                      </Stack>
                     );
                   })
                 )}
-              </Box>
+              </Stack>
             </Box>
           )}
           {pendingFiles.length > 0 && (
-            <Box
-              sx={{
-                maxHeight: 220,
-                overflowY: "auto",
-                maxWidth: 440,
-                width: "100%",
-                mx: "auto",
-                mt: 1,
-                mb: 2,
-              }}
-            >
-              <Box display="flex" flexDirection="column" gap={1}>
-                <Typography variant="subtitle2" color="primary" mb={0.5}>
+            <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 1 }}>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" color="primary">
                   Pending Attachments
                 </Typography>
-                <Typography variant="caption" color="text.secondary" mb={1}>
+                <Typography variant="caption" color="text.secondary">
                   <HourglassEmptyIcon
                     fontSize="inherit"
-                    sx={{ mr: 0.5, verticalAlign: "middle" }}
+                    sx={{ mr: 0.5, verticalAlign: 'middle' }}
                   />
-                  These files will be uploaded and attached only after you press{" "}
+                  These files will be uploaded and attached only after you press{' '}
                   <b>{submitButtonLabel}</b>.
                 </Typography>
                 {pendingFiles.map((file, idx) => (
-                  <Box
+                  <Stack
                     key={file.name + file.size + idx}
-                    display="flex"
+                    direction="row"
                     alignItems="center"
-                    gap={2}
+                    spacing={2}
                     sx={{
-                      border: "1px dashed",
-                      borderColor: "primary.light",
-                      bgcolor: "action.hover",
+                      border: '1px dashed',
+                      borderColor: 'primary.light',
+                      bgcolor: 'action.hover',
                       borderRadius: 2,
                       p: 1,
-                      mb: 1,
                     }}
                   >
-                    {file.type.startsWith("image/") ? (
-                      <Image
+                    {file.type.startsWith('image/') && (
+                      <FileThumbnail
                         src={URL.createObjectURL(file)}
                         alt={file.name}
-                        width={40}
-                        height={40}
-                        style={{ objectFit: "cover", borderRadius: 4 }}
                       />
-                    ) : (
-                      <Typography variant="body2">{file.name}</Typography>
                     )}
                     <Typography
                       variant="body2"
-                      sx={{ flex: 1, fontStyle: "italic" }}
+                      sx={{ flex: 1, fontStyle: 'italic' }}
                     >
-                      {file.name}{" "}
-                      <span
-                        style={{
-                          color: "inherit",
-                          fontWeight: 500,
-                          marginLeft: 8,
-                          opacity: 0.7,
-                        }}
+                      {file.name}{' '}
+                      <Box
+                        component="span"
+                        sx={{ fontWeight: 500, ml: 1, opacity: 0.7 }}
                       >
                         (will be uploaded)
-                      </span>
+                      </Box>
                     </Typography>
                     <IconButton
                       aria-label="Remove pending file"
@@ -388,9 +370,9 @@ export default function TransactionAttachments({
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
-                  </Box>
+                  </Stack>
                 ))}
-              </Box>
+              </Stack>
             </Box>
           )}
           <Snackbar

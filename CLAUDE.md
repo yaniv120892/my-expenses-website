@@ -4,138 +4,92 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Monorepo for an expense management system with AI-powered categorization. Uses npm workspaces to manage 4 TypeScript packages plus 1 Python microservice.
+Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant. Formerly split across `my-expenses` (Express API, now deprecated) and this repo.
 
-## Repository Structure
+Two sibling services stay external and are reached over HTTP: `expense-categorizer` (FastAPI/FastText, `POST /predict`) and `excel-extraction-service` (Express + Gemini, async webhook callbacks).
 
-| Service | Tech Stack | Port | Purpose |
-|---------|-----------|------|---------|
-| `my-expenses-api` | Express + TypeScript + Prisma + PostgreSQL | 3001 | Backend REST API |
-| `my-expenses-website` | Next.js 15 (App Router) + React 19 + MUI 7 | 3000 | Frontend web app |
-| `expense-categorizer` | Python + FastAPI + FastText | 8000 | ML categorization microservice |
-| `excel-extraction-service` | Express + TypeScript + Gemini AI | 3000 | Excel parsing microservice |
-| `credit-card-expenses-extractor` | TypeScript + Playwright | CLI | Credit card statement automation |
+## Commands
 
-## Common Commands
-
-### Root (npm workspaces)
 ```bash
-npm run dev:api          # Start API dev server
-npm run dev:website      # Start website dev server
-npm run dev:excel        # Start excel extraction dev server
-npm run dev:extractor    # Start credit card extractor
-npm run build:api        # Build API
-npm run build:website    # Build website
+npm run dev              # Next.js dev server with Turbopack (port 3000)
+npm run build            # prisma generate && next build
+npm run typecheck        # tsc --noEmit
+npm run lint             # eslint .
+npm run format           # prettier --write .
+npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
+npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
+npm run test:e2e:ui      # Playwright specs in e2e/
 ```
 
-### my-expenses-api
-```bash
-cd my-expenses-api
-npm run watch            # Dev with hot reload (nodemon + ts-node)
-npm run dev              # Dev without hot reload
-npm run build            # rimraf dist && prisma generate && tsc
-npm run lint             # eslint --fix
-npm run format           # prettier --write
-npm run ts.check         # TypeScript type check only
-```
-
-### my-expenses-website
-```bash
-cd my-expenses-website
-npm run dev              # Next.js dev with Turbopack
-npm run build            # next build
-npm run lint             # next lint
-```
-
-### expense-categorizer
-```bash
-cd expense-categorizer
-source venv/bin/activate       # or: source test_env/bin/activate
-uvicorn api_v2:app --reload    # Dev server
-python train_v2.py             # Retrain ML model
-python translate.py            # Run translation pipeline
-```
-
-### excel-extraction-service
-```bash
-cd excel-extraction-service
-npm run dev              # ts-node-dev with hot reload
-npm run build            # tsc
-npm run lint             # eslint
-```
-
-### credit-card-expenses-extractor
-```bash
-cd credit-card-expenses-extractor
-npm run dev              # ts-node src/main.ts
-npm run debug            # Debug selectors tool
-```
+Pre-commit runs lint-staged + typecheck (husky).
 
 ## Architecture
 
-### my-expenses-api — Layered Architecture
-- **Routers** (`src/routers/`) — Route definitions, mounted under `/api/`
-- **Controllers** (`src/controllers/`) — Request validation, response formatting
-- **Services** (`src/services/`) — Business logic, orchestration
-- **Repositories** (`src/repositories/`) — Prisma database queries
-- **Validators** (`src/validators/`) — Custom validation using `class-validator`
-- **Middlewares** (`src/middlewares/`) — JWT auth, request validation, error handling
-- **Providers** (`src/providers/`) — AI service implementations (Gemini, ChatGPT)
+- `src/app/` — App Router. `(auth)/` login/signup/verify; `(app)/` the 8
+  authenticated pages (dashboard, transactions, pending, scheduled,
+  subscriptions, imports, trends, settings) inside the AppShell drawer layout.
+- `src/app/api/**/route.ts` — all API endpoints. Most are built with
+  `createHandler` (`src/server/http/handler.ts`) which resolves auth
+  (`session` | `cron` | `telegram` | `public`), zod-validates body/query,
+  maps errors to `{message}`/`{error, code}`, and logs one pino line per
+  request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
+  (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
+  (HMAC in query params), `/api/auth/*` (cookie handling).
+- `src/server/` — backend logic: `services/` (business logic; singletons),
+  `repositories/` (Prisma), `commandHandlers/` (Telegram bot commands),
+  `services/assistant/` (Mastra agent, tools, PG-backed memory),
+  `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
+  `integrations` live inside services as `lazy()` fields.
+- `src/shared/` — zod request schemas (`schemas/`, inferred types shared by
+  routes and client) and domain types (`types/`).
+- `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
+  `src/services/` (thin axios client, SSE chat client), `src/theme/` (MUI
+  CSS-vars theme, light+dark, `palette.charts` for recharts colors).
+- `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
+  redirects), plus an Origin check on non-GET `/api/*`.
 
-Key patterns:
-- `handleRequest()` utility wraps async route handlers with error propagation
-- AI provider selected via `AI_PROVIDER` env var, factory pattern in `src/services/ai/`
-- JWT auth with Redis session storage (Upstash)
-- Prisma with field encryption (`prisma-field-encryption`) for sensitive data
-- Telegram bot integration via webhooks (`src/commandHandlers/`)
+## Key invariants
 
-### my-expenses-website — Next.js App Router
-- **Pages** in `src/app/` — login, signup, verify, main tab-based home page
-- **Tabs** in `src/app/tabs/` — Transactions, Pending, Scheduled, Trends, Settings, Imports
-- **Components** in `src/components/`
-- **Hooks** in `src/hooks/` — TanStack React Query wrappers with query key factory pattern
-- **Services** in `src/services/` — Axios-based API client with JWT interceptor
-- **Context** in `src/context/` — AuthContext for auth state
-- Path alias: `@/*` maps to `./src/*`
-
-### expense-categorizer — Hybrid ML Classification
-- Rule-based categorization checked first (keyword matching)
-- FastText ML model as fallback
-- Auto-detects language and translates to English via Google Translate
-- Models stored in S3, downloaded to `/tmp/` at startup
-- Deployed as Vercel serverless function via Mangum adapter
-
-### excel-extraction-service — AI-Powered Excel Parsing
-- Three-stage Gemini AI pipeline: structure analysis → metadata extraction → transaction extraction
-- Async processing with Redis state management (PENDING → PROCESSING → COMPLETED/FAILED)
-- Webhook callbacks on completion
-- Endpoints: `POST /api/extract`, `GET /api/status/:requestId`
-
-### credit-card-expenses-extractor — Browser Automation
-- Abstract base provider with template method pattern (`src/providers/base.ts`)
-- Provider implementations for Israeli banks/cards: CAL, Amex, Max, Isracard, Hapoalim, Mizrahi
-- Supports `--all` or `--providers provider1,provider2` CLI args
-- Downloads statements then uploads to my-expenses-website
+- **No module-load-time construction of network clients.** Every external
+  client (OpenAI, Gemini, Telegram, SMTP, S3, Google, excel extraction) is
+  built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
+  `requireEnv`. A missing env var must fail the call, never the import.
+- **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
+  `session:<userId>:<token>` must exist (logout deletes it). API routes also
+  accept `Authorization: Bearer` (scripts/e2e). Cron routes require
+  `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
+- **Prisma**: schema + migrations in `prisma/`; app client is
+  `@prisma/client/edge` + field-encryption + Accelerate (DATABASE_URL must be
+  a `prisma://` URL; DIRECT_URL is plain Postgres for migrations, the seed,
+  and Mastra's memory store).
+- **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
+  custom properties, no global utility classes, no hardcoded hex in
+  components (charts read `theme.palette.charts`).
+- **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. Errors also
+  go to Sentry via `createHandler`/`instrumentation.ts`.
+- Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)
 
-Schema at `my-expenses-api/src/prisma/schema.prisma`. Core models:
-- **User** — accounts with email verification
-- **Transaction** — income/expense entries with category, approval status, attachments
-- **Category** — hierarchical (parent-child)
-- **ScheduledTransaction** — recurring (daily/weekly/monthly/yearly/custom)
-- **Import / ImportedTransaction** — bulk import workflow with status tracking
-- **TransactionFile** — S3/Google Drive attachments
-- **UserNotificationPreference / UserNotificationProvider** — Telegram notifications
+Models: User, Transaction, Category (hierarchical), ScheduledTransaction,
+Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
+AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider.
+Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
-## Pre-commit Hooks
+## Crons (vercel.json)
 
-The API has a pre-commit hook that runs `ts.check`. Ensure TypeScript compiles cleanly before committing API changes.
-
-The API no longer commits `dist` — Vercel compiles `src/index.ts` at deploy time. Do not re-add build artifacts to git.
+| Path | Schedule |
+|---|---|
+| /api/scheduled-transactions/process | 07:00 daily |
+| /api/summary/today | 21:00 daily |
+| /api/backup/transactions | 03:00 daily |
+| /api/subscriptions/detect | 04:00 Mondays |
+| /api/subscriptions/audit-notify | 08:00 Mondays |
 
 ## Deployment
 
-- **Website**: Vercel (Next.js)
-- **Categorizer**: Vercel (serverless Python)
-- **API**: Node.js server with `prisma migrate deploy` on startup
+Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next build`.
+Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
+jobs 401. The Telegram webhook must be registered with
+`setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.

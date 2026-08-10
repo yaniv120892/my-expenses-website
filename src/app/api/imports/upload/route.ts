@@ -1,73 +1,64 @@
-import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { createHandler } from '@/server/http/handler';
+import { HttpError } from '@/server/http/errors';
+import { lazy } from '@/server/lib/lazy';
+import { requireEnv } from '@/server/env';
+import logger from '@/server/logging/logger';
 
-const s3Client = new S3Client({
-  region: process.env.IMPORTS_S3_REGION,
-  credentials: {
-    accessKeyId: process.env.IMPORTS_S3_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.IMPORTS_S3_SECRET_ACCESS_KEY || "",
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+const getS3Client = lazy(
+  () =>
+    new S3Client({
+      region: requireEnv('IMPORTS_S3_REGION'),
+      credentials: {
+        accessKeyId: requireEnv('IMPORTS_S3_ACCESS_KEY_ID'),
+        secretAccessKey: requireEnv('IMPORTS_S3_SECRET_ACCESS_KEY'),
+      },
+    }),
+);
+
+export const POST = createHandler({
+  auth: 'session',
+  handler: async ({ req }) => {
+    const formData = await req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      throw new HttpError(400, 'No file provided');
+    }
+
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(extension)) {
+      throw new HttpError(
+        400,
+        `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
+      );
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      throw new HttpError(400, 'File is too large. Maximum size is 10MB');
+    }
+
+    const bucket = requireEnv('IMPORTS_S3_BUCKET');
+    const region = requireEnv('IMPORTS_S3_REGION');
+    const fileName = `imports/${crypto.randomUUID()}-${file.name}`;
+
+    try {
+      await getS3Client().send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: fileName,
+          Body: Buffer.from(await file.arrayBuffer()),
+          ContentType: file.type,
+        }),
+      );
+    } catch (err) {
+      logger.error({ err, bucket, region }, 'S3 upload failed');
+      throw new HttpError(500, 'Failed to upload file');
+    }
+
+    return {
+      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${fileName}`,
+    };
   },
 });
-
-export async function POST(request: NextRequest) {
-  try {
-    const file = await extractFileFromRequest(request);
-    const fileBuffer = await file.arrayBuffer();
-    const fileName = generateUniqueFileName(file.name);
-    const fileUrl = await uploadFileToS3(fileName, fileBuffer, file.type);
-
-    return NextResponse.json({ fileUrl });
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 }
-    );
-  }
-}
-
-async function extractFileFromRequest(request: NextRequest): Promise<File> {
-  const formData = await request.formData();
-  const file = formData.get("file") as File;
-
-  if (!file) {
-    throw new Error("No file provided");
-  }
-
-  return file;
-}
-
-function generateUniqueFileName(originalFileName: string): string {
-  return `imports/${uuidv4()}-${originalFileName}`;
-}
-
-async function uploadFileToS3(
-  fileName: string,
-  fileBuffer: ArrayBuffer,
-  contentType: string
-): Promise<string> {
-  try {
-    const putCommand = new PutObjectCommand({
-      Bucket: process.env.IMPORTS_S3_BUCKET || "",
-      Key: fileName,
-      Body: Buffer.from(fileBuffer),
-      ContentType: contentType,
-    });
-
-    await s3Client.send(putCommand);
-    return generateS3Url(fileName);
-  } catch (error) {
-    console.error("S3 Upload Error Details:", {
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-      bucket: process.env.IMPORTS_S3_BUCKET,
-      region: process.env.IMPORTS_S3_REGION,
-    });
-    throw error;
-  }
-}
-
-function generateS3Url(fileName: string): string {
-  return `https://${process.env.IMPORTS_S3_BUCKET}.s3.${process.env.IMPORTS_S3_REGION}.amazonaws.com/${fileName}`;
-}

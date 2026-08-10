@@ -1,96 +1,60 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Transaction } from "../types";
-import { formatTransactionDate } from "../utils/format";
-import EmptyState from "./EmptyState";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import SwipeableRow from "./SwipeableRow";
+import React from 'react';
+import {
+  Box,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
+import { Transaction } from '../types';
+import { formatTransactionDate } from '../utils/format';
+import { useIsMobile } from '../hooks/useBreakpoints';
+import AmountText from './AmountText';
+import EmptyState from './EmptyState';
+import SwipeableRow from './SwipeableRow';
 
-function getValueColor(type: string) {
-  if (type === "INCOME") {
-    return "var(--accent-green)";
-  }
-  return "var(--accent-red)";
-}
-
-function getFormattedValue(value: number) {
-  return value.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
-}
-
-function TransactionRowMobile({
+function MobileRow({
   transaction,
   onEdit,
 }: {
   transaction: Transaction;
   onEdit: (tx: Transaction) => void;
 }) {
-  function handleRowClick() {
-    onEdit(transaction);
-  }
   return (
-    <div
-      style={{ cursor: "pointer", padding: "0.7rem 0.5rem" }}
-      onClick={handleRowClick}
+    <Box
+      onClick={() => onEdit(transaction)}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 2,
+        px: 2,
+        py: 1.5,
+        cursor: 'pointer',
+      }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontWeight: 600, fontSize: "0.98em" }}>
-            {transaction.description}
-          </div>
-          <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
-            {transaction.category?.name}
-          </div>
-        </div>
-        <div style={{ textAlign: "right", minWidth: 90 }}>
-          <div
-            style={{
-              color: getValueColor(transaction.type),
-              fontWeight: 600,
-              fontSize: "0.98em",
-            }}
-          >
-            {getFormattedValue(transaction.value)}
-          </div>
-          <div style={{ fontSize: "0.85em", color: "var(--text-secondary)" }}>
-            {formatTransactionDate(transaction.date)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionRowDesktop({
-  transaction,
-  onEdit,
-}: {
-  transaction: Transaction;
-  onEdit: (tx: Transaction) => void;
-}) {
-  function handleRowClick() {
-    onEdit(transaction);
-  }
-  return (
-    <tr style={{ cursor: "pointer" }} onClick={handleRowClick}>
-      <td>{transaction.description}</td>
-      <td
-        style={{
-          color: getValueColor(transaction.type),
-          fontWeight: 600,
-        }}
-      >
-        {getFormattedValue(transaction.value)}
-      </td>
-      <td>{transaction.category?.name}</td>
-      <td>{formatTransactionDate(transaction.date)}</td>
-    </tr>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+          {transaction.description}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {transaction.category?.name}
+        </Typography>
+      </Box>
+      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+        <AmountText type={transaction.type} value={transaction.value} />
+        <Typography variant="caption" color="text.secondary">
+          {formatTransactionDate(transaction.date)}
+        </Typography>
+      </Box>
+    </Box>
   );
 }
 
@@ -108,65 +72,60 @@ export default function TransactionList({
     return <EmptyState message="No transactions found." />;
   }
 
-  async function handleEdit(tx: Transaction) {
-    await onEditAction(tx);
-  }
-
   if (isMobile) {
     return (
-      <div className="card-accent" style={{ padding: 0 }}>
-        <table
-          className="table"
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            width: "100%",
-          }}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Stack
+          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
         >
-          <tbody>
-            {transactions.map((tx) => (
-              <tr key={tx.id} style={{ display: "table-row" }}>
-                <td style={{ padding: 0, border: "none" }}>
-                  <SwipeableRow
-                    onSwipeRight={() => handleEdit(tx)}
-                    rightLabel="Edit"
-                    rightColor="primary.main"
-                  >
-                    <TransactionRowMobile
-                      transaction={tx}
-                      onEdit={handleEdit}
-                    />
-                  </SwipeableRow>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {transactions.map((tx) => (
+            <SwipeableRow
+              key={tx.id}
+              onSwipeRight={() => onEditAction(tx)}
+              rightLabel="Edit"
+              rightColor="primary.main"
+            >
+              <MobileRow transaction={tx} onEdit={onEditAction} />
+            </SwipeableRow>
+          ))}
+        </Stack>
+      </Paper>
     );
   }
 
   return (
-    <div className="card-accent" style={{ padding: 0 }}>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Value</th>
-            <th>Category</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer component={Paper} variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Description</TableCell>
+            <TableCell>Category</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell align="right">Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {transactions.map((tx) => (
-            <TransactionRowDesktop
+            <TableRow
               key={tx.id}
-              transaction={tx}
-              onEdit={handleEdit}
-            />
+              hover
+              onClick={() => onEditAction(tx)}
+              sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+            >
+              <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {tx.category?.name}
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {formatTransactionDate(tx.date)}
+              </TableCell>
+              <TableCell align="right">
+                <AmountText type={tx.type} value={tx.value} />
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

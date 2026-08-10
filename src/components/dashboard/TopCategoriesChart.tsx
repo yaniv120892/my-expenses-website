@@ -1,69 +1,72 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Box, Card, CardContent, Typography } from "@mui/material";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { TopCategory } from "@/types/dashboard";
-import { formatNumber } from "@/utils/format";
-import { getChartColors } from "@/utils/constants";
-import { useColorMode } from "@/context/ThemeContext";
-import { TrendIcon } from "@/components/trends/TrendIcon";
-
-const DOUGHNUT_COLORS = [
-  "#f39c12",
-  "#3498db",
-  "#e67e22",
-  "#9b59b6",
-  "#1abc9c",
-  "#e74c3c",
-  "#2ecc71",
-];
+import React from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Paper,
+  Stack,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { TopCategory } from '@/types/dashboard';
+import { formatNumber } from '@/utils/format';
 
 interface Props {
   categories: TopCategory[];
 }
 
-export function TopCategoriesChart({ categories }: Props) {
-  const { resolvedMode } = useColorMode();
-  const COLORS = getChartColors(resolvedMode);
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { name: string; value: number }[];
+}) {
+  if (!active || !payload || !payload.length) return null;
+  const { name, value } = payload[0];
+  return (
+    <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>
+      <Typography variant="caption">
+        <Box component="span" sx={{ fontWeight: 600 }}>
+          {name}:
+        </Box>{' '}
+        {formatNumber(value)}
+      </Typography>
+    </Paper>
+  );
+}
 
-  const CompactTooltip: React.FC<{
-    active?: boolean;
-    payload?: { name: string; value: number }[];
-  }> = ({ active, payload }) => {
-    if (!active || !payload || !payload.length) return null;
-    const { name, value } = payload[0];
-    return (
-      <div
-        style={{
-          background: COLORS.background,
-          color: COLORS.text,
-          fontSize: 12,
-          padding: "2px 8px",
-          borderRadius: 6,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>{name}:</span> {formatNumber(value)}
-      </div>
-    );
-  };
+function CategoryTrendIcon({ trend }: { trend: TopCategory['change']['trend'] }) {
+  // Spending semantics: an upward-trending expense category is the bad case.
+  if (trend === 'up') {
+    return <TrendingUpIcon fontSize="small" color="error" />;
+  }
+  if (trend === 'down') {
+    return <TrendingDownIcon fontSize="small" color="success" />;
+  }
+  return <TrendingFlatIcon fontSize="small" color="disabled" />;
+}
+
+export function TopCategoriesChart({ categories }: Props) {
+  const theme = useTheme();
+  const seriesColors = theme.palette.charts.series;
+
   if (!categories.length) {
     return (
-      <Card
-        sx={{
-          borderRadius: 3,
-          bgcolor: "background.default",
-          boxShadow: 3,
-          height: "100%",
-        }}
-      >
-        <CardContent>
-          <Typography variant="h6" fontWeight={700} color={COLORS.text} mb={2}>
+      <Card sx={{ height: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
             Top Categories
           </Typography>
-          <Typography sx={{ color: "text.secondary" }}>No expense data yet</Typography>
+          <Typography variant="body2" color="text.secondary">
+            No expense data yet
+          </Typography>
         </CardContent>
       </Card>
     );
@@ -75,92 +78,74 @@ export function TopCategoriesChart({ categories }: Props) {
   }));
 
   return (
-    <Card
-      sx={{
-        borderRadius: 3,
-        bgcolor: "background.default",
-        boxShadow: 3,
-        height: "100%",
-      }}
-    >
-      <CardContent>
-        <Typography variant="h6" fontWeight={700} color={COLORS.text} mb={2}>
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Typography variant="h5" sx={{ mb: 2 }}>
           Top Categories
         </Typography>
         <Box
           sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            alignItems: "center",
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: 'center',
             gap: 2,
           }}
         >
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                innerRadius={50}
-                stroke={COLORS.background}
-                strokeWidth={2}
-              >
-                {chartData.map((_, idx) => (
-                  <Cell
-                    key={idx}
-                    fill={DOUGHNUT_COLORS[idx % DOUGHNUT_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<CompactTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-              minWidth: 200,
-            }}
-          >
+          <Box sx={{ width: '100%', height: 220, minWidth: 0, flex: 1 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  innerRadius={50}
+                  stroke={theme.palette.background.paper}
+                  strokeWidth={2}
+                >
+                  {chartData.map((_, idx) => (
+                    <Cell
+                      key={idx}
+                      fill={seriesColors[idx % seriesColors.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </Box>
+          <Stack spacing={1} sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}>
             {categories.map((cat, idx) => (
-              <Box
+              <Stack
                 key={cat.categoryId}
-                sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                direction="row"
+                alignItems="center"
+                spacing={1}
               >
                 <Box
                   sx={{
                     width: 12,
                     height: 12,
-                    borderRadius: "50%",
-                    bgcolor: DOUGHNUT_COLORS[idx % DOUGHNUT_COLORS.length],
+                    borderRadius: '50%',
+                    bgcolor: seriesColors[idx % seriesColors.length],
                     flexShrink: 0,
                   }}
                 />
-                <Typography
-                  variant="body2"
-                  color={COLORS.text}
-                  sx={{ flex: 1 }}
-                >
+                <Typography variant="body2" sx={{ flex: 1 }} noWrap>
                   {cat.categoryName}
                 </Typography>
-                <Typography
-                  variant="body2"
-                  fontWeight={600}
-                  color={COLORS.text}
-                >
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {formatNumber(cat.amount)}
                 </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                <Typography variant="caption" color="text.secondary">
                   ({cat.percentage.toFixed(1)}%)
                 </Typography>
-                <TrendIcon trend={cat.change.trend} />
-              </Box>
+                <CategoryTrendIcon trend={cat.change.trend} />
+              </Stack>
             ))}
-          </Box>
+          </Stack>
         </Box>
       </CardContent>
     </Card>

@@ -1,13 +1,13 @@
-import { format } from "date-fns";
-import { TrendPeriod } from "@/types/trends";
+import { endOfMonth, format, startOfMonth } from 'date-fns';
+import { TrendPeriod } from '@/types/trends';
 
 export function formatTrendDate(date: string, period: TrendPeriod): string {
   switch (period) {
-    case "weekly":
-      return `Week ${date.split("-")[1]}`;
-    case "monthly":
-      return format(new Date(date + "-01"), "MMM yyyy");
-    case "yearly":
+    case 'weekly':
+      return `Week ${date.split('-')[1]}`;
+    case 'monthly':
+      return format(new Date(date + '-01'), 'MMM yyyy');
+    case 'yearly':
       return date;
     default:
       return date;
@@ -22,11 +22,33 @@ export function formatTrendDate(date: string, period: TrendPeriod): string {
  */
 export const formatDate = (
   dateString: string,
-  includeTime: boolean = false
+  includeTime: boolean = false,
 ) => {
   const date = new Date(dateString);
   if (includeTime) {
-    return format(date, "dd/MM/yyyy HH:mm");
+    return format(date, 'dd/MM/yyyy HH:mm');
   }
   return date.toLocaleDateString();
 };
+
+/** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */
+export function formatDateRange(
+  start?: string | Date,
+  end?: string | Date,
+  separator: string = '-',
+): string {
+  const startLabel = start ? format(new Date(start), 'MMM d, yyyy') : '';
+  const endLabel = end ? format(new Date(end), 'MMM d, yyyy') : '';
+  return `${startLabel} ${separator} ${endLabel}`;
+}
+
+export function defaultMonthFilters(): {
+  startDate: string;
+  endDate: string;
+} {
+  const now = new Date();
+  return {
+    startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
+    endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
+  };
+}

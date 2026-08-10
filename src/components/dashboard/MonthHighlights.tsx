@@ -1,128 +1,107 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 import {
   Box,
   Card,
   CardContent,
-  Typography,
   LinearProgress,
-} from "@mui/material";
-import { MonthComparison, TopCategory } from "@/types/dashboard";
-import { formatNumber } from "@/utils/format";
-import { getChartColors } from "@/utils/constants";
-import { useColorMode } from "@/context/ThemeContext";
+  Stack,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { MonthComparison, TopCategory } from '@/types/dashboard';
+import { formatNumber } from '@/utils/format';
 
 interface Props {
   comparison: MonthComparison;
   categories: TopCategory[];
 }
 
+function SpendingBar({
+  label,
+  value,
+  max,
+  barColor,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  barColor: string;
+}) {
+  return (
+    <Box>
+      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+        <Typography variant="body2">{label}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {formatNumber(value)}
+        </Typography>
+      </Stack>
+      <LinearProgress
+        variant="determinate"
+        value={(value / max) * 100}
+        sx={{
+          height: 8,
+          borderRadius: 4,
+          bgcolor: 'action.selected',
+          '& .MuiLinearProgress-bar': { bgcolor: barColor, borderRadius: 4 },
+        }}
+      />
+    </Box>
+  );
+}
+
 export function MonthHighlights({ comparison, categories }: Props) {
-  const { resolvedMode } = useColorMode();
-  const COLORS = getChartColors(resolvedMode);
+  const theme = useTheme();
+  const { charts } = theme.palette;
   const { currentMonth, previousMonth } = comparison;
   const maxExpense = Math.max(
     currentMonth.totalExpense,
     previousMonth.totalExpense,
-    1
+    1,
   );
 
-  // Find biggest category increase/decrease
   const sortedByChange = [...categories].sort(
-    (a, b) => b.change.percentage - a.change.percentage
+    (a, b) => b.change.percentage - a.change.percentage,
   );
-  const biggestIncrease = sortedByChange.find(
-    (c) => c.change.trend === "up"
-  );
+  const biggestIncrease = sortedByChange.find((c) => c.change.trend === 'up');
   const biggestDecrease = [...sortedByChange]
     .reverse()
-    .find((c) => c.change.trend === "down");
+    .find((c) => c.change.trend === 'down');
 
   return (
-    <Card
-      sx={{
-        borderRadius: 3,
-        bgcolor: "background.default",
-        boxShadow: 3,
-        height: "100%",
-      }}
-    >
-      <CardContent>
-        <Typography variant="h6" fontWeight={700} color={COLORS.text} mb={2}>
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Typography variant="h5" sx={{ mb: 2 }}>
           Month Highlights
         </Typography>
 
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Spending Comparison
         </Typography>
-        <Box sx={{ mb: 2 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              mb: 0.5,
-            }}
-          >
-            <Typography variant="body2" color={COLORS.text}>
-              This Month
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color={COLORS.text}>
-              {formatNumber(currentMonth.totalExpense)}
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={(currentMonth.totalExpense / maxExpense) * 100}
-            sx={{
-              height: 8,
-              borderRadius: 4,
-              bgcolor: "action.selected",
-              "& .MuiLinearProgress-bar": {
-                bgcolor: COLORS.expense,
-                borderRadius: 4,
-              },
-            }}
+        <Stack spacing={1.5} sx={{ mb: 2.5 }}>
+          <SpendingBar
+            label="This Month"
+            value={currentMonth.totalExpense}
+            max={maxExpense}
+            barColor={charts.expense}
           />
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              mt: 1,
-              mb: 0.5,
-            }}
-          >
-            <Typography variant="body2" color={COLORS.text}>
-              Last Month
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color={COLORS.text}>
-              {formatNumber(previousMonth.totalExpense)}
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={(previousMonth.totalExpense / maxExpense) * 100}
-            sx={{
-              height: 8,
-              borderRadius: 4,
-              bgcolor: "action.selected",
-              "& .MuiLinearProgress-bar": {
-                bgcolor: COLORS.purple,
-                borderRadius: 4,
-              },
-            }}
+          <SpendingBar
+            label="Last Month"
+            value={previousMonth.totalExpense}
+            max={maxExpense}
+            barColor={theme.palette.primary.main}
           />
-        </Box>
+        </Stack>
 
         {biggestIncrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            <Typography variant="body2" color="text.secondary">
               Biggest Increase
             </Typography>
             <Typography
               variant="body2"
-              fontWeight={600}
-              color={COLORS.expense}
+              sx={{ fontWeight: 600, color: charts.expense }}
             >
               {biggestIncrease.categoryName}: +
               {Math.abs(biggestIncrease.change.percentage).toFixed(1)}%
@@ -131,16 +110,15 @@ export function MonthHighlights({ comparison, categories }: Props) {
         )}
 
         {biggestDecrease && (
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Box>
+            <Typography variant="body2" color="text.secondary">
               Biggest Decrease
             </Typography>
             <Typography
               variant="body2"
-              fontWeight={600}
-              color={COLORS.income}
+              sx={{ fontWeight: 600, color: charts.income }}
             >
-              {biggestDecrease.categoryName}:{" "}
+              {biggestDecrease.categoryName}:{' '}
               {biggestDecrease.change.percentage.toFixed(1)}%
             </Typography>
           </Box>

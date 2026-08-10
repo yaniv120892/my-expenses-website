@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from "react";
-import { handleApiError } from "@/utils/api";
-import { streamMessage } from "../services/chatService";
+import { useCallback, useRef, useState } from 'react';
+import { handleApiError } from '@/utils/api';
+import { streamMessage } from '../services/chatService';
 
 export interface Message {
-  sender: "user" | "bot";
+  sender: 'user' | 'bot';
   text: string;
 }
 
@@ -12,20 +12,18 @@ export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Derived rather than stored: the streaming bubble is the last message, and
-  // it stays empty until the first delta lands. Keeping a second flag in sync
-  // by hand across every callback is how the spinner and the bubble end up
-  // disagreeing.
+  // Derived rather than stored: the streaming bubble is the last message and
+  // stays empty until the first delta lands, so a hand-synced flag would drift.
   const last = messages[messages.length - 1];
   const isAwaitingFirstToken =
-    isLoading && last?.sender === "bot" && last.text === "";
+    isLoading && last?.sender === 'bot' && last.text === '';
 
   const appendToLastMessage = useCallback(
     (delta: string, opts: { onlyIfEmpty?: boolean } = {}) => {
       setMessages((prev) => {
         const updated = [...prev];
         const target = updated[updated.length - 1];
-        if (!target || target.sender !== "bot") return prev;
+        if (!target || target.sender !== 'bot') return prev;
         if (opts.onlyIfEmpty && target.text) return prev;
 
         updated[updated.length - 1] = {
@@ -35,7 +33,7 @@ export const useChat = () => {
         return updated;
       });
     },
-    []
+    [],
   );
 
   const handleSendMessage = useCallback(
@@ -46,11 +44,11 @@ export const useChat = () => {
 
       const outgoing: Message[] = [
         ...messages,
-        { sender: "user" as const, text },
+        { sender: 'user' as const, text },
       ];
 
       // The empty bot message is the bubble that the deltas stream into.
-      setMessages([...outgoing, { sender: "bot" as const, text: "" }]);
+      setMessages([...outgoing, { sender: 'bot' as const, text: '' }]);
       setIsLoading(true);
 
       const controller = new AbortController();
@@ -61,22 +59,21 @@ export const useChat = () => {
           outgoing,
           {
             onDelta: appendToLastMessage,
-            // An empty reply would otherwise leave a blank bubble behind.
-            // Appending makes the bubble non-empty, so this is a no-op once
-            // any text has arrived.
+            // An empty reply would otherwise leave a blank bubble behind; this
+            // is a no-op once any text has arrived.
             onDone: () =>
               appendToLastMessage(
                 "Sorry, I wasn't able to produce an answer. Please try again.",
-                { onlyIfEmpty: true }
+                { onlyIfEmpty: true },
               ),
             onError: appendToLastMessage,
           },
-          controller.signal
+          controller.signal,
         );
       } catch (error) {
-        if ((error as Error)?.name !== "AbortError") {
+        if ((error as Error)?.name !== 'AbortError') {
           appendToLastMessage(
-            `Sorry, I encountered an error: ${handleApiError(error)}`
+            `Sorry, I encountered an error: ${handleApiError(error)}`,
           );
         }
       } finally {
@@ -84,7 +81,7 @@ export const useChat = () => {
         abortRef.current = null;
       }
     },
-    [appendToLastMessage, isLoading, messages]
+    [appendToLastMessage, isLoading, messages],
   );
 
   const cancel = useCallback(() => {

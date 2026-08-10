@@ -185,6 +185,53 @@ class TransactionRepository {
     });
   }
 
+  /**
+   * Per-category, per-type, per-day sums. Aggregating in Postgres keeps the
+   * comparison report to one round trip; the caller folds the day rows into
+   * whatever period buckets it needs.
+   */
+  public async getCategoryPeriodTotals(params: {
+    userId: string;
+    startDate: Date;
+    endDate: Date;
+    categoryIds: string[];
+    transactionType?: TransactionType;
+  }): Promise<
+    {
+      categoryId: string;
+      type: TransactionType;
+      date: Date;
+      sum: number;
+      count: number;
+    }[]
+  > {
+    const { startDate, endDate } = this.getNormalizedDateRange(
+      params.startDate,
+      params.endDate,
+    );
+
+    const groups = await prisma.transaction.groupBy({
+      by: ['categoryId', 'type', 'date'],
+      _sum: { value: true },
+      _count: { _all: true },
+      where: {
+        userId: params.userId,
+        status: TransactionStatus.APPROVED,
+        categoryId: { in: params.categoryIds },
+        type: params.transactionType,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+
+    return groups.map((group) => ({
+      categoryId: group.categoryId,
+      type: group.type,
+      date: group.date,
+      sum: group._sum?.value ?? 0,
+      count: group._count?._all ?? 0,
+    }));
+  }
+
   private getNormalizedDateRange(startDate?: Date, endDate?: Date) {
     const normalizedStartDate = startDate
       ? startOfDay(new Date(startDate))

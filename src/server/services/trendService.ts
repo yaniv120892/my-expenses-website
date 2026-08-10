@@ -1,4 +1,4 @@
-import { subDays, subMonths, format } from 'date-fns';
+import { subDays, subMonths } from 'date-fns';
 import {
   GetSpendingTrendsRequest,
   SpendingTrend,
@@ -13,16 +13,7 @@ import { TransactionStatus, TransactionType } from '@prisma/client';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
 import { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';
-
-const DEFAULT_PERIOD_FORMAT = 'yyyy-MM-dd';
-// Weekly uses ISO week-year + ISO week ('RRRR-II') so year-boundary weeks
-// don't collide with week 1 of the same calendar year.
-const PERIOD_FORMATS: Record<string, string> = {
-  daily: 'yyyy-MM-dd',
-  weekly: 'RRRR-II',
-  monthly: 'yyyy-MM',
-  yearly: 'yyyy',
-};
+import { bucketKeyFor } from '@/server/utils/periodBuckets';
 
 interface CategoryTrendData {
   points: CategoryTrendPoint[];
@@ -293,11 +284,9 @@ class TrendService {
   ): TrendPoint[] {
     const groupedData = new Map<string, { amount: number; count: number }>();
 
-    const formatString = PERIOD_FORMATS[period] ?? DEFAULT_PERIOD_FORMAT;
-
     transactions.forEach((transaction) => {
       const date = new Date(transaction.date);
-      const key = format(date, formatString);
+      const key = bucketKeyFor(date, period);
 
       const existing = groupedData.get(key) || { amount: 0, count: 0 };
       groupedData.set(key, {

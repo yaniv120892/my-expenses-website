@@ -21,3 +21,35 @@ export const getSpendingTrendsQuerySchema = z.object({
 // Category trends accept the same query shape; categoryId is simply ignored.
 export const getCategorySpendingTrendsQuerySchema =
   getSpendingTrendsQuerySchema;
+
+// Matches theme.palette.charts.series.length — one distinct color per series.
+export const MAX_COMPARISON_SERIES = 8;
+
+export const comparisonScopeSchema = z.enum(['SUBTREE', 'EXACT']);
+
+// createHandler flattens searchParams with Object.fromEntries, which keeps only
+// the last value of a repeated key. The ids must therefore arrive as a single
+// comma-separated value, not as repeated categoryIds params.
+const categoryIdListSchema = z
+  .string()
+  .transform((raw) =>
+    raw
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  )
+  .pipe(z.array(z.string().uuid()).min(1).max(MAX_COMPARISON_SERIES));
+
+export const getCategoryComparisonQuerySchema = z
+  .object({
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    period: trendPeriodSchema.default('monthly'),
+    categoryIds: categoryIdListSchema,
+    scope: comparisonScopeSchema.default('SUBTREE'),
+    transactionType: transactionTypeSchema.optional(),
+  })
+  .refine((query) => query.startDate <= query.endDate, {
+    message: 'startDate must not be after endDate',
+    path: ['startDate'],
+  });

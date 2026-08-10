@@ -14,6 +14,7 @@ export type TransactionType = 'INCOME' | 'EXPENSE';
 export interface Category {
   id: string;
   name: string;
+  parentId?: string | null;
 }
 
 export type TransactionFileStatus =

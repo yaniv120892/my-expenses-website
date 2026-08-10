@@ -1,38 +1,47 @@
 'use client';
 
 import {
+  Autocomplete,
   Button,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   FormControl,
+  FormHelperText,
   InputLabel,
   Select,
   MenuItem,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   SelectChangeEvent,
   Box,
+  useTheme,
 } from '@mui/material';
-import { TrendPeriod, TransactionType, TrendFilters } from '@/types/trends';
+import {
+  ComparisonScope,
+  TrendPeriod,
+  TransactionType,
+  TrendFilters,
+} from '@/types/trends';
 import { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
+import { seriesColor } from '@/utils/comparison';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 
-interface TrendFiltersDialogProps extends Omit<
-  TrendFilters,
-  'period' | 'startDate' | 'endDate' | 'selectedCategory' | 'transactionType'
-> {
+// Mirrors MAX_COMPARISON_SERIES in src/shared/schemas/trends.ts, which is
+// itself bounded by the number of chart series colors in the theme.
+const MAX_COMPARISON_SERIES = 8;
+
+interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;
   onClose: () => void;
   onApply: (filters: TrendFilters) => void;
-  period: TrendPeriod;
-  startDate: Date;
-  endDate: Date;
-  selectedCategory: string;
-  transactionType: TransactionType;
   categories: Category[];
+  showComparisonFields: boolean;
 }
 
 export const TrendFiltersDialog = ({
@@ -44,9 +53,14 @@ export const TrendFiltersDialog = ({
   endDate: initialEndDate,
   selectedCategory: initialSelectedCategory,
   transactionType: initialTransactionType,
+  comparisonCategoryIds: initialComparisonCategoryIds,
+  comparisonScope: initialComparisonScope,
   categories,
+  showComparisonFields,
 }: TrendFiltersDialogProps) => {
   const fullScreen = useIsCompact();
+  const theme = useTheme();
+  const seriesColors = (theme.vars ?? theme).palette.charts.series;
   const [period, setPeriod] = useState(initialPeriod);
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -56,6 +70,12 @@ export const TrendFiltersDialog = ({
   const [transactionType, setTransactionType] = useState(
     initialTransactionType,
   );
+  const [comparisonCategoryIds, setComparisonCategoryIds] = useState(
+    initialComparisonCategoryIds,
+  );
+  const [comparisonScope, setComparisonScope] = useState(
+    initialComparisonScope,
+  );
 
   useEffect(() => {
     if (open) {
@@ -64,6 +84,8 @@ export const TrendFiltersDialog = ({
       setEndDate(initialEndDate);
       setSelectedCategory(initialSelectedCategory);
       setTransactionType(initialTransactionType);
+      setComparisonCategoryIds(initialComparisonCategoryIds);
+      setComparisonScope(initialComparisonScope);
     }
   }, [
     open,
@@ -72,7 +94,15 @@ export const TrendFiltersDialog = ({
     initialEndDate,
     initialSelectedCategory,
     initialTransactionType,
+    initialComparisonCategoryIds,
+    initialComparisonScope,
   ]);
+
+  const categoriesById = new Map(categories.map((c) => [c.id, c]));
+  const selectedComparisonCategories = comparisonCategoryIds
+    .map((id) => categoriesById.get(id))
+    .filter((category): category is Category => Boolean(category));
+  const isSelectionFull = comparisonCategoryIds.length >= MAX_COMPARISON_SERIES;
 
   const handlePeriodChange = (event: SelectChangeEvent<TrendPeriod>) => {
     setPeriod(event.target.value as TrendPeriod);
@@ -105,8 +135,76 @@ export const TrendFiltersDialog = ({
       endDate,
       selectedCategory,
       transactionType,
+      comparisonCategoryIds,
+      comparisonScope,
     });
   };
+
+  const sortedCategories = [...categories].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  const comparisonFields = (
+    <>
+      <Autocomplete
+        multiple
+        options={sortedCategories}
+        value={selectedComparisonCategories}
+        onChange={(_, value) =>
+          setComparisonCategoryIds(value.map((category) => category.id))
+        }
+        getOptionLabel={(category) => category.name}
+        isOptionEqualToValue={(option, value) => option.id === value.id}
+        getOptionDisabled={(option) =>
+          isSelectionFull && !comparisonCategoryIds.includes(option.id)
+        }
+        limitTags={3}
+        renderTags={(value, getTagProps) =>
+          value.map((category, index) => {
+            const { key, ...tagProps } = getTagProps({ index });
+            return (
+              <Chip
+                {...tagProps}
+                key={key}
+                size="small"
+                label={category.name}
+                sx={{
+                  borderLeft: 3,
+                  borderColor: seriesColor(index, seriesColors),
+                }}
+              />
+            );
+          })
+        }
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Categories to compare"
+            placeholder={isSelectionFull ? '' : 'Add a category'}
+          />
+        )}
+      />
+      <FormControl fullWidth>
+        <ToggleButtonGroup
+          value={comparisonScope}
+          exclusive
+          size="small"
+          onChange={(_, value) => {
+            if (value) setComparisonScope(value as ComparisonScope);
+          }}
+          aria-label="Category scope"
+        >
+          <ToggleButton value="SUBTREE">Include subcategories</ToggleButton>
+          <ToggleButton value="EXACT">This category only</ToggleButton>
+        </ToggleButtonGroup>
+        <FormHelperText>
+          {comparisonScope === 'SUBTREE'
+            ? 'A parent category sums all of its subcategories.'
+            : 'Each category counts only its own transactions.'}
+        </FormHelperText>
+      </FormControl>
+    </>
+  );
 
   return (
     <Dialog
@@ -116,20 +214,25 @@ export const TrendFiltersDialog = ({
       maxWidth="sm"
       fullScreen={fullScreen}
     >
-      <DialogTitle>Filter Trends</DialogTitle>
+      <DialogTitle>
+        {showComparisonFields ? 'Filter Comparison' : 'Filter Trends'}
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <FormControl fullWidth>
-            <InputLabel>Type</InputLabel>
-            <Select
-              value={transactionType}
-              label="Type"
-              onChange={handleTransactionTypeChange}
-            >
-              <MenuItem value="EXPENSE">Expenses</MenuItem>
-              <MenuItem value="INCOME">Income</MenuItem>
-            </Select>
-          </FormControl>
+          {/* Compare spans both types at once, so it has no Type filter. */}
+          {!showComparisonFields && (
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={transactionType}
+                label="Type"
+                onChange={handleTransactionTypeChange}
+              >
+                <MenuItem value="EXPENSE">Expenses</MenuItem>
+                <MenuItem value="INCOME">Income</MenuItem>
+              </Select>
+            </FormControl>
+          )}
 
           <FormControl fullWidth>
             <InputLabel>Period</InputLabel>
@@ -140,23 +243,25 @@ export const TrendFiltersDialog = ({
             </Select>
           </FormControl>
 
-          <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={selectedCategory}
-              label="Category"
-              onChange={handleCategoryChange}
-            >
-              <MenuItem value="All Categories">All Categories</MenuItem>
-              {categories
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((category) => (
+          {showComparisonFields ? (
+            comparisonFields
+          ) : (
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={selectedCategory}
+                label="Category"
+                onChange={handleCategoryChange}
+              >
+                <MenuItem value="All Categories">All Categories</MenuItem>
+                {sortedCategories.map((category) => (
                   <MenuItem key={category.id} value={category.id}>
                     {category.name}
                   </MenuItem>
                 ))}
-            </Select>
-          </FormControl>
+              </Select>
+            </FormControl>
+          )}
 
           <TextField
             label="Start Date"

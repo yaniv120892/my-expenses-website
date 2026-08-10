@@ -14,6 +14,14 @@ interface CategoryTotal {
   count: number;
 }
 
+export interface MonthlyReportOutcome {
+  sent: boolean;
+  monthLabel: string;
+  transactionCount: number;
+  recipient?: string;
+  reason?: 'NO_SETTINGS' | 'NO_TRANSACTIONS';
+}
+
 interface MonthlyReport {
   monthLabel: string;
   totalIncome: number;
@@ -36,26 +44,41 @@ class MonthlyReportService {
     referenceDate: Date = new Date(),
   ): Promise<void> {
     const userIds = await userSettingsService.getUsersRequiredMonthlyReport();
-    const reportMonth = subMonths(referenceDate, 1);
 
     for (const userId of userIds) {
       // Guarded per user so one failure cannot abort the run for the rest.
       try {
-        await this.sendMonthlyReport(userId, reportMonth);
+        await this.sendMonthlyReportForUser(userId, { referenceDate });
       } catch (err) {
         logger.error({ err, userId }, 'Failed to send monthly report');
       }
     }
   }
 
-  private async sendMonthlyReport(
+  /**
+   * Sends one user their previous-month report.
+   *
+   * `sendWhenEmpty` exists for the Settings "Test" button: the scheduled run
+   * skips a month with no transactions, but someone testing the feature needs
+   * an email to arrive either way, otherwise a working setup is
+   * indistinguishable from a broken one.
+   */
+  public async sendMonthlyReportForUser(
     userId: string,
-    reportMonth: Date,
-  ): Promise<void> {
+    options: { referenceDate?: Date; sendWhenEmpty?: boolean } = {},
+  ): Promise<MonthlyReportOutcome> {
+    const reportMonth = subMonths(options.referenceDate ?? new Date(), 1);
+    const monthLabel = format(reportMonth, 'MMMM yyyy');
+
     const userSettings = await userSettingsService.getUserSettings(userId);
     if (!userSettings) {
       logger.warn({ userId }, 'Skipping monthly report, user settings missing');
-      return;
+      return {
+        sent: false,
+        monthLabel,
+        transactionCount: 0,
+        reason: 'NO_SETTINGS',
+      };
     }
 
     const [transactions, previousTransactions] = await Promise.all([
@@ -63,9 +86,14 @@ class MonthlyReportService {
       this.getMonthTransactions(userId, subMonths(reportMonth, 1)),
     ]);
 
-    if (transactions.length === 0) {
+    if (transactions.length === 0 && !options.sendWhenEmpty) {
       logger.info({ userId }, 'Skipping monthly report, no transactions');
-      return;
+      return {
+        sent: false,
+        monthLabel,
+        transactionCount: 0,
+        reason: 'NO_TRANSACTIONS',
+      };
     }
 
     const report = this.buildReport(
@@ -73,22 +101,31 @@ class MonthlyReportService {
       previousTransactions,
       reportMonth,
     );
-    const csv = this.buildCsv(transactions);
 
     await emailService.send({
       to: userSettings.info.email,
       subject: `Your ${report.monthLabel} expense report`,
       text: this.buildReportText(report),
       html: this.buildReportHtml(report),
-      attachments: [
-        {
-          filename: `transactions_${format(reportMonth, 'yyyy-MM')}.csv`,
-          // Excel only detects UTF-8 from a BOM, and category names are Hebrew.
-          content: Buffer.from(`﻿${csv}`, 'utf8'),
-          contentType: 'text/csv; charset=utf-8',
-        },
-      ],
+      // An empty month has nothing to list, and a header-only CSV is noise.
+      attachments: transactions.length
+        ? [
+            {
+              filename: `transactions_${format(reportMonth, 'yyyy-MM')}.csv`,
+              // Excel only detects UTF-8 from a BOM, and category names are Hebrew.
+              content: Buffer.from(`﻿${this.buildCsv(transactions)}`, 'utf8'),
+              contentType: 'text/csv; charset=utf-8',
+            },
+          ]
+        : undefined,
     });
+
+    return {
+      sent: true,
+      monthLabel,
+      transactionCount: transactions.length,
+      recipient: userSettings.info.email,
+    };
   }
 
   private getMonthTransactions(
@@ -182,6 +219,17 @@ class MonthlyReportService {
         } ${category.count === 1 ? 'transaction' : 'transactions'})`,
     );
 
+    if (report.transactionCount === 0) {
+      return [
+        `Your expense report for ${report.monthLabel}`,
+        '',
+        `No transactions were recorded in ${report.monthLabel}, so there is nothing to summarise.`,
+        '',
+        'Best regards,',
+        'The My Expenses Team',
+      ].join('\n');
+    }
+
     return [
       `Your expense report for ${report.monthLabel}`,
       '',
@@ -222,14 +270,28 @@ class MonthlyReportService {
       )
       .join('');
 
+    if (report.transactionCount === 0) {
+      return `
+      <div style="font-family: Arial, sans-serif; color: #222; max-width: 640px; margin: 0 auto;">
+        <h2 style="margin-bottom: 4px;">Your expense report for ${this.escapeHtml(
+          report.monthLabel,
+        )}</h2>
+        <p>No transactions were recorded in ${this.escapeHtml(
+          report.monthLabel,
+        )}, so there is nothing to summarise.</p>
+        <p style="margin-top: 32px;">Best regards,<br>The My Expenses Team</p>
+      </div>
+    `;
+    }
+
     return `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 640px; margin: 0 auto;">
         <h2 style="margin-bottom: 4px;">Your expense report for ${this.escapeHtml(
           report.monthLabel,
         )}</h2>
-        <p style="color: #666; margin-top: 0;">${
-          report.transactionCount
-        } transactions</p>
+        <p style="color: #666; margin-top: 0;">${report.transactionCount} ${
+          report.transactionCount === 1 ? 'transaction' : 'transactions'
+        }</p>
         <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
           <tr>
             <td style="padding: 8px; background: #f4f4f4;">Total income</td>

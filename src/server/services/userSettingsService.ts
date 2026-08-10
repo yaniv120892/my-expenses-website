@@ -6,6 +6,10 @@ class UserSettingsService {
     return userRepository.getUsersRequiredDailySummary();
   }
 
+  public getUsersRequiredMonthlyReport() {
+    return userRepository.getUsersRequiredMonthlyReport();
+  }
+
   public async isCreateTransactionNotificationEnabled(userId: string) {
     return userRepository.isCreateTransactionNotificationEnabled(userId);
   }
@@ -24,6 +28,7 @@ class UserSettingsService {
         createTransaction: userSettings.notifications.createTransaction,
         dailySummary: userSettings.notifications.dailySummary,
         subscriptionAudit: userSettings.notifications.subscriptionAudit,
+        monthlyReport: userSettings.notifications.monthlyReport,
       },
       provider: {
         enabled: userSettings.providers[0]?.enabled ?? false,
@@ -41,6 +46,7 @@ class UserSettingsService {
         createTransaction: boolean;
         dailySummary: boolean;
         subscriptionAudit: boolean;
+        monthlyReport: boolean;
       };
       provider: {
         enabled: boolean;

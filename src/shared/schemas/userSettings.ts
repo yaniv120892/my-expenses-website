@@ -8,6 +8,7 @@ export const userSettingsNotificationsSchema = z.object({
   createTransaction: z.boolean(),
   dailySummary: z.boolean(),
   subscriptionAudit: z.boolean(),
+  monthlyReport: z.boolean(),
 });
 
 export const notificationProviderSchema = z.object({

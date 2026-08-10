@@ -97,6 +97,7 @@ model UserNotificationPreference {
   createTransaction  Boolean  @default(false)
   dailySummary       Boolean  @default(false)
   subscriptionAudit  Boolean  @default(false)
+  monthlyReport      Boolean  @default(false)
 }
 
 model UserNotificationProvider {

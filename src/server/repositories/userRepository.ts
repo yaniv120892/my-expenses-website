@@ -16,6 +16,19 @@ class UserRepository {
     return userNotificationPreferences.map((user) => user.userId);
   }
 
+  public async getUsersRequiredMonthlyReport() {
+    const userNotificationPreferences =
+      await prisma.userNotificationPreference.findMany({
+        where: {
+          monthlyReport: true,
+        },
+        select: {
+          userId: true,
+        },
+      });
+    return userNotificationPreferences.map((user) => user.userId);
+  }
+
   public async isCreateTransactionNotificationEnabled(userId: string) {
     const notificationPreference =
       await prisma.userNotificationPreference.findUnique({
@@ -78,6 +91,7 @@ class UserRepository {
         createTransaction: user.userNotification?.createTransaction ?? false,
         dailySummary: user.userNotification?.dailySummary ?? false,
         subscriptionAudit: user.userNotification?.subscriptionAudit ?? false,
+        monthlyReport: user.userNotification?.monthlyReport ?? false,
       },
       providers: user.userNotificationProviders || [],
     };
@@ -89,6 +103,7 @@ class UserRepository {
       createTransaction: boolean;
       dailySummary: boolean;
       subscriptionAudit: boolean;
+      monthlyReport: boolean;
     },
     providers: {
       provider: NotificationProvider;
@@ -102,12 +117,14 @@ class UserRepository {
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
         subscriptionAudit: notifications.subscriptionAudit,
+        monthlyReport: notifications.monthlyReport,
       },
       create: {
         userId: userId,
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
         subscriptionAudit: notifications.subscriptionAudit,
+        monthlyReport: notifications.monthlyReport,
       },
     });
 

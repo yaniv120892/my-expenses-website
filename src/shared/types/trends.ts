@@ -35,6 +35,55 @@ export type CategorySpendingTrend = {
   categoryName: string;
 };
 
+export type ComparisonScope = 'SUBTREE' | 'EXACT';
+
+export type ComparisonMeasure = 'net' | 'income' | 'expense';
+
+export type ComparisonCell = {
+  income: number;
+  expense: number;
+  net: number;
+  count: number;
+};
+
+export type ComparisonSeries = {
+  categoryId: string;
+  categoryName: string;
+  scope: ComparisonScope;
+  /** Ids actually summed — the category plus its descendants under SUBTREE. */
+  memberCategoryIds: string[];
+  total: ComparisonCell;
+};
+
+export type ComparisonBucket = {
+  key: string;
+  startDate: string;
+  /** Positionally aligned with CategoryComparison.series. */
+  cells: ComparisonCell[];
+  rowTotal: ComparisonCell;
+};
+
+export type CategoryComparison = {
+  period: TrendPeriod;
+  startDate: string;
+  endDate: string;
+  series: ComparisonSeries[];
+  /** Ascending and dense — empty periods are present with zeroed cells. */
+  buckets: ComparisonBucket[];
+  grandTotal: ComparisonCell;
+  /** A selected category is an ancestor of another, so totals double count. */
+  hasOverlappingSeries: boolean;
+};
+
+export interface GetCategoryComparisonRequest {
+  startDate: Date;
+  endDate: Date;
+  period: TrendPeriod;
+  categoryIds: string[];
+  scope: ComparisonScope;
+  transactionType?: TransactionType;
+}
+
 export interface GetSpendingTrendsRequest {
   startDate?: Date;
   endDate?: Date;

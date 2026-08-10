@@ -1,7 +1,12 @@
 'use client';
 
 import { Chip, Stack } from '@mui/material';
-import { TrendPeriod, TransactionType } from '@/types/trends';
+import {
+  ComparisonScope,
+  TrendPeriod,
+  TransactionType,
+  TrendsView,
+} from '@/types/trends';
 import { Category } from '@/types';
 import { formatDateRange } from '@/utils/dateUtils';
 
@@ -11,6 +16,9 @@ interface TrendFiltersDisplayProps {
   endDate: Date;
   selectedCategory: string;
   transactionType: TransactionType;
+  comparisonCategoryIds: string[];
+  comparisonScope: ComparisonScope;
+  view: TrendsView;
   categories: Category[];
   onOpenFilters: () => void;
 }
@@ -21,6 +29,9 @@ export const TrendFiltersDisplay = ({
   endDate,
   selectedCategory,
   transactionType,
+  comparisonCategoryIds,
+  comparisonScope,
+  view,
   categories,
   onOpenFilters,
 }: TrendFiltersDisplayProps) => {
@@ -40,12 +51,27 @@ export const TrendFiltersDisplay = ({
     return categories.find((c) => c.id === selectedCategory)?.name || '';
   };
 
-  const labels = [
-    transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
-    formatPeriod(period),
-    getCategoryName(),
-    formatDateRange(startDate, endDate, '–'),
-  ];
+  // Compare mode spans both transaction types and its own category selection,
+  // so the overview's type and single-category chips would be misleading.
+  const labels =
+    view === 'compare'
+      ? [
+          formatPeriod(period),
+          comparisonCategoryIds.length === 1
+            ? categories.find((c) => c.id === comparisonCategoryIds[0])?.name ||
+              '1 category'
+            : `${comparisonCategoryIds.length} categories`,
+          comparisonScope === 'SUBTREE'
+            ? 'Including subcategories'
+            : 'Exact categories',
+          formatDateRange(startDate, endDate, '–'),
+        ]
+      : [
+          transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
+          formatPeriod(period),
+          getCategoryName(),
+          formatDateRange(startDate, endDate, '–'),
+        ];
 
   return (
     <Stack

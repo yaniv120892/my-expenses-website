@@ -102,23 +102,23 @@ export function ComparisonChart({ comparison, measure, mode }: Props) {
   const seriesColors = palette.charts.series;
   const rows = buildChartRows(comparison, measure, comparison.period);
 
-  const axes = (
-    <>
-      <CartesianGrid strokeDasharray="3 3" stroke={palette.divider} />
-      {/* Not reversed: a comparison reads left to right chronologically. */}
-      <XAxis
-        dataKey="label"
-        tick={{ fill: palette.text.secondary, fontSize: 12 }}
-      />
-      <YAxis
-        tickFormatter={(value: number) => formatNumber(value)}
-        tick={{ fill: palette.text.secondary, fontSize: 12 }}
-        width={72}
-      />
-      <Tooltip content={<ChartTooltip />} />
-      {!isMobile && <Legend />}
-    </>
-  );
+  const tickStyle = { fill: palette.text.secondary, fontSize: 12 };
+  // Returned as an array, not a fragment: recharts discovers axes, grid,
+  // tooltip and legend by walking its direct children, and it does not
+  // traverse into a Fragment — wrapping these hides them entirely.
+  const axes = [
+    <CartesianGrid key="grid" strokeDasharray="3 3" stroke={palette.divider} />,
+    // Not reversed: a comparison reads left to right chronologically.
+    <XAxis key="x" dataKey="label" tick={tickStyle} />,
+    <YAxis
+      key="y"
+      tickFormatter={(value: number) => formatNumber(value)}
+      tick={tickStyle}
+      width={72}
+    />,
+    <Tooltip key="tooltip" content={<ChartTooltip />} />,
+    ...(isMobile ? [] : [<Legend key="legend" />]),
+  ];
 
   return (
     <Box sx={{ width: '100%', height: { xs: 260, md: 360 } }}>

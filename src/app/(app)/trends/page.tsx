@@ -1,58 +1,78 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@mui/material';
+import { Box, Button, Tab, Tabs } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { subMonths } from 'date-fns';
 import PageHeader from '@/components/shell/PageHeader';
-import { TrendFilters } from '@/types/trends';
+import { ComparisonMeasure, TrendFilters, TrendsView } from '@/types/trends';
 import { OverallTrendCard } from '@/components/trends/OverallTrendCard';
 import { CategoryTrendCard } from '@/components/trends/CategoryTrendCard';
+import { CategoryComparisonSection } from '@/components/trends/CategoryComparisonSection';
 import { TrendCardSkeleton } from '@/components/trends/TrendSkeleton';
 import { TrendFiltersDialog } from '@/components/trends/TrendFiltersDialog';
 import { TrendFiltersDisplay } from '@/components/trends/TrendFiltersDisplay';
 import {
   useSpendingTrendsQuery,
   useCategorySpendingTrendsQuery,
+  useCategoryComparisonQuery,
 } from '@/hooks/useTrendsQuery';
 import { useCategoriesQuery } from '@/hooks/useTransactionsQuery';
 
 export default function TrendsPage() {
+  const [view, setView] = useState<TrendsView>('overview');
   const [filters, setFilters] = useState<TrendFilters>({
     period: 'monthly',
     startDate: subMonths(new Date(), 6),
     endDate: new Date(),
     selectedCategory: 'All Categories',
     transactionType: 'EXPENSE',
+    comparisonCategoryIds: [],
+    comparisonScope: 'SUBTREE',
   });
+  const [measure, setMeasure] = useState<ComparisonMeasure>('net');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(),
   );
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
+  const isCompare = view === 'compare';
+  const isAllCategories = filters.selectedCategory === 'All Categories';
+
   const { data: categories = [] } = useCategoriesQuery();
   const { data: overallTrend, isLoading: isOverallLoading } =
-    useSpendingTrendsQuery({
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      period: filters.period,
-      categoryId:
-        filters.selectedCategory === 'All Categories'
-          ? undefined
-          : filters.selectedCategory,
-      transactionType: filters.transactionType,
-    });
+    useSpendingTrendsQuery(
+      {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        period: filters.period,
+        categoryId: isAllCategories ? undefined : filters.selectedCategory,
+        transactionType: filters.transactionType,
+      },
+      !isCompare,
+    );
 
   const { data: categoryTrends = [], isLoading: isCategoryLoading } =
     useCategorySpendingTrendsQuery(
-      filters.selectedCategory === 'All Categories'
-        ? {
-            startDate: filters.startDate,
-            endDate: filters.endDate,
-            period: filters.period,
-            transactionType: filters.transactionType,
-          }
-        : { period: filters.period },
+      {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        period: filters.period,
+        transactionType: filters.transactionType,
+      },
+      !isCompare && isAllCategories,
+    );
+
+  const { data: comparison, isLoading: isComparisonLoading } =
+    useCategoryComparisonQuery(
+      {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        period: filters.period,
+        categoryIds: filters.comparisonCategoryIds,
+        scope: filters.comparisonScope,
+      },
+      isCompare,
     );
 
   const isLoading = isOverallLoading || isCategoryLoading;
@@ -89,8 +109,20 @@ export default function TrendsPage() {
         }
       />
 
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs
+          value={view}
+          onChange={(_, value) => setView(value as TrendsView)}
+          aria-label="Trends view"
+        >
+          <Tab label="Overview" value="overview" />
+          <Tab label="Compare" value="compare" />
+        </Tabs>
+      </Box>
+
       <TrendFiltersDisplay
         {...filters}
+        view={view}
         categories={categories}
         onOpenFilters={() => setIsFiltersOpen(true)}
       />
@@ -101,9 +133,19 @@ export default function TrendsPage() {
         onApply={handleApplyFilters}
         {...filters}
         categories={categories}
+        showComparisonFields={isCompare}
       />
 
-      {isLoading ? (
+      {isCompare ? (
+        <CategoryComparisonSection
+          comparison={comparison}
+          isLoading={isComparisonLoading}
+          selectedCount={filters.comparisonCategoryIds.length}
+          measure={measure}
+          onMeasureChange={setMeasure}
+          onOpenFilters={() => setIsFiltersOpen(true)}
+        />
+      ) : isLoading ? (
         <TrendCardSkeleton />
       ) : (
         <>
@@ -117,7 +159,7 @@ export default function TrendsPage() {
             />
           )}
 
-          {filters.selectedCategory === 'All Categories' &&
+          {isAllCategories &&
             categoryTrends.map((trend) => (
               <CategoryTrendCard
                 key={trend.categoryId}

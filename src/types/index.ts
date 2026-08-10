@@ -1,25 +1,24 @@
 export enum TabOption {
-  Transactions = "TRANSACTIONS",
-  PendingTransactions = "PENDING_TRANSACTIONS",
-  ScheduledTransactions = "SCHEDULED_TRANSACTIONS",
-  Subscriptions = "SUBSCRIPTIONS",
-  Dashboard = "DASHBOARD",
-  Settings = "SETTINGS",
-  Trends = "TRENDS",
-  Imports = "IMPORTS",
+  Transactions = 'TRANSACTIONS',
+  PendingTransactions = 'PENDING_TRANSACTIONS',
+  ScheduledTransactions = 'SCHEDULED_TRANSACTIONS',
+  Subscriptions = 'SUBSCRIPTIONS',
+  Dashboard = 'DASHBOARD',
+  Settings = 'SETTINGS',
+  Trends = 'TRENDS',
+  Imports = 'IMPORTS',
 }
 
-export type TransactionType = "INCOME" | "EXPENSE";
+export type TransactionType = 'INCOME' | 'EXPENSE';
 
 export interface Category {
   id: string;
   name: string;
+  parentId?: string | null;
 }
 
 export type TransactionFileStatus =
-  | "ACTIVE"
-  | "MARKED_FOR_DELETION"
-  | "DELETED";
+  'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
 
 export interface TransactionFile {
   id: string;
@@ -71,7 +70,7 @@ export interface TransactionFilters {
   smartSearch?: boolean;
 }
 
-export type ScheduleType = "DAILY" | "WEEKLY" | "MONTHLY";
+export type ScheduleType = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 export interface CreateScheduledTransactionInput {
   description: string;

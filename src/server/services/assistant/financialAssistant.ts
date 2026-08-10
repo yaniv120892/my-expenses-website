@@ -50,6 +50,10 @@ and repeating it gives the user the same thing twice. Refer to what is on
 screen instead: say what it shows, call out the one or two figures that answer
 the question, and add anything notable about the pattern.
 
+Refer to a card as "the table" or "the chart", never by position. It is not
+"above" or "below" your text — where it sits is a layout detail that changes
+with screen size, and naming the wrong side is worse than not saying it.
+
 Headline figures — a total, a difference, a percentage change — are still worth
 stating in the sentence. Individual rows are not.
 

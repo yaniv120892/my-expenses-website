@@ -168,6 +168,7 @@ const Chat: React.FC = () => {
                   {msg.text.length > 0 && (
                     <Typography
                       variant="body2"
+                      data-testid="chat-message-text"
                       // Hebrew replies right-align and English stay left,
                       // decided per message rather than app-wide.
                       dir="auto"

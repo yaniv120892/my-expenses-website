@@ -9,11 +9,13 @@ import { signIn } from './helpers';
  * pipe-separated text it used to be. Shot at phone width because that is where
  * the old rendering was worst.
  *
- * Read the prose in those screenshots with the mock in mind: it echoes each
- * tool result verbatim, which is what lets the API harness prove figures come
- * from TypeScript rather than the model. A real model follows the "the user
- * already sees the cards — summarise, do not list" instruction instead, so the
- * cards are the part of the screenshot that represents the product.
+ * The assertions hold against either model, because they check content that
+ * comes from the structured view rather than from anything the model wrote.
+ *
+ * The committed screenshots were captured against a real model. Re-running
+ * with the e2e mock overwrites them with far uglier prose — the mock echoes
+ * each tool result verbatim, which is what lets the API harness prove figures
+ * come from TypeScript. That echo is a harness artefact, not the product.
  */
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
@@ -31,6 +33,29 @@ async function ask(page: import('@playwright/test').Page, question: string) {
   const input = page.getByPlaceholder('Ask about your transactions...');
   await input.fill(question);
   await input.press('Enter');
+}
+
+/**
+ * Waits for the reply's prose as well as its card.
+ *
+ * The card lands first — the tool result exists before the model has written
+ * anything about it — so screenshotting as soon as the card appears captures a
+ * reply that is still mid-flight.
+ */
+async function waitForProse(reply: import('@playwright/test').Locator) {
+  await expect
+    .poll(
+      async () =>
+        (
+          (await reply
+            .last()
+            .locator('[data-testid="chat-message-text"]')
+            .textContent()
+            .catch(() => '')) || ''
+        ).length,
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThan(20);
 }
 
 test.describe('assistant renders structured results', () => {
@@ -57,6 +82,8 @@ test.describe('assistant renders structured results', () => {
     // The old failure mode: the model retyping rows as "date | desc | amount".
     await expect(reply.last()).not.toContainText('|');
 
+    await waitForProse(reply);
+
     await page.screenshot({
       path: 'docs/proof-of-work/chat-transaction-list-mobile.png',
       fullPage: false,
@@ -80,6 +107,8 @@ test.describe('assistant renders structured results', () => {
       reply.last().locator('path.recharts-sector').first(),
     ).toBeVisible();
     await expect(reply.last().locator('path.recharts-sector')).toHaveCount(2);
+
+    await waitForProse(reply);
 
     await page.screenshot({
       path: 'docs/proof-of-work/chat-category-breakdown-mobile.png',

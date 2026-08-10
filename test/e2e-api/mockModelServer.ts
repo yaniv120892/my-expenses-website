@@ -214,6 +214,17 @@ function pickTool(question: string): RecordedToolCall {
     };
   }
 
+  if (question.includes('list')) {
+    return {
+      name: 'listTransactions',
+      args: {
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        transactionType: 'EXPENSE',
+      },
+    };
+  }
+
   return {
     name: 'summarizeTransactions',
     args: {

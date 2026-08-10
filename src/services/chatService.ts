@@ -1,7 +1,10 @@
 import { Message } from '@/hooks/useChat';
+import { AssistantView } from '@/shared/types/chat';
 
 export interface StreamHandlers {
   onDelta: (delta: string) => void;
+  /** A structured result the assistant's tools produced, ready to render. */
+  onView: (view: AssistantView) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -44,10 +47,18 @@ export const streamMessage = async (
     try {
       const event = JSON.parse(line.slice('data: '.length));
 
-      if (event.type === 'delta') {
-        handlers.onDelta(event.value);
-      } else if (event.type === 'error') {
-        handlers.onError(event.message);
+      switch (event.type) {
+        case 'delta':
+          handlers.onDelta(event.value);
+          break;
+        case 'view':
+          handlers.onView(event.view);
+          break;
+        case 'error':
+          handlers.onError(event.message);
+          break;
+        default:
+          break;
       }
     } catch {
       // A frame that does not parse is not worth failing the whole stream over.

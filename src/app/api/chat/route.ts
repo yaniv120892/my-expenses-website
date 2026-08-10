@@ -20,14 +20,16 @@ export const POST = createHandler({
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          const textStream = await chatService.streamChatResponse(
+          const events = await chatService.streamChatResponse(
             body.messages,
             userId,
             req.signal,
           );
 
-          for await (const delta of textStream) {
-            controller.enqueue(sseFrame({ type: 'delta', value: delta }));
+          // Events are already the wire shape — text deltas and the structured
+          // views the tools produced — so they forward straight through.
+          for await (const event of events) {
+            controller.enqueue(sseFrame(event));
           }
 
           controller.enqueue(sseFrame({ type: 'done' }));

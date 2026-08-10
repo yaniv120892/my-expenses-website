@@ -9,6 +9,7 @@ import {
 } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
 import { startStack } from './stack';
+import type { AssistantView } from '../../src/shared/types/chat';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,6 +24,14 @@ interface Frame {
   type: string;
   value?: string;
   message?: string;
+  view?: AssistantView;
+}
+
+function viewsOf(frames: Frame[]): AssistantView[] {
+  return frames
+    .filter((frame) => frame.type === 'view')
+    .map((frame) => frame.view)
+    .filter((view): view is AssistantView => !!view);
 }
 
 const results: { name: string; ok: boolean; detail: string }[] = [];
@@ -294,6 +303,73 @@ async function main(): Promise<void> {
     preview(shareRec.toolResults.join('\n')),
   );
   check('share answer reached the user', textOf(share.frames).includes('%'));
+
+  // 8b. The structured views the chat UI renders.
+  //
+  // These are what stop a "list my transactions" answer coming back as a wall
+  // of pipe-separated prose: the figures ride the stream as data and are drawn
+  // as cards, while the model only ever sees the summary string.
+  const breakdownView = viewsOf(share.frames).find(
+    (view) => view.kind === 'categoryBreakdown',
+  );
+  check(
+    'category question emits a categoryBreakdown view',
+    !!breakdownView &&
+      breakdownView.slices.length > 0 &&
+      breakdownView.slices.every(
+        (slice) =>
+          typeof slice.amount === 'number' &&
+          typeof slice.percentage === 'number',
+      ),
+    breakdownView ? preview(JSON.stringify(breakdownView.slices)) : 'no view',
+  );
+
+  const comparisonView = viewsOf(compare.frames).find(
+    (view) => view.kind === 'comparison',
+  );
+  check(
+    'comparison emits a view carrying the same figures as the prose',
+    !!comparisonView &&
+      comparisonView.difference === 1100 &&
+      comparisonView.periods.length === 2,
+    comparisonView
+      ? `difference ${comparisonView.difference}, ${comparisonView.periods.length} periods`
+      : 'no view',
+  );
+
+  resetRecording();
+  const listed = await streamChat(
+    seeded.userA.token,
+    'List my transactions for this year',
+  );
+  const listView = viewsOf(listed.frames).find(
+    (view) => view.kind === 'transactionList',
+  );
+  check(
+    'list question emits a transactionList view with real rows',
+    !!listView &&
+      listView.items.length > 0 &&
+      listView.items.every((item) => !!item.id && !!item.description),
+    listView
+      ? `${listView.items.length} of ${listView.totalCount} rows`
+      : 'no view',
+  );
+
+  // The point of routing views around the model: the rows exist client-side
+  // without ever entering the prompt, so the model cannot retype them. Checked
+  // on the descriptions, not the ids — an id was never in the summary anyway,
+  // so asserting on it would pass without proving anything.
+  const listToolOutput = getRecording().toolResults.join('\n');
+  check(
+    'transaction rows never reach the model',
+    !!listView &&
+      listView.items.every(
+        (item) =>
+          !listToolOutput.includes(item.id) &&
+          !listToolOutput.includes(item.description),
+      ),
+    preview(listToolOutput),
+  );
 
   // 9. Memory persisted a thread for this user.
   const threads = await query<{ count: string }>(

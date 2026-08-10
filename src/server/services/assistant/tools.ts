@@ -10,8 +10,23 @@ import chatAggregationService from '@/server/services/chatAggregationService';
 import { Transaction } from '@/shared/types/transaction';
 import { AggregationType } from '@/shared/types/chat';
 import { TrendPeriod } from '@/shared/types/trends';
+import { recordAssistantView } from '@/server/services/assistant/viewSink';
+import {
+  buildAggregationView,
+  buildCategoryTrendView,
+  buildComparisonView,
+  buildTrendView,
+} from '@/server/services/assistant/views';
 
 export const USER_ID_CONTEXT_KEY = 'userId';
+
+/**
+ * The part of Mastra's tool context these helpers need. Structural rather than
+ * imported so the tools stay testable with a plain object.
+ */
+type AssistantToolContext = {
+  requestContext?: { get: (key: string) => unknown };
+};
 
 // Caps rows returned per tool call, not rows read — the smart-search path in
 // the repository still selects all matches and paginates in memory.
@@ -22,9 +37,7 @@ const MAX_TRANSACTIONS = 5000;
  * server-side through the request context, so a prompt-injected message
  * cannot read another user's transactions.
  */
-function requireUserId(context: {
-  requestContext?: { get: (key: string) => unknown };
-}): string {
+function requireUserId(context: AssistantToolContext): string {
   const userId = context.requestContext?.get(USER_ID_CONTEXT_KEY);
 
   if (typeof userId !== 'string' || !userId) {
@@ -90,16 +103,27 @@ async function resolveCategoryId(
   return partial?.id;
 }
 
+/**
+ * Returns the model-facing summary and, as a side effect, records the
+ * structured view the chat UI draws. Only the returned value reaches the model.
+ */
 async function summarize(
-  userId: string,
+  context: AssistantToolContext,
   filters: DateFilterInput,
   aggregation: AggregationType,
 ): Promise<{ summary: string; transactionCount: number }> {
+  const userId = requireUserId(context);
   const transactions = await fetchTransactions(userId, filters);
   const { summary, transactionCount } = chatAggregationService.aggregate(
     transactions,
     aggregation,
   );
+
+  const view = buildAggregationView(transactions, aggregation);
+  if (view) {
+    recordAssistantView(context, view);
+  }
+
   return { summary, transactionCount };
 }
 
@@ -146,8 +170,7 @@ export function buildAssistantTools() {
       'Lists individual transactions matching the given filters. Use this when the user wants to see specific transactions rather than a total.',
     inputSchema: dateFilterSchema,
     outputSchema: summaryOutputSchema,
-    execute: async (input, context) =>
-      summarize(requireUserId(context), input, 'list'),
+    execute: async (input, context) => summarize(context, input, 'list'),
   });
 
   const summarizeTransactions = createTool({
@@ -168,7 +191,7 @@ export function buildAssistantTools() {
     }),
     outputSchema: summaryOutputSchema,
     execute: async (input, context) =>
-      summarize(requireUserId(context), input, input.aggregation),
+      summarize(context, input, input.aggregation),
   });
 
   const comparePeriods = createTool({
@@ -211,9 +234,23 @@ export function buildAssistantTools() {
         }),
       ]);
 
+      const periodAData = {
+        label: input.periodA.label,
+        transactions: transactionsA,
+      };
+      const periodBData = {
+        label: input.periodB.label,
+        transactions: transactionsB,
+      };
+
       const result = chatAggregationService.computeComparison(
-        { label: input.periodA.label, transactions: transactionsA },
-        { label: input.periodB.label, transactions: transactionsB },
+        periodAData,
+        periodBData,
+      );
+
+      recordAssistantView(
+        context,
+        buildComparisonView(periodAData, periodBData),
       );
 
       return {
@@ -270,6 +307,14 @@ export function buildAssistantTools() {
             `  ${trend.categoryName}: ${chatAggregationService.formatCurrency(trend.totalAmount)} (${chatAggregationService.formatPercentChange(trend.percentageChange)} vs previous period, trending ${trend.trend})`,
         );
 
+        const categoryTrendView = buildCategoryTrendView(
+          trends,
+          input.period as TrendPeriod,
+        );
+        if (categoryTrendView) {
+          recordAssistantView(context, categoryTrendView);
+        }
+
         return {
           summary: lines.length
             ? `Category trends (${input.period}):\n${lines.join('\n')}`
@@ -278,6 +323,12 @@ export function buildAssistantTools() {
       }
 
       const trend = await trendService.getSpendingTrends(request, userId);
+
+      const trendView = buildTrendView(trend);
+      if (trendView) {
+        recordAssistantView(context, trendView);
+      }
+
       const points = trend.points.map(
         (point) =>
           `  ${point.date}: ${chatAggregationService.formatCurrency(point.amount)} (${point.count} transactions)`,

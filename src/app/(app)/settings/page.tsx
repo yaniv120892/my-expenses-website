@@ -41,6 +41,7 @@ type UserSettingsForm = {
     createTransaction: boolean;
     dailySummary: boolean;
     subscriptionAudit: boolean;
+    monthlyReport: boolean;
   };
   info: {
     email: string;
@@ -56,6 +57,10 @@ const NOTIFICATION_FIELDS = [
   {
     name: 'notifications.subscriptionAudit',
     label: 'Monthly subscription audit',
+  },
+  {
+    name: 'notifications.monthlyReport',
+    label: 'Monthly report by email',
   },
 ] as const;
 
@@ -156,6 +161,7 @@ export default function SettingsPage() {
         createTransaction: false,
         dailySummary: false,
         subscriptionAudit: false,
+        monthlyReport: false,
       },
       info: { email: '' },
     },

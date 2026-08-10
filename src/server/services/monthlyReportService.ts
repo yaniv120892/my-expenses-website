@@ -179,7 +179,7 @@ class MonthlyReportService {
           category.expense,
         )} spent, ${this.formatAmount(category.income)} received (${
           category.count
-        } transactions)`,
+        } ${category.count === 1 ? 'transaction' : 'transactions'})`,
     );
 
     return [

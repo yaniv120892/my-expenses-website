@@ -15,6 +15,7 @@ export const GET = createHandler({
         createTransaction: userSettings.notifications.createTransaction,
         dailySummary: userSettings.notifications.dailySummary,
         subscriptionAudit: userSettings.notifications.subscriptionAudit,
+        monthlyReport: userSettings.notifications.monthlyReport,
       },
       provider: {
         enabled: userSettings.provider.enabled,
@@ -34,6 +35,7 @@ export const PUT = createHandler({
         createTransaction: body.notifications.createTransaction,
         dailySummary: body.notifications.dailySummary,
         subscriptionAudit: body.notifications.subscriptionAudit,
+        monthlyReport: body.notifications.monthlyReport,
       },
       provider: {
         enabled: body.provider.enabled,

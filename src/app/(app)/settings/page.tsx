@@ -28,6 +28,7 @@ import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightne
 import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '@/components/shell/PageHeader';
 import {
+  useTestMonthlyReportMutation,
   useTestTelegramMutation,
   useUpdateUserSettingsMutation,
   useUserSettingsQuery,
@@ -148,9 +149,17 @@ export default function SettingsPage() {
   const { data: settings, isLoading: loading, error } = useUserSettingsQuery();
   const { mutateAsync: saveUserSettings } = useUpdateUserSettingsMutation();
   const { mutateAsync: testTelegramConnection } = useTestTelegramMutation();
+  const { mutateAsync: sendTestMonthlyReport } = useTestMonthlyReportMutation();
 
-  const [testResult, setTestResult] = useState('');
+  // A {success, message} pair rather than a bare string: the snackbar used to
+  // pick its severity by comparing the message against one exact literal, so
+  // any second test flow would have rendered its success in red.
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [reportTestLoading, setReportTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -185,19 +194,40 @@ export default function SettingsPage() {
   const isDirty = formState.isDirty;
 
   const handleTestTelegram = async () => {
-    setTestResult('');
+    setTestResult(null);
     setTestLoading(true);
     try {
       const result = await testTelegramConnection(
         watchedValues.provider.telegramChatId,
       );
-      setTestResult(
-        result.success ? 'Test message sent successfully' : result.message,
-      );
+      setTestResult({
+        success: result.success,
+        message: result.success
+          ? 'Test message sent successfully'
+          : result.message,
+      });
     } catch {
-      setTestResult('Failed to send test message');
+      setTestResult({
+        success: false,
+        message: 'Failed to send test message',
+      });
     } finally {
       setTestLoading(false);
+    }
+  };
+
+  const handleTestMonthlyReport = async () => {
+    setTestResult(null);
+    setReportTestLoading(true);
+    try {
+      setTestResult(await sendTestMonthlyReport());
+    } catch {
+      setTestResult({
+        success: false,
+        message: 'Failed to send the test report',
+      });
+    } finally {
+      setReportTestLoading(false);
     }
   };
 
@@ -352,24 +382,57 @@ export default function SettingsPage() {
         <SettingsSection title="Notifications">
           <Stack>
             {NOTIFICATION_FIELDS.map(({ name, label }) => (
-              <Controller
+              <Stack
                 key={name}
-                name={name}
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                      />
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                sx={{ flexWrap: 'wrap' }}
+              >
+                <Controller
+                  name={name}
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label={label}
+                    />
+                  )}
+                />
+                {name === 'notifications.monthlyReport' && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleTestMonthlyReport}
+                    disabled={
+                      reportTestLoading ||
+                      !watchedValues.notifications.monthlyReport
                     }
-                    label={label}
-                  />
+                    startIcon={
+                      reportTestLoading ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : null
+                    }
+                  >
+                    Send now
+                  </Button>
                 )}
-              />
+              </Stack>
             ))}
           </Stack>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: 1 }}
+          >
+            &quot;Send now&quot; emails you last month&apos;s report
+            immediately, so you can check it works without waiting for the 1st.
+          </Typography>
         </SettingsSection>
       </Stack>
 
@@ -385,19 +448,15 @@ export default function SettingsPage() {
       </Snackbar>
       <Snackbar
         open={!!testResult}
-        autoHideDuration={4000}
-        onClose={() => setTestResult('')}
+        autoHideDuration={8000}
+        onClose={() => setTestResult(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
-          severity={
-            testResult === 'Test message sent successfully'
-              ? 'success'
-              : 'error'
-          }
+          severity={testResult?.success ? 'success' : 'error'}
           sx={{ width: '100%' }}
         >
-          {testResult}
+          {testResult?.message}
         </Alert>
       </Snackbar>
     </>

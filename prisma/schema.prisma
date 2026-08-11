@@ -89,6 +89,19 @@ model User {
   autoApproveRules          AutoApproveRule[]
   categoryMappings          UserCategoryMapping[]
   detectedSubscriptions     DetectedSubscription[]
+  announcementAcks          AnnouncementAck[]
+}
+
+// Which in-app announcements a user has acknowledged. announcementId is a
+// string chosen in src/shared/announcements.ts rather than a foreign key, so
+// retiring an announcement leaves a harmless orphan row instead of breaking.
+model AnnouncementAck {
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id])
+  announcementId String
+  acknowledgedAt DateTime @default(now())
+
+  @@id([userId, announcementId])
 }
 
 model UserNotificationPreference {

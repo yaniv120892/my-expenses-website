@@ -9,6 +9,7 @@ import {
 import { signToken, tokenTtlSeconds, verifyToken } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
+import announcementService from '@/server/services/announcementService';
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
@@ -20,7 +21,13 @@ class AuthService {
       return { error: 'User already exists' };
     }
     const hashedPassword = await hash(password, 10);
-    await userRepository.createUser(email, username, hashedPassword);
+    const user = await userRepository.createUser(
+      email,
+      username,
+      hashedPassword,
+    );
+    // Nothing that shipped before this account existed is "new" to it.
+    await announcementService.acknowledgeAllForNewUser(user.id);
     const code = this.generateCode();
     await setValue(`loginCode:${email}`, code, 600);
     await this.sendCodeByEmail(email, code);

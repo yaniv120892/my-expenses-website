@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Accordion,
@@ -10,13 +10,11 @@ import {
   Link,
   Snackbar,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import Image from 'next/image';
@@ -33,8 +31,6 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
 ];
-
-const ATTACHMENTS_TOOLTIP_SEEN_KEY = 'attachmentsTooltipSeen';
 
 interface Props {
   transactionId?: string;
@@ -71,21 +67,6 @@ export default function TransactionAttachments({
   submitButtonLabel = 'Update',
 }: Props) {
   const [error, setError] = useState<string | null>(null);
-  const [showAttachmentsTooltip, setShowAttachmentsTooltip] = useState(false);
-
-  useEffect(() => {
-    if (
-      typeof window !== 'undefined' &&
-      !localStorage.getItem(ATTACHMENTS_TOOLTIP_SEEN_KEY)
-    ) {
-      setShowAttachmentsTooltip(true);
-      localStorage.setItem(ATTACHMENTS_TOOLTIP_SEEN_KEY, 'true');
-    }
-  }, []);
-
-  const handleAttachmentsTooltipClose = () => {
-    setShowAttachmentsTooltip(false);
-  };
 
   const { data: files = [], isLoading: isFilesLoading } =
     useTransactionFilesQuery(transactionId || '');
@@ -183,36 +164,9 @@ export default function TransactionAttachments({
     <Box>
       <Accordion variant="outlined" disableGutters defaultExpanded={false}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2 }}>
-          <Tooltip
-            title={
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <span>
-                  📎 <b>New!</b> You can now attach files to transactions
-                </span>
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAttachmentsTooltipClose();
-                  }}
-                  sx={{ color: 'common.white', p: 0.5 }}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-            }
-            open={showAttachmentsTooltip}
-            arrow
-            placement="left"
-            onClose={handleAttachmentsTooltipClose}
-            disableFocusListener
-            disableHoverListener
-            disableTouchListener
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Attachments ({attachedCount})
-            </Typography>
-          </Tooltip>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Attachments ({attachedCount})
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Box

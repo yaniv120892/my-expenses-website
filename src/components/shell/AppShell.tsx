@@ -34,6 +34,7 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
+import WhatsNewLauncher from '@/components/announcements/WhatsNewLauncher';
 import { usePendingTransactionsQuery } from '@/hooks/usePendingTransactionsQuery';
 import { useSession } from '@/hooks/useSession';
 import { logout } from '@/services/authClient';
@@ -42,10 +43,18 @@ export const DRAWER_WIDTH = 248;
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: SpaceDashboardOutlinedIcon },
-  { label: 'Transactions', href: '/transactions', icon: ReceiptLongOutlinedIcon },
+  {
+    label: 'Transactions',
+    href: '/transactions',
+    icon: ReceiptLongOutlinedIcon,
+  },
   { label: 'Pending', href: '/pending', icon: PendingActionsOutlinedIcon },
   { label: 'Scheduled', href: '/scheduled', icon: EventRepeatOutlinedIcon },
-  { label: 'Subscriptions', href: '/subscriptions', icon: AutorenewOutlinedIcon },
+  {
+    label: 'Subscriptions',
+    href: '/subscriptions',
+    icon: AutorenewOutlinedIcon,
+  },
   { label: 'Imports', href: '/imports', icon: UploadFileOutlinedIcon },
   { label: 'Trends', href: '/trends', icon: TrendingUpOutlinedIcon },
   { label: 'Settings', href: '/settings', icon: SettingsOutlinedIcon },
@@ -164,6 +173,7 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
           {session?.email ?? ''}
         </Typography>
         <Stack direction="row" spacing={0.5}>
+          <WhatsNewLauncher />
           <ModeToggle />
           <Tooltip title="Log out">
             <IconButton
@@ -221,7 +231,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <Box
         component="main"
-        sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         <AppBar
           position="sticky"

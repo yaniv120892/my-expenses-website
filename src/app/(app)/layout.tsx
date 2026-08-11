@@ -1,5 +1,6 @@
 import AppShell from '@/components/shell/AppShell';
 import Chat from '@/components/chat/Chat';
+import WhatsNewAutoDialog from '@/components/announcements/WhatsNewAutoDialog';
 
 export default function AppLayout({
   children,
@@ -8,6 +9,7 @@ export default function AppLayout({
     <AppShell>
       {children}
       <Chat />
+      <WhatsNewAutoDialog />
     </AppShell>
   );
 }

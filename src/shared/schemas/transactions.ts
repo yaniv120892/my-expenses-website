@@ -42,8 +42,8 @@ export const getTransactionsSchema = z.object({
   // The Express router defaulted a missing smartSearch to true after
   // validation ran; the default lives here so callers see the same value.
   smartSearch: queryBooleanSchema.default('true'),
-  page: z.coerce.number().min(1),
-  perPage: z.coerce.number().min(10),
+  page: z.coerce.number().int().min(1),
+  perPage: z.coerce.number().int().min(10).max(100),
 });
 
 // The original AttachFileRequest / GetPresignedUploadUrlRequest classes had no

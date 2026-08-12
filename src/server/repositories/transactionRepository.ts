@@ -26,6 +26,10 @@ type TransactionRow = PrismaTransaction & {
   files?: PrismaTransactionFile[];
 };
 
+// Fuzzy search ranks candidates in memory, so it needs a bounded window of
+// recent transactions rather than the whole table.
+const SMART_SEARCH_CANDIDATE_LIMIT = 1000;
+
 class TransactionRepository {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
@@ -34,7 +38,9 @@ class TransactionRepository {
       filters.startDate,
       filters.endDate,
     );
-    const transactions = await prisma.transaction.findMany({
+    const groups = await prisma.transaction.groupBy({
+      by: ['type'],
+      _sum: { value: true },
       where: {
         date: {
           gte: startDate,
@@ -47,15 +53,13 @@ class TransactionRepository {
       },
     });
 
-    const totalIncome = transactions
-      .filter((transaction) => transaction.type === TransactionType.INCOME)
-      .reduce((acc, transaction) => acc + transaction.value, 0);
+    const sumOf = (type: TransactionType) =>
+      groups.find((group) => group.type === type)?._sum.value ?? 0;
 
-    const totalExpense = transactions
-      .filter((transaction) => transaction.type === TransactionType.EXPENSE)
-      .reduce((acc, transaction) => acc + transaction.value, 0);
-
-    return { totalIncome, totalExpense };
+    return {
+      totalIncome: sumOf(TransactionType.INCOME),
+      totalExpense: sumOf(TransactionType.EXPENSE),
+    };
   }
 
   public async createTransaction(
@@ -85,13 +89,14 @@ class TransactionRepository {
       filters.endDate,
     );
 
-    const smartSearch =
-      filters.smartSearch !== undefined ? filters.smartSearch : true;
-
-    if (filters.searchTerm && !smartSearch) {
-      return this.useStrictSearch(filters, startDate, endDate);
+    const searchTerm = filters.searchTerm;
+    if (!searchTerm) {
+      return this.getTransactionsPage(filters, startDate, endDate);
     }
-    return this.useSmartSearch(filters, startDate, endDate);
+    if (filters.smartSearch === false) {
+      return this.useStrictSearch(filters, searchTerm, startDate, endDate);
+    }
+    return this.useSmartSearch(filters, searchTerm, startDate, endDate);
   }
 
   public async getPendingTransactions(userId: string): Promise<Transaction[]> {
@@ -274,25 +279,52 @@ class TransactionRepository {
     return potentialTransactions.map(this.mapToDomain);
   }
 
-  private async useStrictSearch(
+  private buildListWhere(
+    filters: TransactionFilters,
+    startDate: Date | undefined,
+    endDate: Date | undefined,
+  ) {
+    return {
+      ...(startDate || endDate
+        ? {
+            date: {
+              ...(startDate ? { gte: startDate } : {}),
+              ...(endDate ? { lte: endDate } : {}),
+            },
+          }
+        : {}),
+      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+      ...(filters.transactionType ? { type: filters.transactionType } : {}),
+      status: filters.status || TransactionStatus.APPROVED,
+      userId: filters.userId,
+    };
+  }
+
+  private async getTransactionsPage(
     filters: TransactionFilters,
     startDate: Date | undefined,
     endDate: Date | undefined,
   ): Promise<Transaction[]> {
     const transactions = await prisma.transaction.findMany({
+      where: this.buildListWhere(filters, startDate, endDate),
+      include: { category: true },
+      orderBy: { date: 'desc' },
+      skip: (filters.page - 1) * filters.perPage,
+      take: filters.perPage,
+    });
+    return transactions.map(this.mapToDomain);
+  }
+
+  private async useStrictSearch(
+    filters: TransactionFilters,
+    searchTerm: string,
+    startDate: Date | undefined,
+    endDate: Date | undefined,
+  ): Promise<Transaction[]> {
+    const transactions = await prisma.transaction.findMany({
       where: {
-        ...(filters.startDate && filters.endDate
-          ? { date: { gte: startDate, lte: endDate } }
-          : filters.startDate
-            ? { date: { gte: startDate } }
-            : filters.endDate
-              ? { date: { lte: endDate } }
-              : {}),
-        ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
-        ...(filters.transactionType ? { type: filters.transactionType } : {}),
-        description: { contains: filters.searchTerm },
-        status: filters.status || TransactionStatus.APPROVED,
-        userId: filters.userId,
+        ...this.buildListWhere(filters, startDate, endDate),
+        description: { contains: searchTerm },
       },
       include: { category: true },
       orderBy: { date: 'desc' },
@@ -304,41 +336,29 @@ class TransactionRepository {
 
   private async useSmartSearch(
     filters: TransactionFilters,
+    searchTerm: string,
     startDate: Date | undefined,
     endDate: Date | undefined,
   ): Promise<Transaction[]> {
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        ...(filters.startDate && filters.endDate
-          ? { date: { gte: startDate, lte: endDate } }
-          : filters.startDate
-            ? { date: { gte: startDate } }
-            : filters.endDate
-              ? { date: { lte: endDate } }
-              : {}),
-        ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
-        ...(filters.transactionType ? { type: filters.transactionType } : {}),
-        status: filters.status || TransactionStatus.APPROVED,
-        userId: filters.userId,
-      },
+    const candidates = await prisma.transaction.findMany({
+      where: this.buildListWhere(filters, startDate, endDate),
       include: { category: true },
       orderBy: { date: 'desc' },
+      take: SMART_SEARCH_CANDIDATE_LIMIT,
     });
 
-    let filtered = transactions;
-    if (filters.searchTerm && (filters.smartSearch ?? true)) {
-      const fuse = new Fuse(transactions, {
-        keys: ['description'],
-        threshold: 0.8,
-        ignoreLocation: true,
-        minMatchCharLength: 2,
-      });
-      filtered = fuse.search(filters.searchTerm).map((result) => result.item);
-    }
+    const fuse = new Fuse(candidates, {
+      keys: ['description'],
+      threshold: 0.8,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+    });
+    const matches = fuse.search(searchTerm).map((result) => result.item);
 
-    const page = filters.page || 1;
-    const perPage = filters.perPage || 10;
-    const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+    const paginated = matches.slice(
+      (filters.page - 1) * filters.perPage,
+      filters.page * filters.perPage,
+    );
     return paginated.map(this.mapToDomain);
   }
 }

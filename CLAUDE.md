@@ -17,11 +17,14 @@ npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
+npm test                 # vitest unit tests (src/**/*.test.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 ```
 
-Pre-commit runs lint-staged + typecheck (husky).
+Pre-commit runs lint-staged + typecheck (husky). CI
+(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
+e2e suites against `npx prisma dev` as the local Prisma Postgres.
 
 ## Architecture
 

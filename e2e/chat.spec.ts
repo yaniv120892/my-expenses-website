@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './helpers';
+import { dismissWhatsNew, signIn } from './helpers';
 
 /**
  * Verifies that the assistant's reply renders *incrementally*.
@@ -16,6 +16,7 @@ test('assistant reply renders incrementally', async ({ page }) => {
 
   await signIn(page, TOKEN);
   await page.goto('/dashboard');
+  await dismissWhatsNew(page);
 
   await page.getByRole('button', { name: /chat/i }).click();
   await expect(page.getByText('Financial Assistant')).toBeVisible();

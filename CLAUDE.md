@@ -36,7 +36,7 @@ Pre-commit runs lint-staged + typecheck (husky).
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params), `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
-  `repositories/` (Prisma), `commandHandlers/` (Telegram bot commands),
+  `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
   `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
   `integrations` live inside services as `lazy()` fields.
@@ -79,13 +79,13 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 
 ## Crons (vercel.json)
 
-| Path | Schedule |
-|---|---|
-| /api/scheduled-transactions/process | 07:00 daily |
-| /api/summary/today | 21:00 daily |
-| /api/backup/transactions | 03:00 daily |
-| /api/subscriptions/detect | 04:00 Mondays |
-| /api/subscriptions/audit-notify | 08:00 Mondays |
+| Path                                | Schedule      |
+| ----------------------------------- | ------------- |
+| /api/scheduled-transactions/process | 07:00 daily   |
+| /api/summary/today                  | 21:00 daily   |
+| /api/backup/transactions            | 03:00 daily   |
+| /api/subscriptions/detect           | 04:00 Mondays |
+| /api/subscriptions/audit-notify     | 08:00 Mondays |
 
 ## Deployment
 

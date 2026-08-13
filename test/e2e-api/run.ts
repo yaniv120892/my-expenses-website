@@ -1,6 +1,8 @@
 import http from 'http';
+import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { hash } from 'bcryptjs';
 import { Client } from 'pg';
 import {
   getRecording,
@@ -114,15 +116,72 @@ async function waitForApp(timeoutMs = 120_000): Promise<boolean> {
   return false;
 }
 
-async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
   const client = new Client({ connectionString: process.env.DIRECT_URL });
   await client.connect();
   try {
-    const res = await client.query(sql);
+    const res = await client.query(sql, params);
     return res.rows as T[];
   } finally {
     await client.end();
   }
+}
+
+interface ApiResult {
+  status: number;
+  headers: Headers;
+  body: unknown;
+}
+
+/** Plain JSON request against the app; `rawBody` skips serialisation. */
+async function api(
+  method: string,
+  path: string,
+  opts: {
+    token?: string;
+    cookie?: string;
+    body?: unknown;
+    rawBody?: string;
+    headers?: Record<string, string>;
+  } = {},
+): Promise<ApiResult> {
+  const headers: Record<string, string> = { ...opts.headers };
+  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  if (opts.cookie) headers.Cookie = opts.cookie;
+  let body: string | undefined;
+  if (opts.rawBody !== undefined) {
+    body = opts.rawBody;
+    headers['Content-Type'] = 'application/json';
+  } else if (opts.body !== undefined) {
+    body = JSON.stringify(opts.body);
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(`http://127.0.0.1:${APP_PORT}${path}`, {
+    method,
+    headers,
+    body,
+  });
+  const text = await res.text();
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    /* non-JSON body */
+  }
+  return { status: res.status, headers: res.headers, body: parsed };
+}
+
+/** Reads a key straight from the upstash shim, bypassing the app. */
+async function redisGet(key: string): Promise<unknown> {
+  const res = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
+    method: 'POST',
+    body: JSON.stringify(['get', key]),
+  });
+  const parsed = (await res.json()) as { result: unknown };
+  return parsed.result;
 }
 
 /** Collapses a multi-line value into a one-line snippet for check details. */
@@ -135,6 +194,296 @@ function textOf(frames: Frame[]): string {
     .filter((f) => f.type === 'delta')
     .map((f) => f.value || '')
     .join('');
+}
+
+/**
+ * Login → me → logout against a user with a real bcrypt password (the seeded
+ * users carry an uncomparable placeholder). Must run inside the harness: the
+ * cookie session is only valid while the upstash shim holds the session key.
+ */
+async function authLifecycleFlow(): Promise<void> {
+  const email = 'login-flow@e2e.test';
+  const password = 'e2e-login-password';
+  const [user] = await query<{ id: string }>(
+    `insert into "User" (id, username, email, password, verified)
+     values (gen_random_uuid(), 'e2e-login-flow', $1, $2, true)
+     returning id`,
+    [email, await hash(password, 10)],
+  );
+
+  const login = await api('POST', '/api/auth/login', {
+    body: { email, password },
+  });
+  const loginBody = (login.body ?? {}) as { success?: boolean; token?: string };
+  const token = loginBody.token || '';
+  const setCookie = login.headers.get('set-cookie') || '';
+  check(
+    'auth: login succeeds and sets the session cookie',
+    login.status === 200 &&
+      loginBody.success === true &&
+      setCookie.includes('session='),
+    `status ${login.status}`,
+  );
+
+  const sessionKey = `session:${user.id}:${token}`;
+  check(
+    'auth: login stores the redis session key',
+    (await redisGet(sessionKey)) !== null,
+  );
+
+  const cookie = `session=${token}`;
+  const me = await api('GET', '/api/auth/me', { cookie });
+  const meBody = (me.body ?? {}) as { email?: string };
+  check(
+    'auth: me returns the logged-in user via cookie',
+    me.status === 200 && meBody.email === email,
+    `status ${me.status}, email ${meBody.email}`,
+  );
+
+  const logout = await api('POST', '/api/auth/logout', { cookie });
+  check(
+    'auth: logout removes the redis session key',
+    logout.status === 200 && (await redisGet(sessionKey)) === null,
+    `status ${logout.status}`,
+  );
+
+  const meAfter = await api('GET', '/api/auth/me', { cookie });
+  check(
+    'auth: me after logout is rejected',
+    meAfter.status === 401,
+    `status ${meAfter.status}`,
+  );
+}
+
+/** Create → list → summary → status transitions → delete, plus the perPage cap. */
+async function transactionLifecycleFlow(token: string): Promise<void> {
+  const [category] = await query<{ id: string }>(
+    `select id from "Category" where name = 'Groceries'`,
+  );
+
+  const created = await api('POST', '/api/transactions', {
+    token,
+    body: {
+      description: 'E2E lifecycle transaction',
+      value: 123.45,
+      type: 'EXPENSE',
+      categoryId: category.id,
+      // Mid-range date so start/endOfDay normalisation cannot exclude it.
+      date: '2026-08-02T12:00:00.000Z',
+    },
+  });
+  const txId = (created.body as { id?: string } | null)?.id || '';
+  check(
+    'transactions: POST creates and returns an id',
+    created.status === 201 && txId.length > 0,
+    `status ${created.status}`,
+  );
+
+  const listPath =
+    '/api/transactions?page=1&perPage=10&startDate=2026-08-01&endDate=2026-08-03';
+  const inList = (res: ApiResult) =>
+    Array.isArray(res.body) &&
+    (res.body as { id: string }[]).some((t) => t.id === txId);
+
+  const list = await api('GET', listPath, { token });
+  check(
+    'transactions: created transaction appears in the list',
+    list.status === 200 && inList(list),
+    `status ${list.status}`,
+  );
+
+  const summary = await api(
+    'GET',
+    '/api/transactions/summary?startDate=2026-08-01&endDate=2026-08-03',
+    { token },
+  );
+  const totalExpense = (summary.body as { totalExpense?: number } | null)
+    ?.totalExpense;
+  check(
+    'transactions: summary reflects the new expense',
+    totalExpense === 123.45,
+    `totalExpense ${totalExpense}`,
+  );
+
+  const pended = await api('PATCH', `/api/transactions/${txId}/status`, {
+    token,
+    body: { status: 'PENDING_APPROVAL' },
+  });
+  const listPending = await api('GET', listPath, { token });
+  check(
+    'transactions: PENDING_APPROVAL hides it from the approved list',
+    pended.status === 200 && !inList(listPending),
+    `status ${pended.status}`,
+  );
+
+  const approved = await api('PATCH', `/api/transactions/${txId}/status`, {
+    token,
+    body: { status: 'APPROVED' },
+  });
+  const listApproved = await api('GET', listPath, { token });
+  check(
+    'transactions: re-approval returns it to the list',
+    approved.status === 200 && inList(listApproved),
+    `status ${approved.status}`,
+  );
+
+  const deleted = await api('DELETE', `/api/transactions/${txId}`, { token });
+  const listAfterDelete = await api('GET', listPath, { token });
+  check(
+    'transactions: DELETE removes it',
+    deleted.status === 200 && !inList(listAfterDelete),
+    `status ${deleted.status}`,
+  );
+
+  // Regression: the perPage schema caps at 100.
+  const oversized = await api('GET', '/api/transactions?page=1&perPage=1000', {
+    token,
+  });
+  check(
+    'transactions: perPage above 100 is rejected',
+    oversized.status === 400,
+    `status ${oversized.status}`,
+  );
+}
+
+/** A due schedule is claimed first, materialised as PENDING_APPROVAL. */
+async function scheduledCronFlow(userId: string): Promise<void> {
+  const [category] = await query<{ id: string }>(
+    `select id from "Category" where name = 'Rent'`,
+  );
+  const description = 'E2E due schedule';
+  const [schedule] = await query<{ id: string }>(
+    `insert into "ScheduledTransaction"
+       (id, description, value, type, "categoryId", "scheduleType", "userId", "nextRunDate")
+     values (gen_random_uuid(), $1, 55, 'EXPENSE', $2, 'DAILY', $3, now() - interval '1 day')
+     returning id`,
+    [description, category.id, userId],
+  );
+
+  const unauthed = await api('GET', '/api/scheduled-transactions/process');
+  check(
+    'cron: process without the secret is rejected',
+    unauthed.status === 401,
+    `status ${unauthed.status}`,
+  );
+
+  const run = await api('GET', '/api/scheduled-transactions/process', {
+    token: process.env.CRON_SECRET || 'e2e',
+  });
+  check(
+    'cron: process with CRON_SECRET succeeds',
+    run.status === 200,
+    `status ${run.status}`,
+  );
+
+  const txRows = await query<{ status: string }>(
+    `select status from "Transaction" where "userId" = $1 and description = $2`,
+    [userId, description],
+  );
+  check(
+    'cron: due schedule created a PENDING_APPROVAL transaction',
+    txRows.length === 1 && txRows[0].status === 'PENDING_APPROVAL',
+    txRows.length
+      ? `${txRows.length} row(s), status ${txRows[0].status}`
+      : 'no transaction created',
+  );
+
+  // Regression for the claim-first fix: the schedule must not stay due.
+  const [after] = await query<{ future: boolean }>(
+    `select "nextRunDate" > now() as future from "ScheduledTransaction" where id = $1`,
+    [schedule.id],
+  );
+  check('cron: nextRunDate advanced into the future', after?.future === true);
+}
+
+/**
+ * The dev server runs without TELEGRAM_WEBHOOK_SECRET, so the route must fail
+ * closed for every request. The positive ack path needs the secret set at
+ * server start and is intentionally not covered here.
+ */
+async function telegramWebhookFlow(): Promise<void> {
+  const noHeader = await api('POST', '/api/webhook', {
+    body: { update_id: 1 },
+  });
+  check(
+    'telegram: webhook without secret header is rejected',
+    noHeader.status === 401,
+    `status ${noHeader.status}`,
+  );
+
+  const withHeader = await api('POST', '/api/webhook', {
+    body: { update_id: 1 },
+    headers: { 'x-telegram-bot-api-secret-token': 'guess' },
+  });
+  check(
+    'telegram: webhook with a wrong/unconfigured secret is rejected',
+    withHeader.status === 401,
+    `status ${withHeader.status}`,
+  );
+}
+
+/** HMAC auth and the malformed-JSON guard on the extraction webhook. */
+async function excelWebhookFlow(userId: string): Promise<void> {
+  const payload = {
+    requestId: 'e2e-unknown-request',
+    status: 'FAILED',
+    error: 'boom',
+  };
+
+  const missingAuth = await api('POST', '/api/excel-extraction-agent/webhook', {
+    body: payload,
+  });
+  check(
+    'excel webhook: missing auth params are rejected',
+    missingAuth.status === 401,
+    `status ${missingAuth.status}`,
+  );
+
+  // Regression: the JSON guard must answer 400, not crash the handler.
+  const badJson = await api('POST', '/api/excel-extraction-agent/webhook', {
+    rawBody: '{not json',
+  });
+  check(
+    'excel webhook: malformed JSON body gets 400',
+    badJson.status === 400 &&
+      (badJson.body as { error?: string } | null)?.error ===
+        'Invalid JSON body',
+    `status ${badJson.status}`,
+  );
+
+  const secret = process.env.EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET;
+  const timestamp = Date.now();
+  if (secret) {
+    // Only meaningful when the dev server was started with the same secret:
+    // a valid HMAC must pass auth and reach processing (404 = unknown request).
+    const token = crypto
+      .createHmac('sha256', secret)
+      .update(`${userId}:${timestamp}`)
+      .digest('base64url');
+    const authed = await api(
+      'POST',
+      `/api/excel-extraction-agent/webhook?token=${token}&userId=${userId}&timestamp=${timestamp}`,
+      { body: payload },
+    );
+    check(
+      'excel webhook: valid HMAC reaches processing (404 for unknown request)',
+      authed.status === 404,
+      `status ${authed.status}`,
+    );
+  } else {
+    // Without the secret env on the server, verification cannot run and the
+    // processor must fail closed rather than accept the payload.
+    const failClosed = await api(
+      'POST',
+      `/api/excel-extraction-agent/webhook?token=x&userId=${userId}&timestamp=${timestamp}`,
+      { body: payload },
+    );
+    check(
+      'excel webhook: fails closed when the server has no secret configured',
+      failClosed.status === 500,
+      `status ${failClosed.status}`,
+    );
+  }
 }
 
 async function main(): Promise<void> {
@@ -326,6 +675,21 @@ async function main(): Promise<void> {
     afterAbort?.status === 401,
     afterAbort ? `status ${afterAbort.status}` : 'app unreachable — it crashed',
   );
+
+  // 11. Auth lifecycle over cookie + Redis session.
+  await authLifecycleFlow();
+
+  // 12. Transaction CRUD lifecycle and the perPage cap.
+  await transactionLifecycleFlow(seeded.userA.token);
+
+  // 13. Scheduled-transaction cron processing.
+  await scheduledCronFlow(seeded.userA.id);
+
+  // 14. Telegram webhook secret enforcement.
+  await telegramWebhookFlow();
+
+  // 15. Excel-extraction webhook auth and JSON guard.
+  await excelWebhookFlow(seeded.userA.id);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

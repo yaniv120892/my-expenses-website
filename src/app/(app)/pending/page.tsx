@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Alert } from '@mui/material';
 import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
@@ -13,8 +14,11 @@ import {
 
 export default function PendingPage() {
   const [error, setError] = useState<string | null>(null);
-  const { data: pendingTransactions = [], isLoading } =
-    usePendingTransactionsQuery();
+  const {
+    data: pendingTransactions = [],
+    isLoading,
+    isError: loadFailed,
+  } = usePendingTransactionsQuery();
   const confirmMutation = useConfirmTransactionMutation();
   const deleteMutation = useDeletePendingTransactionMutation();
 
@@ -44,6 +48,10 @@ export default function PendingPage() {
       />
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />
+      ) : loadFailed ? (
+        <Alert severity="error">
+          Failed to load pending transactions. Please try again.
+        </Alert>
       ) : (
         <PendingTransactionsList
           transactions={pendingTransactions}

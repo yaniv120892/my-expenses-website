@@ -37,6 +37,8 @@ export const TrendFiltersDisplay = ({
 }: TrendFiltersDisplayProps) => {
   const formatPeriod = (p: TrendPeriod) => {
     switch (p) {
+      case 'daily':
+        return 'Daily';
       case 'weekly':
         return 'Weekly';
       case 'monthly':

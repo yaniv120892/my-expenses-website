@@ -34,7 +34,7 @@ class SummaryService {
       'Daily summary run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring and Sentry see it.
+      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Daily summary failed for ${failed} of ${users.length} user(s)`,
       );

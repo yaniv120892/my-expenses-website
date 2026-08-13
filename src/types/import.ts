@@ -1,36 +1,26 @@
-import { TransactionType } from "./index";
+import {
+  ImportBankSourceType,
+  ImportFileType,
+  ImportStatus,
+  ImportedTransactionStatus,
+} from '@/shared/types/import';
+import type { TransactionType } from '@/shared/types/transaction';
 
+export {
+  ImportBankSourceType,
+  ImportFileType,
+  ImportStatus,
+  ImportedTransactionStatus,
+};
+
+// Mirrors the shared TransactionStatus union as an enum so components can
+// reference its values without importing Prisma.
 export enum TransactionApprovalStatus {
-  PENDING_APPROVAL = "PENDING_APPROVAL",
-  APPROVED = "APPROVED",
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
 }
 
-export enum ImportFileType {
-  VISA_CREDIT = "VISA_CREDIT",
-  MASTERCARD_CREDIT = "MASTERCARD_CREDIT",
-  AMERICAN_EXPRESS_CREDIT = "AMERICAN_EXPRESS_CREDIT",
-}
-
-export enum ImportStatus {
-  PENDING = "PENDING",
-  PROCESSING = "PROCESSING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  REMATCHING = "REMATCHING",
-}
-
-export enum ImportedTransactionStatus {
-  PENDING = "PENDING",
-  APPROVED = "APPROVED",
-  MERGED = "MERGED",
-  IGNORED = "IGNORED",
-}
-
-export enum ImportBankSourceType {
-  NON_BANK_CREDIT = "NON_BANK_CREDIT",
-  BANK_CREDIT = "BANK_CREDIT",
-}
-
+/** Wire shape of the shared ImportWithVerification: JSON string dates, no server-only fields. */
 export interface Import {
   id: string;
   fileUrl: string;
@@ -57,6 +47,7 @@ export interface MatchingTransaction {
   userId: string;
 }
 
+/** Wire shape of the shared ImportedTransaction, joined with its matching transaction. */
 export interface ImportedTransaction {
   id: string;
   importId: string;

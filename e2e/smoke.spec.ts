@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { dismissWhatsNew, signIn } from './helpers';
+import { signIn } from './helpers';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
 
@@ -31,7 +31,6 @@ for (const { path, heading } of PAGES) {
     await signIn(page, TOKEN);
     await page.goto(path);
     await expect(page).toHaveURL(path);
-    await dismissWhatsNew(page);
     await expect(
       page.getByRole('heading', { name: heading }).first(),
     ).toBeVisible();

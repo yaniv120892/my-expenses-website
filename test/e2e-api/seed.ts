@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { SignJWT } from 'jose';
+import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 
 /**
  * Seeds two users with deliberately distinct amounts.
@@ -77,6 +78,15 @@ export async function seed(): Promise<SeedResult> {
         password: 'x',
         verified: true,
       },
+    });
+
+    // Signup acknowledges every existing announcement, but these users are
+    // created straight through Prisma. Without this the What's New dialog
+    // opens over the first page a spec visits and hides it.
+    await prisma.announcementAck.createMany({
+      data: [userA.id, userB.id].flatMap((userId) =>
+        ANNOUNCEMENT_IDS.map((announcementId) => ({ userId, announcementId })),
+      ),
     });
 
     const tx = (

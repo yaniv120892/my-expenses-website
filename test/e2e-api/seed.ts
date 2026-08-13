@@ -50,6 +50,7 @@ export async function seed(): Promise<SeedResult> {
 
   try {
     // Order matters: dependents first, then categories and users.
+    await prisma.announcementAck.deleteMany({});
     await prisma.detectedSubscription.deleteMany({});
     await prisma.scheduledTransaction.deleteMany({});
     await prisma.transaction.deleteMany({});

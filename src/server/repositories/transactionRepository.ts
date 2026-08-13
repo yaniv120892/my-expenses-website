@@ -18,6 +18,16 @@ import {
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import Fuse from 'fuse.js';
+import { HttpError } from '@/server/http/errors';
+
+// Prisma raises P2025 when an update/delete matches no row — here that means
+// the transaction does not exist or belongs to another user.
+function throwNotFoundOnMissingRow(err: unknown): never {
+  if ((err as { code?: string })?.code === 'P2025') {
+    throw new HttpError(404, 'Transaction not found');
+  }
+  throw err;
+}
 
 // The Prisma model plus its joined category, and files only when the caller
 // included them.
@@ -113,10 +123,12 @@ class TransactionRepository {
     status: TransactionStatus,
     userId: string,
   ): Promise<string> {
-    const transaction = await prisma.transaction.update({
-      where: { id, userId },
-      data: { status },
-    });
+    const transaction = await prisma.transaction
+      .update({
+        where: { id, userId },
+        data: { status },
+      })
+      .catch(throwNotFoundOnMissingRow);
     return transaction.id;
   }
 
@@ -170,24 +182,28 @@ class TransactionRepository {
     data: UpdateTransactionDbModel,
     userId: string,
   ): Promise<string> {
-    const transaction = await prisma.transaction.update({
-      where: { id, userId },
-      data: {
-        description: data.description,
-        value: data.value,
-        date: data.date,
-        categoryId: data.categoryId,
-        type: data.type,
-        status: data.status,
-      },
-    });
+    const transaction = await prisma.transaction
+      .update({
+        where: { id, userId },
+        data: {
+          description: data.description,
+          value: data.value,
+          date: data.date,
+          categoryId: data.categoryId,
+          type: data.type,
+          status: data.status,
+        },
+      })
+      .catch(throwNotFoundOnMissingRow);
     return transaction.id;
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {
-    await prisma.transaction.delete({
-      where: { id, userId },
-    });
+    await prisma.transaction
+      .delete({
+        where: { id, userId },
+      })
+      .catch(throwNotFoundOnMissingRow);
   }
 
   /**

@@ -190,12 +190,7 @@ class ImportService {
     );
 
     if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new Error(
-        'Imported transaction not found with id: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(404, 'Imported transaction not found');
     }
 
     await importedTransactionRepository.clearMatchingTransaction(
@@ -230,21 +225,11 @@ class ImportService {
     );
 
     if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new Error(
-        'Imported transaction not found with id: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(404, 'Imported transaction not found');
     }
 
     if (!importedTransaction.matchingTransactionId) {
-      throw new Error(
-        'No matching transaction found to merge with; importedTransactionId: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(409, 'No matching transaction to merge with');
     }
 
     const matchingTransaction = await transactionRepository.getTransactionItem(
@@ -253,11 +238,10 @@ class ImportService {
     );
 
     if (!matchingTransaction) {
-      throw new Error(
+      throw new HttpError(
+        404,
         'Matching transaction not found with id: ' +
-          importedTransaction.matchingTransactionId +
-          ' and userId: ' +
-          userId,
+          importedTransaction.matchingTransactionId,
       );
     }
 
@@ -467,11 +451,14 @@ class ImportService {
       importRecord.userId !== userId ||
       importRecord.deleted
     ) {
-      throw new Error('Import not found');
+      throw new HttpError(404, 'Import not found');
     }
 
     if (importRecord.status !== ImportStatus.COMPLETED) {
-      throw new Error('Import must be in COMPLETED status to re-match');
+      throw new HttpError(
+        409,
+        'Import must be in COMPLETED status to re-match',
+      );
     }
 
     const allTransactions =
@@ -485,7 +472,7 @@ class ImportService {
     );
 
     if (pendingTransactions.length === 0) {
-      throw new Error('No pending transactions to re-match');
+      throw new HttpError(409, 'No pending transactions to re-match');
     }
 
     await importRepository.updateStatus(importId, ImportStatus.REMATCHING);

@@ -16,6 +16,8 @@ import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgen
 import prisma from '@/server/db/client';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { lazy } from '@/server/lib/lazy';
+import { requireEnv } from '@/server/env';
+import { HttpError } from '@/server/http/errors';
 
 interface BatchResult {
   total: number;
@@ -64,6 +66,14 @@ class ImportService {
     originalFileName: string,
     paymentMonthFromRequest?: string,
   ): Promise<Import> {
+    // The extraction agent fetches this URL server-side, so accepting an
+    // arbitrary URL would let a user point it at internal hosts. Only files
+    // the upload endpoint wrote to the imports bucket are allowed.
+    const importsPrefix = `https://${requireEnv('IMPORTS_S3_BUCKET')}.s3.${requireEnv('IMPORTS_S3_REGION')}.amazonaws.com/imports/`;
+    if (!fileUrl.startsWith(importsPrefix)) {
+      throw new HttpError(400, 'fileUrl must point to an uploaded import file');
+    }
+
     try {
       logger.info(
         {
@@ -180,12 +190,7 @@ class ImportService {
     );
 
     if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new Error(
-        'Imported transaction not found with id: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(404, 'Imported transaction not found');
     }
 
     await importedTransactionRepository.clearMatchingTransaction(
@@ -220,21 +225,11 @@ class ImportService {
     );
 
     if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new Error(
-        'Imported transaction not found with id: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(404, 'Imported transaction not found');
     }
 
     if (!importedTransaction.matchingTransactionId) {
-      throw new Error(
-        'No matching transaction found to merge with; importedTransactionId: ' +
-          importedTransactionId +
-          ' and userId: ' +
-          userId,
-      );
+      throw new HttpError(409, 'No matching transaction to merge with');
     }
 
     const matchingTransaction = await transactionRepository.getTransactionItem(
@@ -243,11 +238,10 @@ class ImportService {
     );
 
     if (!matchingTransaction) {
-      throw new Error(
+      throw new HttpError(
+        404,
         'Matching transaction not found with id: ' +
-          importedTransaction.matchingTransactionId +
-          ' and userId: ' +
-          userId,
+          importedTransaction.matchingTransactionId,
       );
     }
 
@@ -457,11 +451,14 @@ class ImportService {
       importRecord.userId !== userId ||
       importRecord.deleted
     ) {
-      throw new Error('Import not found');
+      throw new HttpError(404, 'Import not found');
     }
 
     if (importRecord.status !== ImportStatus.COMPLETED) {
-      throw new Error('Import must be in COMPLETED status to re-match');
+      throw new HttpError(
+        409,
+        'Import must be in COMPLETED status to re-match',
+      );
     }
 
     const allTransactions =
@@ -475,7 +472,7 @@ class ImportService {
     );
 
     if (pendingTransactions.length === 0) {
-      throw new Error('No pending transactions to re-match');
+      throw new HttpError(409, 'No pending transactions to re-match');
     }
 
     await importRepository.updateStatus(importId, ImportStatus.REMATCHING);

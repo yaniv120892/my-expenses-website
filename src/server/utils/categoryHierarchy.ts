@@ -1,17 +1,20 @@
 import categoryRepository from '@/server/repositories/categoryRepository';
 
+export interface CategoryNode {
+  id: string;
+  parentId?: string | null;
+}
+
 /**
  * Maps every category id to itself plus all of its descendants. The inverse of
- * buildCategoryParentMap: callers that must keep sibling categories distinct
- * (rather than rolling them up to a shared ancestor) expand ids through this.
+ * buildParentMap: callers that must keep sibling categories distinct (rather
+ * than rolling them up to a shared ancestor) expand ids through this.
  */
-export async function buildCategoryDescendantMap(): Promise<
-  Map<string, string[]>
-> {
-  const allCategories = await categoryRepository.getAllCategories();
-
+export function buildDescendantMap(
+  categories: CategoryNode[],
+): Map<string, string[]> {
   const childrenByParent = new Map<string, string[]>();
-  for (const category of allCategories) {
+  for (const category of categories) {
     if (!category.parentId) continue;
     const siblings = childrenByParent.get(category.parentId) ?? [];
     siblings.push(category.id);
@@ -19,7 +22,7 @@ export async function buildCategoryDescendantMap(): Promise<
   }
 
   const descendantMap = new Map<string, string[]>();
-  for (const category of allCategories) {
+  for (const category of categories) {
     const descendants: string[] = [];
     const queue = [category.id];
     const seen = new Set<string>([category.id]);
@@ -39,38 +42,42 @@ export async function buildCategoryDescendantMap(): Promise<
   return descendantMap;
 }
 
-export async function buildCategoryParentMap(): Promise<Map<string, string>> {
-  const allCategories = await categoryRepository.getAllCategories();
-  const parentMap = new Map<string, string>();
-
-  const categoryToParentMap = new Map<string, string | null>();
-  for (const category of allCategories) {
-    if (category.parentId !== null && category.parentId !== undefined) {
-      categoryToParentMap.set(category.id, category.parentId);
+/**
+ * Maps every category id to its top-level ancestor (itself when top-level).
+ * A cycle from bad data stops the walk at the last id before the repeat.
+ */
+export function buildParentMap(
+  categories: CategoryNode[],
+): Map<string, string> {
+  const parentById = new Map<string, string>();
+  for (const category of categories) {
+    if (category.parentId) {
+      parentById.set(category.id, category.parentId);
     }
   }
 
-  for (const category of allCategories) {
-    let currentId = category.id;
-    let parentId = categoryToParentMap.get(currentId);
-
-    if (parentMap.has(currentId)) continue;
-
-    while (parentId) {
-      const nextParentId = categoryToParentMap.get(parentId);
-      if (!nextParentId) {
-        parentMap.set(currentId, parentId);
-        break;
-      }
-      currentId = parentId;
-      parentId = nextParentId;
+  const parentMap = new Map<string, string>();
+  for (const category of categories) {
+    let rootId = category.id;
+    const seen = new Set<string>([rootId]);
+    let parentId = parentById.get(rootId);
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      rootId = parentId;
+      parentId = parentById.get(rootId);
     }
-
-    // No parent chain found: the category is itself top-level.
-    if (!parentMap.has(category.id)) {
-      parentMap.set(category.id, category.id);
-    }
+    parentMap.set(category.id, rootId);
   }
 
   return parentMap;
+}
+
+export async function buildCategoryDescendantMap(): Promise<
+  Map<string, string[]>
+> {
+  return buildDescendantMap(await categoryRepository.getAllCategories());
+}
+
+export async function buildCategoryParentMap(): Promise<Map<string, string>> {
+  return buildParentMap(await categoryRepository.getAllCategories());
 }

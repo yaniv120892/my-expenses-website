@@ -26,6 +26,7 @@ import {
 } from '@/server/services/transactionAttachmentFileUtils';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
+import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
 
 /** An attachment as returned to clients, with signed URLs resolved. */
@@ -286,6 +287,11 @@ class TransactionService {
       transaction.userId,
       categories,
     );
+    if (!suggestedCategoryId) {
+      throw new CustomValidationError(
+        'Could not determine a category for this transaction; please choose one',
+      );
+    }
 
     return {
       ...transaction,
@@ -297,7 +303,7 @@ class TransactionService {
     description: string,
     userId: string,
     categories: Category[],
-  ): Promise<string> {
+  ): Promise<string | null> {
     // 1. Check user category mappings first (learned from corrections)
     try {
       const normalizedDescription = description.toLowerCase().trim();
@@ -431,7 +437,7 @@ class TransactionService {
   ): Promise<Transaction> {
     const transaction = await this.getTransactionItem(transactionId, userId);
     if (!transaction) {
-      throw new Error('Transaction not found or access denied');
+      throw new HttpError(404, 'Transaction not found');
     }
     return transaction;
   }
@@ -442,7 +448,7 @@ class TransactionService {
   ): Promise<TransactionFile> {
     const file = await transactionFileRepository.findById(fileId);
     if (!file || file.transactionId !== transactionId) {
-      throw new Error('File not found or access denied');
+      throw new HttpError(404, 'File not found');
     }
     return file;
   }

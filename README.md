@@ -16,8 +16,7 @@ both the web UI and the API.
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
 - **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
   Gemini via `AI_PROVIDER`, plus an external FastText categorizer service
-- **Observability**: pino structured logs, Sentry (errors + traces),
-  Vercel Analytics + Speed Insights
+- **Observability**: pino structured logs, Vercel Analytics + Speed Insights
 
 ## Getting started
 
@@ -35,14 +34,14 @@ compatible local setup.
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Dev server (Turbopack) |
-| `npm run build` | `prisma generate && next build` |
-| `npm run typecheck` / `lint` / `format` | Quality gates (also run pre-commit) |
-| `npm run db:migrate` | `prisma migrate deploy` |
-| `npm run test:e2e:api` | API/chat harness — see `test/e2e-api/README.md` |
-| `npm run test:e2e:ui` | Playwright specs in `e2e/` |
+| Script                                  | What it does                                    |
+| --------------------------------------- | ----------------------------------------------- |
+| `npm run dev`                           | Dev server (Turbopack)                          |
+| `npm run build`                         | `prisma generate && next build`                 |
+| `npm run typecheck` / `lint` / `format` | Quality gates (also run pre-commit)             |
+| `npm run db:migrate`                    | `prisma migrate deploy`                         |
+| `npm run test:e2e:api`                  | API/chat harness — see `test/e2e-api/README.md` |
+| `npm run test:e2e:ui`                   | Playwright specs in `e2e/`                      |
 
 ## Deployment (Vercel)
 
@@ -52,14 +51,15 @@ compatible local setup.
 - Register the Telegram webhook once per environment:
   `https://api.telegram.org/bot<token>/setWebhook?url=<WEBSITE_URL>/api/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`
 - Logs: pino JSON to stdout — attach a Vercel Log Drain (e.g. Better Stack)
-  to ship them; no in-app log shipping
-- Sentry: set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`
+  to ship them; no in-app log shipping. Errors are logged, not sent to an
+  error tracker; cron routes throw on partial failure so a failed run shows
+  up as a non-2xx in Vercel's cron history
 
 ## External services
 
-| Service | Contract |
-|---|---|
-| expense-categorizer | `POST ${EXPENSE_CATEGORIZER_BASE_URL}/predict` `{description}` → category + confidence |
+| Service                  | Contract                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| expense-categorizer      | `POST ${EXPENSE_CATEGORIZER_BASE_URL}/predict` `{description}` → category + confidence                                  |
 | excel-extraction-service | `POST ${EXCEL_EXTRACTION_AGENT_URL}/api/extract`; result arrives at `/api/excel-extraction-agent/webhook` (HMAC-signed) |
 
 ## History

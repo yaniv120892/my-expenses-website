@@ -3,6 +3,11 @@ import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
+import {
+  buildAnalyzeExpensesPrompt,
+  buildSuggestCategoryPrompt,
+  buildFindMatchingTransactionPrompt,
+} from '@/server/services/ai/prompts';
 import logger from '@/server/logging/logger';
 
 export class ChatGPTService implements AIProvider {
@@ -48,7 +53,7 @@ export class ChatGPTService implements AIProvider {
           },
           {
             role: 'user',
-            content: `Analyze my recent expenses:\n\n${expenseSummary}, ${suffixPrompt}`,
+            content: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
           },
         ],
         max_tokens: 200,
@@ -65,15 +70,13 @@ export class ChatGPTService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
-  ): Promise<string> {
+  ): Promise<string | null> {
     try {
-      let userContent = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
-
-      if (categorizerHint) {
-        userContent += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
-      }
-
-      userContent += '\n\nReturn only the category name, nothing else.';
+      const userContent = buildSuggestCategoryPrompt(
+        expenseDescription,
+        categoryOptions,
+        categorizerHint,
+      );
 
       const response = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4-turbo',
@@ -97,10 +100,10 @@ export class ChatGPTService implements AIProvider {
         (category) => category.name === aiSuggestedCategory,
       );
 
-      return suggestedCategory?.id || 'No category found.';
+      return suggestedCategory?.id ?? null;
     } catch (err) {
       logger.error({ err }, 'ChatGPT API error');
-      return 'I encountered an issue suggesting a category.';
+      return null;
     }
   }
 
@@ -121,11 +124,10 @@ export class ChatGPTService implements AIProvider {
           },
           {
             role: 'user',
-            content: `Given an imported transaction with description "${importedDescription}", find the best matching transaction from the following list based on semantic similarity:
-
-${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
-
-Return only the ID of the best matching transaction, or "none" if none of them match well.`,
+            content: buildFindMatchingTransactionPrompt(
+              importedDescription,
+              potentialMatches,
+            ),
           },
         ],
         temperature: 0.3,

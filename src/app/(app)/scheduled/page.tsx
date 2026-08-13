@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@mui/material';
+import { Alert, Button } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
@@ -26,8 +26,11 @@ export default function ScheduledPage() {
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: scheduledTransactions = [], isLoading: loading } =
-    useScheduledTransactionsQuery();
+  const {
+    data: scheduledTransactions = [],
+    isLoading: loading,
+    isError: loadFailed,
+  } = useScheduledTransactionsQuery();
   const { data: categories = [] } = useCategoriesQuery();
 
   const createMutation = useCreateScheduledTransactionMutation();
@@ -87,6 +90,10 @@ export default function ScheduledPage() {
 
       {loading ? (
         <ScheduledTransactionListSkeleton rows={6} />
+      ) : loadFailed ? (
+        <Alert severity="error">
+          Failed to load scheduled transactions. Please try again.
+        </Alert>
       ) : (
         <ScheduledTransactionList
           scheduledTransactions={scheduledTransactions}

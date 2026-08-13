@@ -34,6 +34,8 @@ export const POST = createHandler({
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
           if (!req.signal.aborted) {
+            // createHandler already returned the 200 stream response, so a
+            // failure in here is only ever visible through this log line.
             logger.error({ err, userId }, 'Failed to handle chat message');
             controller.enqueue(
               sseFrame({

@@ -1,5 +1,7 @@
-import { Prisma } from '@prisma/client';
-import { TransactionStatus, TransactionType } from './transaction';
+// Type-only imports: this module is also bundled client-side (src/types/import
+// re-exports its enums), so it must not pull in @prisma/client at runtime.
+import type { Prisma } from '@prisma/client';
+import type { TransactionType } from './transaction';
 
 export enum ImportFileType {
   VISA_CREDIT = 'VISA_CREDIT',
@@ -12,6 +14,19 @@ export enum ImportStatus {
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
+  REMATCHING = 'REMATCHING',
+}
+
+export enum ImportedTransactionStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  MERGED = 'MERGED',
+  IGNORED = 'IGNORED',
+}
+
+export enum ImportBankSourceType {
+  NON_BANK_CREDIT = 'NON_BANK_CREDIT',
+  BANK_CREDIT = 'BANK_CREDIT',
 }
 
 export interface Import {
@@ -20,7 +35,7 @@ export interface Import {
   fileUrl: string;
   originalFileName: string;
   importType?: ImportFileType;
-  bankSourceType?: string;
+  bankSourceType?: ImportBankSourceType;
   status: ImportStatus;
   error?: string;
   createdAt: Date;
@@ -42,7 +57,7 @@ export interface ImportedTransaction {
   value: number;
   date: Date;
   type: TransactionType;
-  status: TransactionStatus;
+  status: ImportedTransactionStatus;
   matchingTransactionId?: string;
   rawData: Prisma.InputJsonValue;
   userId: string;

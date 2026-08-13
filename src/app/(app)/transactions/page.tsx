@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button } from '@mui/material';
+import { Alert, Box, Button } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { format } from 'date-fns';
 import {
@@ -44,8 +44,11 @@ export default function TransactionsPage() {
     suggestedCategory: { id: string; name: string };
   } | null>(null);
 
-  const { data: transactions = [], isLoading: loading } =
-    useTransactionsQuery(filters);
+  const {
+    data: transactions = [],
+    isLoading: loading,
+    isError: loadFailed,
+  } = useTransactionsQuery(filters);
   const { data: categories = [] } = useCategoriesQuery();
   const {
     data: summary,
@@ -62,37 +65,34 @@ export default function TransactionsPage() {
     setFormOpen(true);
   };
 
-  const handleCreateSuccess = async (data: CreateTransactionInput) => {
-    try {
-      const result: CreateTransactionResponse =
-        await createMutation.mutateAsync(data);
-      if (result.suggestedCategory) {
-        setCategoryConfirmation({
-          transactionId: result.id,
-          description: data.description,
-          suggestedCategory: result.suggestedCategory,
-        });
-      }
-      return result.id;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create transaction');
+  // Submit and form-delete errors are surfaced by TransactionForm itself, so
+  // these handlers must let failures propagate — catching here made the form
+  // report success on a failed save.
+  const handleCreate = async (data: CreateTransactionInput) => {
+    const result: CreateTransactionResponse =
+      await createMutation.mutateAsync(data);
+    if (result.suggestedCategory) {
+      setCategoryConfirmation({
+        transactionId: result.id,
+        description: data.description,
+        suggestedCategory: result.suggestedCategory,
+      });
     }
+    return result.id;
   };
 
-  const handleUpdateSuccess = async (
-    id: string,
-    data: CreateTransactionInput,
-  ) => {
-    try {
-      await updateMutation.mutateAsync({ id, data });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update transaction');
-    }
+  const handleUpdate = async (id: string, data: CreateTransactionInput) => {
+    await updateMutation.mutateAsync({ id, data });
   };
 
-  const handleDelete = async (id: string) => {
+  const deleteTransaction = async (id: string) => {
+    await deleteMutation.mutateAsync(id);
+  };
+
+  // The list has no error surface of its own, so its deletes are caught here.
+  const handleDeleteFromList = async (id: string) => {
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteTransaction(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete transaction');
     }
@@ -152,11 +152,15 @@ export default function TransactionsPage() {
       <Box sx={{ mt: 2 }}>
         {loading ? (
           <TransactionListSkeleton rows={6} />
+        ) : loadFailed ? (
+          <Alert severity="error">
+            Failed to load transactions. Please try again.
+          </Alert>
         ) : (
           <TransactionList
             transactions={transactions}
             onEditAction={handleEdit}
-            onDeleteAction={handleDelete}
+            onDeleteAction={handleDeleteFromList}
           />
         )}
       </Box>
@@ -168,11 +172,9 @@ export default function TransactionsPage() {
           setEditTx(null);
         }}
         onSubmitAction={
-          editTx
-            ? (data) => handleUpdateSuccess(editTx.id, data)
-            : handleCreateSuccess
+          editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate
         }
-        onDeleteAction={handleDelete}
+        onDeleteAction={deleteTransaction}
         initialData={
           editTx
             ? {

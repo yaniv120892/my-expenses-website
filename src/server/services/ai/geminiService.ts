@@ -5,6 +5,11 @@ import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
+import {
+  buildAnalyzeExpensesPrompt,
+  buildSuggestCategoryPrompt,
+  buildFindMatchingTransactionPrompt,
+} from '@/server/services/ai/prompts';
 
 export class GeminiService implements AIProvider {
   private modelName: string = 'gemini-2.0-flash';
@@ -55,7 +60,7 @@ export class GeminiService implements AIProvider {
             role: 'user',
             parts: [
               {
-                text: `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`,
+                text: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
               },
             ],
           },
@@ -78,7 +83,7 @@ export class GeminiService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
-  ): Promise<string> {
+  ): Promise<string | null> {
     try {
       logger.debug(
         { expenseDescription },
@@ -88,13 +93,11 @@ export class GeminiService implements AIProvider {
         model: this.modelName,
       });
 
-      let promptText = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
-
-      if (categorizerHint) {
-        promptText += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
-      }
-
-      promptText += '\n\nReturn only the category name, nothing else.';
+      const promptText = buildSuggestCategoryPrompt(
+        expenseDescription,
+        categoryOptions,
+        categorizerHint,
+      );
 
       const response = await model.generateContent({
         contents: [
@@ -117,10 +120,10 @@ export class GeminiService implements AIProvider {
         { expenseDescription, aiSuggestedCategory },
         'Done suggesting category for expense',
       );
-      return categoryId || 'No category found.';
+      return categoryId ?? null;
     } catch (err) {
       logger.error({ err }, 'Gemini API error');
-      return 'I encountered an issue suggesting a category.';
+      return null;
     }
   }
 
@@ -145,22 +148,10 @@ export class GeminiService implements AIProvider {
             role: 'user',
             parts: [
               {
-                text: `You are a helpful assistant that matches similar transaction descriptions. Your task is to find the most semantically similar transaction from a list of potential matches.
-
-Rules:
-1. Compare the imported description with each potential match
-2. Consider semantic similarity, not just exact matches
-3. Account for variations in merchant names and transaction descriptions
-4. Return ONLY the ID of the best matching transaction
-5. If no good match is found, return "none"
-6. Do not explain your choice, just return the ID or "none"
-
-Given this imported transaction description: "${importedDescription}"
-
-Find the best matching transaction from this list:
-${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
-
-Return only the ID of the best match, or "none" if no good match exists.`,
+                text: buildFindMatchingTransactionPrompt(
+                  importedDescription,
+                  potentialMatches,
+                ),
               },
             ],
           },

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { transactionTypeSchema } from './common';
 
 export const processImportSchema = z.object({
-  fileUrl: z.string(),
+  fileUrl: z.string().url(),
   originalFileName: z.string(),
   paymentMonth: z.string().optional(),
 });

@@ -26,7 +26,7 @@ export const GET = createHandler({
     }
 
     if (failed > 0) {
-      // Surface partial failure so cron monitoring and Sentry see it.
+      // Surface partial failure so cron monitoring sees it.
       throw new Error(`Backup failed for ${failed} user(s)`);
     }
     return { message: 'Backup completed successfully' };

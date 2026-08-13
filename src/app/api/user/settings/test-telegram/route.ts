@@ -22,7 +22,10 @@ export const POST = createHandler({
         message: 'Test telegram message sent successfully',
       };
     } catch (error) {
-      logger.error({ chatId, error }, 'Failed to send test telegram message');
+      logger.error(
+        { err: error, chatId },
+        'Failed to send test telegram message',
+      );
       return {
         success: false,
         message: `Failed to send test telegram message, ${extractTestTelegramFailureMessage(error)}`,

@@ -17,11 +17,14 @@ npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
+npm test                 # vitest unit tests (src/**/*.test.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 ```
 
-Pre-commit runs lint-staged + typecheck (husky).
+Pre-commit runs lint-staged + typecheck (husky). CI
+(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
+e2e suites against `npx prisma dev` as the local Prisma Postgres.
 
 ## Architecture
 
@@ -36,7 +39,7 @@ Pre-commit runs lint-staged + typecheck (husky).
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params), `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
-  `repositories/` (Prisma), `commandHandlers/` (Telegram bot commands),
+  `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
   `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
   `integrations` live inside services as `lazy()` fields.
@@ -66,8 +69,10 @@ Pre-commit runs lint-staged + typecheck (husky).
   custom properties, no global utility classes, no hardcoded hex in
   components (charts read `theme.palette.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. Errors also
-  go to Sentry via `createHandler`/`instrumentation.ts`.
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
+  error tracker — logs are the only error signal, so anything swallowed is
+  invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
+  errors Next raises outside a route handler.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)
@@ -79,13 +84,13 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 
 ## Crons (vercel.json)
 
-| Path | Schedule |
-|---|---|
-| /api/scheduled-transactions/process | 07:00 daily |
-| /api/summary/today | 21:00 daily |
-| /api/backup/transactions | 03:00 daily |
-| /api/subscriptions/detect | 04:00 Mondays |
-| /api/subscriptions/audit-notify | 08:00 Mondays |
+| Path                                | Schedule      |
+| ----------------------------------- | ------------- |
+| /api/scheduled-transactions/process | 07:00 daily   |
+| /api/summary/today                  | 21:00 daily   |
+| /api/backup/transactions            | 03:00 daily   |
+| /api/subscriptions/detect           | 04:00 Mondays |
+| /api/subscriptions/audit-notify     | 08:00 Mondays |
 
 ## Deployment
 

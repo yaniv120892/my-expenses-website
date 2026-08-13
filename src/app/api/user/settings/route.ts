@@ -1,4 +1,5 @@
 import { createHandler } from '@/server/http/handler';
+import { HttpError } from '@/server/http/errors';
 import { updateUserSettingsSchema } from '@/shared/schemas/userSettings';
 import userSettingsService from '@/server/services/userSettingsService';
 
@@ -7,7 +8,7 @@ export const GET = createHandler({
   handler: async ({ userId }) => {
     const userSettings = await userSettingsService.getUserSettings(userId);
     if (!userSettings) {
-      throw new Error('User settings not found');
+      throw new HttpError(404, 'User settings not found');
     }
     return {
       info: { email: userSettings.info.email },

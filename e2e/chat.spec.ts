@@ -29,9 +29,14 @@ test('assistant reply renders incrementally', async ({ page }) => {
   const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
 
   // Sampled well below the mock's 120ms chunk gap, or consecutive samples
-  // could each land after the stream already finished.
+  // could each land after the stream already finished. The deadline has to
+  // outlast a first-time compile of the chat route, and the sampling stays
+  // fine-grained throughout — an expect() pre-wait cannot stand in for it,
+  // because its polling backs off to intervals wider than the chunk gap and
+  // would only ever observe the finished text.
   const lengths: number[] = [];
-  for (let i = 0; i < 80; i++) {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
     const text = (await reply.count()) ? await reply.last().textContent() : '';
     lengths.push((text || '').length);
     if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) break;

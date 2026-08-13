@@ -1,6 +1,11 @@
 import { hash, compare } from 'bcryptjs';
 import crypto from 'crypto';
-import { setValue, getValue, deleteValue } from '@/server/redis';
+import {
+  setValue,
+  getValue,
+  deleteValue,
+  incrementWithTtl,
+} from '@/server/redis';
 import {
   invalidateSession,
   isSessionActive,
@@ -10,6 +15,8 @@ import { signToken, tokenTtlSeconds, verifyToken } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
+
+const MAX_CODE_ATTEMPTS = 5;
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
@@ -30,6 +37,7 @@ class AuthService {
     await announcementService.acknowledgeAllForNewUser(user.id);
     const code = this.generateCode();
     await setValue(`loginCode:${email}`, code, 600);
+    await deleteValue(`loginCodeAttempts:${email}`);
     await this.sendCodeByEmail(email, code);
     return {
       message: 'Verification code sent to email. Code is valid for 10 minutes.',
@@ -54,8 +62,17 @@ class AuthService {
   }
 
   public async verifyLoginCode(email: string, code: string) {
+    // A 6-digit code valid for 10 minutes is brute-forceable without an
+    // attempt cap; the code is burned once the cap is hit.
+    const attemptsKey = `loginCodeAttempts:${email}`;
+    const attempts = await incrementWithTtl(attemptsKey, 600);
+    if (attempts > MAX_CODE_ATTEMPTS) {
+      await deleteValue(`loginCode:${email}`);
+      return { error: 'Too many attempts. Please request a new code.' };
+    }
+
     const cachedCode = await getValue<string>(`loginCode:${email}`);
-    if (!cachedCode || String(cachedCode) !== code) {
+    if (!cachedCode || !this.safeCodeCompare(String(cachedCode), code)) {
       return { error: 'Invalid or expired code' };
     }
     const user = await userRepository.findByEmail(email);
@@ -65,6 +82,7 @@ class AuthService {
     await userRepository.verifyUser(email);
     const token = await signToken(user.id);
     await deleteValue(`loginCode:${email}`);
+    await deleteValue(attemptsKey);
     await storeSession(user.id, token, tokenTtlSeconds());
     return { token };
   }
@@ -90,6 +108,15 @@ class AuthService {
 
   private generateCode() {
     return crypto.randomInt(100000, 999999).toString();
+  }
+
+  private safeCodeCompare(expected: string, provided: string): boolean {
+    const expectedBuffer = Buffer.from(expected);
+    const providedBuffer = Buffer.from(provided);
+    return (
+      expectedBuffer.length === providedBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+    );
   }
 
   private generateVerificationEmailText(code: string, email: string) {

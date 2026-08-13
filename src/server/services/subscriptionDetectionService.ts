@@ -38,15 +38,28 @@ interface DetectedPattern {
 class SubscriptionDetectionService {
   public async runDetectionForAllUsers(): Promise<void> {
     const userIds = await subscriptionRepository.getAllUserIds();
+    let failed = 0;
     for (const userId of userIds) {
       try {
         await this.detectForUser(userId);
       } catch (error) {
+        failed += 1;
         logger.error(
           { err: error, userId },
           'Subscription detection failed for user',
         );
       }
+    }
+
+    logger.info(
+      { total: userIds.length, succeeded: userIds.length - failed, failed },
+      'Subscription detection run finished',
+    );
+    if (failed > 0) {
+      // Surface partial failure so cron monitoring sees it.
+      throw new Error(
+        `Subscription detection failed for ${failed} of ${userIds.length} user(s)`,
+      );
     }
   }
 
@@ -160,6 +173,7 @@ class SubscriptionDetectionService {
 
     const notifier = TransactionNotifierFactory.getNotifier();
 
+    let failed = 0;
     for (const [userId, subs] of byUser) {
       try {
         if (!enabledUserIds.has(userId)) continue;
@@ -201,11 +215,23 @@ class SubscriptionDetectionService {
 
         await notifier.sendDailySummary(lines.join('\n'), userId);
       } catch (error) {
+        failed += 1;
         logger.error(
           { err: error, userId },
           'Failed to send subscription audit for user',
         );
       }
+    }
+
+    logger.info(
+      { total: byUser.size, succeeded: byUser.size - failed, failed },
+      'Subscription audit run finished',
+    );
+    if (failed > 0) {
+      // Surface partial failure so cron monitoring sees it.
+      throw new Error(
+        `Subscription audit failed for ${failed} of ${byUser.size} user(s)`,
+      );
     }
   }
 

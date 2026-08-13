@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JWT_SECRET: e2e-test-secret
+      REDIS_URL: http://127.0.0.1:51230
+      REDIS_TOKEN: e2e
+      AI_PROVIDER: chatgpt
+      OPENAI_API_KEY: e2e
+      ASSISTANT_MODEL_URL: http://127.0.0.1:51231/v1
+      CRON_SECRET: e2e
+      # Test-only key; production uses its own secret.
+      PRISMA_FIELD_ENCRYPTION_KEY: k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # The app's Prisma client speaks the Accelerate protocol (prisma://),
+      # so DATABASE_URL comes from prisma dev's local Prisma Postgres server;
+      # DIRECT_URL is its plain TCP address (migrations, seed, Mastra memory).
+      - name: Start local Prisma Postgres
+        run: |
+          npx prisma dev --detach --port 51213 --db-port 51214 --shadow-db-port 51215
+          STATE="$HOME/.local/share/prisma-dev-nodejs/default/server.json"
+          for i in $(seq 1 60); do
+            node -e "require('$STATE').exports.ppg.url" 2>/dev/null && break
+            sleep 1
+          done
+          echo "DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")" >> "$GITHUB_ENV"
+          echo "DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")" >> "$GITHUB_ENV"
+
+      - run: npx prisma migrate deploy
+
+      - name: Start app
+        run: |
+          npm run dev > next-dev.log 2>&1 &
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health || true)
+            [ "$code" != "000" ] && [ -n "$code" ] && break
+            sleep 1
+          done
+
+      - name: API e2e harness
+        run: npm run test:e2e:api
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: UI e2e specs
+        run: |
+          npx tsx test/e2e-api/serve.ts > serve.log 2>&1 &
+          for i in $(seq 1 60); do grep -q '^ready$' serve.log && break; sleep 1; done
+          export E2E_AUTH_TOKEN="$(sed -n 's/^E2E_AUTH_TOKEN=//p' serve.log)"
+          E2E_NO_WEBSERVER=1 npm run test:e2e:ui
+
+      - name: Surface server logs on failure
+        if: failure()
+        run: tail -n 100 next-dev.log serve.log 2>/dev/null || true

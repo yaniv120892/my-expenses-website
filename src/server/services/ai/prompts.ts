@@ -1,0 +1,50 @@
+import { Category } from '@/shared/types/category';
+import { Transaction } from '@/shared/types/transaction';
+import { CategorizerHint } from '@/server/services/ai/aiProvider';
+
+// Prompts live here so both providers send identical instructions; switching
+// AI_PROVIDER must never change product behavior.
+
+export function buildAnalyzeExpensesPrompt(
+  expenseSummary: string,
+  suffixPrompt?: string,
+): string {
+  return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;
+}
+
+export function buildSuggestCategoryPrompt(
+  expenseDescription: string,
+  categoryOptions: Category[],
+  categorizerHint?: CategorizerHint,
+): string {
+  let prompt = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
+
+  if (categorizerHint) {
+    prompt += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
+  }
+
+  prompt += '\n\nReturn only the category name, nothing else.';
+  return prompt;
+}
+
+export function buildFindMatchingTransactionPrompt(
+  importedDescription: string,
+  potentialMatches: Transaction[],
+): string {
+  return `You are a helpful assistant that matches similar transaction descriptions. Your task is to find the most semantically similar transaction from a list of potential matches.
+
+Rules:
+1. Compare the imported description with each potential match
+2. Consider semantic similarity, not just exact matches
+3. Account for variations in merchant names and transaction descriptions
+4. Return ONLY the ID of the best matching transaction
+5. If no good match is found, return "none"
+6. Do not explain your choice, just return the ID or "none"
+
+Given this imported transaction description: "${importedDescription}"
+
+Find the best matching transaction from this list:
+${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
+
+Return only the ID of the best match, or "none" if no good match exists.`;
+}

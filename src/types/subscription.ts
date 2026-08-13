@@ -1,25 +1,23 @@
-export type SubscriptionFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
-export type SubscriptionStatus = "DETECTED" | "CONFIRMED" | "DISMISSED";
+import type {
+  DetectedSubscriptionDomain,
+  SubscriptionSummary as SharedSubscriptionSummary,
+} from '@/shared/types/subscription';
 
-export interface DetectedSubscription {
-  id: string;
-  merchantName: string;
-  displayName: string;
-  averageAmount: number;
-  frequency: SubscriptionFrequency;
+export type SubscriptionFrequency = DetectedSubscriptionDomain['frequency'];
+export type SubscriptionStatus = DetectedSubscriptionDomain['status'];
+
+/** Wire shape of DetectedSubscriptionDomain: JSON string dates, no server-only fields. */
+export type DetectedSubscription = Omit<
+  DetectedSubscriptionDomain,
+  'userId' | 'createdAt' | 'updatedAt' | 'lastChargeDate' | 'nextExpectedDate'
+> & {
   lastChargeDate: string;
   nextExpectedDate: string;
-  annualCost: number;
-  status: SubscriptionStatus;
-  matchingDescriptions: string[];
-  scheduledTransactionId?: string;
-  confidence: number;
-}
+};
 
-export interface SubscriptionSummary {
-  totalMonthlyEstimate: number;
-  totalAnnualEstimate: number;
-  activeCount: number;
-  detectedCount: number;
+export type SubscriptionSummary = Omit<
+  SharedSubscriptionSummary,
+  'subscriptions'
+> & {
   subscriptions: DetectedSubscription[];
-}
+};

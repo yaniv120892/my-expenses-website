@@ -12,11 +12,12 @@ export interface AIProvider {
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string>;
+  /** Resolves to the matched category id, or null when nothing matched. */
   suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
-  ): Promise<string>;
+  ): Promise<string | null>;
   findMatchingTransaction(
     importedDescription: string,
     potentialMatches: Transaction[],

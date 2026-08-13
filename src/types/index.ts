@@ -1,49 +1,50 @@
-export enum TabOption {
-  Transactions = 'TRANSACTIONS',
-  PendingTransactions = 'PENDING_TRANSACTIONS',
-  ScheduledTransactions = 'SCHEDULED_TRANSACTIONS',
-  Subscriptions = 'SUBSCRIPTIONS',
-  Dashboard = 'DASHBOARD',
-  Settings = 'SETTINGS',
-  Trends = 'TRENDS',
-  Imports = 'IMPORTS',
-}
+// Client entry point for domain types. Shared definitions live in
+// src/shared/types; only client-specific shapes (JSON wire formats with
+// string dates, UI-only types) are declared here, derived from the shared
+// tree so the two cannot drift.
+import type { Category } from '@/shared/types/category';
+import type {
+  CreateScheduledTransaction,
+  ScheduledTransactionDomain,
+  UpdateScheduledTransaction,
+} from '@/shared/types/scheduledTransaction';
+import type {
+  Transaction as SharedTransaction,
+  TransactionFile as SharedTransactionFile,
+  TransactionType,
+} from '@/shared/types/transaction';
+import type { updateUserSettingsSchema } from '@/shared/schemas/userSettings';
+import type { z } from 'zod';
 
-export type TransactionType = 'INCOME' | 'EXPENSE';
+export type { Category, TransactionType };
+export type {
+  TransactionFileStatus,
+  TransactionSummary,
+} from '@/shared/types/transaction';
 
-export interface Category {
-  id: string;
-  name: string;
-  parentId?: string | null;
-}
-
-export type TransactionFileStatus =
-  'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
-
-export interface TransactionFile {
-  id: string;
-  transactionId: string;
-  fileName: string;
-  fileKey: string;
+/** Wire shape of the shared TransactionFile: JSON string dates plus the presigned URLs the API adds. */
+export type TransactionFile = Omit<
+  SharedTransactionFile,
+  'createdAt' | 'updatedAt'
+> & {
   previewFileUrl: string;
   downloadableFileUrl: string;
-  fileSize: number;
-  mimeType: string;
-  status: TransactionFileStatus;
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface Transaction {
-  id: string;
-  description: string;
-  value: number;
+/** Wire shape of the shared Transaction: JSON string date, hierarchical category. */
+export type Transaction = Omit<
+  SharedTransaction,
+  'date' | 'status' | 'category' | 'files'
+> & {
   date: string;
-  type: TransactionType;
   category: Category;
   files?: TransactionFile[];
-}
+};
 
+// Request body for POST/PUT /api/transactions; dates travel as strings and
+// are coerced by createTransactionSchema on the server.
 export interface CreateTransactionInput {
   description: string;
   value: number;
@@ -54,11 +55,7 @@ export interface CreateTransactionInput {
 
 export type UpdateTransactionInput = CreateTransactionInput;
 
-export interface TransactionSummary {
-  totalIncome: number;
-  totalExpense: number;
-}
-
+// Client-side query state for /api/transactions; dates travel as strings.
 export interface TransactionFilters {
   searchTerm?: string;
   categoryId?: string;
@@ -70,46 +67,23 @@ export interface TransactionFilters {
   smartSearch?: boolean;
 }
 
-export type ScheduleType = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+export type ScheduleType = ScheduledTransactionDomain['scheduleType'];
 
-export interface CreateScheduledTransactionInput {
-  description: string;
-  value: number;
-  type: TransactionType;
-  categoryId: string;
-  scheduleType: ScheduleType;
-  interval?: number;
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  monthOfYear?: number;
-}
+export type CreateScheduledTransactionInput = Omit<
+  CreateScheduledTransaction,
+  'userId'
+>;
 
-export interface UpdateScheduledTransactionInput {
-  description?: string;
-  value?: number;
-  type?: TransactionType;
-  categoryId?: string;
-  scheduleType?: ScheduleType;
-  interval?: number;
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  monthOfYear?: number;
-}
+export type UpdateScheduledTransactionInput = UpdateScheduledTransaction;
 
-export interface ScheduledTransaction {
-  id: string;
-  description: string;
-  value: number;
-  type: TransactionType;
-  categoryId: string;
-  scheduleType: ScheduleType;
-  interval?: number;
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  monthOfYear?: number;
+/** Wire shape of ScheduledTransactionDomain: JSON string dates, no server-only fields. */
+export type ScheduledTransaction = Omit<
+  ScheduledTransactionDomain,
+  'userId' | 'lastRunDate' | 'nextRunDate'
+> & {
   lastRunDate?: string;
   nextRunDate: string;
-}
+};
 
 export class ApiResponse<T> {
   data?: T;
@@ -117,18 +91,4 @@ export class ApiResponse<T> {
   error?: string;
 }
 
-export interface UserSettings {
-  info: {
-    email: string;
-  };
-  notifications: {
-    createTransaction: boolean;
-    dailySummary: boolean;
-    subscriptionAudit: boolean;
-    monthlyReport: boolean;
-  };
-  provider: {
-    enabled: boolean;
-    telegramChatId: string | null;
-  };
-}
+export type UserSettings = z.infer<typeof updateUserSettingsSchema>;

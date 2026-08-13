@@ -17,14 +17,27 @@ class SummaryService {
   public async sendTodaySummaryToAllUsers(): Promise<void> {
     const notifier = TransactionNotifierFactory.getNotifier();
     const users = await userSettingsService.getUsersRequiredDailySummary();
+    let failed = 0;
     for (const userId of users) {
       // Guarded per user so one failure cannot abort the run for the rest.
       try {
         const message = await this.getTodaySummaryMessage(userId);
         await notifier.sendDailySummary(message, userId);
       } catch (err) {
+        failed += 1;
         logger.error({ err, userId }, 'Failed to send daily summary');
       }
+    }
+
+    logger.info(
+      { total: users.length, succeeded: users.length - failed, failed },
+      'Daily summary run finished',
+    );
+    if (failed > 0) {
+      // Surface partial failure so cron monitoring and Sentry see it.
+      throw new Error(
+        `Daily summary failed for ${failed} of ${users.length} user(s)`,
+      );
     }
   }
 

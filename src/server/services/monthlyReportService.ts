@@ -45,13 +45,26 @@ class MonthlyReportService {
   ): Promise<void> {
     const userIds = await userSettingsService.getUsersRequiredMonthlyReport();
 
+    let failed = 0;
     for (const userId of userIds) {
       // Guarded per user so one failure cannot abort the run for the rest.
       try {
         await this.sendMonthlyReportForUser(userId, { referenceDate });
       } catch (err) {
+        failed += 1;
         logger.error({ err, userId }, 'Failed to send monthly report');
       }
+    }
+
+    logger.info(
+      { total: userIds.length, succeeded: userIds.length - failed, failed },
+      'Monthly report run finished',
+    );
+    if (failed > 0) {
+      // Surface partial failure so cron monitoring and Sentry see it.
+      throw new Error(
+        `Monthly report failed for ${failed} of ${userIds.length} user(s)`,
+      );
     }
   }
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as Sentry from '@sentry/nextjs';
 import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { AuthError, requireUser } from '@/server/auth/session';
@@ -54,11 +53,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-function errorResponse(
-  err: unknown,
-  requestId: string,
-  userId: string,
-): NextResponse {
+function errorResponse(err: unknown): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
@@ -76,12 +71,6 @@ function errorResponse(
   }
   const error = (err ?? {}) as { message?: string; status?: number };
   const status = error.status ?? 500;
-  if (status >= 500) {
-    Sentry.captureException(err, {
-      tags: { requestId },
-      ...(userId && { user: { id: userId } }),
-    });
-  }
   return NextResponse.json(
     { message: error.message || 'Internal Server Error' },
     { status },
@@ -142,9 +131,12 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err, requestId, userId);
+      response = errorResponse(err);
       if (response.status >= 500) {
-        logger.error({ requestId, path, err }, 'Request failed');
+        logger.error(
+          { requestId, path, err, ...(userId && { userId }) },
+          'Request failed',
+        );
       }
     }
 

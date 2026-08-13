@@ -73,7 +73,7 @@ class ScheduledTransactionService {
       'Scheduled transaction run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring and Sentry see it.
+      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Scheduled transaction processing failed for ${failed} of ${dueScheduledTransactions.length} schedule(s)`,
       );

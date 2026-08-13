@@ -69,8 +69,10 @@ e2e suites against `npx prisma dev` as the local Prisma Postgres.
   custom properties, no global utility classes, no hardcoded hex in
   components (charts read `theme.palette.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. Errors also
-  go to Sentry via `createHandler`/`instrumentation.ts`.
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
+  error tracker — logs are the only error signal, so anything swallowed is
+  invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
+  errors Next raises outside a route handler.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

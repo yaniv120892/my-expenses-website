@@ -61,7 +61,7 @@ class MonthlyReportService {
       'Monthly report run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring and Sentry see it.
+      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Monthly report failed for ${failed} of ${userIds.length} user(s)`,
       );

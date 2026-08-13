@@ -12,19 +12,11 @@ class ScheduledTransactionService {
   public async processDueScheduledTransactions(date: Date) {
     const dueScheduledTransactions =
       await scheduledTransactionRepository.getDueScheduledTransactions(date);
+    let failed = 0;
     for (const scheduled of dueScheduledTransactions) {
       // Guarded per item so one failing schedule cannot abort the whole
       // cron run for every other user.
       try {
-        await transactionService.createTransaction({
-          description: scheduled.description,
-          value: scheduled.value,
-          categoryId: scheduled.categoryId,
-          type: scheduled.type,
-          date,
-          status: 'PENDING_APPROVAL',
-          userId: scheduled.userId,
-        });
         const nextRunDate = calculateNextRunDate(
           scheduled.scheduleType,
           scheduled.interval,
@@ -32,12 +24,35 @@ class ScheduledTransactionService {
           scheduled.dayOfWeek,
           scheduled.dayOfMonth,
         );
+        // The schedule is advanced before the transaction is created and
+        // rolled back if creation fails: a crash between the two steps then
+        // skips one occurrence (reported below) instead of duplicating it on
+        // every following run.
         await scheduledTransactionRepository.updateLastRunAndNextRun(
           scheduled.id,
           date,
           nextRunDate,
         );
+        try {
+          await transactionService.createTransaction({
+            description: scheduled.description,
+            value: scheduled.value,
+            categoryId: scheduled.categoryId,
+            type: scheduled.type,
+            date,
+            status: 'PENDING_APPROVAL',
+            userId: scheduled.userId,
+          });
+        } catch (err) {
+          await scheduledTransactionRepository.updateLastRunAndNextRun(
+            scheduled.id,
+            scheduled.lastRunDate ?? null,
+            scheduled.nextRunDate ?? date,
+          );
+          throw err;
+        }
       } catch (err) {
+        failed += 1;
         logger.error(
           {
             err,
@@ -47,6 +62,21 @@ class ScheduledTransactionService {
           'Failed to process scheduled transaction',
         );
       }
+    }
+
+    logger.info(
+      {
+        total: dueScheduledTransactions.length,
+        succeeded: dueScheduledTransactions.length - failed,
+        failed,
+      },
+      'Scheduled transaction run finished',
+    );
+    if (failed > 0) {
+      // Surface partial failure so cron monitoring and Sentry see it.
+      throw new Error(
+        `Scheduled transaction processing failed for ${failed} of ${dueScheduledTransactions.length} schedule(s)`,
+      );
     }
   }
 

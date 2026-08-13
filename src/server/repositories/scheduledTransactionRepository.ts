@@ -52,7 +52,7 @@ class ScheduledTransactionRepository {
 
   public async updateLastRunAndNextRun(
     id: string,
-    lastRunDate: Date,
+    lastRunDate: Date | null,
     nextRunDate: Date,
   ): Promise<void> {
     await prisma.scheduledTransaction.update({

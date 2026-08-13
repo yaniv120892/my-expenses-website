@@ -32,7 +32,10 @@ export const POST = createHandler({
         message: `${outcome.monthLabel} report sent to ${outcome.recipient}.`,
       };
     } catch (error) {
-      logger.error({ userId, error }, 'Failed to send test monthly report');
+      logger.error(
+        { err: error, userId },
+        'Failed to send test monthly report',
+      );
       return {
         success: false,
         message:

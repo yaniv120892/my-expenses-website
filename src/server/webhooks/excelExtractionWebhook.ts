@@ -1,16 +1,12 @@
+import { z } from 'zod';
 import logger from '@/server/logging/logger';
 import {
   verifyWebhookToken,
   extractWebhookParams,
 } from '@/server/utils/webhookAuth';
-import { ExcelExtractionWebhookPayload } from '@/server/clients/excelExtractionAgentClientTypes';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
-import {
-  ImportStatus,
-  TransactionType,
-  ImportBankSourceType,
-} from '@prisma/client';
+import { ImportStatus, ImportBankSourceType } from '@prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
 
@@ -19,22 +15,46 @@ export interface WebhookResult {
   body: { success: boolean; message?: string; error?: string };
 }
 
+// Validates only what the handlers below consume; the sibling service may add
+// fields freely, but a shape drift in these must become a 400, not a
+// TypeError mid-processing.
+const webhookPayloadSchema = z.object({
+  requestId: z.string().min(1),
+  status: z.enum(['COMPLETED', 'FAILED']),
+  result: z
+    .object({
+      transactions: z.array(
+        z.object({
+          date: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
+          description: z.string(),
+          value: z.number(),
+          type: z.enum(['EXPENSE', 'INCOME']),
+          rawData: z.record(z.union([z.string(), z.number()])).optional(),
+        }),
+      ),
+      metadata: z.object({
+        creditCardLastFour: z.string(),
+        bankSourceType: z
+          .enum(['BANK_CREDIT', 'NON_BANK_CREDIT', 'UNKNOWN'])
+          .nullish(),
+        paymentMonth: z.string(),
+      }),
+    })
+    .optional(),
+  error: z.string().optional(),
+});
+
+type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
+
 export async function processExcelExtractionWebhook(
-  payload: ExcelExtractionWebhookPayload,
+  rawPayload: unknown,
   query: Record<string, string>,
 ): Promise<WebhookResult> {
+  let payload: WebhookPayload | undefined;
   try {
-    logger.info(
-      { requestId: payload.requestId, status: payload.status },
-      'Received excel extraction webhook',
-    );
-
     const authParams = extractWebhookParams(query);
     if (!authParams) {
-      logger.error(
-        { requestId: payload.requestId },
-        'Missing authentication parameters in webhook',
-      );
+      logger.error({}, 'Missing authentication parameters in webhook');
       return {
         status: 401,
         body: { success: false, error: 'Missing authentication parameters' },
@@ -48,7 +68,7 @@ export async function processExcelExtractionWebhook(
     );
     if (!isValid) {
       logger.error(
-        { requestId: payload.requestId, userId: authParams.userId },
+        { userId: authParams.userId },
         'Invalid webhook authentication',
       );
       return {
@@ -56,6 +76,24 @@ export async function processExcelExtractionWebhook(
         body: { success: false, error: 'Invalid authentication' },
       };
     }
+
+    const parsed = webhookPayloadSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      logger.error(
+        { userId: authParams.userId, issues: parsed.error.issues },
+        'Invalid excel extraction webhook payload',
+      );
+      return {
+        status: 400,
+        body: { success: false, error: 'Invalid webhook payload' },
+      };
+    }
+    payload = parsed.data;
+
+    logger.info(
+      { requestId: payload.requestId, status: payload.status },
+      'Received excel extraction webhook',
+    );
 
     const importRecord = await importRepository.findByExtractionRequestId(
       payload.requestId,
@@ -111,7 +149,7 @@ export async function processExcelExtractionWebhook(
     };
   } catch (err) {
     logger.error(
-      { err, requestId: payload.requestId },
+      { err, requestId: payload?.requestId },
       'Error processing webhook',
     );
     return {
@@ -123,7 +161,7 @@ export async function processExcelExtractionWebhook(
 
 async function handleCompletedExtraction(
   importId: string,
-  payload: ExcelExtractionWebhookPayload,
+  payload: WebhookPayload,
 ): Promise<void> {
   if (!payload.result) {
     throw new Error('Missing extraction result in completed webhook');
@@ -150,7 +188,7 @@ async function handleCompletedExtraction(
       description: transaction.description,
       value: transaction.value,
       date,
-      type: transaction.type as TransactionType,
+      type: transaction.type,
       rawData: transaction.rawData || {},
       matchingTransactionId: null,
       importId,
@@ -167,8 +205,8 @@ async function handleCompletedExtraction(
     data: {
       creditCardLastFourDigits: result.metadata.creditCardLastFour,
       paymentMonth: result.metadata.paymentMonth,
-      bankSourceType: result.metadata
-        .bankSourceType as ImportBankSourceType | null,
+      bankSourceType: (result.metadata.bankSourceType ??
+        null) as ImportBankSourceType | null,
     },
   });
 
@@ -268,7 +306,7 @@ async function handleCompletedExtraction(
 
 async function handleFailedExtraction(
   importId: string,
-  payload: ExcelExtractionWebhookPayload,
+  payload: WebhookPayload,
 ): Promise<void> {
   const errorMessage = payload.error || 'Unknown extraction error';
 

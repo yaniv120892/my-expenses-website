@@ -16,6 +16,8 @@ import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgen
 import prisma from '@/server/db/client';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { lazy } from '@/server/lib/lazy';
+import { requireEnv } from '@/server/env';
+import { HttpError } from '@/server/http/errors';
 
 interface BatchResult {
   total: number;
@@ -64,6 +66,14 @@ class ImportService {
     originalFileName: string,
     paymentMonthFromRequest?: string,
   ): Promise<Import> {
+    // The extraction agent fetches this URL server-side, so accepting an
+    // arbitrary URL would let a user point it at internal hosts. Only files
+    // the upload endpoint wrote to the imports bucket are allowed.
+    const importsPrefix = `https://${requireEnv('IMPORTS_S3_BUCKET')}.s3.${requireEnv('IMPORTS_S3_REGION')}.amazonaws.com/imports/`;
+    if (!fileUrl.startsWith(importsPrefix)) {
+      throw new HttpError(400, 'fileUrl must point to an uploaded import file');
+    }
+
     try {
       logger.info(
         {

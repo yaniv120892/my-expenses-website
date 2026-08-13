@@ -54,7 +54,11 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-function errorResponse(err: unknown, requestId: string): NextResponse {
+function errorResponse(
+  err: unknown,
+  requestId: string,
+  userId: string,
+): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
@@ -73,7 +77,10 @@ function errorResponse(err: unknown, requestId: string): NextResponse {
   const error = (err ?? {}) as { message?: string; status?: number };
   const status = error.status ?? 500;
   if (status >= 500) {
-    Sentry.captureException(err, { tags: { requestId } });
+    Sentry.captureException(err, {
+      tags: { requestId },
+      ...(userId && { user: { id: userId } }),
+    });
   }
   return NextResponse.json(
     { message: error.message || 'Internal Server Error' },
@@ -135,7 +142,7 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err, requestId);
+      response = errorResponse(err, requestId, userId);
       if (response.status >= 500) {
         logger.error({ requestId, path, err }, 'Request failed');
       }

@@ -1,0 +1,165 @@
+name: Claude maintenance
+
+# Daily unattended maintenance routines. Each routine is a skill under
+# .claude/skills/maintenance-*; this workflow only schedules them, brings up
+# whatever they need, and turns their commit into a PR.
+#
+# Setup:
+#   ANTHROPIC_API_KEY        required. For a Claude subscription instead, swap
+#                            the anthropic_api_key line for
+#                            claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+#   MAINTENANCE_PR_TOKEN     optional but strongly recommended: a PAT with repo
+#                            scope. GitHub does not run workflows on PRs opened
+#                            with the default GITHUB_TOKEN, so without this the
+#                            maintenance PRs arrive with no CI.
+
+on:
+  schedule:
+    - cron: '0 5 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      routine:
+        description: 'Which routine to run'
+        type: choice
+        options: [all, dead-code, dup-unifier, crash-fuzz]
+        default: all
+
+concurrency:
+  group: claude-maintenance
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+  id-token: write
+  actions: read
+
+jobs:
+  # Routines that only need the source tree.
+  static:
+    name: ${{ matrix.routine }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        routine: [dead-code, dup-unifier]
+    env:
+      # The matrix context is not available in a job-level `if`, but it is in
+      # job-level `env`, so the per-routine guard is computed once here and
+      # read by the steps that actually cost something.
+      SELECTED: ${{ github.event_name == 'schedule' || inputs.routine == 'all' || inputs.routine == matrix.routine }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        if: env.SELECTED == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: /maintenance-${{ matrix.routine }}
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+
+      - name: Open PR if the routine committed something
+        if: env.SELECTED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MAINTENANCE_PR_TOKEN || github.token }}
+        run: .github/scripts/open-maintenance-pr.sh
+
+  # The fuzzer needs the app, a database, and the e2e support stack running.
+  crash-fuzz:
+    name: crash-fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: >-
+      github.event_name == 'schedule' ||
+      inputs.routine == 'all' ||
+      inputs.routine == 'crash-fuzz'
+    env:
+      JWT_SECRET: fuzz-test-secret
+      REDIS_URL: http://127.0.0.1:51230
+      REDIS_TOKEN: fuzz
+      AI_PROVIDER: chatgpt
+      OPENAI_API_KEY: fuzz
+      ASSISTANT_MODEL_URL: http://127.0.0.1:51231/v1
+      CRON_SECRET: fuzz
+      # Test-only key; production uses its own secret.
+      PRISMA_FIELD_ENCRYPTION_KEY: k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Same local Prisma Postgres the e2e job in ci.yml uses: the app's client
+      # speaks the Accelerate protocol, so DATABASE_URL comes from prisma dev
+      # and DIRECT_URL is its plain TCP address.
+      - name: Start local Prisma Postgres
+        run: |
+          npx prisma dev --detach --port 51213 --db-port 51214 --shadow-db-port 51215
+          STATE="$HOME/.local/share/prisma-dev-nodejs/default/server.json"
+          for i in $(seq 1 60); do
+            node -e "require('$STATE').exports.ppg.url" 2>/dev/null && break
+            sleep 1
+          done
+          echo "DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")" >> "$GITHUB_ENV"
+          echo "DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")" >> "$GITHUB_ENV"
+
+      - run: npx prisma migrate deploy
+
+      - name: Start app
+        run: |
+          npm run dev > next-dev.log 2>&1 &
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health || true)
+            [ "$code" != "000" ] && [ -n "$code" ] && break
+            sleep 1
+          done
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the crash fuzzer
+        run: |
+          npx tsx test/e2e-api/serve.ts > serve.log 2>&1 &
+          for i in $(seq 1 60); do grep -q '^ready$' serve.log && break; sleep 1; done
+          export E2E_AUTH_TOKEN="$(sed -n 's/^E2E_AUTH_TOKEN=//p' serve.log)"
+          # Date-derived seed so each day walks a different path, and the seed
+          # in the findings file is enough to replay the run.
+          npm run fuzz:crash -- \
+            --steps 400 \
+            --seed "$(date -u +%Y%m%d)" \
+            --max-minutes 12
+
+      - name: Show findings
+        run: cat fuzz-findings.json || echo 'no findings file'
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: /maintenance-crash-fuzz
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+
+      - name: Open PR if the routine committed something
+        env:
+          GH_TOKEN: ${{ secrets.MAINTENANCE_PR_TOKEN || github.token }}
+        run: .github/scripts/open-maintenance-pr.sh
+
+      - name: Surface server logs on failure
+        if: failure()
+        run: tail -n 100 next-dev.log serve.log 2>/dev/null || true

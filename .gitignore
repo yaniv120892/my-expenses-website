@@ -43,3 +43,9 @@ next-env.d.ts
 test-results/
 playwright-report/
 .env.local
+
+# crash fuzzer output
+fuzz-findings.json
+
+# maintenance routine handoff to the PR-opening step
+/.maintenance/

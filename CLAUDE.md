@@ -20,11 +20,17 @@ npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
 npm test                 # vitest unit tests (src/**/*.test.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
+npm run fuzz:crash       # UI crash fuzzer (see docs/maintenance/README.md)
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI
 (`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
 e2e suites against `npx prisma dev` as the local Prisma Postgres.
+
+Three unattended maintenance routines (dead-code sweep, duplicate unifier,
+crash fuzzer) run weekdays via `.github/workflows/claude-maintenance.yml` and
+open at most one PR each. Their skills live in `.claude/skills/maintenance-*`
+and share the rules in `docs/maintenance/pr-protocol.md`.
 
 ## Architecture
 

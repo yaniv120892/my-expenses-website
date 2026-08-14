@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { transactionTypeSchema } from './common';
+import { MAX_COMPARISON_SERIES } from '@/shared/types/trends';
+
+export { MAX_COMPARISON_SERIES };
 
 export const trendPeriodSchema = z.enum([
   'daily',
@@ -21,9 +24,6 @@ export const getSpendingTrendsQuerySchema = z.object({
 // Category trends accept the same query shape; categoryId is simply ignored.
 export const getCategorySpendingTrendsQuerySchema =
   getSpendingTrendsQuerySchema;
-
-// Matches theme.palette.charts.series.length — one distinct color per series.
-export const MAX_COMPARISON_SERIES = 8;
 
 export const comparisonScopeSchema = z.enum(['SUBTREE', 'EXACT']);
 

@@ -26,6 +26,7 @@ import {
   useRemoveFileMutation,
   useDirectS3UploadForAttachment,
 } from '@/hooks/useTransactionFilesQuery';
+import { validateTransactionForm } from '@/utils/transactionFormValidation';
 
 type TransactionFormType = {
   id: string;
@@ -99,23 +100,7 @@ export default function TransactionForm({
   }, [initialData, open]);
 
   const validate = () => {
-    const errs: { [k: string]: string } = {};
-    if (!form.description) {
-      errs.description = 'Description is required';
-    }
-    if (isNaN(Number(form.value))) {
-      errs.value = 'Value must be a number';
-    } else {
-      if (Number(form.value) <= 0) {
-        errs.value = 'Value must be greater than 0';
-      }
-    }
-    if (!form.type) {
-      errs.type = 'Type is required';
-    }
-    if (!form.date) {
-      errs.date = 'Date is required';
-    }
+    const errs = validateTransactionForm(form, Boolean(initialData));
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -267,7 +252,7 @@ export default function TransactionForm({
               label="Category"
               fullWidth
             />
-            {form.categoryId === '' && (
+            {form.categoryId === '' && !initialData && (
               <Typography
                 variant="caption"
                 sx={{ color: 'warning.main', mt: -1 }}

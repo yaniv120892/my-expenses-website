@@ -25,16 +25,13 @@ import {
   TrendPeriod,
   TransactionType,
   TrendFilters,
+  MAX_COMPARISON_SERIES,
 } from '@/types/trends';
 import { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { seriesColor } from '@/utils/comparison';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
-
-// Mirrors MAX_COMPARISON_SERIES in src/shared/schemas/trends.ts, which is
-// itself bounded by the number of chart series colors in the theme.
-const MAX_COMPARISON_SERIES = 8;
 
 interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;

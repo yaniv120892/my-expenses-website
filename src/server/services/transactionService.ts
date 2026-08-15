@@ -261,7 +261,6 @@ class TransactionService {
     return getPresignedUploadUrl(transactionId, fileName, mimeType);
   }
 
-  // Inlined from the Express app's createTransactionValidator.
   private async validateCreateTransaction(
     data: CreateTransaction,
   ): Promise<void> {
@@ -304,7 +303,6 @@ class TransactionService {
     userId: string,
     categories: Category[],
   ): Promise<string | null> {
-    // 1. Check user category mappings first (learned from corrections)
     try {
       const normalizedDescription = description.toLowerCase().trim();
       const mapping =
@@ -325,7 +323,6 @@ class TransactionService {
       logger.warn({ err }, 'Failed to check user category mapping');
     }
 
-    // 2. Try FastText categorizer with confidence routing
     let categorizerResult: {
       category: string;
       confidence: number;
@@ -359,7 +356,6 @@ class TransactionService {
       }
     }
 
-    // 3. Low confidence or no result — LLM fallback without hint
     logger.warn(
       `No reliable category from categorizer for: ${description}. Using AI service.`,
     );

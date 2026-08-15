@@ -17,7 +17,6 @@ import { useIsMobile } from '../hooks/useBreakpoints';
 
 const RIGHT_ALIGNED_COLUMNS = ['Amount', 'Actions'];
 
-// Placeholder widths per column so each list keeps the shape it had before.
 const COLUMN_WIDTHS: Record<string, string | number> = {
   Description: '70%',
   Category: '50%',

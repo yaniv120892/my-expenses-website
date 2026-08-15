@@ -45,6 +45,11 @@ const webhookPayloadSchema = z.object({
 });
 
 type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
+type ExtractionResult = NonNullable<WebhookPayload['result']>;
+type ExtractionMetadata = ExtractionResult['metadata'];
+type ImportedTransactionRow = ReturnType<
+  typeof toImportedTransactionRows
+>[number];
 
 export async function processExcelExtractionWebhook(
   rawPayload: unknown,
@@ -179,94 +184,24 @@ async function handleCompletedExtraction(
     'Processing completed extraction',
   );
 
-  const transactions = result.transactions.map((transaction) => {
-    // Extraction dates arrive as DD/MM/YYYY.
-    const [day, month, year] = transaction.date.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-
-    return {
-      description: transaction.description,
-      value: transaction.value,
-      date,
-      type: transaction.type,
-      rawData: transaction.rawData || {},
-      matchingTransactionId: null,
-      importId,
-    };
-  });
+  const transactions = toImportedTransactionRows(result, importId);
 
   const importRecord = await importRepository.findById(importId);
   if (!importRecord) {
     throw new Error(`Import record not found: ${importId}`);
   }
 
-  await prisma.import.update({
-    where: { id: importId },
-    data: {
-      creditCardLastFourDigits: result.metadata.creditCardLastFour,
-      paymentMonth: result.metadata.paymentMonth,
-      bankSourceType: (result.metadata.bankSourceType ??
-        null) as ImportBankSourceType | null,
-    },
-  });
+  await writeExtractionMetadata(importId, result.metadata);
 
-  // A previous import for the same card and month means this one is a
-  // duplicate upload: merge new transactions into it and drop this record.
-  // Excluding the import being processed — its metadata was just written
-  // above, so it would otherwise match itself and the merge would never fire.
-  const existingImport = await importRepository.findExisting(
-    importRecord.userId,
-    result.metadata.paymentMonth,
-    result.metadata.creditCardLastFour,
+  const mergedIntoImportId = await mergeIntoDuplicateImport(
     importId,
+    importRecord.userId,
+    result.metadata,
+    transactions,
   );
+  const finalImportId = mergedIntoImportId ?? importId;
 
-  let finalImportId = importId;
-  let shouldDeleteCurrentImport = false;
-
-  if (existingImport && existingImport.id !== importId) {
-    logger.info(
-      {
-        currentImportId: importId,
-        existingImportId: existingImport.id,
-        paymentMonth: result.metadata.paymentMonth,
-        creditCardLastFour: result.metadata.creditCardLastFour,
-      },
-      'Found duplicate import, merging transactions',
-    );
-
-    const nonDuplicateTransactions =
-      await importedTransactionRepository.filterDuplicates(
-        existingImport.id,
-        transactions.map((transaction) => ({
-          ...transaction,
-          userId: importRecord.userId,
-        })),
-      );
-
-    if (nonDuplicateTransactions.length > 0) {
-      await importedTransactionRepository.createMany(
-        nonDuplicateTransactions.map((transaction) => ({
-          ...transaction,
-          importId: existingImport.id,
-        })),
-      );
-
-      logger.info(
-        {
-          existingImportId: existingImport.id,
-          mergedTransactionCount: nonDuplicateTransactions.length,
-          totalTransactionCount: transactions.length,
-        },
-        'Merged non-duplicate transactions to existing import',
-      );
-    }
-
-    finalImportId = existingImport.id;
-    shouldDeleteCurrentImport = true;
-  }
-
-  if (transactions.length > 0 && !shouldDeleteCurrentImport) {
+  if (!mergedIntoImportId && transactions.length > 0) {
     await importedTransactionRepository.createMany(
       transactions.map((transaction) => ({
         ...transaction,
@@ -275,20 +210,9 @@ async function handleCompletedExtraction(
     );
   }
 
-  try {
-    await importService.findPotentialMatchesForImport(
-      finalImportId,
-      importRecord.userId,
-    );
-  } catch (err) {
-    // Matching is best-effort; the import itself already succeeded.
-    logger.error(
-      { importId: finalImportId, err },
-      'Error finding potential matches for import',
-    );
-  }
+  await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
-  if (shouldDeleteCurrentImport) {
+  if (mergedIntoImportId) {
     await prisma.import.delete({ where: { id: importId } });
     logger.info(
       { deletedImportId: importId, keptImportId: finalImportId },
@@ -302,6 +226,114 @@ async function handleCompletedExtraction(
     { importId, transactionCount: transactions.length },
     'Completed extraction processed successfully',
   );
+}
+
+function toImportedTransactionRows(result: ExtractionResult, importId: string) {
+  return result.transactions.map((transaction) => {
+    // Extraction dates arrive as DD/MM/YYYY.
+    const [day, month, year] = transaction.date.split('/').map(Number);
+
+    return {
+      description: transaction.description,
+      value: transaction.value,
+      date: new Date(year, month - 1, day),
+      type: transaction.type,
+      rawData: transaction.rawData || {},
+      matchingTransactionId: null,
+      importId,
+    };
+  });
+}
+
+async function writeExtractionMetadata(
+  importId: string,
+  metadata: ExtractionMetadata,
+): Promise<void> {
+  await prisma.import.update({
+    where: { id: importId },
+    data: {
+      creditCardLastFourDigits: metadata.creditCardLastFour,
+      paymentMonth: metadata.paymentMonth,
+      bankSourceType: (metadata.bankSourceType ??
+        null) as ImportBankSourceType | null,
+    },
+  });
+}
+
+/**
+ * A previous import for the same card and month means this one is a duplicate
+ * upload, so its transactions are merged into that import. Returns the id of
+ * the import that survives, or null when there was no duplicate — the caller
+ * drops this import only in the former case.
+ */
+async function mergeIntoDuplicateImport(
+  importId: string,
+  userId: string,
+  metadata: ExtractionMetadata,
+  transactions: ImportedTransactionRow[],
+): Promise<string | null> {
+  // Excluding the import being processed — the caller has just written its
+  // metadata, so it would otherwise match itself and the merge never fire.
+  const existingImport = await importRepository.findExisting(
+    userId,
+    metadata.paymentMonth,
+    metadata.creditCardLastFour,
+    importId,
+  );
+  if (!existingImport || existingImport.id === importId) {
+    return null;
+  }
+
+  logger.info(
+    {
+      currentImportId: importId,
+      existingImportId: existingImport.id,
+      paymentMonth: metadata.paymentMonth,
+      creditCardLastFour: metadata.creditCardLastFour,
+    },
+    'Found duplicate import, merging transactions',
+  );
+
+  const nonDuplicateTransactions =
+    await importedTransactionRepository.filterDuplicates(
+      existingImport.id,
+      transactions.map((transaction) => ({ ...transaction, userId })),
+    );
+
+  if (nonDuplicateTransactions.length > 0) {
+    await importedTransactionRepository.createMany(
+      nonDuplicateTransactions.map((transaction) => ({
+        ...transaction,
+        importId: existingImport.id,
+      })),
+    );
+
+    logger.info(
+      {
+        existingImportId: existingImport.id,
+        mergedTransactionCount: nonDuplicateTransactions.length,
+        totalTransactionCount: transactions.length,
+      },
+      'Merged non-duplicate transactions to existing import',
+    );
+  }
+
+  return existingImport.id;
+}
+
+async function findPotentialMatchesSafe(
+  importId: string,
+  userId: string,
+): Promise<void> {
+  try {
+    await importService.findPotentialMatchesForImport(importId, userId);
+  } catch (err) {
+    // Matching is best-effort; the import itself already succeeded.
+    logger.error(
+      { importId, err },
+      'Error finding potential matches for import',
+    );
+  }
 }
 
 async function handleFailedExtraction(

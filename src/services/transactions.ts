@@ -8,61 +8,43 @@ import {
   Category,
 } from '../types';
 
-// getTransactionsSchema caps perPage at 100, so an unpaginated caller walks
-// pages the way the server's own getAllTransactions does. MAX_PAGES keeps a
-// server that always returns a full page from hanging the browser.
-const MAX_PER_PAGE = 100;
-const MAX_PAGES = 50;
+export const TRANSACTIONS_PAGE_SIZE = 50;
 
-/** Params every page of a list request shares, minus page/perPage. */
+/**
+ * The one place list and summary filters are built. Both requests must send
+ * the same window, or the totals would describe different rows than the list.
+ */
 function listFilters(params?: TransactionFilters) {
-  const { page: _page, perPage: _perPage, ...filters } = params ?? {};
   return {
     endDate: new Date(
       new Date().setDate(new Date().getDate() + 7),
     ).toISOString(),
-    ...filters,
+    ...params,
   };
 }
 
-async function fetchTransactionsPage(
-  filters: ReturnType<typeof listFilters>,
-  page: number,
-  perPage: number,
-): Promise<Transaction[]> {
+export interface TransactionsPage {
+  items: Transaction[];
+  nextCursor: string | null;
+}
+
+export async function getTransactionsPage(
+  params?: TransactionFilters,
+  cursor?: string,
+  limit: number = TRANSACTIONS_PAGE_SIZE,
+): Promise<TransactionsPage> {
   const res = await api.get('/api/transactions', {
-    params: { ...filters, page, perPage },
+    params: { ...listFilters(params), cursor, limit },
   });
   return res.data;
 }
 
-export async function getTransactions(
+export async function getTransactionSummary(
   params?: TransactionFilters,
-): Promise<Transaction[]> {
-  const filters = listFilters(params);
-  const perPage = Math.min(params?.perPage ?? MAX_PER_PAGE, MAX_PER_PAGE);
-
-  // An explicit page means the caller wants that one page, not everything.
-  if (params?.page !== undefined) {
-    return fetchTransactionsPage(filters, params.page, perPage);
-  }
-
-  const transactions: Transaction[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const batch = await fetchTransactionsPage(filters, page, perPage);
-    transactions.push(...batch);
-    if (batch.length < perPage) break;
-  }
-  return transactions;
-}
-
-export async function getTransactionSummary(params?: {
-  startDate?: string;
-  endDate?: string;
-  categoryId?: string;
-  type?: string;
-}): Promise<TransactionSummary> {
-  const res = await api.get('/api/transactions/summary', { params });
+): Promise<TransactionSummary> {
+  const res = await api.get('/api/transactions/summary', {
+    params: listFilters(params),
+  });
   return res.data;
 }
 

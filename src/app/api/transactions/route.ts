@@ -9,7 +9,7 @@ export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSchema,
   handler: async ({ userId, query }) =>
-    transactionService.getTransactions({
+    transactionService.getTransactionsList({
       ...query,
       transactionType: query.type,
       userId,

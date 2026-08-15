@@ -1,6 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getTransactions,
+  useQuery,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
+import {
+  getTransactionsPage,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -25,14 +30,16 @@ export const transactionKeys = {
   // Prefix without the filters argument, so invalidation matches every
   // filtered summary query.
   summaries: () => [...transactionKeys.all, 'summary'] as const,
-  summary: (filters?: Omit<TransactionFilters, 'page' | 'perPage'>) =>
+  summary: (filters?: TransactionFilters) =>
     [...transactionKeys.summaries(), filters] as const,
 };
 
-export const useTransactionsQuery = (filters?: TransactionFilters) => {
-  return useQuery({
+export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
+  return useInfiniteQuery({
     queryKey: transactionKeys.list(filters || {}),
-    queryFn: () => getTransactions(filters),
+    queryFn: ({ pageParam }) => getTransactionsPage(filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 };
 
@@ -71,9 +78,7 @@ export const useDeleteTransactionMutation = () => {
   });
 };
 
-export const useTransactionsSummaryQuery = (
-  filters?: Omit<TransactionFilters, 'page' | 'perPage'>,
-) => {
+export const useTransactionsSummaryQuery = (filters?: TransactionFilters) => {
   return useQuery<TransactionSummary>({
     queryKey: transactionKeys.summary(filters),
     queryFn: () => getTransactionSummary(filters),

@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  queryBooleanSchema,
-  transactionStatusSchema,
-  transactionTypeSchema,
-} from './common';
+import { transactionStatusSchema, transactionTypeSchema } from './common';
 
 export const createTransactionSchema = z.object({
   description: z.string(),
@@ -26,22 +22,24 @@ export const updateTransactionStatusSchema = z.object({
   status: transactionStatusSchema,
 });
 
-export const getTransactionsSummarySchema = z.object({
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
-  categoryId: z.string().uuid().optional(),
-  type: transactionTypeSchema.optional(),
-});
-
-export const getTransactionsSchema = z.object({
+/**
+ * The filters the list and the summary must agree on. Both endpoints derive
+ * from this so a filter can never narrow the rows without also narrowing the
+ * totals shown above them.
+ */
+const transactionFilterSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   categoryId: z.string().uuid().optional(),
   type: transactionTypeSchema.optional(),
   searchTerm: z.string().optional(),
-  smartSearch: queryBooleanSchema.default('true'),
-  page: z.coerce.number().int().min(1),
-  perPage: z.coerce.number().int().min(10).max(100),
+});
+
+export const getTransactionsSummarySchema = transactionFilterSchema;
+
+export const getTransactionsSchema = transactionFilterSchema.extend({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 export const attachFileSchema = z.object({

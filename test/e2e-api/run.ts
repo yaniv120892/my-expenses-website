@@ -510,7 +510,6 @@ async function main(): Promise<void> {
       : `status ${warmup.status}`,
   );
 
-  // 1. Mastra created its own schema, isolated from Prisma's.
   const schemas = await query<{ nspname: string }>(
     `select nspname from pg_namespace where nspname = 'mastra'`,
   );
@@ -525,7 +524,6 @@ async function main(): Promise<void> {
     `${mastraTables[0]?.count} tables`,
   );
 
-  // 2. Prisma still reports a clean migration state.
   const { stdout } = await execFileAsync(
     'npx',
     ['prisma', 'migrate', 'status'],
@@ -537,7 +535,6 @@ async function main(): Promise<void> {
     stdout.trim().split('\n').slice(-1)[0],
   );
 
-  // 3. Auth.
   const unauth = await streamChat(null, 'How much did I spend?');
   check(
     'unauthenticated request rejected',
@@ -545,7 +542,6 @@ async function main(): Promise<void> {
     `status ${unauth.status}`,
   );
 
-  // 4-6. The comparison question.
   resetRecording();
   const compare = await streamChat(
     seeded.userA.token,
@@ -608,7 +604,6 @@ async function main(): Promise<void> {
     compareText.includes('1,100.00') && compareText.includes('26.83%'),
   );
 
-  // 7. Cross-user isolation.
   const leaked = USER_B_MARKERS.filter((m) => compareText.includes(m));
   check(
     "user B's amounts never appear in user A's answer",
@@ -630,7 +625,6 @@ async function main(): Promise<void> {
     preview(bText),
   );
 
-  // 8. Percentage shares come from the breakdown tool.
   resetRecording();
   const share = await streamChat(
     seeded.userA.token,
@@ -644,7 +638,6 @@ async function main(): Promise<void> {
   );
   check('share answer reached the user', textOf(share.frames).includes('%'));
 
-  // 9. Memory persisted a thread for this user.
   const threads = await query<{ count: string }>(
     `select count(*)::text as count from mastra.mastra_threads`,
   ).catch(() => [{ count: '0' }]);
@@ -654,7 +647,6 @@ async function main(): Promise<void> {
     `${threads[0]?.count} threads`,
   );
 
-  // 10. Disconnecting mid-stream stops the run.
   resetRecording();
   await streamChat(seeded.userA.token, 'Compare January versus February', {
     abortAfterFirstDelta: true,
@@ -676,19 +668,10 @@ async function main(): Promise<void> {
     afterAbort ? `status ${afterAbort.status}` : 'app unreachable — it crashed',
   );
 
-  // 11. Auth lifecycle over cookie + Redis session.
   await authLifecycleFlow();
-
-  // 12. Transaction CRUD lifecycle and the perPage cap.
   await transactionLifecycleFlow(seeded.userA.token);
-
-  // 13. Scheduled-transaction cron processing.
   await scheduledCronFlow(seeded.userA.id);
-
-  // 14. Telegram webhook secret enforcement.
   await telegramWebhookFlow();
-
-  // 15. Excel-extraction webhook auth and JSON guard.
   await excelWebhookFlow(seeded.userA.id);
 
   const failed = results.filter((r) => !r.ok);

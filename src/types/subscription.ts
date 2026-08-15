@@ -6,7 +6,6 @@ import type {
 export type SubscriptionFrequency = DetectedSubscriptionDomain['frequency'];
 export type SubscriptionStatus = DetectedSubscriptionDomain['status'];
 
-/** Wire shape of DetectedSubscriptionDomain: JSON string dates, no server-only fields. */
 export type DetectedSubscription = Omit<
   DetectedSubscriptionDomain,
   'userId' | 'createdAt' | 'updatedAt' | 'lastChargeDate' | 'nextExpectedDate'

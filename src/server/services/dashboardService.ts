@@ -14,6 +14,8 @@ import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
 import { classifyTrend } from '@/server/utils/trendMath';
 
+const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
+
 class DashboardService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
 
@@ -109,7 +111,11 @@ class DashboardService {
       );
       if (result) {
         try {
-          await setValue(cacheKey, JSON.stringify(result), 3600); // 1 hour TTL
+          await setValue(
+            cacheKey,
+            JSON.stringify(result),
+            INSIGHTS_CACHE_TTL_SECONDS,
+          );
         } catch (cacheError) {
           logger.error(
             { err: cacheError },

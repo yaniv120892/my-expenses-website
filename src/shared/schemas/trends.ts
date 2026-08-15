@@ -11,8 +11,6 @@ export const trendPeriodSchema = z.enum([
   'yearly',
 ]);
 
-// The Express controller parsed these query params by hand (no DTO) and let
-// invalid dates flow through as Invalid Date; here they are rejected instead.
 export const getSpendingTrendsQuerySchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),

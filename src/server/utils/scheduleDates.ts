@@ -24,9 +24,8 @@ export function calculateNextRunDate(
     case 'WEEKLY': {
       const baseDate = addWeeks(fromDate, intervalValue);
       if (dayOfWeek !== undefined) {
-        // Adjust dayOfWeek to account for Sunday as start of week (0-based)
-        const adjustedDayOfWeek = dayOfWeek - 1;
-        let next = setDay(baseDate, adjustedDayOfWeek, { weekStartsOn: 0 });
+        const zeroBasedDayOfWeek = dayOfWeek - 1;
+        let next = setDay(baseDate, zeroBasedDayOfWeek, { weekStartsOn: 0 });
         if (!isAfter(next, fromDate)) {
           next = addWeeks(next, 1);
         }

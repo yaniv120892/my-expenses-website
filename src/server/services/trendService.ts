@@ -96,17 +96,58 @@ class TrendService {
       buildCategoryParentMap(),
     ]);
 
+    const categoryTrends = this.seedCategoryTrends(topLevelCategories);
+    this.accumulateCategoryTotals(
+      categoryTrends,
+      currentPeriodData,
+      categoryParentMap,
+    );
+
+    const results: CategorySpendingTrend[] = [];
+    for (const [categoryId, data] of categoryTrends.entries()) {
+      // A top-level category no transaction rolled up into has nothing to plot.
+      if (data.childCategories.size === 0) {
+        continue;
+      }
+
+      results.push(
+        this.buildCategoryTrend(
+          request,
+          startDate,
+          endDate,
+          categoryId,
+          data,
+          currentPeriodData,
+          previousPeriodData,
+        ),
+      );
+    }
+
+    return results.sort((a, b) => b.totalAmount - a.totalAmount);
+  }
+
+  private seedCategoryTrends(
+    topLevelCategories: { id: string; name: string }[],
+  ): Map<string, CategoryTrendData> {
     const categoryTrends = new Map<string, CategoryTrendData>();
-    topLevelCategories.forEach((cat) => {
-      categoryTrends.set(cat.id, {
+    for (const category of topLevelCategories) {
+      categoryTrends.set(category.id, {
         points: [],
         totalAmount: 0,
-        categoryName: cat.name,
+        categoryName: category.name,
         childCategories: new Set<string>(),
       });
-    });
+    }
+    return categoryTrends;
+  }
 
-    for (const transaction of currentPeriodData) {
+  /** Rolls each transaction up into its top-level ancestor's running total. */
+  private accumulateCategoryTotals(
+    categoryTrends: Map<string, CategoryTrendData>,
+    transactions: Transaction[],
+    categoryParentMap: Map<string, string>,
+  ): void {
+    for (const transaction of transactions) {
       if (!transaction.category) {
         logger.warn(`Transaction ${transaction.id} has no category`);
         continue;
@@ -120,58 +161,53 @@ class TrendService {
         continue;
       }
 
-      const existing = categoryTrends.get(topLevelCategoryId);
-      if (!existing) {
+      const trend = categoryTrends.get(topLevelCategoryId);
+      if (!trend) {
         continue;
       }
 
-      existing.totalAmount += transaction.value;
-      existing.childCategories.add(transaction.category.id);
+      trend.totalAmount += transaction.value;
+      trend.childCategories.add(transaction.category.id);
     }
+  }
 
-    const results: CategorySpendingTrend[] = [];
-    for (const [categoryId, data] of categoryTrends.entries()) {
-      if (data.childCategories.size === 0) {
-        continue;
-      }
-
-      const categoryTransactions = this.filterTransactionsByCategory(
+  private buildCategoryTrend(
+    request: GetSpendingTrendsRequest,
+    startDate: Date,
+    endDate: Date,
+    categoryId: string,
+    data: CategoryTrendData,
+    currentPeriodData: Transaction[],
+    previousPeriodData: Transaction[],
+  ): CategorySpendingTrend {
+    const points = this.groupTransactionsByPeriod(
+      this.filterTransactionsByCategory(
         currentPeriodData,
         data.childCategories,
-      );
+      ),
+      request.period,
+    ).map((point) => ({
+      ...point,
+      categoryId,
+      categoryName: data.categoryName,
+    }));
 
-      const points = this.groupTransactionsByPeriod(
-        categoryTransactions,
-        request.period,
-      ).map((point) => ({
-        ...point,
-        categoryId,
-        categoryName: data.categoryName,
-      }));
-
-      const previousCategoryTransactions = this.filterTransactionsByCategory(
+    const previousTotalAmount = this.calculateTotalAmount(
+      this.filterTransactionsByCategory(
         previousPeriodData,
         data.childCategories,
-      );
+      ),
+    );
 
-      const previousTotalAmount = this.calculateTotalAmount(
-        previousCategoryTransactions,
-      );
-
-      results.push(
-        this.createCategoryTrend(
-          request,
-          startDate,
-          endDate,
-          points,
-          data,
-          previousTotalAmount,
-          categoryId,
-        ),
-      );
-    }
-
-    return results.sort((a, b) => b.totalAmount - a.totalAmount);
+    return this.createCategoryTrend(
+      request,
+      startDate,
+      endDate,
+      points,
+      data,
+      previousTotalAmount,
+      categoryId,
+    );
   }
 
   private getDateRange(request: GetSpendingTrendsRequest) {

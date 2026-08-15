@@ -35,6 +35,58 @@ interface DetectedPattern {
   confidence: number;
 }
 
+function groupByUser(
+  subscriptions: DetectedSubscriptionDomain[],
+): Map<string, DetectedSubscriptionDomain[]> {
+  const byUser = new Map<string, DetectedSubscriptionDomain[]>();
+  for (const sub of subscriptions) {
+    const existing = byUser.get(sub.userId) || [];
+    existing.push(sub);
+    byUser.set(sub.userId, existing);
+  }
+  return byUser;
+}
+
+/** Null when this user has nothing worth notifying about. */
+function buildAuditMessage(subs: DetectedSubscriptionDomain[]): string | null {
+  const confirmed = subs.filter((s) => s.status === 'CONFIRMED');
+  const detected = subs.filter((s) => s.status === 'DETECTED');
+
+  if (confirmed.length === 0 && detected.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const monthName = now.toLocaleString('en-US', { month: 'long' });
+  const lines = [`Subscription Audit — ${monthName} ${now.getFullYear()}`, ''];
+
+  if (confirmed.length > 0) {
+    lines.push('Active Subscriptions:');
+    let totalMonthly = 0;
+    let totalAnnual = 0;
+    for (const sub of confirmed) {
+      const monthly = toMonthlyAmount(sub.averageAmount, sub.frequency);
+      totalMonthly += monthly;
+      totalAnnual += sub.annualCost;
+      lines.push(
+        `- ${sub.displayName}: $${monthly.toFixed(2)}/mo ($${sub.annualCost.toFixed(2)}/yr)`,
+      );
+    }
+    lines.push('');
+    lines.push(
+      `Total: $${totalMonthly.toFixed(2)}/month | $${totalAnnual.toFixed(2)}/year`,
+    );
+  }
+
+  if (detected.length > 0) {
+    lines.push(
+      `${detected.length} new subscription${detected.length > 1 ? 's' : ''} detected — review in app`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
 class SubscriptionDetectionService {
   public async runDetectionForAllUsers(): Promise<void> {
     const userIds = await subscriptionRepository.getAllUserIds();
@@ -156,20 +208,12 @@ class SubscriptionDetectionService {
   }
 
   public async sendMonthlyAuditNotifications(): Promise<void> {
-    const allActive = await subscriptionRepository.getActiveForAllUsers();
-    const byUser = new Map<string, DetectedSubscriptionDomain[]>();
-
-    for (const sub of allActive) {
-      const existing = byUser.get(sub.userId) || [];
-      existing.push(sub);
-      byUser.set(sub.userId, existing);
-    }
-
-    const userIds = Array.from(byUser.keys());
-    const allPrefs = await prisma.userNotificationPreference.findMany({
-      where: { userId: { in: userIds }, subscriptionAudit: true },
-    });
-    const enabledUserIds = new Set(allPrefs.map((p) => p.userId));
+    const byUser = groupByUser(
+      await subscriptionRepository.getActiveForAllUsers(),
+    );
+    const enabledUserIds = await this.getAuditEnabledUserIds(
+      Array.from(byUser.keys()),
+    );
 
     const notifier = TransactionNotifierFactory.getNotifier();
 
@@ -178,42 +222,10 @@ class SubscriptionDetectionService {
       try {
         if (!enabledUserIds.has(userId)) continue;
 
-        const confirmed = subs.filter((s) => s.status === 'CONFIRMED');
-        const detected = subs.filter((s) => s.status === 'DETECTED');
+        const message = buildAuditMessage(subs);
+        if (!message) continue;
 
-        if (confirmed.length === 0 && detected.length === 0) continue;
-
-        const now = new Date();
-        const monthName = now.toLocaleString('en-US', { month: 'long' });
-        const year = now.getFullYear();
-
-        const lines = [`Subscription Audit — ${monthName} ${year}`, ''];
-
-        if (confirmed.length > 0) {
-          lines.push('Active Subscriptions:');
-          let totalMonthly = 0;
-          let totalAnnual = 0;
-          for (const sub of confirmed) {
-            const monthly = toMonthlyAmount(sub.averageAmount, sub.frequency);
-            totalMonthly += monthly;
-            totalAnnual += sub.annualCost;
-            lines.push(
-              `- ${sub.displayName}: $${monthly.toFixed(2)}/mo ($${sub.annualCost.toFixed(2)}/yr)`,
-            );
-          }
-          lines.push('');
-          lines.push(
-            `Total: $${totalMonthly.toFixed(2)}/month | $${totalAnnual.toFixed(2)}/year`,
-          );
-        }
-
-        if (detected.length > 0) {
-          lines.push(
-            `${detected.length} new subscription${detected.length > 1 ? 's' : ''} detected — review in app`,
-          );
-        }
-
-        await notifier.sendDailySummary(lines.join('\n'), userId);
+        await notifier.sendDailySummary(message, userId);
       } catch (error) {
         failed += 1;
         logger.error(
@@ -233,6 +245,15 @@ class SubscriptionDetectionService {
         `Subscription audit failed for ${failed} of ${byUser.size} user(s)`,
       );
     }
+  }
+
+  private async getAuditEnabledUserIds(
+    userIds: string[],
+  ): Promise<Set<string>> {
+    const prefs = await prisma.userNotificationPreference.findMany({
+      where: { userId: { in: userIds }, subscriptionAudit: true },
+    });
+    return new Set(prefs.map((p) => p.userId));
   }
 
   private async detectForUser(userId: string): Promise<void> {

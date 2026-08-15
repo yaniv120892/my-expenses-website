@@ -6,6 +6,8 @@ import {
   CreateTransactionResult,
   TransactionFilters,
   Transaction,
+  TransactionListFilters,
+  TransactionListPage,
   TransactionSummaryFilters,
   TransactionSummary,
   TransactionStatus,
@@ -91,8 +93,15 @@ class TransactionService {
     return transactionRepository.getTransactions({
       ...filters,
       status: filters.status || 'APPROVED',
-      smartSearch:
-        filters.smartSearch !== undefined ? filters.smartSearch : true,
+    });
+  }
+
+  public async getTransactionsList(
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    return transactionRepository.getTransactionsList({
+      ...filters,
+      status: filters.status || 'APPROVED',
     });
   }
 

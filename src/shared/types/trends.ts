@@ -1,4 +1,14 @@
-import { TransactionType } from '@prisma/client';
+// Type-only so pulling MAX_COMPARISON_SERIES into a client component cannot
+// drag @prisma/client along with it.
+import type { TransactionType } from '@prisma/client';
+
+/**
+ * Most categories the comparison view can chart at once. Bounded by
+ * theme.palette.charts.series.length — one distinct color per series — and
+ * enforced by getCategoryComparisonQuerySchema, so the picker and the route
+ * must read the same number.
+ */
+export const MAX_COMPARISON_SERIES = 8;
 
 export type TrendPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Alert, Box, Button } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Alert, Box, Button, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { format } from 'date-fns';
 import {
@@ -19,8 +19,9 @@ import IncomeExpensePieChart from '@/components/IncomeExpensePieChart';
 import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
+import InfiniteScrollSentinel from '@/components/InfiniteScrollSentinel';
 import {
-  useTransactionsQuery,
+  useTransactionsInfiniteQuery,
   useCategoriesQuery,
   useCreateTransactionMutation,
   useUpdateTransactionMutation,
@@ -45,16 +46,23 @@ export default function TransactionsPage() {
   } | null>(null);
 
   const {
-    data: transactions = [],
+    data,
     isLoading: loading,
     isError: loadFailed,
-  } = useTransactionsQuery(filters);
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useTransactionsInfiniteQuery(filters);
+  const transactions = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data],
+  );
   const { data: categories = [] } = useCategoriesQuery();
   const {
     data: summary,
     isLoading: summaryLoading,
     error: summaryError,
-  } = useTransactionsSummaryQuery({ ...filters });
+  } = useTransactionsSummaryQuery(filters);
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
@@ -157,11 +165,27 @@ export default function TransactionsPage() {
             Failed to load transactions. Please try again.
           </Alert>
         ) : (
-          <TransactionList
-            transactions={transactions}
-            onEditAction={handleEdit}
-            onDeleteAction={handleDeleteFromList}
-          />
+          <>
+            {summary && summary.count > 0 && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mb: 1 }}
+              >
+                {`Showing ${transactions.length} of ${summary.count}`}
+              </Typography>
+            )}
+            <TransactionList
+              transactions={transactions}
+              onEditAction={handleEdit}
+              onDeleteAction={handleDeleteFromList}
+            />
+            <InfiniteScrollSentinel
+              hasMore={hasNextPage}
+              loading={isFetchingNextPage}
+              onLoadMore={fetchNextPage}
+            />
+          </>
         )}
       </Box>
 

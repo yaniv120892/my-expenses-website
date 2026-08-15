@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getTransactionsSchema } from '@/shared/schemas/transactions';
+import {
+  getTransactionsSchema,
+  getTransactionsSummarySchema,
+} from '@/shared/schemas/transactions';
 
 const get = vi.fn();
 vi.mock('./api', () => ({
   default: { get: (...args: unknown[]) => get(...args) },
 }));
 
-const { getTransactions } = await import('./transactions');
+const { getTransactionsPage, getTransactionSummary } =
+  await import('./transactions');
 
 /** Query params reach the route as strings, so mirror that before validating. */
 function asQueryString(params: Record<string, unknown>) {
@@ -17,71 +21,88 @@ function asQueryString(params: Record<string, unknown>) {
   );
 }
 
-function sentParams(): Record<string, unknown>[] {
-  return get.mock.calls.map((call) => call[1].params);
+function sentParams(): Record<string, unknown> {
+  return get.mock.calls[0][1].params;
 }
 
-function page(rows: number) {
-  return { data: Array.from({ length: rows }, (_, i) => ({ id: `tx-${i}` })) };
-}
-
-describe('getTransactions', () => {
-  beforeEach(() => get.mockReset());
+describe('getTransactionsPage', () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: { items: [], nextCursor: null } });
+  });
 
   // Regression: the client used to hardcode perPage=1000, which the route's
   // schema rejects with a 400, so the list rendered its error state.
   it('sends params the route schema accepts', async () => {
-    get.mockResolvedValue(page(0));
+    await getTransactionsPage({
+      startDate: '2026-08-01',
+      endDate: '2026-08-31',
+    });
 
-    await getTransactions({ startDate: '2026-08-01', endDate: '2026-08-31' });
-
-    expect(sentParams()).toHaveLength(1);
-    for (const params of sentParams()) {
-      const result = getTransactionsSchema.safeParse(asQueryString(params));
-      expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
-    }
+    const result = getTransactionsSchema.safeParse(asQueryString(sentParams()));
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
   });
 
-  it('walks pages until a short page and concatenates them', async () => {
-    get
-      .mockResolvedValueOnce(page(100))
-      .mockResolvedValueOnce(page(100))
-      .mockResolvedValueOnce(page(7));
+  it('requests one page instead of walking every page', async () => {
+    await getTransactionsPage({ startDate: '2026-08-01' });
 
-    const transactions = await getTransactions({ startDate: '2026-08-01' });
-
-    expect(transactions).toHaveLength(207);
-    expect(sentParams().map((p) => p.page)).toEqual([1, 2, 3]);
-    for (const params of sentParams()) {
-      expect(
-        getTransactionsSchema.safeParse(asQueryString(params)).success,
-      ).toBe(true);
-    }
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(sentParams().limit).toBe(50);
   });
 
-  it('fetches a single page when the caller asks for one', async () => {
-    get.mockResolvedValue(page(100));
+  it('forwards the cursor for the next page', async () => {
+    await getTransactionsPage({ startDate: '2026-08-01' }, 'cursor-token');
 
-    await getTransactions({ page: 2, perPage: 50 });
-
-    expect(sentParams()).toEqual([
-      expect.objectContaining({ page: 2, perPage: 50 }),
-    ]);
-  });
-
-  it('clamps an over-cap perPage instead of letting the route reject it', async () => {
-    get.mockResolvedValue(page(0));
-
-    await getTransactions({ page: 1, perPage: 1000 });
-
-    expect(sentParams()[0].perPage).toBe(100);
+    expect(sentParams().cursor).toBe('cursor-token');
   });
 
   it('keeps a caller endDate over the default', async () => {
-    get.mockResolvedValue(page(0));
+    await getTransactionsPage({ endDate: '2026-08-31' });
 
-    await getTransactions({ endDate: '2026-08-31' });
+    expect(sentParams().endDate).toBe('2026-08-31');
+  });
+});
 
-    expect(sentParams()[0].endDate).toBe('2026-08-31');
+describe('getTransactionSummary', () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({
+      data: { totalIncome: 0, totalExpense: 0, count: 0 },
+    });
+  });
+
+  it('sends params the summary route schema accepts', async () => {
+    await getTransactionSummary({
+      startDate: '2026-08-01',
+      searchTerm: 'taxi',
+    });
+
+    const result = getTransactionsSummarySchema.safeParse(
+      asQueryString(sentParams()),
+    );
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+    expect(sentParams().searchTerm).toBe('taxi');
+  });
+});
+
+// The totals sit above the list, so any filter that narrows the rows must
+// narrow the totals too — including the default endDate the client injects.
+describe('list and summary filters', () => {
+  beforeEach(() => get.mockReset());
+
+  it('describe the same rows', async () => {
+    get.mockResolvedValue({ data: { items: [], nextCursor: null } });
+    await getTransactionsPage({ searchTerm: 'taxi', categoryId: 'cat-1' });
+    const listParams = sentParams();
+
+    get.mockReset();
+    get.mockResolvedValue({
+      data: { totalIncome: 0, totalExpense: 0, count: 0 },
+    });
+    await getTransactionSummary({ searchTerm: 'taxi', categoryId: 'cat-1' });
+    const summaryParams = sentParams();
+
+    const { cursor: _cursor, limit: _limit, ...listFilters } = listParams;
+    expect(summaryParams).toEqual(listFilters);
   });
 });

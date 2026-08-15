@@ -1,9 +1,7 @@
 export type TransactionStatus = 'APPROVED' | 'PENDING_APPROVAL';
 
 export type TransactionFileStatus =
-  | 'ACTIVE'
-  | 'MARKED_FOR_DELETION'
-  | 'DELETED';
+  'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
 
 export interface TransactionFile {
   id: string;
@@ -35,13 +33,25 @@ export interface TransactionSummaryFilters {
   searchTerm?: string;
   status?: TransactionStatus;
   userId: string;
-  smartSearch?: boolean;
 }
 
 export interface TransactionFilters extends TransactionSummaryFilters {
   page: number;
   perPage: number;
-  smartSearch?: boolean;
+}
+
+/**
+ * Cursor pagination for the transactions list. The cursor is opaque to
+ * callers; only the repository that issued it may decode it.
+ */
+export interface TransactionListFilters extends TransactionSummaryFilters {
+  cursor?: string;
+  limit: number;
+}
+
+export interface TransactionListPage {
+  items: Transaction[];
+  nextCursor: string | null;
 }
 
 export interface TransactionItem {
@@ -65,6 +75,7 @@ export interface Transaction {
 export interface TransactionSummary {
   totalIncome: number;
   totalExpense: number;
+  count: number;
 }
 
 export interface CreateTransactionResult {

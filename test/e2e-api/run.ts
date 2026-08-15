@@ -255,7 +255,7 @@ async function authLifecycleFlow(): Promise<void> {
   );
 }
 
-/** Create → list → summary → status transitions → delete, plus the perPage cap. */
+/** Create → list → summary → status transitions → delete, plus the limit cap. */
 async function transactionLifecycleFlow(token: string): Promise<void> {
   const [category] = await query<{ id: string }>(
     `select id from "Category" where name = 'Groceries'`,
@@ -280,10 +280,10 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   );
 
   const listPath =
-    '/api/transactions?page=1&perPage=10&startDate=2026-08-01&endDate=2026-08-03';
-  const inList = (res: ApiResult) =>
-    Array.isArray(res.body) &&
-    (res.body as { id: string }[]).some((t) => t.id === txId);
+    '/api/transactions?limit=10&startDate=2026-08-01&endDate=2026-08-03';
+  const listItems = (res: ApiResult) =>
+    (res.body as { items?: { id: string }[] } | null)?.items ?? [];
+  const inList = (res: ApiResult) => listItems(res).some((t) => t.id === txId);
 
   const list = await api('GET', listPath, { token });
   check(
@@ -297,12 +297,44 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     '/api/transactions/summary?startDate=2026-08-01&endDate=2026-08-03',
     { token },
   );
-  const totalExpense = (summary.body as { totalExpense?: number } | null)
-    ?.totalExpense;
+  const summaryBody = summary.body as {
+    totalExpense?: number;
+    count?: number;
+  } | null;
   check(
     'transactions: summary reflects the new expense',
-    totalExpense === 123.45,
-    `totalExpense ${totalExpense}`,
+    summaryBody?.totalExpense === 123.45,
+    `totalExpense ${summaryBody?.totalExpense}`,
+  );
+  check(
+    'transactions: summary counts the rows behind the totals',
+    (summaryBody?.count ?? 0) >= 1,
+    `count ${summaryBody?.count}`,
+  );
+
+  // The totals sit above a paged list, so a search must narrow both or the
+  // header would describe rows the list never shows.
+  // Upper-cased to prove the search is case-insensitive.
+  const searchQuery =
+    'searchTerm=LIFECYCLE&startDate=2026-08-01&endDate=2026-08-03';
+  const searchedList = await api(
+    'GET',
+    `/api/transactions?limit=10&${searchQuery}`,
+    {
+      token,
+    },
+  );
+  const searchedSummary = await api(
+    'GET',
+    `/api/transactions/summary?${searchQuery}`,
+    { token },
+  );
+  const searchedCount = (searchedSummary.body as { count?: number } | null)
+    ?.count;
+  check(
+    'transactions: search narrows the list and the summary alike',
+    listItems(searchedList).length === searchedCount && inList(searchedList),
+    `list ${listItems(searchedList).length} vs count ${searchedCount}`,
   );
 
   const pended = await api('PATCH', `/api/transactions/${txId}/status`, {
@@ -335,14 +367,63 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     `status ${deleted.status}`,
   );
 
-  // Regression: the perPage schema caps at 100.
-  const oversized = await api('GET', '/api/transactions?page=1&perPage=1000', {
+  // Regression: the limit schema caps at 100.
+  const oversized = await api('GET', '/api/transactions?limit=1000', {
     token,
   });
   check(
-    'transactions: perPage above 100 is rejected',
+    'transactions: limit above 100 is rejected',
     oversized.status === 400,
     `status ${oversized.status}`,
+  );
+
+  const badCursor = await api('GET', '/api/transactions?cursor=not-a-cursor', {
+    token,
+  });
+  check(
+    'transactions: a malformed cursor is rejected',
+    badCursor.status === 400,
+    `status ${badCursor.status}`,
+  );
+}
+
+/** Walking every page by cursor visits each row exactly once. */
+async function transactionCursorPagingFlow(
+  token: string,
+  userId: string,
+): Promise<void> {
+  const seen: string[] = [];
+  let cursor: string | undefined;
+
+  for (let request = 0; request < 20; request++) {
+    const path = `/api/transactions?limit=3${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const res: ApiResult = await api('GET', path, { token });
+    const body = res.body as {
+      items: { id: string }[];
+      nextCursor: string | null;
+    } | null;
+    if (res.status !== 200 || !body) {
+      check(
+        'transactions: cursor paging walks the list',
+        false,
+        `status ${res.status}`,
+      );
+      return;
+    }
+    seen.push(...body.items.map((item) => item.id));
+    if (!body.nextCursor) break;
+    cursor = body.nextCursor;
+  }
+
+  const total = await query<{ count: string }>(
+    `select count(*) as count from "Transaction" where status = 'APPROVED' and "userId" = $1`,
+    [userId],
+  );
+  const expected = Number(total[0].count);
+  check(
+    'transactions: cursor paging returns every row exactly once',
+    seen.length === expected && new Set(seen).size === seen.length,
+    `walked ${seen.length}, unique ${new Set(seen).size}, expected ${expected}`,
   );
 }
 
@@ -670,6 +751,7 @@ async function main(): Promise<void> {
 
   await authLifecycleFlow();
   await transactionLifecycleFlow(seeded.userA.token);
+  await transactionCursorPagingFlow(seeded.userA.token, seeded.userA.id);
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);

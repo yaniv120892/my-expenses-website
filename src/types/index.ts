@@ -54,15 +54,14 @@ export interface CreateTransactionInput {
 export type UpdateTransactionInput = CreateTransactionInput;
 
 // Client-side query state for /api/transactions; dates travel as strings.
+// Paging is not part of it — the list pages by cursor, and the same filters
+// drive the summary totals.
 export interface TransactionFilters {
   searchTerm?: string;
   categoryId?: string;
   type?: TransactionType;
   startDate?: string;
   endDate?: string;
-  page?: number;
-  perPage?: number;
-  smartSearch?: boolean;
 }
 
 export type ScheduleType = ScheduledTransactionDomain['scheduleType'];

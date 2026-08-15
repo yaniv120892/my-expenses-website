@@ -10,9 +10,6 @@ import {
   TextField,
   CircularProgress,
   Stack,
-  Switch,
-  FormControlLabel,
-  Tooltip,
 } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { TransactionFilters } from '@/types';
@@ -38,7 +35,6 @@ export const TransactionFiltersDialog = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [smartSearch, setSmartSearch] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -46,11 +42,6 @@ export const TransactionFiltersDialog = ({
       setCategoryId(initialFilters?.categoryId || '');
       setStartDate(initialFilters?.startDate || '');
       setEndDate(initialFilters?.endDate || '');
-      setSmartSearch(
-        initialFilters?.smartSearch !== undefined
-          ? initialFilters.smartSearch
-          : true,
-      );
     }
   }, [initialFilters, open]);
 
@@ -62,7 +53,6 @@ export const TransactionFiltersDialog = ({
         categoryId: categoryId === '' ? undefined : categoryId,
         startDate: startDate === '' ? undefined : startDate,
         endDate: endDate === '' ? undefined : endDate,
-        smartSearch: searchTerm.trim() === '' ? undefined : smartSearch,
       });
       onClose();
     } finally {
@@ -91,24 +81,6 @@ export const TransactionFiltersDialog = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             fullWidth
           />
-          <Tooltip
-            title="Enable typo-tolerant, flexible search. Disable for strict exact/substring match."
-            placement="right"
-          >
-            <span>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={smartSearch}
-                    onChange={(_, checked) => setSmartSearch(checked)}
-                    color="primary"
-                    disabled={searchTerm.trim() === ''}
-                  />
-                }
-                label="Smart Search"
-              />
-            </span>
-          </Tooltip>
           <CategorySelect
             value={categoryId}
             onChange={(value) => setCategoryId(value)}

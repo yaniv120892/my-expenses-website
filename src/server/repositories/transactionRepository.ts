@@ -9,6 +9,8 @@ import prisma from '@/server/db/client';
 import {
   TransactionFilters,
   Transaction,
+  TransactionListFilters,
+  TransactionListPage,
   TransactionSummaryFilters,
   TransactionSummary,
 } from '@/shared/types/transaction';
@@ -17,7 +19,6 @@ import {
   UpdateTransactionDbModel,
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
-import Fuse from 'fuse.js';
 import { HttpError } from '@/server/http/errors';
 
 // Prisma raises P2025 when an update/delete matches no row — here that means
@@ -36,9 +37,23 @@ type TransactionRow = PrismaTransaction & {
   files?: PrismaTransactionFile[];
 };
 
-// Fuzzy search ranks candidates in memory, so it needs a bounded window of
-// recent transactions rather than the whole table.
-const SMART_SEARCH_CANDIDATE_LIMIT = 1000;
+// The list orders by date then id; id breaks ties so a cursor always lands on
+// exactly one row, which day-precision dates alone cannot guarantee.
+const CURSOR_SEPARATOR = '_';
+
+function encodeCursor(transaction: { date: Date; id: string }): string {
+  return `${transaction.date.toISOString()}${CURSOR_SEPARATOR}${transaction.id}`;
+}
+
+function decodeCursor(cursor: string): { date: Date; id: string } {
+  const separatorIndex = cursor.indexOf(CURSOR_SEPARATOR);
+  const date = new Date(cursor.slice(0, separatorIndex));
+  const id = cursor.slice(separatorIndex + 1);
+  if (separatorIndex === -1 || Number.isNaN(date.getTime()) || !id) {
+    throw new HttpError(400, 'Invalid cursor');
+  }
+  return { date, id };
+}
 
 class TransactionRepository {
   public async getTransactionsSummary(
@@ -51,24 +66,17 @@ class TransactionRepository {
     const groups = await prisma.transaction.groupBy({
       by: ['type'],
       _sum: { value: true },
-      where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-        categoryId: filters.categoryId,
-        type: filters.transactionType,
-        status: filters.status || TransactionStatus.APPROVED,
-        userId: filters.userId,
-      },
+      _count: { _all: true },
+      where: this.buildListWhere(filters, startDate, endDate),
     });
 
-    const sumOf = (type: TransactionType) =>
-      groups.find((group) => group.type === type)?._sum.value ?? 0;
+    const groupOf = (type: TransactionType) =>
+      groups.find((group) => group.type === type);
 
     return {
-      totalIncome: sumOf(TransactionType.INCOME),
-      totalExpense: sumOf(TransactionType.EXPENSE),
+      totalIncome: groupOf(TransactionType.INCOME)?._sum.value ?? 0,
+      totalExpense: groupOf(TransactionType.EXPENSE)?._sum.value ?? 0,
+      count: groups.reduce((total, group) => total + group._count._all, 0),
     };
   }
 
@@ -91,6 +99,10 @@ class TransactionRepository {
     return transaction.id;
   }
 
+  /**
+   * Offset paging, kept for the server-side callers that walk every page
+   * (backup, summaries, trends). The UI list uses getTransactionsList.
+   */
   public async getTransactions(
     filters: TransactionFilters,
   ): Promise<Transaction[]> {
@@ -99,14 +111,47 @@ class TransactionRepository {
       filters.endDate,
     );
 
-    const searchTerm = filters.searchTerm;
-    if (!searchTerm) {
-      return this.getTransactionsPage(filters, startDate, endDate);
-    }
-    if (filters.smartSearch === false) {
-      return this.useStrictSearch(filters, searchTerm, startDate, endDate);
-    }
-    return this.useSmartSearch(filters, searchTerm, startDate, endDate);
+    const transactions = await prisma.transaction.findMany({
+      where: this.buildListWhere(filters, startDate, endDate),
+      include: { category: true },
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+      skip: (filters.page - 1) * filters.perPage,
+      take: filters.perPage,
+    });
+    return transactions.map(this.mapToDomain);
+  }
+
+  /**
+   * Keyset paging for the UI list: each page seeks straight to the cursor
+   * instead of counting past the rows before it, so page cost stays flat no
+   * matter how deep the user scrolls.
+   */
+  public async getTransactionsList(
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    const { startDate, endDate } = this.getNormalizedDateRange(
+      filters.startDate,
+      filters.endDate,
+    );
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        ...this.buildListWhere(filters, startDate, endDate),
+        ...this.buildCursorWhere(filters.cursor),
+      },
+      include: { category: true },
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+      // One extra row answers "is there another page?" without a count query.
+      take: filters.limit + 1,
+    });
+
+    const hasMore = transactions.length > filters.limit;
+    const items = hasMore ? transactions.slice(0, filters.limit) : transactions;
+
+    return {
+      items: items.map(this.mapToDomain),
+      nextCursor: hasMore ? encodeCursor(items[items.length - 1]) : null,
+    };
   }
 
   public async getPendingTransactions(userId: string): Promise<Transaction[]> {
@@ -295,11 +340,17 @@ class TransactionRepository {
     return potentialTransactions.map(this.mapToDomain);
   }
 
+  /**
+   * The single predicate behind both the list and the summary. Search is a SQL
+   * filter rather than an in-memory rank so the totals cover exactly the rows
+   * the list pages through.
+   */
   private buildListWhere(
-    filters: TransactionFilters,
+    filters: TransactionSummaryFilters,
     startDate: Date | undefined,
     endDate: Date | undefined,
   ) {
+    const searchTerm = filters.searchTerm?.trim();
     return {
       ...(startDate || endDate
         ? {
@@ -311,71 +362,28 @@ class TransactionRepository {
         : {}),
       ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
       ...(filters.transactionType ? { type: filters.transactionType } : {}),
+      ...(searchTerm
+        ? {
+            description: {
+              contains: searchTerm,
+              mode: 'insensitive' as const,
+            },
+          }
+        : {}),
       status: filters.status || TransactionStatus.APPROVED,
       userId: filters.userId,
     };
   }
 
-  private async getTransactionsPage(
-    filters: TransactionFilters,
-    startDate: Date | undefined,
-    endDate: Date | undefined,
-  ): Promise<Transaction[]> {
-    const transactions = await prisma.transaction.findMany({
-      where: this.buildListWhere(filters, startDate, endDate),
-      include: { category: true },
-      orderBy: { date: 'desc' },
-      skip: (filters.page - 1) * filters.perPage,
-      take: filters.perPage,
-    });
-    return transactions.map(this.mapToDomain);
-  }
-
-  private async useStrictSearch(
-    filters: TransactionFilters,
-    searchTerm: string,
-    startDate: Date | undefined,
-    endDate: Date | undefined,
-  ): Promise<Transaction[]> {
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        ...this.buildListWhere(filters, startDate, endDate),
-        description: { contains: searchTerm },
-      },
-      include: { category: true },
-      orderBy: { date: 'desc' },
-      skip: (filters.page - 1) * filters.perPage,
-      take: filters.perPage,
-    });
-    return transactions.map(this.mapToDomain);
-  }
-
-  private async useSmartSearch(
-    filters: TransactionFilters,
-    searchTerm: string,
-    startDate: Date | undefined,
-    endDate: Date | undefined,
-  ): Promise<Transaction[]> {
-    const candidates = await prisma.transaction.findMany({
-      where: this.buildListWhere(filters, startDate, endDate),
-      include: { category: true },
-      orderBy: { date: 'desc' },
-      take: SMART_SEARCH_CANDIDATE_LIMIT,
-    });
-
-    const fuse = new Fuse(candidates, {
-      keys: ['description'],
-      threshold: 0.8,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-    });
-    const matches = fuse.search(searchTerm).map((result) => result.item);
-
-    const paginated = matches.slice(
-      (filters.page - 1) * filters.perPage,
-      filters.page * filters.perPage,
-    );
-    return paginated.map(this.mapToDomain);
+  // Rows strictly after the cursor in (date desc, id desc) order.
+  private buildCursorWhere(cursor: string | undefined) {
+    if (!cursor) {
+      return {};
+    }
+    const { date, id } = decodeCursor(cursor);
+    return {
+      OR: [{ date: { lt: date } }, { date, id: { lt: id } }],
+    };
   }
 }
 

@@ -139,6 +139,7 @@ model Transaction {
 
   @@index([userId])
   @@index([categoryId])
+  @@index([userId, status, date])
 }
 
 model Import {

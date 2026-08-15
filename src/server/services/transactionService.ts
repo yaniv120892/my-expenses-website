@@ -39,6 +39,9 @@ export interface TransactionFileView {
   mimeType: string;
 }
 
+const HIGH_CONFIDENCE_THRESHOLD = 0.7;
+const MEDIUM_CONFIDENCE_THRESHOLD = 0.4;
+
 class TransactionService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
   private getTransactionNotifier = lazy(() =>
@@ -261,7 +264,6 @@ class TransactionService {
     return getPresignedUploadUrl(transactionId, fileName, mimeType);
   }
 
-  // Inlined from the Express app's createTransactionValidator.
   private async validateCreateTransaction(
     data: CreateTransaction,
   ): Promise<void> {
@@ -304,66 +306,85 @@ class TransactionService {
     userId: string,
     categories: Category[],
   ): Promise<string | null> {
-    // 1. Check user category mappings first (learned from corrections)
-    try {
-      const normalizedDescription = description.toLowerCase().trim();
-      const mapping =
-        await userCategoryMappingRepository.findByUserAndDescription(
-          userId,
-          normalizedDescription,
-        );
-      if (mapping) {
-        const cat = categories.find((c) => c.id === mapping.categoryId);
-        if (cat) {
-          logger.debug(
-            `User mapping found for expense: ${description} -> ${cat.name}`,
-          );
-          return cat.id;
-        }
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Failed to check user category mapping');
+    const mappedCategoryId = await this.findUserMappedCategoryId(
+      description,
+      userId,
+      categories,
+    );
+    if (mappedCategoryId) {
+      return mappedCategoryId;
     }
 
-    // 2. Try FastText categorizer with confidence routing
-    let categorizerResult: {
-      category: string;
-      confidence: number;
-    } | null = null;
-    try {
-      categorizerResult = await this.categorizeExpense(description);
-    } catch {
-      logger.warn(`Failed to categorize expense: ${description}`);
-    }
+    const prediction = await this.predictKnownCategory(description, categories);
 
-    if (categorizerResult) {
-      const matchedCategory = categories.find(
-        (c) => c.name === categorizerResult!.category,
+    if (prediction && prediction.confidence >= HIGH_CONFIDENCE_THRESHOLD) {
+      logger.debug(
+        `High confidence (${prediction.confidence.toFixed(2)}) category: ${prediction.category.name}`,
       );
-
-      if (matchedCategory && categorizerResult.confidence >= 0.7) {
-        logger.debug(
-          `High confidence (${categorizerResult.confidence.toFixed(2)}) category: ${categorizerResult.category}`,
-        );
-        return matchedCategory.id;
-      }
-
-      if (matchedCategory && categorizerResult.confidence >= 0.4) {
-        logger.debug(
-          `Medium confidence (${categorizerResult.confidence.toFixed(2)}), passing hint to LLM: ${categorizerResult.category}`,
-        );
-        return this.getAiService().suggestCategory(description, categories, {
-          hint: categorizerResult.category,
-          confidence: categorizerResult.confidence,
-        });
-      }
+      return prediction.category.id;
     }
 
-    // 3. Low confidence or no result — LLM fallback without hint
+    if (prediction && prediction.confidence >= MEDIUM_CONFIDENCE_THRESHOLD) {
+      logger.debug(
+        `Medium confidence (${prediction.confidence.toFixed(2)}), passing hint to LLM: ${prediction.category.name}`,
+      );
+      return this.getAiService().suggestCategory(description, categories, {
+        hint: prediction.category.name,
+        confidence: prediction.confidence,
+      });
+    }
+
     logger.warn(
       `No reliable category from categorizer for: ${description}. Using AI service.`,
     );
     return this.getAiService().suggestCategory(description, categories);
+  }
+
+  private async findUserMappedCategoryId(
+    description: string,
+    userId: string,
+    categories: Category[],
+  ): Promise<string | null> {
+    try {
+      const mapping =
+        await userCategoryMappingRepository.findByUserAndDescription(
+          userId,
+          description.toLowerCase().trim(),
+        );
+      const mappedCategory = mapping
+        ? categories.find((c) => c.id === mapping.categoryId)
+        : undefined;
+      if (mappedCategory) {
+        logger.debug(
+          `User mapping found for expense: ${description} -> ${mappedCategory.name}`,
+        );
+        return mappedCategory.id;
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to check user category mapping');
+    }
+    return null;
+  }
+
+  // Null covers both a categorizer that returned nothing and a predicted name
+  // that is not one of this user's categories; both mean "no usable hint".
+  private async predictKnownCategory(
+    description: string,
+    categories: Category[],
+  ): Promise<{ category: Category; confidence: number } | null> {
+    let prediction: { category: string; confidence: number } | null = null;
+    try {
+      prediction = await this.categorizeExpense(description);
+    } catch {
+      logger.warn(`Failed to categorize expense: ${description}`);
+    }
+    if (!prediction) {
+      return null;
+    }
+
+    const { category: predictedName, confidence } = prediction;
+    const category = categories.find((c) => c.name === predictedName);
+    return category ? { category, confidence } : null;
   }
 
   private async categorizeExpense(

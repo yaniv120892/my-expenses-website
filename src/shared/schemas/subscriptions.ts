@@ -5,8 +5,6 @@ export const convertSubscriptionSchema = z.object({
   categoryId: z.string().uuid(),
 });
 
-// Mirrors SubscriptionController.parseStatus: case-insensitive match, and an
-// unrecognized value degrades to undefined instead of failing the request.
 export const getSubscriptionsQuerySchema = z.object({
   status: z
     .string()

@@ -9,8 +9,6 @@ export const processImportSchema = z.object({
 
 export const approveImportedTransactionSchema = z.object({
   description: z.string(),
-  // The original DTO had no @Type coercion here, so the value must already be
-  // a number in the JSON body.
   value: z.number(),
   date: z.coerce.date(),
   type: transactionTypeSchema,

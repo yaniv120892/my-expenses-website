@@ -200,8 +200,6 @@ export class ExcelExtractionAgentClient {
 
 const getClient = lazy(() => new ExcelExtractionAgentClient());
 
-// Same surface as the eager instance the Express app exported, but the
-// underlying client (and its env reads) is only constructed on first use.
 export const excelExtractionAgentClient = {
   submitExtractionRequest(
     request: SubmitExtractionRequest,

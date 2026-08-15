@@ -6,7 +6,6 @@ import { Box, Paper, Skeleton } from '@mui/material';
 export function DashboardSkeleton() {
   return (
     <Box sx={{ p: 3 }}>
-      {/* Month comparison cards skeleton */}
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {[1, 2, 3].map((i) => (
           <Paper
@@ -26,7 +25,6 @@ export function DashboardSkeleton() {
           </Paper>
         ))}
       </Box>
-      {/* Chart + insights skeleton */}
       <Box
         sx={{
           display: 'flex',
@@ -73,7 +71,6 @@ export function DashboardSkeleton() {
           ))}
         </Paper>
       </Box>
-      {/* Bottom row skeleton */}
       <Box
         sx={{
           display: 'flex',

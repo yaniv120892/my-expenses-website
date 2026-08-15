@@ -13,8 +13,6 @@ export const userSettingsNotificationsSchema = z.object({
 
 export const notificationProviderSchema = z.object({
   enabled: z.boolean(),
-  // The DTO declared string | null; nullable() honors that declared type even
-  // though the old @IsString() check would have rejected null at runtime.
   telegramChatId: z.string().nullable(),
 });
 

@@ -57,6 +57,20 @@ interface BatchItem {
   categoryId: string | null;
 }
 
+type ImportedTransactionRecord = Awaited<
+  ReturnType<typeof importedTransactionRepository.findByUserIdAndImportId>
+>[number];
+
+// The extraction agent fetches this URL server-side, so accepting an arbitrary
+// URL would let a user point it at internal hosts. Only files the upload
+// endpoint wrote to the imports bucket are allowed.
+function assertUploadedImportUrl(fileUrl: string): void {
+  const importsPrefix = `https://${requireEnv('IMPORTS_S3_BUCKET')}.s3.${requireEnv('IMPORTS_S3_REGION')}.amazonaws.com/imports/`;
+  if (!fileUrl.startsWith(importsPrefix)) {
+    throw new HttpError(400, 'fileUrl must point to an uploaded import file');
+  }
+}
+
 class ImportService {
   private getAiProvider = lazy(() => AIServiceFactory.getAIService());
 
@@ -66,13 +80,7 @@ class ImportService {
     originalFileName: string,
     paymentMonthFromRequest?: string,
   ): Promise<Import> {
-    // The extraction agent fetches this URL server-side, so accepting an
-    // arbitrary URL would let a user point it at internal hosts. Only files
-    // the upload endpoint wrote to the imports bucket are allowed.
-    const importsPrefix = `https://${requireEnv('IMPORTS_S3_BUCKET')}.s3.${requireEnv('IMPORTS_S3_REGION')}.amazonaws.com/imports/`;
-    if (!fileUrl.startsWith(importsPrefix)) {
-      throw new HttpError(400, 'fileUrl must point to an uploaded import file');
-    }
+    assertUploadedImportUrl(fileUrl);
 
     try {
       logger.info(
@@ -100,54 +108,63 @@ class ImportService {
         'Created import record',
       );
 
-      try {
-        const extractionResponse =
-          await excelExtractionAgentClient.submitExtractionRequest({
-            fileUrl,
-            filename: originalFileName,
-            userId,
-            options: {
-              confidenceThreshold: 0.7,
-              maxRetries: 3,
-              includeRawData: false,
-            },
-          });
+      await this.submitExtraction(
+        importRecord.id,
+        fileUrl,
+        originalFileName,
+        userId,
+      );
 
-        logger.info(
-          {
-            importId: importRecord.id,
-            extractionRequestId: extractionResponse.requestId,
-          },
-          'Extraction request submitted',
-        );
-
-        await importRepository.updateStatus(
-          importRecord.id,
-          ImportStatus.PROCESSING,
-        );
-
-        await this.updateImportWithExtractionRequestId(
-          importRecord.id,
-          extractionResponse.requestId,
-        );
-
-        return importRecord;
-      } catch (error) {
-        logger.error(
-          { importId: importRecord.id, err: error },
-          'Failed to submit extraction request',
-        );
-
-        await importRepository.updateStatus(
-          importRecord.id,
-          ImportStatus.FAILED,
-          getErrorMessage(error, 'Failed to submit extraction request'),
-        );
-
-        throw error;
-      }
+      return importRecord;
     } catch (error) {
       logger.error({ err: error }, 'Error processing import');
+      throw error;
+    }
+  }
+
+  /** Marks the import FAILED before rethrowing, so a rejected submit is visible. */
+  private async submitExtraction(
+    importId: string,
+    fileUrl: string,
+    originalFileName: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      const extractionResponse =
+        await excelExtractionAgentClient.submitExtractionRequest({
+          fileUrl,
+          filename: originalFileName,
+          userId,
+          options: {
+            confidenceThreshold: 0.7,
+            maxRetries: 3,
+            includeRawData: false,
+          },
+        });
+
+      logger.info(
+        { importId, extractionRequestId: extractionResponse.requestId },
+        'Extraction request submitted',
+      );
+
+      await importRepository.updateStatus(importId, ImportStatus.PROCESSING);
+
+      await this.updateImportWithExtractionRequestId(
+        importId,
+        extractionResponse.requestId,
+      );
+    } catch (error) {
+      logger.error(
+        { importId, err: error },
+        'Failed to submit extraction request',
+      );
+
+      await importRepository.updateStatus(
+        importId,
+        ImportStatus.FAILED,
+        getErrorMessage(error, 'Failed to submit extraction request'),
+      );
+
       throw error;
     }
   }
@@ -478,43 +495,12 @@ class ImportService {
     await importRepository.updateStatus(importId, ImportStatus.REMATCHING);
 
     try {
-      const excludedTransactionIds = new Set(
-        allTransactions
-          .filter(
-            (t) =>
-              t.status !== ImportedTransactionStatus.PENDING &&
-              t.matchingTransactionId,
-          )
-          .map((t) => t.matchingTransactionId!),
+      await this.rematchPendingTransactions(
+        importId,
+        userId,
+        allTransactions,
+        pendingTransactions,
       );
-
-      await prisma.importedTransaction.updateMany({
-        where: {
-          importId,
-          userId,
-          status: ImportedTransactionStatus.PENDING,
-        },
-        data: { matchingTransactionId: null },
-      });
-
-      for (const transaction of pendingTransactions) {
-        try {
-          const matchedId = await this.matchSingleTransaction(
-            transaction,
-            userId,
-            excludedTransactionIds,
-          );
-
-          if (matchedId) {
-            excludedTransactionIds.add(matchedId);
-          }
-        } catch (error) {
-          logger.error(
-            { transactionId: transaction.id, err: error },
-            'Error re-matching transaction',
-          );
-        }
-      }
 
       await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
 
@@ -529,6 +515,56 @@ class ImportService {
         getErrorMessage(error, 'Re-match failed'),
       );
       throw error;
+    }
+  }
+
+  /**
+   * Clears the pending rows' matches and matches them again, keeping every
+   * transaction already claimed by a non-pending row out of the running so two
+   * rows cannot land on the same one.
+   */
+  private async rematchPendingTransactions(
+    importId: string,
+    userId: string,
+    allTransactions: ImportedTransactionRecord[],
+    pendingTransactions: ImportedTransactionRecord[],
+  ): Promise<void> {
+    const excludedTransactionIds = new Set(
+      allTransactions
+        .filter(
+          (t) =>
+            t.status !== ImportedTransactionStatus.PENDING &&
+            t.matchingTransactionId,
+        )
+        .map((t) => t.matchingTransactionId!),
+    );
+
+    await prisma.importedTransaction.updateMany({
+      where: {
+        importId,
+        userId,
+        status: ImportedTransactionStatus.PENDING,
+      },
+      data: { matchingTransactionId: null },
+    });
+
+    for (const transaction of pendingTransactions) {
+      try {
+        const matchedId = await this.matchSingleTransaction(
+          transaction,
+          userId,
+          excludedTransactionIds,
+        );
+
+        if (matchedId) {
+          excludedTransactionIds.add(matchedId);
+        }
+      } catch (error) {
+        logger.error(
+          { transactionId: transaction.id, err: error },
+          'Error re-matching transaction',
+        );
+      }
     }
   }
 

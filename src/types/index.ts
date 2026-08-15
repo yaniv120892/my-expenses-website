@@ -22,7 +22,6 @@ export type {
   TransactionSummary,
 } from '@/shared/types/transaction';
 
-/** Wire shape of the shared TransactionFile: JSON string dates plus the presigned URLs the API adds. */
 export type TransactionFile = Omit<
   SharedTransactionFile,
   'createdAt' | 'updatedAt'
@@ -33,7 +32,6 @@ export type TransactionFile = Omit<
   updatedAt: string;
 };
 
-/** Wire shape of the shared Transaction: JSON string date, hierarchical category. */
 export type Transaction = Omit<
   SharedTransaction,
   'date' | 'status' | 'category' | 'files'
@@ -76,7 +74,6 @@ export type CreateScheduledTransactionInput = Omit<
 
 export type UpdateScheduledTransactionInput = UpdateScheduledTransaction;
 
-/** Wire shape of ScheduledTransactionDomain: JSON string dates, no server-only fields. */
 export type ScheduledTransaction = Omit<
   ScheduledTransactionDomain,
   'userId' | 'lastRunDate' | 'nextRunDate'

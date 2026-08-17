@@ -126,15 +126,9 @@ const Chat: React.FC = () => {
               p: 2,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: isEmpty ? 'center' : 'flex-start',
             }}
           >
-            {isEmpty && (
-              <ChatEmptyState
-                onSelectPrompt={handleSendMessage}
-                disabled={isLoading}
-              />
-            )}
+            {isEmpty && <ChatEmptyState onSelectPrompt={handleSendMessage} />}
             {messages
               // While waiting on the first token the streaming bubble is still
               // empty; the spinner below stands in for it.

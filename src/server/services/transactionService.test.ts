@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findByUserAndDescription } = vi.hoisted(() => ({
+const { findByUserAndDescription, getTransactionsList } = vi.hoisted(() => ({
   findByUserAndDescription: vi.fn(),
+  getTransactionsList: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
   default: { findByUserAndDescription },
+}));
+
+vi.mock('@/server/repositories/transactionRepository', () => ({
+  default: { getTransactionsList },
 }));
 
 import transactionService from '@/server/services/transactionService';
@@ -34,6 +39,50 @@ beforeEach(() => {
   categorizeExpense.mockResolvedValue(null);
   service.getAiService = () => ({ suggestCategory });
   service.categorizeExpense = categorizeExpense;
+});
+
+describe('getAllTransactions', () => {
+  const page = (ids: string[], nextCursor: string | null) => ({
+    items: ids.map((id) => ({ id })),
+    nextCursor,
+  });
+
+  it('follows the cursor to the end and concatenates the pages', async () => {
+    getTransactionsList
+      .mockResolvedValueOnce(page(['t1', 't2'], 'cursor-1'))
+      .mockResolvedValueOnce(page(['t3'], null));
+
+    const transactions = await transactionService.getAllTransactions({
+      userId: 'user-1',
+    });
+
+    expect(transactions.map((transaction) => transaction.id)).toEqual([
+      't1',
+      't2',
+      't3',
+    ]);
+    expect(getTransactionsList.mock.calls[0][0].cursor).toBeUndefined();
+    expect(getTransactionsList.mock.calls[1][0].cursor).toBe('cursor-1');
+  });
+
+  it('carries the caller filters and the approved default into the walk', async () => {
+    getTransactionsList.mockResolvedValueOnce(page([], null));
+
+    await transactionService.getAllTransactions({
+      userId: 'user-1',
+      transactionType: 'EXPENSE',
+      searchTerm: 'taxi',
+    });
+
+    expect(getTransactionsList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        transactionType: 'EXPENSE',
+        searchTerm: 'taxi',
+        status: 'APPROVED',
+      }),
+    );
+  });
 });
 
 describe('getSuggestedCategory', () => {

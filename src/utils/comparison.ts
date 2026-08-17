@@ -68,19 +68,6 @@ export function comparisonToCsv(
     .join('\n');
 }
 
-export function downloadCsv(fileName: string, csv: string): void {
-  // Excel only detects UTF-8 from a BOM, and category names may be Hebrew.
-  const blob = new Blob([`﻿${csv}`], {
-    type: 'text/csv;charset=utf-8;',
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export function comparisonFileName(comparison: CategoryComparison): string {
   const start = format(parseISO(comparison.startDate), 'yyyy-MM-dd');
   const end = format(parseISO(comparison.endDate), 'yyyy-MM-dd');

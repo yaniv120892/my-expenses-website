@@ -9,6 +9,21 @@ import { Announcement } from '@/shared/types/announcement';
  */
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-08-transactions-csv-export',
+    publishedAt: '2026-08-17',
+    title: 'Take your transactions with you',
+    hook: 'Anything you can see on the transactions page can now leave it as a spreadsheet.',
+    items: [
+      {
+        icon: 'download',
+        tag: 'New',
+        headline: 'Export any view to CSV',
+        body: 'Filter by month, category, type or search text, then hit Export CSV. You get every transaction that matches — not just the rows already scrolled into view — ready for Excel or Sheets.',
+        cta: { label: 'Try it', href: '/transactions' },
+      },
+    ],
+  },
+  {
     id: '2026-08-compare-and-monthly-report',
     publishedAt: '2026-08-11',
     title: 'Three new ways to see where your money goes',

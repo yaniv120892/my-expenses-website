@@ -99,8 +99,12 @@ export default function TransactionForm({
     setErrors({});
   }, [initialData, open]);
 
+  // Which endpoint this submit hits decides the rule: merge and update need a
+  // uuid, while create and import-approve let the server categorize.
+  const requireCategory = mode === 'merge' || (!mode && Boolean(initialData));
+
   const validate = () => {
-    const errs = validateTransactionForm(form, Boolean(initialData));
+    const errs = validateTransactionForm(form, requireCategory);
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -252,7 +256,7 @@ export default function TransactionForm({
               label="Category"
               fullWidth
             />
-            {form.categoryId === '' && !initialData && (
+            {form.categoryId === '' && !requireCategory && (
               <Typography
                 variant="caption"
                 sx={{ color: 'warning.main', mt: -1 }}

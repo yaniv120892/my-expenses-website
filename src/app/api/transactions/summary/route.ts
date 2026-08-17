@@ -1,6 +1,7 @@
 import { createHandler } from '@/server/http/handler';
 import { getTransactionsSummarySchema } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
+import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 
 // The Express route responded 201 to this GET; kept for parity.
 export const GET = createHandler({
@@ -8,8 +9,7 @@ export const GET = createHandler({
   querySchema: getTransactionsSummarySchema,
   status: 201,
   handler: async ({ userId, query }) =>
-    transactionService.getTransactionsSummary({
-      ...query,
-      userId,
-    }),
+    transactionService.getTransactionsSummary(
+      toTransactionFilters(query, userId),
+    ),
 });

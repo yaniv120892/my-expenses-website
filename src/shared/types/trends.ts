@@ -10,6 +10,14 @@ import type { TransactionType } from '@prisma/client';
  */
 export const MAX_COMPARISON_SERIES = 8;
 
+/**
+ * Most periods one comparison may span. The series cap alone does not bound
+ * the work: a 1900 start date with a daily period enumerates a bucket per day
+ * server-side and hands recharts that many grouped bars. A year of days, or
+ * three centuries of months, is already far past readable.
+ */
+export const MAX_COMPARISON_BUCKETS = 366;
+
 export type TrendPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export type TrendPoint = {

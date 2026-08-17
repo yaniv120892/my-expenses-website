@@ -43,17 +43,8 @@ const categorizeExpense = vi.fn();
 const getSuggestedCategory = () =>
   service.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
 
-// Food > Groceries > Organic, plus an unrelated top-level category.
-const CATEGORY_TREE = [
-  { id: 'cat-food', parentId: null },
-  { id: 'cat-groceries', parentId: 'cat-food' },
-  { id: 'cat-organic', parentId: 'cat-groceries' },
-  { id: 'cat-rent', parentId: null },
-];
-
 beforeEach(() => {
   vi.clearAllMocks();
-  getAllCategories.mockResolvedValue(CATEGORY_TREE);
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
   categorizeExpense.mockResolvedValue(null);
@@ -106,9 +97,17 @@ describe('getAllTransactions', () => {
 });
 
 describe('category subtree resolution', () => {
-  const listArgs = () => getTransactionsList.mock.calls[0][0];
+  // Food > Groceries > Organic, plus an unrelated top-level category.
+  const CATEGORY_TREE = [
+    { id: 'cat-food', parentId: null },
+    { id: 'cat-groceries', parentId: 'cat-food' },
+    { id: 'cat-organic', parentId: 'cat-groceries' },
+    { id: 'cat-rent', parentId: null },
+  ];
+  const listArgs = (call = 0) => getTransactionsList.mock.calls[call][0];
 
   beforeEach(() => {
+    getAllCategories.mockResolvedValue(CATEGORY_TREE);
     getTransactionsList.mockResolvedValue({ items: [], nextCursor: null });
     getTransactionsSummary.mockResolvedValue({
       totalIncome: 0,
@@ -174,11 +173,8 @@ describe('category subtree resolution', () => {
     });
 
     expect(getAllCategories).toHaveBeenCalledTimes(1);
-    expect(getTransactionsList.mock.calls[1][0].categoryIds).toEqual([
-      'cat-food',
-      'cat-groceries',
-      'cat-organic',
-    ]);
+    // The second page still carries the ids resolved for the first.
+    expect(listArgs(1).categoryIds).toEqual(listArgs(0).categoryIds);
   });
 });
 

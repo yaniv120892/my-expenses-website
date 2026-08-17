@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
   Box,
@@ -16,9 +16,9 @@ import { format } from 'date-fns';
 import {
   Transaction,
   TransactionFilters,
-  TransactionType,
   CreateTransactionInput,
 } from '@/types';
+import { transactionTypeSchema } from '@/shared/schemas/common';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionListSkeleton from '@/components/TransactionListSkeleton';
@@ -42,23 +42,18 @@ import {
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
 
-function parseTransactionType(
-  value: string | null,
-): TransactionType | undefined {
-  return value === 'INCOME' || value === 'EXPENSE' ? value : undefined;
-}
-
 function TransactionsPageContent() {
   // Read once to seed the filters: the drill-down from the dashboard pie arrives
   // as query params, but the page owns its filters from then on.
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>(() => ({
     ...defaultMonthFilters(),
     categoryId: searchParams.get('categoryId') ?? undefined,
-    type: parseTransactionType(searchParams.get('type')),
+    type: transactionTypeSchema.safeParse(searchParams.get('type')).data,
   }));
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
@@ -66,6 +61,16 @@ function TransactionsPageContent() {
     description: string;
     suggestedCategory: { id: string; name: string };
   } | null>(null);
+
+  // Seeded params are consumed, so drop them: left in the address bar they
+  // would restore abandoned filters on a refresh or a shared link.
+  useEffect(() => {
+    if (searchParams.toString()) {
+      router.replace('/transactions');
+    }
+    // Mount-time only; later filter edits must not re-run it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     data,
@@ -182,7 +187,7 @@ function TransactionsPageContent() {
         expense={chartSummary?.totalExpense || 0}
         loading={chartSummaryLoading}
         error={chartSummaryError as string | null}
-        selectedType={filters.type ?? null}
+        selectedType={filters.type}
         onSelectType={(type) =>
           setFilters((prev) => ({
             ...prev,

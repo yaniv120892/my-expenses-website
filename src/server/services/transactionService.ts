@@ -25,7 +25,7 @@ import {
   buildDownloadUrl,
   getPresignedUploadUrl,
 } from '@/server/services/transactionAttachmentFileUtils';
-import { buildCategoryDescendantMap } from '@/server/utils/categoryHierarchy';
+import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
@@ -103,12 +103,9 @@ class TransactionService {
     if (!filters.categoryId || filters.categoryIds) {
       return filters;
     }
-    const descendantMap = await buildCategoryDescendantMap();
     return {
       ...filters,
-      categoryIds: descendantMap.get(filters.categoryId) ?? [
-        filters.categoryId,
-      ],
+      categoryIds: await expandCategoryToSubtree(filters.categoryId),
     };
   }
 

@@ -5,6 +5,38 @@ export interface CategoryNode {
   parentId?: string | null;
 }
 
+function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const category of categories) {
+    if (!category.parentId) continue;
+    const siblings = childrenByParent.get(category.parentId) ?? [];
+    siblings.push(category.id);
+    childrenByParent.set(category.parentId, siblings);
+  }
+  return childrenByParent;
+}
+
+/** The root plus every id beneath it. An unknown root is just itself. */
+function collectSubtree(
+  childrenByParent: Map<string, string[]>,
+  rootId: string,
+): string[] {
+  const descendants: string[] = [];
+  const queue = [rootId];
+  const seen = new Set<string>([rootId]);
+  while (queue.length > 0) {
+    const currentId = queue.shift() as string;
+    descendants.push(currentId);
+    for (const childId of childrenByParent.get(currentId) ?? []) {
+      // Guards against a cycle from bad data looping forever.
+      if (seen.has(childId)) continue;
+      seen.add(childId);
+      queue.push(childId);
+    }
+  }
+  return descendants;
+}
+
 /**
  * Maps every category id to itself plus all of its descendants. The inverse of
  * buildParentMap: callers that must keep sibling categories distinct (rather
@@ -13,33 +45,27 @@ export interface CategoryNode {
 export function buildDescendantMap(
   categories: CategoryNode[],
 ): Map<string, string[]> {
-  const childrenByParent = new Map<string, string[]>();
-  for (const category of categories) {
-    if (!category.parentId) continue;
-    const siblings = childrenByParent.get(category.parentId) ?? [];
-    siblings.push(category.id);
-    childrenByParent.set(category.parentId, siblings);
-  }
-
+  const childrenByParent = buildChildrenIndex(categories);
   const descendantMap = new Map<string, string[]>();
   for (const category of categories) {
-    const descendants: string[] = [];
-    const queue = [category.id];
-    const seen = new Set<string>([category.id]);
-    while (queue.length > 0) {
-      const currentId = queue.shift() as string;
-      descendants.push(currentId);
-      for (const childId of childrenByParent.get(currentId) ?? []) {
-        // Guards against a cycle from bad data looping forever.
-        if (seen.has(childId)) continue;
-        seen.add(childId);
-        queue.push(childId);
-      }
-    }
-    descendantMap.set(category.id, descendants);
+    descendantMap.set(
+      category.id,
+      collectSubtree(childrenByParent, category.id),
+    );
   }
-
   return descendantMap;
+}
+
+/**
+ * The ids a single-category filter covers. Walks from the one root instead of
+ * building the whole map, which callers filtering by one category would throw
+ * away.
+ */
+export async function expandCategoryToSubtree(
+  categoryId: string,
+): Promise<string[]> {
+  const categories = await categoryRepository.getAllCategories();
+  return collectSubtree(buildChildrenIndex(categories), categoryId);
 }
 
 /**

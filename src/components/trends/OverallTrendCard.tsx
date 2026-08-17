@@ -15,6 +15,7 @@ import { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
 import { Category } from '@/types';
 import { TrendIcon } from './TrendIcon';
 import { formatTrendDate } from '@/utils/dateUtils';
+import { formatCurrency } from '@/utils/format';
 
 interface OverallTrendCardProps {
   trend: SpendingTrend;
@@ -80,7 +81,9 @@ export const OverallTrendCard = ({
             <Typography variant="body2" color="text.secondary">
               Total {typeLabel}
             </Typography>
-            <Typography variant="h4">₪{trend.totalAmount.toFixed(2)}</Typography>
+            <Typography variant="h4">
+              {formatCurrency(trend.totalAmount)}
+            </Typography>
           </Box>
           <Box>
             <Typography variant="body2" color="text.secondary">
@@ -98,10 +101,7 @@ export const OverallTrendCard = ({
         <Box sx={{ height: { xs: 240, md: 300 } }}>
           <ResponsiveContainer>
             <LineChart data={trend.points}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke={palette.divider}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke={palette.divider} />
               <XAxis
                 dataKey="date"
                 tickFormatter={(date) => formatTrendDate(date, period)}
@@ -116,7 +116,7 @@ export const OverallTrendCard = ({
               />
               <Tooltip
                 labelFormatter={(date) => formatTrendDate(date, period)}
-                formatter={(value: number) => [`₪${value.toFixed(2)}`, 'Amount']}
+                formatter={(value: number) => [formatCurrency(value), 'Amount']}
                 contentStyle={{
                   backgroundColor: palette.background.paper,
                   border: `1px solid ${palette.divider}`,

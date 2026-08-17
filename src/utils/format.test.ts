@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCurrency,
+  formatCurrencyRounded,
   formatNumber,
   formatTransaction,
   formatTransactionDate,
@@ -68,6 +69,18 @@ describe('formatCurrency', () => {
   it('formats zero and negatives', () => {
     expect(normalizeCurrency(formatCurrency(0))).toBe('0.00 ₪');
     expect(normalizeCurrency(formatCurrency(-99))).toBe('-99.00 ₪');
+  });
+});
+
+describe('formatCurrencyRounded', () => {
+  it('drops the decimals and keeps thousands separators', () => {
+    expect(normalizeCurrency(formatCurrencyRounded(1234.56))).toBe('1,235 ₪');
+    expect(normalizeCurrency(formatCurrencyRounded(14814.72))).toBe('14,815 ₪');
+  });
+
+  it('formats zero and negatives', () => {
+    expect(normalizeCurrency(formatCurrencyRounded(0))).toBe('0 ₪');
+    expect(normalizeCurrency(formatCurrencyRounded(-99.4))).toBe('-99 ₪');
   });
 });
 

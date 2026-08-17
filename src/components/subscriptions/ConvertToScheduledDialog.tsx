@@ -14,6 +14,7 @@ import {
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
 import { DetectedSubscription } from '@/types/subscription';
+import { formatCurrency } from '@/utils/format';
 
 interface Props {
   open: boolean;
@@ -78,7 +79,7 @@ export default function ConvertToScheduledDialog({
                   Amount
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
-                  ${subscription.averageAmount.toFixed(2)}
+                  {formatCurrency(subscription.averageAmount)}
                 </Typography>
               </Box>
               <Box>

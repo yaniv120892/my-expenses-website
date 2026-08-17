@@ -28,6 +28,7 @@ import { TrendIcon } from './TrendIcon';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { formatTrendDate } from '@/utils/dateUtils';
+import { formatCurrency } from '@/utils/format';
 
 interface CategoryTrendCardProps {
   trend: CategorySpendingTrend;
@@ -67,13 +68,15 @@ export const CategoryTrendCard = ({
               {trend.categoryName} {typeLabel}
               <TrendIcon trend={trend.trend} />
             </Typography>
-            <Box sx={{ display: 'flex', gap: { xs: 3, md: 6 }, flexWrap: 'wrap' }}>
+            <Box
+              sx={{ display: 'flex', gap: { xs: 3, md: 6 }, flexWrap: 'wrap' }}
+            >
               <Box>
                 <Typography variant="body2" color="text.secondary">
                   Total {typeLabel}
                 </Typography>
                 <Typography variant="h5">
-                  ₪{trend.totalAmount.toFixed(2)}
+                  {formatCurrency(trend.totalAmount)}
                 </Typography>
               </Box>
               <Box>
@@ -107,10 +110,7 @@ export const CategoryTrendCard = ({
           <Box sx={{ height: 200 }}>
             <ResponsiveContainer>
               <LineChart data={trend.points}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={palette.divider}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke={palette.divider} />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(date) => formatTrendDate(date, period)}
@@ -126,7 +126,7 @@ export const CategoryTrendCard = ({
                 <Tooltip
                   labelFormatter={(date) => formatTrendDate(date, period)}
                   formatter={(value: number) => [
-                    `₪${value.toFixed(2)}`,
+                    formatCurrency(value),
                     'Amount',
                   ]}
                   contentStyle={{

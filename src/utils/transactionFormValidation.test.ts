@@ -7,6 +7,10 @@ import {
   createTransactionSchema,
   updateTransactionSchema,
 } from '@/shared/schemas/transactions';
+import {
+  approveImportedTransactionSchema,
+  mergeImportedTransactionSchema,
+} from '@/shared/schemas/imports';
 
 const CATEGORY_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -59,12 +63,26 @@ describe('validateTransactionForm', () => {
 
   // Regression: an edit with a cleared category submitted categoryId:
   // undefined, which updateTransactionSchema rejects with a 400.
-  it('requires a category when editing but not when creating', () => {
+  it('requires a category only when the target endpoint does', () => {
     const cleared = form({ categoryId: '' });
 
     expect(validateTransactionForm(cleared, false).categoryId).toBeUndefined();
     expect(validateTransactionForm(cleared, true).categoryId).toBe(
       'Category is required',
+    );
+  });
+
+  // Regression: the rule keyed off "the form has initial data", which is also
+  // true for an imported transaction being approved — so an import the AI had
+  // not matched to a category could not be approved at all.
+  it('lets an uncategorized import through the approve schema', () => {
+    const cleared = submitPayload(form({ categoryId: '' }));
+
+    expect(approveImportedTransactionSchema.safeParse(cleared).success).toBe(
+      true,
+    );
+    expect(mergeImportedTransactionSchema.safeParse(cleared).success).toBe(
+      false,
     );
   });
 

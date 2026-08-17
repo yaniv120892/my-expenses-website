@@ -29,6 +29,11 @@ export interface TransactionSummaryFilters {
   startDate?: Date;
   endDate?: Date;
   categoryId?: string;
+  /**
+   * `categoryId` expanded to its subtree by the service layer. Callers send
+   * `categoryId`; only the resolved form reaches the query.
+   */
+  categoryIds?: string[];
   transactionType?: TransactionType;
   searchTerm?: string;
   status?: TransactionStatus;

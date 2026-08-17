@@ -25,6 +25,7 @@ import {
   buildDownloadUrl,
   getPresignedUploadUrl,
 } from '@/server/services/transactionAttachmentFileUtils';
+import { buildCategoryDescendantMap } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
@@ -90,12 +91,34 @@ class TransactionService {
     return result;
   }
 
+  /**
+   * Widens a category filter to the whole subtree, so filtering by a parent
+   * covers the transactions filed on its children. Already-resolved filters
+   * pass through untouched, which keeps the walk in getAllTransactions from
+   * rebuilding the map once per page.
+   */
+  private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
+    filters: T,
+  ): Promise<T> {
+    if (!filters.categoryId || filters.categoryIds) {
+      return filters;
+    }
+    const descendantMap = await buildCategoryDescendantMap();
+    return {
+      ...filters,
+      categoryIds: descendantMap.get(filters.categoryId) ?? [
+        filters.categoryId,
+      ],
+    };
+  }
+
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
+    const resolved = await this.resolveCategoryFilter(filters);
     return transactionRepository.getTransactionsList({
-      ...filters,
-      status: filters.status || 'APPROVED',
+      ...resolved,
+      status: resolved.status || 'APPROVED',
     });
   }
 
@@ -109,11 +132,12 @@ class TransactionService {
     filters: TransactionSummaryFilters,
   ): Promise<Transaction[]> {
     const transactions: Transaction[] = [];
+    const resolved = await this.resolveCategoryFilter(filters);
     let cursor: string | undefined;
 
     do {
       const page = await this.getTransactionsList({
-        ...filters,
+        ...resolved,
         cursor,
         limit: ALL_TRANSACTIONS_PAGE_SIZE,
       });
@@ -155,9 +179,10 @@ class TransactionService {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
+    const resolved = await this.resolveCategoryFilter(filters);
     return transactionRepository.getTransactionsSummary({
-      ...filters,
-      status: filters.status || 'APPROVED',
+      ...resolved,
+      status: resolved.status || 'APPROVED',
     });
   }
 

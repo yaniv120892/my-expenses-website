@@ -361,7 +361,7 @@ class TransactionRepository {
             },
           }
         : {}),
-      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+      ...this.buildCategoryWhere(filters),
       ...(filters.transactionType ? { type: filters.transactionType } : {}),
       ...(searchTerm
         ? {
@@ -374,6 +374,17 @@ class TransactionRepository {
       status: filters.status || TransactionStatus.APPROVED,
       userId: filters.userId,
     };
+  }
+
+  /**
+   * The service resolves a category to its subtree, so `categoryIds` wins when
+   * present; `categoryId` alone stays an exact match for callers that skip it.
+   */
+  private buildCategoryWhere(filters: TransactionSummaryFilters) {
+    if (filters.categoryIds?.length) {
+      return { categoryId: { in: filters.categoryIds } };
+    }
+    return filters.categoryId ? { categoryId: filters.categoryId } : {};
   }
 
   // Rows strictly after the cursor in (date desc, id desc) order.

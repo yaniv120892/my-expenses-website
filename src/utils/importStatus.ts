@@ -9,22 +9,17 @@ const ACTIVE_IMPORT_STATUSES: readonly ImportStatus[] = [
 
 export const IMPORTS_POLL_INTERVAL_MS = 5_000;
 
-// An import whose webhook never arrives stays active forever, so polling is
-// capped by age rather than by status alone.
-const MAX_ACTIVE_AGE_MS = 10 * 60_000;
+/**
+ * How long to keep polling once something is in flight. An import whose
+ * webhook never arrives stays active forever, and a forgotten tab should not
+ * poll for days. Measured from when this client started watching, not from a
+ * server timestamp — comparing the two against a local clock would let a
+ * skewed clock disable polling outright. A reload starts the window again.
+ */
+export const MAX_ACTIVE_POLL_MS = 15 * 60_000;
 
-export function hasActiveImports(
-  imports: Import[] | undefined,
-  now: number = Date.now(),
-): boolean {
-  if (!imports?.length) return false;
-
-  return imports.some((item) => {
-    if (!ACTIVE_IMPORT_STATUSES.includes(item.status)) return false;
-
-    const updatedAt = Date.parse(item.updatedAt);
-    if (Number.isNaN(updatedAt)) return false;
-
-    return now - updatedAt < MAX_ACTIVE_AGE_MS;
-  });
+export function hasActiveImports(imports: Import[] | undefined): boolean {
+  return !!imports?.some((item) =>
+    ACTIVE_IMPORT_STATUSES.includes(item.status),
+  );
 }

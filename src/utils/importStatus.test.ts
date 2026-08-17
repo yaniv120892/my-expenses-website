@@ -20,22 +20,22 @@ function buildImport(overrides: Partial<Import> = {}): Import {
 
 describe('hasActiveImports', () => {
   it('is false when there is nothing to poll for', () => {
-    expect(hasActiveImports(undefined, NOW)).toBe(false);
-    expect(hasActiveImports([], NOW)).toBe(false);
+    expect(hasActiveImports(undefined)).toBe(false);
+    expect(hasActiveImports([])).toBe(false);
   });
 
   it.each([
     ImportStatus.PENDING,
     ImportStatus.PROCESSING,
     ImportStatus.REMATCHING,
-  ])('is true for a recent %s import', (status) => {
-    expect(hasActiveImports([buildImport({ status })], NOW)).toBe(true);
+  ])('is true for a %s import', (status) => {
+    expect(hasActiveImports([buildImport({ status })])).toBe(true);
   });
 
   it.each([ImportStatus.COMPLETED, ImportStatus.FAILED])(
     'is false when every import is %s',
     (status) => {
-      expect(hasActiveImports([buildImport({ status })], NOW)).toBe(false);
+      expect(hasActiveImports([buildImport({ status })])).toBe(false);
     },
   );
 
@@ -46,33 +46,17 @@ describe('hasActiveImports', () => {
       buildImport({ id: 'c', status: ImportStatus.FAILED }),
     ];
 
-    expect(hasActiveImports(imports, NOW)).toBe(true);
+    expect(hasActiveImports(imports)).toBe(true);
   });
 
-  it('stops polling a stranded import once it ages out', () => {
-    const stranded = buildImport({
+  it('keeps saying an old in-flight import is active, whatever its timestamps say', () => {
+    // How long to keep polling is the caller's call, measured on its own
+    // clock; a stale updatedAt must not make an import look settled.
+    const stale = buildImport({
       status: ImportStatus.PROCESSING,
-      updatedAt: new Date(NOW - 11 * 60_000).toISOString(),
+      updatedAt: new Date(NOW - 60 * 60_000).toISOString(),
     });
 
-    expect(hasActiveImports([stranded], NOW)).toBe(false);
-  });
-
-  it('keeps polling an active import that is still inside the age window', () => {
-    const recent = buildImport({
-      status: ImportStatus.PROCESSING,
-      updatedAt: new Date(NOW - 9 * 60_000).toISOString(),
-    });
-
-    expect(hasActiveImports([recent], NOW)).toBe(true);
-  });
-
-  it('ignores an import with an unparseable updatedAt', () => {
-    const broken = buildImport({
-      status: ImportStatus.PROCESSING,
-      updatedAt: 'not-a-date',
-    });
-
-    expect(hasActiveImports([broken], NOW)).toBe(false);
+    expect(hasActiveImports([stale])).toBe(true);
   });
 });

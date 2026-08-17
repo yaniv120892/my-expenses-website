@@ -148,9 +148,12 @@ class ImportService {
         'Extraction request submitted',
       );
 
-      await importRepository.updateStatus(importId, ImportStatus.PROCESSING);
-
-      await this.updateImportWithExtractionRequestId(
+      // The import is created PROCESSING, and the callback carries the signed
+      // importId — so it can land, complete the import and even merge it away
+      // before this returns. Writing anything unconditionally here would undo
+      // that, so only the request id is recorded, and only while the import is
+      // still waiting for its callback.
+      await this.recordExtractionRequestId(
         importId,
         extractionResponse.requestId,
       );
@@ -160,9 +163,8 @@ class ImportService {
         'Failed to submit extraction request',
       );
 
-      await importRepository.updateStatus(
+      await this.failUnprocessedImport(
         importId,
-        ImportStatus.FAILED,
         getErrorMessage(error, 'Failed to submit extraction request'),
       );
 
@@ -170,13 +172,24 @@ class ImportService {
     }
   }
 
-  private async updateImportWithExtractionRequestId(
+  private async recordExtractionRequestId(
     importId: string,
     extractionRequestId: string,
   ): Promise<void> {
-    await prisma.import.update({
-      where: { id: importId },
+    await prisma.import.updateMany({
+      where: { id: importId, extractionCompletedAt: null },
       data: { excelExtractionRequestId: extractionRequestId },
+    });
+  }
+
+  /** No-op once a callback has claimed the import, or if it merged away. */
+  private async failUnprocessedImport(
+    importId: string,
+    error: string,
+  ): Promise<void> {
+    await prisma.import.updateMany({
+      where: { id: importId, extractionCompletedAt: null },
+      data: { status: ImportStatus.FAILED, error },
     });
   }
 

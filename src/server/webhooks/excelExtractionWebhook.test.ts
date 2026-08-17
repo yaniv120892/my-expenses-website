@@ -13,7 +13,6 @@ const {
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
     claimExtraction: vi.fn(),
-    releaseExtractionClaim: vi.fn(),
   },
   importedTxRepo: {
     filterDuplicates: vi.fn(),
@@ -337,20 +336,26 @@ describe('redelivered callbacks', () => {
     expect(prismaMock.import.delete).not.toHaveBeenCalled();
   });
 
-  it('releases the claim and marks FAILED when processing throws', async () => {
+  it('marks FAILED but keeps the claim when processing throws', async () => {
     importedTxRepo.createMany.mockRejectedValue(new Error('insert exploded'));
 
     const res = await run(payload([tx()]));
 
     expect(res.status).toBe(500);
-    // Without the release, every redelivery would short-circuit on the claim
-    // and the import would sit in PROCESSING forever.
-    expect(importRepo.releaseExtractionClaim).toHaveBeenCalledWith('imp-1');
     expect(importRepo.updateStatus).toHaveBeenCalledWith(
       'imp-1',
       'FAILED',
       'insert exploded',
     );
+
+    // Handing the claim back would let a redelivery re-run createMany and
+    // insert every row a second time.
+    importedTxRepo.createMany.mockResolvedValue(1);
+    importRepo.claimExtraction.mockResolvedValue(false);
+    const redelivery = await run(payload([tx()]));
+
+    expect(redelivery.status).toBe(200);
+    expect(importedTxRepo.createMany).toHaveBeenCalledTimes(1);
   });
 
   it('claims before doing any work', async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   initialUploadQueueState,
+  planAddFiles,
   selectIsDrained,
   selectIsRunning,
   selectQueuedItems,
@@ -82,6 +83,28 @@ describe('uploadQueueReducer', () => {
     });
 
     expect(state.items).toHaveLength(10);
+  });
+
+  it('reports what it turned away, so nothing vanishes silently', () => {
+    const drop = (start: number) =>
+      Array.from({ length: 6 }, (_, i) => file(`card-${start + i}.csv`));
+    const duplicate = file('dupe.csv');
+
+    const state = withFiles([...drop(0), duplicate]);
+
+    expect(planAddFiles(state, [...drop(10), duplicate])).toMatchObject({
+      rejectedAsDuplicate: 1,
+      rejectedAsFull: 3,
+    });
+    expect(planAddFiles(state, [...drop(10), duplicate]).accepted).toHaveLength(
+      3,
+    );
+  });
+
+  it('reports nothing turned away when the queue has room', () => {
+    expect(
+      planAddFiles(initialUploadQueueState, [file('a.csv')]),
+    ).toMatchObject({ rejectedAsDuplicate: 0, rejectedAsFull: 0 });
   });
 
   it('ignores a progress update that does not move the bar', () => {

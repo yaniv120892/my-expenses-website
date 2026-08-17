@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCurrency,
+  formatCurrencyPlain,
   formatNumber,
   formatTransaction,
   formatTransactionDate,
@@ -68,6 +69,21 @@ describe('formatCurrency', () => {
   it('formats zero and negatives', () => {
     expect(normalizeCurrency(formatCurrency(0))).toBe('0.00 ₪');
     expect(normalizeCurrency(formatCurrency(-99))).toBe('-99.00 ₪');
+  });
+});
+
+describe('formatCurrencyPlain', () => {
+  // Asserted without normalizeCurrency on purpose: emitting a string that needs
+  // no cleanup is the whole reason this variant exists.
+  it('renders the same visible format with no control characters', () => {
+    expect(formatCurrencyPlain(1234.5)).toBe('1,234.50 ₪');
+    expect(formatCurrencyPlain(0)).toBe('0.00 ₪');
+    expect(formatCurrencyPlain(-99)).toBe('-99.00 ₪');
+  });
+
+  it('strips the marks Intl adds', () => {
+    expect(formatCurrencyPlain(1234.5)).not.toMatch(/[\u200e\u200f\u00a0]/);
+    expect(formatCurrency(1234.5)).toMatch(/[\u200e\u200f\u00a0]/);
   });
 });
 

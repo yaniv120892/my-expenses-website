@@ -159,11 +159,12 @@ model Import {
   creditCardLastFourDigits String? /// @encrypted
   paymentMonth             String? // Format: MM/YYYY
   deleted                  Boolean @default(false)
-  excelExtractionRequestId String?
-  user                     User    @relation(fields: [userId], references: [id])
+  excelExtractionRequestId String?   @unique
+  // Claimed by the first extraction callback, so a redelivery is a no-op.
+  extractionCompletedAt    DateTime?
+  user                     User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
-  @@index([excelExtractionRequestId])
 }
 
 model ImportedTransaction {

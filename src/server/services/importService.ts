@@ -135,6 +135,7 @@ class ImportService {
           fileUrl,
           filename: originalFileName,
           userId,
+          importId,
           options: {
             confidenceThreshold: 0.7,
             maxRetries: 3,
@@ -583,18 +584,37 @@ class ImportService {
         'Processing imported transactions for matches',
       );
 
-      await Promise.all(
-        importedTransactions.map(async (transaction) => {
-          try {
-            await this.matchSingleTransaction(transaction, userId);
-          } catch (error) {
-            logger.error(
-              { transactionId: transaction.id, err: error },
-              'Error finding match for transaction',
-            );
-          }
-        }),
+      // Sequential with a running exclusion set, seeded from every transaction
+      // already claimed elsewhere: two rows — in this import or in another one
+      // completing at the same time — must not land on the same transaction.
+      const excludedTransactionIds = new Set(
+        await importedTransactionRepository.findClaimedMatchingTransactionIds(
+          userId,
+        ),
       );
+
+      for (const transaction of importedTransactions) {
+        // Rows merged in from a duplicate import keep the match they already
+        // hold; re-matching them would only find it excluded by itself.
+        if (transaction.matchingTransactionId) continue;
+
+        try {
+          const matchedId = await this.matchSingleTransaction(
+            transaction,
+            userId,
+            excludedTransactionIds,
+          );
+
+          if (matchedId) {
+            excludedTransactionIds.add(matchedId);
+          }
+        } catch (error) {
+          logger.error(
+            { transactionId: transaction.id, err: error },
+            'Error finding match for transaction',
+          );
+        }
+      }
 
       logger.info({ importId }, 'Completed finding potential matches');
     } catch (error) {

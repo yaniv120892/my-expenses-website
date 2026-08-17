@@ -5,29 +5,31 @@ const {
   importedTxRepo,
   prismaMock,
   findPotentialMatchesForImport,
+  extractWebhookParams,
 } = vi.hoisted(() => ({
   importRepo: {
     findByExtractionRequestId: vi.fn(),
     findById: vi.fn(),
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
+    claimExtraction: vi.fn(),
   },
   importedTxRepo: {
     filterDuplicates: vi.fn(),
     createMany: vi.fn(),
+    findByImportId: vi.fn(),
+    moveToImport: vi.fn(),
+    deleteByImportId: vi.fn(),
   },
   prismaMock: {
     import: { update: vi.fn(), delete: vi.fn() },
   },
   findPotentialMatchesForImport: vi.fn(),
+  extractWebhookParams: vi.fn(),
 }));
 
 vi.mock('@/server/utils/webhookAuth', () => ({
-  extractWebhookParams: () => ({
-    token: 't',
-    userId: 'user-1',
-    timestamp: 123,
-  }),
+  extractWebhookParams: (...a: unknown[]) => extractWebhookParams(...a),
   verifyWebhookToken: () => true,
 }));
 vi.mock('@/server/repositories/importRepository', () => ({
@@ -45,6 +47,10 @@ vi.mock('@/server/services/importService', () => ({
 }));
 
 import { processExcelExtractionWebhook } from '@/server/webhooks/excelExtractionWebhook';
+
+const CREATED_AT = new Date('2026-03-10T10:00:00.000Z');
+const OLDER = new Date('2026-03-10T09:00:00.000Z');
+const NEWER = new Date('2026-03-10T11:00:00.000Z');
 
 const payload = (transactions: unknown[]) => ({
   requestId: 'req-1',
@@ -66,17 +72,39 @@ const tx = (description = 'Coffee') => ({
   type: 'EXPENSE',
 });
 
+const storedRow = (id: string, description = 'Coffee') => ({
+  id,
+  description,
+  value: 12.5,
+  date: new Date(2026, 2, 7),
+  type: 'EXPENSE',
+  importId: 'imp-1',
+  userId: 'user-1',
+});
+
 const run = (body: unknown) => processExcelExtractionWebhook(body, {});
 
 beforeEach(() => {
   vi.clearAllMocks();
+  extractWebhookParams.mockReturnValue({
+    token: 't',
+    userId: 'user-1',
+    timestamp: 123,
+  });
   importRepo.findByExtractionRequestId.mockResolvedValue({
     id: 'imp-1',
     userId: 'user-1',
+    createdAt: CREATED_AT,
   });
-  importRepo.findById.mockResolvedValue({ id: 'imp-1', userId: 'user-1' });
+  importRepo.findById.mockResolvedValue({
+    id: 'imp-1',
+    userId: 'user-1',
+    createdAt: CREATED_AT,
+  });
   importRepo.findExisting.mockResolvedValue(null);
+  importRepo.claimExtraction.mockResolvedValue(true);
   importedTxRepo.filterDuplicates.mockResolvedValue([]);
+  importedTxRepo.findByImportId.mockResolvedValue([]);
   findPotentialMatchesForImport.mockResolvedValue(undefined);
 });
 
@@ -122,61 +150,89 @@ describe('completed extraction', () => {
     expect(updateOrder).toBeLessThan(findOrder);
   });
 
+  it('inserts its own rows before looking for a duplicate', async () => {
+    await run(payload([tx()]));
+
+    const insertOrder = importedTxRepo.createMany.mock.invocationCallOrder[0];
+    const findOrder = importRepo.findExisting.mock.invocationCallOrder[0];
+    expect(insertOrder).toBeLessThan(findOrder);
+  });
+
   it('no duplicate and zero transactions: skips insert, still finalizes', async () => {
     await run(payload([]));
     expect(importedTxRepo.createMany).not.toHaveBeenCalled();
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
   });
 
-  it('duplicate: merges non-duplicates into it and drops this import', async () => {
-    importRepo.findExisting.mockResolvedValue({ id: 'imp-old' });
+  it('older duplicate: moves non-duplicate rows into it and drops this import', async () => {
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-old',
+      createdAt: OLDER,
+    });
+    importedTxRepo.findByImportId.mockResolvedValue([
+      storedRow('row-1'),
+      storedRow('row-2', 'Tea'),
+    ]);
+    importedTxRepo.filterDuplicates.mockImplementation(async (_id, rows) =>
+      rows.slice(0, 1),
+    );
+
+    await run(payload([tx(), tx('Tea')]));
+
+    const [scopeId] = importedTxRepo.filterDuplicates.mock.calls[0];
+    expect(scopeId).toBe('imp-old');
+
+    expect(importedTxRepo.moveToImport).toHaveBeenCalledWith(
+      ['row-1'],
+      'imp-old',
+    );
+    // The duplicate row left behind is removed so the FK does not block the delete.
+    expect(importedTxRepo.deleteByImportId).toHaveBeenCalledWith('imp-1');
+    expect(prismaMock.import.delete).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+    });
+    expect(findPotentialMatchesForImport).toHaveBeenCalledWith(
+      'imp-old',
+      'user-1',
+    );
+    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+  });
+
+  it('a newer import is not a merge target, so neither side deletes the other', async () => {
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-new',
+      createdAt: NEWER,
+    });
+
+    await run(payload([tx()]));
+
+    expect(importedTxRepo.moveToImport).not.toHaveBeenCalled();
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
+    expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
+  });
+
+  it('breaks a createdAt tie on id so only one side merges', async () => {
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-0',
+      createdAt: CREATED_AT,
+    });
+    importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
     importedTxRepo.filterDuplicates.mockImplementation(
       async (_id, rows) => rows,
     );
 
     await run(payload([tx()]));
 
-    // filterDuplicates receives rows still carrying the CURRENT import id
-    const [scopeId, offered] = importedTxRepo.filterDuplicates.mock.calls[0];
-    expect(scopeId).toBe('imp-old');
-    expect(offered[0]).toMatchObject({ importId: 'imp-1', userId: 'user-1' });
-
-    // ...and they are re-pointed at the surviving import on insert
-    expect(importedTxRepo.createMany).toHaveBeenCalledTimes(1);
-    expect(importedTxRepo.createMany.mock.calls[0][0][0]).toMatchObject({
-      importId: 'imp-old',
-      userId: 'user-1',
-    });
-
-    expect(findPotentialMatchesForImport).toHaveBeenCalledWith(
-      'imp-old',
-      'user-1',
-    );
     expect(prismaMock.import.delete).toHaveBeenCalledWith({
       where: { id: 'imp-1' },
     });
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
-  });
-
-  it('duplicate with nothing new: still drops this import, inserts nothing', async () => {
-    importRepo.findExisting.mockResolvedValue({ id: 'imp-old' });
-    importedTxRepo.filterDuplicates.mockResolvedValue([]);
-
-    await run(payload([tx()]));
-
-    expect(importedTxRepo.createMany).not.toHaveBeenCalled();
-    expect(prismaMock.import.delete).toHaveBeenCalledWith({
-      where: { id: 'imp-1' },
-    });
-    expect(findPotentialMatchesForImport).toHaveBeenCalledWith(
-      'imp-old',
-      'user-1',
-    );
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
   });
 
   it('findExisting returning this same import is not a duplicate', async () => {
-    importRepo.findExisting.mockResolvedValue({ id: 'imp-1' });
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-1',
+      createdAt: CREATED_AT,
+    });
 
     await run(payload([tx()]));
 
@@ -194,8 +250,9 @@ describe('completed extraction', () => {
 
   it('a missing import record fails the webhook', async () => {
     importRepo.findById.mockResolvedValue(null);
+    importRepo.findByExtractionRequestId.mockResolvedValue(null);
     const res = await run(payload([tx()]));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(404);
   });
 
   it('rawData defaults to an empty object', async () => {
@@ -208,5 +265,63 @@ describe('completed extraction', () => {
   it('a COMPLETED payload with no result fails the webhook', async () => {
     const res = await run({ requestId: 'req-1', status: 'COMPLETED' });
     expect(res.status).toBe(500);
+  });
+});
+
+describe('callback resolution', () => {
+  it('resolves by the signed importId when present', async () => {
+    extractWebhookParams.mockReturnValue({
+      token: 't',
+      userId: 'user-1',
+      timestamp: 123,
+      importId: 'imp-1',
+    });
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(200);
+    expect(importRepo.findByExtractionRequestId).not.toHaveBeenCalled();
+    expect(importRepo.findById).toHaveBeenCalledWith('imp-1');
+  });
+
+  it('falls back to the requestId for callbacks issued without an importId', async () => {
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(200);
+    expect(importRepo.findByExtractionRequestId).toHaveBeenCalledWith('req-1');
+  });
+
+  it('rejects a callback for another user', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'someone-else',
+      createdAt: CREATED_AT,
+    });
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(403);
+    expect(importRepo.claimExtraction).not.toHaveBeenCalled();
+  });
+});
+
+describe('redelivered callbacks', () => {
+  it('is a no-op when another callback already claimed the extraction', async () => {
+    importRepo.claimExtraction.mockResolvedValue(false);
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(200);
+    expect(importedTxRepo.createMany).not.toHaveBeenCalled();
+    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
+  });
+
+  it('claims before doing any work', async () => {
+    await run(payload([tx()]));
+
+    const claimOrder = importRepo.claimExtraction.mock.invocationCallOrder[0];
+    const insertOrder = importedTxRepo.createMany.mock.invocationCallOrder[0];
+    expect(claimOrder).toBeLessThan(insertOrder);
   });
 });

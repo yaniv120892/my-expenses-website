@@ -8,18 +8,22 @@ function getWebhookSecret(): string {
   return requireEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET');
 }
 
+// importId is optional so callbacks issued before it was signed still verify.
 export function generateWebhookToken(
   userId: string,
   timestamp: number,
+  importId?: string,
 ): string {
   const secret = getWebhookSecret();
 
-  const payload = `${userId}:${timestamp}`;
+  const payload = importId
+    ? `${userId}:${timestamp}:${importId}`
+    : `${userId}:${timestamp}`;
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(payload);
   const token = hmac.digest('base64url');
 
-  logger.debug({ userId, timestamp }, 'Generated webhook token');
+  logger.debug({ userId, timestamp, importId }, 'Generated webhook token');
 
   return token;
 }
@@ -28,6 +32,7 @@ export function verifyWebhookToken(
   token: string,
   userId: string,
   timestamp: number,
+  importId?: string,
 ): boolean {
   // Called for its side effect: it throws when the webhook secret is missing,
   // failing fast before any comparison — inside the try block below the same
@@ -66,7 +71,7 @@ export function verifyWebhookToken(
   }
 
   try {
-    const expectedToken = generateWebhookToken(userId, timestamp);
+    const expectedToken = generateWebhookToken(userId, timestamp, importId);
     const isValid = crypto.timingSafeEqual(
       Buffer.from(token),
       Buffer.from(expectedToken),
@@ -77,6 +82,7 @@ export function verifyWebhookToken(
         {
           userId,
           timestamp,
+          importId,
           tokenPreview: token.substring(0, 10) + '...',
         },
         'Webhook token verification failed',
@@ -85,7 +91,10 @@ export function verifyWebhookToken(
 
     return isValid;
   } catch (err) {
-    logger.error({ err, userId, timestamp }, 'Error verifying webhook token');
+    logger.error(
+      { err, userId, timestamp, importId },
+      'Error verifying webhook token',
+    );
     return false;
   }
 }
@@ -94,8 +103,9 @@ export function extractWebhookParams(query: Record<string, unknown>): {
   token: string;
   userId: string;
   timestamp: number;
+  importId?: string;
 } | null {
-  const { token, userId, timestamp } = query;
+  const { token, userId, timestamp, importId } = query;
 
   if (!token || !userId || !timestamp) {
     logger.warn(
@@ -119,5 +129,6 @@ export function extractWebhookParams(query: Record<string, unknown>): {
     token: String(token),
     userId: String(userId),
     timestamp: timestampNum,
+    importId: importId ? String(importId) : undefined,
   };
 }

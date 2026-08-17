@@ -13,16 +13,18 @@ const {
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
     claimExtraction: vi.fn(),
+    releaseExtractionClaim: vi.fn(),
   },
   importedTxRepo: {
     filterDuplicates: vi.fn(),
     createMany: vi.fn(),
     findByImportId: vi.fn(),
-    moveToImport: vi.fn(),
-    deleteByImportId: vi.fn(),
+    moveToImportOps: vi.fn(),
+    deleteByImportIdOp: vi.fn(),
   },
   prismaMock: {
     import: { update: vi.fn(), delete: vi.fn() },
+    $transaction: vi.fn(),
   },
   findPotentialMatchesForImport: vi.fn(),
   extractWebhookParams: vi.fn(),
@@ -105,6 +107,21 @@ beforeEach(() => {
   importRepo.claimExtraction.mockResolvedValue(true);
   importedTxRepo.filterDuplicates.mockResolvedValue([]);
   importedTxRepo.findByImportId.mockResolvedValue([]);
+  // The repository hands back unawaited Prisma ops; the tests only care that
+  // they were built for the right rows and batched together.
+  importedTxRepo.moveToImportOps.mockImplementation(
+    (ids: string[], to: string) =>
+      ids.length ? [{ op: 'move', ids, to }] : [],
+  );
+  importedTxRepo.deleteByImportIdOp.mockImplementation((id: string) => ({
+    op: 'deleteRows',
+    id,
+  }));
+  prismaMock.import.delete.mockImplementation((args: unknown) => ({
+    op: 'deleteImport',
+    args,
+  }));
+  prismaMock.$transaction.mockResolvedValue([]);
   findPotentialMatchesForImport.mockResolvedValue(undefined);
 });
 
@@ -182,15 +199,18 @@ describe('completed extraction', () => {
     const [scopeId] = importedTxRepo.filterDuplicates.mock.calls[0];
     expect(scopeId).toBe('imp-old');
 
-    expect(importedTxRepo.moveToImport).toHaveBeenCalledWith(
+    expect(importedTxRepo.moveToImportOps).toHaveBeenCalledWith(
       ['row-1'],
       'imp-old',
     );
-    // The duplicate row left behind is removed so the FK does not block the delete.
-    expect(importedTxRepo.deleteByImportId).toHaveBeenCalledWith('imp-1');
-    expect(prismaMock.import.delete).toHaveBeenCalledWith({
-      where: { id: 'imp-1' },
-    });
+    // Move, remove-the-leftovers and drop-the-import go as one batch: the
+    // duplicate row left behind would block the delete, and a partial apply
+    // would strand rows under an import that still exists.
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      { op: 'move', ids: ['row-1'], to: 'imp-old' },
+      { op: 'deleteRows', id: 'imp-1' },
+      { op: 'deleteImport', args: { where: { id: 'imp-1' } } },
+    ]);
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(
       'imp-old',
       'user-1',
@@ -206,8 +226,8 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(importedTxRepo.moveToImport).not.toHaveBeenCalled();
-    expect(prismaMock.import.delete).not.toHaveBeenCalled();
+    expect(importedTxRepo.moveToImportOps).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
   });
 
@@ -315,6 +335,22 @@ describe('redelivered callbacks', () => {
     expect(importedTxRepo.createMany).not.toHaveBeenCalled();
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
     expect(prismaMock.import.delete).not.toHaveBeenCalled();
+  });
+
+  it('releases the claim and marks FAILED when processing throws', async () => {
+    importedTxRepo.createMany.mockRejectedValue(new Error('insert exploded'));
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(500);
+    // Without the release, every redelivery would short-circuit on the claim
+    // and the import would sit in PROCESSING forever.
+    expect(importRepo.releaseExtractionClaim).toHaveBeenCalledWith('imp-1');
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-1',
+      'FAILED',
+      'insert exploded',
+    );
   });
 
   it('claims before doing any work', async () => {

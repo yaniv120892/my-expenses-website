@@ -13,10 +13,8 @@ import {
 } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import BatchProgressIndicator from '@/components/BatchProgressIndicator';
-import {
-  MAX_FILES_PER_BATCH,
-  useMultiFileImport,
-} from '@/hooks/useMultiFileImport';
+import { useMultiFileImport } from '@/hooks/useMultiFileImport';
+import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
 
 interface FileUploadProps {
@@ -30,7 +28,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   const [paymentMonth, setPaymentMonth] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [summaryDismissed, setSummaryDismissed] = useState(false);
 
   const {
     items,
@@ -45,6 +42,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     start,
     retryAllFailed,
     retryItem,
+    reset,
   } = useMultiFileImport({ onAllSucceeded: onUploadComplete });
 
   useEffect(() => {
@@ -60,7 +58,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
       }
       if (acceptedFiles.length === 0) return;
 
-      setSummaryDismissed(false);
       addFiles(acceptedFiles, paymentMonth);
     },
     [addFiles, paymentMonth],
@@ -80,10 +77,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
     disabled: isRunning,
   });
 
-  const handleApplyToAll = () => {
-    applyPaymentMonthToAll(paymentMonth);
-  };
-
   return (
     <Box sx={{ pt: 1 }}>
       <Stack direction="row" spacing={1} alignItems="flex-start">
@@ -98,7 +91,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         />
         <Button
           variant="outlined"
-          onClick={handleApplyToAll}
+          onClick={() => applyPaymentMonthToAll(paymentMonth)}
           disabled={isRunning || items.length === 0}
           sx={{ mt: 1, flexShrink: 0 }}
         >
@@ -184,13 +177,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </Stack>
       )}
 
-      {!summaryDismissed && (
+      {summary && (
         <Box sx={{ mt: 2 }}>
           <BatchProgressIndicator
             result={summary}
             isLoading={false}
             itemLabel="files"
-            onClose={() => setSummaryDismissed(true)}
+            onClose={reset}
           />
         </Box>
       )}

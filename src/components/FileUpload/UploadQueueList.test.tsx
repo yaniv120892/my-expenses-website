@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UploadQueueList from '@/components/FileUpload/UploadQueueList';
-import { UploadItem } from '@/components/FileUpload/uploadQueueReducer';
+import { UploadItem } from '@/utils/importUploadQueue';
 
 afterEach(cleanup);
 

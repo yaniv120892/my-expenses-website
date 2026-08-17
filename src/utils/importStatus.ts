@@ -1,7 +1,7 @@
 import { Import, ImportStatus } from '@/types/import';
 
 /** Statuses where the extraction webhook has not landed yet. */
-export const ACTIVE_IMPORT_STATUSES: readonly ImportStatus[] = [
+const ACTIVE_IMPORT_STATUSES: readonly ImportStatus[] = [
   ImportStatus.PENDING,
   ImportStatus.PROCESSING,
   ImportStatus.REMATCHING,

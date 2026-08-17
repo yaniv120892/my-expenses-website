@@ -12,6 +12,15 @@ import http from 'http';
 
 const CALLBACK_DELAY_MS = 150;
 
+/**
+ * Callbacks are delivered one at a time. The local `prisma dev` proxy the e2e
+ * runs against intermittently fails a write with a prepared-statement mismatch
+ * when two webhooks write concurrently, which is a limitation of that proxy
+ * rather than of the app — interleaved callbacks are covered properly in
+ * `src/server/webhooks/excelExtractionWebhook.test.ts`.
+ */
+let callbackChain: Promise<void> = Promise.resolve();
+
 export interface ExtractionRequestRecord {
   fileUrl: string;
   filename: string;
@@ -21,6 +30,9 @@ export interface ExtractionRequestRecord {
 
 let requests: ExtractionRequestRecord[] = [];
 let requestCounter = 0;
+// Tracked so a pending callback cannot outlive the server and keep the
+// process alive after the stack shuts down.
+const pendingCallbacks = new Set<NodeJS.Timeout>();
 
 export function getExtractionRequests(): ExtractionRequestRecord[] {
   return requests.map((request) => ({ ...request }));
@@ -128,11 +140,27 @@ export function startMockExtractionAgent(port: number): Promise<http.Server> {
       // Deliberately after the response, so the callback races the caller
       // persisting the request id — exactly the window the importId in the
       // webhook URL exists to close.
-      setTimeout(
-        () => void sendCallback(parsed.webhookUrl, requestId, parsed.filename),
-        CALLBACK_DELAY_MS,
+      callbackChain = callbackChain.then(
+        () =>
+          new Promise<void>((resolve) => {
+            const timer = setTimeout(() => {
+              pendingCallbacks.delete(timer);
+              void sendCallback(
+                parsed.webhookUrl,
+                requestId,
+                parsed.filename,
+              ).finally(resolve);
+            }, CALLBACK_DELAY_MS);
+            pendingCallbacks.add(timer);
+          }),
       );
     });
+  });
+
+  server.on('close', () => {
+    pendingCallbacks.forEach(clearTimeout);
+    pendingCallbacks.clear();
+    callbackChain = Promise.resolve();
   });
 
   return new Promise((resolve) => {

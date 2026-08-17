@@ -549,7 +549,31 @@ class ImportService {
       data: { matchingTransactionId: null },
     });
 
-    for (const transaction of pendingTransactions) {
+    await this.matchSequentially(
+      pendingTransactions,
+      userId,
+      excludedTransactionIds,
+      'Error re-matching transaction',
+    );
+  }
+
+  /**
+   * Matches rows one at a time against a running exclusion set, so no two rows
+   * can claim the same transaction. A row that throws is logged and skipped
+   * rather than failing the rest.
+   */
+  private async matchSequentially(
+    transactions: {
+      id: string;
+      description: string;
+      date: Date;
+      value: number;
+    }[],
+    userId: string,
+    excludedTransactionIds: Set<string>,
+    errorMessage: string,
+  ): Promise<void> {
+    for (const transaction of transactions) {
       try {
         const matchedId = await this.matchSingleTransaction(
           transaction,
@@ -563,7 +587,7 @@ class ImportService {
       } catch (error) {
         logger.error(
           { transactionId: transaction.id, err: error },
-          'Error re-matching transaction',
+          errorMessage,
         );
       }
     }
@@ -584,37 +608,22 @@ class ImportService {
         'Processing imported transactions for matches',
       );
 
-      // Sequential with a running exclusion set, seeded from every transaction
-      // already claimed elsewhere: two rows — in this import or in another one
-      // completing at the same time — must not land on the same transaction.
+      // Seeded from every transaction this user's other pending rows already
+      // claim, so a row here cannot take one out from under them.
       const excludedTransactionIds = new Set(
         await importedTransactionRepository.findClaimedMatchingTransactionIds(
           userId,
         ),
       );
 
-      for (const transaction of importedTransactions) {
-        // Rows merged in from a duplicate import keep the match they already
-        // hold; re-matching them would only find it excluded by itself.
-        if (transaction.matchingTransactionId) continue;
-
-        try {
-          const matchedId = await this.matchSingleTransaction(
-            transaction,
-            userId,
-            excludedTransactionIds,
-          );
-
-          if (matchedId) {
-            excludedTransactionIds.add(matchedId);
-          }
-        } catch (error) {
-          logger.error(
-            { transactionId: transaction.id, err: error },
-            'Error finding match for transaction',
-          );
-        }
-      }
+      // Rows merged in from a duplicate import keep the match they already
+      // hold; re-matching them would only find it excluded by itself.
+      await this.matchSequentially(
+        importedTransactions.filter((t) => !t.matchingTransactionId),
+        userId,
+        excludedTransactionIds,
+        'Error finding match for transaction',
+      );
 
       logger.info({ importId }, 'Completed finding potential matches');
     } catch (error) {

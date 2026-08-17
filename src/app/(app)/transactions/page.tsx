@@ -18,7 +18,9 @@ import {
   TransactionFilters,
   CreateTransactionInput,
 } from '@/types';
-import { transactionTypeSchema } from '@/shared/schemas/common';
+// The same shapes the API validates these params with, so a bad link fails
+// here rather than 400-ing every query on the page.
+import { transactionFilterSchema } from '@/shared/schemas/transactions';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionListSkeleton from '@/components/TransactionListSkeleton';
@@ -42,6 +44,8 @@ import {
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
 
+const filterShape = transactionFilterSchema.shape;
+
 function TransactionsPageContent() {
   // Read once to seed the filters: the drill-down from the dashboard pie arrives
   // as query params, but the page owns its filters from then on.
@@ -52,8 +56,13 @@ function TransactionsPageContent() {
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>(() => ({
     ...defaultMonthFilters(),
-    categoryId: searchParams.get('categoryId') ?? undefined,
-    type: transactionTypeSchema.safeParse(searchParams.get('type')).data,
+    // Both validated: the params are cleared right after this, so a malformed
+    // one would 400 every query with no chip left to clear.
+    categoryId: filterShape.categoryId.safeParse(
+      searchParams.get('categoryId') ?? undefined,
+    ).data,
+    type: filterShape.type.safeParse(searchParams.get('type') ?? undefined)
+      .data,
   }));
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
@@ -102,9 +111,10 @@ function TransactionsPageContent() {
   const handleExport = async () => {
     try {
       await exportMutation.mutateAsync(filters);
-    } catch {
-      // The response is a blob, so the server's message is not readable here.
-      setError('Failed to export transactions');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to export transactions',
+      );
     }
   };
 

@@ -4,6 +4,7 @@ import {
   AggregationResult,
   ComparisonPeriod,
 } from '@/shared/types/chat';
+import { formatCurrencyPlain } from '@/utils/format';
 
 class ChatAggregationService {
   /**
@@ -22,9 +23,9 @@ class ChatAggregationService {
     const difference = this.round(totalB - totalA);
 
     const lines = [
-      `${periodA.label}: ${this.formatCurrency(totalA)} (${this.pluralize(periodA.transactions.length, 'transaction')})`,
-      `${periodB.label}: ${this.formatCurrency(totalB)} (${this.pluralize(periodB.transactions.length, 'transaction')})`,
-      `Difference: ${difference >= 0 ? '+' : '-'}${this.formatCurrency(Math.abs(difference))} (${periodB.label} vs ${periodA.label})`,
+      `${periodA.label}: ${formatCurrencyPlain(totalA)} (${this.pluralize(periodA.transactions.length, 'transaction')})`,
+      `${periodB.label}: ${formatCurrencyPlain(totalB)} (${this.pluralize(periodB.transactions.length, 'transaction')})`,
+      `Difference: ${difference >= 0 ? '+' : '-'}${formatCurrencyPlain(Math.abs(difference))} (${periodB.label} vs ${periodA.label})`,
     ];
 
     const data: Record<string, number | string> = {
@@ -84,9 +85,9 @@ class ChatAggregationService {
     const net = income - expense;
 
     const lines = [
-      `Total Income: ${this.formatCurrency(income)}`,
-      `Total Expenses: ${this.formatCurrency(expense)}`,
-      `Net: ${this.formatCurrency(net)}`,
+      `Total Income: ${formatCurrencyPlain(income)}`,
+      `Total Expenses: ${formatCurrencyPlain(expense)}`,
+      `Net: ${formatCurrencyPlain(net)}`,
     ];
 
     return {
@@ -109,7 +110,7 @@ class ChatAggregationService {
     const average = this.round(total / transactions.length);
 
     return {
-      summary: `Average transaction value: ${this.formatCurrency(average)} (across ${transactions.length} transactions, total: ${this.formatCurrency(total)})`,
+      summary: `Average transaction value: ${formatCurrencyPlain(average)} (across ${transactions.length} transactions, total: ${formatCurrencyPlain(total)})`,
       data: { average, total, count: transactions.length },
       transactionCount: transactions.length,
     };
@@ -147,11 +148,11 @@ class ChatAggregationService {
       const share = total === 0 ? 0 : this.round((amount / total) * 100);
       data[name] = amount;
       data[`${name} %`] = share;
-      return `  ${name}: ${this.formatCurrency(amount)} (${share}%)`;
+      return `  ${name}: ${formatCurrencyPlain(amount)} (${share}%)`;
     });
 
     return {
-      summary: `Spending by category:\n${lines.join('\n')}\n\nTotal: ${this.formatCurrency(total)}`,
+      summary: `Spending by category:\n${lines.join('\n')}\n\nTotal: ${formatCurrencyPlain(total)}`,
       data,
       transactionCount: transactions.length,
     };
@@ -170,7 +171,7 @@ class ChatAggregationService {
       a.localeCompare(b),
     );
     const lines = sorted.map(
-      ([month, amount]) => `  ${month}: ${this.formatCurrency(amount)}`,
+      ([month, amount]) => `  ${month}: ${formatCurrencyPlain(amount)}`,
     );
 
     return {
@@ -195,8 +196,8 @@ class ChatAggregationService {
 
     return {
       summary: [
-        `Highest: ${this.formatCurrency(highest.value)} — "${highest.description}" (${highest.category.name}, ${this.formatDate(highest.date)})`,
-        `Lowest: ${this.formatCurrency(lowest.value)} — "${lowest.description}" (${lowest.category.name}, ${this.formatDate(lowest.date)})`,
+        `Highest: ${formatCurrencyPlain(highest.value)} — "${highest.description}" (${highest.category.name}, ${this.formatDate(highest.date)})`,
+        `Lowest: ${formatCurrencyPlain(lowest.value)} — "${lowest.description}" (${lowest.category.name}, ${this.formatDate(lowest.date)})`,
       ].join('\n'),
       data: {
         highestValue: highest.value,
@@ -214,7 +215,7 @@ class ChatAggregationService {
 
     const lines = top.map(
       (t) =>
-        `  - ${this.formatDate(t.date)} | ${t.description} | ${this.formatCurrency(t.value)} | ${t.category.name} (${t.type})`,
+        `  - ${this.formatDate(t.date)} | ${t.description} | ${formatCurrencyPlain(t.value)} | ${t.category.name} (${t.type})`,
     );
 
     const summaryParts = [
@@ -224,7 +225,7 @@ class ChatAggregationService {
     if (transactions.length > 10) {
       summaryParts.push(`  ... and ${transactions.length - 10} more`);
     }
-    summaryParts.push(`\nTotal value: ${this.formatCurrency(total)}`);
+    summaryParts.push(`\nTotal value: ${formatCurrencyPlain(total)}`);
 
     return {
       summary: summaryParts.join('\n'),
@@ -261,15 +262,6 @@ class ChatAggregationService {
 
   private pluralize(count: number, noun: string): string {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
-  }
-
-  /**
-   * Public so every assistant tool renders money identically. The agent is told
-   * to quote tool output verbatim, so two formats reaching it in one
-   * conversation would surface as inconsistent amounts to the user.
-   */
-  public formatCurrency(amount: number): string {
-    return `₪${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   private formatDate(date: Date): string {

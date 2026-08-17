@@ -4,6 +4,7 @@ import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
+import { formatCurrencyPlain } from '@/utils/format';
 
 interface SummaryTransaction {
   description?: string | null;
@@ -90,14 +91,14 @@ class SummaryService {
     const list = transactions
       .map(
         (t) =>
-          `${t.category?.name || ''}, ${t.description || ''}, ${t.value || 0} ש״ח`,
+          `${t.category?.name || ''}, ${t.description || ''}, ${formatCurrencyPlain(t.value || 0)}`,
       )
       .join('\n');
     return [
       '*ההוצאות של היום:*',
       list,
       '',
-      `*סך הכל הוצאות:*\n${totalAmount} ש״ח\n`,
+      `*סך הכל הוצאות:*\n${formatCurrencyPlain(totalAmount)}\n`,
       '',
       `*סיכום:*\n${aiInsights}`,
     ].join('\n');

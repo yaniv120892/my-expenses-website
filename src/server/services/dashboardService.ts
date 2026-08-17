@@ -13,6 +13,7 @@ import logger from '@/server/logging/logger';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
 import { classifyTrend } from '@/server/utils/trendMath';
+import { formatCurrencyPlain } from '@/utils/format';
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
@@ -207,12 +208,12 @@ class DashboardService {
   ): Promise<DashboardInsightsResponse | null> {
     try {
       const categoriesSummary = topCategories
-        .map((c) => `${c.categoryName}: ${c.amount.toFixed(2)}`)
+        .map((c) => `${c.categoryName}: ${formatCurrencyPlain(c.amount)}`)
         .join(', ');
 
       const prompt = `Analyze these monthly expenses and provide insights.
-Current month (${currentMonth.month}): Income ${currentMonth.totalIncome.toFixed(2)}, Expenses ${currentMonth.totalExpense.toFixed(2)}, Savings ${currentMonth.savings.toFixed(2)}.
-Previous month (${previousMonth.month}): Income ${previousMonth.totalIncome.toFixed(2)}, Expenses ${previousMonth.totalExpense.toFixed(2)}, Savings ${previousMonth.savings.toFixed(2)}.
+Current month (${currentMonth.month}): Income ${formatCurrencyPlain(currentMonth.totalIncome)}, Expenses ${formatCurrencyPlain(currentMonth.totalExpense)}, Savings ${formatCurrencyPlain(currentMonth.savings)}.
+Previous month (${previousMonth.month}): Income ${formatCurrencyPlain(previousMonth.totalIncome)}, Expenses ${formatCurrencyPlain(previousMonth.totalExpense)}, Savings ${formatCurrencyPlain(previousMonth.savings)}.
 Top spending categories this month: ${categoriesSummary}.
 
 Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):

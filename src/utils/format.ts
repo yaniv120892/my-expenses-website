@@ -25,6 +25,15 @@ export function formatCurrency(value: number) {
   return ilsFormatter.format(value);
 }
 
+// he-IL currency output carries directionality marks and a non-breaking space.
+// They are invisible in the DOM but are noise in Telegram text and model
+// prompts, so outbound plain text renders through this instead.
+export function formatCurrencyPlain(value: number) {
+  return formatCurrency(value)
+    .replace(/[\u200e\u200f]/g, '')
+    .replace(/\u00a0/g, ' ');
+}
+
 const ilsRoundedFormatter = new Intl.NumberFormat('he-IL', {
   style: 'currency',
   currency: 'ILS',

@@ -12,15 +12,7 @@ describe('toTransactionFilters', () => {
     expect('type' in filters).toBe(false);
   });
 
-  it('attaches the userId', () => {
-    expect(toTransactionFilters({}, 'user-1').userId).toBe('user-1');
-  });
-
-  it('leaves transactionType undefined when no type is filtered', () => {
-    expect(toTransactionFilters({}, 'user-1').transactionType).toBeUndefined();
-  });
-
-  it('passes the remaining filters through untouched', () => {
+  it('attaches the userId and passes the rest through untouched', () => {
     const startDate = new Date('2026-08-01');
     const endDate = new Date('2026-08-31');
 

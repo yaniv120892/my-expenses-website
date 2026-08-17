@@ -3,7 +3,7 @@ import transactionService from '@/server/services/transactionService';
 import userSettingsService from '@/server/services/userSettingsService';
 import emailService from '@/server/services/emailService';
 import { classifyTrend, TrendDirection } from '@/server/utils/trendMath';
-import { CSV_BOM, buildTransactionsCsv } from '@/server/utils/transactionCsv';
+import { buildTransactionsCsvFile } from '@/server/utils/transactionCsv';
 import { Transaction } from '@/shared/types/transaction';
 import logger from '@/server/logging/logger';
 
@@ -126,7 +126,7 @@ class MonthlyReportService {
             {
               filename: `transactions_${format(reportMonth, 'yyyy-MM')}.csv`,
               content: Buffer.from(
-                `${CSV_BOM}${buildTransactionsCsv(transactions)}`,
+                buildTransactionsCsvFile(transactions),
                 'utf8',
               ),
               contentType: 'text/csv; charset=utf-8',

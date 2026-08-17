@@ -18,6 +18,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import Image from 'next/image';
+import { downloadBlob } from '@/utils/download';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
 import { TransactionFile } from '../../types';
 
@@ -141,15 +142,7 @@ export default function TransactionAttachments({
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = file.fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      downloadBlob(file.fileName, await response.blob());
     } catch (err) {
       handleDownloadFileError(err);
     }

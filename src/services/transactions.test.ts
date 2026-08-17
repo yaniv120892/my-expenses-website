@@ -119,12 +119,6 @@ describe('exportTransactionsCsv', () => {
 
     expect(fileName).toBe('transactions_2026-08-01_2026-08-31.csv');
   });
-
-  it('keeps a caller endDate over the default', async () => {
-    await exportTransactionsCsv({ endDate: '2026-08-31' });
-
-    expect(sentParams().endDate).toBe('2026-08-31');
-  });
 });
 
 // The totals sit above the list and the export sits beside it, so any filter

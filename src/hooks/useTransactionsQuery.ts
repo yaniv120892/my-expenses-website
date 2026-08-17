@@ -46,12 +46,15 @@ export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
 };
 
 // A mutation rather than a query: the file is an action's result, not state
-// worth caching, and isPending is exactly the button's disabled condition.
+// worth caching, and isPending is exactly the button's disabled condition. The
+// blob is saved and dropped inside mutationFn so the cache never retains it.
 export const useExportTransactionsCsvMutation = () => {
   return useMutation({
-    mutationFn: (filters?: TransactionFilters) =>
-      exportTransactionsCsv(filters),
-    onSuccess: ({ blob, fileName }) => downloadBlob(fileName, blob),
+    mutationFn: async (filters?: TransactionFilters) => {
+      const { blob, fileName } = await exportTransactionsCsv(filters);
+      downloadBlob(fileName, blob);
+      return fileName;
+    },
   });
 };
 

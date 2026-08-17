@@ -3,8 +3,7 @@ import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 import { exportTransactionsSchema } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
 import {
-  CSV_BOM,
-  buildTransactionsCsv,
+  buildTransactionsCsvFile,
   transactionsCsvFileName,
 } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
@@ -30,9 +29,7 @@ export const GET = createHandler({
       'Exported transactions CSV',
     );
 
-    const csv = `${CSV_BOM}${buildTransactionsCsv(transactions)}`;
-
-    return new Response(csv, {
+    return new Response(buildTransactionsCsvFile(transactions), {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${transactionsCsvFileName(query)}"`,

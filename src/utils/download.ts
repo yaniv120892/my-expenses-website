@@ -1,5 +1,4 @@
-/** Excel only detects UTF-8 from a BOM, and category names may be Hebrew. */
-const CSV_BOM = '\uFEFF';
+import { CSV_BOM } from '@/shared/csv';
 
 const FILENAME_PATTERN = /filename="?([^";]+)"?/i;
 

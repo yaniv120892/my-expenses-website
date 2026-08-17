@@ -7,8 +7,15 @@ const { importRepo, importedTxRepo, prismaMock, agentClient } = vi.hoisted(
       updateStatus: vi.fn(),
       create: vi.fn(),
     },
-    importedTxRepo: { findByUserIdAndImportId: vi.fn() },
-    prismaMock: { importedTransaction: { updateMany: vi.fn() } },
+    importedTxRepo: {
+      findByUserIdAndImportId: vi.fn(),
+      findByImportId: vi.fn(),
+      findClaimedMatchingTransactionIds: vi.fn(),
+    },
+    prismaMock: {
+      importedTransaction: { updateMany: vi.fn() },
+      import: { updateMany: vi.fn() },
+    },
     agentClient: { submitExtractionRequest: vi.fn() },
   }),
 );
@@ -33,7 +40,6 @@ import { importService } from '@/server/services/importService';
 const service = importService as any;
 
 const matchSingleTransaction = vi.fn();
-const updateImportWithExtractionRequestId = vi.fn();
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'r1',
@@ -56,10 +62,10 @@ beforeEach(() => {
     status: 'COMPLETED',
   });
   importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row()]);
+  importedTxRepo.findByImportId.mockResolvedValue([row()]);
+  importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
   service.matchSingleTransaction = matchSingleTransaction;
-  service.updateImportWithExtractionRequestId =
-    updateImportWithExtractionRequestId;
 });
 
 describe('rematchImport', () => {
@@ -195,24 +201,27 @@ describe('processImport', () => {
     expect(importRepo.create).not.toHaveBeenCalled();
   });
 
-  it('submits the extraction and moves the import to PROCESSING', async () => {
+  it('submits the extraction and records the request id', async () => {
     const result = await run();
     expect(result).toEqual({ id: 'imp-1' });
     expect(agentClient.submitExtractionRequest).toHaveBeenCalledWith({
       fileUrl: url,
       filename: 'f.xlsx',
       userId: 'user-1',
+      importId: 'imp-1',
       options: {
         confidenceThreshold: 0.7,
         maxRetries: 3,
         includeRawData: false,
       },
     });
-    expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'PROCESSING');
-    expect(updateImportWithExtractionRequestId).toHaveBeenCalledWith(
-      'imp-1',
-      'req-9',
-    );
+    // The import is created PROCESSING, so nothing re-states it here — the
+    // callback carries the importId and may already have completed the import.
+    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
+      where: { id: 'imp-1', extractionCompletedAt: null },
+      data: { excelExtractionRequestId: 'req-9' },
+    });
   });
 
   it('a rejected submit marks the import FAILED and rethrows', async () => {
@@ -220,16 +229,89 @@ describe('processImport', () => {
       new Error('agent down'),
     );
     await expect(run()).rejects.toThrow('agent down');
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
-      'imp-1',
-      'FAILED',
-      'agent down',
-    );
+    // Scoped to an unclaimed import: a callback that already completed (or
+    // merged away) this import must not be overwritten with FAILED.
+    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
+      where: { id: 'imp-1', extractionCompletedAt: null },
+      data: { status: 'FAILED', error: 'agent down' },
+    });
   });
 
   it('a failed create never reaches the agent', async () => {
     importRepo.create.mockRejectedValue(new Error('insert failed'));
     await expect(run()).rejects.toThrow('insert failed');
     expect(agentClient.submitExtractionRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe('findPotentialMatchesForImport', () => {
+  const run = () =>
+    importService.findPotentialMatchesForImport('imp-1', 'user-1');
+
+  /**
+   * The exclusion set is one mutable Set shared across calls, so it has to be
+   * snapshotted as each call happens rather than read back afterwards.
+   */
+  const recordExclusions = (matchIds: (string | null)[]) => {
+    const seen: string[][] = [];
+    let call = 0;
+    matchSingleTransaction.mockImplementation(
+      async (_tx: unknown, _userId: string, excluded: Set<string>) => {
+        seen.push([...excluded]);
+        return matchIds[call++] ?? null;
+      },
+    );
+    return seen;
+  };
+
+  it('excludes transactions already claimed by another import', async () => {
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
+      'tx-taken',
+    ]);
+    const seen = recordExclusions([]);
+
+    await run();
+
+    expect(
+      importedTxRepo.findClaimedMatchingTransactionIds,
+    ).toHaveBeenCalledWith('user-1');
+    expect(seen[0]).toEqual(['tx-taken']);
+  });
+
+  it('never offers one transaction to two rows of the same import', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1' }),
+      row({ id: 'r2' }),
+    ]);
+    const seen = recordExclusions(['tx-1']);
+
+    await run();
+
+    expect(seen[0]).toEqual([]);
+    expect(seen[1]).toEqual(['tx-1']);
+  });
+
+  it('leaves an already-matched row alone', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1', matchingTransactionId: 'tx-kept' }),
+      row({ id: 'r2' }),
+    ]);
+
+    await run();
+
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
+    expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r2' });
+  });
+
+  it('keeps matching the remaining rows when one row throws', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1' }),
+      row({ id: 'r2' }),
+    ]);
+    matchSingleTransaction.mockRejectedValueOnce(new Error('ai down'));
+
+    await expect(run()).resolves.toBeUndefined();
+
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Alert,
   Box,
@@ -8,21 +8,23 @@ import {
   IconButton,
   LinearProgress,
   Typography,
-} from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import CloseIcon from "@mui/icons-material/Close";
-import { BatchResult } from "../types/import";
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CloseIcon from '@mui/icons-material/Close';
+import { BatchResult } from '../types/import';
 
 interface BatchProgressIndicatorProps {
   result: BatchResult | null;
   isLoading: boolean;
   onClose: () => void;
+  itemLabel?: string;
 }
 
 export default function BatchProgressIndicator({
   result,
   isLoading,
   onClose,
+  itemLabel = 'transactions',
 }: BatchProgressIndicatorProps) {
   const [showErrors, setShowErrors] = useState(false);
 
@@ -41,10 +43,10 @@ export default function BatchProgressIndicator({
 
   const severity =
     result.failed === 0
-      ? "success"
+      ? 'success'
       : result.succeeded === 0
-        ? "error"
-        : "warning";
+        ? 'error'
+        : 'warning';
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -57,7 +59,7 @@ export default function BatchProgressIndicator({
         }
       >
         <Typography variant="body2">
-          {result.succeeded} of {result.total} transactions processed
+          {result.succeeded} of {result.total} {itemLabel} processed
           successfully.
           {result.failed > 0 && ` ${result.failed} failed.`}
         </Typography>
@@ -70,8 +72,8 @@ export default function BatchProgressIndicator({
             >
               <ExpandMoreIcon
                 sx={{
-                  transform: showErrors ? "rotate(180deg)" : "none",
-                  transition: "transform 0.2s",
+                  transform: showErrors ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s',
                 }}
               />
             </IconButton>

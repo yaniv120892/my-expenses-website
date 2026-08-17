@@ -1,8 +1,14 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
 import { CreateTransactionInput } from '@/types';
 import { invalidateTransactionData } from '@/hooks/queryInvalidation';
+import {
+  hasActiveImports,
+  IMPORTS_POLL_INTERVAL_MS,
+  MAX_ACTIVE_POLL_MS,
+} from '@/utils/importStatus';
 
 export const importKeys = {
   all: ['imports'] as const,
@@ -13,11 +19,29 @@ export const importKeys = {
   autoApproveRules: () => [...importKeys.all, 'auto-approve-rules'] as const,
 };
 
-export const useImportsQuery = () =>
-  useQuery<Import[]>({
+export const useImportsQuery = () => {
+  const watchingSince = useRef<number | null>(null);
+
+  return useQuery<Import[]>({
     queryKey: importKeys.lists(),
     queryFn: () => importService.getImports(),
+    // Extraction completes on a webhook, so an in-flight import only changes
+    // server-side. staleTime overrides the global 60s so mount and focus
+    // refetches are not served a stale status from cache.
+    staleTime: 0,
+    refetchInterval: (query) => {
+      if (!hasActiveImports(query.state.data)) {
+        watchingSince.current = null;
+        return false;
+      }
+
+      watchingSince.current ??= Date.now();
+      const watchedFor = Date.now() - watchingSince.current;
+
+      return watchedFor < MAX_ACTIVE_POLL_MS ? IMPORTS_POLL_INTERVAL_MS : false;
+    },
   });
+};
 
 export const useImportedTransactionsQuery = (importId: string) =>
   useQuery({
@@ -25,25 +49,6 @@ export const useImportedTransactionsQuery = (importId: string) =>
     queryFn: () => importService.getImportedTransactions(importId),
     enabled: !!importId,
   });
-
-export const useProcessImportMutation = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      fileUrl,
-      originalFileName,
-      paymentMonth,
-    }: {
-      fileUrl: string;
-      originalFileName: string;
-      paymentMonth?: string;
-    }) => importService.processImport(fileUrl, originalFileName, paymentMonth),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importKeys.lists() });
-    },
-  });
-};
 
 export const useApproveImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
@@ -166,7 +171,9 @@ export const useCreateAutoApproveRuleMutation = () => {
       data: Pick<AutoApproveRule, 'descriptionPattern' | 'categoryId' | 'type'>,
     ) => importService.createAutoApproveRule(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importKeys.autoApproveRules() });
+      queryClient.invalidateQueries({
+        queryKey: importKeys.autoApproveRules(),
+      });
     },
   });
 };
@@ -182,7 +189,9 @@ export const useUpdateAutoApproveRuleMutation = () => {
       data: Partial<AutoApproveRule>;
     }) => importService.updateAutoApproveRule(ruleId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importKeys.autoApproveRules() });
+      queryClient.invalidateQueries({
+        queryKey: importKeys.autoApproveRules(),
+      });
     },
   });
 };
@@ -192,59 +201,9 @@ export const useDeleteAutoApproveRuleMutation = () => {
   return useMutation({
     mutationFn: (ruleId: string) => importService.deleteAutoApproveRule(ruleId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importKeys.autoApproveRules() });
+      queryClient.invalidateQueries({
+        queryKey: importKeys.autoApproveRules(),
+      });
     },
   });
 };
-
-export function useImportUploadMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      formData,
-      onProgress,
-    }: {
-      formData: FormData;
-      onProgress?: (progress: number) => void;
-    }) => {
-      // XMLHttpRequest instead of axios/fetch for upload progress events.
-      return new Promise<{ fileUrl: string }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/imports/upload');
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable && onProgress) {
-            onProgress((e.loaded / e.total) * 100);
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch {
-              reject(new Error('Invalid server response'));
-            }
-          } else {
-            reject(
-              new Error(xhr.responseText || `Upload failed (${xhr.status})`),
-            );
-          }
-        };
-        xhr.onerror = () => {
-          reject(new Error('Network error during upload'));
-        };
-        xhr.timeout = 120000;
-        xhr.ontimeout = () => {
-          reject(
-            new Error(
-              'Upload timed out — please check your connection and try again',
-            ),
-          );
-        };
-        xhr.send(formData);
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importKeys.all });
-    },
-  });
-}

@@ -53,6 +53,7 @@ export interface SubmitExtractionRequest {
   fileUrl: string;
   filename: string;
   userId: string;
+  importId: string;
   options?: {
     confidenceThreshold?: number;
     maxRetries?: number;

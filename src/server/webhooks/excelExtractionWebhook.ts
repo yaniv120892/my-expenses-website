@@ -6,7 +6,7 @@ import {
 } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
-import { ImportStatus, ImportBankSourceType } from '@prisma/client';
+import { Import, ImportStatus, ImportBankSourceType } from '@prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
 
@@ -53,9 +53,6 @@ const extractionResultSchema = z.object({
 type WebhookPayload = z.infer<typeof webhookEnvelopeSchema>;
 type ExtractionResult = z.infer<typeof extractionResultSchema>;
 type ExtractionMetadata = ExtractionResult['metadata'];
-type ImportedTransactionRow = ReturnType<
-  typeof toImportedTransactionRows
->[number];
 
 export async function processExcelExtractionWebhook(
   rawPayload: unknown,
@@ -77,6 +74,7 @@ export async function processExcelExtractionWebhook(
       authParams.token,
       authParams.userId,
       authParams.timestamp,
+      authParams.importId,
     );
     if (!isValid) {
       logger.error(
@@ -107,12 +105,15 @@ export async function processExcelExtractionWebhook(
       'Received excel extraction webhook',
     );
 
-    const importRecord = await importRepository.findByExtractionRequestId(
-      payload.requestId,
-    );
+    // The signed importId resolves the callback without depending on the
+    // requestId having been persisted yet; the lookup by requestId remains for
+    // callbacks issued before importId was part of the webhook URL.
+    const importRecord = authParams.importId
+      ? await importRepository.findById(authParams.importId)
+      : await importRepository.findByExtractionRequestId(payload.requestId);
     if (!importRecord) {
       logger.error(
-        { requestId: payload.requestId },
+        { requestId: payload.requestId, importId: authParams.importId },
         'Import record not found for extraction request',
       );
       return {
@@ -138,34 +139,41 @@ export async function processExcelExtractionWebhook(
 
     importId = importRecord.id;
 
-    switch (payload.status) {
-      case 'COMPLETED': {
-        const result = extractionResultSchema.safeParse(payload.result);
-        if (!result.success) {
-          // The extraction itself is unusable, so the import is finished and
-          // failed. Leaving it PROCESSING would hide it from the user forever.
-          logger.error(
-            { importId, issues: result.error.issues },
-            'Unusable extraction result in webhook',
-          );
-          await importRepository.updateStatus(
-            importId,
-            ImportStatus.FAILED,
-            'The extraction service returned a result this app could not read',
-          );
-          return {
-            status: 400,
-            body: { success: false, error: 'Invalid extraction result' },
-          };
-        }
-        await handleCompletedExtraction(importId, result.data);
-        break;
+    // A redelivered callback must not re-create rows or re-run the merge.
+    const claimed = await importRepository.claimExtraction(importId);
+    if (!claimed) {
+      logger.info(
+        { requestId: payload.requestId, importId },
+        'Extraction already processed for this import, ignoring redelivery',
+      );
+      return {
+        status: 200,
+        body: { success: true, message: 'Extraction already processed' },
+      };
+    }
+
+    if (payload.status === 'COMPLETED') {
+      const result = extractionResultSchema.safeParse(payload.result);
+      if (!result.success) {
+        // The extraction itself is unusable, so the import is finished and
+        // failed. Leaving it PROCESSING would hide it from the user forever.
+        logger.error(
+          { importId, issues: result.error.issues },
+          'Unusable extraction result in webhook',
+        );
+        await importRepository.updateStatus(
+          importId,
+          ImportStatus.FAILED,
+          'The extraction service returned a result this app could not read',
+        );
+        return {
+          status: 400,
+          body: { success: false, error: 'Invalid extraction result' },
+        };
       }
-      case 'FAILED':
-        await handleFailedExtraction(importId, payload);
-        break;
-      default:
-        throw new Error(`Invalid webhook status: ${payload.status}`);
+      await handleCompletedExtraction(importRecord, result.data);
+    } else {
+      await handleFailedExtraction(importId, payload);
     }
 
     logger.info(
@@ -187,7 +195,10 @@ export async function processExcelExtractionWebhook(
     );
     // This callback is the only thing that ever moves an import out of
     // PROCESSING, and the sibling service does not retry, so a crash here has
-    // to leave the import failed rather than pending forever.
+    // to leave the import failed rather than pending forever. The extraction
+    // claim deliberately stays taken: this handler is not idempotent, so a
+    // redelivery after a failure part-way through would insert every row a
+    // second time. Recovery is deleting the failed import and re-importing.
     if (importId) {
       await markImportFailedSafe(importId);
     }
@@ -211,9 +222,11 @@ async function markImportFailedSafe(importId: string): Promise<void> {
 }
 
 async function handleCompletedExtraction(
-  importId: string,
+  importRecord: Import,
   result: ExtractionResult,
 ): Promise<void> {
+  const importId = importRecord.id;
+
   logger.info(
     {
       importId,
@@ -226,22 +239,11 @@ async function handleCompletedExtraction(
 
   const transactions = toImportedTransactionRows(result, importId);
 
-  const importRecord = await importRepository.findById(importId);
-  if (!importRecord) {
-    throw new Error(`Import record not found: ${importId}`);
-  }
-
   await writeExtractionMetadata(importId, result.metadata);
 
-  const mergedIntoImportId = await mergeIntoDuplicateImport(
-    importId,
-    importRecord.userId,
-    result.metadata,
-    transactions,
-  );
-  const finalImportId = mergedIntoImportId ?? importId;
-
-  if (!mergedIntoImportId && transactions.length > 0) {
+  // Rows are written to their own import first so that a concurrent callback
+  // merging into this one sees them and can de-duplicate against them.
+  if (transactions.length > 0) {
     await importedTransactionRepository.createMany(
       transactions.map((transaction) => ({
         ...transaction,
@@ -250,20 +252,22 @@ async function handleCompletedExtraction(
     );
   }
 
+  const mergedIntoImportId = await mergeIntoDuplicateImport(
+    importId,
+    importRecord.userId,
+    importRecord.createdAt,
+    result.metadata,
+  );
+  const finalImportId = mergedIntoImportId ?? importId;
+
   await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
-  if (mergedIntoImportId) {
-    await prisma.import.delete({ where: { id: importId } });
-    logger.info(
-      { deletedImportId: importId, keptImportId: finalImportId },
-      'Deleted duplicate import record',
-    );
-  } else {
+  if (!mergedIntoImportId) {
     await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
   }
 
   logger.info(
-    { importId, transactionCount: transactions.length },
+    { importId, finalImportId, transactionCount: transactions.length },
     'Completed extraction processed successfully',
   );
 }
@@ -301,16 +305,23 @@ async function writeExtractionMetadata(
 }
 
 /**
- * A previous import for the same card and month means this one is a duplicate
- * upload, so its transactions are merged into that import. Returns the id of
- * the import that survives, or null when there was no duplicate — the caller
- * drops this import only in the former case.
+ * An older import for the same card and month means this one is a duplicate
+ * upload, so its rows are moved into that import and this import is dropped.
+ * Returns the id of the import that survives, or null when there was no
+ * duplicate.
+ *
+ * A merge target must be strictly older *and* already COMPLETED (findExisting
+ * enforces the latter). Older keeps the direction deterministic so two
+ * callbacks cannot delete each other; COMPLETED means the target has finished
+ * writing its own rows, so de-duplicating against it is meaningful. Two
+ * callbacks racing each other therefore both survive as separate imports
+ * rather than one silently duplicating every row into the other.
  */
 async function mergeIntoDuplicateImport(
   importId: string,
   userId: string,
+  createdAt: Date,
   metadata: ExtractionMetadata,
-  transactions: ImportedTransactionRow[],
 ): Promise<string | null> {
   // Without a card and a month there is nothing to identify a duplicate by,
   // and matching on two nulls would merge unrelated statements.
@@ -326,9 +337,15 @@ async function mergeIntoDuplicateImport(
     metadata.creditCardLastFour,
     importId,
   );
-  if (!existingImport || existingImport.id === importId) {
-    return null;
-  }
+  // findExisting already excludes this import, and returns the globally oldest
+  // match — which may still be younger than this one, so the check stands.
+  if (!existingImport) return null;
+
+  const isOlder =
+    existingImport.createdAt < createdAt ||
+    (existingImport.createdAt.getTime() === createdAt.getTime() &&
+      existingImport.id < importId);
+  if (!isOlder) return null;
 
   logger.info(
     {
@@ -340,29 +357,34 @@ async function mergeIntoDuplicateImport(
     'Found duplicate import, merging transactions',
   );
 
-  const nonDuplicateTransactions =
-    await importedTransactionRepository.filterDuplicates(
+  const ownRows = await importedTransactionRepository.findByImportId(importId);
+  const nonDuplicateRows = await importedTransactionRepository.filterDuplicates(
+    existingImport.id,
+    ownRows,
+  );
+
+  // One batch, so a failure between the move and the delete cannot leave the
+  // rows reparented under an import that still exists. Whatever is not moved
+  // is by definition already present in the survivor, and would block the
+  // delete anyway — the FK is Restrict.
+  await prisma.$transaction([
+    ...importedTransactionRepository.moveToImportOps(
+      nonDuplicateRows.map((row) => row.id),
       existingImport.id,
-      transactions.map((transaction) => ({ ...transaction, userId })),
-    );
+    ),
+    importedTransactionRepository.deleteByImportIdOp(importId),
+    prisma.import.delete({ where: { id: importId } }),
+  ]);
 
-  if (nonDuplicateTransactions.length > 0) {
-    await importedTransactionRepository.createMany(
-      nonDuplicateTransactions.map((transaction) => ({
-        ...transaction,
-        importId: existingImport.id,
-      })),
-    );
-
-    logger.info(
-      {
-        existingImportId: existingImport.id,
-        mergedTransactionCount: nonDuplicateTransactions.length,
-        totalTransactionCount: transactions.length,
-      },
-      'Merged non-duplicate transactions to existing import',
-    );
-  }
+  logger.info(
+    {
+      deletedImportId: importId,
+      keptImportId: existingImport.id,
+      mergedTransactionCount: nonDuplicateRows.length,
+      totalTransactionCount: ownRows.length,
+    },
+    'Merged non-duplicate transactions and deleted duplicate import',
+  );
 
   return existingImport.id;
 }

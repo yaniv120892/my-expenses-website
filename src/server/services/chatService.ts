@@ -12,8 +12,7 @@ export interface ChatMessage {
 }
 
 type OutgoingMessage =
-  | { role: 'user'; content: string }
-  | { role: 'assistant'; content: string };
+  { role: 'user'; content: string } | { role: 'assistant'; content: string };
 
 class ChatService {
   /**

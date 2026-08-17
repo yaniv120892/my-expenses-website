@@ -11,9 +11,17 @@ const MOCK_PORT = Number(process.env.E2E_MOCK_PORT || 51231);
 const SHIM_PORT = Number(
   new URL(process.env.REDIS_URL || 'http://127.0.0.1:51230').port,
 );
+const EXTRACTION_PORT = Number(
+  new URL(process.env.EXCEL_EXTRACTION_AGENT_URL || 'http://127.0.0.1:51232')
+    .port,
+);
 
 async function main(): Promise<void> {
-  const { seeded } = await startStack({ mock: MOCK_PORT, shim: SHIM_PORT });
+  const { seeded } = await startStack({
+    mock: MOCK_PORT,
+    shim: SHIM_PORT,
+    extraction: EXTRACTION_PORT,
+  });
 
   // Consumed by the Playwright run.
   console.log(`E2E_AUTH_TOKEN=${seeded.userA.token}`);

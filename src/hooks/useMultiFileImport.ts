@@ -8,6 +8,7 @@ import { BatchResult } from '@/types/import';
 import {
   initialUploadQueueState,
   MAX_CONCURRENT_UPLOADS,
+  planAddFiles,
   selectFailedItems,
   selectIsDrained,
   selectIsRunning,
@@ -29,7 +30,8 @@ export interface UseMultiFileImportResult {
   summary: BatchResult | null;
   hasFailures: boolean;
   queuedCount: number;
-  addFiles: (files: File[], paymentMonth: string) => void;
+  /** Returns how many files the queue refused because it is full. */
+  addFiles: (files: File[], paymentMonth: string) => number;
   removeItem: (id: string) => void;
   setPaymentMonth: (id: string, paymentMonth: string) => void;
   applyPaymentMonthToAll: (paymentMonth: string) => void;
@@ -125,9 +127,13 @@ export function useMultiFileImport({
     requeueAndRun(selectFailedItems(state));
   }, [requeueAndRun, state]);
 
-  const addFiles = useCallback((files: File[], paymentMonth: string) => {
-    dispatch({ type: 'ADD_FILES', files, paymentMonth });
-  }, []);
+  const addFiles = useCallback(
+    (files: File[], paymentMonth: string) => {
+      dispatch({ type: 'ADD_FILES', files, paymentMonth });
+      return planAddFiles(state, files).rejectedAsFull;
+    },
+    [state],
+  );
 
   const removeItem = useCallback((id: string) => {
     dispatch({ type: 'REMOVE_ITEM', id });

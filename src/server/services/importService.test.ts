@@ -12,7 +12,10 @@ const { importRepo, importedTxRepo, prismaMock, agentClient } = vi.hoisted(
       findByImportId: vi.fn(),
       findClaimedMatchingTransactionIds: vi.fn(),
     },
-    prismaMock: { importedTransaction: { updateMany: vi.fn() } },
+    prismaMock: {
+      importedTransaction: { updateMany: vi.fn() },
+      import: { updateMany: vi.fn() },
+    },
     agentClient: { submitExtractionRequest: vi.fn() },
   }),
 );
@@ -37,7 +40,6 @@ import { importService } from '@/server/services/importService';
 const service = importService as any;
 
 const matchSingleTransaction = vi.fn();
-const updateImportWithExtractionRequestId = vi.fn();
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'r1',
@@ -64,8 +66,6 @@ beforeEach(() => {
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
   service.matchSingleTransaction = matchSingleTransaction;
-  service.updateImportWithExtractionRequestId =
-    updateImportWithExtractionRequestId;
 });
 
 describe('rematchImport', () => {
@@ -201,7 +201,7 @@ describe('processImport', () => {
     expect(importRepo.create).not.toHaveBeenCalled();
   });
 
-  it('submits the extraction and moves the import to PROCESSING', async () => {
+  it('submits the extraction and records the request id', async () => {
     const result = await run();
     expect(result).toEqual({ id: 'imp-1' });
     expect(agentClient.submitExtractionRequest).toHaveBeenCalledWith({
@@ -215,11 +215,13 @@ describe('processImport', () => {
         includeRawData: false,
       },
     });
-    expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'PROCESSING');
-    expect(updateImportWithExtractionRequestId).toHaveBeenCalledWith(
-      'imp-1',
-      'req-9',
-    );
+    // The import is created PROCESSING, so nothing re-states it here — the
+    // callback carries the importId and may already have completed the import.
+    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
+      where: { id: 'imp-1', extractionCompletedAt: null },
+      data: { excelExtractionRequestId: 'req-9' },
+    });
   });
 
   it('a rejected submit marks the import FAILED and rethrows', async () => {
@@ -227,11 +229,12 @@ describe('processImport', () => {
       new Error('agent down'),
     );
     await expect(run()).rejects.toThrow('agent down');
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
-      'imp-1',
-      'FAILED',
-      'agent down',
-    );
+    // Scoped to an unclaimed import: a callback that already completed (or
+    // merged away) this import must not be overwritten with FAILED.
+    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
+      where: { id: 'imp-1', extractionCompletedAt: null },
+      data: { status: 'FAILED', error: 'agent down' },
+    });
   });
 
   it('a failed create never reaches the agent', async () => {

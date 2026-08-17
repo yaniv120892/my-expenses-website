@@ -58,7 +58,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
       }
       if (acceptedFiles.length === 0) return;
 
-      addFiles(acceptedFiles, paymentMonth);
+      const rejectedAsFull = addFiles(acceptedFiles, paymentMonth);
+      if (rejectedAsFull > 0) {
+        setError(
+          `The queue holds ${MAX_FILES_PER_BATCH} files, so ${rejectedAsFull} were not added. Upload these first.`,
+        );
+      }
     },
     [addFiles, paymentMonth],
   );

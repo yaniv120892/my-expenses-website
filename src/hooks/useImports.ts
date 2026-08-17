@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
@@ -6,6 +7,7 @@ import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 import {
   hasActiveImports,
   IMPORTS_POLL_INTERVAL_MS,
+  MAX_ACTIVE_POLL_MS,
 } from '@/utils/importStatus';
 
 export const importKeys = {
@@ -17,17 +19,29 @@ export const importKeys = {
   autoApproveRules: () => [...importKeys.all, 'auto-approve-rules'] as const,
 };
 
-export const useImportsQuery = () =>
-  useQuery<Import[]>({
+export const useImportsQuery = () => {
+  const watchingSince = useRef<number | null>(null);
+
+  return useQuery<Import[]>({
     queryKey: importKeys.lists(),
     queryFn: () => importService.getImports(),
     // Extraction completes on a webhook, so an in-flight import only changes
     // server-side. staleTime overrides the global 60s so mount and focus
     // refetches are not served a stale status from cache.
     staleTime: 0,
-    refetchInterval: (query) =>
-      hasActiveImports(query.state.data) ? IMPORTS_POLL_INTERVAL_MS : false,
+    refetchInterval: (query) => {
+      if (!hasActiveImports(query.state.data)) {
+        watchingSince.current = null;
+        return false;
+      }
+
+      watchingSince.current ??= Date.now();
+      const watchedFor = Date.now() - watchingSince.current;
+
+      return watchedFor < MAX_ACTIVE_POLL_MS ? IMPORTS_POLL_INTERVAL_MS : false;
+    },
   });
+};
 
 export const useImportedTransactionsQuery = (importId: string) =>
   useQuery({

@@ -67,10 +67,15 @@ export class ImportRepository {
   }
 
   /**
-   * The oldest non-deleted import for the same card and month. Returning the
-   * oldest — rather than the newest — is what makes the merge direction
-   * deterministic when two callbacks for the same card land at once: only the
-   * younger side finds an eligible target, so only one side merges.
+   * The oldest COMPLETED, non-deleted import for the same card and month —
+   * a merge target.
+   *
+   * Oldest rather than newest makes the merge direction deterministic when two
+   * callbacks for the same card land at once: only the younger side finds an
+   * eligible target, so only one side merges. COMPLETED is what makes the
+   * de-duplication meaningful — an import reaches it only after writing its own
+   * rows, so a merge cannot dedupe against a set that is still being filled.
+   * Two callbacks racing each other simply both survive as separate imports.
    */
   async findExisting(
     userId: string,
@@ -83,6 +88,7 @@ export class ImportRepository {
         userId,
         paymentMonth,
         deleted: false,
+        status: ImportStatus.COMPLETED,
         ...(excludeImportId ? { id: { not: excludeImportId } } : {}),
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -111,14 +117,6 @@ export class ImportRepository {
     });
 
     return claimed.count > 0;
-  }
-
-  /** Undoes a claim whose processing threw, so a redelivery can try again. */
-  async releaseExtractionClaim(id: string): Promise<void> {
-    await prisma.import.updateMany({
-      where: { id },
-      data: { extractionCompletedAt: null },
-    });
   }
 
   async softDelete(id: string, userId: string): Promise<void> {

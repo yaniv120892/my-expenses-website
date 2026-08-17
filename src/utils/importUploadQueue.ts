@@ -55,6 +55,34 @@ function isSameFile(a: File, b: File): boolean {
   );
 }
 
+/**
+ * Which of `files` the queue will take. Shared with the reducer so the caller
+ * can tell the user what was turned away instead of watching files vanish.
+ */
+export function planAddFiles(
+  state: UploadQueueState,
+  files: File[],
+): { accepted: File[]; rejectedAsDuplicate: number; rejectedAsFull: number } {
+  // A re-drop of a file already queued would otherwise create a second import
+  // for the same statement.
+  const fresh = files.filter(
+    (file) =>
+      !state.items.some(
+        (item) => item.status !== 'failed' && isSameFile(item.file, file),
+      ),
+  );
+  // The cap is the queue's, not one drop's: several drops must not add up
+  // past it.
+  const room = Math.max(0, MAX_FILES_PER_BATCH - state.items.length);
+  const accepted = fresh.slice(0, room);
+
+  return {
+    accepted,
+    rejectedAsDuplicate: files.length - fresh.length,
+    rejectedAsFull: fresh.length - accepted.length,
+  };
+}
+
 export function toQueuedItem(item: UploadItem): UploadItem {
   return {
     ...item,
@@ -81,20 +109,7 @@ export function uploadQueueReducer(
 ): UploadQueueState {
   switch (action.type) {
     case 'ADD_FILES': {
-      // A re-drop of a file already queued would otherwise create a second
-      // import for the same statement.
-      const fresh = action.files.filter(
-        (file) =>
-          !state.items.some(
-            (item) => item.status !== 'failed' && isSameFile(item.file, file),
-          ),
-      );
-      // The cap is the queue's, not one drop's: several drops must not add up
-      // past it.
-      const added = fresh.slice(
-        0,
-        Math.max(0, MAX_FILES_PER_BATCH - state.items.length),
-      );
+      const { accepted: added } = planAddFiles(state, action.files);
 
       return {
         items: [

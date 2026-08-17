@@ -151,10 +151,10 @@ export async function processExcelExtractionWebhook(
         await handleFailedExtraction(importRecord.id, payload);
       }
     } catch (err) {
-      // The claim above is what stops a redelivery from duplicating rows, so
-      // a half-done attempt would otherwise leave the import stuck in
-      // PROCESSING with no way back. Release it and record why.
-      await importRepository.releaseExtractionClaim(importRecord.id);
+      // The claim stays: this handler is not idempotent — a failure after
+      // createMany would have a redelivery insert every row a second time.
+      // Recording FAILED is what stops the import sitting in PROCESSING with
+      // nothing to show for it; recovering means deleting and re-importing.
       await importRepository.updateStatus(
         importRecord.id,
         ImportStatus.FAILED,
@@ -281,10 +281,12 @@ async function writeExtractionMetadata(
  * Returns the id of the import that survives, or null when there was no
  * duplicate.
  *
- * Only a strictly older import is a merge target. That makes the direction
- * deterministic when two callbacks for the same card resolve at once: the
- * older one finds no target and survives, the younger one merges into it, so
- * they cannot delete each other.
+ * A merge target must be strictly older *and* already COMPLETED (findExisting
+ * enforces the latter). Older keeps the direction deterministic so two
+ * callbacks cannot delete each other; COMPLETED means the target has finished
+ * writing its own rows, so de-duplicating against it is meaningful. Two
+ * callbacks racing each other therefore both survive as separate imports
+ * rather than one silently duplicating every row into the other.
  */
 async function mergeIntoDuplicateImport(
   importId: string,

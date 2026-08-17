@@ -44,3 +44,39 @@ describe('comparison series bound', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// The series cap bounds the width of the result; nothing bounded its length,
+// so a start date from the date input's open lower end enumerated a bucket per
+// day back to whenever the user typed.
+describe('comparison range bound', () => {
+  const range = (startDate: string, endDate: string, period?: string) => ({
+    ...query(2),
+    startDate,
+    endDate,
+    ...(period ? { period } : {}),
+  });
+
+  it('accepts a year of daily buckets', () => {
+    expect(
+      getCategoryComparisonQuerySchema.safeParse(
+        range('2026-01-01', '2026-12-31', 'daily'),
+      ).success,
+    ).toBe(true);
+  });
+
+  it('rejects a century of daily buckets', () => {
+    expect(
+      getCategoryComparisonQuerySchema.safeParse(
+        range('1900-01-01', '2026-12-31', 'daily'),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('accepts the same range at a coarser period', () => {
+    expect(
+      getCategoryComparisonQuerySchema.safeParse(
+        range('1900-01-01', '2026-12-31', 'yearly'),
+      ).success,
+    ).toBe(true);
+  });
+});

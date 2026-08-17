@@ -17,6 +17,7 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import {
@@ -30,6 +31,7 @@ const ICONS: Record<AnnouncementIcon, typeof AutoAwesomeRoundedIcon> = {
   email: MarkEmailReadOutlinedIcon,
   category: GroupsOutlinedIcon,
   attachment: AttachFileRoundedIcon,
+  download: DownloadRoundedIcon,
   sparkle: AutoAwesomeRoundedIcon,
 };
 

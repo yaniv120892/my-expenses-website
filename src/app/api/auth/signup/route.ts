@@ -12,7 +12,7 @@ export const POST = createHandler({
       body.username,
       body.password,
     );
-    if (result.error) {
+    if ('error' in result) {
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 400 },

@@ -1,6 +1,5 @@
 import transactionService from '@/server/services/transactionService';
-import { Transaction } from '@/shared/types/transaction';
-import { parse } from 'json2csv';
+import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
 import BackupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
 import userRepository from '@/server/repositories/userRepository';
@@ -24,16 +23,7 @@ class BackupService {
       status: 'APPROVED',
       userId,
     });
-    const csvRows = transactions.map((t: Transaction) => ({
-      date: t.date,
-      description: t.description,
-      value: t.value,
-      type: t.type,
-      categoryName: t.category.name,
-    }));
-    const csv = parse(csvRows, {
-      fields: ['date', 'description', 'value', 'type', 'categoryName'],
-    });
+    const csv = buildTransactionsBackupCsv(transactions);
     const fileName = `transactions-backup_${userId}-${new Date().toISOString().slice(0, 10)}.csv`;
     const fileBuffer = Buffer.from(csv, 'utf8');
     const mimeType = 'text/csv';

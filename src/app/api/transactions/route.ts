@@ -4,16 +4,13 @@ import {
   getTransactionsSchema,
 } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
+import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 
 export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSchema,
   handler: async ({ userId, query }) =>
-    transactionService.getTransactionsList({
-      ...query,
-      transactionType: query.type,
-      userId,
-    }),
+    transactionService.getTransactionsList(toTransactionFilters(query, userId)),
 });
 
 export const POST = createHandler({

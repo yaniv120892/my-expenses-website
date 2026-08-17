@@ -4,7 +4,6 @@ import transactionFileRepository from '@/server/repositories/transactionFileRepo
 import {
   CreateTransaction,
   CreateTransactionResult,
-  TransactionFilters,
   Transaction,
   TransactionListFilters,
   TransactionListPage,
@@ -30,6 +29,10 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
+
+// Larger than any UI page: nothing is rendered from this walk, so the only
+// cost that matters is the number of round trips.
+const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
 /** An attachment as returned to clients, with signed URLs resolved. */
 export interface TransactionFileView {
@@ -87,15 +90,6 @@ class TransactionService {
     return result;
   }
 
-  public async getTransactions(
-    filters: TransactionFilters,
-  ): Promise<Transaction[]> {
-    return transactionRepository.getTransactions({
-      ...filters,
-      status: filters.status || 'APPROVED',
-    });
-  }
-
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
@@ -105,26 +99,27 @@ class TransactionService {
     });
   }
 
+  /**
+   * Every matching row, for the callers that need the whole set (export,
+   * backup, monthly report). Walks by cursor rather than by offset: this walk
+   * reaches the last page by definition, and offset paging makes each page
+   * re-scan every row before it.
+   */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,
   ): Promise<Transaction[]> {
-    const transactions = [];
+    const transactions: Transaction[] = [];
+    let cursor: string | undefined;
 
-    let hasMoreTransactions = true;
-    let page = 1;
-    const perPage = 100;
-    while (hasMoreTransactions) {
-      const transactionsPage = await this.getTransactions({
+    do {
+      const page = await this.getTransactionsList({
         ...filters,
-        page,
-        perPage,
+        cursor,
+        limit: ALL_TRANSACTIONS_PAGE_SIZE,
       });
-      transactions.push(...transactionsPage);
-      if (transactionsPage.length < perPage) {
-        hasMoreTransactions = false;
-      }
-      page++;
-    }
+      transactions.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
 
     return transactions;
   }

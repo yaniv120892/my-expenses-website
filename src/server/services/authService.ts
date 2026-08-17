@@ -25,6 +25,16 @@ class AuthService {
       username,
     );
     if (existingUser) {
+      // Signing up again with the right password for an account that never
+      // got verified is a retry, not a conflict: it is the only way back for
+      // someone whose code expired or who ran out of attempts. Requiring the
+      // password keeps it from being a way to mail codes at a stranger.
+      if (
+        !existingUser.verified &&
+        (await compare(password, existingUser.password))
+      ) {
+        return this.issueVerificationCode(existingUser.email);
+      }
       return { error: 'User already exists' };
     }
     const hashedPassword = await hash(password, 10);
@@ -35,6 +45,10 @@ class AuthService {
     );
     // Nothing that shipped before this account existed is "new" to it.
     await announcementService.acknowledgeAllForNewUser(user.id);
+    return this.issueVerificationCode(email);
+  }
+
+  private async issueVerificationCode(email: string) {
     const code = this.generateCode();
     await setValue(`loginCode:${email}`, code, 600);
     await deleteValue(`loginCodeAttempts:${email}`);
@@ -63,11 +77,12 @@ class AuthService {
 
   public async verifyLoginCode(email: string, code: string) {
     // A 6-digit code valid for 10 minutes is brute-forceable without an
-    // attempt cap; the code is burned once the cap is hit.
+    // attempt cap. The cap locks the code for the counter's window rather than
+    // deleting it: /api/auth/verify is public, so burning the code here would
+    // let anyone who knows a pending signup's address strand that account.
     const attemptsKey = `loginCodeAttempts:${email}`;
     const attempts = await incrementWithTtl(attemptsKey, 600);
     if (attempts > MAX_CODE_ATTEMPTS) {
-      await deleteValue(`loginCode:${email}`);
       return { error: 'Too many attempts. Please request a new code.' };
     }
 

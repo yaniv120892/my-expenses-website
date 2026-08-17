@@ -1,36 +1,12 @@
 import { z } from 'zod';
-import {
-  differenceInCalendarDays,
-  differenceInCalendarISOWeeks,
-  differenceInCalendarMonths,
-  differenceInCalendarYears,
-} from 'date-fns';
 import { transactionTypeSchema } from './common';
+import { countBuckets } from '@/shared/periodBuckets';
 import {
   MAX_COMPARISON_BUCKETS,
   MAX_COMPARISON_SERIES,
-  TrendPeriod,
 } from '@/shared/types/trends';
 
 export { MAX_COMPARISON_SERIES };
-
-/** Buckets enumerateBuckets will produce for this range, without building them. */
-function bucketCount(
-  startDate: Date,
-  endDate: Date,
-  period: TrendPeriod,
-): number {
-  switch (period) {
-    case 'daily':
-      return differenceInCalendarDays(endDate, startDate) + 1;
-    case 'weekly':
-      return differenceInCalendarISOWeeks(endDate, startDate) + 1;
-    case 'yearly':
-      return differenceInCalendarYears(endDate, startDate) + 1;
-    default:
-      return differenceInCalendarMonths(endDate, startDate) + 1;
-  }
-}
 
 export const trendPeriodSchema = z.enum([
   'daily',
@@ -81,7 +57,7 @@ export const getCategoryComparisonQuerySchema = z
   })
   .refine(
     (query) =>
-      bucketCount(query.startDate, query.endDate, query.period) <=
+      countBuckets(query.startDate, query.endDate, query.period) <=
       MAX_COMPARISON_BUCKETS,
     {
       message: `Range covers more than ${MAX_COMPARISON_BUCKETS} periods; shorten it or use a longer period`,

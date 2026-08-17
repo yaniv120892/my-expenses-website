@@ -25,6 +25,7 @@ import {
   buildDownloadUrl,
   getPresignedUploadUrl,
 } from '@/server/services/transactionAttachmentFileUtils';
+import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
@@ -90,7 +91,24 @@ class TransactionService {
     return result;
   }
 
-  public async getTransactionsList(
+  /**
+   * Widens a category filter to the whole subtree, so filtering by a parent
+   * covers the transactions filed on its children.
+   */
+  private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
+    filters: T,
+  ): Promise<T> {
+    if (!filters.categoryId) {
+      return filters;
+    }
+    return {
+      ...filters,
+      categoryIds: await expandCategoryToSubtree(filters.categoryId),
+    };
+  }
+
+  /** For callers that have already resolved the filters. */
+  private listResolved(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
     return transactionRepository.getTransactionsList({
@@ -99,26 +117,37 @@ class TransactionService {
     });
   }
 
+  public async getTransactionsList(
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    return this.listResolved(await this.resolveCategoryFilter(filters));
+  }
+
   /**
    * Every matching row, for the callers that need the whole set (export,
-   * backup, monthly report). Walks by cursor rather than by offset: this walk
-   * reaches the last page by definition, and offset paging makes each page
-   * re-scan every row before it.
+   * backup, monthly report). Cursor rather than offset paging, which re-scans
+   * every prior row per page; `maxRows` stops one page past the cap, so an
+   * oversized set is refused without walking the whole history.
    */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,
+    { maxRows }: { maxRows?: number } = {},
   ): Promise<Transaction[]> {
     const transactions: Transaction[] = [];
+    const resolved = await this.resolveCategoryFilter(filters);
     let cursor: string | undefined;
 
     do {
-      const page = await this.getTransactionsList({
-        ...filters,
+      const page = await this.listResolved({
+        ...resolved,
         cursor,
         limit: ALL_TRANSACTIONS_PAGE_SIZE,
       });
       transactions.push(...page.items);
       cursor = page.nextCursor ?? undefined;
+      if (maxRows !== undefined && transactions.length > maxRows) {
+        return transactions;
+      }
     } while (cursor);
 
     return transactions;
@@ -155,9 +184,10 @@ class TransactionService {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
+    const resolved = await this.resolveCategoryFilter(filters);
     return transactionRepository.getTransactionsSummary({
-      ...filters,
-      status: filters.status || 'APPROVED',
+      ...resolved,
+      status: resolved.status || 'APPROVED',
     });
   }
 

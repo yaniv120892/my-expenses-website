@@ -10,7 +10,7 @@ import {
 import categoryRepository from '@/server/repositories/categoryRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import { buildCategoryDescendantMap } from '@/server/utils/categoryHierarchy';
-import { bucketKeyFor, enumerateBuckets } from '@/server/utils/periodBuckets';
+import { bucketKeyFor, enumerateBuckets } from '@/shared/periodBuckets';
 import { HttpError } from '@/server/http/errors';
 import logger from '@/server/logging/logger';
 

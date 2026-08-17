@@ -13,7 +13,7 @@ import { TransactionStatus, TransactionType } from '@prisma/client';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
 import { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';
-import { bucketKeyFor } from '@/server/utils/periodBuckets';
+import { bucketKeyFor } from '@/shared/periodBuckets';
 
 interface CategoryTrendData {
   points: CategoryTrendPoint[];

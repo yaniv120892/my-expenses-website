@@ -21,10 +21,7 @@ export function downloadCsv(fileName: string, csv: string): void {
   );
 }
 
-/**
- * The export route names the file, so the browser saves what the server chose.
- * Falls back when the header is missing or shaped unexpectedly.
- */
+/** The export route names the file, so the browser saves what the server chose. */
 export function filenameFromContentDisposition(
   header: string | undefined,
   fallback: string,

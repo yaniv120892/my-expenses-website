@@ -23,9 +23,15 @@ export class ExcelExtractionAgentClient {
   ): Promise<SubmitExtractionResponse> {
     try {
       const timestamp = Date.now();
-      const token = generateWebhookToken(request.userId, timestamp);
+      const token = generateWebhookToken(
+        request.userId,
+        timestamp,
+        request.importId,
+      );
 
-      const webhookUrl = `${this.webhookBaseUrl}/api/excel-extraction-agent/webhook?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(request.userId)}&timestamp=${timestamp}`;
+      // importId rides along so the callback resolves without waiting for the
+      // requestId this call is about to return to be persisted.
+      const webhookUrl = `${this.webhookBaseUrl}/api/excel-extraction-agent/webhook?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(request.userId)}&timestamp=${timestamp}&importId=${encodeURIComponent(request.importId)}`;
 
       const payload = {
         fileUrl: request.fileUrl,

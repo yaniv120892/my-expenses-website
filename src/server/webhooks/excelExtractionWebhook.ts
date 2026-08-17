@@ -47,9 +47,6 @@ const webhookPayloadSchema = z.object({
 type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
 type ExtractionResult = NonNullable<WebhookPayload['result']>;
 type ExtractionMetadata = ExtractionResult['metadata'];
-type ImportedTransactionRow = ReturnType<
-  typeof toImportedTransactionRows
->[number];
 
 export async function processExcelExtractionWebhook(
   rawPayload: unknown,
@@ -70,6 +67,7 @@ export async function processExcelExtractionWebhook(
       authParams.token,
       authParams.userId,
       authParams.timestamp,
+      authParams.importId,
     );
     if (!isValid) {
       logger.error(
@@ -100,12 +98,15 @@ export async function processExcelExtractionWebhook(
       'Received excel extraction webhook',
     );
 
-    const importRecord = await importRepository.findByExtractionRequestId(
-      payload.requestId,
-    );
+    // The signed importId resolves the callback without depending on the
+    // requestId having been persisted yet; the lookup by requestId remains for
+    // callbacks issued before importId was part of the webhook URL.
+    const importRecord = authParams.importId
+      ? await importRepository.findById(authParams.importId)
+      : await importRepository.findByExtractionRequestId(payload.requestId);
     if (!importRecord) {
       logger.error(
-        { requestId: payload.requestId },
+        { requestId: payload.requestId, importId: authParams.importId },
         'Import record not found for extraction request',
       );
       return {
@@ -126,6 +127,19 @@ export async function processExcelExtractionWebhook(
       return {
         status: 403,
         body: { success: false, error: 'Unauthorized access' },
+      };
+    }
+
+    // A redelivered callback must not re-create rows or re-run the merge.
+    const claimed = await importRepository.claimExtraction(importRecord.id);
+    if (!claimed) {
+      logger.info(
+        { requestId: payload.requestId, importId: importRecord.id },
+        'Extraction already processed for this import, ignoring redelivery',
+      );
+      return {
+        status: 200,
+        body: { success: true, message: 'Extraction already processed' },
       };
     }
 
@@ -193,15 +207,9 @@ async function handleCompletedExtraction(
 
   await writeExtractionMetadata(importId, result.metadata);
 
-  const mergedIntoImportId = await mergeIntoDuplicateImport(
-    importId,
-    importRecord.userId,
-    result.metadata,
-    transactions,
-  );
-  const finalImportId = mergedIntoImportId ?? importId;
-
-  if (!mergedIntoImportId && transactions.length > 0) {
+  // Rows are written to their own import first so that a concurrent callback
+  // merging into this one sees them and can de-duplicate against them.
+  if (transactions.length > 0) {
     await importedTransactionRepository.createMany(
       transactions.map((transaction) => ({
         ...transaction,
@@ -210,20 +218,22 @@ async function handleCompletedExtraction(
     );
   }
 
+  const mergedIntoImportId = await mergeIntoDuplicateImport(
+    importId,
+    importRecord.userId,
+    importRecord.createdAt,
+    result.metadata,
+  );
+  const finalImportId = mergedIntoImportId ?? importId;
+
   await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
-  if (mergedIntoImportId) {
-    await prisma.import.delete({ where: { id: importId } });
-    logger.info(
-      { deletedImportId: importId, keptImportId: finalImportId },
-      'Deleted duplicate import record',
-    );
-  } else {
+  if (!mergedIntoImportId) {
     await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
   }
 
   logger.info(
-    { importId, transactionCount: transactions.length },
+    { importId, finalImportId, transactionCount: transactions.length },
     'Completed extraction processed successfully',
   );
 }
@@ -261,16 +271,21 @@ async function writeExtractionMetadata(
 }
 
 /**
- * A previous import for the same card and month means this one is a duplicate
- * upload, so its transactions are merged into that import. Returns the id of
- * the import that survives, or null when there was no duplicate — the caller
- * drops this import only in the former case.
+ * An older import for the same card and month means this one is a duplicate
+ * upload, so its rows are moved into that import and this import is dropped.
+ * Returns the id of the import that survives, or null when there was no
+ * duplicate.
+ *
+ * Only a strictly older import is a merge target. That makes the direction
+ * deterministic when two callbacks for the same card resolve at once: the
+ * older one finds no target and survives, the younger one merges into it, so
+ * they cannot delete each other.
  */
 async function mergeIntoDuplicateImport(
   importId: string,
   userId: string,
+  createdAt: Date,
   metadata: ExtractionMetadata,
-  transactions: ImportedTransactionRow[],
 ): Promise<string | null> {
   // Excluding the import being processed — the caller has just written its
   // metadata, so it would otherwise match itself and the merge never fire.
@@ -284,6 +299,14 @@ async function mergeIntoDuplicateImport(
     return null;
   }
 
+  const isOlder =
+    existingImport.createdAt.getTime() < createdAt.getTime() ||
+    (existingImport.createdAt.getTime() === createdAt.getTime() &&
+      existingImport.id < importId);
+  if (!isOlder) {
+    return null;
+  }
+
   logger.info(
     {
       currentImportId: importId,
@@ -294,29 +317,31 @@ async function mergeIntoDuplicateImport(
     'Found duplicate import, merging transactions',
   );
 
-  const nonDuplicateTransactions =
-    await importedTransactionRepository.filterDuplicates(
-      existingImport.id,
-      transactions.map((transaction) => ({ ...transaction, userId })),
-    );
+  const ownRows = await importedTransactionRepository.findByImportId(importId);
+  const nonDuplicateRows = await importedTransactionRepository.filterDuplicates(
+    existingImport.id,
+    ownRows,
+  );
 
-  if (nonDuplicateTransactions.length > 0) {
-    await importedTransactionRepository.createMany(
-      nonDuplicateTransactions.map((transaction) => ({
-        ...transaction,
-        importId: existingImport.id,
-      })),
-    );
+  await importedTransactionRepository.moveToImport(
+    nonDuplicateRows.map((row) => row.id),
+    existingImport.id,
+  );
 
-    logger.info(
-      {
-        existingImportId: existingImport.id,
-        mergedTransactionCount: nonDuplicateTransactions.length,
-        totalTransactionCount: transactions.length,
-      },
-      'Merged non-duplicate transactions to existing import',
-    );
-  }
+  // Whatever is still attached would block the delete below — the FK is
+  // Restrict — and it is by definition already present in the surviving import.
+  await importedTransactionRepository.deleteByImportId(importId);
+  await prisma.import.delete({ where: { id: importId } });
+
+  logger.info(
+    {
+      deletedImportId: importId,
+      keptImportId: existingImport.id,
+      mergedTransactionCount: nonDuplicateRows.length,
+      totalTransactionCount: ownRows.length,
+    },
+    'Merged non-duplicate transactions and deleted duplicate import',
+  );
 
   return existingImport.id;
 }

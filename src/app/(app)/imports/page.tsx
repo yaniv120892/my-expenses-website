@@ -24,12 +24,16 @@ function ClosableDialog({
   onClose,
   title,
   maxWidth,
+  busy = false,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   maxWidth: DialogProps['maxWidth'];
+  // Unmounting does not cancel in-flight uploads, so closing is blocked while
+  // a batch runs rather than leaving the user without any progress to watch.
+  busy?: boolean;
   children: React.ReactNode;
 }) {
   const fullScreen = useIsCompact();
@@ -37,7 +41,8 @@ function ClosableDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={busy ? undefined : onClose}
+      disableEscapeKeyDown={busy}
       maxWidth={maxWidth}
       fullWidth
       fullScreen={fullScreen}
@@ -55,6 +60,7 @@ function ClosableDialog({
           aria-label="Close"
           size="small"
           edge="end"
+          disabled={busy}
         >
           <CloseRoundedIcon fontSize="small" />
         </IconButton>
@@ -66,6 +72,7 @@ function ClosableDialog({
 
 export default function ImportsPage() {
   const [isUploadOpen, setUploadOpen] = useState(false);
+  const [isUploadRunning, setUploadRunning] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [expandedImport, setExpandedImport] = useState<string | null>(null);
 
@@ -105,10 +112,14 @@ export default function ImportsPage() {
       <ClosableDialog
         open={isUploadOpen}
         onClose={() => setUploadOpen(false)}
-        title="Import File"
+        title="Import Files"
         maxWidth="sm"
+        busy={isUploadRunning}
       >
-        <FileUpload onUploadComplete={() => setUploadOpen(false)} />
+        <FileUpload
+          onUploadComplete={() => setUploadOpen(false)}
+          onRunningChange={setUploadRunning}
+        />
       </ClosableDialog>
 
       <ClosableDialog

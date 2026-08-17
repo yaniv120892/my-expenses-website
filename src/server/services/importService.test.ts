@@ -7,7 +7,11 @@ const { importRepo, importedTxRepo, prismaMock, agentClient } = vi.hoisted(
       updateStatus: vi.fn(),
       create: vi.fn(),
     },
-    importedTxRepo: { findByUserIdAndImportId: vi.fn() },
+    importedTxRepo: {
+      findByUserIdAndImportId: vi.fn(),
+      findByImportId: vi.fn(),
+      findClaimedMatchingTransactionIds: vi.fn(),
+    },
     prismaMock: { importedTransaction: { updateMany: vi.fn() } },
     agentClient: { submitExtractionRequest: vi.fn() },
   }),
@@ -56,6 +60,8 @@ beforeEach(() => {
     status: 'COMPLETED',
   });
   importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row()]);
+  importedTxRepo.findByImportId.mockResolvedValue([row()]);
+  importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
   service.matchSingleTransaction = matchSingleTransaction;
   service.updateImportWithExtractionRequestId =
@@ -202,6 +208,7 @@ describe('processImport', () => {
       fileUrl: url,
       filename: 'f.xlsx',
       userId: 'user-1',
+      importId: 'imp-1',
       options: {
         confidenceThreshold: 0.7,
         maxRetries: 3,
@@ -231,5 +238,77 @@ describe('processImport', () => {
     importRepo.create.mockRejectedValue(new Error('insert failed'));
     await expect(run()).rejects.toThrow('insert failed');
     expect(agentClient.submitExtractionRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe('findPotentialMatchesForImport', () => {
+  const run = () =>
+    importService.findPotentialMatchesForImport('imp-1', 'user-1');
+
+  /**
+   * The exclusion set is one mutable Set shared across calls, so it has to be
+   * snapshotted as each call happens rather than read back afterwards.
+   */
+  const recordExclusions = (matchIds: (string | null)[]) => {
+    const seen: string[][] = [];
+    let call = 0;
+    matchSingleTransaction.mockImplementation(
+      async (_tx: unknown, _userId: string, excluded: Set<string>) => {
+        seen.push([...excluded]);
+        return matchIds[call++] ?? null;
+      },
+    );
+    return seen;
+  };
+
+  it('excludes transactions already claimed by another import', async () => {
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
+      'tx-taken',
+    ]);
+    const seen = recordExclusions([]);
+
+    await run();
+
+    expect(
+      importedTxRepo.findClaimedMatchingTransactionIds,
+    ).toHaveBeenCalledWith('user-1');
+    expect(seen[0]).toEqual(['tx-taken']);
+  });
+
+  it('never offers one transaction to two rows of the same import', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1' }),
+      row({ id: 'r2' }),
+    ]);
+    const seen = recordExclusions(['tx-1']);
+
+    await run();
+
+    expect(seen[0]).toEqual([]);
+    expect(seen[1]).toEqual(['tx-1']);
+  });
+
+  it('leaves an already-matched row alone', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1', matchingTransactionId: 'tx-kept' }),
+      row({ id: 'r2' }),
+    ]);
+
+    await run();
+
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
+    expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r2' });
+  });
+
+  it('keeps matching the remaining rows when one row throws', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1' }),
+      row({ id: 'r2' }),
+    ]);
+    matchSingleTransaction.mockRejectedValueOnce(new Error('ai down'));
+
+    await expect(run()).resolves.toBeUndefined();
+
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
   });
 });

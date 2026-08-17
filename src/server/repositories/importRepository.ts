@@ -61,11 +61,17 @@ export class ImportRepository {
   async findByExtractionRequestId(
     excelExtractionRequestId: string,
   ): Promise<Import | null> {
-    return prisma.import.findFirst({
+    return prisma.import.findUnique({
       where: { excelExtractionRequestId },
     });
   }
 
+  /**
+   * The oldest non-deleted import for the same card and month. Returning the
+   * oldest — rather than the newest — is what makes the merge direction
+   * deterministic when two callbacks for the same card land at once: only the
+   * younger side finds an eligible target, so only one side merges.
+   */
   async findExisting(
     userId: string,
     paymentMonth: string,
@@ -79,7 +85,7 @@ export class ImportRepository {
         deleted: false,
         ...(excludeImportId ? { id: { not: excludeImportId } } : {}),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
 
     // creditCardLastFourDigits is encrypted at rest; prisma-field-encryption
@@ -91,6 +97,20 @@ export class ImportRepository {
     }
 
     return null;
+  }
+
+  /**
+   * Marks this import's extraction as handled, returning false when another
+   * callback already claimed it. The conditional update is the serialization
+   * point that makes a redelivered webhook a no-op.
+   */
+  async claimExtraction(id: string): Promise<boolean> {
+    const claimed = await prisma.import.updateMany({
+      where: { id, extractionCompletedAt: null },
+      data: { extractionCompletedAt: new Date() },
+    });
+
+    return claimed.count > 0;
   }
 
   async softDelete(id: string, userId: string): Promise<void> {

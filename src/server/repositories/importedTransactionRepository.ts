@@ -130,18 +130,51 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  async filterDuplicates(
-    importId: string,
-    transactions: {
+  /** Reassigns rows to another import, used when merging a duplicate import. */
+  async moveToImport(ids: string[], importId: string): Promise<number> {
+    if (ids.length === 0) return 0;
+
+    const result = await prisma.importedTransaction.updateMany({
+      where: { id: { in: ids } },
+      data: { importId },
+    });
+    return result.count;
+  }
+
+  /** Hard delete: the parent import row is about to go, and the FK is Restrict. */
+  async deleteByImportId(importId: string): Promise<number> {
+    const result = await prisma.importedTransaction.deleteMany({
+      where: { importId },
+    });
+    return result.count;
+  }
+
+  /**
+   * Transactions already claimed as a match by any pending imported row of
+   * this user, so a concurrent import cannot claim the same one.
+   */
+  async findClaimedMatchingTransactionIds(userId: string): Promise<string[]> {
+    const claimed = await prisma.importedTransaction.findMany({
+      where: {
+        userId,
+        deleted: false,
+        status: ImportedTransactionStatus.PENDING,
+        matchingTransactionId: { not: null },
+      },
+      select: { matchingTransactionId: true },
+    });
+
+    return claimed.map((row) => row.matchingTransactionId!);
+  }
+
+  async filterDuplicates<
+    T extends {
       description: string;
       value: number;
       date: Date;
       type: TransactionType;
-      rawData: Prisma.InputJsonValue;
-      matchingTransactionId: string | null;
-      userId: string;
-    }[],
-  ): Promise<typeof transactions> {
+    },
+  >(importId: string, transactions: T[]): Promise<T[]> {
     if (transactions.length === 0) return [];
 
     const existingTransactions = await this.findExistingTransactions(

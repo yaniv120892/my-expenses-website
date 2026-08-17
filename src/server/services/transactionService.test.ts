@@ -97,7 +97,6 @@ describe('getAllTransactions', () => {
 });
 
 describe('category subtree resolution', () => {
-  // Food > Groceries > Organic, plus an unrelated top-level category.
   const CATEGORY_TREE = [
     { id: 'cat-food', parentId: null },
     { id: 'cat-groceries', parentId: 'cat-food' },
@@ -173,7 +172,6 @@ describe('category subtree resolution', () => {
     });
 
     expect(getAllCategories).toHaveBeenCalledTimes(1);
-    // The second page still carries the ids resolved for the first.
     expect(listArgs(1).categoryIds).toEqual(listArgs(0).categoryIds);
   });
 });

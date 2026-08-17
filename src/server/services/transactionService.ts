@@ -93,9 +93,7 @@ class TransactionService {
 
   /**
    * Widens a category filter to the whole subtree, so filtering by a parent
-   * covers the transactions filed on its children. Already-resolved filters
-   * pass through untouched, which keeps the walk in getAllTransactions from
-   * rebuilding the map once per page.
+   * covers the transactions filed on its children.
    */
   private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
     filters: T,
@@ -109,7 +107,7 @@ class TransactionService {
     };
   }
 
-  /** The page read itself, for callers that have already resolved the filters. */
+  /** For callers that have already resolved the filters. */
   private listResolved(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
@@ -127,12 +125,9 @@ class TransactionService {
 
   /**
    * Every matching row, for the callers that need the whole set (export,
-   * backup, monthly report). Walks by cursor rather than by offset: this walk
-   * reaches the last page by definition, and offset paging makes each page
-   * re-scan every row before it.
-   *
-   * `maxRows` stops one row past the cap, so a caller that must refuse an
-   * oversized set pays for a page beyond it rather than the whole history.
+   * backup, monthly report). Cursor rather than offset paging, which re-scans
+   * every prior row per page; `maxRows` stops one page past the cap, so an
+   * oversized set is refused without walking the whole history.
    */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,

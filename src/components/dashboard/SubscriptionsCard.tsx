@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -8,9 +8,10 @@ import {
   Box,
   Button,
   Badge,
-} from "@mui/material";
-import RepeatIcon from "@mui/icons-material/Repeat";
-import { SubscriptionSnapshot } from "@/types/dashboard";
+} from '@mui/material';
+import RepeatIcon from '@mui/icons-material/Repeat';
+import { SubscriptionSnapshot } from '@/types/dashboard';
+import { formatCurrencyRounded } from '@/utils/format';
 
 interface Props {
   subscriptions: SubscriptionSnapshot | undefined;
@@ -20,19 +21,24 @@ interface Props {
 export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
   if (!subscriptions) return null;
 
-  const { activeCount, totalMonthlyEstimate, totalAnnualEstimate, detectedCount } = subscriptions;
+  const {
+    activeCount,
+    totalMonthlyEstimate,
+    totalAnnualEstimate,
+    detectedCount,
+  } = subscriptions;
 
   return (
     <Card
       sx={{
         borderRadius: 3,
-        bgcolor: "background.default",
+        bgcolor: 'background.default',
         boxShadow: 3,
-        height: "100%",
+        height: '100%',
       }}
     >
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <RepeatIcon color="primary" />
           <Typography variant="h6" fontWeight={700}>
             Subscriptions
@@ -46,7 +52,14 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
           )}
         </Box>
 
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: { xs: 1.5, md: 3 }, mb: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: { xs: 1.5, md: 3 },
+            mb: 2,
+          }}
+        >
           <Box sx={{ minWidth: 80 }}>
             <Typography variant="body2" color="text.secondary">
               Active
@@ -60,7 +73,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
               Monthly
             </Typography>
             <Typography variant="h5" fontWeight={700}>
-              ${totalMonthlyEstimate.toFixed(0)}
+              {formatCurrencyRounded(totalMonthlyEstimate)}
             </Typography>
           </Box>
           <Box sx={{ minWidth: 80 }}>
@@ -68,7 +81,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
               Annual
             </Typography>
             <Typography variant="h5" fontWeight={700}>
-              ${totalAnnualEstimate.toFixed(0)}
+              {formatCurrencyRounded(totalAnnualEstimate)}
             </Typography>
           </Box>
         </Box>

@@ -14,12 +14,13 @@ const SUGGESTED_PROMPTS = [
 
 type Props = {
   onSelectPrompt: (prompt: string) => void;
-  disabled?: boolean;
 };
 
-export default function ChatEmptyState({ onSelectPrompt, disabled }: Props) {
+export default function ChatEmptyState({ onSelectPrompt }: Props) {
   return (
-    <Stack alignItems="center" spacing={1}>
+    // Auto margins center this in the scroll column without the container
+    // needing justifyContent, which would push the top out of scroll reach.
+    <Stack spacing={1} sx={{ my: 'auto' }}>
       <EmptyState
         message="Ask about your spending — I can summarize, compare periods, and spot trends."
         icon={
@@ -30,14 +31,17 @@ export default function ChatEmptyState({ onSelectPrompt, disabled }: Props) {
       />
       <Stack
         direction="row"
-        sx={{ flexWrap: 'wrap', justifyContent: 'center', gap: 1, px: 2 }}
+        flexWrap="wrap"
+        useFlexGap
+        spacing={1}
+        justifyContent="center"
+        sx={{ px: 2 }}
       >
         {SUGGESTED_PROMPTS.map((prompt) => (
           <Chip
             key={prompt}
             label={prompt}
             variant="outlined"
-            disabled={disabled}
             data-testid="chat-suggested-prompt"
             onClick={() => onSelectPrompt(prompt)}
           />

@@ -39,6 +39,7 @@ import {
   useAutoApproveRulesQuery,
 } from '../hooks/useImports';
 import { formatDate } from '../utils/dateUtils';
+import { formatCurrency } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   ImportedTransactionStatus,
@@ -52,12 +53,6 @@ import { CreateTransactionInput } from '../types';
 interface ImportedTransactionListProps {
   importId: string;
 }
-
-const formatAmount = (value: number) =>
-  new Intl.NumberFormat('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-  }).format(value);
 
 function getStatusColor(status: ImportedTransactionStatus) {
   switch (status) {
@@ -81,7 +76,7 @@ function TransactionDetails({
     <Box>
       <Typography variant="body2">{transaction.description}</Typography>
       <Typography variant="caption" color="text.secondary">
-        {formatAmount(transaction.value)} on {formatDate(transaction.date)}{' '}
+        {formatCurrency(transaction.value)} on {formatDate(transaction.date)}{' '}
         {transaction.type}
       </Typography>
     </Box>
@@ -114,7 +109,7 @@ function MatchingDetails({
         )}
       </Stack>
       <Typography variant="caption" color="text.secondary">
-        {formatAmount(transaction.matchingTransaction.value)} on{' '}
+        {formatCurrency(transaction.matchingTransaction.value)} on{' '}
         {formatDate(transaction.matchingTransaction.date)}{' '}
         {transaction.matchingTransaction.type}
       </Typography>

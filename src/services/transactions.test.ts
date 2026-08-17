@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   exportTransactionsSchema,
   getTransactionsSchema,
@@ -125,7 +125,16 @@ describe('exportTransactionsCsv', () => {
 // that narrows the rows must narrow all three — including the default endDate
 // the client injects.
 describe('list, summary and export filters', () => {
-  beforeEach(() => get.mockReset());
+  // The default endDate is now+7d to the millisecond, so freeze the clock: the
+  // claim under test is that all three build the window the same way, not that
+  // three calls land in the same millisecond.
+  beforeEach(() => {
+    get.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-17T00:00:00.000Z'));
+  });
+
+  afterEach(() => vi.useRealTimers());
 
   it('describe the same rows', async () => {
     get.mockResolvedValue({ data: { items: [], nextCursor: null } });

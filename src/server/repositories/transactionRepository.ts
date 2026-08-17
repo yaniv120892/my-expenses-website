@@ -100,8 +100,9 @@ class TransactionRepository {
   }
 
   /**
-   * Offset paging, kept for the server-side callers that walk every page
-   * (backup, summaries, trends). The UI list uses getTransactionsList.
+   * Offset paging, kept for the callers that read one bounded page at a time
+   * (trends, the assistant). Everything that walks the whole set uses
+   * getTransactionsList, whose cursor keeps the per-page cost flat.
    */
   public async getTransactions(
     filters: TransactionFilters,

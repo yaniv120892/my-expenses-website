@@ -4,7 +4,6 @@ import transactionFileRepository from '@/server/repositories/transactionFileRepo
 import {
   CreateTransaction,
   CreateTransactionResult,
-  TransactionFilters,
   Transaction,
   TransactionListFilters,
   TransactionListPage,
@@ -89,15 +88,6 @@ class TransactionService {
     }
 
     return result;
-  }
-
-  public async getTransactions(
-    filters: TransactionFilters,
-  ): Promise<Transaction[]> {
-    return transactionRepository.getTransactions({
-      ...filters,
-      status: filters.status || 'APPROVED',
-    });
   }
 
   public async getTransactionsList(

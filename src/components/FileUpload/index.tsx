@@ -89,7 +89,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       <Stack direction="row" spacing={1} alignItems="flex-start">
         <TextField
           fullWidth
-          label="Payment Month (MM/YYYY)"
+          label="Default Payment Month (MM/YYYY)"
           value={paymentMonth}
           onChange={(e) => setPaymentMonth(e.target.value)}
           disabled={isRunning}

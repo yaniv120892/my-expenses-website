@@ -18,6 +18,10 @@ const MOCK_PORT = 51231;
 const SHIM_PORT = Number(
   new URL(process.env.REDIS_URL || 'http://127.0.0.1:51230').port,
 );
+const EXTRACTION_PORT = Number(
+  new URL(process.env.EXCEL_EXTRACTION_AGENT_URL || 'http://127.0.0.1:51232')
+    .port,
+);
 const APP_PORT = Number(process.env.PORT || 3000);
 
 interface Frame {
@@ -551,6 +555,35 @@ async function excelWebhookFlow(userId: string): Promise<void> {
       authed.status === 404,
       `status ${authed.status}`,
     );
+
+    // The importId is signed too, so a callback cannot be pointed at another
+    // import by editing the query string.
+    const importId = '00000000-0000-4000-8000-000000000000';
+    const boundToken = crypto
+      .createHmac('sha256', secret)
+      .update(`${userId}:${timestamp}:${importId}`)
+      .digest('base64url');
+    const bound = await api(
+      'POST',
+      `/api/excel-extraction-agent/webhook?token=${boundToken}&userId=${userId}&timestamp=${timestamp}&importId=${importId}`,
+      { body: payload },
+    );
+    check(
+      'excel webhook: importId-bound HMAC reaches processing',
+      bound.status === 404,
+      `status ${bound.status}`,
+    );
+
+    const tampered = await api(
+      'POST',
+      `/api/excel-extraction-agent/webhook?token=${token}&userId=${userId}&timestamp=${timestamp}&importId=${importId}`,
+      { body: payload },
+    );
+    check(
+      'excel webhook: an importId added after signing is rejected',
+      tampered.status === 401,
+      `status ${tampered.status}`,
+    );
   } else {
     // Without the secret env on the server, verification cannot run and the
     // processor must fail closed rather than accept the payload.
@@ -571,8 +604,11 @@ async function main(): Promise<void> {
   const { seeded, stop: shutdown } = await startStack({
     mock: MOCK_PORT,
     shim: SHIM_PORT,
+    extraction: EXTRACTION_PORT,
   });
-  console.log(`mock model on ${MOCK_PORT}, upstash shim on ${SHIM_PORT}`);
+  console.log(
+    `mock model on ${MOCK_PORT}, upstash shim on ${SHIM_PORT}, extraction agent on ${EXTRACTION_PORT}`,
+  );
   console.log('seeded users', seeded.userA.id, seeded.userB.id);
 
   if (!(await waitForApp())) {

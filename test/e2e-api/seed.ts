@@ -54,6 +54,10 @@ export async function seed(): Promise<SeedResult> {
     await prisma.announcementAck.deleteMany({});
     await prisma.detectedSubscription.deleteMany({});
     await prisma.scheduledTransaction.deleteMany({});
+    // Imported rows point at both an import and a transaction, so they go
+    // before either. The imports e2e leaves these behind.
+    await prisma.importedTransaction.deleteMany({});
+    await prisma.import.deleteMany({});
     await prisma.transaction.deleteMany({});
     await prisma.category.deleteMany({});
     await prisma.user.deleteMany({});

@@ -1,11 +1,9 @@
 import { format } from 'date-fns';
 import { parse } from 'json2csv';
+import { CSV_BOM } from '@/shared/csv';
 import { Transaction } from '@/shared/types/transaction';
 
 const FIELDS = ['date', 'description', 'value', 'type', 'categoryName'];
-
-/** Excel only detects UTF-8 from a BOM, and category names may be Hebrew. */
-export const CSV_BOM = '\uFEFF';
 
 /**
  * The one transactions-CSV shape: the user-facing export, the monthly report
@@ -13,7 +11,7 @@ export const CSV_BOM = '\uFEFF';
  */
 export function buildTransactionsCsv(transactions: Transaction[]): string {
   const rows = transactions.map((transaction) => ({
-    date: format(new Date(transaction.date), 'yyyy-MM-dd'),
+    date: format(transaction.date, 'yyyy-MM-dd'),
     description: transaction.description,
     value: transaction.value,
     type: transaction.type,
@@ -21,6 +19,15 @@ export function buildTransactionsCsv(transactions: Transaction[]): string {
   }));
 
   return parse(rows, { fields: FIELDS });
+}
+
+/**
+ * The same rows as a file for a person to open. The backup deliberately stays
+ * on the bare builder: it is read by machines, and its bytes should not gain a
+ * BOM silently.
+ */
+export function buildTransactionsCsvFile(transactions: Transaction[]): string {
+  return `${CSV_BOM}${buildTransactionsCsv(transactions)}`;
 }
 
 /**

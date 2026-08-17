@@ -27,7 +27,7 @@ export const updateTransactionStatusSchema = z.object({
  * from this so a filter can never narrow the rows without also narrowing the
  * totals shown above them.
  */
-const transactionFilterSchema = z.object({
+export const transactionFilterSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   categoryId: z.string().uuid().optional(),

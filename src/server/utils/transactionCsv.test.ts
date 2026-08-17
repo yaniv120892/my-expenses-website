@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { CSV_BOM } from '@/shared/csv';
 import {
   buildTransactionsCsv,
+  buildTransactionsCsvFile,
   transactionsCsvFileName,
 } from '@/server/utils/transactionCsv';
 import { Transaction } from '@/shared/types/transaction';
@@ -55,6 +57,15 @@ describe('buildTransactionsCsv', () => {
   it('returns a header-only file for no transactions', () => {
     expect(buildTransactionsCsv([])).toBe(
       '"date","description","value","type","categoryName"',
+    );
+  });
+
+  it('leaves the BOM to buildTransactionsCsvFile', () => {
+    expect(buildTransactionsCsv([transaction()]).startsWith(CSV_BOM)).toBe(
+      false,
+    );
+    expect(buildTransactionsCsvFile([transaction()])).toBe(
+      `${CSV_BOM}${buildTransactionsCsv([transaction()])}`,
     );
   });
 });

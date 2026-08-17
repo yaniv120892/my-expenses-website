@@ -18,6 +18,7 @@ import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineR
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useChat } from '../../hooks/useChat';
 import { useIsCompact } from '../../hooks/useBreakpoints';
+import ChatEmptyState from './ChatEmptyState';
 
 const Chat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +32,7 @@ const Chat: React.FC = () => {
   } = useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const fullScreen = useIsCompact();
+  const isEmpty = messages.length === 0;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,6 +128,7 @@ const Chat: React.FC = () => {
               flexDirection: 'column',
             }}
           >
+            {isEmpty && <ChatEmptyState onSelectPrompt={handleSendMessage} />}
             {messages
               // While waiting on the first token the streaming bubble is still
               // empty; the spinner below stands in for it.

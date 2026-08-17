@@ -31,11 +31,12 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   title?: string;
-  selectedType?: TransactionType | null;
+  selectedType?: TransactionType;
   onSelectType?: (type: TransactionType) => void;
 }
 
 const UNSELECTED_SLICE_OPACITY = 0.3;
+const CLICKABLE_SLICE_SX = { '& .recharts-sector': { cursor: 'pointer' } };
 
 function ChartTooltip({
   active,
@@ -72,7 +73,6 @@ export default function IncomeExpensePieChart({
   ];
   const pieColors = [charts.income, charts.expense];
   const total = income - expense;
-  const selectable = !!onSelectType;
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -102,9 +102,7 @@ export default function IncomeExpensePieChart({
                 width: 130,
                 height: 130,
                 flexShrink: 0,
-                ...(selectable && {
-                  '& .recharts-sector': { cursor: 'pointer' },
-                }),
+                ...(onSelectType && CLICKABLE_SLICE_SX),
               }}
             >
               <ResponsiveContainer width="100%" height="100%">

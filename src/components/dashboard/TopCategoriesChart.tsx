@@ -22,6 +22,16 @@ interface Props {
   onSelectCategory?: (categoryId: string) => void;
 }
 
+const CLICKABLE_SLICE_SX = { '& .recharts-sector': { cursor: 'pointer' } };
+
+const CLICKABLE_ROW_SX = {
+  cursor: 'pointer',
+  borderRadius: 1,
+  px: 0.5,
+  mx: -0.5,
+  '&:hover': { bgcolor: 'action.hover' },
+};
+
 function ChartTooltip({
   active,
   payload,
@@ -80,7 +90,6 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
   const chartData = categories.map((c) => ({
     name: c.categoryName,
     value: c.amount,
-    categoryId: c.categoryId,
   }));
 
   return (
@@ -103,9 +112,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
               height: 220,
               minWidth: 0,
               flex: 1,
-              ...(onSelectCategory && {
-                '& .recharts-sector': { cursor: 'pointer' },
-              }),
+              ...(onSelectCategory && CLICKABLE_SLICE_SX),
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
@@ -123,7 +130,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   onClick={
                     onSelectCategory
                       ? (_, index) =>
-                          onSelectCategory(chartData[index].categoryId)
+                          onSelectCategory(categories[index].categoryId)
                       : undefined
                   }
                 >
@@ -153,17 +160,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                     ? () => onSelectCategory(cat.categoryId)
                     : undefined
                 }
-                sx={
-                  onSelectCategory
-                    ? {
-                        cursor: 'pointer',
-                        borderRadius: 1,
-                        px: 0.5,
-                        mx: -0.5,
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }
-                    : undefined
-                }
+                sx={onSelectCategory ? CLICKABLE_ROW_SX : undefined}
               >
                 <Box
                   sx={{

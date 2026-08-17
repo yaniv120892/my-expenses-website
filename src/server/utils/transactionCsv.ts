@@ -34,14 +34,12 @@ function buildCsv(
 
 /**
  * The transactions CSV a person opens in a spreadsheet — the user-facing
- * export and the monthly report attachment. The date column is the day, and
- * text a spreadsheet would run as a formula is neutralized.
+ * export and the monthly report attachment.
  */
 export function buildTransactionsCsv(transactions: Transaction[]): string {
   return buildCsv(transactions, (date) => format(date, 'yyyy-MM-dd'), asText);
 }
 
-/** The same file with the BOM Excel needs to detect UTF-8. */
 export function buildTransactionsCsvFile(transactions: Transaction[]): string {
   return `${CSV_BOM}${buildTransactionsCsv(transactions)}`;
 }
@@ -61,10 +59,7 @@ export function buildTransactionsBackupCsv(
   );
 }
 
-/**
- * Named for the range it covers, falling back to the day it was taken. `now`
- * is injected so the fallback is testable.
- */
+/** `now` is injected so the fallback to today is testable. */
 export function transactionsCsvFileName(
   range: { startDate?: Date; endDate?: Date },
   now: Date = new Date(),

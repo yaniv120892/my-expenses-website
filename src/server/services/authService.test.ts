@@ -102,7 +102,25 @@ describe('signupUser', () => {
       password: await hash(PASSWORD, 10),
     });
 
+    // Same answer as the right password, or this public endpoint would let
+    // anyone guess a pending account's password.
     expect(await authService.signupUser(EMAIL, 'user', 'guess')).toEqual({
+      message: 'Verification code sent to email. Code is valid for 10 minutes.',
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(redis.setValue).not.toHaveBeenCalled();
+  });
+
+  it('refuses a username taken by someone else’s pending account', async () => {
+    users.findByEmailOrUsername.mockResolvedValue({
+      email: 'someone-else@e2e.test',
+      verified: false,
+      password: await hash(PASSWORD, 10),
+    });
+
+    // Masking this as "code sent" would strand the new user: no code would
+    // ever arrive for an address that has no account.
+    expect(await authService.signupUser(EMAIL, 'user', PASSWORD)).toEqual({
       error: 'User already exists',
     });
     expect(send).not.toHaveBeenCalled();

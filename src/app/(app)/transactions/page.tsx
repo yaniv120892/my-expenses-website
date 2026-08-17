@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   Box,
@@ -17,6 +18,9 @@ import {
   TransactionFilters,
   CreateTransactionInput,
 } from '@/types';
+// The same shapes the API validates these params with, so a bad link fails
+// here rather than 400-ing every query on the page.
+import { transactionFilterSchema } from '@/shared/schemas/transactions';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionListSkeleton from '@/components/TransactionListSkeleton';
@@ -40,19 +44,42 @@ import {
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
 
-export default function TransactionsPage() {
+const filterShape = transactionFilterSchema.shape;
+
+function TransactionsPageContent() {
+  // Read once to seed the filters: the drill-down from the dashboard pie arrives
+  // as query params, but the page owns its filters from then on.
+  const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>(
-    defaultMonthFilters(),
-  );
+  const [filters, setFilters] = useState<TransactionFilters>(() => ({
+    ...defaultMonthFilters(),
+    // Both validated: the params are cleared right after this, so a malformed
+    // one would 400 every query with no chip left to clear.
+    categoryId: filterShape.categoryId.safeParse(
+      searchParams.get('categoryId') ?? undefined,
+    ).data,
+    type: filterShape.type.safeParse(searchParams.get('type') ?? undefined)
+      .data,
+  }));
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
     description: string;
     suggestedCategory: { id: string; name: string };
   } | null>(null);
+
+  // Seeded params are consumed, so drop them: left in the address bar they
+  // would restore abandoned filters on a refresh or a shared link. history
+  // rather than router, which would refetch the route and re-render the tree.
+  useEffect(() => {
+    if (searchParams.toString()) {
+      window.history.replaceState(null, '', '/transactions');
+    }
+    // Mount-time only; later filter edits must not re-run it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     data,
@@ -67,25 +94,27 @@ export default function TransactionsPage() {
     [data],
   );
   const { data: categories = [] } = useCategoriesQuery();
+  const { data: summary } = useTransactionsSummaryQuery(filters);
+  // The chart drives the type filter, so it must ignore it: filtering the chart
+  // by its own selection would zero the slice the user has to click to go back.
   const {
-    data: summary,
-    isLoading: summaryLoading,
-    error: summaryError,
-  } = useTransactionsSummaryQuery(filters);
+    data: chartSummary,
+    isLoading: chartSummaryLoading,
+    error: chartSummaryError,
+  } = useTransactionsSummaryQuery({ ...filters, type: undefined });
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
   const deleteMutation = useDeleteTransactionMutation();
   const exportMutation = useExportTransactionsCsvMutation();
 
-  const handleExport = async () => {
-    try {
-      await exportMutation.mutateAsync(filters);
-    } catch {
-      // The response is a blob, so the server's message is not readable here.
-      setError('Failed to export transactions');
-    }
-  };
+  const handleExport = () =>
+    exportMutation.mutate(filters, {
+      onError: (e) =>
+        setError(
+          e instanceof Error ? e.message : 'Failed to export transactions',
+        ),
+    });
 
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);
@@ -162,10 +191,17 @@ export default function TransactionsPage() {
       <PendingTransactionsPopup />
 
       <IncomeExpensePieChart
-        income={summary?.totalIncome || 0}
-        expense={summary?.totalExpense || 0}
-        loading={summaryLoading}
-        error={summaryError as string | null}
+        income={chartSummary?.totalIncome || 0}
+        expense={chartSummary?.totalExpense || 0}
+        loading={chartSummaryLoading}
+        error={chartSummaryError as string | null}
+        selectedType={filters.type}
+        onSelectType={(type) =>
+          setFilters((prev) => ({
+            ...prev,
+            type: prev.type === type ? undefined : type,
+          }))
+        }
         title={
           filters.startDate
             ? format(new Date(filters.startDate), 'MMMM yyyy')
@@ -183,6 +219,7 @@ export default function TransactionsPage() {
         onResetCategory={() =>
           setFilters((prev) => ({ ...prev, categoryId: undefined }))
         }
+        onResetType={() => setFilters((prev) => ({ ...prev, type: undefined }))}
         onResetDateRange={() =>
           setFilters((prev) => ({
             ...prev,
@@ -251,7 +288,9 @@ export default function TransactionsPage() {
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        onApply={setFilters}
+        // Merged rather than replaced: the dialog has no type control, so a
+        // replace would silently drop a type picked on the chart.
+        onApply={(next) => setFilters((prev) => ({ ...prev, ...next }))}
         initialFilters={filters}
       />
 
@@ -272,5 +311,13 @@ export default function TransactionsPage() {
         onClose={() => setError(null)}
       />
     </>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<TransactionListSkeleton rows={6} />}>
+      <TransactionsPageContent />
+    </Suspense>
   );
 }

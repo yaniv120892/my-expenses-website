@@ -284,9 +284,6 @@ describe('completed extraction', () => {
     expect(rows[1].rawData).toEqual({});
   });
 
-  // An import only ever leaves PROCESSING through this callback, and the
-  // sibling service does not retry, so an unusable result has to land as
-  // FAILED rather than as a 400 with the import still pending.
   it('a COMPLETED payload with no result fails the import', async () => {
     const res = await run({ requestId: 'req-1', status: 'COMPLETED' });
 
@@ -311,8 +308,6 @@ describe('completed extraction', () => {
     );
   });
 
-  // The sibling service is not ours to constrain: a day written without a
-  // leading zero, or a statement with no card digits, is still importable.
   it('accepts a non-padded date and absent card metadata', async () => {
     const res = await run({
       requestId: 'req-1',

@@ -17,6 +17,8 @@ import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
 
 const MAX_CODE_ATTEMPTS = 5;
+const VERIFICATION_CODE_SENT =
+  'Verification code sent to email. Code is valid for 10 minutes.';
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
@@ -25,15 +27,17 @@ class AuthService {
       username,
     );
     if (existingUser) {
-      // Signing up again with the right password for an account that never
-      // got verified is a retry, not a conflict: it is the only way back for
-      // someone whose code expired or who ran out of attempts. Requiring the
-      // password keeps it from being a way to mail codes at a stranger.
-      if (
-        !existingUser.verified &&
-        (await compare(password, existingUser.password))
-      ) {
-        return this.issueVerificationCode(existingUser.email);
+      // Signing up again for an unverified account is a retry, not a conflict —
+      // the only way back after an expired code or exhausted attempts. The reply
+      // is identical either way because this public, unrated endpoint would
+      // otherwise allow unlimited password guessing; the email check is because
+      // the lookup also matches username, where a stranger's pending account is
+      // a real conflict.
+      if (!existingUser.verified && existingUser.email === email) {
+        if (await compare(password, existingUser.password)) {
+          return this.issueVerificationCode(existingUser.email);
+        }
+        return { message: VERIFICATION_CODE_SENT };
       }
       return { error: 'User already exists' };
     }
@@ -53,9 +57,7 @@ class AuthService {
     await setValue(`loginCode:${email}`, code, 600);
     await deleteValue(`loginCodeAttempts:${email}`);
     await this.sendCodeByEmail(email, code);
-    return {
-      message: 'Verification code sent to email. Code is valid for 10 minutes.',
-    };
+    return { message: VERIFICATION_CODE_SENT };
   }
 
   public async loginUser(email: string, username: string, password: string) {

@@ -102,10 +102,13 @@ describe('signupUser', () => {
       password: await hash(PASSWORD, 10),
     });
 
+    // Same answer as the right password, or this public endpoint would let
+    // anyone guess a pending account's password.
     expect(await authService.signupUser(EMAIL, 'user', 'guess')).toEqual({
-      error: 'User already exists',
+      message: 'Verification code sent to email. Code is valid for 10 minutes.',
     });
     expect(send).not.toHaveBeenCalled();
+    expect(redis.setValue).not.toHaveBeenCalled();
   });
 
   it('refuses a verified account even with the right password', async () => {

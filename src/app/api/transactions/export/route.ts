@@ -7,9 +7,15 @@ import {
   transactionsCsvFileName,
 } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
+import { HttpError } from '@/server/http/errors';
 
 // Walking every page of a long history takes longer than the default budget.
 export const maxDuration = 60;
+
+// The filters are all optional, so an export can ask for the whole history and
+// hold it in memory. Refusing past this is a legible error; the alternative is
+// a maxDuration timeout the client can only report as "failed".
+const MAX_EXPORT_ROWS = 50_000;
 
 export const GET = createHandler({
   auth: 'session',
@@ -19,6 +25,13 @@ export const GET = createHandler({
     const transactions = await transactionService.getAllTransactions(
       toTransactionFilters(query, userId),
     );
+
+    if (transactions.length > MAX_EXPORT_ROWS) {
+      throw new HttpError(
+        413,
+        `That export is too large (${transactions.length.toLocaleString()} transactions). Narrow the date range and try again.`,
+      );
+    }
 
     logger.info(
       {

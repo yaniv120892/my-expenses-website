@@ -9,14 +9,15 @@ export interface TransactionFormValues {
 /**
  * Field errors for the transaction form, keyed by field name.
  *
- * `isEdit` exists because the two API schemas disagree on the category:
- * createTransactionSchema makes it optional (the server fills it in via AI),
- * updateTransactionSchema requires a uuid. Submitting an edit without one is
- * a 400, so the form has to hold the stricter rule.
+ * `requireCategory` exists because the API schemas disagree on it: update and
+ * merge require a uuid, while create and import-approve leave it optional and
+ * let the server categorize. Submitting the strict ones without a category is
+ * a 400, so the form has to hold that rule — but only for those submits, which
+ * is a property of the target endpoint, not of "this form has initial data".
  */
 export function validateTransactionForm(
   form: TransactionFormValues,
-  isEdit: boolean,
+  requireCategory: boolean,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
@@ -34,7 +35,7 @@ export function validateTransactionForm(
   if (!form.date) {
     errors.date = 'Date is required';
   }
-  if (isEdit && !form.categoryId) {
+  if (requireCategory && !form.categoryId) {
     errors.categoryId = 'Category is required';
   }
 

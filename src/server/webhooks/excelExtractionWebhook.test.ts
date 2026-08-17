@@ -86,7 +86,10 @@ const storedRow = (id: string, description = 'Coffee') => ({
 const run = (body: unknown) => processExcelExtractionWebhook(body, {});
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // reset, not clear: a mockRejectedValue set by one case would otherwise
+  // stay in force for every case after it.
+  vi.resetAllMocks();
+  importedTxRepo.createMany.mockResolvedValue(1);
   extractWebhookParams.mockReturnValue({
     token: 't',
     userId: 'user-1',
@@ -281,9 +284,63 @@ describe('completed extraction', () => {
     expect(rows[1].rawData).toEqual({});
   });
 
-  it('a COMPLETED payload with no result fails the webhook', async () => {
+  // An import only ever leaves PROCESSING through this callback, and the
+  // sibling service does not retry, so an unusable result has to land as
+  // FAILED rather than as a 400 with the import still pending.
+  it('a COMPLETED payload with no result fails the import', async () => {
     const res = await run({ requestId: 'req-1', status: 'COMPLETED' });
+
+    expect(res.status).toBe(400);
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-1',
+      'FAILED',
+      expect.any(String),
+    );
+  });
+
+  it('one unreadable row fails the import rather than the request only', async () => {
+    const res = await run(
+      payload([{ ...tx(), date: 'the fifth of August' } as never]),
+    );
+
+    expect(res.status).toBe(400);
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-1',
+      'FAILED',
+      expect.any(String),
+    );
+  });
+
+  // The sibling service is not ours to constrain: a day written without a
+  // leading zero, or a statement with no card digits, is still importable.
+  it('accepts a non-padded date and absent card metadata', async () => {
+    const res = await run({
+      requestId: 'req-1',
+      status: 'COMPLETED',
+      result: {
+        transactions: [{ ...tx(), date: '5/8/2026' }],
+        metadata: { paymentMonth: null, creditCardLastFour: null },
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const rows = importedTxRepo.createMany.mock.calls[0][0];
+    expect(rows[0].date).toEqual(new Date(2026, 7, 5));
+    // Nothing identifies a duplicate without a card and month.
+    expect(importRepo.findExisting).not.toHaveBeenCalled();
+  });
+
+  it('marks the import failed when processing throws', async () => {
+    importedTxRepo.createMany.mockRejectedValue(new Error('insert failed'));
+
+    const res = await run(payload([tx()]));
+
     expect(res.status).toBe(500);
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-1',
+      'FAILED',
+      expect.any(String),
+    );
   });
 });
 
@@ -345,7 +402,7 @@ describe('redelivered callbacks', () => {
     expect(importRepo.updateStatus).toHaveBeenCalledWith(
       'imp-1',
       'FAILED',
-      'insert exploded',
+      'Processing the extraction result failed',
     );
 
     // Handing the claim back would let a redelivery re-run createMany and

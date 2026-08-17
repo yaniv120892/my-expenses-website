@@ -9,44 +9,49 @@ import { importedTransactionRepository } from '@/server/repositories/importedTra
 import { Import, ImportStatus, ImportBankSourceType } from '@prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
-import { getErrorMessage } from '@/server/utils/errorUtils';
 
 export interface WebhookResult {
   status: number;
   body: { success: boolean; message?: string; error?: string };
 }
 
-// Validates only what the handlers below consume; the sibling service may add
-// fields freely, but a shape drift in these must become a 400, not a
-// TypeError mid-processing.
-const webhookPayloadSchema = z.object({
+// Enough to find the import this callback is about, and nothing more: the
+// result is validated separately, after the import is in hand, so a shape
+// drift can be recorded against it instead of vanishing into a 400.
+const webhookEnvelopeSchema = z.object({
   requestId: z.string().min(1),
   status: z.enum(['COMPLETED', 'FAILED']),
-  result: z
-    .object({
-      transactions: z.array(
-        z.object({
-          date: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
-          description: z.string(),
-          value: z.number(),
-          type: z.enum(['EXPENSE', 'INCOME']),
-          rawData: z.record(z.union([z.string(), z.number()])).optional(),
-        }),
-      ),
-      metadata: z.object({
-        creditCardLastFour: z.string(),
-        bankSourceType: z
-          .enum(['BANK_CREDIT', 'NON_BANK_CREDIT', 'UNKNOWN'])
-          .nullish(),
-        paymentMonth: z.string(),
-      }),
-    })
-    .optional(),
+  result: z.unknown().optional(),
   error: z.string().optional(),
 });
 
-type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
-type ExtractionResult = NonNullable<WebhookPayload['result']>;
+// Validates only what the handlers below consume; the sibling service may add
+// fields freely, but a shape drift in these must fail the import, not throw a
+// TypeError mid-processing. Kept tolerant on purpose — a day written 5/8/2026
+// or a statement with no card digits is still worth importing.
+const extractionResultSchema = z.object({
+  transactions: z.array(
+    z.object({
+      date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
+      description: z.string(),
+      value: z.number(),
+      type: z.enum(['EXPENSE', 'INCOME']),
+      rawData: z
+        .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+        .optional(),
+    }),
+  ),
+  metadata: z.object({
+    creditCardLastFour: z.string().nullish(),
+    bankSourceType: z
+      .enum(['BANK_CREDIT', 'NON_BANK_CREDIT', 'UNKNOWN'])
+      .nullish(),
+    paymentMonth: z.string().nullish(),
+  }),
+});
+
+type WebhookPayload = z.infer<typeof webhookEnvelopeSchema>;
+type ExtractionResult = z.infer<typeof extractionResultSchema>;
 type ExtractionMetadata = ExtractionResult['metadata'];
 
 export async function processExcelExtractionWebhook(
@@ -54,6 +59,7 @@ export async function processExcelExtractionWebhook(
   query: Record<string, string>,
 ): Promise<WebhookResult> {
   let payload: WebhookPayload | undefined;
+  let importId: string | undefined;
   try {
     const authParams = extractWebhookParams(query);
     if (!authParams) {
@@ -81,7 +87,7 @@ export async function processExcelExtractionWebhook(
       };
     }
 
-    const parsed = webhookPayloadSchema.safeParse(rawPayload);
+    const parsed = webhookEnvelopeSchema.safeParse(rawPayload);
     if (!parsed.success) {
       logger.error(
         { userId: authParams.userId, issues: parsed.error.issues },
@@ -131,11 +137,13 @@ export async function processExcelExtractionWebhook(
       };
     }
 
+    importId = importRecord.id;
+
     // A redelivered callback must not re-create rows or re-run the merge.
-    const claimed = await importRepository.claimExtraction(importRecord.id);
+    const claimed = await importRepository.claimExtraction(importId);
     if (!claimed) {
       logger.info(
-        { requestId: payload.requestId, importId: importRecord.id },
+        { requestId: payload.requestId, importId },
         'Extraction already processed for this import, ignoring redelivery',
       );
       return {
@@ -144,23 +152,28 @@ export async function processExcelExtractionWebhook(
       };
     }
 
-    try {
-      if (payload.status === 'COMPLETED') {
-        await handleCompletedExtraction(importRecord, payload);
-      } else {
-        await handleFailedExtraction(importRecord.id, payload);
+    if (payload.status === 'COMPLETED') {
+      const result = extractionResultSchema.safeParse(payload.result);
+      if (!result.success) {
+        // The extraction itself is unusable, so the import is finished and
+        // failed. Leaving it PROCESSING would hide it from the user forever.
+        logger.error(
+          { importId, issues: result.error.issues },
+          'Unusable extraction result in webhook',
+        );
+        await importRepository.updateStatus(
+          importId,
+          ImportStatus.FAILED,
+          'The extraction service returned a result this app could not read',
+        );
+        return {
+          status: 400,
+          body: { success: false, error: 'Invalid extraction result' },
+        };
       }
-    } catch (err) {
-      // The claim stays: this handler is not idempotent — a failure after
-      // createMany would have a redelivery insert every row a second time.
-      // Recording FAILED is what stops the import sitting in PROCESSING with
-      // nothing to show for it; recovering means deleting and re-importing.
-      await importRepository.updateStatus(
-        importRecord.id,
-        ImportStatus.FAILED,
-        getErrorMessage(err, 'Failed to process extraction result'),
-      );
-      throw err;
+      await handleCompletedExtraction(importRecord, result.data);
+    } else {
+      await handleFailedExtraction(importId, payload);
     }
 
     logger.info(
@@ -177,9 +190,18 @@ export async function processExcelExtractionWebhook(
     };
   } catch (err) {
     logger.error(
-      { err, requestId: payload?.requestId },
+      { err, requestId: payload?.requestId, importId },
       'Error processing webhook',
     );
+    // This callback is the only thing that ever moves an import out of
+    // PROCESSING, and the sibling service does not retry, so a crash here has
+    // to leave the import failed rather than pending forever. The extraction
+    // claim deliberately stays taken: this handler is not idempotent, so a
+    // redelivery after a failure part-way through would insert every row a
+    // second time. Recovery is deleting the failed import and re-importing.
+    if (importId) {
+      await markImportFailedSafe(importId);
+    }
     return {
       status: 500,
       body: { success: false, error: 'Failed to process webhook' },
@@ -187,15 +209,22 @@ export async function processExcelExtractionWebhook(
   }
 }
 
+async function markImportFailedSafe(importId: string): Promise<void> {
+  try {
+    await importRepository.updateStatus(
+      importId,
+      ImportStatus.FAILED,
+      'Processing the extraction result failed',
+    );
+  } catch (err) {
+    logger.error({ err, importId }, 'Failed to mark import as failed');
+  }
+}
+
 async function handleCompletedExtraction(
   importRecord: Import,
-  payload: WebhookPayload,
+  result: ExtractionResult,
 ): Promise<void> {
-  if (!payload.result) {
-    throw new Error('Missing extraction result in completed webhook');
-  }
-
-  const { result } = payload;
   const importId = importRecord.id;
 
   logger.info(
@@ -267,8 +296,8 @@ async function writeExtractionMetadata(
   await prisma.import.update({
     where: { id: importId },
     data: {
-      creditCardLastFourDigits: metadata.creditCardLastFour,
-      paymentMonth: metadata.paymentMonth,
+      creditCardLastFourDigits: metadata.creditCardLastFour ?? null,
+      paymentMonth: metadata.paymentMonth ?? null,
       bankSourceType: (metadata.bankSourceType ??
         null) as ImportBankSourceType | null,
     },
@@ -294,6 +323,12 @@ async function mergeIntoDuplicateImport(
   createdAt: Date,
   metadata: ExtractionMetadata,
 ): Promise<string | null> {
+  // Without a card and a month there is nothing to identify a duplicate by,
+  // and matching on two nulls would merge unrelated statements.
+  if (!metadata.creditCardLastFour || !metadata.paymentMonth) {
+    return null;
+  }
+
   // Excluding the import being processed — the caller has just written its
   // metadata, so it would otherwise match itself and the merge never fire.
   const existingImport = await importRepository.findExisting(

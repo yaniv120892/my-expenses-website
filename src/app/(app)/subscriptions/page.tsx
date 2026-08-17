@@ -25,6 +25,8 @@ import { formatCurrencyRounded } from '@/utils/format';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
 
+const KPI_GRID_COLUMNS = { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' };
+
 function StatTile({
   label,
   value,
@@ -89,10 +91,7 @@ export default function SubscriptionsPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: {
-                xs: 'repeat(2, 1fr)',
-                sm: 'repeat(4, 1fr)',
-              },
+              gridTemplateColumns: KPI_GRID_COLUMNS,
               gap: 2,
             }}
           >
@@ -109,10 +108,7 @@ export default function SubscriptionsPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: {
-                xs: 'repeat(2, 1fr)',
-                sm: 'repeat(4, 1fr)',
-              },
+              gridTemplateColumns: KPI_GRID_COLUMNS,
               gap: 2,
               mb: 3,
             }}

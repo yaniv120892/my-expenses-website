@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bucketKeyFor, enumerateBuckets } from '@/server/utils/periodBuckets';
+import { bucketKeyFor, enumerateBuckets } from '@/shared/periodBuckets';
 
 describe('bucketKeyFor', () => {
   it('formats each period', () => {

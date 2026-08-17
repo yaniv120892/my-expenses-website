@@ -111,6 +111,21 @@ describe('signupUser', () => {
     expect(redis.setValue).not.toHaveBeenCalled();
   });
 
+  it('refuses a username taken by someone else’s pending account', async () => {
+    users.findByEmailOrUsername.mockResolvedValue({
+      email: 'someone-else@e2e.test',
+      verified: false,
+      password: await hash(PASSWORD, 10),
+    });
+
+    // Masking this as "code sent" would strand the new user: no code would
+    // ever arrive for an address that has no account.
+    expect(await authService.signupUser(EMAIL, 'user', PASSWORD)).toEqual({
+      error: 'User already exists',
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('refuses a verified account even with the right password', async () => {
     users.findByEmailOrUsername.mockResolvedValue({
       email: EMAIL,

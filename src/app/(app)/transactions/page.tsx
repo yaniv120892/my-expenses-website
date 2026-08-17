@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   Box,
@@ -50,7 +50,6 @@ function TransactionsPageContent() {
   // Read once to seed the filters: the drill-down from the dashboard pie arrives
   // as query params, but the page owns its filters from then on.
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
@@ -72,10 +71,11 @@ function TransactionsPageContent() {
   } | null>(null);
 
   // Seeded params are consumed, so drop them: left in the address bar they
-  // would restore abandoned filters on a refresh or a shared link.
+  // would restore abandoned filters on a refresh or a shared link. history
+  // rather than router, which would refetch the route and re-render the tree.
   useEffect(() => {
     if (searchParams.toString()) {
-      router.replace('/transactions');
+      window.history.replaceState(null, '', '/transactions');
     }
     // Mount-time only; later filter edits must not re-run it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,15 +108,13 @@ function TransactionsPageContent() {
   const deleteMutation = useDeleteTransactionMutation();
   const exportMutation = useExportTransactionsCsvMutation();
 
-  const handleExport = async () => {
-    try {
-      await exportMutation.mutateAsync(filters);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Failed to export transactions',
-      );
-    }
-  };
+  const handleExport = () =>
+    exportMutation.mutate(filters, {
+      onError: (e) =>
+        setError(
+          e instanceof Error ? e.message : 'Failed to export transactions',
+        ),
+    });
 
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);

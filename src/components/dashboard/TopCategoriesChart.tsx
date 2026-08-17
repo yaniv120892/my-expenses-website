@@ -16,13 +16,12 @@ import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TopCategory } from '@/types/dashboard';
 import { formatNumber } from '@/utils/format';
+import { CLICKABLE_SLICE_SX } from '@/components/chartStyles';
 
 interface Props {
   categories: TopCategory[];
   onSelectCategory?: (categoryId: string) => void;
 }
-
-const CLICKABLE_SLICE_SX = { '& .recharts-sector': { cursor: 'pointer' } };
 
 const CLICKABLE_ROW_SX = {
   cursor: 'pointer',

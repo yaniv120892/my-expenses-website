@@ -13,8 +13,9 @@ import { HttpError } from '@/server/http/errors';
 export const maxDuration = 60;
 
 // The filters are all optional, so an export can ask for the whole history and
-// hold it in memory. Refusing past this is a legible error; the alternative is
-// a maxDuration timeout the client can only report as "failed".
+// hold it in memory. The walk stops one row past this, so an oversized export
+// gets a legible error instead of a maxDuration timeout the client can only
+// report as "failed".
 const MAX_EXPORT_ROWS = 50_000;
 
 export const GET = createHandler({
@@ -24,12 +25,13 @@ export const GET = createHandler({
     const startedAt = Date.now();
     const transactions = await transactionService.getAllTransactions(
       toTransactionFilters(query, userId),
+      { maxRows: MAX_EXPORT_ROWS },
     );
 
     if (transactions.length > MAX_EXPORT_ROWS) {
       throw new HttpError(
         413,
-        `That export is too large (${transactions.length.toLocaleString()} transactions). Narrow the date range and try again.`,
+        `That export is too large (over ${MAX_EXPORT_ROWS.toLocaleString()} transactions). Narrow the date range and try again.`,
       );
     }
 

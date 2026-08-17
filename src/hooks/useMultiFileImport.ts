@@ -1,29 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { importKeys } from '@/hooks/useImports';
 import { BatchResult } from '@/types/import';
 import {
   initialUploadQueueState,
+  MAX_CONCURRENT_UPLOADS,
+  selectFailedItems,
   selectIsDrained,
   selectIsRunning,
   selectQueuedItems,
   toBatchResult,
+  toQueuedItem,
   uploadQueueReducer,
   UploadItem,
-} from '@/components/FileUpload/uploadQueueReducer';
-import {
-  runUploadBatch,
-  UploadRunnerApi,
-} from '@/components/FileUpload/uploadRunner';
-
-// Two at a time overlaps one file's extraction submit with the next file's
-// upload without splitting the uplink far enough to push either toward the
-// 120s upload timeout.
-export const MAX_CONCURRENT_UPLOADS = 2;
-export const MAX_FILES_PER_BATCH = 10;
+} from '@/utils/importUploadQueue';
+import { runUploadBatch, UploadRunnerApi } from '@/utils/importUploadRunner';
 
 interface UseMultiFileImportOptions {
   onAllSucceeded?: () => void;
@@ -52,10 +46,6 @@ const uploadRunnerApi: UploadRunnerApi = {
     importService.processImport(fileUrl, originalFileName, paymentMonth),
 };
 
-function requeue(item: UploadItem): UploadItem {
-  return { ...item, status: 'queued', progress: 0, error: undefined };
-}
-
 export function useMultiFileImport({
   onAllSucceeded,
 }: UseMultiFileImportOptions = {}): UseMultiFileImportResult {
@@ -65,14 +55,13 @@ export function useMultiFileImport({
   );
   const queryClient = useQueryClient();
 
+  // A retry dispatches and starts its batch in the same tick, before the
+  // state-derived flag would have re-rendered.
   const isRunningRef = useRef(false);
   const notifiedRef = useRef(false);
 
   const isDrained = selectIsDrained(state);
-  const summary = useMemo(
-    () => (isDrained ? toBatchResult(state) : null),
-    [isDrained, state],
-  );
+  const summary = isDrained ? toBatchResult(state) : null;
 
   /**
    * The batch is passed in rather than read back from state: a dispatch made
@@ -101,13 +90,25 @@ export function useMultiFileImport({
     [queryClient],
   );
 
+  // Completion is decided from the whole queue, not the batch: retrying one of
+  // several failed rows must not report success while the others are still red.
   useEffect(() => {
     if (!isDrained || notifiedRef.current) return;
-    if (state.items.some((item) => item.status === 'failed')) return;
+    if (selectFailedItems(state).length > 0) return;
 
     notifiedRef.current = true;
     onAllSucceeded?.();
-  }, [isDrained, onAllSucceeded, state.items]);
+  }, [isDrained, onAllSucceeded, state]);
+
+  const requeueAndRun = useCallback(
+    (items: UploadItem[]) => {
+      if (items.length === 0) return;
+
+      dispatch({ type: 'REQUEUE', ids: items.map((item) => item.id) });
+      void runBatch(items.map(toQueuedItem));
+    },
+    [runBatch],
+  );
 
   const start = useCallback(() => {
     void runBatch(selectQueuedItems(state));
@@ -115,24 +116,14 @@ export function useMultiFileImport({
 
   const retryItem = useCallback(
     (id: string) => {
-      const failed = state.items.find(
-        (item) => item.id === id && item.status === 'failed',
-      );
-      if (!failed) return;
-
-      dispatch({ type: 'RETRY_ITEM', id });
-      void runBatch([requeue(failed)]);
+      requeueAndRun(selectFailedItems(state).filter((item) => item.id === id));
     },
-    [runBatch, state.items],
+    [requeueAndRun, state],
   );
 
   const retryAllFailed = useCallback(() => {
-    const failed = state.items.filter((item) => item.status === 'failed');
-    if (failed.length === 0) return;
-
-    dispatch({ type: 'RETRY_ALL_FAILED' });
-    void runBatch(failed.map(requeue));
-  }, [runBatch, state.items]);
+    requeueAndRun(selectFailedItems(state));
+  }, [requeueAndRun, state]);
 
   const addFiles = useCallback((files: File[], paymentMonth: string) => {
     dispatch({ type: 'ADD_FILES', files, paymentMonth });
@@ -158,7 +149,7 @@ export function useMultiFileImport({
     items: state.items,
     isRunning: selectIsRunning(state),
     summary,
-    hasFailures: state.items.some((item) => item.status === 'failed'),
+    hasFailures: selectFailedItems(state).length > 0,
     queuedCount: selectQueuedItems(state).length,
     addFiles,
     removeItem,

@@ -113,6 +113,14 @@ export class ImportRepository {
     return claimed.count > 0;
   }
 
+  /** Undoes a claim whose processing threw, so a redelivery can try again. */
+  async releaseExtractionClaim(id: string): Promise<void> {
+    await prisma.import.updateMany({
+      where: { id },
+      data: { extractionCompletedAt: null },
+    });
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     await prisma.import.update({
       where: { id, userId },

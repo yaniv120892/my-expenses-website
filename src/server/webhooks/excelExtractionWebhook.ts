@@ -6,9 +6,10 @@ import {
 } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
-import { ImportStatus, ImportBankSourceType } from '@prisma/client';
+import { Import, ImportStatus, ImportBankSourceType } from '@prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
+import { getErrorMessage } from '@/server/utils/errorUtils';
 
 export interface WebhookResult {
   status: number;
@@ -143,15 +144,23 @@ export async function processExcelExtractionWebhook(
       };
     }
 
-    switch (payload.status) {
-      case 'COMPLETED':
-        await handleCompletedExtraction(importRecord.id, payload);
-        break;
-      case 'FAILED':
+    try {
+      if (payload.status === 'COMPLETED') {
+        await handleCompletedExtraction(importRecord, payload);
+      } else {
         await handleFailedExtraction(importRecord.id, payload);
-        break;
-      default:
-        throw new Error(`Invalid webhook status: ${payload.status}`);
+      }
+    } catch (err) {
+      // The claim above is what stops a redelivery from duplicating rows, so
+      // a half-done attempt would otherwise leave the import stuck in
+      // PROCESSING with no way back. Release it and record why.
+      await importRepository.releaseExtractionClaim(importRecord.id);
+      await importRepository.updateStatus(
+        importRecord.id,
+        ImportStatus.FAILED,
+        getErrorMessage(err, 'Failed to process extraction result'),
+      );
+      throw err;
     }
 
     logger.info(
@@ -179,7 +188,7 @@ export async function processExcelExtractionWebhook(
 }
 
 async function handleCompletedExtraction(
-  importId: string,
+  importRecord: Import,
   payload: WebhookPayload,
 ): Promise<void> {
   if (!payload.result) {
@@ -187,6 +196,7 @@ async function handleCompletedExtraction(
   }
 
   const { result } = payload;
+  const importId = importRecord.id;
 
   logger.info(
     {
@@ -199,11 +209,6 @@ async function handleCompletedExtraction(
   );
 
   const transactions = toImportedTransactionRows(result, importId);
-
-  const importRecord = await importRepository.findById(importId);
-  if (!importRecord) {
-    throw new Error(`Import record not found: ${importId}`);
-  }
 
   await writeExtractionMetadata(importId, result.metadata);
 
@@ -295,17 +300,15 @@ async function mergeIntoDuplicateImport(
     metadata.creditCardLastFour,
     importId,
   );
-  if (!existingImport || existingImport.id === importId) {
-    return null;
-  }
+  // findExisting already excludes this import, and returns the globally oldest
+  // match — which may still be younger than this one, so the check stands.
+  if (!existingImport) return null;
 
   const isOlder =
-    existingImport.createdAt.getTime() < createdAt.getTime() ||
+    existingImport.createdAt < createdAt ||
     (existingImport.createdAt.getTime() === createdAt.getTime() &&
       existingImport.id < importId);
-  if (!isOlder) {
-    return null;
-  }
+  if (!isOlder) return null;
 
   logger.info(
     {
@@ -323,15 +326,18 @@ async function mergeIntoDuplicateImport(
     ownRows,
   );
 
-  await importedTransactionRepository.moveToImport(
-    nonDuplicateRows.map((row) => row.id),
-    existingImport.id,
-  );
-
-  // Whatever is still attached would block the delete below — the FK is
-  // Restrict — and it is by definition already present in the surviving import.
-  await importedTransactionRepository.deleteByImportId(importId);
-  await prisma.import.delete({ where: { id: importId } });
+  // One batch, so a failure between the move and the delete cannot leave the
+  // rows reparented under an import that still exists. Whatever is not moved
+  // is by definition already present in the survivor, and would block the
+  // delete anyway — the FK is Restrict.
+  await prisma.$transaction([
+    ...importedTransactionRepository.moveToImportOps(
+      nonDuplicateRows.map((row) => row.id),
+      existingImport.id,
+    ),
+    importedTransactionRepository.deleteByImportIdOp(importId),
+    prisma.import.delete({ where: { id: importId } }),
+  ]);
 
   logger.info(
     {

@@ -1,5 +1,6 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
-import { UploadItem, UploadQueueAction } from './uploadQueueReducer';
+import { handleApiError } from '@/utils/api';
+import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
 
 /** The slice of the imports API the runner needs, so tests can supply their own. */
 export interface UploadRunnerApi {
@@ -15,11 +16,6 @@ export interface UploadRunnerApi {
 }
 
 export type UploadDispatch = (action: UploadQueueAction) => void;
-
-export function getUploadErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  return 'Failed to import file';
-}
 
 /**
  * Uploads one queued file and turns it into an import. An item that already
@@ -47,7 +43,13 @@ export async function runUploadItem(
     formData.append('file', blob, item.file.name);
 
     const uploaded = await api.uploadImportFile(formData, (progress) =>
-      dispatch({ type: 'UPLOAD_PROGRESS', id: item.id, progress }),
+      dispatch({
+        type: 'UPLOAD_PROGRESS',
+        id: item.id,
+        // Rounded so a stream of sub-percent XHR events collapses into at
+        // most 100 state updates per file.
+        progress: Math.round(progress),
+      }),
     );
     fileUrl = uploaded.fileUrl;
   }
@@ -80,7 +82,7 @@ export async function runUploadBatch(
       dispatch({
         type: 'ITEM_FAILED',
         id: item.id,
-        error: getUploadErrorMessage(error),
+        error: handleApiError(error, 'Failed to import file'),
       });
     }
   });

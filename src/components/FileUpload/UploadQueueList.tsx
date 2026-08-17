@@ -14,25 +14,21 @@ import {
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
-import { UploadItem, UploadItemStatus } from './uploadQueueReducer';
-
-const STATUS_LABELS: Record<UploadItemStatus, string> = {
-  queued: 'Queued',
-  uploading: 'Uploading',
-  processing: 'Processing',
-  succeeded: 'Imported',
-  failed: 'Failed',
-};
-
-const STATUS_COLORS: Record<
+import {
+  isTerminal,
+  UploadItem,
   UploadItemStatus,
-  'default' | 'primary' | 'success' | 'error'
+} from '@/utils/importUploadQueue';
+
+// 'succeeded' is absent by design: that row renders a tick, never a chip.
+const STATUS_CHIPS: Record<
+  Exclude<UploadItemStatus, 'succeeded'>,
+  { label: string; color: 'default' | 'primary' | 'error' }
 > = {
-  queued: 'default',
-  uploading: 'primary',
-  processing: 'primary',
-  succeeded: 'success',
-  failed: 'error',
+  queued: { label: 'Queued', color: 'default' },
+  uploading: { label: 'Uploading', color: 'primary' },
+  processing: { label: 'Processing', color: 'primary' },
+  failed: { label: 'Failed', color: 'error' },
 };
 
 function formatSize(bytes: number): string {
@@ -94,8 +90,8 @@ export default function UploadQueueList({
               ) : (
                 <Chip
                   size="small"
-                  label={STATUS_LABELS[item.status]}
-                  color={STATUS_COLORS[item.status]}
+                  label={STATUS_CHIPS[item.status].label}
+                  color={STATUS_CHIPS[item.status].color}
                 />
               )}
 
@@ -128,7 +124,7 @@ export default function UploadQueueList({
             </Stack>
           </Stack>
 
-          {item.status !== 'succeeded' && item.status !== 'failed' && (
+          {!isTerminal(item.status) && (
             <TextField
               fullWidth
               size="small"

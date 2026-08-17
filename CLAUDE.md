@@ -17,7 +17,7 @@ npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
-npm test                 # vitest unit tests (src/**/*.test.ts)
+npm test                 # vitest unit tests (src/**/*.test.{ts,tsx})
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 ```
@@ -25,6 +25,12 @@ npm run test:e2e:ui      # Playwright specs in e2e/
 Pre-commit runs lint-staged + typecheck (husky). CI
 (`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
 e2e suites against `npx prisma dev` as the local Prisma Postgres.
+
+Vitest runs on `node` by default; a component or hook test opts into a DOM
+with a `// @vitest-environment jsdom` docblock and renders through
+`src/test/renderWithClient.tsx` (React Testing Library + a QueryClient). Keep
+logic that can be tested without a DOM in a plain `.ts` module — most suites
+here are pure functions, not components.
 
 ## Architecture
 
@@ -37,7 +43,8 @@ e2e suites against `npx prisma dev` as the local Prisma Postgres.
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
   request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
-  (HMAC in query params), `/api/auth/*` (cookie handling).
+  (HMAC in query params over `userId:timestamp:importId`, so a callback is
+  bound to the import it was submitted for), `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
@@ -46,8 +53,14 @@ e2e suites against `npx prisma dev` as the local Prisma Postgres.
 - `src/shared/` — zod request schemas (`schemas/`, inferred types shared by
   routes and client) and domain types (`types/`).
 - `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
-  `src/services/` (thin axios client, SSE chat client), `src/theme/` (MUI
-  CSS-vars theme, light+dark, `palette.charts` for recharts colors).
+  `src/services/` (thin axios client, SSE chat client), `src/utils/` (pure
+  helpers — components and hooks import from here, never the reverse),
+  `src/test/` (test-only render helpers), `src/theme/` (MUI CSS-vars theme,
+  light+dark, `palette.charts` for recharts colors).
+- Server state that changes without the client acting — extraction webhooks
+  are the only case today — is observed by polling: `useImportsQuery` sets a
+  `refetchInterval` while any import is in flight and `false` otherwise (see
+  `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
 - `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 

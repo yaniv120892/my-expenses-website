@@ -1,13 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  UploadItem,
-  UploadQueueAction,
-} from '@/components/FileUpload/uploadQueueReducer';
+import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
 import {
   runUploadBatch,
   runUploadItem,
   UploadRunnerApi,
-} from '@/components/FileUpload/uploadRunner';
+} from '@/utils/importUploadRunner';
 
 function item(over: Partial<UploadItem> = {}): UploadItem {
   return {

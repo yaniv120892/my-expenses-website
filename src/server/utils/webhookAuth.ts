@@ -8,7 +8,9 @@ function getWebhookSecret(): string {
   return requireEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET');
 }
 
-// importId is optional so callbacks issued before it was signed still verify.
+// importId is optional only so callbacks already in flight at deploy time
+// still verify. Tokens expire after TOKEN_EXPIRY_MS, so the unbound branch is
+// dead an hour after rollout and both `importId?` parameters can be required.
 export function generateWebhookToken(
   userId: string,
   timestamp: number,
@@ -99,7 +101,7 @@ export function verifyWebhookToken(
   }
 }
 
-export function extractWebhookParams(query: Record<string, unknown>): {
+export function extractWebhookParams(query: Record<string, string>): {
   token: string;
   userId: string;
   timestamp: number;

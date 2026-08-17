@@ -30,16 +30,24 @@ export type UploadQueueAction =
   | { type: 'UPLOAD_SUCCEEDED'; id: string; fileUrl: string }
   | { type: 'ITEM_SUCCEEDED'; id: string; importId: string }
   | { type: 'ITEM_FAILED'; id: string; error: string }
-  | { type: 'RETRY_ITEM'; id: string }
-  | { type: 'RETRY_ALL_FAILED' }
+  | { type: 'REQUEUE'; ids: string[] }
   | { type: 'RESET' };
+
+// Two at a time overlaps one file's extraction submit with the next file's
+// upload without splitting the uplink far enough to push either toward the
+// 120s upload timeout.
+export const MAX_CONCURRENT_UPLOADS = 2;
+export const MAX_FILES_PER_BATCH = 10;
 
 export const initialUploadQueueState: UploadQueueState = {
   items: [],
   nextSeq: 0,
 };
 
-const TERMINAL_STATUSES: UploadItemStatus[] = ['succeeded', 'failed'];
+/** A row that has settled: nothing further will happen to it on its own. */
+export function isTerminal(status: UploadItemStatus): boolean {
+  return status === 'succeeded' || status === 'failed';
+}
 
 function isSameFile(a: File, b: File): boolean {
   return (
@@ -47,7 +55,7 @@ function isSameFile(a: File, b: File): boolean {
   );
 }
 
-function toQueuedItem(item: UploadItem): UploadItem {
+export function toQueuedItem(item: UploadItem): UploadItem {
   return {
     ...item,
     status: 'queued',
@@ -75,11 +83,17 @@ export function uploadQueueReducer(
     case 'ADD_FILES': {
       // A re-drop of a file already queued would otherwise create a second
       // import for the same statement.
-      const added = action.files.filter(
+      const fresh = action.files.filter(
         (file) =>
           !state.items.some(
             (item) => item.status !== 'failed' && isSameFile(item.file, file),
           ),
+      );
+      // The cap is the queue's, not one drop's: several drops must not add up
+      // past it.
+      const added = fresh.slice(
+        0,
+        Math.max(0, MAX_FILES_PER_BATCH - state.items.length),
       );
 
       return {
@@ -113,7 +127,7 @@ export function uploadQueueReducer(
       return {
         ...state,
         items: state.items.map((item) =>
-          TERMINAL_STATUSES.includes(item.status)
+          isTerminal(item.status)
             ? item
             : { ...item, paymentMonth: action.paymentMonth },
         ),
@@ -128,10 +142,11 @@ export function uploadQueueReducer(
       }));
 
     case 'UPLOAD_PROGRESS':
-      return mapItem(state, action.id, (item) => ({
-        ...item,
-        progress: action.progress,
-      }));
+      return mapItem(state, action.id, (item) =>
+        item.progress === action.progress
+          ? item
+          : { ...item, progress: action.progress },
+      );
 
     case 'UPLOAD_SUCCEEDED':
       return mapItem(state, action.id, (item) => ({
@@ -156,14 +171,11 @@ export function uploadQueueReducer(
         error: action.error,
       }));
 
-    case 'RETRY_ITEM':
-      return mapItem(state, action.id, toQueuedItem);
-
-    case 'RETRY_ALL_FAILED':
+    case 'REQUEUE':
       return {
         ...state,
         items: state.items.map((item) =>
-          item.status === 'failed' ? toQueuedItem(item) : item,
+          action.ids.includes(item.id) ? toQueuedItem(item) : item,
         ),
       };
 
@@ -182,15 +194,19 @@ export function selectQueuedItems(state: UploadQueueState): UploadItem[] {
   return state.items.filter((item) => item.status === 'queued');
 }
 
+export function selectFailedItems(state: UploadQueueState): UploadItem[] {
+  return state.items.filter((item) => item.status === 'failed');
+}
+
 export function selectIsDrained(state: UploadQueueState): boolean {
   return (
     state.items.length > 0 &&
-    state.items.every((item) => TERMINAL_STATUSES.includes(item.status))
+    state.items.every((item) => isTerminal(item.status))
   );
 }
 
 export function toBatchResult(state: UploadQueueState): BatchResult {
-  const failed = state.items.filter((item) => item.status === 'failed');
+  const failed = selectFailedItems(state);
 
   return {
     total: state.items.length,

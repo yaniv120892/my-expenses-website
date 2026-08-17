@@ -12,10 +12,21 @@ const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
  * the imports, submitting extraction to the mock agent, and the webhook that
  * completes them — runs for real.
  */
-async function stubS3Upload(page: Page): Promise<void> {
+async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
   let uploadCount = 0;
+  let shouldFail = failFirst;
 
   await page.route('**/api/imports/upload', async (route) => {
+    if (shouldFail) {
+      shouldFail = false;
+      await route.fulfill({
+        status: 400,
+        contentType: 'text/plain',
+        body: 'File is too large. Maximum size is 10MB',
+      });
+      return;
+    }
+
     uploadCount++;
     await route.fulfill({
       status: 200,
@@ -110,26 +121,7 @@ test.describe('multi-file imports', () => {
     page,
   }) => {
     await signIn(page, TOKEN);
-
-    let failNext = true;
-    await page.route('**/api/imports/upload', async (route) => {
-      if (failNext) {
-        failNext = false;
-        await route.fulfill({
-          status: 400,
-          contentType: 'text/plain',
-          body: 'File is too large. Maximum size is 10MB',
-        });
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          fileUrl: `https://${BUCKET}.s3.${REGION}.amazonaws.com/imports/e2e-retry-statement.csv`,
-        }),
-      });
-    });
+    await stubS3Upload(page, true);
 
     const card = uniqueCardFile();
 

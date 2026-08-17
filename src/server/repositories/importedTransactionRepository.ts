@@ -130,23 +130,25 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  /** Reassigns rows to another import, used when merging a duplicate import. */
-  async moveToImport(ids: string[], importId: string): Promise<number> {
-    if (ids.length === 0) return 0;
+  /**
+   * Reassigns rows to another import, used when merging a duplicate import.
+   * Returned unawaited so the caller can batch it into one transaction with
+   * the delete that follows.
+   */
+  moveToImportOps(ids: string[], importId: string) {
+    if (ids.length === 0) return [];
 
-    const result = await prisma.importedTransaction.updateMany({
-      where: { id: { in: ids } },
-      data: { importId },
-    });
-    return result.count;
+    return [
+      prisma.importedTransaction.updateMany({
+        where: { id: { in: ids } },
+        data: { importId },
+      }),
+    ];
   }
 
   /** Hard delete: the parent import row is about to go, and the FK is Restrict. */
-  async deleteByImportId(importId: string): Promise<number> {
-    const result = await prisma.importedTransaction.deleteMany({
-      where: { importId },
-    });
-    return result.count;
+  deleteByImportIdOp(importId: string) {
+    return prisma.importedTransaction.deleteMany({ where: { importId } });
   }
 
   /**

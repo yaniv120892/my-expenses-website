@@ -8,7 +8,7 @@ import {
   uploadQueueReducer,
   UploadQueueAction,
   UploadQueueState,
-} from '@/components/FileUpload/uploadQueueReducer';
+} from '@/utils/importUploadQueue';
 
 function file(name: string, lastModified = 1): File {
   return new File(['content'], name, { lastModified });
@@ -71,6 +71,34 @@ describe('uploadQueueReducer', () => {
     ]);
   });
 
+  it('caps the queue across drops, not just within one', () => {
+    const drop = (start: number) =>
+      Array.from({ length: 6 }, (_, i) => file(`card-${start + i}.csv`));
+
+    const state = reduce(withFiles(drop(0)), {
+      type: 'ADD_FILES',
+      files: drop(10),
+      paymentMonth: '',
+    });
+
+    expect(state.items).toHaveLength(10);
+  });
+
+  it('ignores a progress update that does not move the bar', () => {
+    const queued = reduce(withFiles([file('a.csv')]), {
+      type: 'UPLOAD_PROGRESS',
+      id: '0',
+      progress: 40,
+    });
+    const same = reduce(queued, {
+      type: 'UPLOAD_PROGRESS',
+      id: '0',
+      progress: 40,
+    });
+
+    expect(same.items[0]).toBe(queued.items[0]);
+  });
+
   it('allows re-adding a file whose earlier attempt failed', () => {
     const retried = file('a.csv');
     const state = reduce(
@@ -105,7 +133,7 @@ describe('uploadQueueReducer', () => {
       { type: 'UPLOAD_STARTED', id: '0' },
       { type: 'UPLOAD_SUCCEEDED', id: '0', fileUrl: 'https://s3/a.csv' },
       { type: 'ITEM_FAILED', id: '0', error: 'process failed' },
-      { type: 'RETRY_ITEM', id: '0' },
+      { type: 'REQUEUE', ids: ['0'] },
     );
 
     expect(state.items[0]).toMatchObject({
@@ -116,12 +144,12 @@ describe('uploadQueueReducer', () => {
     });
   });
 
-  it('requeues only the failed items on RETRY_ALL_FAILED', () => {
+  it('requeues only the ids it is given', () => {
     const state = reduce(
       withFiles([file('a.csv'), file('b.csv')]),
       { type: 'ITEM_SUCCEEDED', id: '0', importId: 'import-1' },
       { type: 'ITEM_FAILED', id: '1', error: 'boom' },
-      { type: 'RETRY_ALL_FAILED' },
+      { type: 'REQUEUE', ids: ['1'] },
     );
 
     expect(state.items.map((item) => item.status)).toEqual([

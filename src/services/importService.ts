@@ -15,7 +15,6 @@ class ImportService {
   uploadImportFile(
     formData: FormData,
     onProgress?: (progress: number) => void,
-    signal?: AbortSignal,
   ): Promise<{ fileUrl: string }> {
     return new Promise<{ fileUrl: string }>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -41,9 +40,6 @@ class ImportService {
       xhr.onerror = () => {
         reject(new Error('Network error during upload'));
       };
-      xhr.onabort = () => {
-        reject(new Error('Upload cancelled'));
-      };
       xhr.timeout = UPLOAD_TIMEOUT_MS;
       xhr.ontimeout = () => {
         reject(
@@ -52,7 +48,6 @@ class ImportService {
           ),
         );
       };
-      signal?.addEventListener('abort', () => xhr.abort(), { once: true });
       xhr.send(formData);
     });
   }

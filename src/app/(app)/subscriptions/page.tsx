@@ -21,6 +21,7 @@ import {
   useConvertSubscriptionMutation,
 } from '@/hooks/useSubscriptionsQuery';
 import { DetectedSubscription, SubscriptionStatus } from '@/types/subscription';
+import { formatCurrencyRounded } from '@/utils/format';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
 
@@ -88,7 +89,10 @@ export default function SubscriptionsPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+              gridTemplateColumns: {
+                xs: 'repeat(2, 1fr)',
+                sm: 'repeat(4, 1fr)',
+              },
               gap: 2,
             }}
           >
@@ -105,7 +109,10 @@ export default function SubscriptionsPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+              gridTemplateColumns: {
+                xs: 'repeat(2, 1fr)',
+                sm: 'repeat(4, 1fr)',
+              },
               gap: 2,
               mb: 3,
             }}
@@ -118,11 +125,11 @@ export default function SubscriptionsPage() {
             />
             <StatTile
               label="Monthly"
-              value={`$${data.totalMonthlyEstimate.toFixed(0)}`}
+              value={formatCurrencyRounded(data.totalMonthlyEstimate)}
             />
             <StatTile
               label="Annual"
-              value={`$${data.totalAnnualEstimate.toFixed(0)}`}
+              value={formatCurrencyRounded(data.totalAnnualEstimate)}
             />
           </Box>
 

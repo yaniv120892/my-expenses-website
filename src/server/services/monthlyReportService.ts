@@ -1,9 +1,9 @@
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
-import { parse } from 'json2csv';
 import transactionService from '@/server/services/transactionService';
 import userSettingsService from '@/server/services/userSettingsService';
 import emailService from '@/server/services/emailService';
 import { classifyTrend, TrendDirection } from '@/server/utils/trendMath';
+import { CSV_BOM, buildTransactionsCsv } from '@/server/utils/transactionCsv';
 import { Transaction } from '@/shared/types/transaction';
 import logger from '@/server/logging/logger';
 
@@ -125,8 +125,10 @@ class MonthlyReportService {
         ? [
             {
               filename: `transactions_${format(reportMonth, 'yyyy-MM')}.csv`,
-              // Excel only detects UTF-8 from a BOM, and category names are Hebrew.
-              content: Buffer.from(`﻿${this.buildCsv(transactions)}`, 'utf8'),
+              content: Buffer.from(
+                `${CSV_BOM}${buildTransactionsCsv(transactions)}`,
+                'utf8',
+              ),
               contentType: 'text/csv; charset=utf-8',
             },
           ]
@@ -206,20 +208,6 @@ class MonthlyReportService {
     return Array.from(totals.values()).sort(
       (a, b) => b.expense - a.expense || b.income - a.income,
     );
-  }
-
-  private buildCsv(transactions: Transaction[]): string {
-    const rows = transactions.map((transaction) => ({
-      date: format(new Date(transaction.date), 'yyyy-MM-dd'),
-      description: transaction.description,
-      value: transaction.value,
-      type: transaction.type,
-      categoryName: transaction.category?.name || '',
-    }));
-
-    return parse(rows, {
-      fields: ['date', 'description', 'value', 'type', 'categoryName'],
-    });
   }
 
   private buildReportText(report: MonthlyReport): string {

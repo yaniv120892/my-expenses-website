@@ -7,6 +7,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
+import { formatCurrencyPlain } from '@/utils/format';
 import { Transaction } from '@/shared/types/transaction';
 import { AggregationType } from '@/shared/types/chat';
 import { TrendPeriod } from '@/shared/types/trends';
@@ -267,7 +268,7 @@ export function buildAssistantTools() {
         );
         const lines = trends.map(
           (trend) =>
-            `  ${trend.categoryName}: ${chatAggregationService.formatCurrency(trend.totalAmount)} (${chatAggregationService.formatPercentChange(trend.percentageChange)} vs previous period, trending ${trend.trend})`,
+            `  ${trend.categoryName}: ${formatCurrencyPlain(trend.totalAmount)} (${chatAggregationService.formatPercentChange(trend.percentageChange)} vs previous period, trending ${trend.trend})`,
         );
 
         return {
@@ -280,14 +281,14 @@ export function buildAssistantTools() {
       const trend = await trendService.getSpendingTrends(request, userId);
       const points = trend.points.map(
         (point) =>
-          `  ${point.date}: ${chatAggregationService.formatCurrency(point.amount)} (${point.count} transactions)`,
+          `  ${point.date}: ${formatCurrencyPlain(point.amount)} (${point.count} transactions)`,
       );
 
       return {
         summary: [
           `Spending trend (${trend.period}) from ${trend.startDate} to ${trend.endDate}:`,
           ...points,
-          `\nTotal: ${chatAggregationService.formatCurrency(trend.totalAmount)}`,
+          `\nTotal: ${formatCurrencyPlain(trend.totalAmount)}`,
           `Change vs previous period: ${chatAggregationService.formatPercentChange(trend.percentageChange)} (trending ${trend.trend})`,
         ].join('\n'),
       };

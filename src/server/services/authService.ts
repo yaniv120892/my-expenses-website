@@ -27,15 +27,12 @@ class AuthService {
       username,
     );
     if (existingUser) {
-      // Signing up again for an account that never got verified is a retry,
-      // not a conflict: it is the only way back for someone whose code expired
-      // or who ran out of attempts. The code is mailed only on the right
-      // password, but the answer must not say so — this endpoint is public and
-      // unrated, so a distinguishable wrong-password reply would let anyone
-      // guess a pending account's password unlimited times.
-      // Only for the account being signed up for: the lookup also matches on
-      // username, and colliding with a stranger's pending account is a real
-      // conflict, not a retry.
+      // Signing up again for an unverified account is a retry, not a conflict —
+      // the only way back after an expired code or exhausted attempts. The reply
+      // is identical either way because this public, unrated endpoint would
+      // otherwise allow unlimited password guessing; the email check is because
+      // the lookup also matches username, where a stranger's pending account is
+      // a real conflict.
       if (!existingUser.verified && existingUser.email === email) {
         if (await compare(password, existingUser.password)) {
           return this.issueVerificationCode(existingUser.email);

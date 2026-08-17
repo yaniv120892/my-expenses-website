@@ -15,6 +15,7 @@ import {
 } from '@/server/utils/merchantNormalizer';
 import logger from '@/server/logging/logger';
 import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
+import { formatCurrency } from '@/utils/format';
 
 interface TransactionGroup {
   merchantKey: string;
@@ -69,12 +70,12 @@ function buildAuditMessage(subs: DetectedSubscriptionDomain[]): string | null {
       totalMonthly += monthly;
       totalAnnual += sub.annualCost;
       lines.push(
-        `- ${sub.displayName}: $${monthly.toFixed(2)}/mo ($${sub.annualCost.toFixed(2)}/yr)`,
+        `- ${sub.displayName}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
       );
     }
     lines.push('');
     lines.push(
-      `Total: $${totalMonthly.toFixed(2)}/month | $${totalAnnual.toFixed(2)}/year`,
+      `Total: ${formatCurrency(totalMonthly)}/month | ${formatCurrency(totalAnnual)}/year`,
     );
   }
 

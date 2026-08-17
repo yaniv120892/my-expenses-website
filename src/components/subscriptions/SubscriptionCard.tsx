@@ -12,6 +12,7 @@ import {
   Stack,
 } from '@mui/material';
 import { DetectedSubscription } from '@/types/subscription';
+import { formatCurrency } from '@/utils/format';
 
 interface Props {
   subscription: DetectedSubscription;
@@ -108,10 +109,10 @@ export default function SubscriptionCard({
           </Box>
           <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
             <Typography variant="h6" fontWeight={700}>
-              ${subscription.averageAmount.toFixed(2)}
+              {formatCurrency(subscription.averageAmount)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              ${subscription.annualCost.toFixed(2)}/yr
+              {formatCurrency(subscription.annualCost)}/yr
             </Typography>
           </Box>
         </Stack>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CSV_BOM } from '@/shared/csv';
 import {
+  buildTransactionsBackupCsv,
   buildTransactionsCsv,
   buildTransactionsCsvFile,
   transactionsCsvFileName,
@@ -60,6 +61,25 @@ describe('buildTransactionsCsv', () => {
     );
   });
 
+  // Descriptions come from parsed bank statements, and the announcement tells
+  // people to open this file in Excel or Sheets.
+  it.each(['=SUM(A1)', '+1+1', '-1+1', '@SUM(A1)'])(
+    'quotes %s as text so a spreadsheet cannot run it',
+    (description) => {
+      const lines = buildTransactionsCsv([transaction({ description })]).split(
+        '\n',
+      );
+
+      expect(lines[1]).toContain(`"'${description}"`);
+    },
+  );
+
+  it('leaves an ordinary description alone', () => {
+    expect(buildTransactionsCsv([transaction()]).split('\n')[1]).toContain(
+      '"Coffee"',
+    );
+  });
+
   it('leaves the BOM to buildTransactionsCsvFile', () => {
     expect(buildTransactionsCsv([transaction()]).startsWith(CSV_BOM)).toBe(
       false,
@@ -67,6 +87,24 @@ describe('buildTransactionsCsv', () => {
     expect(buildTransactionsCsvFile([transaction()])).toBe(
       `${CSV_BOM}${buildTransactionsCsv([transaction()])}`,
     );
+  });
+});
+
+// The archive is the only copy of the data, so it must not round the day off
+// or edit the text the way the spreadsheet-facing file does.
+describe('buildTransactionsBackupCsv', () => {
+  it('keeps the full instant rather than the day', () => {
+    const lines = buildTransactionsBackupCsv([transaction()]).split('\n');
+
+    expect(lines[1]).toContain('"2026-08-14T09:30:00.000Z"');
+  });
+
+  it('reproduces the description exactly as stored', () => {
+    const lines = buildTransactionsBackupCsv([
+      transaction({ description: '=SUM(A1)' }),
+    ]).split('\n');
+
+    expect(lines[1]).toContain('"=SUM(A1)"');
   });
 });
 

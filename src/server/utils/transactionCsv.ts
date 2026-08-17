@@ -5,29 +5,60 @@ import { Transaction } from '@/shared/types/transaction';
 
 const FIELDS = ['date', 'description', 'value', 'type', 'categoryName'];
 
-/**
- * The one transactions-CSV shape: the user-facing export, the monthly report
- * attachment and the nightly backup are all this same file.
- */
-export function buildTransactionsCsv(transactions: Transaction[]): string {
+// Excel and Sheets execute a cell whose text starts with one of these, and
+// descriptions arrive from parsed bank statements rather than from us. A
+// leading apostrophe is the spreadsheet convention for "this cell is text".
+const FORMULA_TRIGGERS = ['=', '+', '-', '@', '\t', '\r'];
+
+function asText(value: string): string {
+  return FORMULA_TRIGGERS.some((trigger) => value.startsWith(trigger))
+    ? `'${value}`
+    : value;
+}
+
+function buildCsv(
+  transactions: Transaction[],
+  renderDate: (date: Date) => string,
+  renderText: (value: string) => string,
+): string {
   const rows = transactions.map((transaction) => ({
-    date: format(transaction.date, 'yyyy-MM-dd'),
-    description: transaction.description,
+    date: renderDate(transaction.date),
+    description: renderText(transaction.description),
     value: transaction.value,
     type: transaction.type,
-    categoryName: transaction.category?.name || '',
+    categoryName: renderText(transaction.category?.name || ''),
   }));
 
   return parse(rows, { fields: FIELDS });
 }
 
 /**
- * The same rows as a file for a person to open. The backup deliberately stays
- * on the bare builder: it is read by machines, and its bytes should not gain a
- * BOM silently.
+ * The transactions CSV a person opens in a spreadsheet — the user-facing
+ * export and the monthly report attachment. The date column is the day, and
+ * text a spreadsheet would run as a formula is neutralized.
  */
+export function buildTransactionsCsv(transactions: Transaction[]): string {
+  return buildCsv(transactions, (date) => format(date, 'yyyy-MM-dd'), asText);
+}
+
+/** The same file with the BOM Excel needs to detect UTF-8. */
 export function buildTransactionsCsvFile(transactions: Transaction[]): string {
   return `${CSV_BOM}${buildTransactionsCsv(transactions)}`;
+}
+
+/**
+ * The nightly archive, which is a different file: it is the only copy of the
+ * data, so it keeps the full instant and reproduces the text exactly as
+ * stored. Nothing reads it as a spreadsheet.
+ */
+export function buildTransactionsBackupCsv(
+  transactions: Transaction[],
+): string {
+  return buildCsv(
+    transactions,
+    (date) => date.toISOString(),
+    (value) => value,
+  );
 }
 
 /**

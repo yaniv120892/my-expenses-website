@@ -1,5 +1,5 @@
 import transactionService from '@/server/services/transactionService';
-import { buildTransactionsCsv } from '@/server/utils/transactionCsv';
+import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
 import BackupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
 import userRepository from '@/server/repositories/userRepository';
@@ -23,7 +23,7 @@ class BackupService {
       status: 'APPROVED',
       userId,
     });
-    const csv = buildTransactionsCsv(transactions);
+    const csv = buildTransactionsBackupCsv(transactions);
     const fileName = `transactions-backup_${userId}-${new Date().toISOString().slice(0, 10)}.csv`;
     const fileBuffer = Buffer.from(csv, 'utf8');
     const mimeType = 'text/csv';

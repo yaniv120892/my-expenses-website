@@ -13,6 +13,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { formatCurrency } from '@/utils/format';
 import { TransactionType } from '@/types';
+import { CLICKABLE_SLICE_SX } from '@/components/chartStyles';
 
 interface PieTooltipPayload {
   name: string;
@@ -36,7 +37,6 @@ interface Props {
 }
 
 const UNSELECTED_SLICE_OPACITY = 0.3;
-const CLICKABLE_SLICE_SX = { '& .recharts-sector': { cursor: 'pointer' } };
 
 function ChartTooltip({
   active,

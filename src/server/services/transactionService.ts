@@ -100,7 +100,7 @@ class TransactionService {
   private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
     filters: T,
   ): Promise<T> {
-    if (!filters.categoryId || filters.categoryIds) {
+    if (!filters.categoryId) {
       return filters;
     }
     return {
@@ -109,14 +109,20 @@ class TransactionService {
     };
   }
 
+  /** The page read itself, for callers that have already resolved the filters. */
+  private listResolved(
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    return transactionRepository.getTransactionsList({
+      ...filters,
+      status: filters.status || 'APPROVED',
+    });
+  }
+
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
-    const resolved = await this.resolveCategoryFilter(filters);
-    return transactionRepository.getTransactionsList({
-      ...resolved,
-      status: resolved.status || 'APPROVED',
-    });
+    return this.listResolved(await this.resolveCategoryFilter(filters));
   }
 
   /**
@@ -124,22 +130,29 @@ class TransactionService {
    * backup, monthly report). Walks by cursor rather than by offset: this walk
    * reaches the last page by definition, and offset paging makes each page
    * re-scan every row before it.
+   *
+   * `maxRows` stops one row past the cap, so a caller that must refuse an
+   * oversized set pays for a page beyond it rather than the whole history.
    */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,
+    { maxRows }: { maxRows?: number } = {},
   ): Promise<Transaction[]> {
     const transactions: Transaction[] = [];
     const resolved = await this.resolveCategoryFilter(filters);
     let cursor: string | undefined;
 
     do {
-      const page = await this.getTransactionsList({
+      const page = await this.listResolved({
         ...resolved,
         cursor,
         limit: ALL_TRANSACTIONS_PAGE_SIZE,
       });
       transactions.push(...page.items);
       cursor = page.nextCursor ?? undefined;
+      if (maxRows !== undefined && transactions.length > maxRows) {
+        return transactions;
+      }
     } while (cursor);
 
     return transactions;

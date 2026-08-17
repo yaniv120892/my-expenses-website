@@ -50,37 +50,16 @@ export async function getTransactionSummary(
 }
 
 /**
- * A blob response type applies to errors too, so a failure arrives as a Blob
- * of JSON rather than a readable message. Reading it back is the only way the
- * server's reason (an export too large to build, say) reaches the user.
- */
-async function messageFromBlobError(error: unknown): Promise<string | null> {
-  const body = (error as { response?: { data?: unknown } })?.response?.data;
-  if (!(body instanceof Blob)) return null;
-  try {
-    const { message, error: errorText } = JSON.parse(await body.text());
-    return message ?? errorText ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Built from the same filters as the list, so the file holds exactly the rows
  * the page describes — every one of them, not just the pages fetched so far.
  */
 export async function exportTransactionsCsv(
   params?: TransactionFilters,
 ): Promise<{ blob: Blob; fileName: string }> {
-  const res = await api
-    .get('/api/transactions/export', {
-      params: listFilters(params),
-      responseType: 'blob',
-    })
-    .catch(async (error) => {
-      const message = await messageFromBlobError(error);
-      throw message ? new Error(message) : error;
-    });
+  const res = await api.get('/api/transactions/export', {
+    params: listFilters(params),
+    responseType: 'blob',
+  });
   return {
     blob: res.data,
     fileName: filenameFromContentDisposition(

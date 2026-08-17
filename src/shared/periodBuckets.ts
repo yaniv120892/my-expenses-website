@@ -1,4 +1,8 @@
 import {
+  differenceInCalendarDays,
+  differenceInCalendarISOWeeks,
+  differenceInCalendarMonths,
+  differenceInCalendarYears,
   eachDayOfInterval,
   eachMonthOfInterval,
   eachWeekOfInterval,
@@ -58,4 +62,27 @@ export function enumerateBuckets(
     key: bucketKeyFor(bucketStart, period),
     startDate: bucketStart,
   }));
+}
+
+/**
+ * How many buckets enumerateBuckets would produce, without building them, so a
+ * range can be rejected before the work starts. Kept beside it: the two must
+ * agree on every period, weekly included (ISO weeks, Monday-based).
+ */
+export function countBuckets(
+  startDate: Date,
+  endDate: Date,
+  period: TrendPeriod,
+): number {
+  switch (period) {
+    case 'daily':
+      return differenceInCalendarDays(endDate, startDate) + 1;
+    case 'weekly':
+      return differenceInCalendarISOWeeks(endDate, startDate) + 1;
+    case 'yearly':
+      return differenceInCalendarYears(endDate, startDate) + 1;
+    case 'monthly':
+    default:
+      return differenceInCalendarMonths(endDate, startDate) + 1;
+  }
 }

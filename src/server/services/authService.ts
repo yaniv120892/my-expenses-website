@@ -33,7 +33,10 @@ class AuthService {
       // password, but the answer must not say so — this endpoint is public and
       // unrated, so a distinguishable wrong-password reply would let anyone
       // guess a pending account's password unlimited times.
-      if (!existingUser.verified) {
+      // Only for the account being signed up for: the lookup also matches on
+      // username, and colliding with a stranger's pending account is a real
+      // conflict, not a retry.
+      if (!existingUser.verified && existingUser.email === email) {
         if (await compare(password, existingUser.password)) {
           return this.issueVerificationCode(existingUser.email);
         }

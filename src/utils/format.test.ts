@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCurrency,
   formatCurrencyPlain,
+  formatCurrencyRounded,
   formatNumber,
   formatTransaction,
   formatTransactionDate,
@@ -84,6 +85,18 @@ describe('formatCurrencyPlain', () => {
   it('strips the marks Intl adds', () => {
     expect(formatCurrencyPlain(1234.5)).not.toMatch(/[\u200e\u200f\u00a0]/);
     expect(formatCurrency(1234.5)).toMatch(/[\u200e\u200f\u00a0]/);
+  });
+});
+
+describe('formatCurrencyRounded', () => {
+  it('drops the decimals and keeps thousands separators', () => {
+    expect(normalizeCurrency(formatCurrencyRounded(1234.56))).toBe('1,235 ₪');
+    expect(normalizeCurrency(formatCurrencyRounded(14814.72))).toBe('14,815 ₪');
+  });
+
+  it('formats zero and negatives', () => {
+    expect(normalizeCurrency(formatCurrencyRounded(0))).toBe('0 ₪');
+    expect(normalizeCurrency(formatCurrencyRounded(-99.4))).toBe('-99 ₪');
   });
 });
 

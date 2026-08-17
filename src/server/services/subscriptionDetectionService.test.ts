@@ -44,6 +44,18 @@ const enable = (...ids: string[]) =>
 
 const run = () => subscriptionDetectionService.sendMonthlyAuditNotifications();
 
+// Intl currency output carries RTL marks and a non-breaking space; strip them
+// so the expected strings stay readable.
+const normalizeCurrency = (value: string) =>
+  value.replace(/[\u200e\u200f]/g, '').replace(/\u00a0/g, ' ');
+
+const messageFor = (userId: string) =>
+  normalizeCurrency(
+    sendDailySummary.mock.calls.find(
+      (call) => call[1] === userId,
+    )?.[0] as string,
+  );
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -60,16 +72,15 @@ describe('sendMonthlyAuditNotifications', () => {
   it('builds the confirmed block with per-sub and total figures', async () => {
     subRepo.getActiveForAllUsers.mockResolvedValue([sub()]);
     await run();
-    expect(sendDailySummary).toHaveBeenCalledWith(
+    expect(messageFor('user-1')).toBe(
       [
         header,
         '',
         'Active Subscriptions:',
-        '- Netflix: $10.00/mo ($120.00/yr)',
+        '- Netflix: 10.00 ₪/mo (120.00 ₪/yr)',
         '',
-        'Total: $10.00/month | $120.00/year',
+        'Total: 10.00 ₪/month | 120.00 ₪/year',
       ].join('\n'),
-      'user-1',
     );
   });
 
@@ -84,10 +95,10 @@ describe('sendMonthlyAuditNotifications', () => {
       }),
     ]);
     await run();
-    const message = sendDailySummary.mock.calls[0][0] as string;
-    expect(message).toContain('- Netflix: $52.00/mo ($624.00/yr)');
-    expect(message).toContain('- Netflix: $10.00/mo ($120.00/yr)');
-    expect(message).toContain('Total: $62.00/month | $744.00/year');
+    const message = messageFor('user-1');
+    expect(message).toContain('- Netflix: 52.00 ₪/mo (624.00 ₪/yr)');
+    expect(message).toContain('- Netflix: 10.00 ₪/mo (120.00 ₪/yr)');
+    expect(message).toContain('Total: 62.00 ₪/month | 744.00 ₪/year');
   });
 
   it('skips users without the audit preference', async () => {

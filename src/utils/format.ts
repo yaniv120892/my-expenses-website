@@ -34,6 +34,16 @@ export function formatCurrencyPlain(value: number) {
     .replace(/\u00a0/g, ' ');
 }
 
+const ilsRoundedFormatter = new Intl.NumberFormat('he-IL', {
+  style: 'currency',
+  currency: 'ILS',
+  maximumFractionDigits: 0,
+});
+
+export function formatCurrencyRounded(value: number) {
+  return ilsRoundedFormatter.format(value);
+}
+
 export function translateToScheduleSummary(
   scheduleType: ScheduleType,
   interval: number | undefined,

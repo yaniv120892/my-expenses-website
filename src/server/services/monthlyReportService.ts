@@ -6,6 +6,7 @@ import { classifyTrend, TrendDirection } from '@/server/utils/trendMath';
 import { buildTransactionsCsvFile } from '@/server/utils/transactionCsv';
 import { Transaction } from '@/shared/types/transaction';
 import logger from '@/server/logging/logger';
+import { formatCurrency } from '@/utils/format';
 
 interface CategoryTotal {
   categoryName: string;
@@ -32,12 +33,6 @@ interface MonthlyReport {
   expenseTrend: TrendDirection;
   categories: CategoryTotal[];
 }
-
-// Module-level so a formatter is not constructed per row.
-const ilsFormatter = new Intl.NumberFormat('he-IL', {
-  style: 'currency',
-  currency: 'ILS',
-});
 
 class MonthlyReportService {
   public async sendMonthlyReportToAllUsers(
@@ -213,9 +208,9 @@ class MonthlyReportService {
   private buildReportText(report: MonthlyReport): string {
     const categoryLines = report.categories.map(
       (category) =>
-        `${category.categoryName}: ${this.formatAmount(
+        `${category.categoryName}: ${formatCurrency(
           category.expense,
-        )} spent, ${this.formatAmount(category.income)} received (${
+        )} spent, ${formatCurrency(category.income)} received (${
           category.count
         } ${category.count === 1 ? 'transaction' : 'transactions'})`,
     );
@@ -234,9 +229,9 @@ class MonthlyReportService {
     return [
       `Your expense report for ${report.monthLabel}`,
       '',
-      `Total income: ${this.formatAmount(report.totalIncome)}`,
-      `Total expenses: ${this.formatAmount(report.totalExpense)}`,
-      `Net: ${this.formatAmount(report.net)}`,
+      `Total income: ${formatCurrency(report.totalIncome)}`,
+      `Total expenses: ${formatCurrency(report.totalExpense)}`,
+      `Net: ${formatCurrency(report.net)}`,
       `Transactions: ${report.transactionCount}`,
       `Spending vs previous month: ${this.formatChange(report)}`,
       '',
@@ -258,10 +253,10 @@ class MonthlyReportService {
             <td style="padding: 8px; border-bottom: 1px solid #eee;">${this.escapeHtml(
               category.categoryName,
             )}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${this.formatAmount(
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(
               category.expense,
             )}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${this.formatAmount(
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(
               category.income,
             )}</td>
             <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${
@@ -296,19 +291,19 @@ class MonthlyReportService {
         <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
           <tr>
             <td style="padding: 8px; background: #f4f4f4;">Total income</td>
-            <td style="padding: 8px; background: #f4f4f4; text-align: right;">${this.formatAmount(
+            <td style="padding: 8px; background: #f4f4f4; text-align: right;">${formatCurrency(
               report.totalIncome,
             )}</td>
           </tr>
           <tr>
             <td style="padding: 8px;">Total expenses</td>
-            <td style="padding: 8px; text-align: right;">${this.formatAmount(
+            <td style="padding: 8px; text-align: right;">${formatCurrency(
               report.totalExpense,
             )}</td>
           </tr>
           <tr>
             <td style="padding: 8px; background: #f4f4f4; font-weight: bold;">Net</td>
-            <td style="padding: 8px; background: #f4f4f4; text-align: right; font-weight: bold;">${this.formatAmount(
+            <td style="padding: 8px; background: #f4f4f4; text-align: right; font-weight: bold;">${formatCurrency(
               report.net,
             )}</td>
           </tr>
@@ -345,10 +340,6 @@ class MonthlyReportService {
     return `${Math.abs(report.expenseChangePercentage).toFixed(
       1,
     )}% ${direction}`;
-  }
-
-  private formatAmount(value: number): string {
-    return ilsFormatter.format(value);
   }
 
   private escapeHtml(value: string): string {

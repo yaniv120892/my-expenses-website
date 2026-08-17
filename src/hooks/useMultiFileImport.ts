@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { importKeys } from '@/hooks/useImports';
 import { BatchResult } from '@/types/import';
-import { runWithConcurrency } from '@/utils/asyncPool';
 import {
   initialUploadQueueState,
   selectIsDrained,
@@ -15,6 +14,10 @@ import {
   uploadQueueReducer,
   UploadItem,
 } from '@/components/FileUpload/uploadQueueReducer';
+import {
+  runUploadBatch,
+  UploadRunnerApi,
+} from '@/components/FileUpload/uploadRunner';
 
 // Two at a time overlaps one file's extraction submit with the next file's
 // upload without splitting the uplink far enough to push either toward the
@@ -42,10 +45,12 @@ export interface UseMultiFileImportResult {
   reset: () => void;
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'Failed to import file';
-}
+const uploadRunnerApi: UploadRunnerApi = {
+  uploadImportFile: (formData, onProgress) =>
+    importService.uploadImportFile(formData, onProgress),
+  processImport: (fileUrl, originalFileName, paymentMonth) =>
+    importService.processImport(fileUrl, originalFileName, paymentMonth),
+};
 
 function requeue(item: UploadItem): UploadItem {
   return { ...item, status: 'queued', progress: 0, error: undefined };
@@ -69,41 +74,6 @@ export function useMultiFileImport({
     [isDrained, state],
   );
 
-  const runItem = useCallback(async (item: UploadItem) => {
-    let fileUrl = item.fileUrl;
-
-    if (!fileUrl) {
-      dispatch({ type: 'UPLOAD_STARTED', id: item.id });
-
-      // Safari loses the backing store of a File held across an async gap, so
-      // the bytes are re-wrapped into a Blob before the request starts.
-      const arrayBuffer = await item.file.arrayBuffer();
-      const blob = new Blob([arrayBuffer], {
-        type: item.file.type || 'application/octet-stream',
-      });
-
-      const formData = new FormData();
-      formData.append('file', blob, item.file.name);
-
-      const uploaded = await importService.uploadImportFile(
-        formData,
-        (progress) =>
-          dispatch({ type: 'UPLOAD_PROGRESS', id: item.id, progress }),
-      );
-      fileUrl = uploaded.fileUrl;
-    }
-
-    dispatch({ type: 'UPLOAD_SUCCEEDED', id: item.id, fileUrl });
-
-    const created = await importService.processImport(
-      fileUrl,
-      item.file.name,
-      item.paymentMonth || undefined,
-    );
-
-    dispatch({ type: 'ITEM_SUCCEEDED', id: item.id, importId: created.id });
-  }, []);
-
   /**
    * The batch is passed in rather than read back from state: a dispatch made
    * by the caller has not been rendered yet when this runs.
@@ -116,20 +86,11 @@ export function useMultiFileImport({
       notifiedRef.current = false;
 
       try {
-        await runWithConcurrency(
+        await runUploadBatch(
           batch,
+          uploadRunnerApi,
+          dispatch,
           MAX_CONCURRENT_UPLOADS,
-          async (item) => {
-            try {
-              await runItem(item);
-            } catch (error) {
-              dispatch({
-                type: 'ITEM_FAILED',
-                id: item.id,
-                error: getErrorMessage(error),
-              });
-            }
-          },
         );
       } finally {
         isRunningRef.current = false;
@@ -137,7 +98,7 @@ export function useMultiFileImport({
         queryClient.invalidateQueries({ queryKey: importKeys.lists() });
       }
     },
-    [queryClient, runItem],
+    [queryClient],
   );
 
   useEffect(() => {

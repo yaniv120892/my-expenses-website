@@ -63,17 +63,20 @@ export default function TrendsPage() {
       !isCompare && isAllCategories,
     );
 
-  const { data: comparison, isLoading: isComparisonLoading } =
-    useCategoryComparisonQuery(
-      {
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        period: filters.period,
-        categoryIds: filters.comparisonCategoryIds,
-        scope: filters.comparisonScope,
-      },
-      isCompare,
-    );
+  const {
+    data: comparison,
+    isLoading: isComparisonLoading,
+    isError: isComparisonError,
+  } = useCategoryComparisonQuery(
+    {
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      period: filters.period,
+      categoryIds: filters.comparisonCategoryIds,
+      scope: filters.comparisonScope,
+    },
+    isCompare,
+  );
 
   const isLoading = isOverallLoading || isCategoryLoading;
 
@@ -140,6 +143,7 @@ export default function TrendsPage() {
         <CategoryComparisonSection
           comparison={comparison}
           isLoading={isComparisonLoading}
+          isError={isComparisonError}
           selectedCount={filters.comparisonCategoryIds.length}
           measure={measure}
           onMeasureChange={setMeasure}

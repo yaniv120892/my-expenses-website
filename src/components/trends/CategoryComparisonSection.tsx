@@ -29,6 +29,7 @@ import { ComparisonTable } from '@/components/trends/ComparisonTable';
 interface Props {
   comparison?: CategoryComparison;
   isLoading: boolean;
+  isError: boolean;
   selectedCount: number;
   measure: ComparisonMeasure;
   onMeasureChange: (measure: ComparisonMeasure) => void;
@@ -41,6 +42,7 @@ const CROWDED_BUCKET_COUNT = 40;
 export function CategoryComparisonSection({
   comparison,
   isLoading,
+  isError,
   selectedCount,
   measure,
   onMeasureChange,
@@ -62,6 +64,28 @@ export function CategoryComparisonSection({
           <Button variant="contained" onClick={onOpenFilters}>
             Choose categories
           </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // A rejected range (or any other 400) would otherwise leave the skeleton up
+  // forever, since there is nothing left to load.
+  if (isError) {
+    return (
+      <Card variant="outlined">
+        <CardContent>
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={onOpenFilters}>
+                Change filters
+              </Button>
+            }
+          >
+            Could not load the comparison. Check the dates and categories you
+            picked, then try again.
+          </Alert>
         </CardContent>
       </Card>
     );

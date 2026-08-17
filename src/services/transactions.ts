@@ -1,4 +1,5 @@
 import api from './api';
+import { filenameFromContentDisposition } from '@/utils/download';
 import {
   Transaction,
   CreateTransactionInput,
@@ -46,6 +47,26 @@ export async function getTransactionSummary(
     params: listFilters(params),
   });
   return res.data;
+}
+
+/**
+ * Built from the same filters as the list, so the file holds exactly the rows
+ * the page describes — every one of them, not just the pages fetched so far.
+ */
+export async function exportTransactionsCsv(
+  params?: TransactionFilters,
+): Promise<{ blob: Blob; fileName: string }> {
+  const res = await api.get('/api/transactions/export', {
+    params: listFilters(params),
+    responseType: 'blob',
+  });
+  return {
+    blob: res.data,
+    fileName: filenameFromContentDisposition(
+      res.headers['content-disposition'],
+      'transactions.csv',
+    ),
+  };
 }
 
 export interface CreateTransactionResponse {

@@ -17,8 +17,8 @@ import {
   MEASURE_LABELS,
   comparisonFileName,
   comparisonToCsv,
-  downloadCsv,
 } from '@/utils/comparison';
+import { downloadCsv } from '@/utils/download';
 import { TrendCardSkeleton } from '@/components/trends/TrendSkeleton';
 import {
   ComparisonChart,

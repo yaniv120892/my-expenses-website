@@ -1,8 +1,16 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Alert, Box, Button, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Stack,
+  Typography,
+} from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import { format } from 'date-fns';
 import {
   Transaction,
@@ -27,6 +35,7 @@ import {
   useUpdateTransactionMutation,
   useDeleteTransactionMutation,
   useTransactionsSummaryQuery,
+  useExportTransactionsCsvMutation,
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
@@ -67,6 +76,16 @@ export default function TransactionsPage() {
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
   const deleteMutation = useDeleteTransactionMutation();
+  const exportMutation = useExportTransactionsCsvMutation();
+
+  const handleExport = async () => {
+    try {
+      await exportMutation.mutateAsync(filters);
+    } catch {
+      // The response is a blob, so the server's message is not readable here.
+      setError('Failed to export transactions');
+    }
+  };
 
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);
@@ -111,16 +130,32 @@ export default function TransactionsPage() {
       <PageHeader
         title="Transactions"
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => {
-              setEditTx(null);
-              setFormOpen(true);
-            }}
-          >
-            Add transaction
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={
+                exportMutation.isPending ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <DownloadRoundedIcon />
+                )
+              }
+              disabled={exportMutation.isPending}
+              onClick={handleExport}
+            >
+              Export CSV
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddRoundedIcon />}
+              onClick={() => {
+                setEditTx(null);
+                setFormOpen(true);
+              }}
+            >
+              Add transaction
+            </Button>
+          </Stack>
         }
       />
 

@@ -11,7 +11,9 @@ import {
   deleteTransaction,
   getCategories,
   getTransactionSummary,
+  exportTransactionsCsv,
 } from '@/services/transactions';
+import { downloadBlob } from '@/utils/download';
 import {
   TransactionFilters,
   CreateTransactionInput,
@@ -40,6 +42,16 @@ export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
     queryFn: ({ pageParam }) => getTransactionsPage(filters, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+};
+
+// A mutation rather than a query: the file is an action's result, not state
+// worth caching, and isPending is exactly the button's disabled condition.
+export const useExportTransactionsCsvMutation = () => {
+  return useMutation({
+    mutationFn: (filters?: TransactionFilters) =>
+      exportTransactionsCsv(filters),
+    onSuccess: ({ blob, fileName }) => downloadBlob(fileName, blob),
   });
 };
 

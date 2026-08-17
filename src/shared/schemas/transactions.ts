@@ -37,6 +37,8 @@ const transactionFilterSchema = z.object({
 
 export const getTransactionsSummarySchema = transactionFilterSchema;
 
+export const exportTransactionsSchema = transactionFilterSchema;
+
 export const getTransactionsSchema = transactionFilterSchema.extend({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),

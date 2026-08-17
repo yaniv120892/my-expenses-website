@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  exportTransactionsSchema,
   getTransactionsSchema,
   getTransactionsSummarySchema,
 } from '@/shared/schemas/transactions';
@@ -9,7 +10,7 @@ vi.mock('./api', () => ({
   default: { get: (...args: unknown[]) => get(...args) },
 }));
 
-const { getTransactionsPage, getTransactionSummary } =
+const { getTransactionsPage, getTransactionSummary, exportTransactionsCsv } =
   await import('./transactions');
 
 /** Query params reach the route as strings, so mirror that before validating. */
@@ -85,9 +86,51 @@ describe('getTransactionSummary', () => {
   });
 });
 
-// The totals sit above the list, so any filter that narrows the rows must
-// narrow the totals too — including the default endDate the client injects.
-describe('list and summary filters', () => {
+describe('exportTransactionsCsv', () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({
+      data: new Blob(['csv']),
+      headers: {
+        'content-disposition':
+          'attachment; filename="transactions_2026-08-01_2026-08-31.csv"',
+      },
+    });
+  });
+
+  it('sends params the export route schema accepts', async () => {
+    await exportTransactionsCsv({ startDate: '2026-08-01', type: 'EXPENSE' });
+
+    const result = exportTransactionsSchema.safeParse(
+      asQueryString(sentParams()),
+    );
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+    expect(sentParams().type).toBe('EXPENSE');
+  });
+
+  it('asks for a blob so the CSV is not parsed as JSON', async () => {
+    await exportTransactionsCsv({ startDate: '2026-08-01' });
+
+    expect(get.mock.calls[0][1].responseType).toBe('blob');
+  });
+
+  it('saves under the name the route chose', async () => {
+    const { fileName } = await exportTransactionsCsv({});
+
+    expect(fileName).toBe('transactions_2026-08-01_2026-08-31.csv');
+  });
+
+  it('keeps a caller endDate over the default', async () => {
+    await exportTransactionsCsv({ endDate: '2026-08-31' });
+
+    expect(sentParams().endDate).toBe('2026-08-31');
+  });
+});
+
+// The totals sit above the list and the export sits beside it, so any filter
+// that narrows the rows must narrow all three — including the default endDate
+// the client injects.
+describe('list, summary and export filters', () => {
   beforeEach(() => get.mockReset());
 
   it('describe the same rows', async () => {
@@ -102,7 +145,13 @@ describe('list and summary filters', () => {
     await getTransactionSummary({ searchTerm: 'taxi', categoryId: 'cat-1' });
     const summaryParams = sentParams();
 
+    get.mockReset();
+    get.mockResolvedValue({ data: new Blob(['csv']), headers: {} });
+    await exportTransactionsCsv({ searchTerm: 'taxi', categoryId: 'cat-1' });
+    const exportParams = sentParams();
+
     const { cursor: _cursor, limit: _limit, ...listFilters } = listParams;
     expect(summaryParams).toEqual(listFilters);
+    expect(exportParams).toEqual(listFilters);
   });
 });

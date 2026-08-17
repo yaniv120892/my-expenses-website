@@ -92,7 +92,13 @@ export default function DashboardPage() {
           mt: { xs: 2, md: 3 },
         }}
       >
-        <TopCategoriesChart categories={data.topCategories} />
+        <TopCategoriesChart
+          categories={data.topCategories}
+          // Expenses only, to match how the slices are aggregated.
+          onSelectCategory={(categoryId) =>
+            router.push(`/transactions?categoryId=${categoryId}&type=EXPENSE`)
+          }
+        />
         <AiInsightsCard insights={insights} isLoading={insightsLoading} />
       </Box>
 

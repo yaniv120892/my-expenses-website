@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   Box,
@@ -15,6 +16,7 @@ import { format } from 'date-fns';
 import {
   Transaction,
   TransactionFilters,
+  TransactionType,
   CreateTransactionInput,
 } from '@/types';
 import TransactionList from '@/components/TransactionList';
@@ -40,13 +42,24 @@ import {
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
 
-export default function TransactionsPage() {
+function parseTransactionType(
+  value: string | null,
+): TransactionType | undefined {
+  return value === 'INCOME' || value === 'EXPENSE' ? value : undefined;
+}
+
+function TransactionsPageContent() {
+  // Read once to seed the filters: the drill-down from the dashboard pie arrives
+  // as query params, but the page owns its filters from then on.
+  const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>(
-    defaultMonthFilters(),
-  );
+  const [filters, setFilters] = useState<TransactionFilters>(() => ({
+    ...defaultMonthFilters(),
+    categoryId: searchParams.get('categoryId') ?? undefined,
+    type: parseTransactionType(searchParams.get('type')),
+  }));
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
@@ -67,11 +80,14 @@ export default function TransactionsPage() {
     [data],
   );
   const { data: categories = [] } = useCategoriesQuery();
+  const { data: summary } = useTransactionsSummaryQuery(filters);
+  // The chart drives the type filter, so it must ignore it: filtering the chart
+  // by its own selection would zero the slice the user has to click to go back.
   const {
-    data: summary,
-    isLoading: summaryLoading,
-    error: summaryError,
-  } = useTransactionsSummaryQuery(filters);
+    data: chartSummary,
+    isLoading: chartSummaryLoading,
+    error: chartSummaryError,
+  } = useTransactionsSummaryQuery({ ...filters, type: undefined });
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
@@ -162,10 +178,17 @@ export default function TransactionsPage() {
       <PendingTransactionsPopup />
 
       <IncomeExpensePieChart
-        income={summary?.totalIncome || 0}
-        expense={summary?.totalExpense || 0}
-        loading={summaryLoading}
-        error={summaryError as string | null}
+        income={chartSummary?.totalIncome || 0}
+        expense={chartSummary?.totalExpense || 0}
+        loading={chartSummaryLoading}
+        error={chartSummaryError as string | null}
+        selectedType={filters.type ?? null}
+        onSelectType={(type) =>
+          setFilters((prev) => ({
+            ...prev,
+            type: prev.type === type ? undefined : type,
+          }))
+        }
         title={
           filters.startDate
             ? format(new Date(filters.startDate), 'MMMM yyyy')
@@ -183,6 +206,7 @@ export default function TransactionsPage() {
         onResetCategory={() =>
           setFilters((prev) => ({ ...prev, categoryId: undefined }))
         }
+        onResetType={() => setFilters((prev) => ({ ...prev, type: undefined }))}
         onResetDateRange={() =>
           setFilters((prev) => ({
             ...prev,
@@ -251,7 +275,9 @@ export default function TransactionsPage() {
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        onApply={setFilters}
+        // Merged rather than replaced: the dialog has no type control, so a
+        // replace would silently drop a type picked on the chart.
+        onApply={(next) => setFilters((prev) => ({ ...prev, ...next }))}
         initialFilters={filters}
       />
 
@@ -272,5 +298,13 @@ export default function TransactionsPage() {
         onClose={() => setError(null)}
       />
     </>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<TransactionListSkeleton rows={6} />}>
+      <TransactionsPageContent />
+    </Suspense>
   );
 }

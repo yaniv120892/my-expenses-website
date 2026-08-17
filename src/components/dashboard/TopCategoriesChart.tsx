@@ -19,6 +19,7 @@ import { formatNumber } from '@/utils/format';
 
 interface Props {
   categories: TopCategory[];
+  onSelectCategory?: (categoryId: string) => void;
 }
 
 function ChartTooltip({
@@ -42,7 +43,11 @@ function ChartTooltip({
   );
 }
 
-function CategoryTrendIcon({ trend }: { trend: TopCategory['change']['trend'] }) {
+function CategoryTrendIcon({
+  trend,
+}: {
+  trend: TopCategory['change']['trend'];
+}) {
   // Spending semantics: an upward-trending expense category is the bad case.
   if (trend === 'up') {
     return <TrendingUpIcon fontSize="small" color="error" />;
@@ -53,7 +58,7 @@ function CategoryTrendIcon({ trend }: { trend: TopCategory['change']['trend'] })
   return <TrendingFlatIcon fontSize="small" color="disabled" />;
 }
 
-export function TopCategoriesChart({ categories }: Props) {
+export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
   const theme = useTheme();
   const seriesColors = theme.palette.charts.series;
 
@@ -75,6 +80,7 @@ export function TopCategoriesChart({ categories }: Props) {
   const chartData = categories.map((c) => ({
     name: c.categoryName,
     value: c.amount,
+    categoryId: c.categoryId,
   }));
 
   return (
@@ -91,7 +97,17 @@ export function TopCategoriesChart({ categories }: Props) {
             gap: 2,
           }}
         >
-          <Box sx={{ width: '100%', height: 220, minWidth: 0, flex: 1 }}>
+          <Box
+            sx={{
+              width: '100%',
+              height: 220,
+              minWidth: 0,
+              flex: 1,
+              ...(onSelectCategory && {
+                '& .recharts-sector': { cursor: 'pointer' },
+              }),
+            }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -104,6 +120,12 @@ export function TopCategoriesChart({ categories }: Props) {
                   innerRadius={50}
                   stroke={theme.palette.background.paper}
                   strokeWidth={2}
+                  onClick={
+                    onSelectCategory
+                      ? (_, index) =>
+                          onSelectCategory(chartData[index].categoryId)
+                      : undefined
+                  }
                 >
                   {chartData.map((_, idx) => (
                     <Cell
@@ -116,13 +138,32 @@ export function TopCategoriesChart({ categories }: Props) {
               </PieChart>
             </ResponsiveContainer>
           </Box>
-          <Stack spacing={1} sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}>
+          <Stack
+            spacing={1}
+            sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}
+          >
             {categories.map((cat, idx) => (
               <Stack
                 key={cat.categoryId}
                 direction="row"
                 alignItems="center"
                 spacing={1}
+                onClick={
+                  onSelectCategory
+                    ? () => onSelectCategory(cat.categoryId)
+                    : undefined
+                }
+                sx={
+                  onSelectCategory
+                    ? {
+                        cursor: 'pointer',
+                        borderRadius: 1,
+                        px: 0.5,
+                        mx: -0.5,
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }
+                    : undefined
+                }
               >
                 <Box
                   sx={{

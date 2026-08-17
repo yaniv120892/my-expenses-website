@@ -1,14 +1,28 @@
 'use client';
 
 import React from 'react';
-import { Box, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Skeleton,
+  Stack,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { formatCurrency } from '@/utils/format';
+import { TransactionType } from '@/types';
 
 interface PieTooltipPayload {
   name: string;
   value: number;
+}
+
+interface PieDatum {
+  name: string;
+  value: number;
+  type: TransactionType;
 }
 
 interface Props {
@@ -17,7 +31,11 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   title?: string;
+  selectedType?: TransactionType | null;
+  onSelectType?: (type: TransactionType) => void;
 }
+
+const UNSELECTED_SLICE_OPACITY = 0.3;
 
 function ChartTooltip({
   active,
@@ -43,15 +61,18 @@ export default function IncomeExpensePieChart({
   loading,
   error,
   title,
+  selectedType,
+  onSelectType,
 }: Props) {
   const theme = useTheme();
   const { charts } = theme.palette;
-  const pieData = [
-    { name: 'Income', value: income },
-    { name: 'Expense', value: expense },
+  const pieData: PieDatum[] = [
+    { name: 'Income', value: income, type: 'INCOME' },
+    { name: 'Expense', value: expense, type: 'EXPENSE' },
   ];
   const pieColors = [charts.income, charts.expense];
   const total = income - expense;
+  const selectable = !!onSelectType;
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -76,7 +97,16 @@ export default function IncomeExpensePieChart({
           </Typography>
         ) : (
           <>
-            <Box sx={{ width: 130, height: 130, flexShrink: 0 }}>
+            <Box
+              sx={{
+                width: 130,
+                height: 130,
+                flexShrink: 0,
+                ...(selectable && {
+                  '& .recharts-sector': { cursor: 'pointer' },
+                }),
+              }}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -91,11 +121,21 @@ export default function IncomeExpensePieChart({
                     strokeWidth={2}
                     startAngle={90}
                     endAngle={-270}
+                    onClick={
+                      onSelectType
+                        ? (_, index) => onSelectType(pieData[index].type)
+                        : undefined
+                    }
                   >
                     {pieData.map((entry, idx) => (
                       <Cell
                         key={entry.name}
                         fill={pieColors[idx % pieColors.length]}
+                        fillOpacity={
+                          selectedType && selectedType !== entry.type
+                            ? UNSELECTED_SLICE_OPACITY
+                            : 1
+                        }
                       />
                     ))}
                   </Pie>

@@ -2,7 +2,7 @@
 
 import { Chip, Button, Stack } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters, Category } from '@/types';
+import { TransactionFilters, Category, TransactionType } from '@/types';
 import { formatDateRange } from '@/utils/dateUtils';
 
 interface TransactionFiltersDisplayProps extends TransactionFilters {
@@ -11,11 +11,18 @@ interface TransactionFiltersDisplayProps extends TransactionFilters {
   onResetSearch: () => void;
   onResetCategory: () => void;
   onResetDateRange: () => void;
+  onResetType: () => void;
 }
+
+const TYPE_LABELS: Record<TransactionType, string> = {
+  INCOME: 'Income',
+  EXPENSE: 'Expense',
+};
 
 export const TransactionFiltersDisplay = ({
   searchTerm,
   categoryId,
+  type,
   startDate,
   endDate,
   onOpenFilters,
@@ -23,8 +30,10 @@ export const TransactionFiltersDisplay = ({
   onResetSearch,
   onResetCategory,
   onResetDateRange,
+  onResetType,
 }: TransactionFiltersDisplayProps) => {
-  const hasActiveFilters = searchTerm || categoryId || startDate || endDate;
+  const hasActiveFilters =
+    searchTerm || categoryId || type || startDate || endDate;
 
   const getCategoryName = (id: string) => {
     const category = categories.find((cat) => cat.id === id);
@@ -64,6 +73,13 @@ export const TransactionFiltersDisplay = ({
               variant="outlined"
               onClick={onOpenFilters}
               onDelete={onResetCategory}
+            />
+          )}
+          {type && (
+            <Chip
+              label={`Type: ${TYPE_LABELS[type]}`}
+              variant="outlined"
+              onDelete={onResetType}
             />
           )}
           {(startDate || endDate) && (

@@ -1,7 +1,7 @@
 // Icons are a string union rather than components: this module is imported by
 // server code, which must not pull in @mui/icons-material.
 export type AnnouncementIcon =
-  'compare' | 'email' | 'category' | 'attachment' | 'sparkle';
+  'compare' | 'email' | 'category' | 'attachment' | 'download' | 'sparkle';
 
 export type AnnouncementTag = 'New' | 'Improved';
 

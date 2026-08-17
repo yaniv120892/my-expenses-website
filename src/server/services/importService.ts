@@ -135,6 +135,7 @@ class ImportService {
           fileUrl,
           filename: originalFileName,
           userId,
+          importId,
           options: {
             confidenceThreshold: 0.7,
             maxRetries: 3,
@@ -147,9 +148,12 @@ class ImportService {
         'Extraction request submitted',
       );
 
-      await importRepository.updateStatus(importId, ImportStatus.PROCESSING);
-
-      await this.updateImportWithExtractionRequestId(
+      // The import is created PROCESSING, and the callback carries the signed
+      // importId — so it can land, complete the import and even merge it away
+      // before this returns. Writing anything unconditionally here would undo
+      // that, so only the request id is recorded, and only while the import is
+      // still waiting for its callback.
+      await this.recordExtractionRequestId(
         importId,
         extractionResponse.requestId,
       );
@@ -159,9 +163,8 @@ class ImportService {
         'Failed to submit extraction request',
       );
 
-      await importRepository.updateStatus(
+      await this.failUnprocessedImport(
         importId,
-        ImportStatus.FAILED,
         getErrorMessage(error, 'Failed to submit extraction request'),
       );
 
@@ -169,13 +172,24 @@ class ImportService {
     }
   }
 
-  private async updateImportWithExtractionRequestId(
+  private async recordExtractionRequestId(
     importId: string,
     extractionRequestId: string,
   ): Promise<void> {
-    await prisma.import.update({
-      where: { id: importId },
+    await prisma.import.updateMany({
+      where: { id: importId, extractionCompletedAt: null },
       data: { excelExtractionRequestId: extractionRequestId },
+    });
+  }
+
+  /** No-op once a callback has claimed the import, or if it merged away. */
+  private async failUnprocessedImport(
+    importId: string,
+    error: string,
+  ): Promise<void> {
+    await prisma.import.updateMany({
+      where: { id: importId, extractionCompletedAt: null },
+      data: { status: ImportStatus.FAILED, error },
     });
   }
 
@@ -548,7 +562,31 @@ class ImportService {
       data: { matchingTransactionId: null },
     });
 
-    for (const transaction of pendingTransactions) {
+    await this.matchSequentially(
+      pendingTransactions,
+      userId,
+      excludedTransactionIds,
+      'Error re-matching transaction',
+    );
+  }
+
+  /**
+   * Matches rows one at a time against a running exclusion set, so no two rows
+   * can claim the same transaction. A row that throws is logged and skipped
+   * rather than failing the rest.
+   */
+  private async matchSequentially(
+    transactions: {
+      id: string;
+      description: string;
+      date: Date;
+      value: number;
+    }[],
+    userId: string,
+    excludedTransactionIds: Set<string>,
+    errorMessage: string,
+  ): Promise<void> {
+    for (const transaction of transactions) {
       try {
         const matchedId = await this.matchSingleTransaction(
           transaction,
@@ -562,7 +600,7 @@ class ImportService {
       } catch (error) {
         logger.error(
           { transactionId: transaction.id, err: error },
-          'Error re-matching transaction',
+          errorMessage,
         );
       }
     }
@@ -583,17 +621,21 @@ class ImportService {
         'Processing imported transactions for matches',
       );
 
-      await Promise.all(
-        importedTransactions.map(async (transaction) => {
-          try {
-            await this.matchSingleTransaction(transaction, userId);
-          } catch (error) {
-            logger.error(
-              { transactionId: transaction.id, err: error },
-              'Error finding match for transaction',
-            );
-          }
-        }),
+      // Seeded from every transaction this user's other pending rows already
+      // claim, so a row here cannot take one out from under them.
+      const excludedTransactionIds = new Set(
+        await importedTransactionRepository.findClaimedMatchingTransactionIds(
+          userId,
+        ),
+      );
+
+      // Rows merged in from a duplicate import keep the match they already
+      // hold; re-matching them would only find it excluded by itself.
+      await this.matchSequentially(
+        importedTransactions.filter((t) => !t.matchingTransactionId),
+        userId,
+        excludedTransactionIds,
+        'Error finding match for transaction',
       );
 
       logger.info({ importId }, 'Completed finding potential matches');

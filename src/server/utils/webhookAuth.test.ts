@@ -8,10 +8,18 @@ import {
 
 const SECRET = 'test-webhook-secret';
 
-function sign(userId: string, timestamp: number, secret = SECRET): string {
+function sign(
+  userId: string,
+  timestamp: number,
+  secret = SECRET,
+  importId?: string,
+): string {
+  const payload = importId
+    ? `${userId}:${timestamp}:${importId}`
+    : `${userId}:${timestamp}`;
   return crypto
     .createHmac('sha256', secret)
-    .update(`${userId}:${timestamp}`)
+    .update(payload)
     .digest('base64url');
 }
 
@@ -24,6 +32,20 @@ describe('generateWebhookToken', () => {
     const timestamp = 1754900000000;
     expect(generateWebhookToken('user-1', timestamp)).toBe(
       sign('user-1', timestamp),
+    );
+  });
+
+  it('binds the importId into the signature when one is given', () => {
+    const timestamp = 1754900000000;
+    expect(generateWebhookToken('user-1', timestamp, 'imp-1')).toBe(
+      sign('user-1', timestamp, SECRET, 'imp-1'),
+    );
+  });
+
+  it('signs differently with and without an importId', () => {
+    const timestamp = 1754900000000;
+    expect(generateWebhookToken('user-1', timestamp, 'imp-1')).not.toBe(
+      generateWebhookToken('user-1', timestamp),
     );
   });
 
@@ -91,6 +113,30 @@ describe('verifyWebhookToken', () => {
     );
   });
 
+  it('accepts an importId-bound token', () => {
+    const timestamp = Date.now();
+    const token = sign('user-1', timestamp, SECRET, 'imp-1');
+    expect(verifyWebhookToken(token, 'user-1', timestamp, 'imp-1')).toBe(true);
+  });
+
+  it('still accepts a legacy token issued without an importId', () => {
+    const timestamp = Date.now();
+    const token = sign('user-1', timestamp);
+    expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(true);
+  });
+
+  it('rejects when the importId is tampered after signing', () => {
+    const timestamp = Date.now();
+    const token = sign('user-1', timestamp, SECRET, 'imp-1');
+    expect(verifyWebhookToken(token, 'user-1', timestamp, 'imp-2')).toBe(false);
+  });
+
+  it('rejects an importId-bound token replayed without the importId', () => {
+    const timestamp = Date.now();
+    const token = sign('user-1', timestamp, SECRET, 'imp-1');
+    expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(false);
+  });
+
   it('throws (not false) when the secret is missing', () => {
     delete process.env.EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET;
     const timestamp = Date.now();
@@ -109,6 +155,22 @@ describe('extractWebhookParams', () => {
         timestamp: '1754900000000',
       }),
     ).toEqual({ token: 'abc', userId: 'u1', timestamp: 1754900000000 });
+  });
+
+  it('carries the importId through when present', () => {
+    expect(
+      extractWebhookParams({
+        token: 'abc',
+        userId: 'u1',
+        timestamp: '1754900000000',
+        importId: 'imp-1',
+      }),
+    ).toEqual({
+      token: 'abc',
+      userId: 'u1',
+      timestamp: 1754900000000,
+      importId: 'imp-1',
+    });
   });
 
   it('returns null when any param is missing', () => {

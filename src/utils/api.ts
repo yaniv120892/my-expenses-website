@@ -1,20 +1,23 @@
-import { ApiResponse } from "../types";
+import { ApiResponse } from '../types';
 
 function isApiResponseError(obj: unknown): obj is ApiResponse<unknown> {
   return (
-    typeof obj === "object" &&
+    typeof obj === 'object' &&
     obj !== null &&
-    "success" in obj &&
-    "error" in obj
+    'success' in obj &&
+    'error' in obj
   );
 }
 
-export function handleApiError(error: unknown): string {
+export function handleApiError(
+  error: unknown,
+  fallback = 'An unknown error occurred',
+): string {
   if (isApiResponseError(error)) {
-    return error.error || "An unknown error occurred";
+    return error.error || fallback;
   } else if (error instanceof Error) {
-    return error.message;
+    return error.message || fallback;
   } else {
-    return "An unknown error occurred";
+    return fallback;
   }
 }

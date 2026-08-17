@@ -1,6 +1,7 @@
 import http from 'http';
 import { startUpstashShim, seedKey } from './upstashShim';
 import { startMockModelServer } from './mockModelServer';
+import { startMockExtractionAgent } from './mockExtractionAgent';
 import { seed, SeedResult } from './seed';
 
 /**
@@ -13,6 +14,7 @@ import { seed, SeedResult } from './seed';
 export interface Stack {
   shim: http.Server;
   mock: http.Server;
+  extraction: http.Server;
   seeded: SeedResult;
   stop: () => void;
 }
@@ -20,9 +22,11 @@ export interface Stack {
 export async function startStack(ports: {
   mock: number;
   shim: number;
+  extraction: number;
 }): Promise<Stack> {
   const shim = await startUpstashShim(ports.shim);
   const mock = await startMockModelServer(ports.mock);
+  const extraction = await startMockExtractionAgent(ports.extraction);
 
   const seeded = await seed();
 
@@ -34,12 +38,14 @@ export async function startStack(ports: {
   return {
     shim,
     mock,
+    extraction,
     seeded,
-    // Both listeners keep the event loop alive; without closing them a run
+    // The listeners keep the event loop alive; without closing them a run
     // finishes its work and then hangs until something kills it.
     stop: () => {
       shim.close();
       mock.close();
+      extraction.close();
     },
   };
 }

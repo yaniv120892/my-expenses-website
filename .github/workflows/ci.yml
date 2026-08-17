@@ -37,6 +37,16 @@ jobs:
       CRON_SECRET: e2e
       # Test-only key; production uses its own secret.
       PRISMA_FIELD_ENCRYPTION_KEY: k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=
+      # Imports: the extraction agent is the mock in test/e2e-api, and the S3
+      # bucket exists only as the URL prefix the process endpoint validates —
+      # the upload request itself is stubbed in the browser.
+      WEBSITE_URL: http://127.0.0.1:3000
+      EXCEL_EXTRACTION_AGENT_URL: http://127.0.0.1:51232
+      EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET: e2e-extraction-secret
+      IMPORTS_S3_BUCKET: e2e-imports
+      IMPORTS_S3_REGION: us-east-1
+      IMPORTS_S3_ACCESS_KEY_ID: e2e
+      IMPORTS_S3_SECRET_ACCESS_KEY: e2e
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

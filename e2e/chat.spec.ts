@@ -58,3 +58,25 @@ test('assistant reply renders incrementally', async ({ page }) => {
   await expect(reply.last()).toContainText('1,100.00');
   await expect(reply.last()).toContainText('26.83%');
 });
+
+test('a suggested prompt sends itself and clears the empty state', async ({
+  page,
+}) => {
+  test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
+
+  await signIn(page, TOKEN);
+  await page.goto('/dashboard');
+
+  await page.getByRole('button', { name: /chat/i }).click();
+
+  const prompts = page.locator('[data-testid="chat-suggested-prompt"]');
+  await expect(prompts.first()).toBeVisible();
+
+  const promptText = await prompts.first().textContent();
+  await prompts.first().click();
+
+  await expect(
+    page.locator('[data-testid="chat-message"][data-sender="user"]'),
+  ).toHaveText(promptText!);
+  await expect(prompts).toHaveCount(0);
+});

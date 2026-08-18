@@ -1,27 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
+  MenuItem,
   Paper,
   Skeleton,
+  Stack,
   Tab,
   Tabs,
+  TextField,
   Typography,
 } from '@mui/material';
 import PageHeader from '@/components/shell/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import SubscriptionCard from '@/components/subscriptions/SubscriptionCard';
 import ConvertToScheduledDialog from '@/components/subscriptions/ConvertToScheduledDialog';
+import EditSubscriptionDialog from '@/components/subscriptions/EditSubscriptionDialog';
+import SubscriptionEvidenceDialog from '@/components/subscriptions/SubscriptionEvidenceDialog';
 import {
   useSubscriptionsQuery,
   useConfirmSubscriptionMutation,
   useDismissSubscriptionMutation,
   useConvertSubscriptionMutation,
+  useUpdateSubscriptionMutation,
 } from '@/hooks/useSubscriptionsQuery';
-import { DetectedSubscription, SubscriptionStatus } from '@/types/subscription';
+import {
+  DetectedSubscription,
+  SubscriptionStatus,
+  UpdateSubscriptionPayload,
+} from '@/types/subscription';
 import { formatCurrencyRounded } from '@/utils/format';
+import {
+  SUBSCRIPTION_SORT_OPTIONS,
+  SubscriptionSortKey,
+  sortSubscriptions,
+} from '@/utils/subscriptionSort';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
 
@@ -50,7 +65,13 @@ function StatTile({
 
 export default function SubscriptionsPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
+  const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
   const [convertTarget, setConvertTarget] =
+    useState<DetectedSubscription | null>(null);
+  const [editTarget, setEditTarget] = useState<DetectedSubscription | null>(
+    null,
+  );
+  const [explainTarget, setExplainTarget] =
     useState<DetectedSubscription | null>(null);
 
   const statusParam = filterTab === 'ALL' ? undefined : filterTab;
@@ -58,12 +79,30 @@ export default function SubscriptionsPage() {
   const confirmMutation = useConfirmSubscriptionMutation();
   const dismissMutation = useDismissSubscriptionMutation();
   const convertMutation = useConvertSubscriptionMutation();
+  const updateMutation = useUpdateSubscriptionMutation();
+
+  const sortedSubscriptions = useMemo(
+    () => sortSubscriptions(data?.subscriptions ?? [], sortKey),
+    [data?.subscriptions, sortKey],
+  );
 
   function handleConvert(id: string, categoryId: string) {
     convertMutation.mutate(
       { id, categoryId },
       { onSuccess: () => setConvertTarget(null) },
     );
+  }
+
+  function handleSave(id: string, payload: UpdateSubscriptionPayload) {
+    updateMutation.mutate(
+      { id, payload },
+      { onSuccess: () => setEditTarget(null) },
+    );
+  }
+
+  function handleCloseEdit() {
+    updateMutation.reset();
+    setEditTarget(null);
   }
 
   if (error) {
@@ -129,21 +168,45 @@ export default function SubscriptionsPage() {
             />
           </Box>
 
-          <Tabs
-            value={filterTab}
-            onChange={(_, v) => setFilterTab(v)}
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
-            sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ md: 'flex-end' }}
+            justifyContent="space-between"
+            sx={{ mb: 2 }}
           >
-            <Tab label="All" value="ALL" />
-            <Tab label="Detected" value="DETECTED" />
-            <Tab label="Confirmed" value="CONFIRMED" />
-            <Tab label="Dismissed" value="DISMISSED" />
-          </Tabs>
+            <Tabs
+              value={filterTab}
+              onChange={(_, v) => setFilterTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{ borderBottom: 1, borderColor: 'divider', flexGrow: 1 }}
+            >
+              <Tab label="All" value="ALL" />
+              <Tab label="Detected" value="DETECTED" />
+              <Tab label="Confirmed" value="CONFIRMED" />
+              <Tab label="Dismissed" value="DISMISSED" />
+            </Tabs>
+            <TextField
+              select
+              size="small"
+              label="Sort by"
+              value={sortKey}
+              onChange={(e) =>
+                setSortKey(e.target.value as SubscriptionSortKey)
+              }
+              sx={{ minWidth: { xs: '100%', md: 260 } }}
+            >
+              {SUBSCRIPTION_SORT_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
 
-          {data.subscriptions.length === 0 ? (
+          {sortedSubscriptions.length === 0 ? (
             <EmptyState message="No subscriptions found" />
           ) : (
             <Box
@@ -157,13 +220,15 @@ export default function SubscriptionsPage() {
                 gap: 2,
               }}
             >
-              {data.subscriptions.map((sub) => (
+              {sortedSubscriptions.map((sub) => (
                 <SubscriptionCard
                   key={sub.id}
                   subscription={sub}
                   onConfirm={(id) => confirmMutation.mutate(id)}
                   onDismiss={(id) => dismissMutation.mutate(id)}
                   onConvert={setConvertTarget}
+                  onEdit={setEditTarget}
+                  onExplain={setExplainTarget}
                 />
               ))}
             </Box>
@@ -175,6 +240,25 @@ export default function SubscriptionsPage() {
             onClose={() => setConvertTarget(null)}
             onConvert={handleConvert}
             isLoading={convertMutation.isPending}
+          />
+
+          <EditSubscriptionDialog
+            open={!!editTarget}
+            subscription={editTarget}
+            onClose={handleCloseEdit}
+            onSave={handleSave}
+            isLoading={updateMutation.isPending}
+            error={
+              updateMutation.error instanceof Error
+                ? updateMutation.error.message
+                : undefined
+            }
+          />
+
+          <SubscriptionEvidenceDialog
+            open={!!explainTarget}
+            subscription={explainTarget}
+            onClose={() => setExplainTarget(null)}
           />
         </>
       )}

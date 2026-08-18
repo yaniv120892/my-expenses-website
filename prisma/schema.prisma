@@ -198,6 +198,7 @@ model Category {
   scheduledTransactions ScheduledTransaction[]
   autoApproveRules      AutoApproveRule[]
   categoryMappings      UserCategoryMapping[]
+  detectedSubscriptions DetectedSubscription[]
 }
 
 model ScheduledTransaction {
@@ -278,12 +279,21 @@ model DetectedSubscription {
   matchingDescriptions   String[]
   scheduledTransactionId String?               @db.Uuid
   confidence             Float                 @default(0)
+  categoryId             String?               @db.Uuid
+  // Why the detector flagged this merchant: interval and amount statistics
+  // plus the charges behind them, shaped by SubscriptionDetectionEvidence.
+  detectionEvidence      Json?
+  // Set once the user overrides the figures, so re-detection stops
+  // overwriting displayName, averageAmount, frequency and categoryId.
+  userEditedAt           DateTime?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
   user                   User                  @relation(fields: [userId], references: [id])
+  category               Category?             @relation(fields: [categoryId], references: [id])
 
   @@unique([userId, merchantName, frequency])
   @@index([userId])
   @@index([status])
+  @@index([categoryId])
 }

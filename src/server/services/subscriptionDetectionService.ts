@@ -1,5 +1,4 @@
-import { SubscriptionFrequency, SubscriptionStatus } from '@prisma/client';
-import { addWeeks, addMonths, addYears } from 'date-fns';
+import { SubscriptionStatus } from '@prisma/client';
 import prisma from '@/server/db/client';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
@@ -8,33 +7,26 @@ import {
   SubscriptionSummary,
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
+  UpdateSubscriptionInput,
 } from '@/shared/types/subscription';
-import {
-  normalizeMerchantName,
-  toDisplayName,
-} from '@/server/utils/merchantNormalizer';
+import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
+import { HttpError } from '@/server/http/errors';
 import logger from '@/server/logging/logger';
-import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
+import {
+  nextExpectedDateAfter,
+  roundToCents,
+  toAnnualAmount,
+  toMonthlyAmount,
+} from '@/server/utils/subscriptionMath';
+import {
+  analyzeMerchantPattern,
+  MerchantCharge,
+  MerchantGroup,
+} from '@/server/utils/subscriptionPattern';
+import { findScheduleMatch } from '@/server/utils/scheduleMatching';
 import { formatCurrency } from '@/utils/format';
 
-interface TransactionGroup {
-  merchantKey: string;
-  descriptions: string[];
-  amounts: number[];
-  dates: Date[];
-}
-
-interface DetectedPattern {
-  merchantKey: string;
-  displayName: string;
-  frequency: SubscriptionFrequency;
-  averageAmount: number;
-  lastChargeDate: Date;
-  nextExpectedDate: Date;
-  annualCost: number;
-  descriptions: string[];
-  confidence: number;
-}
+const DETECTION_WINDOW_MONTHS = 12;
 
 function groupByUser(
   subscriptions: DetectedSubscriptionDomain[],
@@ -88,6 +80,10 @@ function buildAuditMessage(subs: DetectedSubscriptionDomain[]): string | null {
   return lines.join('\n');
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === 'P2002';
+}
+
 class SubscriptionDetectionService {
   public async runDetectionForAllUsers(): Promise<void> {
     const userIds = await subscriptionRepository.getAllUserIds();
@@ -120,9 +116,9 @@ class SubscriptionDetectionService {
     userId: string,
     status?: SubscriptionStatus,
   ): Promise<SubscriptionSummary> {
-    const subscriptions = await subscriptionRepository.getByUserId(
+    const subscriptions = await this.withScheduleMatches(
       userId,
-      status,
+      await subscriptionRepository.getByUserId(userId, status),
     );
 
     let totalMonthlyEstimate = 0;
@@ -133,14 +129,16 @@ class SubscriptionDetectionService {
     for (const s of subscriptions) {
       if (s.status === 'CONFIRMED') {
         activeCount++;
-        totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
-        totalAnnualEstimate += s.annualCost;
       } else if (s.status === 'DETECTED') {
         detectedCount++;
-        totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
-        totalAnnualEstimate += s.annualCost;
+      } else {
+        continue;
       }
+      totalMonthlyEstimate += s.monthlyCost;
+      totalAnnualEstimate += s.annualCost;
     }
+
+    subscriptions.sort((a, b) => b.monthlyCost - a.monthlyCost);
 
     return {
       totalMonthlyEstimate,
@@ -165,14 +163,70 @@ class SubscriptionDetectionService {
     return subscriptionRepository.updateStatus(id, userId, 'DISMISSED');
   }
 
+  /**
+   * Applies the user's own figures. Annual cost is always derived, and the next
+   * expected date follows the (possibly new) frequency unless given explicitly.
+   */
+  public async updateSubscription(
+    id: string,
+    userId: string,
+    input: UpdateSubscriptionInput,
+  ): Promise<DetectedSubscriptionDomain> {
+    const existing = await subscriptionRepository.getById(id, userId);
+    if (!existing) {
+      throw new HttpError(404, 'Subscription not found');
+    }
+
+    const frequency = input.frequency ?? existing.frequency;
+    const averageAmount = input.averageAmount ?? existing.averageAmount;
+    const lastChargeDate = input.lastChargeDate ?? existing.lastChargeDate;
+    const rescheduled =
+      frequency !== existing.frequency ||
+      lastChargeDate.getTime() !== existing.lastChargeDate.getTime();
+    const nextExpectedDate =
+      input.nextExpectedDate ??
+      (rescheduled
+        ? nextExpectedDateAfter(lastChargeDate, frequency)
+        : existing.nextExpectedDate);
+
+    try {
+      return await subscriptionRepository.update(id, userId, {
+        ...(input.displayName !== undefined
+          ? { displayName: input.displayName }
+          : {}),
+        ...(input.categoryId !== undefined
+          ? { categoryId: input.categoryId }
+          : {}),
+        averageAmount: roundToCents(averageAmount),
+        frequency,
+        lastChargeDate,
+        nextExpectedDate,
+        annualCost: roundToCents(toAnnualAmount(averageAmount, frequency)),
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new HttpError(
+          409,
+          'Another subscription already tracks this merchant at that frequency',
+        );
+      }
+      throw error;
+    }
+  }
+
   public async convertToScheduledTransaction(
     id: string,
     userId: string,
-    categoryId: string,
+    categoryId?: string,
   ): Promise<DetectedSubscriptionDomain> {
     const subscription = await subscriptionRepository.getById(id, userId);
     if (!subscription) {
-      throw new Error('Subscription not found');
+      throw new HttpError(404, 'Subscription not found');
+    }
+
+    const targetCategoryId = categoryId ?? subscription.categoryId;
+    if (!targetCategoryId) {
+      throw new HttpError(400, 'A category is required to schedule this');
     }
 
     const scheduledId =
@@ -180,7 +234,7 @@ class SubscriptionDetectionService {
         description: subscription.displayName,
         value: subscription.averageAmount,
         type: 'EXPENSE',
-        categoryId,
+        categoryId: targetCategoryId,
         scheduleType: subscription.frequency,
         userId,
         dayOfMonth:
@@ -257,34 +311,69 @@ class SubscriptionDetectionService {
     return new Set(prefs.map((p) => p.userId));
   }
 
+  private async withScheduleMatches(
+    userId: string,
+    subscriptions: DetectedSubscriptionDomain[],
+  ): Promise<DetectedSubscriptionDomain[]> {
+    if (subscriptions.length === 0) return subscriptions;
+
+    const schedules =
+      await scheduledTransactionService.listScheduledTransactions(userId);
+    return subscriptions.map((subscription) => ({
+      ...subscription,
+      scheduleMatch: findScheduleMatch(subscription, schedules),
+    }));
+  }
+
   private async detectForUser(userId: string): Promise<void> {
-    const twelveMonthsAgo = new Date();
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const analyzedTo = new Date();
+    const analyzedFrom = new Date(analyzedTo);
+    analyzedFrom.setMonth(analyzedFrom.getMonth() - DETECTION_WINDOW_MONTHS);
 
     const transactions = await prisma.transaction.findMany({
       where: {
         userId,
         type: 'EXPENSE',
         status: 'APPROVED',
-        date: { gte: twelveMonthsAgo },
+        date: { gte: analyzedFrom },
       },
+      select: { description: true, value: true, date: true, categoryId: true },
       orderBy: { date: 'asc' },
     });
 
-    const groups = this.groupByMerchant(transactions);
-    const dismissed =
-      await subscriptionRepository.getDismissedMerchants(userId);
-    const dismissedSet = new Set(
-      dismissed.map((d) => `${d.merchantName}:${d.frequency}`),
+    const existing = await subscriptionRepository.getByUserId(userId);
+    const dismissed = new Set(
+      existing
+        .filter((s) => s.status === 'DISMISSED')
+        .map((s) => `${s.merchantName}:${s.frequency}`),
+    );
+    const editedByMerchant = new Map(
+      existing
+        .filter((s) => s.userEditedAt)
+        .map((s) => [s.merchantName, s] as const),
     );
 
-    for (const group of groups) {
-      if (group.dates.length < 3) continue;
-
-      const pattern = this.analyzePattern(group);
+    for (const group of this.groupByMerchant(transactions)) {
+      const pattern = analyzeMerchantPattern(group, analyzedFrom, analyzedTo);
       if (!pattern) continue;
 
-      if (dismissedSet.has(`${pattern.merchantKey}:${pattern.frequency}`)) {
+      if (dismissed.has(`${pattern.merchantKey}:${pattern.frequency}`)) {
+        continue;
+      }
+
+      // The user's own figures win; only the detection-derived fields refresh.
+      const edited = editedByMerchant.get(pattern.merchantKey);
+      if (edited) {
+        await subscriptionRepository.refreshDetection(edited.id, {
+          lastChargeDate: pattern.lastChargeDate,
+          nextExpectedDate: nextExpectedDateAfter(
+            pattern.lastChargeDate,
+            edited.frequency,
+          ),
+          matchingDescriptions: pattern.descriptions,
+          confidence: pattern.confidence,
+          detectionEvidence: pattern.evidence,
+        });
         continue;
       }
 
@@ -299,14 +388,14 @@ class SubscriptionDetectionService {
         annualCost: pattern.annualCost,
         matchingDescriptions: pattern.descriptions,
         confidence: pattern.confidence,
+        categoryId: pattern.categoryId,
+        detectionEvidence: pattern.evidence,
       });
     }
   }
 
-  private groupByMerchant(
-    transactions: { description: string; value: number; date: Date }[],
-  ): TransactionGroup[] {
-    const groups = new Map<string, TransactionGroup>();
+  private groupByMerchant(transactions: MerchantCharge[]): MerchantGroup[] {
+    const groups = new Map<string, MerchantGroup>();
 
     for (const tx of transactions) {
       const key = normalizeMerchantName(tx.description);
@@ -314,129 +403,13 @@ class SubscriptionDetectionService {
 
       const existing = groups.get(key);
       if (existing) {
-        existing.descriptions.push(tx.description);
-        existing.amounts.push(tx.value);
-        existing.dates.push(tx.date);
+        existing.charges.push(tx);
       } else {
-        groups.set(key, {
-          merchantKey: key,
-          descriptions: [tx.description],
-          amounts: [tx.value],
-          dates: [tx.date],
-        });
+        groups.set(key, { merchantKey: key, charges: [tx] });
       }
     }
 
     return Array.from(groups.values());
-  }
-
-  private analyzePattern(group: TransactionGroup): DetectedPattern | null {
-    const sortedDates = [...group.dates].sort(
-      (a, b) => a.getTime() - b.getTime(),
-    );
-
-    const intervals: number[] = [];
-    for (let i = 1; i < sortedDates.length; i++) {
-      const diffDays =
-        (sortedDates[i].getTime() - sortedDates[i - 1].getTime()) /
-        (1000 * 60 * 60 * 24);
-      intervals.push(diffDays);
-    }
-
-    if (intervals.length === 0) return null;
-
-    const sorted = [...intervals].sort((a, b) => a - b);
-    const median =
-      sorted.length % 2 === 0
-        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-        : sorted[Math.floor(sorted.length / 2)];
-
-    const variance =
-      intervals.reduce((sum, v) => sum + Math.pow(v - median, 2), 0) /
-      intervals.length;
-    const stddev = Math.sqrt(variance);
-
-    const frequency = this.classifyFrequency(median);
-    if (!frequency) return null;
-
-    if (median > 0 && stddev / median > 0.3) return null;
-
-    const confidence = Math.max(0, Math.min(1, 1 - stddev / median));
-    const averageAmount =
-      group.amounts.reduce((sum, a) => sum + a, 0) / group.amounts.length;
-    const lastChargeDate = sortedDates[sortedDates.length - 1];
-    const nextExpectedDate = this.calculateNextExpectedDate(
-      lastChargeDate,
-      frequency,
-    );
-    const annualCost = this.calculateAnnualCost(averageAmount, frequency);
-    const displayName = this.pickDisplayName(group.descriptions);
-
-    return {
-      merchantKey: group.merchantKey,
-      displayName,
-      frequency,
-      averageAmount: Math.round(averageAmount * 100) / 100,
-      lastChargeDate,
-      nextExpectedDate,
-      annualCost: Math.round(annualCost * 100) / 100,
-      descriptions: [...new Set(group.descriptions)],
-      confidence: Math.round(confidence * 100) / 100,
-    };
-  }
-
-  private classifyFrequency(medianDays: number): SubscriptionFrequency | null {
-    if (medianDays >= 5 && medianDays <= 9) return 'WEEKLY';
-    if (medianDays >= 25 && medianDays <= 35) return 'MONTHLY';
-    if (medianDays >= 340 && medianDays <= 395) return 'YEARLY';
-    return null;
-  }
-
-  private calculateNextExpectedDate(
-    lastDate: Date,
-    frequency: SubscriptionFrequency,
-  ): Date {
-    switch (frequency) {
-      case 'WEEKLY':
-        return addWeeks(lastDate, 1);
-      case 'MONTHLY':
-        return addMonths(lastDate, 1);
-      case 'YEARLY':
-        return addYears(lastDate, 1);
-    }
-  }
-
-  private calculateAnnualCost(
-    amount: number,
-    frequency: SubscriptionFrequency,
-  ): number {
-    switch (frequency) {
-      case 'WEEKLY':
-        return amount * 52;
-      case 'MONTHLY':
-        return amount * 12;
-      case 'YEARLY':
-        return amount;
-    }
-  }
-
-  private pickDisplayName(descriptions: string[]): string {
-    const descriptionCounts = new Map<string, number>();
-    for (const desc of descriptions) {
-      const trimmed = desc.trim();
-      descriptionCounts.set(trimmed, (descriptionCounts.get(trimmed) || 0) + 1);
-    }
-
-    let mostCommon = descriptions[0];
-    let maxCount = 0;
-    for (const [desc, count] of descriptionCounts) {
-      if (count > maxCount) {
-        maxCount = count;
-        mostCommon = desc;
-      }
-    }
-
-    return toDisplayName(mostCommon);
   }
 }
 

@@ -10,7 +10,9 @@ import {
   Button,
   LinearProgress,
   Stack,
+  Tooltip,
 } from '@mui/material';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import { DetectedSubscription } from '@/types/subscription';
 import { formatCurrency } from '@/utils/format';
 
@@ -19,6 +21,8 @@ interface Props {
   onConfirm: (id: string) => void;
   onDismiss: (id: string) => void;
   onConvert: (subscription: DetectedSubscription) => void;
+  onEdit: (subscription: DetectedSubscription) => void;
+  onExplain: (subscription: DetectedSubscription) => void;
 }
 
 function formatFrequency(frequency: string): string {
@@ -69,8 +73,11 @@ export default function SubscriptionCard({
   onConfirm,
   onDismiss,
   onConvert,
+  onEdit,
+  onExplain,
 }: Props) {
   const nextDate = new Date(subscription.nextExpectedDate).toLocaleDateString();
+  const scheduleMatch = subscription.scheduleMatch;
 
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
@@ -93,7 +100,13 @@ export default function SubscriptionCard({
             <Typography variant="subtitle1" fontWeight={700} noWrap>
               {subscription.displayName}
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              sx={{ mt: 0.5 }}
+            >
               <Chip
                 label={formatFrequency(subscription.frequency)}
                 color={frequencyColor(subscription.frequency)}
@@ -105,6 +118,17 @@ export default function SubscriptionCard({
                 color={statusColor(subscription.status)}
                 size="small"
               />
+              <Chip
+                label={subscription.categoryName ?? 'No category'}
+                size="small"
+                variant="outlined"
+                color={subscription.categoryName ? 'default' : 'warning'}
+              />
+              {subscription.userEditedAt && (
+                <Tooltip title="You edited these figures; detection no longer overwrites them">
+                  <Chip label="Edited" size="small" variant="outlined" />
+                </Tooltip>
+              )}
             </Stack>
           </Box>
           <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
@@ -112,6 +136,7 @@ export default function SubscriptionCard({
               {formatCurrency(subscription.averageAmount)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
+              {formatCurrency(subscription.monthlyCost)}/mo ·{' '}
               {formatCurrency(subscription.annualCost)}/yr
             </Typography>
           </Box>
@@ -120,6 +145,22 @@ export default function SubscriptionCard({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Next expected: {nextDate}
         </Typography>
+
+        {scheduleMatch && (
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{ mb: 1, color: 'success.main' }}
+          >
+            <EventRepeatIcon fontSize="small" />
+            <Typography variant="body2">
+              {scheduleMatch.matchType === 'LINKED'
+                ? 'Already scheduled'
+                : `Looks scheduled already as "${scheduleMatch.description}"`}
+            </Typography>
+          </Stack>
+        )}
 
         {subscription.status === 'DETECTED' && (
           <Box sx={{ mb: 1.5 }}>
@@ -143,44 +184,52 @@ export default function SubscriptionCard({
           </Box>
         )}
 
-        {subscription.status !== 'DISMISSED' && (
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            flexWrap="wrap"
-            sx={{ mt: 'auto', pt: 1 }}
-          >
-            {subscription.status === 'DETECTED' && (
-              <>
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={() => onConfirm(subscription.id)}
-                >
-                  Confirm
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  onClick={() => onDismiss(subscription.id)}
-                >
-                  Dismiss
-                </Button>
-              </>
-            )}
-            {!subscription.scheduledTransactionId && (
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ mt: 'auto', pt: 1 }}
+        >
+          {subscription.status === 'DETECTED' && (
+            <>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => onConfirm(subscription.id)}
+              >
+                Confirm
+              </Button>
               <Button
                 variant="outlined"
+                color="error"
                 size="small"
-                onClick={() => onConvert(subscription)}
+                onClick={() => onDismiss(subscription.id)}
               >
-                Convert to Scheduled
+                Dismiss
               </Button>
-            )}
-          </Stack>
-        )}
+            </>
+          )}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onEdit(subscription)}
+          >
+            Edit
+          </Button>
+          <Button size="small" onClick={() => onExplain(subscription)}>
+            Why detected?
+          </Button>
+          {subscription.status !== 'DISMISSED' && !scheduleMatch && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => onConvert(subscription)}
+            >
+              Convert to Scheduled
+            </Button>
+          )}
+        </Stack>
       </CardContent>
     </Card>
   );

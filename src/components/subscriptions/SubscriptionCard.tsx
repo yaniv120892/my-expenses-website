@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import { DetectedSubscription } from '@/types/subscription';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatSubscriptionFrequency } from '@/utils/format';
 
 interface Props {
   subscription: DetectedSubscription;
@@ -23,19 +23,6 @@ interface Props {
   onConvert: (subscription: DetectedSubscription) => void;
   onEdit: (subscription: DetectedSubscription) => void;
   onExplain: (subscription: DetectedSubscription) => void;
-}
-
-function formatFrequency(frequency: string): string {
-  switch (frequency) {
-    case 'WEEKLY':
-      return 'Weekly';
-    case 'MONTHLY':
-      return 'Monthly';
-    case 'YEARLY':
-      return 'Yearly';
-    default:
-      return frequency;
-  }
 }
 
 function frequencyColor(
@@ -108,7 +95,7 @@ export default function SubscriptionCard({
               sx={{ mt: 0.5 }}
             >
               <Chip
-                label={formatFrequency(subscription.frequency)}
+                label={formatSubscriptionFrequency(subscription.frequency)}
                 color={frequencyColor(subscription.frequency)}
                 size="small"
                 variant="outlined"

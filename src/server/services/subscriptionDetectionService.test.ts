@@ -256,13 +256,14 @@ describe('updateSubscription', () => {
     );
   });
 
-  it('leaves untouched fields out of the update', async () => {
+  // undefined reaches Prisma as "leave alone"; null is what clears a field.
+  it('leaves untouched fields undefined so Prisma skips them', async () => {
     subRepo.getById.mockResolvedValue(stored());
     await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
       averageAmount: 30,
     });
-    expect(updateArgs()).not.toHaveProperty('displayName');
-    expect(updateArgs()).not.toHaveProperty('categoryId');
+    expect(updateArgs().displayName).toBeUndefined();
+    expect(updateArgs().categoryId).toBeUndefined();
   });
 
   it('passes a cleared category through as null', async () => {
@@ -296,21 +297,6 @@ describe('updateSubscription', () => {
 });
 
 describe('getSubscriptions', () => {
-  it('orders subscriptions by monthly cost, most expensive first', async () => {
-    subRepo.getByUserId.mockResolvedValue([
-      stored({ id: 'cheap', monthlyCost: 10, annualCost: 120 }),
-      stored({ id: 'dear', monthlyCost: 90, annualCost: 1080 }),
-      stored({ id: 'mid', monthlyCost: 40, annualCost: 480 }),
-    ]);
-    const result =
-      await subscriptionDetectionService.getSubscriptions('user-1');
-    expect(result.subscriptions.map((s) => s.id)).toEqual([
-      'dear',
-      'mid',
-      'cheap',
-    ]);
-  });
-
   it('totals only detected and confirmed rows', async () => {
     subRepo.getByUserId.mockResolvedValue([
       stored({

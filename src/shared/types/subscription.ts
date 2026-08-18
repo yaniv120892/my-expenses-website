@@ -4,20 +4,19 @@ import {
   SubscriptionStatus,
 } from '@prisma/client';
 
-export interface SubscriptionEvidenceCharge {
+export type SubscriptionEvidenceCharge = {
   date: string;
   amount: number;
   description: string;
-}
+};
 
 /**
  * The detector's own working figures, stored so the app can explain why a
- * merchant was flagged instead of asking the user to trust a score.
+ * merchant was flagged instead of asking the user to trust a score. Declared
+ * as a type rather than an interface so it satisfies Prisma's Json input
+ * without a cast.
  */
-export interface SubscriptionDetectionEvidence {
-  version: number;
-  detectedAt: string;
-  merchantKey: string;
+export type SubscriptionDetectionEvidence = {
   analyzedFrom: string;
   analyzedTo: string;
   chargeCount: number;
@@ -35,7 +34,7 @@ export interface SubscriptionDetectionEvidence {
   averageAmount: number;
   recentCharges: SubscriptionEvidenceCharge[];
   olderChargeCount: number;
-}
+};
 
 /**
  * A scheduled transaction that already covers this subscription — either the
@@ -65,7 +64,6 @@ export interface DetectedSubscriptionDomain {
   status: SubscriptionStatus;
   matchingDescriptions: string[];
   scheduledTransactionId?: string;
-  scheduleMatch?: SubscriptionScheduleMatch;
   categoryId?: string;
   categoryName?: string;
   detectionEvidence?: SubscriptionDetectionEvidence;
@@ -75,12 +73,17 @@ export interface DetectedSubscriptionDomain {
   updatedAt: Date;
 }
 
+/** What the list endpoint adds on top of a stored row. */
+export interface SubscriptionListItem extends DetectedSubscriptionDomain {
+  scheduleMatch?: SubscriptionScheduleMatch;
+}
+
 export interface SubscriptionSummary {
   totalMonthlyEstimate: number;
   totalAnnualEstimate: number;
   activeCount: number;
   detectedCount: number;
-  subscriptions: DetectedSubscriptionDomain[];
+  subscriptions: SubscriptionListItem[];
 }
 
 export interface SubscriptionDashboardSnapshot {

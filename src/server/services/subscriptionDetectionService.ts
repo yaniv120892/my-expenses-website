@@ -1,6 +1,9 @@
 import { SubscriptionStatus } from '@prisma/client';
 import prisma from '@/server/db/client';
-import subscriptionRepository from '@/server/repositories/subscriptionRepository';
+import subscriptionRepository, {
+  DetectionInput,
+  SubscriptionAuditRow,
+} from '@/server/repositories/subscriptionRepository';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import {
@@ -17,21 +20,24 @@ import {
   roundToCents,
   toAnnualAmount,
   toMonthlyAmount,
-} from '@/server/utils/subscriptionMath';
+} from '@/utils/subscriptionMath';
 import {
   analyzeMerchantPattern,
   MerchantCharge,
   MerchantGroup,
 } from '@/server/utils/subscriptionPattern';
-import { findScheduleMatch } from '@/server/utils/scheduleMatching';
+import {
+  findScheduleMatch,
+  indexSchedules,
+} from '@/server/utils/scheduleMatching';
 import { formatCurrency } from '@/utils/format';
 
 const DETECTION_WINDOW_MONTHS = 12;
 
 function groupByUser(
-  subscriptions: DetectedSubscriptionDomain[],
-): Map<string, DetectedSubscriptionDomain[]> {
-  const byUser = new Map<string, DetectedSubscriptionDomain[]>();
+  subscriptions: SubscriptionAuditRow[],
+): Map<string, SubscriptionAuditRow[]> {
+  const byUser = new Map<string, SubscriptionAuditRow[]>();
   for (const sub of subscriptions) {
     const existing = byUser.get(sub.userId) || [];
     existing.push(sub);
@@ -41,7 +47,7 @@ function groupByUser(
 }
 
 /** Null when this user has nothing worth notifying about. */
-function buildAuditMessage(subs: DetectedSubscriptionDomain[]): string | null {
+function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
   const confirmed = subs.filter((s) => s.status === 'CONFIRMED');
   const detected = subs.filter((s) => s.status === 'DETECTED');
 
@@ -116,10 +122,16 @@ class SubscriptionDetectionService {
     userId: string,
     status?: SubscriptionStatus,
   ): Promise<SubscriptionSummary> {
-    const subscriptions = await this.withScheduleMatches(
-      userId,
-      await subscriptionRepository.getByUserId(userId, status),
-    );
+    const [stored, schedules] = await Promise.all([
+      subscriptionRepository.getByUserId(userId, status),
+      scheduledTransactionService.listScheduledTransactions(userId),
+    ]);
+
+    const indexed = indexSchedules(schedules);
+    const subscriptions = stored.map((subscription) => ({
+      ...subscription,
+      scheduleMatch: findScheduleMatch(subscription, indexed),
+    }));
 
     let totalMonthlyEstimate = 0;
     let totalAnnualEstimate = 0;
@@ -137,8 +149,6 @@ class SubscriptionDetectionService {
       totalMonthlyEstimate += s.monthlyCost;
       totalAnnualEstimate += s.annualCost;
     }
-
-    subscriptions.sort((a, b) => b.monthlyCost - a.monthlyCost);
 
     return {
       totalMonthlyEstimate,
@@ -164,8 +174,8 @@ class SubscriptionDetectionService {
   }
 
   /**
-   * Applies the user's own figures. Annual cost is always derived, and the next
-   * expected date follows the (possibly new) frequency unless given explicitly.
+   * Annual cost is always derived, and the next expected date follows the
+   * (possibly new) frequency unless the caller gave one explicitly.
    */
   public async updateSubscription(
     id: string,
@@ -191,12 +201,8 @@ class SubscriptionDetectionService {
 
     try {
       return await subscriptionRepository.update(id, userId, {
-        ...(input.displayName !== undefined
-          ? { displayName: input.displayName }
-          : {}),
-        ...(input.categoryId !== undefined
-          ? { categoryId: input.categoryId }
-          : {}),
+        displayName: input.displayName,
+        categoryId: input.categoryId,
         averageAmount: roundToCents(averageAmount),
         frequency,
         lastChargeDate,
@@ -311,20 +317,6 @@ class SubscriptionDetectionService {
     return new Set(prefs.map((p) => p.userId));
   }
 
-  private async withScheduleMatches(
-    userId: string,
-    subscriptions: DetectedSubscriptionDomain[],
-  ): Promise<DetectedSubscriptionDomain[]> {
-    if (subscriptions.length === 0) return subscriptions;
-
-    const schedules =
-      await scheduledTransactionService.listScheduledTransactions(userId);
-    return subscriptions.map((subscription) => ({
-      ...subscription,
-      scheduleMatch: findScheduleMatch(subscription, schedules),
-    }));
-  }
-
   private async detectForUser(userId: string): Promise<void> {
     const analyzedTo = new Date();
     const analyzedFrom = new Date(analyzedTo);
@@ -341,43 +333,12 @@ class SubscriptionDetectionService {
       orderBy: { date: 'asc' },
     });
 
-    const existing = await subscriptionRepository.getByUserId(userId);
-    const dismissed = new Set(
-      existing
-        .filter((s) => s.status === 'DISMISSED')
-        .map((s) => `${s.merchantName}:${s.frequency}`),
-    );
-    const editedByMerchant = new Map(
-      existing
-        .filter((s) => s.userEditedAt)
-        .map((s) => [s.merchantName, s] as const),
-    );
-
+    const results: DetectionInput[] = [];
     for (const group of this.groupByMerchant(transactions)) {
       const pattern = analyzeMerchantPattern(group, analyzedFrom, analyzedTo);
       if (!pattern) continue;
 
-      if (dismissed.has(`${pattern.merchantKey}:${pattern.frequency}`)) {
-        continue;
-      }
-
-      // The user's own figures win; only the detection-derived fields refresh.
-      const edited = editedByMerchant.get(pattern.merchantKey);
-      if (edited) {
-        await subscriptionRepository.refreshDetection(edited.id, {
-          lastChargeDate: pattern.lastChargeDate,
-          nextExpectedDate: nextExpectedDateAfter(
-            pattern.lastChargeDate,
-            edited.frequency,
-          ),
-          matchingDescriptions: pattern.descriptions,
-          confidence: pattern.confidence,
-          detectionEvidence: pattern.evidence,
-        });
-        continue;
-      }
-
-      await subscriptionRepository.upsert({
+      results.push({
         userId,
         merchantName: pattern.merchantKey,
         displayName: pattern.displayName,
@@ -392,6 +353,8 @@ class SubscriptionDetectionService {
         detectionEvidence: pattern.evidence,
       });
     }
+
+    await subscriptionRepository.applyDetectionResults(userId, results);
   }
 
   private groupByMerchant(transactions: MerchantCharge[]): MerchantGroup[] {

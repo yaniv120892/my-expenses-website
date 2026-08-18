@@ -40,6 +40,11 @@ import {
 
 type FilterTab = 'ALL' | SubscriptionStatus;
 
+type DialogTarget = {
+  kind: 'convert' | 'edit' | 'explain';
+  subscription: DetectedSubscription;
+};
+
 const KPI_GRID_COLUMNS = { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' };
 
 function StatTile({
@@ -66,13 +71,7 @@ function StatTile({
 export default function SubscriptionsPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
-  const [convertTarget, setConvertTarget] =
-    useState<DetectedSubscription | null>(null);
-  const [editTarget, setEditTarget] = useState<DetectedSubscription | null>(
-    null,
-  );
-  const [explainTarget, setExplainTarget] =
-    useState<DetectedSubscription | null>(null);
+  const [dialog, setDialog] = useState<DialogTarget | null>(null);
 
   const statusParam = filterTab === 'ALL' ? undefined : filterTab;
   const { data, isLoading, error } = useSubscriptionsQuery(statusParam);
@@ -87,22 +86,16 @@ export default function SubscriptionsPage() {
   );
 
   function handleConvert(id: string, categoryId: string) {
-    convertMutation.mutate(
-      { id, categoryId },
-      { onSuccess: () => setConvertTarget(null) },
-    );
+    convertMutation.mutate({ id, categoryId }, { onSuccess: closeDialog });
   }
 
   function handleSave(id: string, payload: UpdateSubscriptionPayload) {
-    updateMutation.mutate(
-      { id, payload },
-      { onSuccess: () => setEditTarget(null) },
-    );
+    updateMutation.mutate({ id, payload }, { onSuccess: closeDialog });
   }
 
-  function handleCloseEdit() {
+  function closeDialog() {
     updateMutation.reset();
-    setEditTarget(null);
+    setDialog(null);
   }
 
   if (error) {
@@ -226,26 +219,30 @@ export default function SubscriptionsPage() {
                   subscription={sub}
                   onConfirm={(id) => confirmMutation.mutate(id)}
                   onDismiss={(id) => dismissMutation.mutate(id)}
-                  onConvert={setConvertTarget}
-                  onEdit={setEditTarget}
-                  onExplain={setExplainTarget}
+                  onConvert={(s) =>
+                    setDialog({ kind: 'convert', subscription: s })
+                  }
+                  onEdit={(s) => setDialog({ kind: 'edit', subscription: s })}
+                  onExplain={(s) =>
+                    setDialog({ kind: 'explain', subscription: s })
+                  }
                 />
               ))}
             </Box>
           )}
 
           <ConvertToScheduledDialog
-            open={!!convertTarget}
-            subscription={convertTarget}
-            onClose={() => setConvertTarget(null)}
+            open={dialog?.kind === 'convert'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
             onConvert={handleConvert}
             isLoading={convertMutation.isPending}
           />
 
           <EditSubscriptionDialog
-            open={!!editTarget}
-            subscription={editTarget}
-            onClose={handleCloseEdit}
+            open={dialog?.kind === 'edit'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
             onSave={handleSave}
             isLoading={updateMutation.isPending}
             error={
@@ -256,9 +253,9 @@ export default function SubscriptionsPage() {
           />
 
           <SubscriptionEvidenceDialog
-            open={!!explainTarget}
-            subscription={explainTarget}
-            onClose={() => setExplainTarget(null)}
+            open={dialog?.kind === 'explain'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
           />
         </>
       )}

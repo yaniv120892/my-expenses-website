@@ -1,7 +1,18 @@
 import { DetectedSubscription } from '@/types/subscription';
 
-export type SubscriptionSortKey =
-  'MONTHLY_DESC' | 'MONTHLY_ASC' | 'ANNUAL_DESC' | 'NEXT_CHARGE' | 'NAME';
+type Comparator = (a: DetectedSubscription, b: DetectedSubscription) => number;
+
+const COMPARATORS = {
+  MONTHLY_DESC: (a, b) => b.monthlyCost - a.monthlyCost,
+  MONTHLY_ASC: (a, b) => a.monthlyCost - b.monthlyCost,
+  ANNUAL_DESC: (a, b) => b.annualCost - a.annualCost,
+  NEXT_CHARGE: (a, b) =>
+    new Date(a.nextExpectedDate).getTime() -
+    new Date(b.nextExpectedDate).getTime(),
+  NAME: (a, b) => a.displayName.localeCompare(b.displayName),
+} satisfies Record<string, Comparator>;
+
+export type SubscriptionSortKey = keyof typeof COMPARATORS;
 
 export const SUBSCRIPTION_SORT_OPTIONS: {
   value: SubscriptionSortKey;
@@ -18,21 +29,5 @@ export function sortSubscriptions(
   subscriptions: DetectedSubscription[],
   sortKey: SubscriptionSortKey,
 ): DetectedSubscription[] {
-  const sorted = [...subscriptions];
-  switch (sortKey) {
-    case 'MONTHLY_DESC':
-      return sorted.sort((a, b) => b.monthlyCost - a.monthlyCost);
-    case 'MONTHLY_ASC':
-      return sorted.sort((a, b) => a.monthlyCost - b.monthlyCost);
-    case 'ANNUAL_DESC':
-      return sorted.sort((a, b) => b.annualCost - a.annualCost);
-    case 'NEXT_CHARGE':
-      return sorted.sort(
-        (a, b) =>
-          new Date(a.nextExpectedDate).getTime() -
-          new Date(b.nextExpectedDate).getTime(),
-      );
-    case 'NAME':
-      return sorted.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }
+  return [...subscriptions].sort(COMPARATORS[sortKey]);
 }

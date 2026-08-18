@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findScheduleMatch,
+  indexSchedules,
   MatchableSchedule,
 } from '@/server/utils/scheduleMatching';
 
@@ -15,9 +16,14 @@ const schedule = (
   ...over,
 });
 
+const findMatch = (
+  subscription: { merchantName: string; scheduledTransactionId?: string },
+  schedules: MatchableSchedule[],
+) => findScheduleMatch(subscription, indexSchedules(schedules));
+
 describe('findScheduleMatch', () => {
   it('prefers the schedule a conversion linked, whatever its name', () => {
-    const match = findScheduleMatch(
+    const match = findMatch(
       { merchantName: 'netflix', scheduledTransactionId: 'sched-9' },
       [schedule(), schedule({ id: 'sched-9', description: 'Renamed by user' })],
     );
@@ -25,7 +31,7 @@ describe('findScheduleMatch', () => {
   });
 
   it('falls back to a name match when the linked schedule is gone', () => {
-    const match = findScheduleMatch(
+    const match = findMatch(
       { merchantName: 'netflix', scheduledTransactionId: 'deleted' },
       [schedule()],
     );
@@ -33,14 +39,14 @@ describe('findScheduleMatch', () => {
   });
 
   it('matches a schedule whose description contains the merchant', () => {
-    const match = findScheduleMatch({ merchantName: 'netflix' }, [
+    const match = findMatch({ merchantName: 'netflix' }, [
       schedule({ description: 'Netflix subscription' }),
     ]);
     expect(match?.matchType).toBe('NAME_MATCH');
   });
 
   it('matches when the merchant key is the longer of the two', () => {
-    const match = findScheduleMatch({ merchantName: 'netflix premium' }, [
+    const match = findMatch({ merchantName: 'netflix premium' }, [
       schedule({ description: 'Netflix' }),
     ]);
     expect(match?.matchType).toBe('NAME_MATCH');
@@ -48,18 +54,18 @@ describe('findScheduleMatch', () => {
 
   it('returns nothing for an unrelated schedule', () => {
     expect(
-      findScheduleMatch({ merchantName: 'netflix' }, [
+      findMatch({ merchantName: 'netflix' }, [
         schedule({ description: 'Gym membership' }),
       ]),
     ).toBeUndefined();
   });
 
   it('returns nothing when the user has no schedules', () => {
-    expect(findScheduleMatch({ merchantName: 'netflix' }, [])).toBeUndefined();
+    expect(findMatch({ merchantName: 'netflix' }, [])).toBeUndefined();
   });
 
   it('carries the schedule details through for display', () => {
-    const match = findScheduleMatch({ merchantName: 'netflix' }, [schedule()]);
+    const match = findMatch({ merchantName: 'netflix' }, [schedule()]);
     expect(match).toEqual({
       id: 'sched-1',
       description: 'Netflix',

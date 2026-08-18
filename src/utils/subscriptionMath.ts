@@ -1,21 +1,32 @@
-import { SubscriptionFrequency } from '@prisma/client';
 import { addWeeks, addMonths, addYears } from 'date-fns';
-import { toAnnualCost, toMonthlyCost } from '@/utils/subscriptionCost';
-
-export { roundToCents } from '@/utils/subscriptionCost';
+import { SubscriptionFrequency } from '@/types/subscription';
 
 export function toMonthlyAmount(
   amount: number,
   frequency: SubscriptionFrequency,
 ): number {
-  return toMonthlyCost(amount, frequency);
+  switch (frequency) {
+    case 'WEEKLY':
+      return (amount * 52) / 12;
+    case 'MONTHLY':
+      return amount;
+    case 'YEARLY':
+      return amount / 12;
+  }
 }
 
 export function toAnnualAmount(
   amount: number,
   frequency: SubscriptionFrequency,
 ): number {
-  return toAnnualCost(amount, frequency);
+  switch (frequency) {
+    case 'WEEKLY':
+      return amount * 52;
+    case 'MONTHLY':
+      return amount * 12;
+    case 'YEARLY':
+      return amount;
+  }
 }
 
 export function nextExpectedDateAfter(
@@ -30,4 +41,8 @@ export function nextExpectedDateAfter(
     case 'YEARLY':
       return addYears(lastChargeDate, 1);
   }
+}
+
+export function roundToCents(value: number): number {
+  return Math.round(value * 100) / 100;
 }

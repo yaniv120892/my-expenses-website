@@ -9,6 +9,21 @@ export interface MatchableSchedule {
   nextRunDate?: Date | null;
 }
 
+export interface IndexedSchedule {
+  schedule: MatchableSchedule;
+  merchantKey: string;
+}
+
+/** Normalizes once per request so the per-subscription scan stays regex-free. */
+export function indexSchedules(
+  schedules: MatchableSchedule[],
+): IndexedSchedule[] {
+  return schedules.map((schedule) => ({
+    schedule,
+    merchantKey: normalizeMerchantName(schedule.description),
+  }));
+}
+
 function toMatch(
   schedule: MatchableSchedule,
   matchType: SubscriptionScheduleMatch['matchType'],
@@ -30,27 +45,25 @@ function toMatch(
  */
 export function findScheduleMatch(
   subscription: { merchantName: string; scheduledTransactionId?: string },
-  schedules: MatchableSchedule[],
+  schedules: IndexedSchedule[],
 ): SubscriptionScheduleMatch | undefined {
   if (subscription.scheduledTransactionId) {
     const linked = schedules.find(
-      (schedule) => schedule.id === subscription.scheduledTransactionId,
+      ({ schedule }) => schedule.id === subscription.scheduledTransactionId,
     );
-    if (linked) return toMatch(linked, 'LINKED');
+    if (linked) return toMatch(linked.schedule, 'LINKED');
   }
 
   const merchantKey = subscription.merchantName.trim();
   if (!merchantKey) return undefined;
 
-  const byName = schedules.find((schedule) => {
-    const scheduleKey = normalizeMerchantName(schedule.description);
-    if (!scheduleKey) return false;
-    return (
-      scheduleKey === merchantKey ||
-      scheduleKey.includes(merchantKey) ||
-      merchantKey.includes(scheduleKey)
-    );
-  });
+  const byName = schedules.find(
+    ({ merchantKey: scheduleKey }) =>
+      scheduleKey &&
+      (scheduleKey === merchantKey ||
+        scheduleKey.includes(merchantKey) ||
+        merchantKey.includes(scheduleKey)),
+  );
 
-  return byName ? toMatch(byName, 'NAME_MATCH') : undefined;
+  return byName ? toMatch(byName.schedule, 'NAME_MATCH') : undefined;
 }

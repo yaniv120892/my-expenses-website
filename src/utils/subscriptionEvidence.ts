@@ -1,61 +1,50 @@
-import { format } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import {
   DetectedSubscription,
-  SubscriptionEvidence,
+  SubscriptionEvidenceCharge,
 } from '@/types/subscription';
-import { formatCurrency } from '@/utils/format';
+import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
+import { formatCurrency, formatSubscriptionFrequency } from '@/utils/format';
+import { formatDay } from '@/utils/dateUtils';
 
-const FREQUENCY_LABEL: Record<string, string> = {
-  WEEKLY: 'weekly',
-  MONTHLY: 'monthly',
-  YEARLY: 'yearly',
+export type ChargeWithGap = SubscriptionEvidenceCharge & {
+  /** Days since the charge before it; null for the oldest one listed. */
+  gapDays: number | null;
 };
 
-export function formatDay(value: string): string {
-  return format(new Date(value), 'MMM d, yyyy');
-}
-
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-/**
- * Gap in days between each charge and the one before it. Charges arrive newest
- * first, so the last row — the oldest charge — has no predecessor.
- */
-export function daysBetweenCharges(
-  charges: { date: string }[],
-): (number | null)[] {
+/** Charges arrive newest first, so each row's predecessor is the next one. */
+export function withChargeGaps(
+  charges: SubscriptionEvidenceCharge[],
+): ChargeWithGap[] {
   return charges.map((charge, index) => {
     const previous = charges[index + 1];
-    if (!previous) return null;
-    return Math.round(
-      (new Date(charge.date).getTime() - new Date(previous.date).getTime()) /
-        MS_PER_DAY,
-    );
+    return {
+      ...charge,
+      gapDays: previous
+        ? differenceInCalendarDays(
+            new Date(charge.date),
+            new Date(previous.date),
+          )
+        : null,
+    };
   });
 }
 
-/** Plain-language reasons the detector accepted this merchant as recurring. */
 export function buildEvidenceReasons(
   subscription: DetectedSubscription,
-  evidence: SubscriptionEvidence,
+  evidence: SubscriptionDetectionEvidence,
 ): string[] {
-  const frequencyLabel =
-    FREQUENCY_LABEL[subscription.frequency] ?? subscription.frequency;
-  const reasons = [
-    `${evidence.chargeCount} charges matched the merchant "${evidence.merchantKey}" between ${formatDay(evidence.firstChargeDate)} and ${formatDay(evidence.lastChargeDate)}.`,
+  const frequencyLabel = formatSubscriptionFrequency(
+    subscription.frequency,
+  ).toLowerCase();
+
+  return [
+    `${evidence.chargeCount} charges matched the merchant "${subscription.merchantName}" between ${formatDay(evidence.firstChargeDate)} and ${formatDay(evidence.lastChargeDate)}.`,
     `They arrive about every ${evidence.medianIntervalDays} days, which falls inside the ${frequencyLabel} window of ${evidence.frequencyWindowDays.min}–${evidence.frequencyWindowDays.max} days.`,
     `The spacing varies by ${evidence.intervalStdDevDays} days (${Math.round(evidence.intervalVariationRatio * 100)}% of the typical gap) — detection rejects anything above ${Math.round(evidence.intervalToleranceRatio * 100)}%.`,
-  ];
-
-  reasons.push(
     evidence.minAmount === evidence.maxAmount
       ? `Every charge was ${formatCurrency(evidence.minAmount)}.`
       : `Charges ranged from ${formatCurrency(evidence.minAmount)} to ${formatCurrency(evidence.maxAmount)}, averaging ${formatCurrency(evidence.averageAmount)}.`,
-  );
-
-  reasons.push(
     `That gives a confidence of ${Math.round(subscription.confidence * 100)}%.`,
-  );
-
-  return reasons;
+  ];
 }

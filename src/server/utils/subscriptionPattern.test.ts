@@ -93,7 +93,7 @@ describe('analyzeMerchantPattern', () => {
     const evidence = pattern!.evidence;
 
     expect(evidence.chargeCount).toBe(4);
-    expect(evidence.merchantKey).toBe('netflix');
+    expect(pattern!.merchantKey).toBe('netflix');
     expect(evidence.medianIntervalDays).toBe(31);
     expect(evidence.frequencyWindowDays).toEqual({ min: 25, max: 35 });
     expect(evidence.intervalVariationRatio).toBeLessThanOrEqual(

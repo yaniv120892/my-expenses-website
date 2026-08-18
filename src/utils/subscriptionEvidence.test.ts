@@ -1,18 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DetectedSubscription,
-  SubscriptionEvidence,
-} from '@/types/subscription';
+import { DetectedSubscription } from '@/types/subscription';
+import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
 import {
   buildEvidenceReasons,
-  daysBetweenCharges,
+  withChargeGaps,
 } from '@/utils/subscriptionEvidence';
 
-const evidence = (over: Partial<SubscriptionEvidence> = {}) =>
+const evidence = (over: Partial<SubscriptionDetectionEvidence> = {}) =>
   ({
-    version: 1,
-    detectedAt: '2026-08-18T00:00:00.000Z',
-    merchantKey: 'netflix',
     analyzedFrom: '2025-08-18T00:00:00.000Z',
     analyzedTo: '2026-08-18T00:00:00.000Z',
     chargeCount: 4,
@@ -31,9 +26,10 @@ const evidence = (over: Partial<SubscriptionEvidence> = {}) =>
     recentCharges: [],
     olderChargeCount: 0,
     ...over,
-  }) as SubscriptionEvidence;
+  }) as SubscriptionDetectionEvidence;
 
 const subscription = {
+  merchantName: 'netflix',
   frequency: 'MONTHLY',
   confidence: 0.98,
 } as DetectedSubscription;
@@ -80,24 +76,31 @@ describe('buildEvidenceReasons', () => {
   });
 });
 
-describe('daysBetweenCharges', () => {
+const charge = (date: string) => ({ date, amount: 10, description: 'NETFLIX' });
+
+describe('withChargeGaps', () => {
   it('measures each newest-first charge against the one before it', () => {
     expect(
-      daysBetweenCharges([
-        { date: '2026-08-04T00:00:00.000Z' },
-        { date: '2026-07-04T00:00:00.000Z' },
-        { date: '2026-06-04T00:00:00.000Z' },
-      ]),
+      withChargeGaps([
+        charge('2026-08-04T00:00:00.000Z'),
+        charge('2026-07-04T00:00:00.000Z'),
+        charge('2026-06-04T00:00:00.000Z'),
+      ]).map((c) => c.gapDays),
     ).toEqual([31, 30, null]);
   });
 
-  it('returns a single null for one charge', () => {
-    expect(daysBetweenCharges([{ date: '2026-08-04T00:00:00.000Z' }])).toEqual([
-      null,
+  it('keeps the charge fields alongside the gap', () => {
+    expect(withChargeGaps([charge('2026-08-04T00:00:00.000Z')])).toEqual([
+      {
+        date: '2026-08-04T00:00:00.000Z',
+        amount: 10,
+        description: 'NETFLIX',
+        gapDays: null,
+      },
     ]);
   });
 
   it('handles an empty list', () => {
-    expect(daysBetweenCharges([])).toEqual([]);
+    expect(withChargeGaps([])).toEqual([]);
   });
 });

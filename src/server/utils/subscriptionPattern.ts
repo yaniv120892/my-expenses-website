@@ -8,23 +8,23 @@ import {
   nextExpectedDateAfter,
   roundToCents,
   toAnnualAmount,
-} from '@/server/utils/subscriptionMath';
+} from '@/utils/subscriptionMath';
 
 export const MIN_CHARGES_FOR_PATTERN = 3;
 export const INTERVAL_TOLERANCE_RATIO = 0.3;
-export const EVIDENCE_VERSION = 1;
 const MAX_EVIDENCE_CHARGES = 12;
+// Intervals stay fractional so the standard deviation can see sub-day drift,
+// which date-fns' whole-day helpers would round away.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const FREQUENCY_WINDOWS: {
-  frequency: SubscriptionFrequency;
-  min: number;
-  max: number;
-}[] = [
-  { frequency: 'WEEKLY', min: 5, max: 9 },
-  { frequency: 'MONTHLY', min: 25, max: 35 },
-  { frequency: 'YEARLY', min: 340, max: 395 },
-];
+const FREQUENCY_WINDOW_DAYS: Record<
+  SubscriptionFrequency,
+  { min: number; max: number }
+> = {
+  WEEKLY: { min: 5, max: 9 },
+  MONTHLY: { min: 25, max: 35 },
+  YEARLY: { min: 340, max: 395 },
+};
 
 export interface MerchantCharge {
   description: string;
@@ -67,59 +67,32 @@ function standardDeviation(values: number[], center: number): number {
   return Math.sqrt(variance);
 }
 
-export function classifyFrequency(
-  medianDays: number,
-): SubscriptionFrequency | null {
-  const window = FREQUENCY_WINDOWS.find(
-    (candidate) => medianDays >= candidate.min && medianDays <= candidate.max,
-  );
-  return window ? window.frequency : null;
-}
-
-function windowFor(frequency: SubscriptionFrequency): {
-  min: number;
-  max: number;
-} {
-  const window = FREQUENCY_WINDOWS.find((w) => w.frequency === frequency)!;
-  return { min: window.min, max: window.max };
-}
-
-function pickDisplayName(descriptions: string[]): string {
-  const counts = new Map<string, number>();
-  for (const description of descriptions) {
-    const trimmed = description.trim();
-    counts.set(trimmed, (counts.get(trimmed) || 0) + 1);
+/** The value appearing most often; ties go to the one seen first. */
+function mostCommon<T>(values: (T | undefined)[]): T | undefined {
+  const counts = new Map<T, number>();
+  for (const value of values) {
+    if (value === undefined) continue;
+    counts.set(value, (counts.get(value) || 0) + 1);
   }
 
-  let mostCommon = descriptions[0];
+  let winner: T | undefined;
   let maxCount = 0;
-  for (const [description, count] of counts) {
+  for (const [value, count] of counts) {
     if (count > maxCount) {
       maxCount = count;
-      mostCommon = description;
-    }
-  }
-
-  return toDisplayName(mostCommon);
-}
-
-/** The category most of the merchant's charges already use, if any. */
-function pickCategoryId(charges: MerchantCharge[]): string | undefined {
-  const counts = new Map<string, number>();
-  for (const charge of charges) {
-    if (!charge.categoryId) continue;
-    counts.set(charge.categoryId, (counts.get(charge.categoryId) || 0) + 1);
-  }
-
-  let winner: string | undefined;
-  let maxCount = 0;
-  for (const [categoryId, count] of counts) {
-    if (count > maxCount) {
-      maxCount = count;
-      winner = categoryId;
+      winner = value;
     }
   }
   return winner;
+}
+
+export function classifyFrequency(
+  medianDays: number,
+): SubscriptionFrequency | null {
+  const match = Object.entries(FREQUENCY_WINDOW_DAYS).find(
+    ([, window]) => medianDays >= window.min && medianDays <= window.max,
+  );
+  return match ? (match[0] as SubscriptionFrequency) : null;
 }
 
 function toEvidenceCharges(
@@ -152,7 +125,6 @@ export function analyzeMerchantPattern(
       (charges[i].date.getTime() - charges[i - 1].date.getTime()) / MS_PER_DAY,
     );
   }
-  if (intervals.length === 0) return null;
 
   const medianInterval = median(intervals);
   const stddev = standardDeviation(intervals, medianInterval);
@@ -163,16 +135,13 @@ export function analyzeMerchantPattern(
   if (variationRatio > INTERVAL_TOLERANCE_RATIO) return null;
 
   const amounts = charges.map((charge) => charge.value);
+  const descriptions = charges.map((charge) => charge.description);
   const averageAmount =
     amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
   const lastChargeDate = charges[charges.length - 1].date;
-  const descriptions = [...new Set(charges.map((c) => c.description))];
   const confidence = Math.max(0, Math.min(1, 1 - variationRatio));
 
   const evidence: SubscriptionDetectionEvidence = {
-    version: EVIDENCE_VERSION,
-    detectedAt: analyzedTo.toISOString(),
-    merchantKey: group.merchantKey,
     analyzedFrom: analyzedFrom.toISOString(),
     analyzedTo: analyzedTo.toISOString(),
     chargeCount: charges.length,
@@ -184,7 +153,7 @@ export function analyzeMerchantPattern(
     intervalStdDevDays: Math.round(stddev * 10) / 10,
     intervalVariationRatio: Math.round(variationRatio * 100) / 100,
     intervalToleranceRatio: INTERVAL_TOLERANCE_RATIO,
-    frequencyWindowDays: windowFor(frequency),
+    frequencyWindowDays: FREQUENCY_WINDOW_DAYS[frequency],
     minAmount: roundToCents(Math.min(...amounts)),
     maxAmount: roundToCents(Math.max(...amounts)),
     averageAmount: roundToCents(averageAmount),
@@ -194,15 +163,17 @@ export function analyzeMerchantPattern(
 
   return {
     merchantKey: group.merchantKey,
-    displayName: pickDisplayName(charges.map((c) => c.description)),
+    displayName: toDisplayName(
+      mostCommon(descriptions.map((d) => d.trim())) ?? descriptions[0],
+    ),
     frequency,
     averageAmount: roundToCents(averageAmount),
     lastChargeDate,
     nextExpectedDate: nextExpectedDateAfter(lastChargeDate, frequency),
     annualCost: roundToCents(toAnnualAmount(averageAmount, frequency)),
-    descriptions,
+    descriptions: [...new Set(descriptions)],
     confidence: Math.round(confidence * 100) / 100,
-    categoryId: pickCategoryId(charges),
+    categoryId: mostCommon(charges.map((charge) => charge.categoryId)),
     evidence,
   };
 }

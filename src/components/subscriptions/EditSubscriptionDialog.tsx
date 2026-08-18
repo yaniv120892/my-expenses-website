@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Box,
   Button,
   Dialog,
   DialogActions,
@@ -21,14 +20,12 @@ import {
   SubscriptionFrequency,
   UpdateSubscriptionPayload,
 } from '@/types/subscription';
-import { formatCurrency } from '@/utils/format';
-import { toMonthlyCost, toAnnualCost } from '@/utils/subscriptionCost';
-
-const FREQUENCIES: { value: SubscriptionFrequency; label: string }[] = [
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'YEARLY', label: 'Yearly' },
-];
+import {
+  formatCurrency,
+  formatSubscriptionFrequency,
+  SUBSCRIPTION_FREQUENCIES,
+} from '@/utils/format';
+import { toMonthlyAmount, toAnnualAmount } from '@/utils/subscriptionMath';
 
 interface Props {
   open: boolean;
@@ -39,9 +36,38 @@ interface Props {
   error?: string;
 }
 
+interface FormState {
+  displayName: string;
+  amount: string;
+  frequency: SubscriptionFrequency;
+  lastChargeDate: string;
+  nextExpectedDate: string;
+  categoryId: string;
+}
+
 function toDateInput(value: string): string {
   return new Date(value).toISOString().slice(0, 10);
 }
+
+function toFormState(subscription: DetectedSubscription): FormState {
+  return {
+    displayName: subscription.displayName,
+    amount: String(subscription.averageAmount),
+    frequency: subscription.frequency,
+    lastChargeDate: toDateInput(subscription.lastChargeDate),
+    nextExpectedDate: toDateInput(subscription.nextExpectedDate),
+    categoryId: subscription.categoryId ?? '',
+  };
+}
+
+const EMPTY_FORM: FormState = {
+  displayName: '',
+  amount: '',
+  frequency: 'MONTHLY',
+  lastChargeDate: '',
+  nextExpectedDate: '',
+  categoryId: '',
+};
 
 export default function EditSubscriptionDialog({
   open,
@@ -52,38 +78,35 @@ export default function EditSubscriptionDialog({
   error,
 }: Props) {
   const fullScreen = useIsCompact();
-  const [displayName, setDisplayName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState<SubscriptionFrequency>('MONTHLY');
-  const [lastChargeDate, setLastChargeDate] = useState('');
-  const [nextExpectedDate, setNextExpectedDate] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   useEffect(() => {
-    if (!open || !subscription) return;
-    setDisplayName(subscription.displayName);
-    setAmount(String(subscription.averageAmount));
-    setFrequency(subscription.frequency);
-    setLastChargeDate(toDateInput(subscription.lastChargeDate));
-    setNextExpectedDate(toDateInput(subscription.nextExpectedDate));
-    setCategoryId(subscription.categoryId ?? '');
+    if (open && subscription) {
+      setForm(toFormState(subscription));
+    }
   }, [open, subscription]);
 
-  const parsedAmount = Number(amount);
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  const parsedAmount = Number(form.amount);
   const amountError =
-    amount.trim() === '' || !Number.isFinite(parsedAmount) || parsedAmount <= 0;
-  const nameError = displayName.trim() === '';
+    form.amount.trim() === '' ||
+    !Number.isFinite(parsedAmount) ||
+    parsedAmount <= 0;
+  const nameError = form.displayName.trim() === '';
   const canSave = !amountError && !nameError && !isLoading;
 
   function handleSave() {
     if (!subscription || !canSave) return;
     onSave(subscription.id, {
-      displayName: displayName.trim(),
+      displayName: form.displayName.trim(),
       averageAmount: parsedAmount,
-      frequency,
-      lastChargeDate: new Date(lastChargeDate).toISOString(),
-      nextExpectedDate: new Date(nextExpectedDate).toISOString(),
-      categoryId: categoryId || null,
+      frequency: form.frequency,
+      lastChargeDate: new Date(form.lastChargeDate).toISOString(),
+      nextExpectedDate: new Date(form.nextExpectedDate).toISOString(),
+      categoryId: form.categoryId || null,
     });
   }
 
@@ -101,8 +124,8 @@ export default function EditSubscriptionDialog({
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            value={form.displayName}
+            onChange={(e) => set('displayName', e.target.value)}
             error={nameError}
             helperText={nameError ? 'Name is required' : undefined}
             fullWidth
@@ -111,8 +134,8 @@ export default function EditSubscriptionDialog({
             <TextField
               label="Amount per charge"
               type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={form.amount}
+              onChange={(e) => set('amount', e.target.value)}
               error={amountError}
               helperText={
                 amountError ? 'Enter an amount greater than zero' : undefined
@@ -123,15 +146,15 @@ export default function EditSubscriptionDialog({
             <TextField
               select
               label="Frequency"
-              value={frequency}
+              value={form.frequency}
               onChange={(e) =>
-                setFrequency(e.target.value as SubscriptionFrequency)
+                set('frequency', e.target.value as SubscriptionFrequency)
               }
               fullWidth
             >
-              {FREQUENCIES.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+              {SUBSCRIPTION_FREQUENCIES.map((frequency) => (
+                <MenuItem key={frequency} value={frequency}>
+                  {formatSubscriptionFrequency(frequency)}
                 </MenuItem>
               ))}
             </TextField>
@@ -140,29 +163,32 @@ export default function EditSubscriptionDialog({
             <TextField
               label="Last charge"
               type="date"
-              value={lastChargeDate}
-              onChange={(e) => setLastChargeDate(e.target.value)}
+              value={form.lastChargeDate}
+              onChange={(e) => set('lastChargeDate', e.target.value)}
               InputLabelProps={{ shrink: true }}
               fullWidth
             />
             <TextField
               label="Next expected"
               type="date"
-              value={nextExpectedDate}
-              onChange={(e) => setNextExpectedDate(e.target.value)}
+              value={form.nextExpectedDate}
+              onChange={(e) => set('nextExpectedDate', e.target.value)}
               InputLabelProps={{ shrink: true }}
               fullWidth
             />
           </Stack>
-          <CategorySelect value={categoryId} onChange={setCategoryId} />
+          <CategorySelect
+            value={form.categoryId}
+            onChange={(value) => set('categoryId', value)}
+          />
           {!amountError && (
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                Costs {formatCurrency(toMonthlyCost(parsedAmount, frequency))}
-                /month · {formatCurrency(toAnnualCost(parsedAmount, frequency))}
-                /year
-              </Typography>
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Costs{' '}
+              {formatCurrency(toMonthlyAmount(parsedAmount, form.frequency))}
+              /month ·{' '}
+              {formatCurrency(toAnnualAmount(parsedAmount, form.frequency))}
+              /year
+            </Typography>
           )}
         </Stack>
       </DialogContent>

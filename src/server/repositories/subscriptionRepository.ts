@@ -10,14 +10,18 @@ import {
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
   SubscriptionDetectionEvidence,
+  UpdateSubscriptionInput,
 } from '@/shared/types/subscription';
-import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
+import {
+  nextExpectedDateAfter,
+  toMonthlyAmount,
+} from '@/utils/subscriptionMath';
 
 type DetectedSubscriptionRow = DetectedSubscription & {
   category?: Pick<Category, 'id' | 'name'> | null;
 };
 
-export interface UpsertDetectionInput {
+export interface DetectionInput {
   userId: string;
   merchantName: string;
   displayName: string;
@@ -32,33 +36,40 @@ export interface UpsertDetectionInput {
   detectionEvidence: SubscriptionDetectionEvidence;
 }
 
-/** The fields re-detection may refresh on a subscription the user has edited. */
-export interface RefreshDetectionInput {
-  lastChargeDate: Date;
-  nextExpectedDate: Date;
-  matchingDescriptions: string[];
-  confidence: number;
-  detectionEvidence: SubscriptionDetectionEvidence;
+export type UpdateSubscriptionFields = UpdateSubscriptionInput & {
+  annualCost?: number;
+};
+
+interface ExistingDetectionRow {
+  id: string;
+  frequency: SubscriptionFrequency;
+  status: SubscriptionStatus;
+  userEditedAt: Date | null;
 }
 
-export interface UpdateSubscriptionFields {
-  displayName?: string;
-  averageAmount?: number;
-  frequency?: SubscriptionFrequency;
-  lastChargeDate?: Date;
-  nextExpectedDate?: Date;
-  annualCost?: number;
-  categoryId?: string | null;
+/** What buildAuditMessage needs; the evidence blob would dwarf it. */
+export interface SubscriptionAuditRow {
+  userId: string;
+  displayName: string;
+  averageAmount: number;
+  frequency: SubscriptionFrequency;
+  annualCost: number;
+  status: SubscriptionStatus;
 }
 
 const withCategory = {
   category: { select: { id: true, name: true } },
 } satisfies Prisma.DetectedSubscriptionInclude;
 
-function toJson(
-  evidence: SubscriptionDetectionEvidence,
-): Prisma.InputJsonValue {
-  return evidence as unknown as Prisma.InputJsonValue;
+// The charges and confidence a detection run may refresh even on a row whose
+// figures the user has taken ownership of.
+function detectionOwnedFields(data: DetectionInput) {
+  return {
+    lastChargeDate: data.lastChargeDate,
+    matchingDescriptions: data.matchingDescriptions,
+    confidence: data.confidence,
+    detectionEvidence: data.detectionEvidence,
+  };
 }
 
 class SubscriptionRepository {
@@ -77,10 +88,81 @@ class SubscriptionRepository {
     return subscriptions.map(mapToDomain);
   }
 
-  public async upsert(
-    data: UpsertDetectionInput,
-  ): Promise<DetectedSubscriptionDomain> {
-    const result = await prisma.detectedSubscription.upsert({
+  /**
+   * Writes a whole detection run for one user. Reads the rows it may collide
+   * with once, then applies each merchant independently.
+   */
+  public async applyDetectionResults(
+    userId: string,
+    results: DetectionInput[],
+  ): Promise<void> {
+    if (results.length === 0) return;
+
+    const existing = await prisma.detectedSubscription.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        merchantName: true,
+        frequency: true,
+        status: true,
+        userEditedAt: true,
+      },
+    });
+
+    const byMerchant = new Map<string, typeof existing>();
+    for (const row of existing) {
+      byMerchant.set(row.merchantName, [
+        ...(byMerchant.get(row.merchantName) ?? []),
+        row,
+      ]);
+    }
+
+    await Promise.all(
+      results.map((result) =>
+        this.applyDetection(result, byMerchant.get(result.merchantName) ?? []),
+      ),
+    );
+  }
+
+  /**
+   * Decides what a detection run is allowed to touch: a merchant the user
+   * dismissed at this frequency stays untouched, a row whose figures the user
+   * edited keeps them along with its own frequency, and anything else is
+   * fully refreshed.
+   */
+  private async applyDetection(
+    data: DetectionInput,
+    existing: ExistingDetectionRow[],
+  ): Promise<void> {
+    const edited = existing.find((row) => row.userEditedAt);
+    if (edited) {
+      await prisma.detectedSubscription.update({
+        where: { id: edited.id },
+        data: {
+          ...detectionOwnedFields(data),
+          nextExpectedDate: nextExpectedDateAfter(
+            data.lastChargeDate,
+            edited.frequency,
+          ),
+        },
+      });
+      return;
+    }
+
+    const dismissed = existing.some(
+      (row) => row.status === 'DISMISSED' && row.frequency === data.frequency,
+    );
+    if (dismissed) return;
+
+    const fields = {
+      ...detectionOwnedFields(data),
+      displayName: data.displayName,
+      averageAmount: data.averageAmount,
+      nextExpectedDate: data.nextExpectedDate,
+      annualCost: data.annualCost,
+    };
+
+    await prisma.detectedSubscription.upsert({
       where: {
         userId_merchantName_frequency: {
           userId: data.userId,
@@ -88,52 +170,20 @@ class SubscriptionRepository {
           frequency: data.frequency,
         },
       },
+      // A row the user never categorized adopts the detected category, but a
+      // category they chose is theirs even without a full edit.
       update: {
-        displayName: data.displayName,
-        averageAmount: data.averageAmount,
-        lastChargeDate: data.lastChargeDate,
-        nextExpectedDate: data.nextExpectedDate,
-        annualCost: data.annualCost,
-        matchingDescriptions: data.matchingDescriptions,
-        confidence: data.confidence,
-        detectionEvidence: toJson(data.detectionEvidence),
+        ...fields,
         ...(data.categoryId ? { categoryId: data.categoryId } : {}),
       },
       create: {
+        ...fields,
         userId: data.userId,
         merchantName: data.merchantName,
-        displayName: data.displayName,
-        averageAmount: data.averageAmount,
         frequency: data.frequency,
-        lastChargeDate: data.lastChargeDate,
-        nextExpectedDate: data.nextExpectedDate,
-        annualCost: data.annualCost,
-        matchingDescriptions: data.matchingDescriptions,
-        confidence: data.confidence,
         categoryId: data.categoryId,
-        detectionEvidence: toJson(data.detectionEvidence),
       },
-      include: withCategory,
     });
-    return mapToDomain(result);
-  }
-
-  public async refreshDetection(
-    id: string,
-    data: RefreshDetectionInput,
-  ): Promise<DetectedSubscriptionDomain> {
-    const result = await prisma.detectedSubscription.update({
-      where: { id },
-      data: {
-        lastChargeDate: data.lastChargeDate,
-        nextExpectedDate: data.nextExpectedDate,
-        matchingDescriptions: data.matchingDescriptions,
-        confidence: data.confidence,
-        detectionEvidence: toJson(data.detectionEvidence),
-      },
-      include: withCategory,
-    });
-    return mapToDomain(result);
   }
 
   public async update(
@@ -141,12 +191,7 @@ class SubscriptionRepository {
     userId: string,
     data: UpdateSubscriptionFields,
   ): Promise<DetectedSubscriptionDomain> {
-    const result = await prisma.detectedSubscription.update({
-      where: { id, userId },
-      data: { ...data, userEditedAt: new Date() },
-      include: withCategory,
-    });
-    return mapToDomain(result);
+    return this.applyUpdate(id, userId, { ...data, userEditedAt: new Date() });
   }
 
   public async updateStatus(
@@ -154,12 +199,7 @@ class SubscriptionRepository {
     userId: string,
     status: SubscriptionStatus,
   ): Promise<DetectedSubscriptionDomain> {
-    const result = await prisma.detectedSubscription.update({
-      where: { id, userId },
-      data: { status },
-      include: withCategory,
-    });
-    return mapToDomain(result);
+    return this.applyUpdate(id, userId, { status });
   }
 
   public async linkScheduledTransaction(
@@ -167,12 +207,10 @@ class SubscriptionRepository {
     userId: string,
     scheduledTransactionId: string,
   ): Promise<DetectedSubscriptionDomain> {
-    const result = await prisma.detectedSubscription.update({
-      where: { id, userId },
-      data: { scheduledTransactionId, status: 'CONFIRMED' },
-      include: withCategory,
+    return this.applyUpdate(id, userId, {
+      scheduledTransactionId,
+      status: 'CONFIRMED',
     });
-    return mapToDomain(result);
   }
 
   public async getById(
@@ -230,15 +268,34 @@ class SubscriptionRepository {
     };
   }
 
-  public async getActiveForAllUsers(): Promise<DetectedSubscriptionDomain[]> {
-    const subscriptions = await prisma.detectedSubscription.findMany({
+  public async getActiveForAllUsers(): Promise<SubscriptionAuditRow[]> {
+    return prisma.detectedSubscription.findMany({
       where: {
         status: { in: ['DETECTED', 'CONFIRMED'] },
       },
-      include: withCategory,
+      select: {
+        userId: true,
+        displayName: true,
+        averageAmount: true,
+        frequency: true,
+        annualCost: true,
+        status: true,
+      },
       orderBy: { userId: 'asc' },
     });
-    return subscriptions.map(mapToDomain);
+  }
+
+  private async applyUpdate(
+    id: string,
+    userId: string,
+    data: Prisma.DetectedSubscriptionUpdateInput,
+  ): Promise<DetectedSubscriptionDomain> {
+    const result = await prisma.detectedSubscription.update({
+      where: { id, userId },
+      data,
+      include: withCategory,
+    });
+    return mapToDomain(result);
   }
 }
 

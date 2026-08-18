@@ -1,20 +1,21 @@
 import type {
   DetectedSubscriptionDomain,
-  SubscriptionDetectionEvidence,
+  SubscriptionListItem,
   SubscriptionScheduleMatch,
   SubscriptionSummary as SharedSubscriptionSummary,
 } from '@/shared/types/subscription';
 
+export type { SubscriptionEvidenceCharge } from '@/shared/types/subscription';
+
 export type SubscriptionFrequency = DetectedSubscriptionDomain['frequency'];
 export type SubscriptionStatus = DetectedSubscriptionDomain['status'];
-export type SubscriptionEvidence = SubscriptionDetectionEvidence;
 
 export type ScheduleMatch = Omit<SubscriptionScheduleMatch, 'nextRunDate'> & {
   nextRunDate?: string;
 };
 
 export type DetectedSubscription = Omit<
-  DetectedSubscriptionDomain,
+  SubscriptionListItem,
   | 'userId'
   | 'createdAt'
   | 'updatedAt'

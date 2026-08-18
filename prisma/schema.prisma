@@ -292,6 +292,8 @@ model DetectedSubscription {
   user                   User                  @relation(fields: [userId], references: [id])
   category               Category?             @relation(fields: [categoryId], references: [id])
 
+  // Frequency is part of the key but is user-editable, so detection resolves
+  // an edited row by merchantName alone before falling back to this key.
   @@unique([userId, merchantName, frequency])
   @@index([userId])
   @@index([status])

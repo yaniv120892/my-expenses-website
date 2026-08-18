@@ -1,15 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { subRepo, prismaMock, sendDailySummary } = vi.hoisted(() => ({
-  subRepo: { getActiveForAllUsers: vi.fn() },
-  prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
-  sendDailySummary: vi.fn(),
-}));
+const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(
+  () => ({
+    subRepo: {
+      getActiveForAllUsers: vi.fn(),
+      getByUserId: vi.fn(),
+      getById: vi.fn(),
+      update: vi.fn(),
+    },
+    prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
+    sendDailySummary: vi.fn(),
+    scheduledService: { listScheduledTransactions: vi.fn() },
+  }),
+);
 
 vi.mock('@/server/repositories/subscriptionRepository', () => ({
   default: subRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
+vi.mock('@/server/services/scheduledTransactionService', () => ({
+  default: scheduledService,
+}));
 vi.mock(
   '@/server/services/transactionNotification/transactionNotifierFactory',
   () => ({
@@ -61,6 +72,11 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-15T12:00:00Z'));
   subRepo.getActiveForAllUsers.mockResolvedValue([]);
+  subRepo.getByUserId.mockResolvedValue([]);
+  subRepo.update.mockImplementation(
+    async (id: string, _userId: string, data: Sub) => ({ id, ...data }),
+  );
+  scheduledService.listScheduledTransactions.mockResolvedValue([]);
   enable('user-1', 'user-2');
 });
 
@@ -172,5 +188,185 @@ describe('sendMonthlyAuditNotifications', () => {
   it('an empty run sends nothing and does not throw', async () => {
     await expect(run()).resolves.toBeUndefined();
     expect(sendDailySummary).not.toHaveBeenCalled();
+  });
+});
+
+const stored = (over: Sub = {}) => ({
+  id: 'sub-1',
+  userId: 'user-1',
+  merchantName: 'netflix',
+  displayName: 'Netflix',
+  averageAmount: 50,
+  frequency: 'MONTHLY',
+  lastChargeDate: new Date('2026-03-04T00:00:00Z'),
+  nextExpectedDate: new Date('2026-04-04T00:00:00Z'),
+  annualCost: 600,
+  monthlyCost: 50,
+  status: 'CONFIRMED',
+  matchingDescriptions: ['NETFLIX.COM'],
+  confidence: 0.9,
+  ...over,
+});
+
+const updateArgs = () => subRepo.update.mock.calls[0][2] as Sub;
+
+describe('updateSubscription', () => {
+  it('derives the annual cost from the new amount and frequency', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      averageAmount: 30,
+    });
+    expect(updateArgs()).toMatchObject({
+      averageAmount: 30,
+      frequency: 'MONTHLY',
+      annualCost: 360,
+    });
+  });
+
+  it('moves the next expected date when the frequency changes', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      frequency: 'YEARLY',
+    });
+    expect(updateArgs()).toMatchObject({
+      frequency: 'YEARLY',
+      annualCost: 50,
+      nextExpectedDate: new Date('2027-03-04T00:00:00Z'),
+    });
+  });
+
+  it('keeps the next expected date when only the amount changes', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      averageAmount: 55,
+    });
+    expect(updateArgs().nextExpectedDate).toEqual(
+      new Date('2026-04-04T00:00:00Z'),
+    );
+  });
+
+  it('honours an explicitly given next expected date', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      frequency: 'WEEKLY',
+      nextExpectedDate: new Date('2026-05-01T00:00:00Z'),
+    });
+    expect(updateArgs().nextExpectedDate).toEqual(
+      new Date('2026-05-01T00:00:00Z'),
+    );
+  });
+
+  it('leaves untouched fields out of the update', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      averageAmount: 30,
+    });
+    expect(updateArgs()).not.toHaveProperty('displayName');
+    expect(updateArgs()).not.toHaveProperty('categoryId');
+  });
+
+  it('passes a cleared category through as null', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      categoryId: null,
+    });
+    expect(updateArgs().categoryId).toBe(null);
+  });
+
+  it('rejects an unknown subscription', async () => {
+    subRepo.getById.mockResolvedValue(null);
+    await expect(
+      subscriptionDetectionService.updateSubscription('nope', 'user-1', {
+        averageAmount: 30,
+      }),
+    ).rejects.toThrow('Subscription not found');
+  });
+
+  it('explains a frequency clash instead of leaking the Prisma error', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    subRepo.update.mockRejectedValue(
+      Object.assign(new Error('db'), { code: 'P2002' }),
+    );
+    await expect(
+      subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+        frequency: 'WEEKLY',
+      }),
+    ).rejects.toThrow('Another subscription already tracks this merchant');
+  });
+});
+
+describe('getSubscriptions', () => {
+  it('orders subscriptions by monthly cost, most expensive first', async () => {
+    subRepo.getByUserId.mockResolvedValue([
+      stored({ id: 'cheap', monthlyCost: 10, annualCost: 120 }),
+      stored({ id: 'dear', monthlyCost: 90, annualCost: 1080 }),
+      stored({ id: 'mid', monthlyCost: 40, annualCost: 480 }),
+    ]);
+    const result =
+      await subscriptionDetectionService.getSubscriptions('user-1');
+    expect(result.subscriptions.map((s) => s.id)).toEqual([
+      'dear',
+      'mid',
+      'cheap',
+    ]);
+  });
+
+  it('totals only detected and confirmed rows', async () => {
+    subRepo.getByUserId.mockResolvedValue([
+      stored({
+        id: 'a',
+        status: 'CONFIRMED',
+        monthlyCost: 50,
+        annualCost: 600,
+      }),
+      stored({ id: 'b', status: 'DETECTED', monthlyCost: 10, annualCost: 120 }),
+      stored({
+        id: 'c',
+        status: 'DISMISSED',
+        monthlyCost: 99,
+        annualCost: 999,
+      }),
+    ]);
+    const result =
+      await subscriptionDetectionService.getSubscriptions('user-1');
+    expect(result).toMatchObject({
+      activeCount: 1,
+      detectedCount: 1,
+      totalMonthlyEstimate: 60,
+      totalAnnualEstimate: 720,
+    });
+  });
+
+  it('flags a subscription an existing schedule already covers', async () => {
+    subRepo.getByUserId.mockResolvedValue([stored()]);
+    scheduledService.listScheduledTransactions.mockResolvedValue([
+      {
+        id: 'sched-1',
+        description: 'Netflix monthly',
+        value: 50,
+        scheduleType: 'MONTHLY',
+      },
+    ]);
+    const result =
+      await subscriptionDetectionService.getSubscriptions('user-1');
+    expect(result.subscriptions[0].scheduleMatch).toMatchObject({
+      id: 'sched-1',
+      matchType: 'NAME_MATCH',
+    });
+  });
+
+  it('leaves scheduleMatch unset when nothing matches', async () => {
+    subRepo.getByUserId.mockResolvedValue([stored()]);
+    scheduledService.listScheduledTransactions.mockResolvedValue([
+      {
+        id: 'sched-1',
+        description: 'Gym',
+        value: 100,
+        scheduleType: 'MONTHLY',
+      },
+    ]);
+    const result =
+      await subscriptionDetectionService.getSubscriptions('user-1');
+    expect(result.subscriptions[0].scheduleMatch).toBeUndefined();
   });
 });

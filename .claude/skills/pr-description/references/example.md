@@ -176,9 +176,9 @@ import id in the signed URL returned 401.
 
 **UI.**
 
-| Desktop                                                                                                                                             | Mobile                                                                                                                                             |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<commit-sha>/docs/proof-of-work/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<commit-sha>/docs/proof-of-work/import-queue-mobile.png" width="250"/> |
+| Desktop                                                                                                                                               | Mobile                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<assets-sha>/import-several-files/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<assets-sha>/import-several-files/import-queue-mobile.png" width="250"/> |
 
 The queue with four rows mid-batch, one row failed and offering Retry.
 

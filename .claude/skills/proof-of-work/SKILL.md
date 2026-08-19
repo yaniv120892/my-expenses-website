@@ -15,17 +15,17 @@ description, and honesty about what was not exercised.
 
 Decide what to produce from what the change touches:
 
-| Change touches                   | Produce                                                                            |
-| -------------------------------- | ---------------------------------------------------------------------------------- |
-| Server, API route, service, cron | Stack up locally, call the endpoint or flow, paste request/response                |
-| UI                               | Playwright screenshots — desktop and mobile, plus dark mode for anything visual    |
-| Both                             | Both                                                                               |
-| Schema                           | The migration applying, and a query showing the new shape                          |
-| Bug fix                          | The failing case reproduced _before_, and the same case succeeding _after_         |
-| Tooling, docs, a skill           | No runtime surface — apply it to real inputs from this repo and show what came out |
+| Change touches                   | Produce                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| Server, API route, service, cron | Stack up locally, call the endpoint or flow, paste request/response                  |
+| UI                               | Playwright screenshots — desktop, plus mobile if it reflows and dark if it recolours |
+| Both                             | Both                                                                                 |
+| Schema                           | The migration applying, and a query showing the new shape                            |
+| Bug fix                          | The failing case reproduced _before_, and the same case succeeding _after_           |
+| Tooling, docs, a skill           | No runtime surface — apply it to real inputs from this repo and show what came out   |
 
-Every one of them also carries the check results: `npm test`, `npm run
-typecheck`, `npm run lint`, with real counts.
+Every one of them also carries the check results, with real counts. Run them
+as one command: `npm run typecheck && npm run lint && npm test`.
 
 ## Bringing the stack up
 
@@ -113,7 +113,8 @@ rather than logging in through the form each time.
 
 `scripts/capture.ts` in this skill does the standard capture: signs in with
 the token, visits a route, and writes desktop (1440×900), mobile (390×844),
-and dark variants. Copy it into the repo root or run it in place:
+and dark variants. Run it in place — it shares `signIn()` with `e2e/helpers.ts`,
+so a copy elsewhere would not resolve, and would leave an untracked file behind:
 
 ```bash
 E2E_AUTH_TOKEN=$TOKEN npx tsx .claude/skills/proof-of-work/scripts/capture.ts \
@@ -130,21 +131,21 @@ dialog, a tab or an applied filter gets captured without writing a spec:
   --click 'button:has-text("Apply")'
 ```
 
-It waits 1800ms before shooting, which is not padding: recharts runs a 1500ms
-enter animation on every data change, and a shot taken earlier catches the
-sectors at zero radius — the chart reads as **missing** rather than animating.
-Raise it with `--settle` for anything slower. If a chart looks absent in a
-capture, count `.recharts-pie-sector` in the DOM before believing it.
+It settles for 1800ms before shooting so recharts' enter animation lands;
+`--settle` raises that for anything slower. If a chart still looks absent in a
+capture, count `.recharts-pie-sector` in the DOM before believing it — the
+usual cause is a shot taken mid-animation, not a render bug.
 
 Dark mode is set by seeding `localStorage['mui-mode'] = 'dark'` before the
 page loads — the theme uses MUI's CSS-vars `colorSchemeSelector: 'data'` with
 `InitColorSchemeScript`, so the attribute is applied on first paint and the
 screenshot has no light-mode flash.
 
-For a flow rather than a screen — a dialog mid-batch, a chart after a click —
-write a short spec in `e2e/` or extend an existing one and screenshot at the
-interesting moments. A screenshot of an empty page proves nothing; seed the
-data that makes the change visible, and say in the PR what was seeded.
+`--click` covers anything reachable by clicking. Reach for a short spec in
+`e2e/` only when the shot needs an assertion or a state the flags cannot
+express — a dialog mid-batch, a row after its retry failed. Either way, a
+screenshot of an empty page proves nothing: seed the data that makes the
+change visible, and say in the PR what was seeded.
 
 **Where they go — never in the PR's own diff.** Screenshots exist to be looked
 at once while the PR is open. Committing them alongside the change puts binaries
@@ -213,11 +214,10 @@ truth, and a description that looks right in your draft can arrive gutted.
 Say in the body that the screenshots are not in the diff and where they live, so
 a reviewer looking for them in the file list knows why they are absent.
 
-Caption every link with one line saying what the reader is looking at and what
-is different about it. This matters more now that they are links rather than
-images: nobody clicks through to "screenshot 3". "The queue with four rows
-mid-batch, one failed and offering Retry" earns the click; a bare filename
-does not.
+Caption every link with what the reader is looking at and what is different
+about it — as links rather than images, nobody clicks through to "screenshot
+3". "The queue with four rows mid-batch, one failed and offering Retry" earns
+the click; a bare filename does not.
 
 ## When there is nothing to run
 
@@ -234,10 +234,6 @@ Anything mechanically checkable should still be checked and reported — a
 Mermaid diagram parsed rather than eyeballed, a bundled script passing
 `npm run typecheck` and `npm run lint`, a JSON file validating against its
 schema. "It looks right" is not proof of work.
-
-Reporting where it fell short is not optional. A section that only lists
-successes is marketing; the reviewer needs to know which cases were tried and
-which ones the change does not handle.
 
 ## The check results
 

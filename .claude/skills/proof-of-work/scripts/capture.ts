@@ -1,40 +1,57 @@
 /**
  * Captures proof-of-work screenshots against a locally running app.
  *
- * The session cookie is planted directly (same trick as `e2e/helpers.ts`) so a
- * capture never depends on the login form rendering correctly, and dark mode is
- * seeded into localStorage before first paint so there is no light-mode flash.
+ * Runs in place, so it shares `signIn()` with the e2e suite and a capture never
+ * depends on the login form rendering. Dark mode is seeded into localStorage
+ * before first paint so there is no light-mode flash.
  *
- *   E2E_AUTH_TOKEN=$TOKEN npx tsx capture.ts --route /subscriptions \
- *     --name subscriptions-edit --dark
+ *   E2E_AUTH_TOKEN=$TOKEN npx tsx .claude/skills/proof-of-work/scripts/capture.ts \
+ *     --route /subscriptions --name subscriptions-edit --dark
  *
  * Writes proof-of-work/<name>-{desktop,mobile}[-dark].png — a gitignored
  * directory, because screenshots are published from the proof-of-work-assets
  * branch and must never land in the PR's own diff.
  */
-import { chromium, Browser, Page } from '@playwright/test';
+import { chromium, Browser } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { signIn } from '../../../../e2e/helpers';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
 const OUT_DIR = path.resolve(process.env.PROOF_OF_WORK_DIR || 'proof-of-work');
-const MODE_STORAGE_KEY = 'mui-mode';
 
 const VIEWPORTS = {
   desktop: { width: 1440, height: 900 },
   mobile: { width: 390, height: 844 },
 } as const;
 
+type ViewportName = keyof typeof VIEWPORTS;
+type Mode = 'light' | 'dark';
+
 interface Options {
   route: string;
   name: string;
-  dark: boolean;
   fullPage: boolean;
-  viewports: (keyof typeof VIEWPORTS)[];
+  viewports: ViewportName[];
+  modes: Mode[];
   waitFor?: string;
   clicks: string[];
   settleMs: number;
+}
+
+const USAGE = `Usage: capture.ts --route /path --name kebab-name
+  [--dark] [--full-page] [--only desktop|mobile]
+  [--wait-for <selector>] [--click <selector>]... [--settle <ms>]`;
+
+function parseViewports(only: string | undefined): ViewportName[] {
+  if (only === undefined) {
+    return ['desktop', 'mobile'];
+  }
+  if (only === 'desktop' || only === 'mobile') {
+    return [only];
+  }
+  throw new Error(`--only takes desktop or mobile, got "${only}"\n${USAGE}`);
 }
 
 function parseArgs(argv: string[]): Options {
@@ -45,92 +62,78 @@ function parseArgs(argv: string[]): Options {
 
   // Repeatable, so a capture can walk into a dialog or a tab before shooting.
   const getAll = (flag: string): string[] =>
-    argv.reduce<string[]>(
-      (found, arg, i) =>
-        arg === flag && argv[i + 1] ? [...found, argv[i + 1]] : found,
-      [],
+    argv.flatMap((arg, i) =>
+      arg === flag && argv[i + 1] ? [argv[i + 1]] : [],
     );
 
   const route = get('--route');
   const name = get('--name');
   if (!route || !name) {
-    throw new Error(
-      'Usage: capture.ts --route /path --name kebab-name [--dark] [--full-page] [--wait-for <selector>] [--only desktop|mobile]',
-    );
+    throw new Error(USAGE);
   }
 
-  const only = get('--only') as keyof typeof VIEWPORTS | undefined;
   return {
     route,
     name,
-    dark: argv.includes('--dark'),
     fullPage: argv.includes('--full-page'),
-    viewports: only ? [only] : ['desktop', 'mobile'],
+    viewports: parseViewports(get('--only')),
+    modes: argv.includes('--dark') ? ['light', 'dark'] : ['light'],
     waitFor: get('--wait-for'),
     clicks: getAll('--click'),
     settleMs: Number(get('--settle') ?? 1800),
   };
 }
 
-async function newPage(
+async function shoot(
   browser: Browser,
-  viewport: { width: number; height: number },
-  mode: 'light' | 'dark',
-): Promise<Page> {
-  const context = await browser.newContext({ viewport });
+  opts: Options,
+  mode: Mode,
+  viewportName: ViewportName,
+): Promise<void> {
+  const context = await browser.newContext({
+    viewport: VIEWPORTS[viewportName],
+  });
+  const page = await context.newPage();
 
   const token = process.env.E2E_AUTH_TOKEN;
   if (token) {
-    await context.addCookies([
-      {
-        name: 'session',
-        value: token,
-        domain: new URL(BASE_URL).hostname,
-        path: '/',
-        httpOnly: true,
-        sameSite: 'Lax',
-      },
-    ]);
+    await signIn(page, token);
   }
-
-  const page = await context.newPage();
   await page.addInitScript(
-    ([key, value]: [string, string]) => window.localStorage.setItem(key, value),
-    [MODE_STORAGE_KEY, mode] as [string, string],
+    (value: string) => window.localStorage.setItem('mui-mode', value),
+    mode,
   );
-  return page;
+
+  await page.goto(`${BASE_URL}${opts.route}`);
+  for (const selector of opts.clicks) {
+    await page.click(selector, { timeout: 15_000 });
+  }
+  if (opts.waitFor) {
+    await page.waitForSelector(opts.waitFor, { timeout: 15_000 });
+  }
+  // Let animations finish. MUI transitions are ~300ms, but recharts runs a
+  // 1500ms enter animation on every data change — shooting before it lands
+  // catches sectors at zero radius and the chart reads as missing.
+  await page.waitForTimeout(opts.settleMs);
+
+  const suffix = mode === 'dark' ? '-dark' : '';
+  const file = path.join(OUT_DIR, `${opts.name}-${viewportName}${suffix}.png`);
+  await page.screenshot({ path: file, fullPage: opts.fullPage });
+  console.log(`wrote ${path.relative(process.cwd(), file)}`);
+
+  await context.close();
 }
 
+// Contexts are isolated, so the mode x viewport matrix shoots concurrently
+// rather than paying the settle delay once per combination.
 async function capture(browser: Browser, opts: Options): Promise<void> {
-  const modes: ('light' | 'dark')[] = opts.dark ? ['light', 'dark'] : ['light'];
-
-  for (const mode of modes) {
-    for (const viewportName of opts.viewports) {
-      const page = await newPage(browser, VIEWPORTS[viewportName], mode);
-
-      await page.goto(`${BASE_URL}${opts.route}`, { waitUntil: 'networkidle' });
-      for (const selector of opts.clicks) {
-        await page.click(selector, { timeout: 15_000 });
-      }
-      if (opts.waitFor) {
-        await page.waitForSelector(opts.waitFor, { timeout: 15_000 });
-      }
-      // Let animations finish. MUI transitions are ~300ms, but recharts runs a
-      // 1500ms enter animation on every data change — shooting before it lands
-      // catches sectors at zero radius and the chart reads as missing.
-      await page.waitForTimeout(opts.settleMs);
-
-      const suffix = mode === 'dark' ? '-dark' : '';
-      const file = path.join(
-        OUT_DIR,
-        `${opts.name}-${viewportName}${suffix}.png`,
-      );
-      await page.screenshot({ path: file, fullPage: opts.fullPage });
-      console.log(`wrote ${path.relative(process.cwd(), file)}`);
-
-      await page.context().close();
-    }
-  }
+  await Promise.all(
+    opts.modes.flatMap((mode) =>
+      opts.viewports.map((viewportName) =>
+        shoot(browser, opts, mode, viewportName),
+      ),
+    ),
+  );
 }
 
 /**
@@ -144,14 +147,22 @@ function resolveChromium(): string | undefined {
     return process.env.PLAYWRIGHT_CHROMIUM_PATH;
   }
   const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  if (!root || !existsSync(root)) return undefined;
+  if (!root || !existsSync(root)) {
+    return undefined;
+  }
 
+  // Sort on the build number, so chromium-1100 wins over chromium-999.
   const build = readdirSync(root)
-    .filter((entry) => /^chromium-\d+$/.test(entry))
-    .sort()
-    .pop();
-  if (!build) return undefined;
+    .map((entry) => /^chromium-(\d+)$/.exec(entry))
+    .filter((match): match is RegExpExecArray => match !== null)
+    .sort((a, b) => Number(a[1]) - Number(b[1]))
+    .pop()?.[0];
+  if (!build) {
+    return undefined;
+  }
 
+  // Only the linux layout is worth handling: this exists for CI images, and a
+  // dev machine falls through to Playwright's own lookup, which works there.
   const binary = path.join(root, build, 'chrome-linux', 'chrome');
   return existsSync(binary) ? binary : undefined;
 }

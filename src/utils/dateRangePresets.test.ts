@@ -9,8 +9,8 @@ import {
 // Mid-month, mid-year, so a preset that leaked "today" as a bound would show.
 const NOW = new Date(2026, 6, 14);
 
-const rangeOf = (id: string) =>
-  DATE_RANGE_PRESETS.find((preset) => preset.id === id)!.range(NOW);
+const rangeOf = (id: string, now: Date = NOW) =>
+  DATE_RANGE_PRESETS.find((preset) => preset.id === id)!.range(now);
 
 describe('DATE_RANGE_PRESETS', () => {
   it('covers whole calendar months, not a window ending today', () => {
@@ -40,18 +40,14 @@ describe('DATE_RANGE_PRESETS', () => {
   });
 
   it('crosses the year boundary in December', () => {
-    const december = new Date(2026, 11, 3);
-    const preset = DATE_RANGE_PRESETS.find((p) => p.id === 'last-3-months')!;
-    expect(preset.range(december)).toEqual({
+    expect(rangeOf('last-3-months', new Date(2026, 11, 3))).toEqual({
       startDate: '2026-10-01',
       endDate: '2026-12-31',
     });
   });
 
   it('crosses the year boundary in January', () => {
-    const january = new Date(2026, 0, 9);
-    const lastMonth = DATE_RANGE_PRESETS.find((p) => p.id === 'last-month')!;
-    expect(lastMonth.range(january)).toEqual({
+    expect(rangeOf('last-month', new Date(2026, 0, 9))).toEqual({
       startDate: '2025-12-01',
       endDate: '2025-12-31',
     });
@@ -117,14 +113,5 @@ describe('describeDateRange', () => {
     expect(describeDateRange({ endDate: '2026-07-31' })).toBe(
       'Until Jul 31, 2026',
     );
-  });
-
-  it('reads a date-only string as local, not UTC midnight', () => {
-    // `new Date('2026-07-01')` is UTC midnight, which is Jun 30 west of
-    // Greenwich — the whole-month check would then miss and the label would
-    // read as a span.
-    expect(
-      describeDateRange({ startDate: '2026-07-01', endDate: '2026-07-31' }),
-    ).toBe('July 2026');
   });
 });

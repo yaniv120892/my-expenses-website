@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Button,
   Chip,
@@ -40,7 +40,7 @@ export const TransactionFiltersDialog = ({
   const fullScreen = useIsCompact();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [type, setType] = useState<TransactionType | ''>('');
+  const [type, setType] = useState<TransactionType | undefined>();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,37 +49,28 @@ export const TransactionFiltersDialog = ({
     if (open) {
       setSearchTerm(initialFilters?.searchTerm || '');
       setCategoryId(initialFilters?.categoryId || '');
-      setType(initialFilters?.type || '');
+      setType(initialFilters?.type);
       setStartDate(initialFilters?.startDate || '');
       setEndDate(initialFilters?.endDate || '');
     }
   }, [initialFilters, open]);
 
-  // Recomputed per render rather than tracked as state: the date fields stay
-  // editable by hand, and typing a range that happens to match a preset should
-  // light that chip up.
-  const activePreset = useMemo(
-    () =>
-      matchDateRangePreset(
-        {
-          startDate: startDate === '' ? undefined : startDate,
-          endDate: endDate === '' ? undefined : endDate,
-        },
-        new Date(),
-      ),
-    [startDate, endDate],
-  );
+  // One clock for the whole render, so every chip is measured against it.
+  const now = new Date();
+  const filters: TransactionFilters = {
+    searchTerm: searchTerm.trim() || undefined,
+    categoryId: categoryId || undefined,
+    type,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+  };
+
+  const activePreset = matchDateRangePreset(filters, now);
 
   const handleApply = async () => {
     setLoading(true);
     try {
-      onApply({
-        searchTerm: searchTerm.trim() === '' ? undefined : searchTerm,
-        categoryId: categoryId === '' ? undefined : categoryId,
-        type: type === '' ? undefined : type,
-        startDate: startDate === '' ? undefined : startDate,
-        endDate: endDate === '' ? undefined : endDate,
-      });
+      onApply(filters);
       onClose();
     } finally {
       setLoading(false);
@@ -114,7 +105,7 @@ export const TransactionFiltersDialog = ({
                   color={activePreset === preset.id ? 'primary' : 'default'}
                   variant={activePreset === preset.id ? 'filled' : 'outlined'}
                   onClick={() => {
-                    const range = preset.range(new Date());
+                    const range = preset.range(now);
                     setStartDate(range.startDate ?? '');
                     setEndDate(range.endDate ?? '');
                   }}
@@ -150,9 +141,9 @@ export const TransactionFiltersDialog = ({
               exclusive
               fullWidth
               size="small"
-              value={type}
+              value={type ?? ''}
               onChange={(_, next: TransactionType | '' | null) =>
-                setType(next ?? '')
+                setType(next || undefined)
               }
             >
               <ToggleButton value="">Any</ToggleButton>

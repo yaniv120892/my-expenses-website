@@ -146,24 +146,57 @@ write a short spec in `e2e/` or extend an existing one and screenshot at the
 interesting moments. A screenshot of an empty page proves nothing; seed the
 data that makes the change visible, and say in the PR what was seeded.
 
-**Where they go.** Commit under `docs/proof-of-work/` with descriptive
-kebab-case names carrying the variant: `import-queue-desktop.png`,
-`import-queue-mobile.png`, `transactions-desktop-dark.png`.
+**Where they go — never in the PR's own diff.** Screenshots exist to be looked
+at once while the PR is open. Committing them alongside the change puts binaries
+in the review, and in the tree forever, for a thing nobody opens again after
+merge.
 
-**How they are embedded.** GitHub does not render a relative image path in a
-PR body, so use a raw URL. Pin it to the **commit SHA**, not the branch name —
-a branch URL breaks the moment the branch is deleted after merge, which is
-exactly when someone reads the PR as history:
+They go on `proof-of-work-assets` instead: an orphan branch that shares no
+history with `main` and is never merged, holding nothing but images under a
+directory named for the PR. Nothing there reaches any diff, and the raw URLs
+keep resolving.
 
-```markdown
-| Desktop                                                                                                                                      | Mobile                                                                                                                                      |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<sha>/docs/proof-of-work/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<sha>/docs/proof-of-work/import-queue-mobile.png" width="250"/> |
+Build the commit with plumbing so the working tree is never touched — no
+`checkout --orphan`, no `git clean`, nothing to restore afterwards:
+
+```bash
+export GIT_INDEX_FILE=$(mktemp)
+for f in shots/*.png; do
+  sha=$(git hash-object -w "$f")
+  git update-index --add --cacheinfo 100644,"$sha","<pr-slug>/$(basename "$f")"
+done
+TREE=$(git write-tree)
+# Omit -p to keep it an orphan; pass -p proof-of-work-assets to extend it.
+COMMIT=$(git commit-tree "$TREE" -m "Proof-of-work screenshots for #NN")
+unset GIT_INDEX_FILE
+git update-ref refs/heads/proof-of-work-assets "$COMMIT"
+git push origin proof-of-work-assets
 ```
 
-Push the screenshots first, then read the SHA with `git rev-parse HEAD` and
-write the body. Widths of 600 (desktop) and 250 (mobile) keep the table
-readable; use 400/200 when putting four variants in one row.
+Name files in kebab-case carrying the variant — `import-queue-desktop.png`,
+`import-queue-mobile-dark.png` — so a reader can tell them apart from the URL.
+
+**How they are embedded.** GitHub does not render a relative image path in a PR
+body, and its `user-attachments` CDN only accepts drag-and-drop from the
+browser, so use a raw URL against the assets branch. Pin it to that branch's
+**commit SHA**: a branch URL silently starts serving different bytes the next
+time the branch moves.
+
+```markdown
+| Desktop                                                                                                                   | Mobile                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| <img src="https://raw.githubusercontent.com/<owner>/<repo>/<assets-sha>/<pr-slug>/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/<owner>/<repo>/<assets-sha>/<pr-slug>/import-queue-mobile.png" width="250"/> |
+```
+
+Push the assets branch first, read the SHA with
+`git rev-parse proof-of-work-assets`, then write the body — and `curl -sI` one
+URL to confirm it answers `200 image/png` before posting, since a broken image
+in a description is invisible to you and obvious to everyone else. Widths of 600
+(desktop) and 250 (mobile) keep the table readable; use 400/200 when putting
+four variants in one row.
+
+Say in the body that the screenshots are not in the diff and where they live, so
+a reviewer looking for them in the file list knows why they are absent.
 
 Caption every table with one line saying what the reader is looking at and
 what is different about it. "The queue with four rows mid-batch, one failed
@@ -225,6 +258,8 @@ much the evidence is worth.
 
 ## Cleaning up
 
-Stop `serve.ts` and `prisma dev` when done. Do not commit the seed scripts,
-`.env` files, or Playwright traces — only the screenshots under
-`docs/proof-of-work/` belong in the diff.
+Stop `serve.ts` and `prisma dev` when done. Nothing from a proof-of-work run
+belongs in the PR: not the seed script, not `.env` files, not Playwright traces,
+and not the screenshots — those go to the assets branch. `capture.ts` writes to
+a gitignored directory for exactly this reason, so the only thing to check is
+that `git status` is clean before pushing.

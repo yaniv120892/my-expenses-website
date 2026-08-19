@@ -8,7 +8,9 @@
  *   E2E_AUTH_TOKEN=$TOKEN npx tsx capture.ts --route /subscriptions \
  *     --name subscriptions-edit --dark
  *
- * Writes docs/proof-of-work/<name>-{desktop,mobile}[-dark].png.
+ * Writes proof-of-work/<name>-{desktop,mobile}[-dark].png — a gitignored
+ * directory, because screenshots are published from the proof-of-work-assets
+ * branch and must never land in the PR's own diff.
  */
 import { chromium, Browser, Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
@@ -16,7 +18,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
-const OUT_DIR = path.resolve('docs/proof-of-work');
+const OUT_DIR = path.resolve(process.env.PROOF_OF_WORK_DIR || 'proof-of-work');
 const MODE_STORAGE_KEY = 'mui-mode';
 
 const VIEWPORTS = {

@@ -1,4 +1,4 @@
-import { endOfMonth, format, startOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { TrendPeriod } from '@/types/trends';
 
 export function formatTrendDate(date: string, period: TrendPeriod): string {
@@ -31,8 +31,12 @@ export const formatDate = (
   return date.toLocaleDateString();
 };
 
+/** parseISO, not `new Date`: the latter reads a date-only string as UTC midnight. */
 export function formatDay(value: string | Date): string {
-  return format(new Date(value), 'MMM d, yyyy');
+  return format(
+    typeof value === 'string' ? parseISO(value) : value,
+    'MMM d, yyyy',
+  );
 }
 
 /** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */
@@ -44,15 +48,4 @@ export function formatDateRange(
   const startLabel = start ? formatDay(start) : '';
   const endLabel = end ? formatDay(end) : '';
   return `${startLabel} ${separator} ${endLabel}`;
-}
-
-export function defaultMonthFilters(): {
-  startDate: string;
-  endDate: string;
-} {
-  const now = new Date();
-  return {
-    startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
-    endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
-  };
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Button,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -10,10 +11,17 @@ import {
   TextField,
   CircularProgress,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
 } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters } from '@/types';
+import { TransactionFilters, TransactionType } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
+import {
+  DATE_RANGE_PRESETS,
+  matchDateRangePreset,
+} from '@/utils/dateRangePresets';
 import CategorySelect from '../CategorySelect';
 
 interface TransactionFiltersDialogProps {
@@ -32,6 +40,7 @@ export const TransactionFiltersDialog = ({
   const fullScreen = useIsCompact();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [type, setType] = useState<TransactionType | undefined>();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,20 +49,28 @@ export const TransactionFiltersDialog = ({
     if (open) {
       setSearchTerm(initialFilters?.searchTerm || '');
       setCategoryId(initialFilters?.categoryId || '');
+      setType(initialFilters?.type);
       setStartDate(initialFilters?.startDate || '');
       setEndDate(initialFilters?.endDate || '');
     }
   }, [initialFilters, open]);
 
+  // One clock for the whole render, so every chip is measured against it.
+  const now = new Date();
+  const filters: TransactionFilters = {
+    searchTerm: searchTerm.trim() || undefined,
+    categoryId: categoryId || undefined,
+    type,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+  };
+
+  const activePreset = matchDateRangePreset(filters, now);
+
   const handleApply = async () => {
     setLoading(true);
     try {
-      onApply({
-        searchTerm: searchTerm.trim() === '' ? undefined : searchTerm,
-        categoryId: categoryId === '' ? undefined : categoryId,
-        startDate: startDate === '' ? undefined : startDate,
-        endDate: endDate === '' ? undefined : endDate,
-      });
+      onApply(filters);
       onClose();
     } finally {
       setLoading(false);
@@ -75,6 +92,66 @@ export const TransactionFiltersDialog = ({
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={1}>
+            <Typography variant="caption" color="text.secondary">
+              Date range
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+              {DATE_RANGE_PRESETS.map((preset) => (
+                <Chip
+                  key={preset.id}
+                  label={preset.label}
+                  size="small"
+                  color={activePreset === preset.id ? 'primary' : 'default'}
+                  variant={activePreset === preset.id ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    const range = preset.range(now);
+                    setStartDate(range.startDate ?? '');
+                    setEndDate(range.endDate ?? '');
+                  }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+
+          <Stack spacing={1}>
+            <Typography variant="caption" color="text.secondary">
+              Type
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={type ?? ''}
+              onChange={(_, next: TransactionType | '' | null) =>
+                setType(next || undefined)
+              }
+            >
+              <ToggleButton value="">Any</ToggleButton>
+              <ToggleButton value="INCOME">Income</ToggleButton>
+              <ToggleButton value="EXPENSE">Expense</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+
           <TextField
             label="Search"
             value={searchTerm}
@@ -86,22 +163,6 @@ export const TransactionFiltersDialog = ({
             onChange={(value) => setCategoryId(value)}
             label="Category"
             fullWidth
-          />
-          <TextField
-            label="Start Date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            label="End Date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            fullWidth
-            InputLabelProps={{ shrink: true }}
           />
         </Stack>
       </DialogContent>

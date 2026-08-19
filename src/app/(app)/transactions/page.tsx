@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import { format } from 'date-fns';
 import {
   Transaction,
   TransactionFilters,
@@ -43,6 +42,7 @@ import {
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultMonthFilters } from '@/utils/dateUtils';
+import { describeDateRange } from '@/utils/dateRangePresets';
 
 const filterShape = transactionFilterSchema.shape;
 
@@ -202,11 +202,7 @@ function TransactionsPageContent() {
             type: prev.type === type ? undefined : type,
           }))
         }
-        title={
-          filters.startDate
-            ? format(new Date(filters.startDate), 'MMMM yyyy')
-            : ''
-        }
+        title={describeDateRange(filters)}
       />
 
       <TransactionFiltersDisplay
@@ -288,8 +284,9 @@ function TransactionsPageContent() {
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        // Merged rather than replaced: the dialog has no type control, so a
-        // replace would silently drop a type picked on the chart.
+        // Merged rather than replaced so a filter the dialog does not carry
+        // survives an apply. Every key it does carry is always present, set to
+        // undefined when cleared, so clearing still overwrites.
         onApply={(next) => setFilters((prev) => ({ ...prev, ...next }))}
         initialFilters={filters}
       />

@@ -31,14 +31,18 @@ export const formatDate = (
   return date.toLocaleDateString();
 };
 
+export function formatDay(value: string | Date): string {
+  return format(new Date(value), 'MMM d, yyyy');
+}
+
 /** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */
 export function formatDateRange(
   start?: string | Date,
   end?: string | Date,
   separator: string = '-',
 ): string {
-  const startLabel = start ? format(new Date(start), 'MMM d, yyyy') : '';
-  const endLabel = end ? format(new Date(end), 'MMM d, yyyy') : '';
+  const startLabel = start ? formatDay(start) : '';
+  const endLabel = end ? formatDay(end) : '';
   return `${startLabel} ${separator} ${endLabel}`;
 }
 

@@ -36,9 +36,9 @@ export default function ConvertToScheduledDialog({
 
   useEffect(() => {
     if (open) {
-      setCategoryId('');
+      setCategoryId(subscription?.categoryId ?? '');
     }
-  }, [open]);
+  }, [open, subscription]);
 
   function handleSubmit() {
     if (!subscription || !categoryId) return;

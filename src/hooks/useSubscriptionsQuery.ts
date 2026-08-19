@@ -1,15 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchSubscriptions,
   confirmSubscription,
   dismissSubscription,
+  updateSubscription,
   convertToScheduled,
-} from "../services/subscriptionService";
-import { scheduledTransactionKeys } from "./useScheduledTransactionsQuery";
+} from '../services/subscriptionService';
+import { UpdateSubscriptionPayload } from '../types/subscription';
+import { scheduledTransactionKeys } from './useScheduledTransactionsQuery';
 
 export const subscriptionKeys = {
-  all: ["subscriptions"] as const,
-  list: (status?: string) => [...subscriptionKeys.all, "list", status] as const,
+  all: ['subscriptions'] as const,
+  list: (status?: string) => [...subscriptionKeys.all, 'list', status] as const,
 };
 
 export const useSubscriptionsQuery = (status?: string) => {
@@ -41,11 +43,28 @@ export const useDismissSubscriptionMutation = () => {
   });
 };
 
+export const useUpdateSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateSubscriptionPayload;
+    }) => updateSubscription(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+    },
+  });
+};
+
 export const useConvertSubscriptionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, categoryId }: { id: string; categoryId: string }) =>
+    mutationFn: ({ id, categoryId }: { id: string; categoryId?: string }) =>
       convertToScheduled(id, categoryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });

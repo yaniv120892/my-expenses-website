@@ -1,4 +1,5 @@
 import { ScheduleType, Transaction } from '../types';
+import { SubscriptionFrequency } from '../types/subscription';
 import { format } from 'date-fns';
 
 export function formatTransactionDate(date: string) {
@@ -13,6 +14,22 @@ export function formatTransaction(transaction: Transaction) {
 
 export function formatNumber(value: number) {
   return value.toLocaleString();
+}
+
+const SUBSCRIPTION_FREQUENCY_LABELS: Record<SubscriptionFrequency, string> = {
+  WEEKLY: 'Weekly',
+  MONTHLY: 'Monthly',
+  YEARLY: 'Yearly',
+};
+
+export const SUBSCRIPTION_FREQUENCIES = Object.keys(
+  SUBSCRIPTION_FREQUENCY_LABELS,
+) as SubscriptionFrequency[];
+
+export function formatSubscriptionFrequency(
+  frequency: SubscriptionFrequency,
+): string {
+  return SUBSCRIPTION_FREQUENCY_LABELS[frequency];
 }
 
 // Module-level so a formatter is not constructed per table cell.

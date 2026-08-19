@@ -1,35 +1,40 @@
 ---
 name: pr-description
-description: Write the title and body for a pull request in this repository's house style — a required Motivation / Implementation / Proof of Work structure, kept at eye level, with a Mermaid diagram when the change is architectural or asynchronous. Use this whenever you are opening a PR, being asked to draft or rewrite a PR description, updating an existing PR body, or writing up a branch's changes for review — including when the user just says "open a PR", "push this and make a PR", or "write up what I changed". Also use it when checking whether an existing PR description is complete before merging.
+description: Write the title and body for a pull request in this repository's house style — a required Motivation / Implementation / Proof of Work structure, with a Mermaid diagram when the change is architectural or asynchronous. Use whenever opening a PR or writing up a branch for review ("open a PR", "push this and make a PR", "write up what I changed"), when drafting or rewriting an existing PR body, and when checking a description is complete before merging. Supersedes writing-pr-description in this repository.
 ---
 
 # Writing a PR description
 
 Every PR body in this repository has the same three sections, in this order:
-**Motivation**, **Implementation**, **Proof of Work**. Consistency is the
-point — a reviewer opening any PR knows where to find why it exists, where
-the change lives, and the evidence it works. A **Visualization** goes between
-the second and third when the change has a shape worth drawing.
+**Motivation**, **Implementation**, **Proof of Work**. A **Visualization**
+goes between the second and third when the change has a shape worth drawing.
 
 The animating idea: the reviewer will read the diff. The description carries
 what the diff cannot — the reason, the map, and the proof.
 
 Write for someone deciding, in thirty seconds, how much of their attention
 this deserves. They should finish Motivation knowing why it exists and how
-much is at stake, finish Implementation knowing where to look, and be able
-to stop there. Everything below that point is for the reader who chose to go
-deeper. That is the difference between a description and a wall of text: not
-length, but whether the important part comes first and the rest is optional.
+much is at stake, finish Implementation knowing where to look, and be able to
+stop there; everything below that point is for the reader who chose to go
+deeper.
+
+This skill supersedes the general `writing-pr-description` skill here — that
+one is written for GitLab merge requests and its `Verify on dev` section does
+not apply to this repository.
 
 ## Gather the facts first — never write from memory of the task
 
 The value of these descriptions is that everything in them is observed.
 
 ```bash
-git log --oneline main..HEAD          # the commits
-git diff main...HEAD --stat            # the real shape of the change
-git diff main...HEAD                   # read it — you will find things you forgot
+git log --oneline main..HEAD && git diff main...HEAD --stat
+git diff main...HEAD    # read it — you will find things you forgot
 ```
+
+Read the full diff on a small branch. Above roughly fifteen files, work from
+the stat and open only the paths a bullet will name — Implementation is
+written at the level of the area, not the file, so the rest never reaches the
+body anyway.
 
 Then produce the actual proof. **Read the `proof-of-work` skill and follow
 it** — it covers bringing the stack up locally, exercising endpoints, and
@@ -133,39 +138,17 @@ drill-down, and all three belong below, not in the map.
 adds length without telling the reviewer anything they cannot see.
 
 Group under a bold sub-label when the change spans distinct areas, so the
-shape is visible before any of it is read:
+shape is visible before any of it is read, and let the label carry the
+judgement rather than just naming the area:
 
 ```markdown
-## Implementation
-
 **Client** — the whole change, the model already supported it
-
-- `src/components/FileUpload/` — files queue as rows with their own payment
-  month; an explicit "Upload N files" starts the batch instead of uploading
-  on drop.
-- `src/utils/importUploadRunner.ts` + `asyncPool.ts` — runs two files at a
-  time, because unbounded uploads split one uplink N ways against the 120s
-  timeout and turn a slow batch into N failures.
-- `src/hooks/useImports.ts` — polls while any import is in flight, bounded by
-  how long this client has been watching.
-
 **Server** — hardening the races that going parallel makes likely
-
-- `src/server/webhooks/excelExtractionWebhook.ts` — the import id now rides in
-  the signed URL, so a fast callback can no longer 404 against a request id
-  that has not been written yet.
-- `src/server/services/importService.ts` — merges go strictly oldest-wards and
-  only into a `COMPLETED` import, so two racing callbacks cannot delete each
-  other.
-- `prisma/migrations/…_import_extraction_concurrency/` — `extractionCompletedAt`
-  plus a unique index on `excelExtractionRequestId`, backfilled so a late
-  redelivery cannot reprocess a finished import.
 ```
 
-That is PR #46: 28 non-test files, six bullets. The sub-labels carry the
-judgement — "the model already supported it", "hardening the races that going
-parallel makes likely" — so the reviewer knows the stakes of each half before
-reading a single path.
+A reviewer knows the stakes of each half from those two lines, before reading
+a single path. `references/example.md` has the body they come from: PR #46,
+28 non-test files, six bullets.
 
 If an entry needs more than a sentence — a contested decision, a mechanism
 with a non-obvious reason — keep the bullet short and expand it in an optional
@@ -255,29 +238,13 @@ Keep it to a dozen nodes; past that it stops being a glance.
 ## 3. Proof of Work
 
 Evidence the change does what it says, produced by running it. The
-`proof-of-work` skill covers how to generate this; what belongs here is the
-result:
+`proof-of-work` skill generates all of it — backend transcripts, screenshot
+links, the check results with real numbers, and what went unverified. Follow
+it, then paste the result here.
 
-- **Backend changes** — the service run locally against a real Postgres, the
-  relevant endpoint or flow called, and the actual request/response pasted in
-  a fenced block. Include the failing case too when the PR fixes a bug: the
-  old error and the new success.
-- **UI changes** — Playwright screenshots on the `proof-of-work-assets` branch,
-  desktop and mobile, plus dark mode when the change touches anything visual,
-  linked with a line each saying what to look at. They never go in the PR's own
-  diff, and they cannot be embedded from here — the `proof-of-work` skill covers
-  why, and what to hand the user instead.
-- **Always** — the check results with real numbers:
-
-```markdown
-- `npm test` — 315/315
-- `npm run typecheck` — clean
-- `npm run lint` — 0 errors (25 warnings, all pre-existing in `src/server/services/`)
-```
-
-Say what you did _not_ verify when that is true of anything meaningful — a
-screen that was typechecked but never clicked through, a path only covered by
-a unit test. That honesty is what makes the rest of the section credible.
+What matters at this level is only that the section reads as a transcript
+rather than a promise: a reviewer should finish it believing the change
+without checking out the branch.
 
 ## Optional sections, after the three
 
@@ -356,9 +323,8 @@ End the body with the attribution footer, after a rule:
 _Generated by [Claude Code](https://claude.ai/code)_
 ```
 
-The tooling may append this and strips duplicates, so include it and do not
-worry about it appearing twice. Never put a model name, `Co-Authored-By`, or
-a session ID in the body.
+Always include it; the tooling strips duplicates. Never put a model name,
+`Co-Authored-By`, or a session ID in the body.
 
 ## Before you post
 

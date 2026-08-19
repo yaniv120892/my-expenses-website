@@ -82,15 +82,19 @@ switch if you'd rather have the endpoint accept clearing.
 
 ---
 
-## Example 2 — a feature with UI (~3,200 characters)
+## Example 2 — a feature with an async flow (~3,400 characters)
+
+The change touches 28 non-test files and Implementation is six bullets. The
+sub-labels do the triage: "the model already supported it" tells the reviewer
+the client half is low-risk, "hardening the races that going parallel makes
+likely" tells them the server half is not.
 
 Motivation describes the old flow as a sequence of physical steps, so the cost
-is felt before a solution is proposed. Implementation groups by area and stays
-one sentence per bullet — the concurrency reasoning that would blow up those
-bullets moves to its own optional section below. Proof of Work carries both
-kinds of evidence: the backend flow exercised against a real callback, and
-screenshots in the desktop/mobile table this repo uses. The scope fence at the
-end makes the omission read as a decision.
+is felt before a solution is proposed. The diagram earns its place because the
+risk is an ordering problem — the `Note` marks what changed and names the
+failure it removes, which prose would take a paragraph to do worse. Proof of
+Work carries both kinds of evidence, and the scope fence at the end makes the
+omission read as a decision rather than an oversight.
 
 **Title:** `Import several statement files in one pass`
 
@@ -106,24 +110,50 @@ import, so the data model was right — only the client was single-file.
 
 ## Implementation
 
-**Client**
+**Client** — the whole feature; the model already supported it, since
+`processImport` always created exactly one `Import` per call
 
-- `src/components/imports/ImportDialog.tsx` — files are queued as rows with
-  their own payment month and an explicit "Upload N files" starts the batch.
-- `src/utils/importUploadRunner.ts` — runs the per-file pipeline two at a time,
-  because unbounded uploads split one uplink N ways against the 120s timeout.
-- `src/hooks/useImportsQuery.ts` — polls while any import is in flight, bounded
-  by how long this client has been watching.
+- `src/components/FileUpload/` — files queue as rows with their own payment
+  month (plus "Apply to all"), and an explicit "Upload N files" starts the
+  batch instead of uploading on drop.
+- `src/utils/importUploadRunner.ts` + `asyncPool.ts` — two files at a time:
+  sequential is as slow as today, and unbounded splits one uplink N ways
+  against the 120s upload timeout, turning a slow batch into N failures.
+- `src/hooks/useImports.ts` — polls while any import is in flight, bounded by
+  how long this client has been watching, so a skewed clock cannot disable it.
 
-**Server**
+**Server** — hardening the races that running four extractions at once
+promotes from latent to likely
 
-- `src/app/api/excel-extraction-agent/webhook/route.ts` — the import id now
-  rides along in the signed URL, so a fast callback can no longer 404.
+- `src/server/webhooks/excelExtractionWebhook.ts` — the import id now rides in
+  the signed URL, so a fast callback no longer 404s against a request id
+  `submitExtraction` has not written yet.
 - `src/server/services/importService.ts` — merges go strictly oldest-wards and
-  only into a `COMPLETED` import, so two racing callbacks cannot delete each
-  other.
-- `prisma/schema.prisma` — `extractionCompletedAt` plus a unique index on
-  `excelExtractionRequestId`, backfilled so a late redelivery cannot reprocess.
+  only into a `COMPLETED` import, so two callbacks for the same card and month
+  cannot each treat the other as the duplicate and both delete themselves.
+- `prisma/migrations/…_import_extraction_concurrency/` — `extractionCompletedAt`
+  plus a unique index on `excelExtractionRequestId`, backfilled so a late
+  redelivery cannot reprocess a finished import.
+
+## Visualization
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as /api/imports
+    participant X as excel-extraction-service
+    participant WH as /api/…/webhook
+
+    C->>API: POST file (×N, two at a time)
+    API->>X: submitExtraction(signed URL)
+    Note over API,X: CHANGED: importId now signed<br/>into the callback URL
+    X-->>WH: callback(importId, rows)
+    WH->>WH: claim extraction, then merge oldest-wards
+    Note right of WH: was: resolved by requestId,<br/>written after submit returned<br/>→ fast callback 404'd
+    C->>API: GET /api/imports (polling while in flight)
+```
+
+The two `Note` lines are the whole review: everything else was already true.
 
 ## Proof of Work
 

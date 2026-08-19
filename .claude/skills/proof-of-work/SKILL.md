@@ -15,13 +15,14 @@ description, and honesty about what was not exercised.
 
 Decide what to produce from what the change touches:
 
-| Change touches                   | Produce                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------- |
-| Server, API route, service, cron | Stack up locally, call the endpoint or flow, paste request/response             |
-| UI                               | Playwright screenshots — desktop and mobile, plus dark mode for anything visual |
-| Both                             | Both                                                                            |
-| Schema                           | The migration applying, and a query showing the new shape                       |
-| Bug fix                          | The failing case reproduced _before_, and the same case succeeding _after_      |
+| Change touches                   | Produce                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| Server, API route, service, cron | Stack up locally, call the endpoint or flow, paste request/response                |
+| UI                               | Playwright screenshots — desktop and mobile, plus dark mode for anything visual    |
+| Both                             | Both                                                                               |
+| Schema                           | The migration applying, and a query showing the new shape                          |
+| Bug fix                          | The failing case reproduced _before_, and the same case succeeding _after_         |
+| Tooling, docs, a skill           | No runtime surface — apply it to real inputs from this repo and show what came out |
 
 Every one of them also carries the check results: `npm test`, `npm run
 typecheck`, `npm run lint`, with real counts.
@@ -133,6 +134,26 @@ readable; use 400/200 when putting four variants in one row.
 Caption every table with one line saying what the reader is looking at and
 what is different about it. "The queue with four rows mid-batch, one failed
 and offering Retry" earns its place; a bare screenshot does not.
+
+## When there is nothing to run
+
+A change to tooling, documentation, CI config or a skill has no endpoint and no
+screen, which makes it tempting to skip this section. Don't — it is the case
+where proof matters most, because nothing else will catch a mistake.
+
+Prove it the same way: **apply the thing to real inputs and show the result.**
+For a skill, that means running it against real PRs, commits or files from this
+repository and reporting what it produced, including where it fell short. For a
+CI change, a run of the workflow. For a script, its output on real data.
+
+Anything mechanically checkable should still be checked and reported — a
+Mermaid diagram parsed rather than eyeballed, a bundled script passing
+`npm run typecheck` and `npm run lint`, a JSON file validating against its
+schema. "It looks right" is not proof of work.
+
+Reporting where it fell short is not optional. A section that only lists
+successes is marketing; the reviewer needs to know which cases were tried and
+which ones the change does not handle.
 
 ## The check results
 

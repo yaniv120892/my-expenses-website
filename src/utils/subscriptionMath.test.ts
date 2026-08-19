@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { toMonthlyAmount } from '@/server/utils/subscriptionMath';
+import {
+  nextExpectedDateAfter,
+  toAnnualAmount,
+  toMonthlyAmount,
+} from '@/utils/subscriptionMath';
 
 describe('toMonthlyAmount', () => {
   it('returns the amount unchanged for MONTHLY', () => {
@@ -31,5 +35,41 @@ describe('toMonthlyAmount', () => {
   it('handles fractional amounts without rounding', () => {
     expect(toMonthlyAmount(15.5, 'YEARLY')).toBeCloseTo(15.5 / 12, 10);
     expect(toMonthlyAmount(2.5, 'WEEKLY')).toBeCloseTo((2.5 * 52) / 12, 10);
+  });
+});
+
+describe('toAnnualAmount', () => {
+  it('scales each frequency onto a year', () => {
+    expect(toAnnualAmount(10, 'WEEKLY')).toBe(520);
+    expect(toAnnualAmount(10, 'MONTHLY')).toBe(120);
+    expect(toAnnualAmount(10, 'YEARLY')).toBe(10);
+  });
+
+  it('round-trips against toMonthlyAmount', () => {
+    for (const frequency of ['WEEKLY', 'MONTHLY', 'YEARLY'] as const) {
+      expect(toAnnualAmount(30, frequency) / 12).toBeCloseTo(
+        toMonthlyAmount(30, frequency),
+        10,
+      );
+    }
+  });
+});
+
+describe('nextExpectedDateAfter', () => {
+  const last = new Date('2026-01-31T00:00:00Z');
+
+  it('advances by one period of the frequency', () => {
+    expect(nextExpectedDateAfter(last, 'WEEKLY')).toEqual(
+      new Date('2026-02-07T00:00:00Z'),
+    );
+    expect(nextExpectedDateAfter(last, 'YEARLY')).toEqual(
+      new Date('2027-01-31T00:00:00Z'),
+    );
+  });
+
+  it('clamps a month-end date to the shorter month', () => {
+    expect(nextExpectedDateAfter(last, 'MONTHLY')).toEqual(
+      new Date('2026-02-28T00:00:00Z'),
+    );
   });
 });

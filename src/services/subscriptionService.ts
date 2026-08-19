@@ -1,14 +1,15 @@
-import api from "./api";
+import api from './api';
 import {
   SubscriptionSummary,
   DetectedSubscription,
-} from "../types/subscription";
+  UpdateSubscriptionPayload,
+} from '../types/subscription';
 
 async function fetchSubscriptions(
-  status?: string
+  status?: string,
 ): Promise<SubscriptionSummary> {
   const params = status ? { status } : {};
-  const res = await api.get("/api/subscriptions", { params });
+  const res = await api.get('/api/subscriptions', { params });
   return res.data;
 }
 
@@ -22,12 +23,20 @@ async function dismissSubscription(id: string): Promise<DetectedSubscription> {
   return res.data;
 }
 
+async function updateSubscription(
+  id: string,
+  payload: UpdateSubscriptionPayload,
+): Promise<DetectedSubscription> {
+  const res = await api.patch(`/api/subscriptions/${id}`, payload);
+  return res.data;
+}
+
 async function convertToScheduled(
   id: string,
-  categoryId: string
+  categoryId?: string,
 ): Promise<DetectedSubscription> {
   const res = await api.post(`/api/subscriptions/${id}/convert`, {
-    categoryId,
+    ...(categoryId ? { categoryId } : {}),
   });
   return res.data;
 }
@@ -36,5 +45,6 @@ export {
   fetchSubscriptions,
   confirmSubscription,
   dismissSubscription,
+  updateSubscription,
   convertToScheduled,
 };

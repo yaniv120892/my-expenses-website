@@ -1,29 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
+  MenuItem,
   Paper,
   Skeleton,
+  Stack,
   Tab,
   Tabs,
+  TextField,
   Typography,
 } from '@mui/material';
 import PageHeader from '@/components/shell/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import SubscriptionCard from '@/components/subscriptions/SubscriptionCard';
 import ConvertToScheduledDialog from '@/components/subscriptions/ConvertToScheduledDialog';
+import EditSubscriptionDialog from '@/components/subscriptions/EditSubscriptionDialog';
+import SubscriptionEvidenceDialog from '@/components/subscriptions/SubscriptionEvidenceDialog';
 import {
   useSubscriptionsQuery,
   useConfirmSubscriptionMutation,
   useDismissSubscriptionMutation,
   useConvertSubscriptionMutation,
+  useUpdateSubscriptionMutation,
 } from '@/hooks/useSubscriptionsQuery';
-import { DetectedSubscription, SubscriptionStatus } from '@/types/subscription';
+import {
+  DetectedSubscription,
+  SubscriptionStatus,
+  UpdateSubscriptionPayload,
+} from '@/types/subscription';
 import { formatCurrencyRounded } from '@/utils/format';
+import {
+  SUBSCRIPTION_SORT_OPTIONS,
+  SubscriptionSortKey,
+  sortSubscriptions,
+} from '@/utils/subscriptionSort';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
+
+type DialogTarget = {
+  kind: 'convert' | 'edit' | 'explain';
+  subscription: DetectedSubscription;
+};
 
 const KPI_GRID_COLUMNS = { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' };
 
@@ -50,20 +70,32 @@ function StatTile({
 
 export default function SubscriptionsPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
-  const [convertTarget, setConvertTarget] =
-    useState<DetectedSubscription | null>(null);
+  const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
+  const [dialog, setDialog] = useState<DialogTarget | null>(null);
 
   const statusParam = filterTab === 'ALL' ? undefined : filterTab;
   const { data, isLoading, error } = useSubscriptionsQuery(statusParam);
   const confirmMutation = useConfirmSubscriptionMutation();
   const dismissMutation = useDismissSubscriptionMutation();
   const convertMutation = useConvertSubscriptionMutation();
+  const updateMutation = useUpdateSubscriptionMutation();
+
+  const sortedSubscriptions = useMemo(
+    () => sortSubscriptions(data?.subscriptions ?? [], sortKey),
+    [data?.subscriptions, sortKey],
+  );
 
   function handleConvert(id: string, categoryId: string) {
-    convertMutation.mutate(
-      { id, categoryId },
-      { onSuccess: () => setConvertTarget(null) },
-    );
+    convertMutation.mutate({ id, categoryId }, { onSuccess: closeDialog });
+  }
+
+  function handleSave(id: string, payload: UpdateSubscriptionPayload) {
+    updateMutation.mutate({ id, payload }, { onSuccess: closeDialog });
+  }
+
+  function closeDialog() {
+    updateMutation.reset();
+    setDialog(null);
   }
 
   if (error) {
@@ -129,21 +161,45 @@ export default function SubscriptionsPage() {
             />
           </Box>
 
-          <Tabs
-            value={filterTab}
-            onChange={(_, v) => setFilterTab(v)}
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
-            sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ md: 'flex-end' }}
+            justifyContent="space-between"
+            sx={{ mb: 2 }}
           >
-            <Tab label="All" value="ALL" />
-            <Tab label="Detected" value="DETECTED" />
-            <Tab label="Confirmed" value="CONFIRMED" />
-            <Tab label="Dismissed" value="DISMISSED" />
-          </Tabs>
+            <Tabs
+              value={filterTab}
+              onChange={(_, v) => setFilterTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{ borderBottom: 1, borderColor: 'divider', flexGrow: 1 }}
+            >
+              <Tab label="All" value="ALL" />
+              <Tab label="Detected" value="DETECTED" />
+              <Tab label="Confirmed" value="CONFIRMED" />
+              <Tab label="Dismissed" value="DISMISSED" />
+            </Tabs>
+            <TextField
+              select
+              size="small"
+              label="Sort by"
+              value={sortKey}
+              onChange={(e) =>
+                setSortKey(e.target.value as SubscriptionSortKey)
+              }
+              sx={{ minWidth: { xs: '100%', md: 260 } }}
+            >
+              {SUBSCRIPTION_SORT_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
 
-          {data.subscriptions.length === 0 ? (
+          {sortedSubscriptions.length === 0 ? (
             <EmptyState message="No subscriptions found" />
           ) : (
             <Box
@@ -157,24 +213,49 @@ export default function SubscriptionsPage() {
                 gap: 2,
               }}
             >
-              {data.subscriptions.map((sub) => (
+              {sortedSubscriptions.map((sub) => (
                 <SubscriptionCard
                   key={sub.id}
                   subscription={sub}
                   onConfirm={(id) => confirmMutation.mutate(id)}
                   onDismiss={(id) => dismissMutation.mutate(id)}
-                  onConvert={setConvertTarget}
+                  onConvert={(s) =>
+                    setDialog({ kind: 'convert', subscription: s })
+                  }
+                  onEdit={(s) => setDialog({ kind: 'edit', subscription: s })}
+                  onExplain={(s) =>
+                    setDialog({ kind: 'explain', subscription: s })
+                  }
                 />
               ))}
             </Box>
           )}
 
           <ConvertToScheduledDialog
-            open={!!convertTarget}
-            subscription={convertTarget}
-            onClose={() => setConvertTarget(null)}
+            open={dialog?.kind === 'convert'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
             onConvert={handleConvert}
             isLoading={convertMutation.isPending}
+          />
+
+          <EditSubscriptionDialog
+            open={dialog?.kind === 'edit'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
+            onSave={handleSave}
+            isLoading={updateMutation.isPending}
+            error={
+              updateMutation.error instanceof Error
+                ? updateMutation.error.message
+                : undefined
+            }
+          />
+
+          <SubscriptionEvidenceDialog
+            open={dialog?.kind === 'explain'}
+            subscription={dialog?.subscription ?? null}
+            onClose={closeDialog}
           />
         </>
       )}

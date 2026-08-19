@@ -262,10 +262,11 @@ result:
   relevant endpoint or flow called, and the actual request/response pasted in
   a fenced block. Include the failing case too when the PR fixes a bug: the
   old error and the new success.
-- **UI changes** — Playwright screenshots embedded from the
-  `proof-of-work-assets` branch, desktop and mobile, plus dark mode when the
-  change touches anything visual. They never go in the PR's own diff; the
-  `proof-of-work` skill covers how to host them.
+- **UI changes** — Playwright screenshots on the `proof-of-work-assets` branch,
+  desktop and mobile, plus dark mode when the change touches anything visual,
+  linked with a line each saying what to look at. They never go in the PR's own
+  diff, and they cannot be embedded from here — the `proof-of-work` skill covers
+  why, and what to hand the user instead.
 - **Always** — the check results with real numbers:
 
 ```markdown

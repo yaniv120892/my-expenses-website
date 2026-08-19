@@ -174,13 +174,14 @@ GET  /api/imports               -> 4 × COMPLETED, 98 rows total
 Redelivering the `7c22` callback returned 200 with no new rows, and a tampered
 import id in the signed URL returned 401.
 
-**UI.**
+**UI.** On the `proof-of-work-assets` branch, not in this diff:
 
-| Desktop                                                                                                                                               | Mobile                                                                                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<assets-sha>/import-several-files/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/yaniv120892/my-expenses-website/<assets-sha>/import-several-files/import-queue-mobile.png" width="250"/> |
+- [Import queue — desktop](/yaniv120892/my-expenses-website/blob/<assets-sha>/import-several-files/import-queue-desktop.png)
+  — four rows mid-batch, one failed and offering Retry.
+- [Import queue — mobile](/yaniv120892/my-expenses-website/blob/<assets-sha>/import-several-files/import-queue-mobile.png)
+  — the per-row payment month collapses under the filename.
 
-The queue with four rows mid-batch, one row failed and offering Retry.
+**Checks:**
 
 - `npm test` — 268 passed, up from 193
 - `npm run test:e2e:ui` — 13/13, `npm run test:e2e:api` — 46/46

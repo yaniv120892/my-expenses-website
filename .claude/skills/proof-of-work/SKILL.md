@@ -176,31 +176,48 @@ git push origin proof-of-work-assets
 Name files in kebab-case carrying the variant — `import-queue-desktop.png`,
 `import-queue-mobile-dark.png` — so a reader can tell them apart from the URL.
 
-**How they are embedded.** GitHub does not render a relative image path in a PR
-body, and its `user-attachments` CDN only accepts drag-and-drop from the
-browser, so use a raw URL against the assets branch. Pin it to that branch's
-**commit SHA**: a branch URL silently starts serving different bytes the next
-time the branch moves.
+**You cannot embed them from here — link them, and hand the files over.**
+Posting a PR body through this environment's GitHub tooling runs it through a
+sanitiser that strips the leading `!` from every image and wraps absolute URLs
+in backticks. A rendered image is an automatic outbound fetch, so this is a
+deliberate exfiltration guard, not a bug to route around. Verified against all
+three syntaxes on a real PR:
+
+| What you write                            | What gets stored                                        |
+| ----------------------------------------- | ------------------------------------------------------- |
+| `<img src="https://…" width="600"/>`      | `<img width="600"/>` — `src` gone                       |
+| `![alt](https://…)`                       | ``![alt](`https://…`)`` — target backticked, image dead |
+| `![alt][ref]` + a definition line         | `!` stripped, definition URL backticked                 |
+| `![alt](/owner/repo/blob/<sha>/path.png)` | `!` stripped — but **the URL survives intact**          |
+
+So the one thing that works is a **relative link**, which stays clickable:
 
 ```markdown
-| Desktop                                                                                                                   | Mobile                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| <img src="https://raw.githubusercontent.com/<owner>/<repo>/<assets-sha>/<pr-slug>/import-queue-desktop.png" width="600"/> | <img src="https://raw.githubusercontent.com/<owner>/<repo>/<assets-sha>/<pr-slug>/import-queue-mobile.png" width="250"/> |
+- [Filters dialog — desktop](/<owner>/<repo>/blob/<assets-sha>/<pr-slug>/filters-dialog-desktop.png)
+  — one line saying what the reader is looking at and why it matters.
 ```
 
-Push the assets branch first, read the SHA with
-`git rev-parse proof-of-work-assets`, then write the body — and `curl -sI` one
-URL to confirm it answers `200 image/png` before posting, since a broken image
-in a description is invisible to you and obvious to everyone else. Widths of 600
-(desktop) and 250 (mobile) keep the table readable; use 400/200 when putting
-four variants in one row.
+Pin it to the assets branch's **commit SHA**, not the branch name: a branch URL
+silently starts serving different bytes the next time the branch moves. Read it
+with `git rev-parse proof-of-work-assets` after pushing.
+
+Then **send the PNGs to the user** and say plainly that dragging them into the
+description is the only way to get them inline — that route uploads to GitHub's
+`user-attachments` CDN, which is the proper host anyway and keeps the files out
+of the repository entirely. Their call whether it is worth the drag.
+
+Never claim a body "renders" images you have not seen rendered. Read the body
+back after posting and check the URLs survived; the API's stored text is the
+truth, and a description that looks right in your draft can arrive gutted.
 
 Say in the body that the screenshots are not in the diff and where they live, so
 a reviewer looking for them in the file list knows why they are absent.
 
-Caption every table with one line saying what the reader is looking at and
-what is different about it. "The queue with four rows mid-batch, one failed
-and offering Retry" earns its place; a bare screenshot does not.
+Caption every link with one line saying what the reader is looking at and what
+is different about it. This matters more now that they are links rather than
+images: nobody clicks through to "screenshot 3". "The queue with four rows
+mid-batch, one failed and offering Retry" earns the click; a bare filename
+does not.
 
 ## When there is nothing to run
 

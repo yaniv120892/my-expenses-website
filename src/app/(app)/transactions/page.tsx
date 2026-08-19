@@ -41,8 +41,7 @@ import {
   useExportTransactionsCsvMutation,
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
-import { defaultMonthFilters } from '@/utils/dateUtils';
-import { describeDateRange } from '@/utils/dateRangePresets';
+import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
 
 const filterShape = transactionFilterSchema.shape;
 
@@ -54,7 +53,7 @@ function TransactionsPageContent() {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>(() => ({
-    ...defaultMonthFilters(),
+    ...defaultDateRange(),
     // Both validated: the params are cleared right after this, so a malformed
     // one would 400 every query with no chip left to clear.
     categoryId: filterShape.categoryId.safeParse(
@@ -284,10 +283,7 @@ function TransactionsPageContent() {
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        // Merged rather than replaced so a filter the dialog does not carry
-        // survives an apply. Every key it does carry is always present, set to
-        // undefined when cleared, so clearing still overwrites.
-        onApply={(next) => setFilters((prev) => ({ ...prev, ...next }))}
+        onApply={setFilters}
         initialFilters={filters}
       />
 

@@ -1,6 +1,5 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { TrendPeriod } from '@/types/trends';
-import { defaultDateRange } from '@/utils/dateRangePresets';
 
 export function formatTrendDate(date: string, period: TrendPeriod): string {
   switch (period) {
@@ -32,8 +31,12 @@ export const formatDate = (
   return date.toLocaleDateString();
 };
 
+/** parseISO, not `new Date`: the latter reads a date-only string as UTC midnight. */
 export function formatDay(value: string | Date): string {
-  return format(new Date(value), 'MMM d, yyyy');
+  return format(
+    typeof value === 'string' ? parseISO(value) : value,
+    'MMM d, yyyy',
+  );
 }
 
 /** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */
@@ -45,16 +48,4 @@ export function formatDateRange(
   const startLabel = start ? formatDay(start) : '';
   const endLabel = end ? formatDay(end) : '';
   return `${startLabel} ${separator} ${endLabel}`;
-}
-
-/**
- * Kept as the name the transactions page opens on; the range itself is the
- * "This month" preset, so the page and the preset chips cannot disagree about
- * where the page started.
- */
-export function defaultMonthFilters(): {
-  startDate: string;
-  endDate: string;
-} {
-  return defaultDateRange() as { startDate: string; endDate: string };
 }

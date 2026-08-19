@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  defaultMonthFilters,
   formatDate,
   formatDateRange,
   formatTrendDate,
@@ -60,21 +59,5 @@ describe('formatDateRange', () => {
     expect(
       formatDateRange('2024-06-01T00:00:00', '2024-06-30T00:00:00', 'to'),
     ).toBe('Jun 1, 2024 to Jun 30, 2024');
-  });
-});
-
-describe('defaultMonthFilters', () => {
-  it('returns the current month bounds as yyyy-MM-dd strings', () => {
-    const { startDate, endDate } = defaultMonthFilters();
-    const now = new Date();
-    const year = String(now.getFullYear());
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    expect(startDate).toBe(`${year}-${month}-01`);
-    expect(endDate).toBe(
-      `${year}-${month}-${String(lastDay.getDate()).padStart(2, '0')}`,
-    );
-    expect(startDate <= endDate).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import {
   startOfYear,
   subMonths,
 } from 'date-fns';
+import { formatDateRange, formatDay } from '@/utils/dateUtils';
 
 export type DateRangePresetId =
   'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'all-time';
@@ -19,21 +20,18 @@ export interface DateRange {
 export interface DateRangePreset {
   id: DateRangePresetId;
   label: string;
-  /** `now` is passed in rather than read, so the ranges are testable. */
   range: (now: Date) => DateRange;
 }
 
 const asDay = (value: Date) => format(value, 'yyyy-MM-dd');
 
+const thisMonth = (now: Date): DateRange => ({
+  startDate: asDay(startOfMonth(now)),
+  endDate: asDay(endOfMonth(now)),
+});
+
 export const DATE_RANGE_PRESETS: DateRangePreset[] = [
-  {
-    id: 'this-month',
-    label: 'This month',
-    range: (now) => ({
-      startDate: asDay(startOfMonth(now)),
-      endDate: asDay(endOfMonth(now)),
-    }),
-  },
+  { id: 'this-month', label: 'This month', range: thisMonth },
   {
     id: 'last-month',
     label: 'Last month',
@@ -61,11 +59,6 @@ export const DATE_RANGE_PRESETS: DateRangePreset[] = [
   { id: 'all-time', label: 'All time', range: () => ({}) },
 ];
 
-/**
- * Which preset a range corresponds to, so the chips can show the current
- * selection instead of only setting it. An unbounded range is 'all-time'; a
- * hand-typed range that matches no preset is undefined.
- */
 export function matchDateRangePreset(
   range: DateRange,
   now: Date,
@@ -76,27 +69,20 @@ export function matchDateRangePreset(
   })?.id;
 }
 
-/** The range this month covers, which is what the transactions page opens on. */
 export function defaultDateRange(now: Date = new Date()): DateRange {
-  return DATE_RANGE_PRESETS[0].range(now);
+  return thisMonth(now);
 }
 
-/**
- * A label for the range a page is showing. A whole calendar month or year is
- * named rather than spelled out as two dates, because that is how a reader
- * thinks about it — and it is the common case, every preset but one.
- *
- * Date-only strings are parsed as local time: `new Date('2026-07-01')` is UTC
- * midnight, which lands on the previous day west of Greenwich.
- */
+/** Names a whole calendar month or year rather than spelling out both bounds. */
 export function describeDateRange(range: DateRange): string {
   const { startDate, endDate } = range;
-  if (!startDate && !endDate) return 'All time';
-  if (!startDate) return `Until ${formatDay(endDate as string)}`;
-  if (!endDate) return `From ${formatDay(startDate)}`;
+  if (!startDate) {
+    return endDate ? `Until ${formatDay(endDate)}` : 'All time';
+  }
+  if (!endDate) {
+    return `From ${formatDay(startDate)}`;
+  }
 
-  // Both bounds are checked against the period containing `start`, so a range
-  // whose end lands in a different month falls through to the spelled-out form.
   const start = parseISO(startDate);
 
   if (
@@ -111,9 +97,5 @@ export function describeDateRange(range: DateRange): string {
   ) {
     return format(start, 'MMMM yyyy');
   }
-  return `${formatDay(startDate)} – ${formatDay(endDate)}`;
-}
-
-function formatDay(day: string): string {
-  return format(parseISO(day), 'MMM d, yyyy');
+  return formatDateRange(startDate, endDate, '–');
 }

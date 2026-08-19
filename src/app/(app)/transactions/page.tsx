@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import { format } from 'date-fns';
 import {
   Transaction,
   TransactionFilters,
@@ -42,7 +41,7 @@ import {
   useExportTransactionsCsvMutation,
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
-import { defaultMonthFilters } from '@/utils/dateUtils';
+import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
 
 const filterShape = transactionFilterSchema.shape;
 
@@ -54,7 +53,7 @@ function TransactionsPageContent() {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>(() => ({
-    ...defaultMonthFilters(),
+    ...defaultDateRange(),
     // Both validated: the params are cleared right after this, so a malformed
     // one would 400 every query with no chip left to clear.
     categoryId: filterShape.categoryId.safeParse(
@@ -202,11 +201,7 @@ function TransactionsPageContent() {
             type: prev.type === type ? undefined : type,
           }))
         }
-        title={
-          filters.startDate
-            ? format(new Date(filters.startDate), 'MMMM yyyy')
-            : ''
-        }
+        title={describeDateRange(filters)}
       />
 
       <TransactionFiltersDisplay
@@ -288,9 +283,7 @@ function TransactionsPageContent() {
       <TransactionFiltersDialog
         open={filtersDialogOpen}
         onClose={() => setFiltersDialogOpen(false)}
-        // Merged rather than replaced: the dialog has no type control, so a
-        // replace would silently drop a type picked on the chart.
-        onApply={(next) => setFilters((prev) => ({ ...prev, ...next }))}
+        onApply={setFilters}
         initialFilters={filters}
       />
 

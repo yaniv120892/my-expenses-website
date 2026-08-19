@@ -1,5 +1,6 @@
-import { endOfMonth, format, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { TrendPeriod } from '@/types/trends';
+import { defaultDateRange } from '@/utils/dateRangePresets';
 
 export function formatTrendDate(date: string, period: TrendPeriod): string {
   switch (period) {
@@ -46,13 +47,14 @@ export function formatDateRange(
   return `${startLabel} ${separator} ${endLabel}`;
 }
 
+/**
+ * Kept as the name the transactions page opens on; the range itself is the
+ * "This month" preset, so the page and the preset chips cannot disagree about
+ * where the page started.
+ */
 export function defaultMonthFilters(): {
   startDate: string;
   endDate: string;
 } {
-  const now = new Date();
-  return {
-    startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
-    endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
-  };
+  return defaultDateRange() as { startDate: string; endDate: string };
 }

@@ -1,232 +1,224 @@
 ---
 name: pr-description
-description: Write the title and body for a pull request in this repository's house style. Use this whenever you are opening a PR, being asked to draft or rewrite a PR description, updating an existing PR body, or writing up a branch's changes for review — including when the user just says "open a PR", "push this and make a PR", or "write up what I changed". Also use it when reviewing whether an existing PR description is good enough before merging.
+description: Write the title and body for a pull request in this repository's house style — a required Motivation / Implementation / Proof of Work structure. Use this whenever you are opening a PR, being asked to draft or rewrite a PR description, updating an existing PR body, or writing up a branch's changes for review — including when the user just says "open a PR", "push this and make a PR", or "write up what I changed". Also use it when checking whether an existing PR description is complete before merging.
 ---
 
 # Writing a PR description
 
-## The one idea behind all of this
+Every PR body in this repository has the same three sections, in this order:
+**Motivation**, **Implementation**, **Proof of Work**. Consistency is the
+point — a reviewer opening any PR knows where to find why it exists, where
+the change lives, and the evidence it works.
 
-The reviewer will read the diff. The description exists for everything the
-diff cannot show: why the old state was wrong, which alternatives were
-rejected and on what grounds, what to look at sceptically, what was
-deliberately left out, and evidence that the thing actually runs.
-
-A description that lists the files changed is redundant with the diff and
-therefore worthless. Every convention below follows from that.
-
-The house voice is a careful engineer explaining their reasoning to a peer
-who is about to disagree with them. Plain declarative prose, specific
-figures, no salesmanship, and honest about what is unproven.
+The animating idea: the reviewer will read the diff. The description carries
+what the diff cannot — the reason, the map, and the proof.
 
 ## Gather the facts first — never write from memory of the task
 
-Half the value of these descriptions is that the numbers in them are real.
-Before drafting:
+The value of these descriptions is that everything in them is observed.
 
 ```bash
-git log --oneline main..HEAD          # the commits, and whether they tell a story
+git log --oneline main..HEAD          # the commits
 git diff main...HEAD --stat            # the real shape of the change
 git diff main...HEAD                   # read it — you will find things you forgot
 ```
 
-Then actually run the checks you are about to claim passed:
+Then produce the actual proof. **Read the `proof-of-work` skill and follow
+it** — it covers bringing the stack up locally, exercising endpoints, and
+capturing screenshots with Playwright. Do that before drafting, so the
+Proof of Work section is a transcript rather than a promise.
 
-```bash
-npm test          # note the exact count: "173/173", "309 passed, 30 files"
-npm run typecheck
-npm run lint      # 0 errors; the ~25 pre-existing warnings in src/server/services/ are known
-```
-
-Run `npm run test:e2e:api` / `npm run test:e2e:ui`, or drive the app in a
-browser, when the change touches those paths. If you did not verify
-something, say so rather than implying you did — several past PRs end with a
-sentence naming exactly which screen was typechecked but never clicked
-through, and that honesty is the point.
-
-Check whether this branch relates to earlier work (`gh`-style PR search, or
-the repo's recent PRs). Cross-references like "Companion to #48" or "Last of
-three fixes from the audit that followed #39" orient a reviewer instantly.
+Check whether the branch relates to earlier work. A cross-reference like
+"Companion to #48" or "Third of three fixes from the audit that followed
+#39" belongs in the first line of Motivation.
 
 ## Title
 
 Sentence case, no prefix, no ticket number, no `feat:`/`fix:`. State the
-outcome as a change to the product or the codebase, in the imperative or as
-a plain statement of the new capability:
+outcome as a change to the product or the codebase:
 
 - `Let users edit detected subscriptions and see why they were detected`
 - `Drill into a pie slice to see its transactions`
 - `Render all money through one ILS formatter`
-- `Page the transactions list by cursor and aggregate its totals in SQL`
 - `Fix transactions list 400 by paginating within the perPage cap`
-- `Require a category when editing a transaction`
 
 Prefer the user-visible effect over the mechanism when both fit. A pure
 refactor names the shape it moved to, not the effort spent
 (`Read the comparison series bound from one constant`, not
 `Refactor trends constants`).
 
-## The opening paragraph
+## 1. Motivation
 
-No heading. Two to five sentences establishing the situation the change
-lands in, before saying what changed. This is the part most descriptions
-skip and the part reviewers actually need.
+Two to three lines. Not a paragraph, and not a restatement of the title.
+Say what was wrong or missing and why it was worth fixing — the state of the
+world the change lands in.
 
-Good openings do one of these:
-
-- **Describe the old behaviour concretely enough to feel wrong.**
-  "Someone with four credit cards runs the entire Imports flow four times
-  today: open the dialog, drop one file, wait for the upload and the
-  extraction submit, let the dialog close, reopen it, repeat."
-- **Name where the change came from.** "Started as a pass to remove comments
-  that restate the code, then followed the worst offenders into the methods
-  that needed the comments in the first place."
-- **Place it in a series.** "Companion to #48. That PR moves the React UI
-  onto `src/utils/format.ts`; this one does the server-side string builders
-  it doesn't reach. Neither alone makes 'one formatter' true — together they
-  do."
-
-Never open with "This PR adds…", "This pull request implements…", or a
-restatement of the title.
-
-## Sections
-
-Pick the sections this particular change needs — there is no fixed template,
-and forcing an empty section is worse than omitting it. `##` for top-level,
-`###` only when nesting inside one. These are the ones that recur, roughly
-in the order they tend to appear:
-
-| Section | Use it when | Typical headings used |
-| --- | --- | --- |
-| The problem | Fixing a bug or a bad shape | `## The bug`, `## The problem`, `## Why`, `## Problem` |
-| The change | Almost always | `## The fix`, `## What changed`, `## Changes`, or a named heading per feature area |
-| Defended decision | You chose between real alternatives | `## Why a second export rather than reusing X`, `## A note on the alternative`, `## Tradeoff`, `## Design decisions worth reviewing` |
-| Loud warning | Behaviour changes beyond the stated scope | `## ⚠️ Behavior change worth a look` |
-| Drive-by fixes | You fixed things found along the way | `## Also changed`, `## Also fixed`, `## Fixes found while reviewing this` |
-| Scope fence | You consciously stopped somewhere | `## Deliberately not done here`, `## Known follow-up, not in this PR`, `## One formatter deliberately left alone` |
-| Schema | A Prisma migration is included | `## Schema` |
-| Tests | Test work is substantial enough to describe | `## Tests` |
-| Evidence | Always | `## Verification` |
-| Leftovers | Anything a reviewer should know that fits nowhere | `## Notes`, `## Notes for the reviewer`, `## Notes on the approach` |
-
-For a feature with several distinct parts, replace the generic "What
-changed" with one `##` per part named after the part itself — `## Edit the
-numbers`, `## Why it was detected`, `## Category`, `## Sorting`. A reviewer
-scanning the headings then gets the feature's outline for free.
-
-For a multi-commit cleanup where the commits are the structure, number the
-sections and cite the SHAs, e.g. a heading reading
-"1. Drop comments the code already says (`a08dae0`)".
-
-## How to write the body
-
-**Prose in paragraphs, not a bullet dump.** Bullets are for enumerating
-things that genuinely are a list — call sites touched, independent fixes,
-verification results. Reasoning goes in sentences.
-
-**Show the evidence inline.** These descriptions quote the actual artifact:
-
-- The offending code, in a fenced block with the language tag — often two
-  snippets side by side to show a disagreement:
-  ```ts
-  // createTransactionSchema
-  categoryId: z.string().uuid().optional()
-  // updateTransactionSchema
-  categoryId: z.string().uuid()            // ← required
-  ```
-- The real error text a user or the API produced.
-- A table when several things drifted apart, or for before/after figures:
-
-  | Where | `1234.56` rendered as |
-  | --- | --- |
-  | `src/utils/format.ts` (all UI) | `1,234.50 ₪` |
-  | `chatAggregationService.ts` | `₪1,234.50` |
-
-- A blockquote for generated user-facing text the change now produces.
-
-**Backtick every identifier and use full paths** — `src/server/services/
-importService.ts`, `handleCompletedExtraction`, `useImportsQuery`. A
-reviewer should be able to jump straight to it.
-
-**Explain the mechanism, not just the outcome.** "Two upload at a time:
-sequential is as slow as today, and unbounded splits one uplink N ways
-against a 120s wall-clock upload timeout, turning a slow batch into N
-failures." The number and the reason both matter.
-
-**Defend the choice you made and invite the counter-argument.** When you
-rejected an alternative, say what it was, why it loses, and leave the door
-open: "Relaxing the schema instead would be a smaller diff, but it would
-make clearing a category a **silent no-op** … Happy to switch if you'd
-rather have the endpoint accept clearing."
-
-**Flag what you are unsure about rather than burying it.** If the change
-alters behaviour outside its headline scope, give it its own ⚠️ section and
-explain what now differs. If part of the change is inconsistent with the
-rest of the app, say where and point at the follow-up.
-
-**State the limits.** "Rows detected before this change have no evidence
-stored; the dialog says so and points at the next detection run rather than
-inventing a reason retroactively."
-
-## The Verification section
-
-Near-universal, and specific. Give real numbers, not "tests pass":
+A good Motivation makes the reader want the change before they know what it
+is. Concrete beats abstract: describe the old behaviour precisely enough
+that it feels wrong.
 
 ```markdown
-## Verification
+## Motivation
 
-- `npm run lint` — 0 errors (25 warnings, all pre-existing in `src/server/services/`)
-- `npm run typecheck` — clean
-- `npm test` — 315/315 on this branch
+Someone with four credit cards runs the entire Imports flow four times: open
+the dialog, drop one file, wait for the upload and the extraction submit, let
+the dialog close, reopen it, repeat. The dropzone was capped at one file and
+started the request on drop, which is also why the payment month had to be
+typed before dropping.
 ```
 
-Scale it up when the change warrants it — name what the new tests actually
-prove ("New tests fail on the old code (3 of 5) and pass on the new one"),
-and describe any manual run in terms of what was real about it: "Run
-end-to-end against the real app: Next.js on this branch, real Postgres
-(`prisma dev`), real HTTP, real browser, and a local SMTP server capturing
-what is actually sent." Paste the captured output when it is short and
-convincing.
+```markdown
+## Motivation
 
-Close with what you did *not* verify, when that is true of anything
-meaningful.
+Third of three fixes from the client/schema mismatch audit that followed #39.
+The subscriptions page showed a `$` on its amounts — the only place in the app
+doing so — because the feature built its strings with template literals instead
+of the shared formatter. Pulling that thread found four independent definitions
+of "money is ILS" that had drifted apart.
+```
+
+Do not open with "This PR adds…" or "This pull request implements…".
+
+## 2. Implementation
+
+The map of the change: the main files or areas touched, **one sentence each**
+saying what it now does or why it changed. Bullets, with the path in
+backticks.
+
+**Skip test files.** Their content belongs in Proof of Work, and listing them
+adds length without telling the reviewer anything they cannot see.
+
+Group under a bold sub-label when the change spans distinct areas — server,
+client, schema — so the shape is visible at a glance.
+
+```markdown
+## Implementation
+
+**Server**
+
+- `src/server/services/subscriptionService.ts` — annual cost is always derived
+  from amount + frequency, so page totals cannot drift from the card figures.
+- `src/app/api/subscriptions/[id]/route.ts` — new `PATCH` taking name, amount,
+  frequency, last charge date, next expected date and category.
+- `prisma/schema.prisma` — `userEditedAt` on `DetectedSubscription`, which
+  stops the weekly detection run from overwriting user-set fields.
+
+**Client**
+
+- `src/components/subscriptions/SubscriptionCard.tsx` — adds the edit action
+  and the category chip.
+- `src/hooks/useSubscriptions.ts` — mutation plus cache invalidation for the
+  new endpoint.
+```
+
+Judgement on granularity: name the files a reviewer should open, not every
+file the diff touches. A sweep across twenty call sites is one bullet naming
+the pattern, not twenty bullets.
+
+If a bullet needs more than a sentence — a decision that was genuinely
+contested, a mechanism with a non-obvious reason — keep the bullet to one
+sentence and expand it in an optional section below. Implementation stays
+scannable.
+
+## 3. Proof of Work
+
+Evidence the change does what it says, produced by running it. The
+`proof-of-work` skill covers how to generate this; what belongs here is the
+result:
+
+- **Backend changes** — the service run locally against a real Postgres, the
+  relevant endpoint or flow called, and the actual request/response pasted in
+  a fenced block. Include the failing case too when the PR fixes a bug: the
+  old error and the new success.
+- **UI changes** — Playwright screenshots committed under `docs/proof-of-work/`
+  and embedded, desktop and mobile, plus dark mode when the change touches
+  anything visual.
+- **Always** — the check results with real numbers:
+
+```markdown
+- `npm test` — 315/315
+- `npm run typecheck` — clean
+- `npm run lint` — 0 errors (25 warnings, all pre-existing in `src/server/services/`)
+```
+
+Say what you did _not_ verify when that is true of anything meaningful — a
+screen that was typechecked but never clicked through, a path only covered by
+a unit test. That honesty is what makes the rest of the section credible.
+
+## Optional sections, after the three
+
+Add these only when the change genuinely calls for one. They come after
+Proof of Work.
+
+| Section                              | Use it when                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `## ⚠️ Behavior change worth a look` | Behaviour changes beyond what the title promises — always call this out loudly              |
+| `## A note on the alternative`       | You rejected a real alternative; name it, say why it loses, and invite the counter-argument |
+| `## Also fixed`                      | You fixed things found along the way that are not the headline change                       |
+| `## Deliberately not done here`      | You consciously stopped somewhere, so the omission reads as a decision                      |
+| `## Notes for the reviewer`          | Anything that fits nowhere else                                                             |
+
+The defended alternative is the one most worth writing. From #40:
+
+> Relaxing the schema instead would be a smaller diff, but it would make
+> clearing a category a **silent no-op**: Prisma reads `undefined` as "leave
+> unchanged", so the old category would survive while the UI implied AI had
+> picked a new one. … Happy to switch if you'd rather have the endpoint accept
+> clearing.
+
+A reviewer can overrule that in one comment instead of discovering it in the
+diff.
+
+## Voice
+
+Plain declarative prose, specific figures, no salesmanship. Write as a
+careful engineer explaining their reasoning to a peer who is about to
+disagree.
+
+- **Backtick every identifier, use full paths** — `src/server/services/importService.ts`,
+  `handleCompletedExtraction`. A reviewer should be able to jump straight to it.
+- **Show the artifact, don't describe it** — paste the real error text, the
+  two snippets that disagree, the rendered output. A table when several
+  things drifted apart.
+- **Explain the mechanism, not just the outcome** — "Two upload at a time:
+  sequential is as slow as today, and unbounded splits one uplink N ways
+  against a 120s wall-clock upload timeout, turning a slow batch into N
+  failures."
+- **State the limits** — "Rows detected before this change have no evidence
+  stored; the dialog says so rather than inventing a reason retroactively."
+- No emoji except the ⚠️ marker, no marketing language.
 
 ## Length
 
-Match the change. A one-file fix with a clear cause is ~1,000 characters and
-may need no headings at all. A typical fix or refactor runs 2,000–3,500. A
-substantial feature runs 4,000–8,000 with six to eight sections. Padding a
-small PR into the big-PR shape is a failure mode — the reviewer's time is
-the thing being spent.
+Match the change. A one-file fix: Motivation of two lines, two or three
+Implementation bullets, a short Proof of Work — around 1,000 characters. A
+substantial feature runs 4,000–8,000 with grouped Implementation bullets,
+screenshots, and two or three optional sections. Padding a small PR into the
+big-PR shape wastes the reviewer's time.
 
 ## Footer
 
-End every body with the attribution footer, on its own after a rule:
+End the body with the attribution footer, after a rule:
 
 ```markdown
 ---
+
 _Generated by [Claude Code](https://claude.ai/code)_
 ```
 
-The tooling may append this automatically and strips duplicates, so include
-it and do not worry about it appearing twice. Do not put a model name,
-`Co-Authored-By`, or a session ID in the body.
+The tooling may append this and strips duplicates, so include it and do not
+worry about it appearing twice. Never put a model name, `Co-Authored-By`, or
+a session ID in the body.
 
 ## Before you post
 
-Reread the draft as the reviewer:
-
-- Does the first paragraph tell me why this exists, without the title?
-- Is there a sentence here that the diff already tells me? Cut it.
-- Did I make a judgement call that a reviewer might make differently, and is
-  it defended somewhere?
-- Are all the numbers real ones I observed?
+- Does Motivation make me want the change, in three lines, without the title?
+- Can I open every file a reviewer needs from the Implementation bullets?
+- Is the Proof of Work something I actually ran, with real numbers?
+- Is there a sentence the diff already tells me? Cut it.
 - If this changes something beyond what the title promises, is that loud?
 
-## Worked examples
+## Worked example
 
-`references/examples.md` holds three complete PR bodies from this repo — a
-small fix, a mid-size one with a defended alternative, and a large feature —
-annotated with what each is doing. Read it when you want a full-shape model
-rather than the rules above, especially for a large PR where section
-selection is the hard part.
+`references/example.md` holds a complete body in this structure, annotated
+with what each section is doing. Read it when you want a full-shape model.

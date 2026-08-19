@@ -182,7 +182,8 @@ Posting a PR body through this environment's GitHub tooling runs it through a
 sanitiser that strips the leading `!` from every image and wraps absolute URLs
 in backticks. A rendered image is an automatic outbound fetch, so this is a
 deliberate exfiltration guard, not a bug to route around. Verified against all
-three syntaxes on a real PR:
+three syntaxes on a real PR in August 2026 — it is one tool's behaviour, so
+re-check it rather than trusting this table if an image ever does render:
 
 | What you write                            | What gets stored                                        |
 | ----------------------------------------- | ------------------------------------------------------- |
@@ -240,10 +241,12 @@ schema. "It looks right" is not proof of work.
 Always, with real numbers observed on this branch:
 
 ```markdown
-- `npm test` — 315/315
+- `npm test` — <passed>/<total>
 - `npm run typecheck` — clean
-- `npm run lint` — 0 errors (25 warnings, all pre-existing in `src/server/services/`)
+- `npm run lint` — <N> errors (<M> warnings, all pre-existing in `<path>`)
 ```
+
+The placeholders are deliberate: fill them from the run you just did.
 
 Add `npm run test:e2e:api` and `npm run test:e2e:ui` with their counts when
 the change touches those paths. Note when new tests fail on the old code and

@@ -33,23 +33,37 @@ The app's Prisma client runs through Accelerate (`prisma://`), so a local run
 needs `prisma dev` rather than a bare Postgres URL. `DIRECT_URL` stays plain
 Postgres for migrations, the seed, and Mastra's memory.
 
+`prisma dev` prints a plain `postgres://` URL to the terminal, which the app's
+edge client rejects. The `prisma://` one is in its state file — read both from
+there, exactly as `.github/workflows/ci.yml` does:
+
 ```bash
-npx prisma dev                      # Prisma Postgres + Accelerate proxy; prints both URLs
+npx prisma dev --name pow &
+STATE="$HOME/.local/share/prisma-dev-nodejs/pow/server.json"
+export DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")
+export DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")
 npx prisma migrate deploy           # uses DIRECT_URL
 ```
 
 Then bring up the app. The e2e harness already assembles a full working
 environment — a mock OpenAI-compatible model server, an in-process Upstash
-REST shim, and a seeded pair of users — so prefer it over hand-assembling env
-vars:
+REST shim, a mock extraction agent, and a seeded pair of users — so prefer it
+over hand-assembling env vars. Copy the `env:` block from
+`.github/workflows/ci.yml` for the rest; it is the maintained list.
 
 ```bash
 npx tsx test/e2e-api/serve.ts       # stays alive, prints E2E_AUTH_TOKEN
 ```
 
+Until `serve.ts` is up, `/api/health` returns 503 — the app cannot reach the
+Redis shim, and that is the expected failure, not a broken setup.
+
 That token is a valid `session` JWT for the seeded user A. Use it as
 `Authorization: Bearer` for API calls and as the `session` cookie for the
 browser — `e2e/helpers.ts` `signIn()` plants it.
+
+`serve.ts` and `npm run test:e2e:api` both bind the shim's port, so they cannot
+run at once; stop the former before the latter.
 
 Read `test/e2e-api/README.md` for the full environment, including why
 `TELEGRAM_BOT_TOKEN` must stay unset locally (with no token the bot code
@@ -57,7 +71,11 @@ no-ops instead of opening sockets).
 
 If the change needs data the seed does not create, add it with a short `tsx`
 script against `DIRECT_URL` rather than clicking it in by hand — a script is
-repeatable and can go in the PR if a reviewer wants to reproduce.
+repeatable and can go in the PR if a reviewer wants to reproduce. The seeded
+transactions sit in January and February, so anything about recent months needs
+its own rows. Write the script **inside the repo**, not a scratch directory:
+`tsx` resolves `@prisma/client` and the `@/` alias from the nearest
+`node_modules` and `tsconfig.json`.
 
 ## Backend proof
 
@@ -101,6 +119,22 @@ and dark variants. Copy it into the repo root or run it in place:
 E2E_AUTH_TOKEN=$TOKEN npx tsx .claude/skills/proof-of-work/scripts/capture.ts \
   --route /subscriptions --name subscriptions-edit --dark
 ```
+
+`--click <selector>` is repeatable and runs before the shot, which is how a
+dialog, a tab or an applied filter gets captured without writing a spec:
+
+```bash
+... --route /transactions --name filters-applied \
+  --click 'button:has-text("Filters")' \
+  --click '.MuiChip-root:has-text("Last month")' \
+  --click 'button:has-text("Apply")'
+```
+
+It waits 1800ms before shooting, which is not padding: recharts runs a 1500ms
+enter animation on every data change, and a shot taken earlier catches the
+sectors at zero radius — the chart reads as **missing** rather than animating.
+Raise it with `--settle` for anything slower. If a chart looks absent in a
+capture, count `.recharts-pie-sector` in the DOM before believing it.
 
 Dark mode is set by seeding `localStorage['mui-mode'] = 'dark'` before the
 page loads — the theme uses MUI's CSS-vars `colorSchemeSelector: 'data'` with

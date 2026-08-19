@@ -12,6 +12,7 @@
  */
 import { chromium, Browser, Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
@@ -30,6 +31,8 @@ interface Options {
   fullPage: boolean;
   viewports: (keyof typeof VIEWPORTS)[];
   waitFor?: string;
+  clicks: string[];
+  settleMs: number;
 }
 
 function parseArgs(argv: string[]): Options {
@@ -37,6 +40,14 @@ function parseArgs(argv: string[]): Options {
     const i = argv.indexOf(flag);
     return i === -1 ? undefined : argv[i + 1];
   };
+
+  // Repeatable, so a capture can walk into a dialog or a tab before shooting.
+  const getAll = (flag: string): string[] =>
+    argv.reduce<string[]>(
+      (found, arg, i) =>
+        arg === flag && argv[i + 1] ? [...found, argv[i + 1]] : found,
+      [],
+    );
 
   const route = get('--route');
   const name = get('--name');
@@ -54,6 +65,8 @@ function parseArgs(argv: string[]): Options {
     fullPage: argv.includes('--full-page'),
     viewports: only ? [only] : ['desktop', 'mobile'],
     waitFor: get('--wait-for'),
+    clicks: getAll('--click'),
+    settleMs: Number(get('--settle') ?? 1800),
   };
 }
 
@@ -94,9 +107,16 @@ async function capture(browser: Browser, opts: Options): Promise<void> {
       const page = await newPage(browser, VIEWPORTS[viewportName], mode);
 
       await page.goto(`${BASE_URL}${opts.route}`, { waitUntil: 'networkidle' });
+      for (const selector of opts.clicks) {
+        await page.click(selector, { timeout: 15_000 });
+      }
       if (opts.waitFor) {
         await page.waitForSelector(opts.waitFor, { timeout: 15_000 });
       }
+      // Let animations finish. MUI transitions are ~300ms, but recharts runs a
+      // 1500ms enter animation on every data change — shooting before it lands
+      // catches sectors at zero radius and the chart reads as missing.
+      await page.waitForTimeout(opts.settleMs);
 
       const suffix = mode === 'dark' ? '-dark' : '';
       const file = path.join(
@@ -111,14 +131,36 @@ async function capture(browser: Browser, opts: Options): Promise<void> {
   }
 }
 
+/**
+ * Playwright only finds a browser under PLAYWRIGHT_BROWSERS_PATH when the
+ * package version matches the installed build, which is not true of every
+ * preinstalled image — so an explicit path is honoured first, then the newest
+ * chromium in that directory, before letting Playwright look on its own.
+ */
+function resolveChromium(): string | undefined {
+  if (process.env.PLAYWRIGHT_CHROMIUM_PATH) {
+    return process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  }
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!root || !existsSync(root)) return undefined;
+
+  const build = readdirSync(root)
+    .filter((entry) => /^chromium-\d+$/.test(entry))
+    .sort()
+    .pop();
+  if (!build) return undefined;
+
+  const binary = path.join(root, build, 'chrome-linux', 'chrome');
+  return existsSync(binary) ? binary : undefined;
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
+  const executablePath = resolveChromium();
   await mkdir(OUT_DIR, { recursive: true });
 
   const browser = await chromium.launch(
-    process.env.PLAYWRIGHT_CHROMIUM_PATH
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
-      : {},
+    executablePath ? { executablePath } : {},
   );
 
   try {

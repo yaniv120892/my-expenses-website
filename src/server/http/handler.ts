@@ -143,6 +143,17 @@ export function createHandler<
           { requestId, path, err, ...(userId && { userId }) },
           'Request failed',
         );
+        // Imported lazily so the Telegram SDK stays out of every route's
+        // cold start, and fired after the response so it adds no latency.
+        after(async () => {
+          const { notifyOpsAlert } =
+            await import('@/server/services/alertService');
+          await notifyOpsAlert({
+            title: `5xx on ${req.method} ${path}`,
+            err,
+            context: { requestId, ...(userId && { userId }) },
+          });
+        });
       }
     }
 

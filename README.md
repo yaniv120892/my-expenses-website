@@ -51,9 +51,9 @@ compatible local setup.
 - Register the Telegram webhook once per environment:
   `https://api.telegram.org/bot<token>/setWebhook?url=<WEBSITE_URL>/api/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`
 - Logs: pino JSON to stdout, plus in-app shipping to Better Stack (see
-  below). Errors are logged, not sent to an error tracker; cron routes throw
-  on partial failure so a failed run shows up as a non-2xx in Vercel's cron
-  history
+  below), and 5xx responses also page a Telegram ops chat (see Alerting).
+  Cron routes throw on partial failure so a failed run shows up as a non-2xx
+  in Vercel's cron history
 
 ## Log shipping (Better Stack)
 
@@ -96,6 +96,27 @@ a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and
 31d / 2h for the monthly report — 31 days because that is the longest gap
 between two first-of-the-month runs, and a shorter period would alert every
 February.
+
+## Alerting (Telegram)
+
+Logs say what happened, but nobody reads them at 03:00. Every response
+`createHandler` maps to a 5xx also fires a Telegram message to a dedicated ops
+chat, carrying the method, path, request id, user id when there is one, and
+the error message. Set `TELEGRAM_ALERT_CHAT_ID` (alongside
+`TELEGRAM_BOT_TOKEN`) to turn it on; leave it unset and alerting is silently
+off, which is how local development and CI run.
+
+The chat is deliberately separate from user notifications, and the send goes
+straight to `telegramService` rather than through the per-user notifier — an
+ops alert must not depend on the database, since that is exactly what will be
+down.
+
+Alerts are capped at **5 per hour per alert type** (the type is the method and
+path, so one hot endpoint cannot mask another), counted in Redis with a single
+`INCR`. The alert that trips the cap is replaced by a one-off "further alerts
+suppressed" notice, so the silence is never ambiguous. Sending is
+fire-and-forget in an `after` hook and never throws: a failed alert is logged
+and the response is unaffected.
 
 ## External services
 

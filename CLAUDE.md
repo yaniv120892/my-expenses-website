@@ -97,13 +97,18 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 
 ## Crons (vercel.json)
 
-| Path                                | Schedule      |
-| ----------------------------------- | ------------- |
-| /api/scheduled-transactions/process | 07:00 daily   |
-| /api/summary/today                  | 21:00 daily   |
-| /api/backup/transactions            | 03:00 daily   |
-| /api/subscriptions/detect           | 04:00 Mondays |
-| /api/subscriptions/audit-notify     | 08:00 Mondays |
+| Path                                | Schedule         |
+| ----------------------------------- | ---------------- |
+| /api/scheduled-transactions/process | 07:00 daily      |
+| /api/summary/today                  | 21:00 daily      |
+| /api/backup/transactions            | 03:00 daily      |
+| /api/subscriptions/detect           | 04:00 Mondays    |
+| /api/subscriptions/audit-notify     | 08:00 Mondays    |
+| /api/reports/monthly                | 06:00 on the 1st |
+
+Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
+that Better Stack URL after a <400 response (unset var = off). See README
+"Cron heartbeats".
 
 ## Deployment
 

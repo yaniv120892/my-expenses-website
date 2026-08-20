@@ -55,6 +55,26 @@ compatible local setup.
   error tracker; cron routes throw on partial failure so a failed run shows
   up as a non-2xx in Vercel's cron history
 
+## Cron heartbeats
+
+Runtime logs are retained for one hour on Vercel Hobby, so a cron that fails
+or never fires leaves no trace. Each cron route pings a Better Stack heartbeat
+after a successful run (a `< 400` response); Better Stack emails when a ping
+stops arriving. A partial failure already throws — see the routes — so a
+missed ping covers both "ran and failed" and "never ran".
+
+Every cron route in `vercel.json` names its heartbeat env var inline
+(`heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_…'`); the full set is listed in
+`.env.example`. Create one heartbeat per var in Better Stack (the free tier
+includes 10) and paste the URL it gives you into the matching var. **Any var
+left unset simply disables that heartbeat** — nothing else changes.
+
+Set each heartbeat's period to the longest possible gap between two runs, plus
+a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and
+31d / 2h for the monthly report — 31 days because that is the longest gap
+between two first-of-the-month runs, and a shorter period would alert every
+February.
+
 ## External services
 
 | Service                  | Contract                                                                                                                |

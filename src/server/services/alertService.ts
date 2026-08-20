@@ -4,31 +4,28 @@ import { incrementWithTtl } from '@/server/redis';
 import { telegramService } from '@/server/services/telegramService';
 
 export interface OpsAlert {
+  alertType: string;
   title: string;
   err?: unknown;
   context?: Record<string, string | number | undefined>;
 }
 
-// A 5xx storm must not flood Telegram or burn the Upstash free tier's 500K
-// monthly command budget, so every alert type gets its own hourly quota and
-// the check itself costs a single INCR.
 const ALERTS_PER_HOUR = 5;
+const SUPPRESSION_NOTICE_COUNT = ALERTS_PER_HOUR + 1;
 const WINDOW_SECONDS = 60 * 60;
 
-// telegramService sends with parse_mode 'Markdown', where these open an
-// entity; an unescaped one in an error message makes Telegram reject the send.
-const MARKDOWN_SPECIAL = /[_*[`]/g;
+const TELEGRAM_MARKDOWN_ENTITY_CHARS = /[_*[`]/g;
 
 function escapeMarkdown(value: string): string {
-  return value.replace(MARKDOWN_SPECIAL, (char) => `\\${char}`);
+  return value.replace(TELEGRAM_MARKDOWN_ENTITY_CHARS, (char) => `\\${char}`);
 }
 
-function rateLimitKey(title: string): string {
-  const type = title
+function quotaKey(alertType: string): string {
+  const normalized = alertType
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .slice(0, 80);
-  return `ops-alert:${type}`;
+  return `ops-alert:${normalized}`;
 }
 
 function errorMessage(err: unknown): string {
@@ -55,16 +52,14 @@ function formatAlert({ title, err, context }: OpsAlert): string {
   return lines.join('\n');
 }
 
-function formatSuppressionNotice(title: string): string {
+function formatSuppressionNotice(alertType: string): string {
   return [
     '🔇 *Ops alerts suppressed*',
-    `More than ${ALERTS_PER_HOUR} "${escapeMarkdown(title)}" alerts this hour.`,
+    `More than ${ALERTS_PER_HOUR} "${escapeMarkdown(alertType)}" alerts this hour.`,
     'Further alerts of this type are dropped until the window resets.',
   ].join('\n');
 }
 
-// Best-effort by design: alerting must never turn into a request failure, so
-// everything past the env check is swallowed and logged.
 export async function notifyOpsAlert(alert: OpsAlert): Promise<void> {
   const chatId = optionalEnv('TELEGRAM_ALERT_CHAT_ID');
   if (!chatId) {
@@ -72,15 +67,15 @@ export async function notifyOpsAlert(alert: OpsAlert): Promise<void> {
   }
   try {
     const count = await incrementWithTtl(
-      rateLimitKey(alert.title),
+      quotaKey(alert.alertType),
       WINDOW_SECONDS,
     );
-    if (count > ALERTS_PER_HOUR + 1) {
+    if (count > SUPPRESSION_NOTICE_COUNT) {
       return;
     }
     const message =
-      count > ALERTS_PER_HOUR
-        ? formatSuppressionNotice(alert.title)
+      count === SUPPRESSION_NOTICE_COUNT
+        ? formatSuppressionNotice(alert.alertType)
         : formatAlert(alert);
     await telegramService.sendMessage(chatId, message);
   } catch (err) {

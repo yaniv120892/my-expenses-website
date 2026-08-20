@@ -81,10 +81,16 @@ That is why the frequent monitor hits the shallow path, which must stay free of
 any database or Redis call.
 
 The two checks are separate routes rather than one route behind a `?deep=` flag,
-so a mistyped deep-monitor URL is a 404 that goes red within one interval
+so a mistyped path under `/api/` is a 404 that goes red within one interval
 instead of silently degrading into a second shallow monitor reporting green.
 Each probe gives up after 5s, so a blackholed dependency still returns the 503
 naming it rather than a bodiless platform timeout.
+
+That 404 only covers typos _after_ the `/api/` prefix. A URL that drops the
+prefix — `/health/deep` — misses the `/api/` branch in `src/middleware.ts`,
+redirects to `/login`, and a redirect-following monitor records that page's 200. **Configure the deep monitor to require the string `checks` in the
+response body**, which no other page returns; that is what makes a
+wrong-URL failure visible regardless of how it is wrong.
 
 ## External services
 

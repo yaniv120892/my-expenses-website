@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { queryRaw, getValue, error } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
@@ -16,6 +16,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   queryRaw.mockResolvedValue([{ '?column?': 1 }]);
   getValue.mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('deep check', () => {
@@ -86,6 +90,5 @@ describe('deep check', () => {
       status: 'unhealthy',
       checks: { db: 'ok', redis: 'fail' },
     });
-    vi.useRealTimers();
   });
 });

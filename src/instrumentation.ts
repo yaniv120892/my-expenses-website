@@ -19,4 +19,15 @@ export async function onRequestError(
     { err, path: request.path, method: request.method },
     'Unhandled request error',
   );
+
+  const { flushRemoteLogs } =
+    await import('@/server/logging/betterStackStream');
+  try {
+    const { after } = await import('next/server');
+    after(() => flushRemoteLogs());
+  } catch {
+    // Next raises some errors outside a request scope, where `after` throws;
+    // ship the batch inline rather than losing it.
+    await flushRemoteLogs();
+  }
 }

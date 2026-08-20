@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { pingHeartbeat, loggerMock } = vi.hoisted(() => ({
+const { pingHeartbeat, loggerMock, after } = vi.hoisted(() => ({
   pingHeartbeat: vi.fn(),
   loggerMock: { info: vi.fn(), error: vi.fn() },
+  after: vi.fn(),
 }));
 
 vi.mock('@/server/monitoring/heartbeat', () => ({ pingHeartbeat }));
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
+// `after` throws outside a request scope, which is where these tests call the
+// handler; everything else in the module stays real.
+vi.mock('next/server', async () => ({
+  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  after,
+}));
 
 import { createHandler } from '@/server/http/handler';
 

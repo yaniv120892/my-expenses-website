@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
+import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { optionalEnv, requireEnv } from '@/server/env';
@@ -162,6 +163,11 @@ export function createHandler<
     if (options.heartbeatEnvVar && response.status < 400) {
       await pingHeartbeat(options.heartbeatEnvVar);
     }
+
+    // One batched POST per request, run after the response so it cannot add
+    // latency, and before the serverless instance freezes. Registered last so
+    // the batch includes anything the heartbeat ping logged.
+    after(() => flushRemoteLogs());
     return response;
   };
 }

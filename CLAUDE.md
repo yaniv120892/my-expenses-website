@@ -85,7 +85,12 @@ here are pure functions, not components.
   `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
   error tracker — logs are the only error signal, so anything swallowed is
   invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
-  errors Next raises outside a route handler.
+  errors Next raises outside a route handler. Outside development, warn and
+  above is also shipped to Better Stack through `pino.multistream` (never a
+  pino transport — its worker threads are unreliable on Vercel) and flushed
+  in one batched POST per request from a `next/server` `after` hook. Unset
+  `BETTERSTACK_SOURCE_URL`/`_TOKEN` means shipping is off, not an error. See
+  README "Log shipping".
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

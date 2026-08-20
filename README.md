@@ -126,6 +126,43 @@ suppressed" notice, so the silence is never ambiguous. Sending is
 fire-and-forget in an `after` hook and never throws: a failed alert is logged
 and the response is unaffected.
 
+## Uptime monitoring (Better Stack)
+
+Two monitors, on two routes, at deliberately different intervals:
+
+| Monitor | URL                | Interval   | What it touches                                  |
+| ------- | ------------------ | ---------- | ------------------------------------------------ |
+| Shallow | `/api/health`      | 3 minutes  | Nothing — proves Vercel is still serving the app |
+| Deep    | `/api/health/deep` | 60 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
+
+The deep response reports each dependency separately — `{"status":"unhealthy",
+"checks":{"db":"fail","redis":"ok"}}` with HTTP 503 — so the alert email names
+what broke. Both responses are `Cache-Control: no-store`.
+
+### Do not lower the deep interval
+
+Neon Free gives 100 CU-hours/month at 0.25 CU, and scale-to-zero after 5 idle
+minutes cannot be disabled. Every deep check wakes the compute and restarts that
+idle timer, so the interval sets the bill: at 3 minutes the compute never sleeps
+(730 h x 0.25 CU = **~182 CU-hours, 1.8x the allowance** — the monitor causes
+the outage it was installed to catch); at 60 minutes it is 24 wakes x 5 min/day
+= **~15 CU-hours.**
+
+That is why the frequent monitor hits the shallow path, which must stay free of
+any database or Redis call.
+
+The two checks are separate routes rather than one route behind a `?deep=` flag,
+so a mistyped path under `/api/` is a 404 that goes red within one interval
+instead of silently degrading into a second shallow monitor reporting green.
+Each probe gives up after 5s, so a blackholed dependency still returns the 503
+naming it rather than a bodiless platform timeout.
+
+That 404 only covers typos _after_ the `/api/` prefix. A URL that drops the
+prefix — `/health/deep` — misses the `/api/` branch in `src/middleware.ts`,
+redirects to `/login`, and a redirect-following monitor records that page's 200. **Configure the deep monitor to require the string `checks` in the
+response body**, which no other page returns; that is what makes a
+wrong-URL failure visible regardless of how it is wrong.
+
 ## External services
 
 | Service                  | Contract                                                                                                                |

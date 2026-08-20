@@ -3,16 +3,14 @@ import type { Instrumentation } from 'next';
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { assertCoreEnv } = await import('@/server/env');
-    // Fail a misconfigured deployment at boot, not on the first request.
+
     if (process.env.NODE_ENV === 'production') {
       assertCoreEnv();
     }
-    await import('../sentry.server.config');
   }
 
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('../sentry.edge.config');
-  }
+  const { initSentry } = await import('../sentry.config');
+  initSentry(process.env.VERCEL_ENV ?? process.env.NODE_ENV);
 }
 
 // Errors raised outside a createHandler route (server components, uncaught

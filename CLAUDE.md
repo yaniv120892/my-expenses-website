@@ -86,12 +86,12 @@ here are pure functions, not components.
   runtime logs for an hour, so anything swallowed is invisible soon after.
   `createHandler` logs every 5xx; `instrumentation.ts` logs errors Next raises
   outside a route handler.
-- **Error tracking**: Sentry (`sentry.server.config.ts`,
-  `sentry.edge.config.ts`, `src/instrumentation-client.ts`), inert unless
-  `NEXT_PUBLIC_SENTRY_DSN` is set. `onRequestError` logs _and_ reports;
-  `src/app/error.tsx` and `src/app/global-error.tsx` report what the React
-  boundaries catch. Tracing and Session Replay are off — the free tier budgets
-  errors only.
+- **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set.
+  `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs
+  it for the Node and edge runtimes and `src/instrumentation-client.ts` for the
+  browser. `onRequestError` logs _and_ reports; the React boundaries report via
+  `src/components/ErrorFallback.tsx`. Tracing and Session Replay are off — the
+  free tier budgets errors only.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

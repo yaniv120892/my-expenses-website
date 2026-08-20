@@ -1,51 +1,67 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/server/db/client';
 import { getValue } from '@/server/redis';
 import logger from '@/server/logging/logger';
 
 export const dynamic = 'force-dynamic';
 
+type CheckName = 'db' | 'redis';
+type CheckStatus = 'ok' | 'fail';
+
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-// Neon Free scales to zero after 5 idle minutes and cannot be told not to, so
-// touching the database on every poll would keep the compute awake 24/7 and
-// blow the 100 CU-hour monthly cap. Only `?deep=1` probes dependencies.
-const DEPENDENCY_CHECKS = [
-  { name: 'db', run: () => prisma.$queryRaw`SELECT 1` },
-  { name: 'redis', run: () => getValue('health:probe') },
-] as const;
+// A blackholed dependency never rejects, so without this the request would run
+// into the platform timeout and the monitor would get a bodiless 504 instead of
+// the 503 naming what broke.
+const PROBE_TIMEOUT_MS = 5000;
 
-type CheckName = (typeof DEPENDENCY_CHECKS)[number]['name'];
-
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isDeepCheck(request)) {
     return NextResponse.json({ status: 'ok' }, { headers: NO_STORE });
   }
 
-  const results = await Promise.allSettled(
-    DEPENDENCY_CHECKS.map(({ run }) => run()),
-  );
-
-  const checks = {} as Record<CheckName, 'ok' | 'fail'>;
-  let healthy = true;
-  results.forEach((result, index) => {
-    const { name } = DEPENDENCY_CHECKS[index];
-    if (result.status === 'fulfilled') {
-      checks[name] = 'ok';
-      return;
-    }
-    checks[name] = 'fail';
-    healthy = false;
-    logger.error({ err: result.reason, check: name }, 'Health check failed');
-  });
+  // Only the deep check probes these: a database touch on every poll would keep
+  // Neon's compute from scaling to zero and blow the free CU-hour cap.
+  const [db, redis] = await Promise.all([
+    probe('db', () => prisma.$queryRaw`SELECT 1`),
+    probe('redis', () => getValue('health:probe')),
+  ]);
+  const healthy = db === 'ok' && redis === 'ok';
 
   return NextResponse.json(
-    { status: healthy ? 'ok' : 'unhealthy', checks },
+    { status: healthy ? 'ok' : 'unhealthy', checks: { db, redis } },
     { status: healthy ? 200 : 503, headers: NO_STORE },
   );
 }
 
-function isDeepCheck(request: Request): boolean {
-  const deep = new URL(request.url).searchParams.get('deep');
+// Matched by value, not presence: a stray `deep` param on the 3-minute shallow
+// monitor would probe Postgres every poll and blow the CU-hour cap, so anything
+// but an explicit opt-in stays shallow.
+function isDeepCheck(request: NextRequest): boolean {
+  const deep = request.nextUrl.searchParams.get('deep');
   return deep === '1' || deep === 'true';
+}
+
+async function probe(
+  name: CheckName,
+  run: () => Promise<unknown>,
+): Promise<CheckStatus> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      run(),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out after ${PROBE_TIMEOUT_MS}ms`)),
+          PROBE_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    return 'ok';
+  } catch (err) {
+    logger.error({ err, check: name }, 'Health check failed');
+    return 'fail';
+  } finally {
+    clearTimeout(timer);
+  }
 }

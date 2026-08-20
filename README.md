@@ -70,24 +70,20 @@ what broke. Both responses are `Cache-Control: no-store`.
 
 ### Do not lower the deep interval
 
-The 60-minute deep interval is a hard budget constraint, not a default worth
-tuning. The database is Neon on the **Free plan: 100 CU-hours/month, compute at
-0.25 CU, scale-to-zero after 5 idle minutes — and scale-to-zero cannot be
-disabled.** Every deep check wakes the compute and restarts that 5-minute idle
-timer, so the check interval decides the monthly bill:
+Neon Free gives 100 CU-hours/month at 0.25 CU, and scale-to-zero after 5 idle
+minutes cannot be disabled. Every deep check wakes the compute and restarts that
+idle timer, so the interval sets the bill: at 3 minutes the compute never sleeps
+(730 h x 0.25 CU = **~182 CU-hours, 1.8x the allowance** — the monitor causes
+the outage it was installed to catch); at 60 minutes it is 24 wakes x 5 min/day
+= **~15 CU-hours.**
 
-- **Deep check every 3 minutes** — the compute never gets 5 idle minutes and
-  stays awake around the clock: 730 h/month x 0.25 CU = **~182 CU-hours, about
-  1.8x the free allowance.** The monitor itself causes the outage it was
-  installed to catch.
-- **Deep check every 60 minutes** — 24 wakes/day, each holding the compute up
-  for roughly the 5-minute idle window: 24 x 5 min = 2 h/day = ~60 h/month
-  x 0.25 CU = **~15 CU-hours,** comfortably inside the cap alongside real
-  traffic and the crons.
+That is why the frequent monitor hits the shallow path, which must stay free of
+any database or Redis call.
 
-That is why the frequent monitor hits the shallow path and must stay free of
-any database or Redis call. CI also polls `http://127.0.0.1:3000/api/health` to
-decide the dev server is up, so the shallow path has to stay a fast 200.
+Only `?deep=1` or `?deep=true` selects the deep check; every other value stays
+shallow, so a stray param on the frequent monitor cannot start probing Postgres
+every 3 minutes. Each probe gives up after 5s, so a blackholed dependency still
+returns the 503 naming it rather than a bodiless platform timeout.
 
 ## External services
 

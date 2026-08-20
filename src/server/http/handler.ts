@@ -34,6 +34,16 @@ interface HandlerOptions<TBody, TQuery, TResult> {
 // object, so the loose Record type covers both.
 type RouteContext = { params: Promise<Record<string, string>> };
 
+// `/api/transactions/<uuid>` becomes `/api/transactions/[id]`, so alert quotas
+// are keyed per route rather than per record id.
+function toRoutePattern(path: string, params: Record<string, string>): string {
+  return Object.entries(params).reduce(
+    (pattern, [name, value]) =>
+      value ? pattern.replace(`/${value}`, `/[${name}]`) : pattern,
+    path,
+  );
+}
+
 async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   switch (mode) {
     case 'session':
@@ -98,10 +108,11 @@ export function createHandler<
     const path = req.nextUrl.pathname;
     let response: Response;
     let userId = '';
+    let params: Record<string, string> = {};
 
     try {
       userId = await resolveAuth(req, options.auth);
-      const params = routeContext ? await routeContext.params : {};
+      params = routeContext ? await routeContext.params : {};
       let body = undefined as TBody;
       if (options.bodySchema) {
         let raw: unknown;
@@ -150,6 +161,19 @@ export function createHandler<
         Sentry.captureException(err, {
           tags: { path, requestId },
           ...(userId && { user: { id: userId } }),
+        });
+        const routePattern = toRoutePattern(path, params);
+        after(async () => {
+          // Dynamic import keeps the Telegram SDK out of every route's cold start.
+          const { notifyOpsAlert } = await import(
+            '@/server/services/alertService'
+          );
+          await notifyOpsAlert({
+            alertType: `5xx ${req.method} ${routePattern}`,
+            title: `5xx on ${req.method} ${path}`,
+            err,
+            context: { requestId, ...(userId && { userId }) },
+          });
         });
       }
     }

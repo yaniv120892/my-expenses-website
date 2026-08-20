@@ -15,6 +15,13 @@ type Props = {
 
 export default function ErrorFallback({ error, reset, minHeight }: Props) {
   useEffect(() => {
+    // A `digest` means Next redacted a server-side error before re-rendering
+    // this boundary on the client. `onRequestError` already reported that one
+    // with its real stack, so reporting the redacted copy would spend a second
+    // event on a message that carries no stack to act on.
+    if (error.digest) {
+      return;
+    }
     Sentry.captureException(error);
   }, [error]);
 

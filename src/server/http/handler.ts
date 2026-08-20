@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { AuthError, requireUser } from '@/server/auth/session';
@@ -137,6 +138,13 @@ export function createHandler<
           { requestId, path, err, ...(userId && { userId }) },
           'Request failed',
         );
+        // This catch is why Next's onRequestError never fires for an API
+        // route: the error becomes a response here, so Sentry only learns
+        // about it if we report it ourselves.
+        Sentry.captureException(err, {
+          tags: { path, requestId },
+          ...(userId && { user: { id: userId } }),
+        });
       }
     }
 

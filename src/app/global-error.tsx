@@ -3,8 +3,10 @@
 import ErrorFallback from '@/components/ErrorFallback';
 
 // Errors thrown by the root layout escape src/app/error.tsx, so this boundary
-// replaces the whole document and must render its own html/body. It also
-// renders outside the theme provider, so it gets MUI's default palette.
+// replaces the whole document and must render its own html/body. That also
+// puts it outside the theme and outside AppRouterCacheProvider, so it renders
+// with MUI's default palette and no server-side emotion styles — deliberately
+// plain, because whatever broke the layout may break those too.
 export default function GlobalError({
   error,
   reset,

@@ -1,6 +1,11 @@
 import type { Instrumentation } from 'next';
 
 export async function register() {
+  // Initialised first so that a missing core env var — which takes the whole
+  // deployment down — is itself reportable.
+  const { initSentry } = await import('../sentry.config');
+  initSentry(process.env.VERCEL_ENV ?? process.env.NODE_ENV);
+
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { assertCoreEnv } = await import('@/server/env');
 
@@ -8,9 +13,6 @@ export async function register() {
       assertCoreEnv();
     }
   }
-
-  const { initSentry } = await import('../sentry.config');
-  initSentry(process.env.VERCEL_ENV ?? process.env.NODE_ENV);
 }
 
 // Errors raised outside a createHandler route (server components, uncaught

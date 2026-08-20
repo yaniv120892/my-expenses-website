@@ -115,8 +115,10 @@ jobs 401. The Telegram webhook must be registered with
 ## Documentation
 
 This file is the only design document. Per-feature plans, specs, and handover
-notes are not committed — `.superpowers/` and `docs/superpowers/` are
-gitignored, and agent scratch output stays there or in the session. A spec that
+notes are not committed — `.superpowers/`, `docs/superpowers/`, and
+`.claude/worktrees/` are gitignored, while `.claude/skills/` stays tracked
+because it is tooling, not scratch. Agent output stays in the ignored
+directories or in the session. A spec that
 describes work already shipped is worse than no spec: it drifts, and readers
 cannot tell it from current intent.
 

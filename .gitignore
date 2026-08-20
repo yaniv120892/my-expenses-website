@@ -48,6 +48,13 @@ playwright-report/
 # never committed alongside the change they illustrate
 /proof-of-work/
 
+# agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
+/.superpowers/
+/docs/superpowers/
+
+# claude code worktrees: agent scratch, never part of the repo
+/.claude/worktrees/
+
 # sentry
 .sentryclirc
 .env.sentry-build-plugin

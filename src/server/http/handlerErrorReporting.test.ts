@@ -9,6 +9,13 @@ const { logger, captureException } = vi.hoisted(() => ({
 vi.mock('@/server/logging/logger', () => ({ default: logger }));
 vi.mock('@sentry/nextjs', () => ({ captureException }));
 
+// Calling the handler directly puts us outside a request scope, where the real
+// `after` throws; the log flush it defers is not what these tests are about.
+vi.mock('next/server', async () => ({
+  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  after: vi.fn(),
+}));
+
 import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
 

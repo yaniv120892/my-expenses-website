@@ -3,5 +3,6 @@ import summaryService from '@/server/services/summaryService';
 
 export const GET = createHandler({
   auth: 'cron',
+  heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_SUMMARY_TODAY',
   handler: async () => summaryService.sendTodaySummaryToAllUsers(),
 });

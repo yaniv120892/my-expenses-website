@@ -50,10 +50,52 @@ compatible local setup.
   env or the cron routes will reject Vercel's invocations
 - Register the Telegram webhook once per environment:
   `https://api.telegram.org/bot<token>/setWebhook?url=<WEBSITE_URL>/api/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`
-- Logs: pino JSON to stdout — attach a Vercel Log Drain (e.g. Better Stack)
-  to ship them; no in-app log shipping. Errors are logged, not sent to an
-  error tracker; cron routes throw on partial failure so a failed run shows
-  up as a non-2xx in Vercel's cron history
+- Logs: pino JSON to stdout, plus in-app shipping to Better Stack (see
+  below). Errors are logged, not sent to an error tracker; cron routes throw
+  on partial failure so a failed run shows up as a non-2xx in Vercel's cron
+  history
+
+## Log shipping (Better Stack)
+
+Vercel's Hobby plan keeps runtime logs for one hour and Log Drains are a Pro
+feature, so logs are shipped from inside the app rather than by the platform.
+
+1. In Better Stack, go to **Telemetry → Sources** and create a source of type
+   **HTTP** (any name; "my-expenses" does).
+2. The source page shows the **ingesting host** and the **source token** —
+   set `BETTERSTACK_SOURCE_URL` to `https://<ingesting-host>` and
+   `BETTERSTACK_SOURCE_TOKEN` to that token in the Vercel project env.
+
+Leave both unset and shipping is silently off; stdout logging is unaffected,
+so local development and CI need no configuration.
+
+Only **`warn` and above** is shipped. The free tier allows 3 GB a month with
+3-day retention, and one `info` line per request would exhaust it while
+burying the records worth keeping — the full stream is still in Vercel's logs
+for the hour after a request. Records are buffered in memory (capped at 100,
+oldest dropped, with the dropped count reported in the next batch) and sent as
+one POST per request from a `next/server` `after` hook, which runs once the
+response is out and before the serverless instance freezes.
+
+## Cron heartbeats
+
+Runtime logs are retained for one hour on Vercel Hobby, so a cron that fails
+or never fires leaves no trace. Each cron route pings a Better Stack heartbeat
+after a successful run (a `< 400` response); Better Stack emails when a ping
+stops arriving. A partial failure already throws — see the routes — so a
+missed ping covers both "ran and failed" and "never ran".
+
+Every cron route in `vercel.json` names its heartbeat env var inline
+(`heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_…'`); the full set is listed in
+`.env.example`. Create one heartbeat per var in Better Stack (the free tier
+includes 10) and paste the URL it gives you into the matching var. **Any var
+left unset simply disables that heartbeat** — nothing else changes.
+
+Set each heartbeat's period to the longest possible gap between two runs, plus
+a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and
+31d / 2h for the monthly report — 31 days because that is the longest gap
+between two first-of-the-month runs, and a shorter period would alert every
+February.
 
 ## External services
 

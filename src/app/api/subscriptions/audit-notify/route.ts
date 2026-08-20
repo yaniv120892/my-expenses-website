@@ -3,7 +3,7 @@ import subscriptionDetectionService from '@/server/services/subscriptionDetectio
 
 export const GET = createHandler({
   auth: 'cron',
-  heartbeat: 'subscriptions-audit-notify',
+  heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_AUDIT_NOTIFY',
   handler: async () =>
     subscriptionDetectionService.sendMonthlyAuditNotifications(),
 });

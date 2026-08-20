@@ -1,66 +1,56 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { warn } = vi.hoisted(() => ({ warn: vi.fn() }));
+const { warn, info } = vi.hoisted(() => ({ warn: vi.fn(), info: vi.fn() }));
 
-vi.mock('@/server/logging/logger', () => ({
-  default: { warn, info: vi.fn(), error: vi.fn() },
-}));
+vi.mock('@/server/logging/logger', () => ({ default: { warn, info } }));
 
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
-const URL = 'https://uptime.betterstack.com/api/v1/heartbeat/abc123';
+const ENV_VAR = 'BETTERSTACK_HEARTBEAT_SUMMARY_TODAY';
+const HEARTBEAT_URL = 'https://uptime.betterstack.com/api/v1/heartbeat/abc123';
 
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('fetch', fetchMock);
-  process.env.BETTERSTACK_HEARTBEAT_SUMMARY_TODAY = URL;
+  process.env[ENV_VAR] = HEARTBEAT_URL;
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete process.env.BETTERSTACK_HEARTBEAT_SUMMARY_TODAY;
+  delete process.env[ENV_VAR];
 });
 
 describe('pingHeartbeat', () => {
-  it('posts to the URL named by the heartbeat', async () => {
+  it('posts to the URL held by the env var', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
 
-    await pingHeartbeat('summary-today');
+    await pingHeartbeat(ENV_VAR);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(URL);
+    expect(fetchMock.mock.calls[0][0]).toBe(HEARTBEAT_URL);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' });
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('derives the env var name by upper-casing and replacing dashes', async () => {
-    process.env.BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_AUDIT_NOTIFY = URL;
-    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
-
-    await pingHeartbeat('subscriptions-audit-notify');
-
-    expect(fetchMock.mock.calls[0][0]).toBe(URL);
-    delete process.env.BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_AUDIT_NOTIFY;
-  });
-
   it('does nothing when the env var is unset', async () => {
-    delete process.env.BETTERSTACK_HEARTBEAT_SUMMARY_TODAY;
+    delete process.env[ENV_VAR];
 
-    await pingHeartbeat('summary-today');
+    await pingHeartbeat(ENV_VAR);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith({ envVar: ENV_VAR }, expect.any(String));
   });
 
   it('swallows a non-2xx response and warns', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 503 }));
 
-    await expect(pingHeartbeat('summary-today')).resolves.toBeUndefined();
+    await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith(
-      { name: 'summary-today', status: 503 },
+      { envVar: ENV_VAR, status: 503 },
       expect.any(String),
     );
   });
@@ -69,10 +59,10 @@ describe('pingHeartbeat', () => {
     const err = new Error('network down');
     fetchMock.mockRejectedValue(err);
 
-    await expect(pingHeartbeat('summary-today')).resolves.toBeUndefined();
+    await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith(
-      { err, name: 'summary-today' },
+      { err, envVar: ENV_VAR },
       expect.any(String),
     );
   });

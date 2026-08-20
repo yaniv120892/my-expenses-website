@@ -4,7 +4,7 @@ import logger from '@/server/logging/logger';
 
 export const GET = createHandler({
   auth: 'cron',
-  heartbeat: 'backup-transactions',
+  heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_BACKUP_TRANSACTIONS',
   handler: async () => {
     const users = await backupService.getUsersRequiredBackup();
     logger.info(

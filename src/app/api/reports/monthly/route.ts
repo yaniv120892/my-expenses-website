@@ -3,6 +3,6 @@ import monthlyReportService from '@/server/services/monthlyReportService';
 
 export const GET = createHandler({
   auth: 'cron',
-  heartbeat: 'reports-monthly',
+  heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_REPORTS_MONTHLY',
   handler: async () => monthlyReportService.sendMonthlyReportToAllUsers(),
 });

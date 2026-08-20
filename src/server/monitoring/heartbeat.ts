@@ -3,16 +3,13 @@ import { optionalEnv } from '@/server/env';
 
 const PING_TIMEOUT_MS = 5000;
 
-// `summary-today` → BETTERSTACK_HEARTBEAT_SUMMARY_TODAY.
-function envNameFor(name: string): string {
-  return `BETTERSTACK_HEARTBEAT_${name.toUpperCase().replaceAll('-', '_')}`;
-}
-
-// Monitoring must never fail the run it monitors, so every failure — an unset
-// URL, a rejected fetch, a non-2xx — resolves instead of throwing.
-export async function pingHeartbeat(name: string): Promise<void> {
-  const url = optionalEnv(envNameFor(name));
+// Monitoring must never fail the run it monitors: every failure resolves.
+export async function pingHeartbeat(envVar: string): Promise<void> {
+  const url = optionalEnv(envVar);
   if (!url) {
+    // Logged so an unconfigured heartbeat is visible; a misspelled var name
+    // shows up here rather than as a silent no-op.
+    logger.info({ envVar }, 'Heartbeat not configured');
     return;
   }
 
@@ -23,11 +20,11 @@ export async function pingHeartbeat(name: string): Promise<void> {
     });
     if (!response.ok) {
       logger.warn(
-        { name, status: response.status },
+        { envVar, status: response.status },
         'Heartbeat ping was rejected',
       );
     }
   } catch (err) {
-    logger.warn({ err, name }, 'Heartbeat ping failed');
+    logger.warn({ err, envVar }, 'Heartbeat ping failed');
   }
 }

@@ -23,9 +23,8 @@ interface HandlerOptions<TBody, TQuery, TResult> {
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   status?: number;
-  // Heartbeat name pinged after a successful run; see
-  // `src/server/monitoring/heartbeat.ts` for the env var it resolves to.
-  heartbeat?: string;
+  // Better Stack heartbeat env var, pinged only after a <400 response.
+  heartbeatEnvVar?: string;
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
@@ -74,7 +73,9 @@ function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
   const error = (err ?? {}) as { message?: string; status?: number };
-  const status = error.status ?? 500;
+  // An error never maps to a success status: callers (heartbeats, the 5xx log)
+  // read `status < 400` as "the handler resolved".
+  const status = error.status && error.status >= 400 ? error.status : 500;
   return NextResponse.json(
     { message: error.message || 'Internal Server Error' },
     { status },
@@ -95,7 +96,6 @@ export function createHandler<
     const path = req.nextUrl.pathname;
     let response: Response;
     let userId = '';
-    let handlerResolved = false;
 
     try {
       userId = await resolveAuth(req, options.auth);
@@ -135,7 +135,6 @@ export function createHandler<
                 status: options.status ?? 200,
               });
       }
-      handlerResolved = true;
     } catch (err) {
       response = errorResponse(err);
       if (response.status >= 500) {
@@ -160,8 +159,8 @@ export function createHandler<
 
     // Awaited rather than deferred: crons are not latency-sensitive, and the
     // ping is logged after the request line so it stays out of durationMs.
-    if (options.heartbeat && handlerResolved && response.status < 400) {
-      await pingHeartbeat(options.heartbeat);
+    if (options.heartbeatEnvVar && response.status < 400) {
+      await pingHeartbeat(options.heartbeatEnvVar);
     }
     return response;
   };

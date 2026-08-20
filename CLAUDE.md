@@ -106,9 +106,9 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 | /api/subscriptions/audit-notify     | 08:00 Mondays    |
 | /api/reports/monthly                | 06:00 on the 1st |
 
-Each cron route passes a `heartbeat` name to `createHandler`; after a <400
-response it pings the Better Stack URL in the matching
-`BETTERSTACK_HEARTBEAT_*` var (unset = off). See README "Cron heartbeats".
+Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
+that Better Stack URL after a <400 response (unset var = off). See README
+"Cron heartbeats".
 
 ## Deployment
 

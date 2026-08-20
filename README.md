@@ -63,21 +63,17 @@ after a successful run (a `< 400` response); Better Stack emails when a ping
 stops arriving. A partial failure already throws — see the routes — so a
 missed ping covers both "ran and failed" and "never ran".
 
-Create one heartbeat per row in Better Stack (the free tier includes 10), then
-set the URL it gives you as the matching env var. **Any var left unset simply
-disables that heartbeat** — nothing else changes.
+Every cron route in `vercel.json` names its heartbeat env var inline
+(`heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_…'`); the full set is listed in
+`.env.example`. Create one heartbeat per var in Better Stack (the free tier
+includes 10) and paste the URL it gives you into the matching var. **Any var
+left unset simply disables that heartbeat** — nothing else changes.
 
-| Cron                                  | Schedule         | Env var                                                | Period / grace |
-| ------------------------------------- | ---------------- | ------------------------------------------------------ | -------------- |
-| `/api/scheduled-transactions/process` | 07:00 daily      | `BETTERSTACK_HEARTBEAT_SCHEDULED_TRANSACTIONS_PROCESS` | 24h / 1h       |
-| `/api/summary/today`                  | 21:00 daily      | `BETTERSTACK_HEARTBEAT_SUMMARY_TODAY`                  | 24h / 1h       |
-| `/api/backup/transactions`            | 03:00 daily      | `BETTERSTACK_HEARTBEAT_BACKUP_TRANSACTIONS`            | 24h / 1h       |
-| `/api/subscriptions/detect`           | 04:00 Mondays    | `BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_DETECT`           | 7d / 2h        |
-| `/api/subscriptions/audit-notify`     | 08:00 Mondays    | `BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_AUDIT_NOTIFY`     | 7d / 2h        |
-| `/api/reports/monthly`                | 06:00 on the 1st | `BETTERSTACK_HEARTBEAT_REPORTS_MONTHLY`                | 31d / 2h       |
-
-The monthly period is 31 days because that is the longest gap between two
-first-of-the-month runs; a shorter period would alert every February.
+Set each heartbeat's period to the longest possible gap between two runs, plus
+a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and
+31d / 2h for the monthly report — 31 days because that is the longest gap
+between two first-of-the-month runs, and a shorter period would alert every
+February.
 
 ## External services
 

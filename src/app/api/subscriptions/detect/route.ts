@@ -3,6 +3,6 @@ import subscriptionDetectionService from '@/server/services/subscriptionDetectio
 
 export const GET = createHandler({
   auth: 'cron',
-  heartbeat: 'subscriptions-detect',
+  heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_SUBSCRIPTIONS_DETECT',
   handler: async () => subscriptionDetectionService.runDetectionForAllUsers(),
 });

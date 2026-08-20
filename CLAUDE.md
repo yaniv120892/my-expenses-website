@@ -85,7 +85,12 @@ here are pure functions, not components.
   `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
   error tracker — logs are the only error signal, so anything swallowed is
   invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
-  errors Next raises outside a route handler.
+  errors Next raises outside a route handler. Outside development, warn and
+  above is also shipped to Better Stack through `pino.multistream` (never a
+  pino transport — its worker threads are unreliable on Vercel) and flushed
+  in one batched POST per request from a `next/server` `after` hook. Unset
+  `BETTERSTACK_SOURCE_URL`/`_TOKEN` means shipping is off, not an error. See
+  README "Log shipping".
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)
@@ -97,13 +102,18 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 
 ## Crons (vercel.json)
 
-| Path                                | Schedule      |
-| ----------------------------------- | ------------- |
-| /api/scheduled-transactions/process | 07:00 daily   |
-| /api/summary/today                  | 21:00 daily   |
-| /api/backup/transactions            | 03:00 daily   |
-| /api/subscriptions/detect           | 04:00 Mondays |
-| /api/subscriptions/audit-notify     | 08:00 Mondays |
+| Path                                | Schedule         |
+| ----------------------------------- | ---------------- |
+| /api/scheduled-transactions/process | 07:00 daily      |
+| /api/summary/today                  | 21:00 daily      |
+| /api/backup/transactions            | 03:00 daily      |
+| /api/subscriptions/detect           | 04:00 Mondays    |
+| /api/subscriptions/audit-notify     | 08:00 Mondays    |
+| /api/reports/monthly                | 06:00 on the 1st |
+
+Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
+that Better Stack URL after a <400 response (unset var = off). See README
+"Cron heartbeats".
 
 ## Deployment
 
@@ -111,3 +121,19 @@ Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next bu
 Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
 jobs 401. The Telegram webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
+
+## Documentation
+
+This file is the only design document. Per-feature plans, specs, and handover
+notes are not committed — `.superpowers/`, `docs/superpowers/`, and
+`.claude/worktrees/` are gitignored, while `.claude/skills/` stays tracked
+because it is tooling, not scratch. Agent output stays in the ignored
+directories or in the session. A spec that
+describes work already shipped is worse than no spec: it drifts, and readers
+cannot tell it from current intent.
+
+So a PR that changes anything this file states — architecture, an invariant, a
+command, a route, a cron, a model — updates the matching section in the same
+PR. Record the rule the code now follows, not the story of the change; git log
+already holds that. If a change fits no existing section and is not a rule
+future work must follow, it does not belong here.

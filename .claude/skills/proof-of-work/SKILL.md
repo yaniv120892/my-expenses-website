@@ -56,7 +56,7 @@ npx tsx test/e2e-api/serve.ts       # stays alive, prints E2E_AUTH_TOKEN
 ```
 
 `/api/health` returns 200 without touching anything, so it only proves Next is
-serving. Use `/api/health?deep=1` to check the dependencies: until `serve.ts` is
+serving. Use `/api/health/deep` to check the dependencies: until `serve.ts` is
 up it returns 503 with `{"checks":{"db":"ok","redis":"fail"}}` because it cannot
 reach the Redis shim, and that is the expected failure, not a broken setup.
 

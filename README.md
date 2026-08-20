@@ -59,10 +59,10 @@ compatible local setup.
 
 Two monitors, on the same endpoint, at deliberately different intervals:
 
-| Monitor | URL                  | Interval   | What it touches                                  |
-| ------- | -------------------- | ---------- | ------------------------------------------------ |
-| Shallow | `/api/health`        | 3 minutes  | Nothing — proves Vercel is still serving the app |
-| Deep    | `/api/health?deep=1` | 60 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
+| Monitor | URL                | Interval   | What it touches                                  |
+| ------- | ------------------ | ---------- | ------------------------------------------------ |
+| Shallow | `/api/health`      | 3 minutes  | Nothing — proves Vercel is still serving the app |
+| Deep    | `/api/health/deep` | 60 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
 
 The deep response reports each dependency separately — `{"status":"unhealthy",
 "checks":{"db":"fail","redis":"ok"}}` with HTTP 503 — so the alert email names
@@ -80,10 +80,11 @@ the outage it was installed to catch); at 60 minutes it is 24 wakes x 5 min/day
 That is why the frequent monitor hits the shallow path, which must stay free of
 any database or Redis call.
 
-Only `?deep=1` or `?deep=true` selects the deep check; every other value stays
-shallow, so a stray param on the frequent monitor cannot start probing Postgres
-every 3 minutes. Each probe gives up after 5s, so a blackholed dependency still
-returns the 503 naming it rather than a bodiless platform timeout.
+The two checks are separate routes rather than one route behind a `?deep=` flag,
+so a mistyped deep-monitor URL is a 404 that goes red within one interval
+instead of silently degrading into a second shallow monitor reporting green.
+Each probe gives up after 5s, so a blackholed dependency still returns the 503
+naming it rather than a bodiless platform timeout.
 
 ## External services
 

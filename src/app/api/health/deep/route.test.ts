@@ -1,14 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRaw, getValue, error } = vi.hoisted(() => ({
-  queryRaw: vi.fn(),
-  getValue: vi.fn(),
-  error: vi.fn(),
-}));
+const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(
+  () => ({
+    queryRaw: vi.fn(),
+    getValue: vi.fn(),
+    error: vi.fn(),
+    after: vi.fn(),
+    flushRemoteLogs: vi.fn(),
+  }),
+);
 
 vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
 vi.mock('@/server/redis', () => ({ getValue }));
 vi.mock('@/server/logging/logger', () => ({ default: { error } }));
+vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
+// `after` throws outside a request scope, which is where these tests call the
+// handler; everything else in the module stays real.
+vi.mock('next/server', async () => ({
+  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  after,
+}));
 
 import { GET } from '@/app/api/health/deep/route';
 
@@ -75,6 +86,15 @@ describe('deep check', () => {
       checks: { db: 'fail', redis: 'fail' },
     });
     expect(error).toHaveBeenCalledTimes(2);
+  });
+
+  // A failed probe logs its own error, which would sit unshipped without this.
+  it('schedules a remote log flush', async () => {
+    await GET();
+
+    expect(after).toHaveBeenCalledTimes(1);
+    after.mock.calls[0][0]();
+    expect(flushRemoteLogs).toHaveBeenCalledTimes(1);
   });
 
   it('fails a dependency that hangs instead of hanging the request', async () => {

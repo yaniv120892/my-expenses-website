@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import prisma from '@/server/db/client';
 import { getValue } from '@/server/redis';
 import logger from '@/server/logging/logger';
+import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,9 @@ const PROBE_TIMEOUT_MS = 5000;
 // Every call wakes Neon's compute, so nothing may poll this faster than hourly
 // — see README "Do not lower the deep interval".
 export async function GET(): Promise<NextResponse> {
+  // Bypasses createHandler, so it must drain the remote log buffer itself —
+  // otherwise a failed probe's own error sits unshipped.
+  after(() => flushRemoteLogs());
   const [db, redis] = await Promise.all([
     probe('db', () => prisma.$queryRaw`SELECT 1`),
     probe('redis', () => getValue('health:probe')),

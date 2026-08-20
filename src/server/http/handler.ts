@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
+import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { optionalEnv, requireEnv } from '@/server/env';
+import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
@@ -22,6 +24,8 @@ interface HandlerOptions<TBody, TQuery, TResult> {
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   status?: number;
+  // Better Stack heartbeat env var, pinged only after a <400 response.
+  heartbeatEnvVar?: string;
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
@@ -70,7 +74,9 @@ function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
   const error = (err ?? {}) as { message?: string; status?: number };
-  const status = error.status ?? 500;
+  // An error never maps to a success status: callers (heartbeats, the 5xx log)
+  // read `status < 400` as "the handler resolved".
+  const status = error.status && error.status >= 400 ? error.status : 500;
   return NextResponse.json(
     { message: error.message || 'Internal Server Error' },
     { status },
@@ -151,6 +157,17 @@ export function createHandler<
       },
       'request',
     );
+
+    // Awaited rather than deferred: crons are not latency-sensitive, and the
+    // ping is logged after the request line so it stays out of durationMs.
+    if (options.heartbeatEnvVar && response.status < 400) {
+      await pingHeartbeat(options.heartbeatEnvVar);
+    }
+
+    // One batched POST per request, run after the response so it cannot add
+    // latency, and before the serverless instance freezes. Registered last so
+    // the batch includes anything the heartbeat ping logged.
+    after(() => flushRemoteLogs());
     return response;
   };
 }

@@ -30,4 +30,17 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   const Sentry = await import('@sentry/nextjs');
   Sentry.captureRequestError(err, request, context);
+
+  // Last, so the batch includes everything logged above.
+  const { flushRemoteLogs } = await import(
+    '@/server/logging/betterStackStream'
+  );
+  try {
+    const { after } = await import('next/server');
+    after(() => flushRemoteLogs());
+  } catch {
+    // Next raises some errors outside a request scope, where `after` throws;
+    // ship the batch inline rather than losing it.
+    await flushRemoteLogs();
+  }
 };

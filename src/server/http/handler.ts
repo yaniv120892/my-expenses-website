@@ -4,6 +4,7 @@ import logger from '@/server/logging/logger';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { optionalEnv, requireEnv } from '@/server/env';
+import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
@@ -22,6 +23,9 @@ interface HandlerOptions<TBody, TQuery, TResult> {
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   status?: number;
+  // Heartbeat name pinged after a successful run; see
+  // `src/server/monitoring/heartbeat.ts` for the env var it resolves to.
+  heartbeat?: string;
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
@@ -91,6 +95,7 @@ export function createHandler<
     const path = req.nextUrl.pathname;
     let response: Response;
     let userId = '';
+    let handlerResolved = false;
 
     try {
       userId = await resolveAuth(req, options.auth);
@@ -130,6 +135,7 @@ export function createHandler<
                 status: options.status ?? 200,
               });
       }
+      handlerResolved = true;
     } catch (err) {
       response = errorResponse(err);
       if (response.status >= 500) {
@@ -151,6 +157,12 @@ export function createHandler<
       },
       'request',
     );
+
+    // Awaited rather than deferred: crons are not latency-sensitive, and the
+    // ping is logged after the request line so it stays out of durationMs.
+    if (options.heartbeat && handlerResolved && response.status < 400) {
+      await pingHeartbeat(options.heartbeat);
+    }
     return response;
   };
 }

@@ -3,5 +3,6 @@ import subscriptionDetectionService from '@/server/services/subscriptionDetectio
 
 export const GET = createHandler({
   auth: 'cron',
+  heartbeat: 'subscriptions-detect',
   handler: async () => subscriptionDetectionService.runDetectionForAllUsers(),
 });

@@ -4,6 +4,7 @@ import logger from '@/server/logging/logger';
 
 export const GET = createHandler({
   auth: 'cron',
+  heartbeat: 'backup-transactions',
   handler: async () => {
     const users = await backupService.getUsersRequiredBackup();
     logger.info(

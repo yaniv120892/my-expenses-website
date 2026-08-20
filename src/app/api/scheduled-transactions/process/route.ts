@@ -3,6 +3,7 @@ import scheduledTransactionService from '@/server/services/scheduledTransactionS
 
 export const GET = createHandler({
   auth: 'cron',
+  heartbeat: 'scheduled-transactions-process',
   handler: async () =>
     scheduledTransactionService.processDueScheduledTransactions(new Date()),
 });

@@ -111,3 +111,19 @@ Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next bu
 Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
 jobs 401. The Telegram webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
+
+## Documentation
+
+This file is the only design document. Per-feature plans, specs, and handover
+notes are not committed — `.superpowers/`, `docs/superpowers/`, and
+`.claude/worktrees/` are gitignored, while `.claude/skills/` stays tracked
+because it is tooling, not scratch. Agent output stays in the ignored
+directories or in the session. A spec that
+describes work already shipped is worse than no spec: it drifts, and readers
+cannot tell it from current intent.
+
+So a PR that changes anything this file states — architecture, an invariant, a
+command, a route, a cron, a model — updates the matching section in the same
+PR. Record the rule the code now follows, not the story of the change; git log
+already holds that. If a change fits no existing section and is not a rule
+future work must follow, it does not belong here.

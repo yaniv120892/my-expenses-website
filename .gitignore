@@ -47,3 +47,7 @@ playwright-report/
 # proof-of-work screenshots: published from the proof-of-work-assets branch,
 # never committed alongside the change they illustrate
 /proof-of-work/
+
+# agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
+/.superpowers/
+/docs/superpowers/

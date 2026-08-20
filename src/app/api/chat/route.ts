@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { createHandler } from '@/server/http/handler';
 import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
@@ -34,9 +35,13 @@ export const POST = createHandler({
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
           if (!req.signal.aborted) {
-            // createHandler already returned the 200 stream response, so a
-            // failure in here is only ever visible through this log line.
+            // createHandler already returned the 200 stream response, so this
+            // failure reaches neither the error response nor onRequestError.
             logger.error({ err, userId }, 'Failed to handle chat message');
+            Sentry.captureException(err, {
+              tags: { path: '/api/chat' },
+              user: { id: userId },
+            });
             controller.enqueue(
               sseFrame({
                 type: 'error',

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
@@ -154,6 +155,13 @@ export function createHandler<
           { requestId, path, err, ...(userId && { userId }) },
           'Request failed',
         );
+        // This catch is why Next's onRequestError never fires for an API
+        // route: the error becomes a response here, so Sentry only learns
+        // about it if we report it ourselves.
+        Sentry.captureException(err, {
+          tags: { path, requestId },
+          ...(userId && { user: { id: userId } }),
+        });
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.

@@ -82,15 +82,26 @@ here are pure functions, not components.
   custom properties, no global utility classes, no hardcoded hex in
   components (charts read `theme.palette.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
-  error tracker — logs are the only error signal, so anything swallowed is
-  invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
-  errors Next raises outside a route handler. Outside development, warn and
-  above is also shipped to Better Stack through `pino.multistream` (never a
-  pino transport — its worker threads are unreliable on Vercel) and flushed
-  in one batched POST per request from a `next/server` `after` hook. Unset
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. Vercel keeps
+  runtime logs for an hour, so anything swallowed is invisible soon after.
+  `createHandler` logs every 5xx; `instrumentation.ts` logs errors Next raises
+  outside a route handler. Outside development, warn and above is also shipped
+  to Better Stack through `pino.multistream` (never a pino transport — its
+  worker threads are unreliable on Vercel) and flushed in one batched POST per
+  request from a `next/server` `after` hook. Unset
   `BETTERSTACK_SOURCE_URL`/`_TOKEN` means shipping is off, not an error. See
   README "Log shipping".
+- **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set.
+  Logs say what happened; Sentry groups and counts it, and outlives the hour.
+  `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs
+  it for the Node and edge runtimes and `src/instrumentation-client.ts` for the
+  browser. `createHandler` reports every 5xx it turns into a response — Next's
+  `onRequestError` cannot see those, because the error never escapes the route.
+  `onRequestError` covers what does escape, and the React boundaries report via
+  `src/components/ErrorFallback.tsx`, skipping errors carrying a `digest` since
+  the server already reported those. A `logger.error` in a path that swallows
+  its error reports alongside the log, or Sentry never learns of it. Tracing and
+  Session Replay are off — the free tier budgets errors only.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

@@ -54,3 +54,7 @@ playwright-report/
 
 # claude code worktrees: agent scratch, never part of the repo
 /.claude/worktrees/
+
+# sentry
+.sentryclirc
+.env.sentry-build-plugin

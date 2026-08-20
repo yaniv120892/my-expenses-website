@@ -35,7 +35,10 @@ describe('notifyOpsAlert', () => {
   it('stays entirely off when TELEGRAM_ALERT_CHAT_ID is unset', async () => {
     delete process.env.TELEGRAM_ALERT_CHAT_ID;
 
-    await notifyOpsAlert({ title: '5xx on GET /api/transactions' });
+    await notifyOpsAlert({
+      alertType: '5xx GET /api/transactions',
+      title: '5xx on GET /api/transactions',
+    });
 
     expect(incrementWithTtl).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
@@ -43,6 +46,7 @@ describe('notifyOpsAlert', () => {
 
   it('sends the title, error message and context to the ops chat', async () => {
     await notifyOpsAlert({
+      alertType: '5xx GET /api/transactions',
       title: '5xx on GET /api/transactions',
       err: new Error('Database unreachable'),
       context: { requestId: 'req-1', userId: 'user-1', missing: undefined },
@@ -63,6 +67,7 @@ describe('notifyOpsAlert', () => {
 
   it('escapes Markdown so Telegram cannot reject the send', async () => {
     await notifyOpsAlert({
+      alertType: 'import-failure',
       title: 'Import *failed*',
       err: new Error('bad token `abc` in _field_ [row 3]'),
       context: { path: '/api/imports/[id]' },
@@ -77,19 +82,40 @@ describe('notifyOpsAlert', () => {
     );
   });
 
-  it('keys the hourly quota by alert type', async () => {
-    await notifyOpsAlert({ title: '5xx on GET /api/transactions' });
+  it('keys the hourly quota by alert type, not the display title', async () => {
+    await notifyOpsAlert({
+      alertType: '5xx GET /api/transactions',
+      title: '5xx on GET /api/transactions',
+    });
 
     expect(incrementWithTtl).toHaveBeenCalledWith(
-      'ops-alert:5xx-on-get-api-transactions',
+      'ops-alert:5xx-get-api-transactions',
       3600,
     );
+  });
+
+  it('shares one quota across records on the same route pattern', async () => {
+    await notifyOpsAlert({
+      alertType: '5xx GET /api/transactions/[id]',
+      title: '5xx on GET /api/transactions/abc-123',
+    });
+    await notifyOpsAlert({
+      alertType: '5xx GET /api/transactions/[id]',
+      title: '5xx on GET /api/transactions/def-456',
+    });
+
+    const keys = incrementWithTtl.mock.calls.map((call) => call[0]);
+    expect(new Set(keys).size).toBe(1);
   });
 
   it('suppresses past the cap and says so exactly once', async () => {
     for (let count = 1; count <= 8; count += 1) {
       incrementWithTtl.mockResolvedValueOnce(count);
-      await notifyOpsAlert({ title: 'flood', err: new Error(`hit ${count}`) });
+      await notifyOpsAlert({
+        alertType: 'flood',
+        title: 'flood',
+        err: new Error(`hit ${count}`),
+      });
     }
 
     const messages = sentMessages();
@@ -109,7 +135,11 @@ describe('notifyOpsAlert', () => {
     sendMessage.mockRejectedValue(new Error('chat not found'));
 
     await expect(
-      notifyOpsAlert({ title: 'boom', err: new Error('original') }),
+      notifyOpsAlert({
+        alertType: 'boom',
+        title: 'boom',
+        err: new Error('original'),
+      }),
     ).resolves.toBeUndefined();
     expect(loggerError).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'boom' }),
@@ -120,7 +150,9 @@ describe('notifyOpsAlert', () => {
   it('sends nothing when the rate-limit check itself fails', async () => {
     incrementWithTtl.mockRejectedValue(new Error('redis down'));
 
-    await expect(notifyOpsAlert({ title: 'boom' })).resolves.toBeUndefined();
+    await expect(
+      notifyOpsAlert({ alertType: 'boom', title: 'boom' }),
+    ).resolves.toBeUndefined();
     expect(sendMessage).not.toHaveBeenCalled();
     expect(loggerError).toHaveBeenCalledTimes(1);
   });

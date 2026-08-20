@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { queryRaw, getValue, error } = vi.hoisted(() => ({
@@ -6,19 +7,14 @@ const { queryRaw, getValue, error } = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock('@/server/db/client', () => ({
-  default: { $queryRaw: (...a: unknown[]) => queryRaw(...a) },
-}));
-vi.mock('@/server/redis', () => ({
-  getValue: (...a: unknown[]) => getValue(...a),
-}));
-vi.mock('@/server/logging/logger', () => ({
-  default: { error: (...a: unknown[]) => error(...a) },
-}));
+vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
+vi.mock('@/server/redis', () => ({ getValue }));
+vi.mock('@/server/logging/logger', () => ({ default: { error } }));
 
 import { GET } from '@/app/api/health/route';
 
-const call = (url: string) => GET(new Request(url));
+const call = (query = '') =>
+  GET(new NextRequest(`http://localhost:3000/api/health${query}`));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,34 +23,20 @@ beforeEach(() => {
 });
 
 describe('shallow check', () => {
-  // A 3-minute uptime monitor runs this one; a database touch here would keep
-  // Neon's compute from ever scaling to zero.
-  it('returns ok without touching any dependency', async () => {
-    const response = await call('http://localhost:3000/api/health');
+  it('returns an uncached ok without touching any dependency', async () => {
+    const response = await call();
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: 'ok' });
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(queryRaw).not.toHaveBeenCalled();
     expect(getValue).not.toHaveBeenCalled();
-  });
-
-  it('is not cached', async () => {
-    const response = await call('http://localhost:3000/api/health');
-
-    expect(response.headers.get('cache-control')).toBe('no-store');
-  });
-
-  it('stays shallow for a falsy deep param', async () => {
-    const response = await call('http://localhost:3000/api/health?deep=0');
-
-    await expect(response.json()).resolves.toEqual({ status: 'ok' });
-    expect(queryRaw).not.toHaveBeenCalled();
   });
 });
 
 describe('deep check', () => {
   it('probes both dependencies and reports each', async () => {
-    const response = await call('http://localhost:3000/api/health?deep=1');
+    const response = await call('?deep=1');
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -66,10 +48,44 @@ describe('deep check', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
+  it('accepts deep=true as well as deep=1', async () => {
+    await call('?deep=true');
+
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  // A stray param on the 3-minute shallow monitor must not start probing
+  // Postgres on every poll — that is the CU-hour blowout this design prevents.
+  it.each(['?deep=0', '?deep=false', '?deep'])(
+    'stays shallow for %s',
+    async (query) => {
+      const response = await call(query);
+
+      await expect(response.json()).resolves.toEqual({ status: 'ok' });
+      expect(queryRaw).not.toHaveBeenCalled();
+    },
+  );
+
+  it('fails a dependency that hangs instead of hanging the request', async () => {
+    vi.useFakeTimers();
+    getValue.mockReturnValue(new Promise(() => {}));
+
+    const pending = call('?deep=1');
+    await vi.advanceTimersByTimeAsync(5000);
+    const response = await pending;
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      status: 'unhealthy',
+      checks: { db: 'ok', redis: 'fail' },
+    });
+    vi.useRealTimers();
+  });
+
   it('names the failing dependency when the database is down', async () => {
     queryRaw.mockRejectedValue(new Error('connection refused'));
 
-    const response = await call('http://localhost:3000/api/health?deep=1');
+    const response = await call('?deep=1');
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
@@ -85,7 +101,7 @@ describe('deep check', () => {
   it('names the failing dependency when redis is down', async () => {
     getValue.mockRejectedValue(new Error('upstash unreachable'));
 
-    const response = await call('http://localhost:3000/api/health?deep=1');
+    const response = await call('?deep=1');
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
@@ -98,7 +114,7 @@ describe('deep check', () => {
     queryRaw.mockRejectedValue(new Error('connection refused'));
     getValue.mockRejectedValue(new Error('upstash unreachable'));
 
-    const response = await call('http://localhost:3000/api/health?deep=1');
+    const response = await call('?deep=1');
 
     await expect(response.json()).resolves.toEqual({
       status: 'unhealthy',

@@ -55,8 +55,10 @@ over hand-assembling env vars. Copy the `env:` block from
 npx tsx test/e2e-api/serve.ts       # stays alive, prints E2E_AUTH_TOKEN
 ```
 
-Until `serve.ts` is up, `/api/health` returns 503 — the app cannot reach the
-Redis shim, and that is the expected failure, not a broken setup.
+`/api/health` returns 200 without touching anything, so it only proves Next is
+serving. Use `/api/health?deep=1` to check the dependencies: until `serve.ts` is
+up it returns 503 with `{"checks":{"db":"ok","redis":"fail"}}` because it cannot
+reach the Redis shim, and that is the expected failure, not a broken setup.
 
 That token is a valid `session` JWT for the seeded user A. Use it as
 `Authorization: Bearer` for API calls and as the `session` cookie for the

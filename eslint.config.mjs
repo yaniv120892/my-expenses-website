@@ -19,6 +19,7 @@ export default tseslint.config(
       "public/**",
       "next-env.d.ts",
       "docs/proof-of-work/**",
+      ".claude/**",
     ],
   },
   ...compat.extends("next/core-web-vitals"),

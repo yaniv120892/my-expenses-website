@@ -89,9 +89,13 @@ here are pure functions, not components.
 - **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set.
   `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs
   it for the Node and edge runtimes and `src/instrumentation-client.ts` for the
-  browser. `onRequestError` logs _and_ reports; the React boundaries report via
-  `src/components/ErrorFallback.tsx`. Tracing and Session Replay are off — the
-  free tier budgets errors only.
+  browser. `createHandler` reports every 5xx it turns into a response — Next's
+  `onRequestError` cannot see those, because the error never escapes the route.
+  `onRequestError` covers what does escape, and the React boundaries report via
+  `src/components/ErrorFallback.tsx`, skipping errors carrying a `digest` since
+  the server already reported those. A `logger.error` in a path that swallows
+  its error reports alongside the log, or Sentry never learns of it. Tracing and
+  Session Replay are off — the free tier budgets errors only.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

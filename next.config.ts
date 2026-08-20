@@ -15,8 +15,9 @@ const nextConfig: NextConfig = {
   ],
 };
 
-// Uploading source maps needs an org-scoped token that only Vercel holds, so a
-// local or CI build without it produces minified stack traces instead of failing.
+// The plugin reads org/project/authToken from these vars itself; this only
+// decides whether to generate source maps at all, so a local or CI build
+// without the token skips the work instead of emitting maps it cannot upload.
 const canUploadSourceMaps = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&
   process.env.SENTRY_ORG &&
@@ -24,9 +25,6 @@ const canUploadSourceMaps = Boolean(
 );
 
 export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
   sourcemaps: { disable: !canUploadSourceMaps },
   release: { create: canUploadSourceMaps },
   widenClientFileUpload: true,

@@ -51,3 +51,6 @@ playwright-report/
 # agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
 /.superpowers/
 /docs/superpowers/
+
+# claude code worktrees: agent scratch, never part of the repo
+/.claude/worktrees/

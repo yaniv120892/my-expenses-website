@@ -82,10 +82,16 @@ here are pure functions, not components.
   custom properties, no global utility classes, no hardcoded hex in
   components (charts read `theme.palette.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. There is no
-  error tracker — logs are the only error signal, so anything swallowed is
-  invisible. `createHandler` logs every 5xx; `instrumentation.ts` logs
-  errors Next raises outside a route handler.
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. Vercel keeps
+  runtime logs for an hour, so anything swallowed is invisible soon after.
+  `createHandler` logs every 5xx; `instrumentation.ts` logs errors Next raises
+  outside a route handler.
+- **Error tracking**: Sentry (`sentry.server.config.ts`,
+  `sentry.edge.config.ts`, `src/instrumentation-client.ts`), inert unless
+  `NEXT_PUBLIC_SENTRY_DSN` is set. `onRequestError` logs _and_ reports;
+  `src/app/error.tsx` and `src/app/global-error.tsx` report what the React
+  boundaries catch. Tracing and Session Replay are off — the free tier budgets
+  errors only.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

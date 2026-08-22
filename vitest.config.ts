@@ -7,8 +7,8 @@ export default defineConfig({
     // Node by default; component tests opt into jsdom with a
     // `@vitest-environment jsdom` docblock so the rest stay fast.
     environment: 'node',
-    // `*.test-d.ts` files hold type-level assertions checked by tsc; they run
-    // as part of `npm test` alongside the runtime suite.
+    // Type assertions are checked by tsc, and `enabled` puts them in the
+    // default `npm test` run rather than behind a separate opt-in.
     typecheck: {
       enabled: true,
       include: ['src/**/*.test-d.ts'],

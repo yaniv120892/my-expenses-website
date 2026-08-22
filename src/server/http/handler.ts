@@ -27,16 +27,19 @@ interface BaseHandlerOptions<TBody, TQuery, TResult> {
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
-type HandlerOptions<TBody, TQuery, TResult> =
-  | (BaseHandlerOptions<TBody, TQuery, TResult> & {
-      auth: 'cron';
-      // Better Stack heartbeat env var, pinged only after a <400 response.
-      heartbeatEnvVar?: string;
-    })
-  | (BaseHandlerOptions<TBody, TQuery, TResult> & {
-      auth: Exclude<AuthMode, 'cron'>;
-      heartbeatEnvVar?: never;
-    });
+type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
+  TBody,
+  TQuery,
+  TResult
+> &
+  (
+    | {
+        auth: 'cron';
+        // Better Stack heartbeat env var, pinged only after a <400 response.
+        heartbeatEnvVar?: string;
+      }
+    | { auth: Exclude<AuthMode, 'cron'>; heartbeatEnvVar?: never }
+  );
 
 // Next passes segment params for dynamic routes; static routes get an empty
 // object, so the loose Record type covers both.

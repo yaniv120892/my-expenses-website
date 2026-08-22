@@ -95,7 +95,10 @@ here are pure functions, not components.
   Logs say what happened; Sentry groups and counts it, and outlives the hour.
   `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs
   it for the Node and edge runtimes and `src/instrumentation-client.ts` for the
-  browser. `createHandler` reports every 5xx it turns into a response — Next's
+  browser. `initSentry` takes no arguments and reads every value from
+  `process.env` itself: a parameter whose argument constant-folds gets inlined
+  into an unbound `{environment}` shorthand that throws in the browser bundle.
+  `createHandler` reports every 5xx it turns into a response — Next's
   `onRequestError` cannot see those, because the error never escapes the route.
   `onRequestError` covers what does escape, and the React boundaries report via
   `src/components/ErrorFallback.tsx`, skipping errors carrying a `digest` since

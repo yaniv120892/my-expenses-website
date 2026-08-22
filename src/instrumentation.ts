@@ -4,7 +4,7 @@ export async function register() {
   // Initialised first so that a missing core env var — which takes the whole
   // deployment down — is itself reportable.
   const { initSentry } = await import('../sentry.config');
-  initSentry(process.env.VERCEL_ENV ?? process.env.NODE_ENV);
+  initSentry();
 
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { assertCoreEnv } = await import('@/server/env');
@@ -32,9 +32,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
   Sentry.captureRequestError(err, request, context);
 
   // Last, so the batch includes everything logged above.
-  const { flushRemoteLogs } = await import(
-    '@/server/logging/betterStackStream'
-  );
+  const { flushRemoteLogs } =
+    await import('@/server/logging/betterStackStream');
   try {
     const { after } = await import('next/server');
     after(() => flushRemoteLogs());

@@ -18,17 +18,28 @@ export interface HandlerContext<TBody, TQuery> {
   params: Record<string, string>;
 }
 
-interface HandlerOptions<TBody, TQuery, TResult> {
-  auth: AuthMode;
+interface BaseHandlerOptions<TBody, TQuery, TResult> {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
   status?: number;
-  // Better Stack heartbeat env var, pinged only after a <400 response.
-  heartbeatEnvVar?: string;
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
+
+type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
+  TBody,
+  TQuery,
+  TResult
+> &
+  (
+    | {
+        auth: 'cron';
+        // Better Stack heartbeat env var, pinged only after a <400 response.
+        heartbeatEnvVar?: string;
+      }
+    | { auth: Exclude<AuthMode, 'cron'>; heartbeatEnvVar?: never }
+  );
 
 // Next passes segment params for dynamic routes; static routes get an empty
 // object, so the loose Record type covers both.
@@ -165,9 +176,8 @@ export function createHandler<
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.
-          const { notifyOpsAlert } = await import(
-            '@/server/services/alertService'
-          );
+          const { notifyOpsAlert } =
+            await import('@/server/services/alertService');
           await notifyOpsAlert({
             alertType: `5xx ${req.method} ${routePattern}`,
             title: `5xx on ${req.method} ${path}`,

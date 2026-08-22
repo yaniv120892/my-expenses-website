@@ -86,10 +86,12 @@ stops arriving. A partial failure already throws — see the routes — so a
 missed ping covers both "ran and failed" and "never ran".
 
 Every cron route in `vercel.json` names its heartbeat env var inline
-(`heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_…'`); the full set is listed in
-`.env.example`. Create one heartbeat per var in Better Stack (the free tier
-includes 10) and paste the URL it gives you into the matching var. **Any var
-left unset simply disables that heartbeat** — nothing else changes.
+(`heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_…'`), an option `createHandler`
+accepts only on `auth: 'cron'` handlers — anywhere else it is a type error. The
+full set is listed in `.env.example`. Create one heartbeat per var in Better
+Stack (the free tier includes 10) and paste the URL it gives you into the
+matching var. **Any var left unset simply disables that heartbeat** — nothing
+else changes.
 
 Set each heartbeat's period to the longest possible gap between two runs, plus
 a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and

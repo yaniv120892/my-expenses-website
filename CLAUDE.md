@@ -17,7 +17,8 @@ npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
-npm test                 # vitest unit tests (src/**/*.test.{ts,tsx})
+npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.ts)
+npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 ```
@@ -30,7 +31,10 @@ Vitest runs on `node` by default; a component or hook test opts into a DOM
 with a `// @vitest-environment jsdom` docblock and renders through
 `src/test/renderWithClient.tsx` (React Testing Library + a QueryClient). Keep
 logic that can be tested without a DOM in a plain `.ts` module — most suites
-here are pure functions, not components.
+here are pure functions, not components. Type-level assertions live in
+`*.test-d.ts` files and are checked by tsc via `test.typecheck` in
+`vitest.config.ts`, so they run as part of `npm test`; `npm run test:types`
+runs them alone.
 
 ## Architecture
 
@@ -126,8 +130,10 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 | /api/reports/monthly                | 06:00 on the 1st |
 
 Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
-that Better Stack URL after a <400 response (unset var = off). See README
-"Cron heartbeats".
+that Better Stack URL after a <400 response (unset var = off). `HandlerOptions`
+is a union discriminated on `auth`, so `heartbeatEnvVar` exists only on the
+`auth: 'cron'` arm — a non-cron route declaring one is a compile error. See
+README "Cron heartbeats".
 
 ## Deployment
 

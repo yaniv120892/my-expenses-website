@@ -38,7 +38,9 @@ function ChartTooltip({
   active?: boolean;
   payload?: { name: string; value: number }[];
 }) {
-  if (!active || !payload || !payload.length) return null;
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
   const { name, value } = payload[0];
   return (
     <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>

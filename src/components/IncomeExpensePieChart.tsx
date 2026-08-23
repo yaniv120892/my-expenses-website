@@ -42,7 +42,9 @@ function ChartTooltip({
   active,
   payload,
 }: Pick<TooltipProps<number, string>, 'active' | 'payload'>) {
-  if (!active || !payload || !payload.length) return null;
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
   const { name, value } = payload[0] as PieTooltipPayload;
   return (
     <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>

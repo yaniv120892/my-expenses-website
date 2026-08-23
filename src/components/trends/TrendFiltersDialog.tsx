@@ -187,7 +187,9 @@ export const TrendFiltersDialog = ({
           exclusive
           size="small"
           onChange={(_, value) => {
-            if (value) setComparisonScope(value as ComparisonScope);
+            if (value) {
+              setComparisonScope(value as ComparisonScope);
+            }
           }}
           aria-label="Category scope"
         >

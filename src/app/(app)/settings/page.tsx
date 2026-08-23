@@ -101,7 +101,9 @@ function AppearanceSection() {
           value={mode ?? 'system'}
           exclusive
           onChange={(_, value) => {
-            if (value) setMode(value);
+            if (value) {
+              setMode(value);
+            }
           }}
           size="small"
           aria-label="Theme mode"

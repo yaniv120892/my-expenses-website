@@ -40,7 +40,9 @@ describe('runWithConcurrency', () => {
 
   it('lets the remaining items finish when one worker rejects', async () => {
     const results = await runWithConcurrency([1, 2, 3], 2, async (item) => {
-      if (item === 2) throw new Error('boom');
+      if (item === 2) {
+        throw new Error('boom');
+      }
       return item;
     });
 
@@ -55,7 +57,9 @@ describe('runWithConcurrency', () => {
 
     const run = runWithConcurrency([0, 1, 2], 1, async (item) => {
       started.push(item);
-      if (item === 0) return first.promise;
+      if (item === 0) {
+        return first.promise;
+      }
       return 'done';
     });
 

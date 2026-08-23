@@ -48,7 +48,9 @@ export function startUpstashShim(port: number): Promise<http.Server> {
             command = [...pathParts, JSON.stringify(parsed)];
           }
         } catch {
-          if (pathParts.length) command = [...pathParts, raw];
+          if (pathParts.length) {
+            command = [...pathParts, raw];
+          }
         }
       }
 

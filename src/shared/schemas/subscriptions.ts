@@ -30,7 +30,9 @@ export const getSubscriptionsQuerySchema = z.object({
     .string()
     .optional()
     .transform((value) => {
-      if (!value) return undefined;
+      if (!value) {
+        return undefined;
+      }
       const parsed = subscriptionStatusSchema.safeParse(value.toUpperCase());
       return parsed.success ? parsed.data : undefined;
     }),

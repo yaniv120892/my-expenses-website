@@ -164,19 +164,24 @@ export default function ImportList({
 
   const filteredImports = useMemo(() => {
     const result = imports.filter((imp) => {
-      if (statusFilter !== 'ALL' && imp.status !== statusFilter) return false;
+      if (statusFilter !== 'ALL' && imp.status !== statusFilter) {
+        return false;
+      }
       if (
         paymentMonthFilter !== 'ALL' &&
         imp.paymentMonth !== paymentMonthFilter
-      )
+      ) {
         return false;
-      if (cardFilter !== 'ALL' && imp.creditCardLastFourDigits !== cardFilter)
+      }
+      if (cardFilter !== 'ALL' && imp.creditCardLastFourDigits !== cardFilter) {
         return false;
+      }
       if (
         isVerifiedFilter !== 'ALL' &&
         imp.isVerified !== (isVerifiedFilter === 'true')
-      )
+      ) {
         return false;
+      }
       return true;
     });
 
@@ -289,7 +294,9 @@ export default function ImportList({
         exclusive
         size="small"
         onChange={(_, newValue) => {
-          if (newValue !== null) setIsVerifiedFilter(newValue);
+          if (newValue !== null) {
+            setIsVerifiedFilter(newValue);
+          }
         }}
       >
         <ToggleButton value="ALL">All</ToggleButton>

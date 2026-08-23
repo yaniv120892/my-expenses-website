@@ -23,8 +23,12 @@ export const useChat = () => {
       setMessages((prev) => {
         const updated = [...prev];
         const target = updated[updated.length - 1];
-        if (!target || target.sender !== 'bot') return prev;
-        if (opts.onlyIfEmpty && target.text) return prev;
+        if (!target || target.sender !== 'bot') {
+          return prev;
+        }
+        if (opts.onlyIfEmpty && target.text) {
+          return prev;
+        }
 
         updated[updated.length - 1] = {
           ...target,

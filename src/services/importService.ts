@@ -12,7 +12,7 @@ const UPLOAD_TIMEOUT_MS = 120000;
 
 class ImportService {
   // XMLHttpRequest instead of axios/fetch for upload progress events.
-  uploadImportFile(
+  public uploadImportFile(
     formData: FormData,
     onProgress?: (progress: number) => void,
   ): Promise<{ fileUrl: string }> {
@@ -52,7 +52,7 @@ class ImportService {
     });
   }
 
-  async processImport(
+  public async processImport(
     fileUrl: string,
     originalFileName: string,
     paymentMonth?: string,
@@ -65,73 +65,73 @@ class ImportService {
     return response.data;
   }
 
-  async getImports(): Promise<Import[]> {
+  public async getImports(): Promise<Import[]> {
     const response = await api.get('/api/imports');
     return response.data;
   }
 
-  async getImportedTransactions(
+  public async getImportedTransactions(
     importId: string,
   ): Promise<ImportedTransaction[]> {
     const response = await api.get(`/api/imports/${importId}/transactions`);
     return response.data;
   }
 
-  async approveImportedTransaction(
+  public async approveImportedTransaction(
     transactionId: string,
     data?: CreateTransactionInput,
   ): Promise<void> {
     await api.post(`/api/imports/transactions/${transactionId}/approve`, data);
   }
 
-  async mergeImportedTransaction(
+  public async mergeImportedTransaction(
     transactionId: string,
     data?: CreateTransactionInput,
   ): Promise<void> {
     await api.post(`/api/imports/transactions/${transactionId}/merge`, data);
   }
 
-  async ignoreImportedTransaction(transactionId: string): Promise<void> {
+  public async ignoreImportedTransaction(transactionId: string): Promise<void> {
     await api.post(`/api/imports/transactions/${transactionId}/ignore`);
   }
 
-  async deleteImport(importId: string): Promise<void> {
+  public async deleteImport(importId: string): Promise<void> {
     await api.delete(`/api/imports/${importId}`);
   }
 
-  async deleteImportedTransaction(transactionId: string): Promise<void> {
+  public async deleteImportedTransaction(transactionId: string): Promise<void> {
     await api.delete(`/api/imports/transactions/${transactionId}`);
   }
 
-  async batchAction(request: BatchActionRequest): Promise<BatchResult> {
+  public async batchAction(request: BatchActionRequest): Promise<BatchResult> {
     const response = await api.post('/api/imports/batch-action', request);
     return response.data;
   }
 
-  async applyAutoApproveRules(importId: string): Promise<BatchResult> {
+  public async applyAutoApproveRules(importId: string): Promise<BatchResult> {
     const response = await api.post(
       `/api/imports/${importId}/apply-auto-approve-rules`,
     );
     return response.data;
   }
 
-  async rematchImport(importId: string): Promise<void> {
+  public async rematchImport(importId: string): Promise<void> {
     await api.post(`/api/imports/${importId}/rematch`);
   }
 
-  async getAutoApproveRules(): Promise<AutoApproveRule[]> {
+  public async getAutoApproveRules(): Promise<AutoApproveRule[]> {
     const response = await api.get('/api/imports/auto-approve-rules');
     return response.data;
   }
 
-  async createAutoApproveRule(
+  public async createAutoApproveRule(
     data: Pick<AutoApproveRule, 'descriptionPattern' | 'categoryId' | 'type'>,
   ): Promise<AutoApproveRule> {
     const response = await api.post('/api/imports/auto-approve-rules', data);
     return response.data;
   }
 
-  async updateAutoApproveRule(
+  public async updateAutoApproveRule(
     ruleId: string,
     data: Partial<AutoApproveRule>,
   ): Promise<AutoApproveRule> {
@@ -142,7 +142,7 @@ class ImportService {
     return response.data;
   }
 
-  async deleteAutoApproveRule(ruleId: string): Promise<void> {
+  public async deleteAutoApproveRule(ruleId: string): Promise<void> {
     await api.delete(`/api/imports/auto-approve-rules/${ruleId}`);
   }
 }

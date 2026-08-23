@@ -1,9 +1,9 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import NotificationSnackbar from "./NotificationSnackbar";
-import { usePendingTransactionsQuery } from "../hooks/usePendingTransactionsQuery";
+'use client';
+import React, { useEffect, useState } from 'react';
+import NotificationSnackbar from './NotificationSnackbar';
+import { usePendingTransactionsQuery } from '../hooks/usePendingTransactionsQuery';
 
-const STORAGE_KEY = "pendingTransactionsSeenDate";
+const STORAGE_KEY = 'pendingTransactionsSeenDate';
 
 function getTodayKey() {
   const now = new Date();
@@ -27,7 +27,9 @@ export default function PendingTransactionsPopup() {
 
   const handleClose = () => setOpen(false);
 
-  if (pendingTransactions.length === 0) return null;
+  if (pendingTransactions.length === 0) {
+    return null;
+  }
 
   return (
     <NotificationSnackbar

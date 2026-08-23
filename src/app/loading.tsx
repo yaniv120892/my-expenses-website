@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress } from '@mui/material';
 
 export default function Loading() {
   return (
@@ -10,7 +10,7 @@ export default function Loading() {
       justifyContent="center"
       minHeight="60vh"
     >
-      <CircularProgress sx={{ color: "#7b61ff" }} />
+      <CircularProgress color="primary" />
     </Box>
   );
 }

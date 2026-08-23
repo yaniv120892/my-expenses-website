@@ -7,7 +7,10 @@ export function classifyTrend(
   const percentage =
     previous === 0 ? 0 : ((current - previous) / previous) * 100;
   let trend: TrendDirection = 'stable';
-  if (percentage > 5) trend = 'up';
-  else if (percentage < -5) trend = 'down';
+  if (percentage > 5) {
+    trend = 'up';
+  } else if (percentage < -5) {
+    trend = 'down';
+  }
   return { percentage, trend };
 }

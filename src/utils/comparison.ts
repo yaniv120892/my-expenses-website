@@ -16,8 +16,12 @@ export function selectMeasure(
   cell: ComparisonCell,
   measure: ComparisonMeasure,
 ): number {
-  if (measure === 'income') return cell.income;
-  if (measure === 'expense') return cell.expense;
+  if (measure === 'income') {
+    return cell.income;
+  }
+  if (measure === 'expense') {
+    return cell.expense;
+  }
   return cell.net;
 }
 
@@ -31,8 +35,12 @@ export function formatBucketLabel(
   period: TrendPeriod,
 ): string {
   const date = parseISO(bucket.startDate);
-  if (period === 'yearly') return format(date, 'yyyy');
-  if (period === 'weekly') return bucket.key;
+  if (period === 'yearly') {
+    return format(date, 'yyyy');
+  }
+  if (period === 'weekly') {
+    return bucket.key;
+  }
   return format(date, 'MMM yyyy');
 }
 

@@ -204,14 +204,22 @@ export default function TransactionForm({
   }
 
   const getDialogTitle = () => {
-    if (mode === 'approve') return 'Approve Imported Transaction';
-    if (mode === 'merge') return 'Merge Imported Transaction';
+    if (mode === 'approve') {
+      return 'Approve Imported Transaction';
+    }
+    if (mode === 'merge') {
+      return 'Merge Imported Transaction';
+    }
     return initialData ? 'Edit Transaction' : 'New Transaction';
   };
 
   const getSubmitButtonText = () => {
-    if (mode === 'approve') return 'Approve';
-    if (mode === 'merge') return 'Merge';
+    if (mode === 'approve') {
+      return 'Approve';
+    }
+    if (mode === 'merge') {
+      return 'Merge';
+    }
     return initialData ? 'Update' : 'Create';
   };
 

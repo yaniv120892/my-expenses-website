@@ -12,7 +12,7 @@ class TelegramService {
     return new TelegramBot(token);
   });
 
-  async sendMessage(chatId: string, message: string) {
+  public async sendMessage(chatId: string, message: string) {
     const bot = this.getBot();
     if (!bot) {
       logger.warn(
@@ -24,7 +24,7 @@ class TelegramService {
     return bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
   }
 
-  async editMessage(chatId: string, messageId: number, newText: string) {
+  public async editMessage(chatId: string, messageId: number, newText: string) {
     const bot = this.getBot();
     if (!bot) {
       logger.warn(

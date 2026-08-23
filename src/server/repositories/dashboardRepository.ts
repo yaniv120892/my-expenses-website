@@ -68,7 +68,9 @@ class DashboardRepository {
 
     const parentAggregation = new Map<string, number>();
     for (const group of groups) {
-      if (!group.categoryId) continue;
+      if (!group.categoryId) {
+        continue;
+      }
       const parentId = parentMap.get(group.categoryId) ?? group.categoryId;
       const current = parentAggregation.get(parentId) ?? 0;
       parentAggregation.set(parentId, current + (group._sum?.value ?? 0));

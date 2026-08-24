@@ -90,3 +90,75 @@ describe('createHandler heartbeat', () => {
     expect(pingHeartbeat).not.toHaveBeenCalled();
   });
 });
+
+describe('createHandler error responses', () => {
+  function routeThrowing(err: unknown) {
+    return createHandler({
+      auth: 'cron',
+      handler: async () => {
+        throw err;
+      },
+    });
+  }
+
+  it('keeps HttpError status and message', async () => {
+    const { HttpError } = await import('@/server/http/errors');
+    const route = routeThrowing(new HttpError(422, 'Import already claimed'));
+
+    const response = await route(request(), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      message: 'Import already claimed',
+    });
+  });
+
+  it('does not echo an unknown error message to the client', async () => {
+    const route = routeThrowing(
+      new Error('Missing required environment variable: SMTP_PASS'),
+    );
+
+    const response = await route(request(), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      message: 'Internal Server Error',
+    });
+    expect(loggerMock.error).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['P2025', 404, 'Not found'],
+    ['P2002', 409, 'Already exists'],
+    ['P2003', 400, 'Invalid reference'],
+    ['P2023', 400, 'Invalid identifier'],
+  ])('maps Prisma %s to %i', async (code, status, message) => {
+    const route = routeThrowing(
+      Object.assign(new Error('Invalid `prisma.update()` invocation'), {
+        code,
+      }),
+    );
+
+    const response = await route(request(), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ message });
+    // Mapped errors are client mistakes, not incidents: no 5xx log, no alert.
+    expect(loggerMock.error).not.toHaveBeenCalled();
+  });
+
+  it('does not treat an unmapped code-bearing error as a Prisma error', async () => {
+    const route = routeThrowing(
+      Object.assign(new Error('connect ECONNREFUSED'), {
+        code: 'ECONNREFUSED',
+      }),
+    );
+
+    const response = await route(request(), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      message: 'Internal Server Error',
+    });
+  });
+});

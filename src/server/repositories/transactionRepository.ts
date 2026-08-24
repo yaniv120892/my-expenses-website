@@ -73,10 +73,15 @@ class TransactionRepository {
     const groupOf = (type: TransactionType) =>
       groups.find((group) => group.type === type);
 
+    const incomeCount = groupOf(TransactionType.INCOME)?._count._all ?? 0;
+    const expenseCount = groupOf(TransactionType.EXPENSE)?._count._all ?? 0;
+
     return {
       totalIncome: groupOf(TransactionType.INCOME)?._sum.value ?? 0,
       totalExpense: groupOf(TransactionType.EXPENSE)?._sum.value ?? 0,
-      count: groups.reduce((total, group) => total + group._count._all, 0),
+      count: incomeCount + expenseCount,
+      incomeCount,
+      expenseCount,
     };
   }
 

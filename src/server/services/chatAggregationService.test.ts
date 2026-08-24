@@ -80,3 +80,63 @@ describe('aggregate', () => {
     expect(summary).not.toMatch(/[\u200e\u200f\u00a0]/);
   });
 });
+
+describe('aggregateFromTotals parity with aggregate', () => {
+  const rows = [tx(100, 'INCOME'), tx(40), tx(60)];
+  const totals = {
+    totalIncome: 100,
+    totalExpense: 100,
+    count: 3,
+    incomeCount: 1,
+    expenseCount: 2,
+  };
+
+  it.each(['total', 'average', 'count'] as const)(
+    '%s produces the same result from SQL totals as from rows',
+    (aggregation) => {
+      expect(
+        chatAggregationService.aggregateFromTotals(totals, aggregation),
+      ).toEqual(chatAggregationService.aggregate(rows, aggregation));
+    },
+  );
+
+  it('handles the empty average without rows', () => {
+    const empty = {
+      totalIncome: 0,
+      totalExpense: 0,
+      count: 0,
+      incomeCount: 0,
+      expenseCount: 0,
+    };
+    expect(
+      chatAggregationService.aggregateFromTotals(empty, 'average'),
+    ).toEqual(chatAggregationService.aggregate([], 'average'));
+  });
+});
+
+describe('computeComparisonFromTotals parity with computeComparison', () => {
+  it.each([
+    [[tx(1000)], [tx(1234.5)]],
+    [[tx(500)], [tx(200)]],
+    [[], [tx(200)]],
+    [[], []],
+  ])('matches the row-based comparison', (rowsA, rowsB) => {
+    const totalsOf = (rows: ReturnType<typeof tx>[]) => ({
+      label: '',
+      total: rows.reduce((sum, t) => sum + t.value, 0),
+      count: rows.length,
+    });
+
+    expect(
+      chatAggregationService.computeComparisonFromTotals(
+        { ...totalsOf(rowsA), label: 'January' },
+        { ...totalsOf(rowsB), label: 'February' },
+      ),
+    ).toEqual(
+      chatAggregationService.computeComparison(
+        { label: 'January', transactions: rowsA },
+        { label: 'February', transactions: rowsB },
+      ),
+    );
+  });
+});

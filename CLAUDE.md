@@ -24,8 +24,9 @@ npm run test:e2e:ui      # Playwright specs in e2e/
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI
-(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
-e2e suites against `npx prisma dev` as the local Prisma Postgres.
+(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests + the
+production build, and both e2e suites against `npx prisma dev` as the local
+Prisma Postgres.
 
 Vitest runs on `node` by default; a component or hook test opts into a DOM
 with a `// @vitest-environment jsdom` docblock and renders through

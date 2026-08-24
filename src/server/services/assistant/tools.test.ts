@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Transaction } from '@/shared/types/transaction';
+import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
 const { getAllCategories, getTransactions, getTransactionsSummary } =
   vi.hoisted(() => ({
@@ -62,7 +62,7 @@ function row(value: number): Transaction {
   };
 }
 
-function totals(overrides: Partial<Record<string, number>> = {}) {
+function totals(overrides: Partial<TransactionSummary> = {}) {
   return {
     totalIncome: 0,
     totalExpense: 100,

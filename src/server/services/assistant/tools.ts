@@ -8,7 +8,7 @@ import categoryRepository from '@/server/repositories/categoryRepository';
 import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
 import { formatCurrencyPlain } from '@/utils/format';
-import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
+import { collectCategorySubtree } from '@/server/utils/categoryHierarchy';
 import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 import {
   AggregationType,
@@ -117,24 +117,30 @@ async function resolveCategory(
   );
   if (exact) {
     return {
-      ids: await expandCategoryToSubtree(exact.id),
+      ids: collectCategorySubtree(categories, exact.id),
       name: exact.name,
     };
   }
 
-  const partials = categories.filter(
-    (category) =>
-      category.name.toLowerCase().includes(lowerName) ||
-      lowerName.includes(category.name.toLowerCase()),
+  // Only a name-contains-query hit may resolve; a query that merely contains
+  // a category name ("health care" ⊃ "Car") is suggestion material, never a
+  // unique match.
+  const partials = categories.filter((category) =>
+    category.name.toLowerCase().includes(lowerName),
   );
   if (partials.length === 1) {
     return {
-      ids: await expandCategoryToSubtree(partials[0].id),
+      ids: collectCategorySubtree(categories, partials[0].id),
       name: partials[0].name,
     };
   }
 
-  const nearMatches = partials.map((category) => category.name);
+  const suggestions = partials.length
+    ? partials
+    : categories.filter((category) =>
+        lowerName.includes(category.name.toLowerCase()),
+      );
+  const nearMatches = suggestions.map((category) => category.name);
   throw new Error(
     nearMatches.length
       ? `Category "${categoryName}" is ambiguous. Close matches: ${nearMatches.join(', ')}. Retry with one exact name.`
@@ -174,8 +180,13 @@ async function summarize(
   aggregation: AggregationType,
 ): Promise<SummaryToolResult> {
   const category = await resolveCategory(filters.categoryName);
+  // Field-by-field rather than a spread, so the unresolved categoryName can
+  // never ride along into the resolved shape.
   const scoped: ResolvedTransactionFilters = {
-    ...filters,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    transactionType: filters.transactionType,
+    searchTerm: filters.searchTerm,
     categoryIds: category?.ids,
   };
 

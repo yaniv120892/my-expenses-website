@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
+
 export interface SubscriptionSnapshot {
   activeCount: number;
   totalMonthlyEstimate: number;
@@ -12,10 +15,9 @@ export interface DashboardResponse {
   subscriptions?: SubscriptionSnapshot;
 }
 
-export interface DashboardInsightsResponse {
-  unusualSpending: string[];
-  summary: string;
-}
+export type DashboardInsightsResponse = z.infer<
+  typeof dashboardInsightsResponseSchema
+>;
 
 export interface MonthComparison {
   currentMonth: MonthSummary;

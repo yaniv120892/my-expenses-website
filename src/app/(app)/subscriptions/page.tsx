@@ -32,7 +32,9 @@ import {
   UpdateSubscriptionPayload,
 } from '@/types/subscription';
 import { formatCurrencyRounded } from '@/utils/format';
+import { isOneOf } from '@/utils/oneOf';
 import {
+  SUBSCRIPTION_SORT_KEYS,
   SUBSCRIPTION_SORT_OPTIONS,
   SubscriptionSortKey,
   sortSubscriptions,
@@ -186,9 +188,12 @@ export default function SubscriptionsPage() {
               size="small"
               label="Sort by"
               value={sortKey}
-              onChange={(e) =>
-                setSortKey(e.target.value as SubscriptionSortKey)
-              }
+              onChange={(e) => {
+                const selected = e.target.value;
+                if (isOneOf(SUBSCRIPTION_SORT_KEYS, selected)) {
+                  setSortKey(selected);
+                }
+              }}
               sx={{ minWidth: { xs: '100%', md: 260 } }}
             >
               {SUBSCRIPTION_SORT_OPTIONS.map((option) => (

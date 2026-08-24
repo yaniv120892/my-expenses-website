@@ -5,7 +5,12 @@ import { Box, Button, Tab, Tabs } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { subMonths } from 'date-fns';
 import PageHeader from '@/components/shell/PageHeader';
-import { ComparisonMeasure, TrendFilters, TrendsView } from '@/types/trends';
+import {
+  ComparisonMeasure,
+  TRENDS_VIEWS,
+  TrendFilters,
+  TrendsView,
+} from '@/types/trends';
 import { OverallTrendCard } from '@/components/trends/OverallTrendCard';
 import { CategoryTrendCard } from '@/components/trends/CategoryTrendCard';
 import { CategoryComparisonSection } from '@/components/trends/CategoryComparisonSection';
@@ -18,6 +23,7 @@ import {
   useCategoryComparisonQuery,
 } from '@/hooks/useTrendsQuery';
 import { useCategoriesQuery } from '@/hooks/useTransactionsQuery';
+import { isOneOf } from '@/utils/oneOf';
 
 export default function TrendsPage() {
   const [view, setView] = useState<TrendsView>('overview');
@@ -115,7 +121,11 @@ export default function TrendsPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs
           value={view}
-          onChange={(_, value) => setView(value as TrendsView)}
+          onChange={(_, value) => {
+            if (isOneOf(TRENDS_VIEWS, value)) {
+              setView(value);
+            }
+          }}
           aria-label="Trends view"
         >
           <Tab label="Overview" value="overview" />

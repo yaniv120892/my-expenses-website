@@ -26,6 +26,7 @@ import {
   SUBSCRIPTION_FREQUENCIES,
 } from '@/utils/format';
 import { toMonthlyAmount, toAnnualAmount } from '@/utils/subscriptionMath';
+import { isOneOf } from '@/utils/oneOf';
 
 interface Props {
   open: boolean;
@@ -149,9 +150,12 @@ export default function EditSubscriptionDialog({
               select
               label="Frequency"
               value={form.frequency}
-              onChange={(e) =>
-                set('frequency', e.target.value as SubscriptionFrequency)
-              }
+              onChange={(e) => {
+                const frequency = e.target.value;
+                if (isOneOf(SUBSCRIPTION_FREQUENCIES, frequency)) {
+                  set('frequency', frequency);
+                }
+              }}
               fullWidth
             >
               {SUBSCRIPTION_FREQUENCIES.map((frequency) => (

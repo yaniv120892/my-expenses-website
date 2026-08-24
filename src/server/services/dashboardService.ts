@@ -10,6 +10,7 @@ import {
   TopCategory,
 } from '@/shared/types/dashboard';
 import logger from '@/server/logging/logger';
+import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
 import { classifyTrend } from '@/server/utils/trendMath';
@@ -75,11 +76,13 @@ class DashboardService {
     const cacheKey = `dashboard-insights:${userId}:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     try {
-      const cached = await getValue<DashboardInsightsResponse | string>(
-        cacheKey,
-      );
+      const cached = await getValue<unknown>(cacheKey);
       if (cached) {
-        return typeof cached === 'string' ? JSON.parse(cached) : cached;
+        // Entries written before the response was validated can hold any shape,
+        // so the cache is parsed on the way out as well as the way in.
+        return dashboardInsightsResponseSchema.parse(
+          typeof cached === 'string' ? JSON.parse(cached) : cached,
+        );
       }
     } catch (error) {
       logger.error({ err: error }, 'Failed to read dashboard insights cache');
@@ -225,7 +228,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      return JSON.parse(cleaned) as DashboardInsightsResponse;
+      return dashboardInsightsResponseSchema.parse(JSON.parse(cleaned));
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

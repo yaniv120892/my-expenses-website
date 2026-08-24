@@ -27,13 +27,12 @@ import { formatTransactionDate } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
-import NotificationSnackbar from './NotificationSnackbar';
 import SwipeableRow from './SwipeableRow';
 
 type Props = {
   transactions: Transaction[];
-  onConfirmAction: (id: string) => void;
-  onDeleteAction: (id: string) => void;
+  onConfirmAction: (id: string) => Promise<void> | void;
+  onDeleteAction: (id: string) => Promise<void> | void;
 };
 
 export default function PendingTransactionsList({
@@ -45,20 +44,6 @@ export default function PendingTransactionsList({
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
-    'success',
-  );
-
-  function showSnackbar(
-    message: string,
-    severity: 'success' | 'error' = 'success',
-  ) {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  }
 
   function openDialog(transaction: Transaction) {
     setSelectedTransaction(transaction);
@@ -70,34 +55,19 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
-  async function approve(id: string) {
-    try {
-      await onConfirmAction(id);
-      showSnackbar('Transaction approved successfully', 'success');
-    } catch {
-      showSnackbar('Failed to approve transaction', 'error');
-    }
-  }
-
-  async function reject(id: string) {
-    try {
-      await onDeleteAction(id);
-      showSnackbar('Transaction rejected successfully', 'success');
-    } catch {
-      showSnackbar('Failed to reject transaction', 'error');
-    }
-  }
-
+  // Outcome toasts belong to the page, which owns the mutations; a second
+  // snackbar here reported success even when the parent had swallowed a
+  // failure, and overlapped the page's error toast when it hadn't.
   async function handleApprove() {
     if (selectedTransaction) {
-      await approve(selectedTransaction.id);
+      await onConfirmAction(selectedTransaction.id);
       closeDialog();
     }
   }
 
   async function handleDelete() {
     if (selectedTransaction) {
-      await reject(selectedTransaction.id);
+      await onDeleteAction(selectedTransaction.id);
       closeDialog();
     }
   }
@@ -116,8 +86,8 @@ export default function PendingTransactionsList({
             {transactions.map((tx) => (
               <SwipeableRow
                 key={tx.id}
-                onSwipeRight={() => approve(tx.id)}
-                onSwipeLeft={() => reject(tx.id)}
+                onSwipeRight={() => onConfirmAction(tx.id)}
+                onSwipeLeft={() => onDeleteAction(tx.id)}
                 rightLabel="Approve"
                 rightColor="success.main"
                 leftLabel="Delete"
@@ -194,7 +164,7 @@ export default function PendingTransactionsList({
                         aria-label="Approve transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          approve(tx.id);
+                          onConfirmAction(tx.id);
                         }}
                       >
                         <CheckRoundedIcon fontSize="small" />
@@ -207,7 +177,7 @@ export default function PendingTransactionsList({
                         aria-label="Delete transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          reject(tx.id);
+                          onDeleteAction(tx.id);
                         }}
                       >
                         <DeleteOutlineRoundedIcon fontSize="small" />
@@ -251,13 +221,6 @@ export default function PendingTransactionsList({
           </>
         )}
       </Dialog>
-
-      <NotificationSnackbar
-        open={snackbarOpen}
-        message={snackbarMessage}
-        severity={snackbarSeverity}
-        onClose={() => setSnackbarOpen(false)}
-      />
     </>
   );
 }

@@ -12,8 +12,10 @@ import {
   useDeletePendingTransactionMutation,
 } from '@/hooks/usePendingTransactionsQuery';
 
+type Notice = { message: string; severity: 'success' | 'error' };
+
 export default function PendingPage() {
-  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const {
     data: pendingTransactions = [],
     isLoading,
@@ -25,18 +27,32 @@ export default function PendingPage() {
   async function handleConfirm(id: string) {
     try {
       await confirmMutation.mutateAsync(id);
+      setNotice({
+        message: 'Transaction approved successfully',
+        severity: 'success',
+      });
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Failed to confirm transaction',
-      );
+      setNotice({
+        message:
+          e instanceof Error ? e.message : 'Failed to confirm transaction',
+        severity: 'error',
+      });
     }
   }
 
   async function handleDelete(id: string) {
     try {
       await deleteMutation.mutateAsync(id);
+      setNotice({
+        message: 'Transaction rejected successfully',
+        severity: 'success',
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
+      setNotice({
+        message:
+          e instanceof Error ? e.message : 'Failed to delete transaction',
+        severity: 'error',
+      });
     }
   }
 
@@ -60,10 +76,10 @@ export default function PendingPage() {
         />
       )}
       <NotificationSnackbar
-        open={!!error}
-        message={error ?? ''}
-        severity="error"
-        onClose={() => setError(null)}
+        open={!!notice}
+        message={notice?.message ?? ''}
+        severity={notice?.severity ?? 'success'}
+        onClose={() => setNotice(null)}
       />
     </>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -80,7 +80,17 @@ export default function TransactionForm({
   const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
 
+  // Parents rebuild initialData as a fresh literal every render, so resetting
+  // on its identity wiped whatever the user had typed whenever a background
+  // refetch re-rendered the page mid-edit. Reset only when the dialog opens
+  // or the edited row actually changes.
+  const resetKey = `${open}:${initialData?.id ?? 'new'}`;
+  const appliedResetKey = useRef<string | null>(null);
   useEffect(() => {
+    if (appliedResetKey.current === resetKey) {
+      return;
+    }
+    appliedResetKey.current = resetKey;
     if (initialData) {
       setForm({
         id: initialData.id,
@@ -97,7 +107,7 @@ export default function TransactionForm({
       });
     }
     setErrors({});
-  }, [initialData, open]);
+  }, [initialData, resetKey]);
 
   // Which endpoint this submit hits decides the rule: merge and update need a
   // uuid, while create and import-approve let the server categorize.

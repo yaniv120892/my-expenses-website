@@ -1,6 +1,7 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { CategorizerHint } from '@/server/services/ai/aiProvider';
+import logger from '@/server/logging/logger';
 
 // Prompts live here so both providers send identical instructions; switching
 // AI_PROVIDER must never change product behavior.
@@ -52,15 +53,25 @@ Return only the ID of the best match, or "none" if no good match exists.`;
 /**
  * Normalizes the model's free-text answer to buildFindMatchingTransactionPrompt:
  * an id is returned only when it names one of the offered matches, so a
- * hallucinated or prompt-injected id can never leave the provider.
+ * hallucinated or prompt-injected id can never leave the provider. Idempotent,
+ * so callers may re-apply it to enforce the contract structurally.
  */
 export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
 ): string | null {
-  const answer = rawAnswer?.trim();
+  const answer = rawAnswer?.trim().replace(/^["']|["']$/g, '');
   if (!answer || answer === 'none') {
     return null;
   }
-  return potentialMatches.some((match) => match.id === answer) ? answer : null;
+  if (potentialMatches.some((match) => match.id === answer)) {
+    return answer;
+  }
+  // warn ships to Better Stack: a match rate silently dropping to zero from
+  // prompt drift or injection must stay diagnosable past Vercel's log window.
+  logger.warn(
+    { rawAnswer },
+    'Model answer did not name an offered match; treating as no match',
+  );
+  return null;
 }

@@ -1,8 +1,8 @@
 ---
 paths:
-  - '**/*.env*'
-  - '**/.github/workflows/*.y*ml'
-  - '**/*.json'
+  - "**/*.env*"
+  - "**/.github/workflows/*.y*ml"
+  - "**/*.json"
 description: Configuration and infrastructure files — secret handling and environment wiring.
 ---
 
@@ -14,10 +14,10 @@ not run that repo's `install.sh`. Keep it in sync with upstream; edit there firs
 
 Read with `code.md`, whose comment rule explicitly covers config.
 
+
 **Secrets Never Live in a Tracked File** — a committed credential is compromised the moment it
 is pushed, and rewriting history does not un-leak it; agent config files are the easy blind spot
 because they look like local preferences rather than code
-
 > Pattern: Keep the value in the environment and reference it — `${VAR}` in the config, exported
 > from a shell profile or a secret manager. Commit a `*.example` with placeholder values so the
 > shape is documented. When a file must hold a real value locally, gitignore it and say so in the
@@ -29,7 +29,6 @@ because they look like local preferences rather than code
 
 **A New Environment Variable Is Added Everywhere It Is Read** — a var wired into one deployment
 target and read unconditionally in code fails only in the environment nobody checked
-
 > Pattern: When adding a var, update every place that declares it — the `.example` file, each
 > environment's values/secrets, and the local compose or dev config — and make the code fail
 > loudly at the point of use when it is missing.

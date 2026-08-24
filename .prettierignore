@@ -3,3 +3,7 @@ node_modules
 package-lock.json
 prisma/migrations
 docs/proof-of-work
+
+# Vendored verbatim from yaniv120892/claude-config; formatting drift here would
+# make the diff against upstream unreadable when re-vendoring.
+.claude/rules

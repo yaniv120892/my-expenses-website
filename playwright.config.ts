@@ -1,23 +1,21 @@
 import { defineConfig } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
+const IS_CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  // A stray test.only would silently skip the rest of the suite in CI.
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI
-    ? [['list'], ['html', { open: 'never' }]]
-    : [['list']],
+  forbidOnly: IS_CI,
+  retries: IS_CI ? 1 : 0,
+  reporter: IS_CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    // Chromium is preinstalled in CI images at PLAYWRIGHT_BROWSERS_PATH; this
-    // avoids a per-run browser download.
+    // The Claude Code sandbox ships its own Chromium; GitHub Actions
+    // installs one in the workflow.
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
       : {},
@@ -27,7 +25,7 @@ export default defineConfig({
     : {
         command: 'npm run dev',
         url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: !IS_CI,
         timeout: 120_000,
       },
 });

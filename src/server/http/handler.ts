@@ -10,27 +10,33 @@ import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
-export interface HandlerContext<TBody, TQuery> {
+export interface HandlerContext<
+  TBody,
+  TQuery,
+  TParams = Record<string, string>,
+> {
   req: NextRequest;
   userId: string;
   body: TBody;
   query: TQuery;
-  params: Record<string, string>;
+  params: TParams;
 }
 
-interface BaseHandlerOptions<TBody, TQuery, TResult> {
+interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
+  paramsSchema?: ZodType<TParams, ZodTypeDef, unknown>;
   status?: number;
-  handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
+  handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 }
 
-type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
+type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
   TBody,
   TQuery,
-  TResult
+  TResult,
+  TParams
 > &
   (
     | {
@@ -109,7 +115,8 @@ export function createHandler<
   TBody = unknown,
   TQuery = unknown,
   TResult = unknown,
->(options: HandlerOptions<TBody, TQuery, TResult>) {
+  TParams = Record<string, string>,
+>(options: HandlerOptions<TBody, TQuery, TResult, TParams>) {
   return async (
     req: NextRequest,
     routeContext: RouteContext,
@@ -139,13 +146,18 @@ export function createHandler<
             Object.fromEntries(req.nextUrl.searchParams.entries()),
           )
         : (undefined as TQuery);
+      // The raw `params` stays around for the alert route pattern; without a
+      // schema TParams is the raw Record shape, so the cast is identity.
+      const parsedParams = (
+        options.paramsSchema ? options.paramsSchema.parse(params) : params
+      ) as TParams;
 
       const result = await options.handler({
         req,
         userId,
         body,
         query,
-        params,
+        params: parsedParams,
       });
       // A handler may return a full Response (cookies, streams); anything
       // else is JSON-wrapped. null serializes as null; undefined becomes {}.

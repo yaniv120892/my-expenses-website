@@ -27,6 +27,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+        env:
+          # The Sentry-wrapped build worker OOMs on Node's default ~2GB heap.
+          NODE_OPTIONS: --max-old-space-size=4096
 
   e2e:
     runs-on: ubuntu-latest

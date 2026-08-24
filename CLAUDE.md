@@ -44,6 +44,8 @@ runs them alone.
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `cron` | `telegram` | `public`), zod-validates body/query,
+  validates dynamic route params as uuids by default (a route with a
+  non-uuid segment must declare its own `paramsSchema`),
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
   request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`

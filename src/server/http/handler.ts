@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { ZodType, ZodTypeDef, ZodError } from 'zod';
+import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
@@ -9,6 +9,11 @@ import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
+
+// Every dynamic segment in this API is a uuid column, so params are validated
+// as uuids by default and a new route cannot silently skip validation. A route
+// with a non-uuid segment must opt out with its own paramsSchema.
+const uuidRouteParamsSchema = z.record(z.string().uuid());
 
 export interface HandlerContext<
   TBody,
@@ -47,9 +52,9 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
     | { auth: Exclude<AuthMode, 'cron'>; heartbeatEnvVar?: never }
   );
 
-// Next passes segment params for dynamic routes; static routes get an empty
-// object, so the loose Record type covers both.
-type RouteContext = { params: Promise<Record<string, string>> };
+// Next passes segment params for dynamic routes; a static route's promise
+// resolves to undefined (not an empty object).
+type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
 // `/api/transactions/<uuid>` becomes `/api/transactions/[id]`, so alert quotas
 // are keyed per route rather than per record id.
@@ -130,7 +135,12 @@ export function createHandler<
 
     try {
       userId = await resolveAuth(req, options.auth);
-      params = routeContext ? await routeContext.params : {};
+      params = (routeContext ? await routeContext.params : undefined) ?? {};
+      // Params are validated before the body: the check is cheaper and a
+      // malformed id is the more precise rejection when both are bad.
+      const parsedParams = options.paramsSchema
+        ? options.paramsSchema.parse(params)
+        : (uuidRouteParamsSchema.parse(params) as TParams);
       let body = undefined as TBody;
       if (options.bodySchema) {
         let raw: unknown;
@@ -146,11 +156,6 @@ export function createHandler<
             Object.fromEntries(req.nextUrl.searchParams.entries()),
           )
         : (undefined as TQuery);
-      // The raw `params` stays around for the alert route pattern; without a
-      // schema TParams is the raw Record shape, so the cast is identity.
-      const parsedParams = (
-        options.paramsSchema ? options.paramsSchema.parse(params) : params
-      ) as TParams;
 
       const result = await options.handler({
         req,
@@ -185,6 +190,7 @@ export function createHandler<
           tags: { path, requestId },
           ...(userId && { user: { id: userId } }),
         });
+        // Raw params, not parsed: the replace must match the exact path text.
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.

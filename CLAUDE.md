@@ -146,11 +146,21 @@ jobs 401. The Telegram webhook must be registered with
 
 This file is the only design document. Per-feature plans, specs, and handover
 notes are not committed — `.superpowers/`, `docs/superpowers/`, and
-`.claude/worktrees/` are gitignored, while `.claude/skills/` stays tracked
-because it is tooling, not scratch. Agent output stays in the ignored
-directories or in the session. A spec that
+`.claude/worktrees/` are gitignored, while `.claude/skills/` and
+`.claude/rules/` stay tracked because they are tooling, not scratch. Agent
+output stays in the ignored directories or in the session. A spec that
 describes work already shipped is worse than no spec: it drifts, and readers
 cannot tell it from current intent.
+
+`.claude/rules/` holds the craft rules — comments, control flow, naming, error
+handling, typing, env wiring, secret handling — vendored from
+`yaniv120892/claude-config` so they load without that repo's `install.sh`,
+which only reaches `~/.claude` on one machine. Each file carries a `paths:`
+list and loads only when a file it governs is read. This file stays the place
+for what is true of _this_ system; `.claude/rules/` is how code gets written
+anywhere. Edit a rule upstream first, then re-vendor. The mechanically
+checkable ones (`curly`, `array-type`, `explicit-member-accessibility`) are
+enforced in `eslint.config.mjs`, so CI fails on them rather than review.
 
 So a PR that changes anything this file states — architecture, an invariant, a
 command, a route, a cron, a model — updates the matching section in the same

@@ -71,7 +71,9 @@ function standardDeviation(values: number[], center: number): number {
 function mostCommon<T>(values: (T | undefined)[]): T | undefined {
   const counts = new Map<T, number>();
   for (const value of values) {
-    if (value === undefined) continue;
+    if (value === undefined) {
+      continue;
+    }
     counts.set(value, (counts.get(value) || 0) + 1);
   }
 
@@ -113,7 +115,9 @@ export function analyzeMerchantPattern(
   analyzedFrom: Date,
   analyzedTo: Date,
 ): DetectedPattern | null {
-  if (group.charges.length < MIN_CHARGES_FOR_PATTERN) return null;
+  if (group.charges.length < MIN_CHARGES_FOR_PATTERN) {
+    return null;
+  }
 
   const charges = [...group.charges].sort(
     (a, b) => a.date.getTime() - b.date.getTime(),
@@ -131,8 +135,12 @@ export function analyzeMerchantPattern(
   const variationRatio = medianInterval > 0 ? stddev / medianInterval : 0;
 
   const frequency = classifyFrequency(medianInterval);
-  if (!frequency) return null;
-  if (variationRatio > INTERVAL_TOLERANCE_RATIO) return null;
+  if (!frequency) {
+    return null;
+  }
+  if (variationRatio > INTERVAL_TOLERANCE_RATIO) {
+    return null;
+  }
 
   const amounts = charges.map((charge) => charge.value);
   const descriptions = charges.map((charge) => charge.description);

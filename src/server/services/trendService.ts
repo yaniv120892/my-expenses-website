@@ -149,14 +149,18 @@ class TrendService {
   ): void {
     for (const transaction of transactions) {
       if (!transaction.category) {
-        logger.warn(`Transaction ${transaction.id} has no category`);
+        logger.warn(
+          { transactionId: transaction.id },
+          'Transaction has no category',
+        );
         continue;
       }
 
       const topLevelCategoryId = categoryParentMap.get(transaction.category.id);
       if (!topLevelCategoryId) {
         logger.warn(
-          `Top level category not found for transaction ${transaction.id}`,
+          { transactionId: transaction.id },
+          'Top level category not found for transaction',
         );
         continue;
       }

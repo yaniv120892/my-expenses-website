@@ -99,7 +99,9 @@ export default function EditSubscriptionDialog({
   const canSave = !amountError && !nameError && !isLoading;
 
   function handleSave() {
-    if (!subscription || !canSave) return;
+    if (!subscription || !canSave) {
+      return;
+    }
     onSave(subscription.id, {
       displayName: form.displayName.trim(),
       averageAmount: parsedAmount,

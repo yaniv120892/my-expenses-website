@@ -50,7 +50,9 @@ interface ChatMessage {
 }
 
 function textOf(content: unknown): string {
-  if (typeof content === 'string') return content;
+  if (typeof content === 'string') {
+    return content;
+  }
   if (Array.isArray(content)) {
     return content
       .map((part) =>

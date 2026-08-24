@@ -116,7 +116,9 @@ export function CategoryComparisonSection({
               exclusive
               size="small"
               onChange={(_, value) => {
-                if (value) onMeasureChange(value as ComparisonMeasure);
+                if (value) {
+                  onMeasureChange(value as ComparisonMeasure);
+                }
               }}
               aria-label="Measure"
             >
@@ -133,7 +135,9 @@ export function CategoryComparisonSection({
               exclusive
               size="small"
               onChange={(_, value) => {
-                if (value) setChartMode(value as ComparisonChartMode);
+                if (value) {
+                  setChartMode(value as ComparisonChartMode);
+                }
               }}
               aria-label="Chart type"
             >

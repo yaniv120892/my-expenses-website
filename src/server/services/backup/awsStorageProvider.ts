@@ -16,7 +16,7 @@ export class AwsStorageProvider implements BackupStorageProvider {
       }),
   );
 
-  async uploadBackup(
+  public async uploadBackup(
     fileName: string,
     fileContent: Buffer,
     mimeType: string,

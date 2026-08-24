@@ -410,7 +410,7 @@ class TransactionService {
     try {
       prediction = await this.categorizeExpense(description);
     } catch {
-      logger.warn(`Failed to categorize expense: ${description}`);
+      logger.warn({ description }, 'Failed to categorize expense');
     }
     if (!prediction) {
       return null;
@@ -430,10 +430,13 @@ class TransactionService {
     const response = await axios.post(`${expenseCategorizerBaseUrl}/predict`, {
       description,
     });
-    logger.debug(`Done categorizing expense: ${description}`);
+    logger.debug({ description }, 'Done categorizing expense');
 
     if (!response.data.category) {
-      logger.error('No category found for expense using categorizer.');
+      logger.error(
+        { description },
+        'No category found for expense using categorizer',
+      );
       return null;
     }
 

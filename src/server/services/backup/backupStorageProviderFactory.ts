@@ -6,7 +6,7 @@ import {
 import { GoogleStorageProvider } from '@/server/services/backup/googleStorageProvider';
 
 class BackupStorageProviderFactory {
-  static getProvider(): BackupStorageProvider {
+  public static getProvider(): BackupStorageProvider {
     const backupStorageProviderType =
       process.env.BACKUP_STORAGE_PROVIDER_TYPE || BackupStorageProviderType.AWS;
     switch (backupStorageProviderType) {

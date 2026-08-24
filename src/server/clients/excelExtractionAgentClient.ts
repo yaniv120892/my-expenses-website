@@ -18,7 +18,7 @@ export class ExcelExtractionAgentClient {
     this.webhookBaseUrl = requireEnv('WEBSITE_URL');
   }
 
-  async submitExtractionRequest(
+  public async submitExtractionRequest(
     request: SubmitExtractionRequest,
   ): Promise<SubmitExtractionResponse> {
     try {
@@ -92,7 +92,7 @@ export class ExcelExtractionAgentClient {
     }
   }
 
-  async getExtractionStatus(
+  public async getExtractionStatus(
     requestId: string,
   ): Promise<ExtractionStatusResponse> {
     try {
@@ -123,7 +123,7 @@ export class ExcelExtractionAgentClient {
     }
   }
 
-  async checkHealth(): Promise<boolean> {
+  public async checkHealth(): Promise<boolean> {
     try {
       const client = axios.create({
         baseURL: this.serviceUrl,

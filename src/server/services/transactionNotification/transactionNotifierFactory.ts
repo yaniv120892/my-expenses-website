@@ -5,7 +5,7 @@ import {
 import { TelegramTransactionNotifier } from '@/server/services/transactionNotification/telegramTransactionNotifier';
 
 class TransactionNotifierFactory {
-  static getNotifier(): TransactionNotifier {
+  public static getNotifier(): TransactionNotifier {
     const notifierType =
       process.env.TRANSACTION_CREATED_NOTIFIER_TYPE ||
       TransactionNotifierType.TELEGRAM;

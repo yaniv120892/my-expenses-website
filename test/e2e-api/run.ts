@@ -79,7 +79,9 @@ function streamChat(
           buffer = parts.pop() || '';
           for (const part of parts) {
             const line = part.split('\n').find((l) => l.startsWith('data: '));
-            if (!line) continue;
+            if (!line) {
+              continue;
+            }
             try {
               const parsed = JSON.parse(line.slice(6));
               frames.push({ ...parsed, at: Date.now() - started });
@@ -98,7 +100,9 @@ function streamChat(
     );
 
     req.on('error', (err) => {
-      if (opts.abortAfterFirstDelta) return;
+      if (opts.abortAfterFirstDelta) {
+        return;
+      }
       reject(err);
     });
     req.write(body);
@@ -111,7 +115,9 @@ async function waitForApp(timeoutMs = 120_000): Promise<boolean> {
   while (Date.now() < deadline) {
     try {
       const res = await streamChat(null, 'ping');
-      if (res.status) return true;
+      if (res.status) {
+        return true;
+      }
     } catch {
       /* not up yet */
     }
@@ -153,8 +159,12 @@ async function api(
   } = {},
 ): Promise<ApiResult> {
   const headers: Record<string, string> = { ...opts.headers };
-  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
-  if (opts.cookie) headers.Cookie = opts.cookie;
+  if (opts.token) {
+    headers.Authorization = `Bearer ${opts.token}`;
+  }
+  if (opts.cookie) {
+    headers.Cookie = opts.cookie;
+  }
   let body: string | undefined;
   if (opts.rawBody !== undefined) {
     body = opts.rawBody;
@@ -415,7 +425,9 @@ async function transactionCursorPagingFlow(
       return;
     }
     seen.push(...body.items.map((item) => item.id));
-    if (!body.nextCursor) break;
+    if (!body.nextCursor) {
+      break;
+    }
     cursor = body.nextCursor;
   }
 

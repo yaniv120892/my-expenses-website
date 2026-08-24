@@ -1,7 +1,7 @@
 import prisma from '@/server/db/client';
 
 class UserCategoryMappingRepository {
-  async findByUserAndDescription(
+  public async findByUserAndDescription(
     userId: string,
     descriptionPattern: string,
   ): Promise<{ categoryId: string } | null> {
@@ -13,7 +13,7 @@ class UserCategoryMappingRepository {
     });
   }
 
-  async upsert(
+  public async upsert(
     userId: string,
     descriptionPattern: string,
     categoryId: string,

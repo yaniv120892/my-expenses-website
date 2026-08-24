@@ -7,7 +7,7 @@ import {
 import prisma from '@/server/db/client';
 
 export class ImportedTransactionRepository {
-  async createMany(
+  public async createMany(
     transactions: {
       importId: string;
       description: string;
@@ -25,7 +25,7 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  async findByUserIdAndImportId(
+  public async findByUserIdAndImportId(
     userId: string,
     importId: string,
   ): Promise<ImportedTransaction[]> {
@@ -42,7 +42,9 @@ export class ImportedTransactionRepository {
     });
   }
 
-  async findByImportId(importId: string): Promise<ImportedTransaction[]> {
+  public async findByImportId(
+    importId: string,
+  ): Promise<ImportedTransaction[]> {
     return prisma.importedTransaction.findMany({
       where: {
         importId,
@@ -52,7 +54,7 @@ export class ImportedTransactionRepository {
     });
   }
 
-  async findById(id: string): Promise<ImportedTransaction | null> {
+  public async findById(id: string): Promise<ImportedTransaction | null> {
     return prisma.importedTransaction.findUnique({
       where: { id },
       include: {
@@ -61,20 +63,23 @@ export class ImportedTransactionRepository {
     });
   }
 
-  async delete(id: string): Promise<void> {
+  public async delete(id: string): Promise<void> {
     await prisma.importedTransaction.delete({
       where: { id },
     });
   }
 
-  async clearMatchingTransaction(id: string, userId: string): Promise<void> {
+  public async clearMatchingTransaction(
+    id: string,
+    userId: string,
+  ): Promise<void> {
     await prisma.importedTransaction.update({
       where: { id, userId },
       data: { matchingTransactionId: null },
     });
   }
 
-  async updateStatus(
+  public async updateStatus(
     id: string,
     userId: string,
     status: ImportedTransactionStatus,
@@ -85,14 +90,14 @@ export class ImportedTransactionRepository {
     });
   }
 
-  async softDelete(id: string, userId: string): Promise<void> {
+  public async softDelete(id: string, userId: string): Promise<void> {
     await prisma.importedTransaction.update({
       where: { id, userId },
       data: { deleted: true },
     });
   }
 
-  async updateStatusBatch(
+  public async updateStatusBatch(
     ids: string[],
     userId: string,
     status: ImportedTransactionStatus,
@@ -104,7 +109,7 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  async findPendingByImportId(
+  public async findPendingByImportId(
     importId: string,
     userId: string,
   ): Promise<ImportedTransaction[]> {
@@ -122,7 +127,7 @@ export class ImportedTransactionRepository {
     });
   }
 
-  async softDeleteBatch(ids: string[], userId: string): Promise<number> {
+  public async softDeleteBatch(ids: string[], userId: string): Promise<number> {
     const result = await prisma.importedTransaction.updateMany({
       where: { id: { in: ids }, userId },
       data: { deleted: true },
@@ -135,8 +140,10 @@ export class ImportedTransactionRepository {
    * Returned unawaited so the caller can batch it into one transaction with
    * the delete that follows.
    */
-  moveToImportOps(ids: string[], importId: string) {
-    if (ids.length === 0) return [];
+  public moveToImportOps(ids: string[], importId: string) {
+    if (ids.length === 0) {
+      return [];
+    }
 
     return [
       prisma.importedTransaction.updateMany({
@@ -147,7 +154,7 @@ export class ImportedTransactionRepository {
   }
 
   /** Hard delete: the parent import row is about to go, and the FK is Restrict. */
-  deleteByImportIdOp(importId: string) {
+  public deleteByImportIdOp(importId: string) {
     return prisma.importedTransaction.deleteMany({ where: { importId } });
   }
 
@@ -155,7 +162,9 @@ export class ImportedTransactionRepository {
    * Transactions already claimed as a match by any pending imported row of
    * this user, so a concurrent import cannot claim the same one.
    */
-  async findClaimedMatchingTransactionIds(userId: string): Promise<string[]> {
+  public async findClaimedMatchingTransactionIds(
+    userId: string,
+  ): Promise<string[]> {
     const claimed = await prisma.importedTransaction.findMany({
       where: {
         userId,
@@ -169,7 +178,7 @@ export class ImportedTransactionRepository {
     return claimed.map((row) => row.matchingTransactionId!);
   }
 
-  async filterDuplicates<
+  public async filterDuplicates<
     T extends {
       description: string;
       value: number;
@@ -177,7 +186,9 @@ export class ImportedTransactionRepository {
       type: TransactionType;
     },
   >(importId: string, transactions: T[]): Promise<T[]> {
-    if (transactions.length === 0) return [];
+    if (transactions.length === 0) {
+      return [];
+    }
 
     const existingTransactions = await this.findExistingTransactions(
       importId,
@@ -205,7 +216,9 @@ export class ImportedTransactionRepository {
       type: TransactionType;
     }[],
   ): Promise<ImportedTransaction[]> {
-    if (transactions.length === 0) return [];
+    if (transactions.length === 0) {
+      return [];
+    }
 
     const existingTransactions = await prisma.importedTransaction.findMany({
       where: {

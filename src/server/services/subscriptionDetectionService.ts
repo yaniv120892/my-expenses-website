@@ -281,10 +281,14 @@ class SubscriptionDetectionService {
     let failed = 0;
     for (const [userId, subs] of byUser) {
       try {
-        if (!enabledUserIds.has(userId)) continue;
+        if (!enabledUserIds.has(userId)) {
+          continue;
+        }
 
         const message = buildAuditMessage(subs);
-        if (!message) continue;
+        if (!message) {
+          continue;
+        }
 
         await notifier.sendDailySummary(message, userId);
       } catch (error) {
@@ -336,7 +340,9 @@ class SubscriptionDetectionService {
     const results: DetectionInput[] = [];
     for (const group of this.groupByMerchant(transactions)) {
       const pattern = analyzeMerchantPattern(group, analyzedFrom, analyzedTo);
-      if (!pattern) continue;
+      if (!pattern) {
+        continue;
+      }
 
       results.push({
         userId,
@@ -362,7 +368,9 @@ class SubscriptionDetectionService {
 
     for (const tx of transactions) {
       const key = normalizeMerchantName(tx.description);
-      if (!key) continue;
+      if (!key) {
+        continue;
+      }
 
       const existing = groups.get(key);
       if (existing) {

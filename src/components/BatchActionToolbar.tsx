@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Box, Button, Stack, Chip } from "@mui/material";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import SelectAllIcon from "@mui/icons-material/SelectAll";
-import DeselectIcon from "@mui/icons-material/Deselect";
-import BatchConfirmDialog from "./BatchConfirmDialog";
-import BatchProgressIndicator from "./BatchProgressIndicator";
+import React, { useState } from 'react';
+import { Box, Button, Stack, Chip } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
+import DeselectIcon from '@mui/icons-material/Deselect';
+import BatchConfirmDialog from './BatchConfirmDialog';
+import BatchProgressIndicator from './BatchProgressIndicator';
 import {
   useBatchActionMutation,
   useApplyAutoApproveRulesMutation,
-} from "../hooks/useImports";
-import { BatchResult } from "../types/import";
+} from '../hooks/useImports';
+import { BatchResult } from '../types/import';
 
 interface BatchActionToolbarProps {
   importId: string;
@@ -34,9 +34,9 @@ export default function BatchActionToolbar({
 }: BatchActionToolbarProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
-    action: "approve" | "ignore";
-    scope: "all" | "selected";
-  }>({ open: false, action: "approve", scope: "all" });
+    action: 'approve' | 'ignore';
+    scope: 'all' | 'selected';
+  }>({ open: false, action: 'approve', scope: 'all' });
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
 
   const batchMutation = useBatchActionMutation(importId);
@@ -44,7 +44,7 @@ export default function BatchActionToolbar({
 
   const handleConfirm = async () => {
     const transactionIds =
-      confirmDialog.scope === "selected" ? selectedIds : undefined;
+      confirmDialog.scope === 'selected' ? selectedIds : undefined;
 
     try {
       const result = await batchMutation.mutateAsync({
@@ -71,9 +71,11 @@ export default function BatchActionToolbar({
   const isProcessing = batchMutation.isPending || autoApproveMutation.isPending;
   const hasSelection = selectedIds.length > 0;
   const confirmCount =
-    confirmDialog.scope === "selected" ? selectedIds.length : pendingCount;
+    confirmDialog.scope === 'selected' ? selectedIds.length : pendingCount;
 
-  if (pendingCount === 0) return null;
+  if (pendingCount === 0) {
+    return null;
+  }
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -89,9 +91,9 @@ export default function BatchActionToolbar({
           variant="outlined"
           startIcon={hasSelection ? <DeselectIcon /> : <SelectAllIcon />}
           onClick={hasSelection ? onClearSelection : onSelectAll}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform: 'none' }}
         >
-          {hasSelection ? "Clear" : "Select All"}
+          {hasSelection ? 'Clear' : 'Select All'}
         </Button>
 
         {hasSelection && (
@@ -109,10 +111,10 @@ export default function BatchActionToolbar({
           color="success"
           startIcon={<CheckIcon />}
           onClick={() =>
-            setConfirmDialog({ open: true, action: "approve", scope: "all" })
+            setConfirmDialog({ open: true, action: 'approve', scope: 'all' })
           }
           disabled={isProcessing}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform: 'none' }}
         >
           Approve/Merge All ({pendingCount})
         </Button>
@@ -126,12 +128,12 @@ export default function BatchActionToolbar({
             onClick={() =>
               setConfirmDialog({
                 open: true,
-                action: "approve",
-                scope: "selected",
+                action: 'approve',
+                scope: 'selected',
               })
             }
             disabled={isProcessing}
-            sx={{ textTransform: "none" }}
+            sx={{ textTransform: 'none' }}
           >
             Approve/Merge Selected ({selectedIds.length})
           </Button>
@@ -143,10 +145,10 @@ export default function BatchActionToolbar({
           color="warning"
           startIcon={<CloseIcon />}
           onClick={() =>
-            setConfirmDialog({ open: true, action: "ignore", scope: "all" })
+            setConfirmDialog({ open: true, action: 'ignore', scope: 'all' })
           }
           disabled={isProcessing}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform: 'none' }}
         >
           Ignore All ({pendingCount})
         </Button>
@@ -160,12 +162,12 @@ export default function BatchActionToolbar({
             onClick={() =>
               setConfirmDialog({
                 open: true,
-                action: "ignore",
-                scope: "selected",
+                action: 'ignore',
+                scope: 'selected',
               })
             }
             disabled={isProcessing}
-            sx={{ textTransform: "none" }}
+            sx={{ textTransform: 'none' }}
           >
             Ignore Selected ({selectedIds.length})
           </Button>
@@ -179,7 +181,7 @@ export default function BatchActionToolbar({
             startIcon={<AutoFixHighIcon />}
             onClick={handleAutoApprove}
             disabled={isProcessing}
-            sx={{ textTransform: "none" }}
+            sx={{ textTransform: 'none' }}
           >
             Auto-Approve Rules
           </Button>

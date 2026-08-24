@@ -89,7 +89,9 @@ describe('useMultiFileImport', () => {
 
   it('fails only the offending row and keeps the rest', async () => {
     processImport.mockImplementation(async (_url, name) => {
-      if (name === 'bad.csv') throw new Error('Unsupported file type');
+      if (name === 'bad.csv') {
+        throw new Error('Unsupported file type');
+      }
       return { id: 'import-ok' };
     });
     const { result } = setup();

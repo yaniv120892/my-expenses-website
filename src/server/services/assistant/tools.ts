@@ -77,13 +77,17 @@ const periodSchema = (exampleLabel: string) =>
 async function resolveCategoryId(
   categoryName?: string,
 ): Promise<string | undefined> {
-  if (!categoryName) return undefined;
+  if (!categoryName) {
+    return undefined;
+  }
 
   const categories = await categoryRepository.getAllCategories();
   const lowerName = categoryName.toLowerCase();
 
   const exact = categories.find((c) => c.name.toLowerCase() === lowerName);
-  if (exact) return exact.id;
+  if (exact) {
+    return exact.id;
+  }
 
   const partial = categories.find((c) =>
     c.name.toLowerCase().includes(lowerName),

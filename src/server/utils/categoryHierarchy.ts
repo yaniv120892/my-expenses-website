@@ -8,7 +8,9 @@ export interface CategoryNode {
 function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
   const childrenByParent = new Map<string, string[]>();
   for (const category of categories) {
-    if (!category.parentId) continue;
+    if (!category.parentId) {
+      continue;
+    }
     const siblings = childrenByParent.get(category.parentId) ?? [];
     siblings.push(category.id);
     childrenByParent.set(category.parentId, siblings);
@@ -29,7 +31,9 @@ function collectSubtree(
     descendants.push(currentId);
     for (const childId of childrenByParent.get(currentId) ?? []) {
       // Guards against a cycle from bad data looping forever.
-      if (seen.has(childId)) continue;
+      if (seen.has(childId)) {
+        continue;
+      }
       seen.add(childId);
       queue.push(childId);
     }

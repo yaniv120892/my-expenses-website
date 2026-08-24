@@ -43,7 +43,9 @@ function ChartTooltip({
   payload?: { name: string; value: number; color: string }[];
   label?: string;
 }) {
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length) {
+    return null;
+  }
   return (
     <Paper variant="outlined" sx={{ px: 1.25, py: 0.75 }}>
       <Typography variant="caption" sx={{ fontWeight: 600 }}>

@@ -17,7 +17,7 @@ export class GeminiService implements AIProvider {
     () => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')),
   );
 
-  async generateContent(prompt: string): Promise<string> {
+  public async generateContent(prompt: string): Promise<string> {
     try {
       logger.debug({ prompt }, 'Start generating content');
       const model = this.getGemini().getGenerativeModel({
@@ -45,7 +45,7 @@ export class GeminiService implements AIProvider {
     }
   }
 
-  async analyzeExpenses(
+  public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string> {
@@ -79,7 +79,7 @@ export class GeminiService implements AIProvider {
     }
   }
 
-  async suggestCategory(
+  public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
@@ -127,7 +127,7 @@ export class GeminiService implements AIProvider {
     }
   }
 
-  async findMatchingTransaction(
+  public async findMatchingTransaction(
     importedDescription: string,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
@@ -137,7 +137,9 @@ export class GeminiService implements AIProvider {
         'Start finding matching transaction',
       );
 
-      if (!potentialMatches.length) return null;
+      if (!potentialMatches.length) {
+        return null;
+      }
 
       const model = this.getGemini().getGenerativeModel({
         model: this.modelName,
@@ -172,7 +174,9 @@ export class GeminiService implements AIProvider {
   }
 
   private cleanGeminiResponse(response: string | undefined): string {
-    if (!response) return '';
+    if (!response) {
+      return '';
+    }
     return response
       .trim()
       .replace(/^["']|["']$/g, '')

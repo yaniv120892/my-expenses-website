@@ -96,7 +96,9 @@ class SubscriptionRepository {
     userId: string,
     results: DetectionInput[],
   ): Promise<void> {
-    if (results.length === 0) return;
+    if (results.length === 0) {
+      return;
+    }
 
     const existing = await prisma.detectedSubscription.findMany({
       where: { userId },
@@ -152,7 +154,9 @@ class SubscriptionRepository {
     const dismissed = existing.some(
       (row) => row.status === 'DISMISSED' && row.frequency === data.frequency,
     );
-    if (dismissed) return;
+    if (dismissed) {
+      return;
+    }
 
     const fields = {
       ...detectionOwnedFields(data),
@@ -256,8 +260,11 @@ class SubscriptionRepository {
       totalMonthlyEstimate += toMonthlyAmount(s.averageAmount, s.frequency);
       totalAnnualEstimate += s.annualCost;
 
-      if (s.status === 'CONFIRMED') activeCount++;
-      else detectedCount++;
+      if (s.status === 'CONFIRMED') {
+        activeCount++;
+      } else {
+        detectedCount++;
+      }
     }
 
     return {

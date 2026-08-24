@@ -19,7 +19,9 @@ interface Props {
 }
 
 export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
-  if (!subscriptions) return null;
+  if (!subscriptions) {
+    return null;
+  }
 
   const {
     activeCount,

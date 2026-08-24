@@ -82,9 +82,9 @@ export type ScheduledTransaction = Omit<
 };
 
 export class ApiResponse<T> {
-  data?: T;
-  success: boolean = false;
-  error?: string;
+  public data?: T;
+  public success: boolean = false;
+  public error?: string;
 }
 
 export type UserSettings = z.infer<typeof updateUserSettingsSchema>;

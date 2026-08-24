@@ -39,7 +39,9 @@ test('assistant reply renders incrementally', async ({ page }) => {
   while (Date.now() < deadline) {
     const text = (await reply.count()) ? await reply.last().textContent() : '';
     lengths.push((text || '').length);
-    if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) break;
+    if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) {
+      break;
+    }
     await page.waitForTimeout(40);
   }
 

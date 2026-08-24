@@ -16,7 +16,7 @@ export class GoogleStorageProvider implements BackupStorageProvider {
     return google.drive({ version: 'v3', auth });
   });
 
-  async uploadBackup(
+  public async uploadBackup(
     fileName: string,
     fileContent: Buffer,
     mimeType: string,

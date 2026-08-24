@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -55,6 +55,17 @@ const defaultForm: TransactionFormType = {
   date: format(new Date(), 'yyyy-MM-dd'),
 };
 
+function toFormValues(initialData: TransactionFormType): TransactionFormType {
+  return {
+    id: initialData.id,
+    description: initialData.description,
+    value: initialData.value,
+    categoryId: initialData.categoryId || '',
+    type: initialData.type,
+    date: format(new Date(initialData.date), 'yyyy-MM-dd'),
+  };
+}
+
 export default function TransactionForm({
   open,
   onCloseAction,
@@ -80,34 +91,22 @@ export default function TransactionForm({
   const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
 
-  // Parents rebuild initialData as a fresh literal every render, so resetting
-  // on its identity wiped whatever the user had typed whenever a background
-  // refetch re-rendered the page mid-edit. Reset only when the dialog opens
-  // or the edited row actually changes.
+  // Parents rebuild initialData as a fresh literal every render, so keying
+  // the reset on its identity would wipe typed input on a background refetch.
   const resetKey = `${open}:${initialData?.id ?? 'new'}`;
-  const appliedResetKey = useRef<string | null>(null);
-  useEffect(() => {
-    if (appliedResetKey.current === resetKey) {
-      return;
-    }
-    appliedResetKey.current = resetKey;
-    if (initialData) {
-      setForm({
-        id: initialData.id,
-        description: initialData.description,
-        value: initialData.value,
-        categoryId: initialData.categoryId || '',
-        type: initialData.type,
-        date: format(new Date(initialData.date), 'yyyy-MM-dd'),
-      });
-    } else {
-      setForm({
-        ...defaultForm,
-        date: format(new Date(), 'yyyy-MM-dd'),
-      });
-    }
+  const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
+  if (appliedResetKey !== resetKey) {
+    setAppliedResetKey(resetKey);
+    setForm(
+      initialData
+        ? toFormValues(initialData)
+        : { ...defaultForm, date: format(new Date(), 'yyyy-MM-dd') },
+    );
     setErrors({});
-  }, [initialData, resetKey]);
+    setPendingFiles([]);
+    setFilesToRemove([]);
+    setFileUploadError(null);
+  }
 
   // Which endpoint this submit hits decides the rule: merge and update need a
   // uuid, while create and import-approve let the server categorize.

@@ -26,7 +26,9 @@ import {
 } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 
-export type ComparisonChartMode = 'grouped' | 'stacked' | 'lines';
+export const COMPARISON_CHART_MODES = ['grouped', 'stacked', 'lines'] as const;
+
+export type ComparisonChartMode = (typeof COMPARISON_CHART_MODES)[number];
 
 interface Props {
   comparison: CategoryComparison;

@@ -5,7 +5,9 @@ export * from '@/shared/types/trends';
 export type { TransactionType };
 
 // Client-only UI state for the trends page.
-export type TrendsView = 'overview' | 'compare';
+export const TRENDS_VIEWS = ['overview', 'compare'] as const;
+
+export type TrendsView = (typeof TRENDS_VIEWS)[number];
 
 export interface TrendFilters {
   period: TrendPeriod;

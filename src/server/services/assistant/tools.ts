@@ -10,7 +10,7 @@ import chatAggregationService from '@/server/services/chatAggregationService';
 import { formatCurrencyPlain } from '@/utils/format';
 import { Transaction } from '@/shared/types/transaction';
 import { AggregationType } from '@/shared/types/chat';
-import { TrendPeriod } from '@/shared/types/trends';
+import { TREND_PERIODS } from '@/shared/types/trends';
 
 export const USER_ID_CONTEXT_KEY = 'userId';
 
@@ -233,9 +233,7 @@ export function buildAssistantTools() {
     description:
       'Returns how spending has moved over time, either overall or broken down by category, including the percentage change against the previous period.',
     inputSchema: z.object({
-      period: z
-        .enum(['daily', 'weekly', 'monthly', 'yearly'])
-        .describe('Granularity of the trend points'),
+      period: z.enum(TREND_PERIODS).describe('Granularity of the trend points'),
       startDate: z.string().optional().describe('Start date, YYYY-MM-DD'),
       endDate: z.string().optional().describe('End date, YYYY-MM-DD'),
       categoryName: z
@@ -256,7 +254,7 @@ export function buildAssistantTools() {
       const categoryId = await resolveCategoryId(input.categoryName);
 
       const request = {
-        period: input.period as TrendPeriod,
+        period: input.period,
         ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
         ...(input.endDate ? { endDate: new Date(input.endDate) } : {}),
         ...(categoryId ? { categoryId } : {}),

@@ -17,14 +17,30 @@ const MAX_EVIDENCE_CHARGES = 12;
 // which date-fns' whole-day helpers would round away.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const FREQUENCY_WINDOW_DAYS: Record<
-  SubscriptionFrequency,
-  { min: number; max: number }
-> = {
-  WEEKLY: { min: 5, max: 9 },
-  MONTHLY: { min: 25, max: 35 },
-  YEARLY: { min: 340, max: 395 },
-};
+interface FrequencyWindow {
+  frequency: SubscriptionFrequency;
+  min: number;
+  max: number;
+}
+
+const FREQUENCY_WINDOWS: FrequencyWindow[] = [
+  { frequency: 'WEEKLY', min: 5, max: 9 },
+  { frequency: 'MONTHLY', min: 25, max: 35 },
+  { frequency: 'YEARLY', min: 340, max: 395 },
+];
+
+function frequencyWindow(frequency: SubscriptionFrequency): {
+  min: number;
+  max: number;
+} {
+  const window = FREQUENCY_WINDOWS.find(
+    (candidate) => candidate.frequency === frequency,
+  );
+  if (!window) {
+    throw new Error(`No interval window defined for frequency ${frequency}`);
+  }
+  return { min: window.min, max: window.max };
+}
 
 export interface MerchantCharge {
   description: string;
@@ -91,10 +107,10 @@ function mostCommon<T>(values: (T | undefined)[]): T | undefined {
 export function classifyFrequency(
   medianDays: number,
 ): SubscriptionFrequency | null {
-  const match = Object.entries(FREQUENCY_WINDOW_DAYS).find(
-    ([, window]) => medianDays >= window.min && medianDays <= window.max,
+  const match = FREQUENCY_WINDOWS.find(
+    (window) => medianDays >= window.min && medianDays <= window.max,
   );
-  return match ? (match[0] as SubscriptionFrequency) : null;
+  return match ? match.frequency : null;
 }
 
 function toEvidenceCharges(
@@ -161,7 +177,7 @@ export function analyzeMerchantPattern(
     intervalStdDevDays: Math.round(stddev * 10) / 10,
     intervalVariationRatio: Math.round(variationRatio * 100) / 100,
     intervalToleranceRatio: INTERVAL_TOLERANCE_RATIO,
-    frequencyWindowDays: FREQUENCY_WINDOW_DAYS[frequency],
+    frequencyWindowDays: frequencyWindow(frequency),
     minAmount: roundToCents(Math.min(...amounts)),
     maxAmount: roundToCents(Math.max(...amounts)),
     averageAmount: roundToCents(averageAmount),

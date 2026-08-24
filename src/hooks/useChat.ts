@@ -75,7 +75,11 @@ export const useChat = () => {
           controller.signal,
         );
       } catch (error) {
-        if ((error as Error)?.name !== 'AbortError') {
+        // An aborted fetch rejects with a DOMException named AbortError; anything
+        // else — including a non-Error throw — is a real failure worth surfacing.
+        const wasAborted =
+          error instanceof Error && error.name === 'AbortError';
+        if (!wasAborted) {
           appendToLastMessage(
             `Sorry, I encountered an error: ${handleApiError(error)}`,
           );

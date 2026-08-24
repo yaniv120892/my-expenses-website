@@ -18,7 +18,9 @@ export const MAX_COMPARISON_SERIES = 8;
  */
 export const MAX_COMPARISON_BUCKETS = 366;
 
-export type TrendPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export const TREND_PERIODS = ['daily', 'weekly', 'monthly', 'yearly'] as const;
+
+export type TrendPeriod = (typeof TREND_PERIODS)[number];
 
 export type TrendPoint = {
   date: string;
@@ -53,9 +55,13 @@ export type CategorySpendingTrend = {
   categoryName: string;
 };
 
-export type ComparisonScope = 'SUBTREE' | 'EXACT';
+export const COMPARISON_SCOPES = ['SUBTREE', 'EXACT'] as const;
 
-export type ComparisonMeasure = 'net' | 'income' | 'expense';
+export type ComparisonScope = (typeof COMPARISON_SCOPES)[number];
+
+export const COMPARISON_MEASURES = ['net', 'income', 'expense'] as const;
+
+export type ComparisonMeasure = (typeof COMPARISON_MEASURES)[number];
 
 export type ComparisonCell = {
   income: number;

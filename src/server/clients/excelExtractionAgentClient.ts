@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import logger from '@/server/logging/logger';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
@@ -150,12 +150,11 @@ export class ExcelExtractionAgentClient {
 
   private formatError(error: unknown): unknown {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError;
       return {
-        message: axiosError.message,
-        code: axiosError.code,
-        status: axiosError.response?.status,
-        data: axiosError.response?.data,
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
       };
     }
 
@@ -170,30 +169,26 @@ export class ExcelExtractionAgentClient {
   }
 
   private handleError(error: unknown, defaultMessage: string): Error {
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError;
-      const responseData = axiosError.response?.data as
-        { message?: string } | undefined;
-
-      if (responseData?.message) {
-        return new Error(`${defaultMessage}: ${responseData.message}`);
+    // The type argument is what makes `response.data` typed rather than `any`,
+    // so the message lookup below needs no cast.
+    if (axios.isAxiosError<{ message?: string }>(error)) {
+      if (error.response?.data?.message) {
+        return new Error(`${defaultMessage}: ${error.response.data.message}`);
       }
 
-      if (axiosError.response?.status === 400) {
+      if (error.response?.status === 400) {
         return new Error(`${defaultMessage}: Invalid request`);
       }
 
-      if (axiosError.response?.status === 404) {
+      if (error.response?.status === 404) {
         return new Error(`${defaultMessage}: Resource not found`);
       }
 
-      if (axiosError.response?.status === 503) {
+      if (error.response?.status === 503) {
         return new Error(`${defaultMessage}: Service unavailable`);
       }
 
-      return new Error(
-        `${defaultMessage}: ${axiosError.message} (${axiosError.code})`,
-      );
+      return new Error(`${defaultMessage}: ${error.message} (${error.code})`);
     }
 
     if (error instanceof Error) {

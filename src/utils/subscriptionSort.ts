@@ -14,6 +14,14 @@ const COMPARATORS = {
 
 export type SubscriptionSortKey = keyof typeof COMPARATORS;
 
+export const SUBSCRIPTION_SORT_KEYS: readonly SubscriptionSortKey[] = [
+  'MONTHLY_DESC',
+  'MONTHLY_ASC',
+  'ANNUAL_DESC',
+  'NEXT_CHARGE',
+  'NAME',
+];
+
 export const SUBSCRIPTION_SORT_OPTIONS: {
   value: SubscriptionSortKey;
   label: string;

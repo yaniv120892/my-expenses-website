@@ -16,9 +16,9 @@ vi.mock('next/server', async () => ({
   after: vi.fn(),
 }));
 
+import { z } from 'zod';
 import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
-import { idParamsSchema } from '@/shared/schemas/params';
 
 function get(): NextRequest {
   return new NextRequest('https://website.localhost/api/thing');
@@ -69,24 +69,23 @@ describe('createHandler params validation', () => {
     vi.clearAllMocks();
   });
 
-  const handler = createHandler({
+  const echoParams = createHandler({
     auth: 'public',
-    paramsSchema: idParamsSchema,
-    handler: async ({ params }) => ({ received: params.id }),
+    handler: async ({ params }) => ({ received: params }),
   });
 
-  it('passes validated params to the handler', async () => {
+  it('passes uuid params through by default', async () => {
     const id = '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a';
-    const response = await handler(get(), {
+    const response = await echoParams(get(), {
       params: Promise.resolve({ id }),
     });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ received: id });
+    expect(await response.json()).toEqual({ received: { id } });
   });
 
   it('rejects a malformed id with a schema 400, not a Prisma 500', async () => {
-    const response = await handler(get(), {
+    const response = await echoParams(get(), {
       params: Promise.resolve({ id: 'not-a-uuid' }),
     });
 
@@ -94,5 +93,37 @@ describe('createHandler params validation', () => {
     expect(await response.json()).toEqual({ message: 'id: Invalid uuid' });
     expect(logger.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('accepts a static route with no params', async () => {
+    const response = await echoParams(get(), routeContext);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: {} });
+  });
+
+  it('accepts a static route whose params promise resolves undefined', async () => {
+    // What Next actually passes for a static route — not an empty object.
+    const response = await echoParams(get(), {
+      params: Promise.resolve(undefined),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: {} });
+  });
+
+  it('lets a route opt out of uuid validation with its own schema', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      paramsSchema: z.object({ slug: z.string().min(1) }),
+      handler: async ({ params }) => ({ slug: params.slug }),
+    });
+
+    const response = await handler(get(), {
+      params: Promise.resolve({ slug: 'monthly-report' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ slug: 'monthly-report' });
   });
 });

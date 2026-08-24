@@ -1,18 +1,15 @@
 import { createHandler } from '@/server/http/handler';
-import { idParamsSchema } from '@/shared/schemas/params';
 import { attachFileSchema } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
 
 export const GET = createHandler({
   auth: 'session',
-  paramsSchema: idParamsSchema,
   handler: async ({ userId, params }) =>
     transactionService.getTransactionFiles(params.id, userId),
 });
 
 export const POST = createHandler({
   auth: 'session',
-  paramsSchema: idParamsSchema,
   bodySchema: attachFileSchema,
   status: 201,
   handler: async ({ userId, body, params }) => {

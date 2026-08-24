@@ -5,11 +5,9 @@ import {
   isMemoryEnabled,
 } from '@/server/services/assistant/memory';
 import { USER_ID_CONTEXT_KEY } from '@/server/services/assistant/tools';
+import type { ChatMessage } from '@/shared/schemas/chat';
 
-export interface ChatMessage {
-  sender: string;
-  text: string;
-}
+export type { ChatMessage };
 
 type OutgoingMessage =
   { role: 'user'; content: string } | { role: 'assistant'; content: string };

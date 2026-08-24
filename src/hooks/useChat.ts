@@ -1,11 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import { handleApiError } from '@/utils/api';
 import { streamMessage } from '../services/chatService';
+import type { ChatMessage } from '@/shared/schemas/chat';
 
-export interface Message {
-  sender: 'user' | 'bot';
-  text: string;
-}
+export type Message = ChatMessage;
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);

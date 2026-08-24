@@ -3,15 +3,17 @@ import { createHandler } from '@/server/http/handler';
 import { verifyLoginCodeSchema } from '@/shared/schemas/auth';
 import authService from '@/server/services/authService';
 import { setSessionCookie } from '@/server/auth/cookies';
-import { clientIp, enforceRateLimit } from '@/server/http/rateLimit';
+import { RATE_LIMITS, resolveClientIp } from '@/server/http/rateLimit';
 
 export const POST = createHandler({
   auth: 'public',
   bodySchema: verifyLoginCodeSchema,
-  handler: async ({ req, body }) => {
-    // Per-email guessing is already capped by loginCodeAttempts in
-    // authService; this stops one host hammering many emails.
-    await enforceRateLimit(`verify:ip:${clientIp(req)}`, 20, 900);
+  // Per-email guessing is already capped by loginCodeAttempts in
+  // authService; this stops one host hammering many emails.
+  rateLimit: ({ req }) => [
+    { key: `verify:ip:${resolveClientIp(req)}`, ...RATE_LIMITS.verify },
+  ],
+  handler: async ({ body }) => {
     const result = await authService.verifyLoginCode(body.email, body.code);
     if (result.error || !result.token) {
       return NextResponse.json(

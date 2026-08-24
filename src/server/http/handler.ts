@@ -5,6 +5,7 @@ import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
+import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
@@ -27,6 +28,12 @@ interface BaseHandlerOptions<TBody, TQuery, TResult> {
   handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
 }
 
+// Rules are derived from the request context, so a key can be built from
+// whichever identity the route limits by: IP, email, or user id.
+type RateLimitResolver<TBody, TQuery> = (
+  handlerContext: HandlerContext<TBody, TQuery>,
+) => RateLimitRule[];
+
 type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
   TBody,
   TQuery,
@@ -37,8 +44,20 @@ type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
         auth: 'cron';
         // Better Stack heartbeat env var, pinged only after a <400 response.
         heartbeatEnvVar?: string;
+        rateLimit?: never;
       }
-    | { auth: Exclude<AuthMode, 'cron'>; heartbeatEnvVar?: never }
+    | {
+        // Required on public routes so a new one cannot ship unlimited by
+        // omission; 'none' is the deliberate opt-out.
+        auth: 'public';
+        rateLimit: RateLimitResolver<TBody, TQuery> | 'none';
+        heartbeatEnvVar?: never;
+      }
+    | {
+        auth: 'session' | 'telegram';
+        rateLimit?: RateLimitResolver<TBody, TQuery>;
+        heartbeatEnvVar?: never;
+      }
   );
 
 // Next passes segment params for dynamic routes; static routes get an empty
@@ -140,13 +159,12 @@ export function createHandler<
           )
         : (undefined as TQuery);
 
-      const result = await options.handler({
-        req,
-        userId,
-        body,
-        query,
-        params,
-      });
+      const handlerContext = { req, userId, body, query, params };
+      if (options.rateLimit && options.rateLimit !== 'none') {
+        await enforceRateLimits(options.rateLimit(handlerContext));
+      }
+
+      const result = await options.handler(handlerContext);
       // A handler may return a full Response (cookies, streams); anything
       // else is JSON-wrapped. null serializes as null; undefined becomes {}.
       if (result instanceof Response) {

@@ -4,9 +4,10 @@ import http from 'http';
  * Minimal stand-in for the Upstash REST API.
  *
  * `@upstash/redis` speaks HTTP/REST rather than the Redis wire protocol, so a
- * local redis-server cannot be used. Only the commands redisProvider issues are
- * implemented (set/get/del); values are stored verbatim, since the client
- * serialises before sending and parses after receiving.
+ * local redis-server cannot be used. Only the commands the server issues are
+ * implemented (set/get/del/incr/expire); values are stored verbatim, since the
+ * client serialises before sending and parses after receiving. TTLs are not
+ * simulated — counters live until the shim restarts, which outlives any test.
  */
 const store = new Map<string, string>();
 
@@ -21,6 +22,13 @@ function runCommand(command: unknown[]): unknown {
       return store.has(key) ? store.get(key) : null;
     case 'del':
       return store.delete(key) ? 1 : 0;
+    case 'incr': {
+      const next = Number(store.get(key) ?? '0') + 1;
+      store.set(key, String(next));
+      return next;
+    }
+    case 'expire':
+      return store.has(key) ? 1 : 0;
     default:
       return null;
   }

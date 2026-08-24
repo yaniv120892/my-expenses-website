@@ -5,6 +5,7 @@ import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
+import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
@@ -79,21 +80,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-// Prisma request errors carry a P-prefixed `code`. Mapping the recoverable
-// ones here covers every repository at once, so e.g. an update that matched no
-// row (wrong id or wrong owner) is a 404 rather than a 500 that logs, pages,
-// and echoes Prisma's invocation text.
-const PRISMA_ERROR_RESPONSES: Record<
-  string,
-  { status: number; message: string }
-> = {
-  P2025: { status: 404, message: 'Not found' },
-  P2002: { status: 409, message: 'Already exists' },
-  P2003: { status: 400, message: 'Invalid reference' },
-  P2023: { status: 400, message: 'Invalid identifier' },
-};
-
-function errorResponse(err: unknown): NextResponse {
+function errorResponse(err: unknown, auth: AuthMode): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
@@ -109,24 +96,20 @@ function errorResponse(err: unknown): NextResponse {
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const prismaCode = (err as { code?: unknown } | null)?.code;
-  if (typeof prismaCode === 'string' && prismaCode in PRISMA_ERROR_RESPONSES) {
-    const mapped = PRISMA_ERROR_RESPONSES[prismaCode];
-    return NextResponse.json(
-      { message: mapped.message },
-      { status: mapped.status },
-    );
+  // Only routes with a human client get the 4xx mapping. A cron or Telegram
+  // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
+  // logging and alerting.
+  if (auth === 'session' || auth === 'public') {
+    const prismaHttpError = prismaErrorToHttpError(err);
+    if (prismaHttpError) {
+      return errorResponse(prismaHttpError, auth);
+    }
   }
-  const error = (err ?? {}) as { status?: number };
-  // An error never maps to a success status: callers (heartbeats, the 5xx log)
-  // read `status < 400` as "the handler resolved".
-  const status = error.status && error.status >= 400 ? error.status : 500;
-  // The real message goes to the log and Sentry below; returning it here
-  // leaked Prisma invocation text, `requireEnv` names, and upstream service
-  // bodies to clients.
+  // Neutral to the client — the real message goes to the log and Sentry below.
+  // Any deliberate client-facing status must be thrown as an HttpError.
   return NextResponse.json(
-    { message: status >= 500 ? 'Internal Server Error' : 'Request failed' },
-    { status },
+    { message: 'Internal Server Error' },
+    { status: 500 },
   );
 }
 
@@ -185,7 +168,7 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err);
+      response = errorResponse(err, options.auth);
       if (response.status >= 500) {
         logger.error(
           { requestId, path, err, ...(userId && { userId }) },

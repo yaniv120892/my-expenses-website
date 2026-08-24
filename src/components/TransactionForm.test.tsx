@@ -8,7 +8,7 @@ import TransactionForm from '@/components/TransactionForm';
 // The attachments panel fetches the edit row's files on render; the reset
 // rules under test never need the network.
 vi.mock('@/services/transactionFileService', () => ({
-  getTransactionFiles: vi.fn().mockResolvedValue([]),
+  listFiles: vi.fn().mockResolvedValue([]),
 }));
 
 afterEach(cleanup);
@@ -46,6 +46,19 @@ function descriptionInput(): HTMLInputElement {
 }
 
 describe('TransactionForm reset rules', () => {
+  it('populates from initialData on first mount', () => {
+    renderWithClient(
+      <TransactionForm
+        open
+        onCloseAction={() => {}}
+        onSubmitAction={async () => {}}
+        initialData={EDIT_ROW}
+      />,
+    );
+
+    expect(descriptionInput().value).toBe('Supermarket');
+  });
+
   it('keeps typed input across a parent re-render with a fresh initialData object', () => {
     renderWithClient(<EditHarness />);
 

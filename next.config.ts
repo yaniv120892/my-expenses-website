@@ -1,7 +1,26 @@
 import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
 
+// A full Content-Security-Policy is deliberately absent: MUI/emotion inject
+// runtime <style> tags, so a real CSP needs nonces and belongs in its own
+// change, starting in Report-Only. HSTS is set by Vercel at the edge.
+const securityHeaders = [
+  // Clickjacking: the app has one-click destructive actions behind a cookie.
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=()',
+  },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
   serverExternalPackages: [
     '@prisma/client',
     'prisma-field-encryption',

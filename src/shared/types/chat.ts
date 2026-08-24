@@ -9,6 +9,12 @@ export type AggregationType =
   | 'min_max'
   | 'list';
 
+// The aggregations SQL can answer exactly from grouped sums, with no row cap.
+export type TotalsAggregationType = Extract<
+  AggregationType,
+  'total' | 'average' | 'count'
+>;
+
 export interface AggregationResult {
   summary: string;
   data: Record<string, number | string>;

@@ -8,14 +8,15 @@ import categoryRepository from '@/server/repositories/categoryRepository';
 import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
 import { formatCurrencyPlain } from '@/utils/format';
-import { Transaction } from '@/shared/types/transaction';
-import { AggregationType } from '@/shared/types/chat';
+import { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import { AggregationType, TotalsAggregationType } from '@/shared/types/chat';
 import { TREND_PERIODS } from '@/shared/types/trends';
 
 export const USER_ID_CONTEXT_KEY = 'userId';
 
-// Caps rows returned per tool call, not rows read — the smart-search path in
-// the repository still selects all matches and paginates in memory.
+// Row-level aggregations (lists, breakdowns, min/max) read at most this many
+// rows; when more match, the result carries an explicit partial-data note.
+// Totals, counts and averages never hit the cap — they are computed in SQL.
 const MAX_TRANSACTIONS = 5000;
 
 /**
@@ -65,6 +66,12 @@ type DateFilterInput = z.infer<typeof dateFilterSchema> & {
 const summaryOutputSchema = z.object({
   summary: z.string(),
   transactionCount: z.number(),
+  resolvedCategory: z
+    .string()
+    .nullable()
+    .describe(
+      'The category the figures actually cover, or null when unfiltered',
+    ),
 });
 
 const periodSchema = (exampleLabel: string) =>
@@ -74,9 +81,18 @@ const periodSchema = (exampleLabel: string) =>
     endDate: z.string().describe('Inclusive end date, YYYY-MM-DD'),
   });
 
-async function resolveCategoryId(
+type ResolvedCategory = { id: string; name: string };
+
+/**
+ * A name that resolves to nothing or to several categories is a tool error,
+ * never a silently dropped or arbitrarily chosen filter — the earlier
+ * behaviour answered "how much on Groceries?" with the total across every
+ * category. The error text is model-facing: it lists the near matches so the
+ * model can retry with an exact name.
+ */
+async function resolveCategory(
   categoryName?: string,
-): Promise<string | undefined> {
+): Promise<ResolvedCategory | undefined> {
   if (!categoryName) {
     return undefined;
   }
@@ -84,48 +100,118 @@ async function resolveCategoryId(
   const categories = await categoryRepository.getAllCategories();
   const lowerName = categoryName.toLowerCase();
 
-  const exact = categories.find((c) => c.name.toLowerCase() === lowerName);
+  const exact = categories.find(
+    (category) => category.name.toLowerCase() === lowerName,
+  );
   if (exact) {
-    return exact.id;
+    return { id: exact.id, name: exact.name };
   }
 
-  const partial = categories.find((c) =>
-    c.name.toLowerCase().includes(lowerName),
+  const partials = categories.filter(
+    (category) =>
+      category.name.toLowerCase().includes(lowerName) ||
+      lowerName.includes(category.name.toLowerCase()),
   );
-  return partial?.id;
+  if (partials.length === 1) {
+    return { id: partials[0].id, name: partials[0].name };
+  }
+
+  const nearMatches = partials.map((category) => category.name);
+  throw new Error(
+    nearMatches.length
+      ? `Category "${categoryName}" is ambiguous. Close matches: ${nearMatches.join(', ')}. Retry with one exact name.`
+      : `Unknown category "${categoryName}". Call listCategories and retry with an exact name from the list.`,
+  );
+}
+
+function isTotalsAggregation(
+  aggregation: AggregationType,
+): aggregation is TotalsAggregationType {
+  switch (aggregation) {
+    case 'total':
+    case 'average':
+    case 'count':
+      return true;
+    default:
+      return false;
+  }
 }
 
 async function summarize(
   userId: string,
   filters: DateFilterInput,
   aggregation: AggregationType,
-): Promise<{ summary: string; transactionCount: number }> {
-  const transactions = await fetchTransactions(userId, filters);
-  const { summary, transactionCount } = chatAggregationService.aggregate(
-    transactions,
-    aggregation,
-  );
-  return { summary, transactionCount };
+): Promise<{
+  summary: string;
+  transactionCount: number;
+  resolvedCategory: string | null;
+}> {
+  const category = await resolveCategory(filters.categoryName);
+  const scoped = { ...filters, categoryId: filters.categoryId ?? category?.id };
+
+  const result = isTotalsAggregation(aggregation)
+    ? chatAggregationService.aggregateFromTotals(
+        await fetchTotals(userId, scoped),
+        aggregation,
+      )
+    : await aggregateRows(userId, scoped, aggregation);
+
+  return {
+    summary: result.summary,
+    transactionCount: result.transactionCount,
+    resolvedCategory: category?.name ?? null,
+  };
 }
 
-async function fetchTransactions(
+async function aggregateRows(
   userId: string,
   filters: DateFilterInput,
-): Promise<Transaction[]> {
-  const categoryId =
-    filters.categoryId ?? (await resolveCategoryId(filters.categoryName));
+  aggregation: AggregationType,
+): Promise<{ summary: string; transactionCount: number }> {
+  const [transactions, totals] = await Promise.all([
+    fetchTransactions(userId, filters),
+    fetchTotals(userId, filters),
+  ]);
+  const result = chatAggregationService.aggregate(transactions, aggregation);
+  if (totals.count <= transactions.length) {
+    return result;
+  }
+  return {
+    ...result,
+    summary: `${result.summary}\n\nNote: computed from the newest ${transactions.length} of ${totals.count} matching transactions — report these figures as partial.`,
+  };
+}
 
-  return transactionRepository.getTransactions({
+function toRepositoryFilters(userId: string, filters: DateFilterInput) {
+  return {
     userId,
-    page: 1,
-    perPage: MAX_TRANSACTIONS,
     ...(filters.startDate ? { startDate: new Date(filters.startDate) } : {}),
     ...(filters.endDate ? { endDate: new Date(filters.endDate) } : {}),
     ...(filters.transactionType
       ? { transactionType: filters.transactionType }
       : {}),
     ...(filters.searchTerm ? { searchTerm: filters.searchTerm } : {}),
-    ...(categoryId ? { categoryId } : {}),
+    ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+  };
+}
+
+async function fetchTotals(
+  userId: string,
+  filters: DateFilterInput,
+): Promise<TransactionSummary> {
+  return transactionRepository.getTransactionsSummary(
+    toRepositoryFilters(userId, filters),
+  );
+}
+
+async function fetchTransactions(
+  userId: string,
+  filters: DateFilterInput,
+): Promise<Transaction[]> {
+  return transactionRepository.getTransactions({
+    ...toRepositoryFilters(userId, filters),
+    page: 1,
+    perPage: MAX_TRANSACTIONS,
   });
 }
 
@@ -198,32 +284,44 @@ export function buildAssistantTools() {
 
       // Resolved once and shared so each period does not re-fetch the
       // category list to map the same name.
+      const category = await resolveCategory(input.categoryName);
       const shared: DateFilterInput = {
-        categoryId: await resolveCategoryId(input.categoryName),
+        categoryId: category?.id,
         transactionType: input.transactionType,
       };
 
-      const [transactionsA, transactionsB] = await Promise.all([
-        fetchTransactions(userId, {
+      // SQL totals rather than loaded rows, so the comparison stays exact
+      // however many transactions each period holds.
+      const [totalsA, totalsB] = await Promise.all([
+        fetchTotals(userId, {
           ...shared,
           startDate: input.periodA.startDate,
           endDate: input.periodA.endDate,
         }),
-        fetchTransactions(userId, {
+        fetchTotals(userId, {
           ...shared,
           startDate: input.periodB.startDate,
           endDate: input.periodB.endDate,
         }),
       ]);
 
-      const result = chatAggregationService.computeComparison(
-        { label: input.periodA.label, transactions: transactionsA },
-        { label: input.periodB.label, transactions: transactionsB },
+      const result = chatAggregationService.computeComparisonFromTotals(
+        {
+          label: input.periodA.label,
+          total: totalsA.totalIncome + totalsA.totalExpense,
+          count: totalsA.count,
+        },
+        {
+          label: input.periodB.label,
+          total: totalsB.totalIncome + totalsB.totalExpense,
+          count: totalsB.count,
+        },
       );
 
       return {
         summary: result.summary,
         transactionCount: result.transactionCount,
+        resolvedCategory: category?.name ?? null,
       };
     },
   });
@@ -251,7 +349,8 @@ export function buildAssistantTools() {
     }),
     execute: async (input, context) => {
       const userId = requireUserId(context);
-      const categoryId = await resolveCategoryId(input.categoryName);
+      const category = await resolveCategory(input.categoryName);
+      const categoryId = category?.id;
 
       const request = {
         period: input.period,
@@ -288,7 +387,7 @@ export function buildAssistantTools() {
 
       return {
         summary: [
-          `Spending trend (${trend.period}) from ${trend.startDate} to ${trend.endDate}:`,
+          `Spending trend (${trend.period}${category ? `, category ${category.name}` : ''}) from ${trend.startDate} to ${trend.endDate}:`,
           ...points,
           `\nTotal: ${formatCurrencyPlain(trend.totalAmount)}`,
           `Change vs previous period: ${chatAggregationService.formatPercentChange(trend.percentageChange)} (trending ${trend.trend})`,

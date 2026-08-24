@@ -1,10 +1,17 @@
-import { Transaction } from '@/shared/types/transaction';
+import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 import {
   AggregationType,
   AggregationResult,
   ComparisonPeriod,
+  TotalsAggregationType,
 } from '@/shared/types/chat';
 import { formatCurrencyPlain } from '@/utils/format';
+
+export interface ComparisonPeriodTotals {
+  label: string;
+  total: number;
+  count: number;
+}
 
 class ChatAggregationService {
   /**
@@ -54,6 +61,103 @@ class ChatAggregationService {
       data,
       transactionCount:
         periodA.transactions.length + periodB.transactions.length,
+    };
+  }
+
+  /**
+   * The totals-based twin of aggregate(): same output text, computed from a
+   * SQL summary instead of loaded rows, so it is exact however many rows
+   * match. Word-for-word parity with the row versions is asserted in tests.
+   */
+  public aggregateFromTotals(
+    totals: TransactionSummary,
+    aggregationType: TotalsAggregationType,
+  ): AggregationResult {
+    switch (aggregationType) {
+      case 'total': {
+        const net = totals.totalIncome - totals.totalExpense;
+        return {
+          summary: [
+            `Total Income: ${formatCurrencyPlain(totals.totalIncome)}`,
+            `Total Expenses: ${formatCurrencyPlain(totals.totalExpense)}`,
+            `Net: ${formatCurrencyPlain(net)}`,
+          ].join('\n'),
+          data: {
+            income: totals.totalIncome,
+            expense: totals.totalExpense,
+            net,
+          },
+          transactionCount: totals.count,
+        };
+      }
+      case 'average': {
+        if (totals.count === 0) {
+          return {
+            summary: 'No transactions found to calculate an average.',
+            data: { average: 0 },
+            transactionCount: 0,
+          };
+        }
+        const total = totals.totalIncome + totals.totalExpense;
+        const average = this.round(total / totals.count);
+        return {
+          summary: `Average transaction value: ${formatCurrencyPlain(average)} (across ${totals.count} transactions, total: ${formatCurrencyPlain(total)})`,
+          data: { average, total, count: totals.count },
+          transactionCount: totals.count,
+        };
+      }
+      case 'count':
+        return {
+          summary: `Total transactions: ${totals.count} (${totals.incomeCount} income, ${totals.expenseCount} expenses)`,
+          data: {
+            total: totals.count,
+            incomeCount: totals.incomeCount,
+            expenseCount: totals.expenseCount,
+          },
+          transactionCount: totals.count,
+        };
+    }
+  }
+
+  /** The totals-based twin of computeComparison(), same output text. */
+  public computeComparisonFromTotals(
+    periodA: ComparisonPeriodTotals,
+    periodB: ComparisonPeriodTotals,
+  ): AggregationResult {
+    const totalA = this.round(periodA.total);
+    const totalB = this.round(periodB.total);
+    const difference = this.round(totalB - totalA);
+
+    const lines = [
+      `${periodA.label}: ${formatCurrencyPlain(totalA)} (${this.pluralize(periodA.count, 'transaction')})`,
+      `${periodB.label}: ${formatCurrencyPlain(totalB)} (${this.pluralize(periodB.count, 'transaction')})`,
+      `Difference: ${difference >= 0 ? '+' : '-'}${formatCurrencyPlain(Math.abs(difference))} (${periodB.label} vs ${periodA.label})`,
+    ];
+
+    const data: Record<string, number | string> = {
+      [`${periodA.label} total`]: totalA,
+      [`${periodB.label} total`]: totalB,
+      difference,
+    };
+
+    if (totalA === 0) {
+      lines.push(
+        totalB === 0
+          ? 'Percentage change: not applicable (both periods are zero)'
+          : `Percentage change: not applicable (${periodA.label} has no transactions to compare against)`,
+      );
+    } else {
+      const percentChange = this.round((difference / totalA) * 100);
+      lines.push(
+        `Percentage change: ${this.formatPercentChange(percentChange)}`,
+      );
+      data.percentChange = percentChange;
+    }
+
+    return {
+      summary: lines.join('\n'),
+      data,
+      transactionCount: periodA.count + periodB.count,
     };
   }
 

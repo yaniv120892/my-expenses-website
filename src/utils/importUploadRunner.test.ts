@@ -144,7 +144,9 @@ describe('runUploadBatch', () => {
   it('turns a failure into a row error without stopping the batch', async () => {
     const api = buildApi({
       processImport: vi.fn(async (_url, name) => {
-        if (name === 'bad.csv') throw new Error('Unsupported file type');
+        if (name === 'bad.csv') {
+          throw new Error('Unsupported file type');
+        }
         return { id: 'import-ok' };
       }),
     });

@@ -39,7 +39,9 @@ export default function BatchProgressIndicator({
     );
   }
 
-  if (!result) return null;
+  if (!result) {
+    return null;
+  }
 
   const severity =
     result.failed === 0

@@ -27,7 +27,7 @@ class BackupService {
     const fileName = `transactions-backup_${userId}-${new Date().toISOString().slice(0, 10)}.csv`;
     const fileBuffer = Buffer.from(csv, 'utf8');
     const mimeType = 'text/csv';
-    logger.debug(`Uploading backup file: ${fileName}`);
+    logger.debug({ fileName }, 'Uploading backup file');
     return this.getStorageProvider().uploadBackup(
       fileName,
       fileBuffer,

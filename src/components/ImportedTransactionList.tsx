@@ -382,7 +382,9 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   };
 
   const handleFormSubmit = async (data: CreateTransactionInput) => {
-    if (!selectedTransaction) return;
+    if (!selectedTransaction) {
+      return;
+    }
 
     const operationType = formMode === 'merge' ? 'merge' : 'approve';
     setPendingOperations((prev) => ({
@@ -432,11 +434,11 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     );
   }
 
-  const sections: Array<{
+  const sections: {
     label: string;
     color: string;
     items: ImportedTransaction[];
-  }> = [
+  }[] = [
     {
       label: `Expenses (${expenseTransactions.length})`,
       color: chartColors.expense,

@@ -75,7 +75,9 @@ export function translateToScheduleSummary(
     }.`;
   }
   if (scheduleType === 'WEEKLY') {
-    if (!dayOfWeek) return 'Choose a day of week.';
+    if (!dayOfWeek) {
+      return 'Choose a day of week.';
+    }
     const weekInterval =
       interval && interval > 1 ? `every ${interval} weeks` : 'every week';
     const days = [
@@ -90,7 +92,9 @@ export function translateToScheduleSummary(
     return `Runs ${weekInterval} on ${days[(dayOfWeek - 1) % 7]}.`;
   }
   if (scheduleType === 'MONTHLY') {
-    if (!dayOfMonth) return 'Choose a day of month.';
+    if (!dayOfMonth) {
+      return 'Choose a day of month.';
+    }
     const monthInterval =
       interval && interval > 1 ? `every ${interval} months` : 'every month';
     return `Runs ${monthInterval} on day ${dayOfMonth}.`;

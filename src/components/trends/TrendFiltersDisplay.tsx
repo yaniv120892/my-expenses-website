@@ -49,7 +49,9 @@ export const TrendFiltersDisplay = ({
   };
 
   const getCategoryName = () => {
-    if (selectedCategory === 'All Categories') return 'All Categories';
+    if (selectedCategory === 'All Categories') {
+      return 'All Categories';
+    }
     return categories.find((c) => c.id === selectedCategory)?.name || '';
   };
 

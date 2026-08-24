@@ -41,7 +41,9 @@ export default function ConvertToScheduledDialog({
   }, [open, subscription]);
 
   function handleSubmit() {
-    if (!subscription || !categoryId) return;
+    if (!subscription || !categoryId) {
+      return;
+    }
     onConvert(subscription.id, categoryId);
   }
 

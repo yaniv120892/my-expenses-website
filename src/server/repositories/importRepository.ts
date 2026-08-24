@@ -15,7 +15,7 @@ export type ImportWithPendingCount = Import & {
 };
 
 export class ImportRepository {
-  async create(data: {
+  public async create(data: {
     fileUrl: string;
     originalFileName: string;
     importType: ImportFileType | null;
@@ -33,13 +33,13 @@ export class ImportRepository {
     });
   }
 
-  async findById(id: string): Promise<Import | null> {
+  public async findById(id: string): Promise<Import | null> {
     return prisma.import.findUnique({
       where: { id },
     });
   }
 
-  async findByUserId(userId: string): Promise<ImportWithPendingCount[]> {
+  public async findByUserId(userId: string): Promise<ImportWithPendingCount[]> {
     return prisma.import.findMany({
       where: { userId, deleted: false },
       orderBy: [{ createdAt: 'desc' }, { paymentMonth: 'desc' }],
@@ -58,7 +58,7 @@ export class ImportRepository {
     });
   }
 
-  async findByExtractionRequestId(
+  public async findByExtractionRequestId(
     excelExtractionRequestId: string,
   ): Promise<Import | null> {
     return prisma.import.findUnique({
@@ -77,7 +77,7 @@ export class ImportRepository {
    * rows, so a merge cannot dedupe against a set that is still being filled.
    * Two callbacks racing each other simply both survive as separate imports.
    */
-  async findExisting(
+  public async findExisting(
     userId: string,
     paymentMonth: string,
     creditCardLastFourDigits: string,
@@ -110,7 +110,7 @@ export class ImportRepository {
    * callback already claimed it. The conditional update is the serialization
    * point that makes a redelivered webhook a no-op.
    */
-  async claimExtraction(id: string): Promise<boolean> {
+  public async claimExtraction(id: string): Promise<boolean> {
     const claimed = await prisma.import.updateMany({
       where: { id, extractionCompletedAt: null },
       data: { extractionCompletedAt: new Date() },
@@ -119,14 +119,14 @@ export class ImportRepository {
     return claimed.count > 0;
   }
 
-  async softDelete(id: string, userId: string): Promise<void> {
+  public async softDelete(id: string, userId: string): Promise<void> {
     await prisma.import.update({
       where: { id, userId },
       data: { deleted: true },
     });
   }
 
-  async updateStatus(
+  public async updateStatus(
     id: string,
     status: ImportStatus,
     error?: string,

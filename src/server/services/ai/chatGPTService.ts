@@ -18,7 +18,7 @@ export class ChatGPTService implements AIProvider {
       }),
   );
 
-  async generateContent(prompt: string): Promise<string> {
+  public async generateContent(prompt: string): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4-turbo',
@@ -38,7 +38,7 @@ export class ChatGPTService implements AIProvider {
     }
   }
 
-  async analyzeExpenses(
+  public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string> {
@@ -66,7 +66,7 @@ export class ChatGPTService implements AIProvider {
     }
   }
 
-  async suggestCategory(
+  public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
@@ -107,12 +107,14 @@ export class ChatGPTService implements AIProvider {
     }
   }
 
-  async findMatchingTransaction(
+  public async findMatchingTransaction(
     importedDescription: string,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
     try {
-      if (!potentialMatches.length) return null;
+      if (!potentialMatches.length) {
+        return null;
+      }
 
       const response = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4-turbo',

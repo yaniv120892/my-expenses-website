@@ -33,7 +33,9 @@ const STATUS_CHIPS: Record<
 
 function formatSize(bytes: number): string {
   const megabytes = bytes / (1024 * 1024);
-  if (megabytes >= 1) return `${megabytes.toFixed(1)} MB`;
+  if (megabytes >= 1) {
+    return `${megabytes.toFixed(1)} MB`;
+  }
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
@@ -52,7 +54,9 @@ export default function UploadQueueList({
   onRetry,
   onPaymentMonthChange,
 }: UploadQueueListProps) {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <Stack spacing={1.5} sx={{ mt: 2 }}>

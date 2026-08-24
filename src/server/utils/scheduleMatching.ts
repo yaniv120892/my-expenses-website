@@ -51,11 +51,15 @@ export function findScheduleMatch(
     const linked = schedules.find(
       ({ schedule }) => schedule.id === subscription.scheduledTransactionId,
     );
-    if (linked) return toMatch(linked.schedule, 'LINKED');
+    if (linked) {
+      return toMatch(linked.schedule, 'LINKED');
+    }
   }
 
   const merchantKey = subscription.merchantName.trim();
-  if (!merchantKey) return undefined;
+  if (!merchantKey) {
+    return undefined;
+  }
 
   const byName = schedules.find(
     ({ merchantKey: scheduleKey }) =>

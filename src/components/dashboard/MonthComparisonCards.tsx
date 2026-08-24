@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Box, Card, CardContent, Stack, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Card,
+  CardContent,
+  Stack,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
@@ -27,7 +34,9 @@ function ComparisonCard({
   const { charts } = theme.palette;
 
   const getChangeColor = () => {
-    if (change.trend === 'stable') return theme.palette.text.secondary;
+    if (change.trend === 'stable') {
+      return theme.palette.text.secondary;
+    }
     if (invertColors) {
       return change.trend === 'up' ? charts.expense : charts.income;
     }

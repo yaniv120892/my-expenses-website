@@ -71,7 +71,9 @@ export function useMultiFileImport({
    */
   const runBatch = useCallback(
     async (batch: UploadItem[]) => {
-      if (isRunningRef.current || batch.length === 0) return;
+      if (isRunningRef.current || batch.length === 0) {
+        return;
+      }
 
       isRunningRef.current = true;
       notifiedRef.current = false;
@@ -95,8 +97,12 @@ export function useMultiFileImport({
   // Completion is decided from the whole queue, not the batch: retrying one of
   // several failed rows must not report success while the others are still red.
   useEffect(() => {
-    if (!isDrained || notifiedRef.current) return;
-    if (selectFailedItems(state).length > 0) return;
+    if (!isDrained || notifiedRef.current) {
+      return;
+    }
+    if (selectFailedItems(state).length > 0) {
+      return;
+    }
 
     notifiedRef.current = true;
     onAllSucceeded?.();
@@ -104,7 +110,9 @@ export function useMultiFileImport({
 
   const requeueAndRun = useCallback(
     (items: UploadItem[]) => {
-      if (items.length === 0) return;
+      if (items.length === 0) {
+        return;
+      }
 
       dispatch({ type: 'REQUEUE', ids: items.map((item) => item.id) });
       void runBatch(items.map(toQueuedItem));

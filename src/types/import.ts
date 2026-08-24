@@ -72,7 +72,7 @@ export interface BatchResult {
   total: number;
   succeeded: number;
   failed: number;
-  errors: Array<{ id: string; error: string }>;
+  errors: { id: string; error: string }[];
 }
 
 export interface AutoApproveRule {

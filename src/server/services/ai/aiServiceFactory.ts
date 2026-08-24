@@ -3,7 +3,7 @@ import { GeminiService } from '@/server/services/ai/geminiService';
 import { AIProvider } from '@/server/services/ai/aiProvider';
 
 class AIServiceFactory {
-  static getAIService(): AIProvider {
+  public static getAIService(): AIProvider {
     const aiProvider = process.env.AI_PROVIDER?.toLowerCase();
 
     switch (aiProvider) {

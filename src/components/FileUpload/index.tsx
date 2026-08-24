@@ -56,7 +56,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
           `${rejections.length} file(s) were rejected. Supported formats: XLSX, XLS, CSV (max ${MAX_FILES_PER_BATCH} per batch).`,
         );
       }
-      if (acceptedFiles.length === 0) return;
+      if (acceptedFiles.length === 0) {
+        return;
+      }
 
       const rejectedAsFull = addFiles(acceptedFiles, paymentMonth);
       if (rejectedAsFull > 0) {

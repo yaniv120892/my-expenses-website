@@ -339,13 +339,17 @@ async function mergeIntoDuplicateImport(
   );
   // findExisting already excludes this import, and returns the globally oldest
   // match — which may still be younger than this one, so the check stands.
-  if (!existingImport) return null;
+  if (!existingImport) {
+    return null;
+  }
 
   const isOlder =
     existingImport.createdAt < createdAt ||
     (existingImport.createdAt.getTime() === createdAt.getTime() &&
       existingImport.id < importId);
-  if (!isOlder) return null;
+  if (!isOlder) {
+    return null;
+  }
 
   logger.info(
     {

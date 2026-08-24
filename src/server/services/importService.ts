@@ -23,7 +23,7 @@ interface BatchResult {
   total: number;
   succeeded: number;
   failed: number;
-  errors: Array<{ id: string; error: string }>;
+  errors: { id: string; error: string }[];
 }
 
 interface ApproveImportedTransactionData {
@@ -414,7 +414,9 @@ class ImportService {
           .includes(rule.descriptionPattern.toLowerCase()),
       );
 
-      if (!matchingRule) continue;
+      if (!matchingRule) {
+        continue;
+      }
 
       items.push({ transaction, categoryId: matchingRule.categoryId });
     }
@@ -663,7 +665,9 @@ class ImportService {
       ? matches.filter((m) => !excludedIds.has(m.id))
       : matches;
 
-    if (availableMatches.length === 0) return null;
+    if (availableMatches.length === 0) {
+      return null;
+    }
 
     const bestMatchId = await this.getAiProvider().findMatchingTransaction(
       transaction.description,

@@ -38,7 +38,9 @@ export class CategoryRepository {
       return cached;
     }
 
-    if (!id) return null;
+    if (!id) {
+      return null;
+    }
     const category = await prisma.category.findUnique({ where: { id } });
     await setValue(cacheKey, JSON.stringify(category), oneDayInSeconds);
     return category;

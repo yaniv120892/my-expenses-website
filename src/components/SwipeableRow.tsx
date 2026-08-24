@@ -38,7 +38,9 @@ export default function SwipeableRow({
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current) return;
+    if (!isDragging.current) {
+      return;
+    }
 
     const dx = e.touches[0].clientX - startX.current;
     const dy = e.touches[0].clientY - startY.current;
@@ -50,14 +52,18 @@ export default function SwipeableRow({
       return;
     }
 
-    if (!isHorizontal.current) return;
+    if (!isHorizontal.current) {
+      return;
+    }
 
     const clamped = Math.max(-THRESHOLD - 20, Math.min(THRESHOLD + 20, dx));
     setOffsetX(clamped);
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
+    if (!isDragging.current) {
+      return;
+    }
     isDragging.current = false;
 
     if (offsetX > THRESHOLD && onSwipeRight) {
@@ -88,7 +94,9 @@ export default function SwipeableRow({
   } as const;
 
   return (
-    <Box sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
+    <Box
+      sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}
+    >
       {showRight && (
         <Box sx={{ ...actionSx, left: 0, bgcolor: rightColor }}>
           {rightLabel}

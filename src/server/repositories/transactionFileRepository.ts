@@ -2,7 +2,7 @@ import { TransactionFile, TransactionFileStatus } from '@prisma/client';
 import prisma from '@/server/db/client';
 
 export class TransactionFileRepository {
-  async create(data: {
+  public async create(data: {
     transactionId: string;
     fileName: string;
     fileKey: string;
@@ -17,13 +17,15 @@ export class TransactionFileRepository {
     });
   }
 
-  async findById(id: string): Promise<TransactionFile | null> {
+  public async findById(id: string): Promise<TransactionFile | null> {
     return prisma.transactionFile.findUnique({
       where: { id },
     });
   }
 
-  async findByTransactionId(transactionId: string): Promise<TransactionFile[]> {
+  public async findByTransactionId(
+    transactionId: string,
+  ): Promise<TransactionFile[]> {
     return prisma.transactionFile.findMany({
       where: {
         transactionId,
@@ -33,7 +35,7 @@ export class TransactionFileRepository {
     });
   }
 
-  async updateStatus(
+  public async updateStatus(
     id: string,
     status: TransactionFileStatus,
   ): Promise<TransactionFile> {
@@ -43,7 +45,7 @@ export class TransactionFileRepository {
     });
   }
 
-  async markForDeletion(id: string): Promise<TransactionFile> {
+  public async markForDeletion(id: string): Promise<TransactionFile> {
     return this.updateStatus(id, TransactionFileStatus.MARKED_FOR_DELETION);
   }
 }

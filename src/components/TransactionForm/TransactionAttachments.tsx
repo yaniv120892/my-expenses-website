@@ -75,7 +75,9 @@ export default function TransactionAttachments({
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       const file = acceptedFiles[0];
-      if (!file) return;
+      if (!file) {
+        return;
+      }
       if (file.size > MAX_SIZE) {
         setError('File size exceeds 10MB limit');
         return;

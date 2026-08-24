@@ -39,7 +39,9 @@ export const streamMessage = async (
 
   const handleFrame = (frame: string) => {
     const line = frame.split('\n').find((part) => part.startsWith('data: '));
-    if (!line) return;
+    if (!line) {
+      return;
+    }
 
     try {
       const event = JSON.parse(line.slice('data: '.length));
@@ -56,7 +58,9 @@ export const streamMessage = async (
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
 

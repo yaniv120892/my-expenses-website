@@ -18,6 +18,7 @@ vi.mock('next/server', async () => ({
 
 import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
+import { idParamsSchema } from '@/shared/schemas/params';
 
 function get(): NextRequest {
   return new NextRequest('https://website.localhost/api/thing');
@@ -59,6 +60,39 @@ describe('createHandler error reporting', () => {
     const response = await handler(get(), routeContext);
 
     expect(response.status).toBe(404);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('createHandler params validation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const handler = createHandler({
+    auth: 'public',
+    paramsSchema: idParamsSchema,
+    handler: async ({ params }) => ({ received: params.id }),
+  });
+
+  it('passes validated params to the handler', async () => {
+    const id = '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a';
+    const response = await handler(get(), {
+      params: Promise.resolve({ id }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: id });
+  });
+
+  it('rejects a malformed id with a schema 400, not a Prisma 500', async () => {
+    const response = await handler(get(), {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ message: 'id: Invalid uuid' });
+    expect(logger.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
   });
 });

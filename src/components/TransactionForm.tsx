@@ -55,6 +55,11 @@ const defaultForm: TransactionFormType = {
   date: format(new Date(), 'yyyy-MM-dd'),
 };
 
+// Built per call so the default date is today's, not the module-load day.
+function freshDefaultForm(): TransactionFormType {
+  return { ...defaultForm, date: format(new Date(), 'yyyy-MM-dd') };
+}
+
 function toFormValues(initialData: TransactionFormType): TransactionFormType {
   return {
     id: initialData.id,
@@ -75,7 +80,9 @@ export default function TransactionForm({
   mode,
 }: Props) {
   const fullScreen = useIsCompact();
-  const [form, setForm] = useState<TransactionFormType>(defaultForm);
+  const [form, setForm] = useState<TransactionFormType>(() =>
+    initialData ? toFormValues(initialData) : freshDefaultForm(),
+  );
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
@@ -97,11 +104,7 @@ export default function TransactionForm({
   const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
   if (appliedResetKey !== resetKey) {
     setAppliedResetKey(resetKey);
-    setForm(
-      initialData
-        ? toFormValues(initialData)
-        : { ...defaultForm, date: format(new Date(), 'yyyy-MM-dd') },
-    );
+    setForm(initialData ? toFormValues(initialData) : freshDefaultForm());
     setErrors({});
     setPendingFiles([]);
     setFilesToRemove([]);

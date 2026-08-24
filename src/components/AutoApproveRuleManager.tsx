@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -19,19 +19,21 @@ import {
   MenuItem,
   Typography,
   CircularProgress,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CategorySelect from "./CategorySelect";
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CategorySelect from './CategorySelect';
 import {
   useAutoApproveRulesQuery,
   useCreateAutoApproveRuleMutation,
   useUpdateAutoApproveRuleMutation,
   useDeleteAutoApproveRuleMutation,
-} from "../hooks/useImports";
-import { AutoApproveRule } from "../types/import";
-import { TransactionType } from "../types";
+} from '../hooks/useImports';
+import { AutoApproveRule } from '../types/import';
+import { TransactionType } from '../types';
+import { TRANSACTION_TYPES } from '@/shared/types/transaction';
+import { isOneOf } from '@/utils/oneOf';
 
 interface RuleFormState {
   descriptionPattern: string;
@@ -40,9 +42,9 @@ interface RuleFormState {
 }
 
 const emptyForm: RuleFormState = {
-  descriptionPattern: "",
-  categoryId: "",
-  type: "EXPENSE" as TransactionType,
+  descriptionPattern: '',
+  categoryId: '',
+  type: 'EXPENSE',
 };
 
 export default function AutoApproveRuleManager() {
@@ -108,9 +110,9 @@ export default function AutoApproveRuleManager() {
     <Box>
       <Box
         sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           mb: 2,
         }}
       >
@@ -120,7 +122,7 @@ export default function AutoApproveRuleManager() {
           size="small"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform: 'none' }}
         >
           Add Rule
         </Button>
@@ -175,10 +177,10 @@ export default function AutoApproveRuleManager() {
 
       <Dialog open={formOpen} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingRule ? "Edit Rule" : "Create Auto-Approve Rule"}
+          {editingRule ? 'Edit Rule' : 'Create Auto-Approve Rule'}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
               label="Description Pattern"
               value={form.descriptionPattern}
@@ -203,12 +205,12 @@ export default function AutoApproveRuleManager() {
               select
               label="Type"
               value={form.type}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  type: e.target.value as TransactionType,
-                }))
-              }
+              onChange={(e) => {
+                const type = e.target.value;
+                if (isOneOf(TRANSACTION_TYPES, type)) {
+                  setForm((prev) => ({ ...prev, type }));
+                }
+              }}
               fullWidth
               required
             >
@@ -229,7 +231,7 @@ export default function AutoApproveRuleManager() {
               updateMutation.isPending
             }
           >
-            {editingRule ? "Update" : "Create"}
+            {editingRule ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>

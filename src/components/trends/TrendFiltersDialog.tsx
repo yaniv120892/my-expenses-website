@@ -21,7 +21,7 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  ComparisonScope,
+  COMPARISON_SCOPES,
   TrendPeriod,
   TransactionType,
   TrendFilters,
@@ -30,6 +30,7 @@ import {
 import { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { seriesColor } from '@/utils/comparison';
+import { isOneOf } from '@/utils/oneOf';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 
@@ -102,7 +103,7 @@ export const TrendFiltersDialog = ({
   const isSelectionFull = comparisonCategoryIds.length >= MAX_COMPARISON_SERIES;
 
   const handlePeriodChange = (event: SelectChangeEvent<TrendPeriod>) => {
-    setPeriod(event.target.value as TrendPeriod);
+    setPeriod(event.target.value);
   };
 
   const handleStartDateChange = (
@@ -122,7 +123,7 @@ export const TrendFiltersDialog = ({
   const handleTransactionTypeChange = (
     event: SelectChangeEvent<TransactionType>,
   ) => {
-    setTransactionType(event.target.value as TransactionType);
+    setTransactionType(event.target.value);
   };
 
   const handleApply = () => {
@@ -187,8 +188,8 @@ export const TrendFiltersDialog = ({
           exclusive
           size="small"
           onChange={(_, value) => {
-            if (value) {
-              setComparisonScope(value as ComparisonScope);
+            if (isOneOf(COMPARISON_SCOPES, value)) {
+              setComparisonScope(value);
             }
           }}
           aria-label="Category scope"

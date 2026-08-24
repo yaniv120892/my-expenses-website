@@ -12,15 +12,21 @@ import {
   Typography,
 } from '@mui/material';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
+import {
+  COMPARISON_MEASURES,
+  CategoryComparison,
+  ComparisonMeasure,
+} from '@/types/trends';
 import {
   MEASURE_LABELS,
   comparisonFileName,
   comparisonToCsv,
 } from '@/utils/comparison';
 import { downloadCsv } from '@/utils/download';
+import { isOneOf } from '@/utils/oneOf';
 import { TrendCardSkeleton } from '@/components/trends/TrendSkeleton';
 import {
+  COMPARISON_CHART_MODES,
   ComparisonChart,
   ComparisonChartMode,
 } from '@/components/trends/ComparisonChart';
@@ -116,8 +122,8 @@ export function CategoryComparisonSection({
               exclusive
               size="small"
               onChange={(_, value) => {
-                if (value) {
-                  onMeasureChange(value as ComparisonMeasure);
+                if (isOneOf(COMPARISON_MEASURES, value)) {
+                  onMeasureChange(value);
                 }
               }}
               aria-label="Measure"
@@ -135,8 +141,8 @@ export function CategoryComparisonSection({
               exclusive
               size="small"
               onChange={(_, value) => {
-                if (value) {
-                  setChartMode(value as ComparisonChartMode);
+                if (isOneOf(COMPARISON_CHART_MODES, value)) {
+                  setChartMode(value);
                 }
               }}
               aria-label="Chart type"

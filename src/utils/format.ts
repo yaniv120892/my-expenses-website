@@ -22,9 +22,13 @@ const SUBSCRIPTION_FREQUENCY_LABELS: Record<SubscriptionFrequency, string> = {
   YEARLY: 'Yearly',
 };
 
-export const SUBSCRIPTION_FREQUENCIES = Object.keys(
-  SUBSCRIPTION_FREQUENCY_LABELS,
-) as SubscriptionFrequency[];
+// Listed rather than derived from the labels, because Object.keys widens to
+// string[]. The Record above still fails to compile if a frequency has no label.
+export const SUBSCRIPTION_FREQUENCIES: readonly SubscriptionFrequency[] = [
+  'WEEKLY',
+  'MONTHLY',
+  'YEARLY',
+];
 
 export function formatSubscriptionFrequency(
   frequency: SubscriptionFrequency,

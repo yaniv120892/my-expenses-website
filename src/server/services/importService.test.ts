@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   importRepo,
@@ -342,6 +342,8 @@ describe('matchSingleTransaction', () => {
     },
   ];
 
+  const originalGetAiProvider = service.getAiProvider;
+
   beforeEach(() => {
     // The file-level beforeEach stubs the method; this describe wants the
     // real one, with the provider stubbed at its instance getter instead.
@@ -349,6 +351,12 @@ describe('matchSingleTransaction', () => {
     service.getAiProvider = () => ({ findMatchingTransaction });
     findPotentialMatches.mockResolvedValue(candidates);
     prismaMock.importedTransaction.update.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    // Direct property assignment survives vi.clearAllMocks; restore so no
+    // later describe inherits the override.
+    service.getAiProvider = originalGetAiProvider;
   });
 
   it('stores the id the provider validated', async () => {

@@ -19,6 +19,10 @@ describe('resolveMatchedTransactionId', () => {
     expect(resolveMatchedTransactionId(' tx-b ', candidates)).toBe('tx-b');
   });
 
+  it('strips the quotes completion styles wrap around the id', () => {
+    expect(resolveMatchedTransactionId('"tx-b"', candidates)).toBe('tx-b');
+  });
+
   it('rejects an id the model invented', () => {
     expect(
       resolveMatchedTransactionId(

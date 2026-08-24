@@ -15,6 +15,7 @@ import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
@@ -673,14 +674,16 @@ class ImportService {
       return null;
     }
 
-    // The provider validates the model's answer against availableMatches, so
-    // this is a real candidate id or null — never an invented id, and never
-    // a default to the first candidate.
-    const matchingTransactionId =
+    // Providers validate their answer already; re-applying the idempotent
+    // resolver here makes "never an invented id" structural rather than a
+    // contract a future provider could forget.
+    const matchingTransactionId = resolveMatchedTransactionId(
       await this.getAiProvider().findMatchingTransaction(
         transaction.description,
         availableMatches,
-      );
+      ),
+      availableMatches,
+    );
 
     if (matchingTransactionId) {
       await prisma.importedTransaction.update({

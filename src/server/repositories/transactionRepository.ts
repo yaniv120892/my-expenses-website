@@ -70,15 +70,18 @@ class TransactionRepository {
       where: this.buildListWhere(filters, startDate, endDate),
     });
 
-    const groupOf = (type: TransactionType) =>
-      groups.find((group) => group.type === type);
-
-    const incomeCount = groupOf(TransactionType.INCOME)?._count._all ?? 0;
-    const expenseCount = groupOf(TransactionType.EXPENSE)?._count._all ?? 0;
+    const incomeGroup = groups.find(
+      (group) => group.type === TransactionType.INCOME,
+    );
+    const expenseGroup = groups.find(
+      (group) => group.type === TransactionType.EXPENSE,
+    );
+    const incomeCount = incomeGroup?._count._all ?? 0;
+    const expenseCount = expenseGroup?._count._all ?? 0;
 
     return {
-      totalIncome: groupOf(TransactionType.INCOME)?._sum.value ?? 0,
-      totalExpense: groupOf(TransactionType.EXPENSE)?._sum.value ?? 0,
+      totalIncome: incomeGroup?._sum.value ?? 0,
+      totalExpense: expenseGroup?._sum.value ?? 0,
       count: incomeCount + expenseCount,
       incomeCount,
       expenseCount,

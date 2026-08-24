@@ -45,9 +45,9 @@ async function invoke(
 }
 
 const CATEGORIES = [
-  { id: 'c-food', name: 'Food & Groceries' },
-  { id: 'c-fast', name: 'Fast Food' },
-  { id: 'c-rent', name: 'Rent' },
+  { id: 'c-food', name: 'Food & Groceries', parentId: null },
+  { id: 'c-fast', name: 'Fast Food', parentId: 'c-food' },
+  { id: 'c-rent', name: 'Rent', parentId: null },
 ];
 
 function row(value: number): Transaction {
@@ -103,15 +103,20 @@ describe('category resolution', () => {
     ).rejects.toThrow(/ambiguous.*Food & Groceries, Fast Food/);
   });
 
-  it('resolves a unique partial match and echoes the real name', async () => {
+  it('resolves a unique partial match to its whole subtree', async () => {
     const result = await invoke(tools.summarizeTransactions, {
       categoryName: 'groceries',
       aggregation: 'total',
     });
 
     expect(result.resolvedCategory).toBe('Food & Groceries');
+    // Fast Food is a child of Food & Groceries, so the figures cover it too,
+    // matching how the transactions list expands a parent category.
     expect(getTransactionsSummary).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user-1', categoryId: 'c-food' }),
+      expect.objectContaining({
+        userId: 'user-1',
+        categoryIds: ['c-food', 'c-fast'],
+      }),
     );
   });
 
@@ -139,27 +144,29 @@ describe('aggregation paths', () => {
     expect(getTransactions).not.toHaveBeenCalled();
   });
 
-  it('marks row-level results as partial when more rows match than were read', async () => {
-    getTransactions.mockResolvedValue([row(100), row(200)]);
+  it('marks row-level results as partial when the read cap was hit', async () => {
+    getTransactions.mockResolvedValue(
+      Array.from({ length: 5000 }, (_, index) => row(index + 1)),
+    );
     getTransactionsSummary.mockResolvedValue(totals({ count: 7000 }));
 
     const result = await invoke(tools.summarizeTransactions, {
       aggregation: 'breakdown_by_category',
     });
 
-    expect(result.summary).toContain('newest 2 of 7000 matching');
+    expect(result.summary).toContain('newest 5000 of 7000 matching');
     expect(result.summary).toContain('partial');
   });
 
-  it('adds no note when every matching row was read', async () => {
+  it('skips the count query and the note when the page came back short', async () => {
     getTransactions.mockResolvedValue([row(100), row(200)]);
-    getTransactionsSummary.mockResolvedValue(totals({ count: 2 }));
 
     const result = await invoke(tools.summarizeTransactions, {
       aggregation: 'breakdown_by_category',
     });
 
     expect(result.summary).not.toContain('partial');
+    expect(getTransactionsSummary).not.toHaveBeenCalled();
   });
 });
 

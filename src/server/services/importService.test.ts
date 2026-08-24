@@ -1,24 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { importRepo, importedTxRepo, prismaMock, agentClient } = vi.hoisted(
-  () => ({
-    importRepo: {
-      findById: vi.fn(),
-      updateStatus: vi.fn(),
-      create: vi.fn(),
-    },
-    importedTxRepo: {
-      findByUserIdAndImportId: vi.fn(),
-      findByImportId: vi.fn(),
-      findClaimedMatchingTransactionIds: vi.fn(),
-    },
-    prismaMock: {
-      importedTransaction: { updateMany: vi.fn() },
-      import: { updateMany: vi.fn() },
-    },
-    agentClient: { submitExtractionRequest: vi.fn() },
-  }),
-);
+const {
+  importRepo,
+  importedTxRepo,
+  prismaMock,
+  agentClient,
+  findPotentialMatches,
+  findMatchingTransaction,
+} = vi.hoisted(() => ({
+  importRepo: {
+    findById: vi.fn(),
+    updateStatus: vi.fn(),
+    create: vi.fn(),
+  },
+  importedTxRepo: {
+    findByUserIdAndImportId: vi.fn(),
+    findByImportId: vi.fn(),
+    findClaimedMatchingTransactionIds: vi.fn(),
+  },
+  prismaMock: {
+    importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
+    import: { updateMany: vi.fn() },
+  },
+  agentClient: { submitExtractionRequest: vi.fn() },
+  findPotentialMatches: vi.fn(),
+  findMatchingTransaction: vi.fn(),
+}));
 
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
@@ -27,6 +34,12 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
+vi.mock('@/server/repositories/transactionRepository', () => ({
+  default: { findPotentialMatches },
+}));
+vi.mock('@/server/services/ai/aiServiceFactory', () => ({
+  default: { getAIService: () => ({ findMatchingTransaction }) },
+}));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
 }));
@@ -313,5 +326,69 @@ describe('findPotentialMatchesForImport', () => {
     await expect(run()).resolves.toBeUndefined();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('matchSingleTransaction', () => {
+  // The instance property set in beforeEach shadows the real method; the
+  // prototype still holds it.
+  const realMatchSingleTransaction = Object.getPrototypeOf(
+    service,
+  ).matchSingleTransaction.bind(service) as (
+    transaction: { id: string; description: string; date: Date; value: number },
+    userId: string,
+    excludedIds?: Set<string>,
+  ) => Promise<string | null>;
+
+  const candidates = [
+    {
+      id: 'tx-a',
+      description: 'Coffee',
+      date: new Date(2026, 2, 7),
+      value: 10,
+    },
+    {
+      id: 'tx-b',
+      description: 'Bakery',
+      date: new Date(2026, 2, 7),
+      value: 10,
+    },
+  ];
+
+  beforeEach(() => {
+    findPotentialMatches.mockResolvedValue(candidates);
+    prismaMock.importedTransaction.update.mockResolvedValue({});
+  });
+
+  it('stores the model answer only when it names a real candidate', async () => {
+    findMatchingTransaction.mockResolvedValue('tx-b');
+
+    const matched = await realMatchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBe('tx-b');
+    expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { matchingTransactionId: 'tx-b' },
+    });
+  });
+
+  it('discards an id the model invented instead of writing it', async () => {
+    findMatchingTransaction.mockResolvedValue(
+      '99999999-9999-4999-8999-999999999999',
+    );
+
+    const matched = await realMatchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBeNull();
+    expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
+  });
+
+  it('leaves the row unmatched when the model finds no match', async () => {
+    findMatchingTransaction.mockResolvedValue(null);
+
+    const matched = await realMatchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBeNull();
+    expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
   });
 });

@@ -673,18 +673,14 @@ class ImportService {
       return null;
     }
 
-    const bestMatchId = await this.getAiProvider().findMatchingTransaction(
-      transaction.description,
-      availableMatches,
-    );
-
-    // The model's answer is free text built from a statement description, so
-    // only an id from the candidate list may be stored — and its "no match"
-    // stays unmatched instead of defaulting to the first candidate.
+    // The provider validates the model's answer against availableMatches, so
+    // this is a real candidate id or null — never an invented id, and never
+    // a default to the first candidate.
     const matchingTransactionId =
-      bestMatchId && availableMatches.some((match) => match.id === bestMatchId)
-        ? bestMatchId
-        : null;
+      await this.getAiProvider().findMatchingTransaction(
+        transaction.description,
+        availableMatches,
+      );
 
     if (matchingTransactionId) {
       await prisma.importedTransaction.update({

@@ -7,6 +7,7 @@ import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
+  resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 import logger from '@/server/logging/logger';
 
@@ -136,9 +137,10 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 50,
       });
 
-      const result = response.choices[0].message?.content?.trim();
-
-      return result === 'none' ? null : result || null;
+      return resolveMatchedTransactionId(
+        response.choices[0].message?.content,
+        potentialMatches,
+      );
     } catch (err) {
       logger.error({ err }, 'ChatGPT API error');
       return null;

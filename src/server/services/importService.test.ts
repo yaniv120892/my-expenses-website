@@ -35,10 +35,7 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/repositories/transactionRepository', () => ({
-  default: { findPotentialMatches },
-}));
-vi.mock('@/server/services/ai/aiServiceFactory', () => ({
-  default: { getAIService: () => ({ findMatchingTransaction }) },
+  default: { findPotentialMatches, getTransactionItem: vi.fn() },
 }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
@@ -46,9 +43,9 @@ vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
 
 import { importService } from '@/server/services/importService';
 
-// Matching and the extraction-id write are private and covered elsewhere;
-// stubbing them keeps these cases on the orchestration — which rows are
-// re-matched, in what order, and how the import's status moves.
+// Matching is stubbed here to keep these cases on the orchestration — which
+// rows are re-matched, in what order, and how the import's status moves; the
+// real method is exercised in its own describe below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = importService as any;
 
@@ -330,16 +327,6 @@ describe('findPotentialMatchesForImport', () => {
 });
 
 describe('matchSingleTransaction', () => {
-  // The instance property set in beforeEach shadows the real method; the
-  // prototype still holds it.
-  const realMatchSingleTransaction = Object.getPrototypeOf(
-    service,
-  ).matchSingleTransaction.bind(service) as (
-    transaction: { id: string; description: string; date: Date; value: number },
-    userId: string,
-    excludedIds?: Set<string>,
-  ) => Promise<string | null>;
-
   const candidates = [
     {
       id: 'tx-a',
@@ -356,14 +343,18 @@ describe('matchSingleTransaction', () => {
   ];
 
   beforeEach(() => {
+    // The file-level beforeEach stubs the method; this describe wants the
+    // real one, with the provider stubbed at its instance getter instead.
+    delete service.matchSingleTransaction;
+    service.getAiProvider = () => ({ findMatchingTransaction });
     findPotentialMatches.mockResolvedValue(candidates);
     prismaMock.importedTransaction.update.mockResolvedValue({});
   });
 
-  it('stores the model answer only when it names a real candidate', async () => {
+  it('stores the id the provider validated', async () => {
     findMatchingTransaction.mockResolvedValue('tx-b');
 
-    const matched = await realMatchSingleTransaction(row(), 'user-1');
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
 
     expect(matched).toBe('tx-b');
     expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
@@ -372,21 +363,10 @@ describe('matchSingleTransaction', () => {
     });
   });
 
-  it('discards an id the model invented instead of writing it', async () => {
-    findMatchingTransaction.mockResolvedValue(
-      '99999999-9999-4999-8999-999999999999',
-    );
-
-    const matched = await realMatchSingleTransaction(row(), 'user-1');
-
-    expect(matched).toBeNull();
-    expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
-  });
-
-  it('leaves the row unmatched when the model finds no match', async () => {
+  it('leaves the row unmatched when the provider reports none', async () => {
     findMatchingTransaction.mockResolvedValue(null);
 
-    const matched = await realMatchSingleTransaction(row(), 'user-1');
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
 
     expect(matched).toBeNull();
     expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();

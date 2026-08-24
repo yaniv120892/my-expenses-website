@@ -48,3 +48,19 @@ ${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
 
 Return only the ID of the best match, or "none" if no good match exists.`;
 }
+
+/**
+ * Normalizes the model's free-text answer to buildFindMatchingTransactionPrompt:
+ * an id is returned only when it names one of the offered matches, so a
+ * hallucinated or prompt-injected id can never leave the provider.
+ */
+export function resolveMatchedTransactionId(
+  rawAnswer: string | null | undefined,
+  potentialMatches: Transaction[],
+): string | null {
+  const answer = rawAnswer?.trim();
+  if (!answer || answer === 'none') {
+    return null;
+  }
+  return potentialMatches.some((match) => match.id === answer) ? answer : null;
+}

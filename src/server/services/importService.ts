@@ -269,11 +269,15 @@ class ImportService {
     );
 
     if (!matchingTransaction) {
-      throw new HttpError(
-        404,
-        'Matching transaction not found with id: ' +
-          importedTransaction.matchingTransactionId,
+      logger.warn(
+        {
+          userId,
+          importedTransactionId: importedTransaction.id,
+          matchingTransactionId: importedTransaction.matchingTransactionId,
+        },
+        'Stored matching transaction is missing or not owned by the user',
       );
+      throw new HttpError(404, 'Matching transaction not found');
     }
 
     await transactionService.updateTransaction(
@@ -674,8 +678,13 @@ class ImportService {
       availableMatches,
     );
 
+    // The model's answer is free text built from a statement description, so
+    // only an id from the candidate list may be stored — and its "no match"
+    // stays unmatched instead of defaulting to the first candidate.
     const matchingTransactionId =
-      bestMatchId ?? availableMatches[0]?.id ?? null;
+      bestMatchId && availableMatches.some((match) => match.id === bestMatchId)
+        ? bestMatchId
+        : null;
 
     if (matchingTransactionId) {
       await prisma.importedTransaction.update({

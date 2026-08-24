@@ -79,6 +79,20 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
+// Prisma request errors carry a P-prefixed `code`. Mapping the recoverable
+// ones here covers every repository at once, so e.g. an update that matched no
+// row (wrong id or wrong owner) is a 404 rather than a 500 that logs, pages,
+// and echoes Prisma's invocation text.
+const PRISMA_ERROR_RESPONSES: Record<
+  string,
+  { status: number; message: string }
+> = {
+  P2025: { status: 404, message: 'Not found' },
+  P2002: { status: 409, message: 'Already exists' },
+  P2003: { status: 400, message: 'Invalid reference' },
+  P2023: { status: 400, message: 'Invalid identifier' },
+};
+
 function errorResponse(err: unknown): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
@@ -95,12 +109,23 @@ function errorResponse(err: unknown): NextResponse {
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const error = (err ?? {}) as { message?: string; status?: number };
+  const prismaCode = (err as { code?: unknown } | null)?.code;
+  if (typeof prismaCode === 'string' && prismaCode in PRISMA_ERROR_RESPONSES) {
+    const mapped = PRISMA_ERROR_RESPONSES[prismaCode];
+    return NextResponse.json(
+      { message: mapped.message },
+      { status: mapped.status },
+    );
+  }
+  const error = (err ?? {}) as { status?: number };
   // An error never maps to a success status: callers (heartbeats, the 5xx log)
   // read `status < 400` as "the handler resolved".
   const status = error.status && error.status >= 400 ? error.status : 500;
+  // The real message goes to the log and Sentry below; returning it here
+  // leaked Prisma invocation text, `requireEnv` names, and upstream service
+  // bodies to clients.
   return NextResponse.json(
-    { message: error.message || 'Internal Server Error' },
+    { message: status >= 500 ? 'Internal Server Error' : 'Request failed' },
     { status },
   );
 }

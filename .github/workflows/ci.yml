@@ -26,9 +26,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      # The production build is the one artifact Vercel ships; without this
-      # step a build-only failure (Sentry wrapper, minifier) first appears
-      # during deploy.
       - run: npm run build
 
   e2e:
@@ -86,6 +83,7 @@ jobs:
             [ "$code" != "000" ] && [ -n "$code" ] && break
             sleep 1
           done
+          [ "$code" != "000" ] || { echo 'app never answered /api/health'; tail -n 50 next-dev.log; exit 1; }
 
       - name: API e2e harness
         run: npm run test:e2e:api
@@ -120,8 +118,7 @@ jobs:
           name: playwright-artifacts
           path: |
             playwright-report/
-            test-results/
             next-dev.log
             serve.log
-          if-no-files-found: ignore
+          if-no-files-found: warn
           retention-days: 7

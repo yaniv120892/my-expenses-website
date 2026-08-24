@@ -67,6 +67,10 @@ runs them alone.
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
 - `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
+- `next.config.ts` — security response headers on every route via `headers()`
+  (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
+  permissions) and `poweredByHeader: false`; not middleware, whose matcher
+  skips static assets.
 
 ## Key invariants
 

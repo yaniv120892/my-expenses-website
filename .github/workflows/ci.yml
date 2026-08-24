@@ -9,10 +9,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,6 +26,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # The production build is the one artifact Vercel ships; without this
+      # step a build-only failure (Sentry wrapper, minifier) first appears
+      # during deploy.
+      - run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
@@ -83,6 +90,12 @@ jobs:
       - name: API e2e harness
         run: npm run test:e2e:api
 
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
@@ -91,8 +104,24 @@ jobs:
           npx tsx test/e2e-api/serve.ts > serve.log 2>&1 &
           for i in $(seq 1 60); do grep -q '^ready$' serve.log && break; sleep 1; done
           export E2E_AUTH_TOKEN="$(sed -n 's/^E2E_AUTH_TOKEN=//p' serve.log)"
+          # An empty token silently skips every authenticated spec and the
+          # job reports green; fail instead.
+          [ -n "$E2E_AUTH_TOKEN" ] || { echo 'E2E_AUTH_TOKEN missing — serve.ts did not come up'; tail -n 50 serve.log; exit 1; }
           E2E_NO_WEBSERVER=1 npm run test:e2e:ui
 
       - name: Surface server logs on failure
         if: failure()
         run: tail -n 100 next-dev.log serve.log 2>/dev/null || true
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+            next-dev.log
+            serve.log
+          if-no-files-found: ignore
+          retention-days: 7

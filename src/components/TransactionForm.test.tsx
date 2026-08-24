@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
-import React, { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { renderWithClient } from '@/test/renderWithClient';
 import TransactionForm from '@/components/TransactionForm';
 
-// The S3 upload hook opens network machinery irrelevant to the reset rules.
-vi.mock('@/hooks/useTransactionFilesQuery', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  useDirectS3UploadForAttachment: () => ({ mutateAsync: vi.fn() }),
+// The attachments panel fetches the edit row's files on render; the reset
+// rules under test never need the network.
+vi.mock('@/services/transactionFileService', () => ({
+  getTransactionFiles: vi.fn().mockResolvedValue([]),
 }));
+
+afterEach(cleanup);
 
 const EDIT_ROW = {
   id: '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a',
@@ -22,7 +24,7 @@ const EDIT_ROW = {
 
 // Reproduces how pages pass initialData: a fresh object literal per render,
 // so any parent re-render changes its identity.
-function EditHarness({ description = EDIT_ROW.description }) {
+function EditHarness() {
   const [, rerender] = useState(0);
   return (
     <>
@@ -31,7 +33,7 @@ function EditHarness({ description = EDIT_ROW.description }) {
         open
         onCloseAction={() => {}}
         onSubmitAction={async () => {}}
-        initialData={{ ...EDIT_ROW, description }}
+        initialData={{ ...EDIT_ROW }}
       />
     </>
   );

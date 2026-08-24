@@ -7,6 +7,8 @@ export const chatMessageSchema = z.object({
   text: z.string().max(4000, 'Message is too long.'),
 });
 
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
 export const chatRequestSchema = z.object({
   messages: z
     .array(chatMessageSchema)

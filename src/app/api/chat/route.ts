@@ -3,7 +3,7 @@ import { createHandler } from '@/server/http/handler';
 import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
 import logger from '@/server/logging/logger';
-import { enforceRateLimit } from '@/server/http/rateLimit';
+import { RATE_LIMITS } from '@/server/http/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,10 +16,12 @@ function sseFrame(payload: Record<string, unknown>): Uint8Array {
 export const POST = createHandler({
   auth: 'session',
   bodySchema: chatRequestSchema,
+  // Each request can hold a model stream open for up to maxDuration, so
+  // this caps the concurrent-stream cost per user, not just abuse.
+  rateLimit: ({ userId }) => [
+    { key: `chat:user:${userId}`, ...RATE_LIMITS.chat },
+  ],
   handler: async ({ req, body, userId }) => {
-    // Each request can hold a model stream open for up to maxDuration, so
-    // this is the cost ceiling per user, not just abuse protection.
-    await enforceRateLimit(`chat:user:${userId}`, 20, 300);
     logger.debug({ userId }, 'Start handle chat message');
 
     const stream = new ReadableStream<Uint8Array>({

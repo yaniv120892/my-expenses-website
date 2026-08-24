@@ -36,6 +36,7 @@ describe('createHandler error reporting', () => {
     const err = new Error('boom');
     const handler = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => {
         throw err;
       },
@@ -51,6 +52,7 @@ describe('createHandler error reporting', () => {
   it('does not report a client error', async () => {
     const handler = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => {
         throw new HttpError(404, 'Not found');
       },

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import chatAggregationService from '@/server/services/chatAggregationService';
-import { Transaction, TransactionType } from '@/shared/types/transaction';
+import {
+  Transaction,
+  TransactionSummary,
+  TransactionType,
+} from '@/shared/types/transaction';
 
 const tx = (
   value: number,
@@ -16,11 +20,27 @@ const tx = (
   category: { id: 'c1', name: categoryName },
 });
 
+function totalsOf(
+  overrides: Partial<TransactionSummary> = {},
+): TransactionSummary {
+  return {
+    totalIncome: 0,
+    totalExpense: 0,
+    count: 0,
+    incomeCount: 0,
+    expenseCount: 0,
+    ...overrides,
+  };
+}
+
 describe('computeComparison', () => {
   it('renders both totals and the difference as plain ILS', () => {
     const { summary } = chatAggregationService.computeComparison(
-      { label: 'January', transactions: [tx(1000)] },
-      { label: 'February', transactions: [tx(1234.5)] },
+      { label: 'January', totals: totalsOf({ totalExpense: 1000, count: 1 }) },
+      {
+        label: 'February',
+        totals: totalsOf({ totalExpense: 1234.5, count: 1 }),
+      },
     );
 
     expect(summary).toContain('January: 1,000.00 ₪ (1 transaction)');
@@ -30,8 +50,8 @@ describe('computeComparison', () => {
 
   it('signs a decrease once, on the difference label', () => {
     const { summary } = chatAggregationService.computeComparison(
-      { label: 'January', transactions: [tx(500)] },
-      { label: 'February', transactions: [tx(200)] },
+      { label: 'January', totals: totalsOf({ totalExpense: 500, count: 1 }) },
+      { label: 'February', totals: totalsOf({ totalExpense: 200, count: 1 }) },
     );
 
     expect(summary).toContain('Difference: -300.00 ₪');
@@ -39,18 +59,24 @@ describe('computeComparison', () => {
 
   it('reports an undefined percentage rather than infinity', () => {
     const { summary } = chatAggregationService.computeComparison(
-      { label: 'January', transactions: [] },
-      { label: 'February', transactions: [tx(200)] },
+      { label: 'January', totals: totalsOf() },
+      { label: 'February', totals: totalsOf({ totalExpense: 200, count: 1 }) },
     );
 
     expect(summary).toContain('Percentage change: not applicable');
   });
 });
 
-describe('aggregate', () => {
+describe('aggregateFromTotals', () => {
   it('renders the total block as plain ILS', () => {
-    const { summary } = chatAggregationService.aggregate(
-      [tx(300, 'INCOME'), tx(120)],
+    const { summary } = chatAggregationService.aggregateFromTotals(
+      totalsOf({
+        totalIncome: 300,
+        totalExpense: 120,
+        count: 2,
+        incomeCount: 1,
+        expenseCount: 1,
+      }),
       'total',
     );
 
@@ -63,6 +89,42 @@ describe('aggregate', () => {
     );
   });
 
+  it('averages across income and expenses together', () => {
+    const { summary } = chatAggregationService.aggregateFromTotals(
+      totalsOf({
+        totalIncome: 100,
+        totalExpense: 100,
+        count: 3,
+        incomeCount: 1,
+        expenseCount: 2,
+      }),
+      'average',
+    );
+
+    expect(summary).toContain('Average transaction value: 66.67 ₪');
+    expect(summary).toContain('across 3 transactions, total: 200.00 ₪');
+  });
+
+  it('reports the empty average without dividing by zero', () => {
+    const { summary } = chatAggregationService.aggregateFromTotals(
+      totalsOf(),
+      'average',
+    );
+
+    expect(summary).toBe('No transactions found to calculate an average.');
+  });
+
+  it('counts income and expenses separately', () => {
+    const { summary } = chatAggregationService.aggregateFromTotals(
+      totalsOf({ count: 3, incomeCount: 1, expenseCount: 2 }),
+      'count',
+    );
+
+    expect(summary).toBe('Total transactions: 3 (1 income, 2 expenses)');
+  });
+});
+
+describe('aggregate', () => {
   it('renders a category breakdown as plain ILS with shares', () => {
     const { summary } = chatAggregationService.aggregate(
       [tx(75, 'EXPENSE', 'Food'), tx(25, 'EXPENSE', 'Transport')],
@@ -75,68 +137,11 @@ describe('aggregate', () => {
   });
 
   it('emits no directionality marks for the model to quote back', () => {
-    const { summary } = chatAggregationService.aggregate([tx(1234.5)], 'total');
+    const { summary } = chatAggregationService.aggregate(
+      [tx(1234.5)],
+      'breakdown_by_category',
+    );
 
     expect(summary).not.toMatch(/[\u200e\u200f\u00a0]/);
-  });
-});
-
-describe('aggregateFromTotals parity with aggregate', () => {
-  const rows = [tx(100, 'INCOME'), tx(40), tx(60)];
-  const totals = {
-    totalIncome: 100,
-    totalExpense: 100,
-    count: 3,
-    incomeCount: 1,
-    expenseCount: 2,
-  };
-
-  it.each(['total', 'average', 'count'] as const)(
-    '%s produces the same result from SQL totals as from rows',
-    (aggregation) => {
-      expect(
-        chatAggregationService.aggregateFromTotals(totals, aggregation),
-      ).toEqual(chatAggregationService.aggregate(rows, aggregation));
-    },
-  );
-
-  it('handles the empty average without rows', () => {
-    const empty = {
-      totalIncome: 0,
-      totalExpense: 0,
-      count: 0,
-      incomeCount: 0,
-      expenseCount: 0,
-    };
-    expect(
-      chatAggregationService.aggregateFromTotals(empty, 'average'),
-    ).toEqual(chatAggregationService.aggregate([], 'average'));
-  });
-});
-
-describe('computeComparisonFromTotals parity with computeComparison', () => {
-  it.each([
-    [[tx(1000)], [tx(1234.5)]],
-    [[tx(500)], [tx(200)]],
-    [[], [tx(200)]],
-    [[], []],
-  ])('matches the row-based comparison', (rowsA, rowsB) => {
-    const totalsOf = (rows: ReturnType<typeof tx>[]) => ({
-      label: '',
-      total: rows.reduce((sum, t) => sum + t.value, 0),
-      count: rows.length,
-    });
-
-    expect(
-      chatAggregationService.computeComparisonFromTotals(
-        { ...totalsOf(rowsA), label: 'January' },
-        { ...totalsOf(rowsB), label: 'February' },
-      ),
-    ).toEqual(
-      chatAggregationService.computeComparison(
-        { label: 'January', transactions: rowsA },
-        { label: 'February', transactions: rowsB },
-      ),
-    );
   });
 });

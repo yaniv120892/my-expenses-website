@@ -1,5 +1,3 @@
-import { Transaction } from './transaction';
-
 export type AggregationType =
   | 'total'
   | 'average'
@@ -15,13 +13,14 @@ export type TotalsAggregationType = Extract<
   'total' | 'average' | 'count'
 >;
 
+// The aggregations that need the rows themselves (bounded by the read cap).
+export type RowAggregationType = Exclude<
+  AggregationType,
+  TotalsAggregationType
+>;
+
 export interface AggregationResult {
   summary: string;
   data: Record<string, number | string>;
   transactionCount: number;
-}
-
-export interface ComparisonPeriod {
-  label: string;
-  transactions: Transaction[];
 }

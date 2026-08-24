@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { renderWithClient } from '@/test/renderWithClient';
 import theme from '@/theme';
 import PendingPage from '@/app/(app)/pending/page';
+import { Transaction } from '@/types';
 
 // AmountText reads theme.palette.charts, which only the app theme defines.
 function renderPage() {
@@ -29,13 +31,12 @@ vi.mock('@/hooks/usePendingTransactionsQuery', () => ({
   }),
 }));
 
-const PENDING_ROW = {
+const PENDING_ROW: Transaction = {
   id: '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a',
   description: 'Supermarket',
   value: 120,
-  date: new Date('2026-03-07T00:00:00Z'),
+  date: '2026-03-07',
   type: 'EXPENSE',
-  status: 'PENDING_APPROVAL',
   category: { id: 'c1', name: 'Food' },
 };
 
@@ -55,20 +56,32 @@ describe('pending page toasts', () => {
     confirmMutateAsync.mockRejectedValue(new Error('Approval failed upstream'));
     renderPage();
 
-    fireEvent.click(screen.getAllByLabelText(/approve/i)[0]);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Approve transaction' }),
+    );
 
     expect(await screen.findByText('Approval failed upstream')).toBeTruthy();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.queryByText(/approved successfully/i)).toBeNull();
   });
 
-  it('shows a success toast when approval succeeds', async () => {
-    confirmMutateAsync.mockResolvedValue(undefined);
-    renderPage();
+  it.each([
+    ['approve', confirmMutateAsync, 'Transaction approved successfully'],
+    ['reject', deleteMutateAsync, 'Transaction rejected successfully'],
+  ] as const)(
+    'shows a success toast when %s succeeds',
+    async (action, mutateAsync, message) => {
+      mutateAsync.mockResolvedValue(undefined);
+      renderPage();
 
-    fireEvent.click(screen.getAllByLabelText(/approve/i)[0]);
+      await userEvent.click(
+        screen.getByRole('button', {
+          name:
+            action === 'approve' ? 'Approve transaction' : 'Delete transaction',
+        }),
+      );
 
-    expect(
-      await screen.findByText('Transaction approved successfully'),
-    ).toBeTruthy();
-  });
+      expect(await screen.findByText(message)).toBeTruthy();
+    },
+  );
 });

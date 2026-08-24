@@ -31,8 +31,9 @@ import SwipeableRow from './SwipeableRow';
 
 type Props = {
   transactions: Transaction[];
-  onConfirmAction: (id: string) => Promise<void> | void;
-  onDeleteAction: (id: string) => Promise<void> | void;
+  // Outcome toasts belong to the caller that owns the mutation.
+  onConfirmAction: (id: string) => Promise<void>;
+  onDeleteAction: (id: string) => Promise<void>;
 };
 
 export default function PendingTransactionsList({
@@ -55,9 +56,6 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
-  // Outcome toasts belong to the page, which owns the mutations; a second
-  // snackbar here reported success even when the parent had swallowed a
-  // failure, and overlapped the page's error toast when it hadn't.
   async function handleApprove() {
     if (selectedTransaction) {
       await onConfirmAction(selectedTransaction.id);
@@ -86,8 +84,8 @@ export default function PendingTransactionsList({
             {transactions.map((tx) => (
               <SwipeableRow
                 key={tx.id}
-                onSwipeRight={() => onConfirmAction(tx.id)}
-                onSwipeLeft={() => onDeleteAction(tx.id)}
+                onSwipeRight={() => void onConfirmAction(tx.id)}
+                onSwipeLeft={() => void onDeleteAction(tx.id)}
                 rightLabel="Approve"
                 rightColor="success.main"
                 leftLabel="Delete"
@@ -164,7 +162,7 @@ export default function PendingTransactionsList({
                         aria-label="Approve transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onConfirmAction(tx.id);
+                          void onConfirmAction(tx.id);
                         }}
                       >
                         <CheckRoundedIcon fontSize="small" />
@@ -177,7 +175,7 @@ export default function PendingTransactionsList({
                         aria-label="Delete transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteAction(tx.id);
+                          void onDeleteAction(tx.id);
                         }}
                       >
                         <DeleteOutlineRoundedIcon fontSize="small" />

@@ -20,12 +20,15 @@ import {
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { HttpError } from '@/server/http/errors';
-import { getPrismaErrorCode } from '@/server/db/prismaErrors';
+import {
+  getPrismaErrorCode,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
 
 // Prisma raises P2025 when an update/delete matches no row — here that means
 // the transaction does not exist or belongs to another user.
 function throwNotFoundOnMissingRow(err: unknown): never {
-  if (getPrismaErrorCode(err) === 'P2025') {
+  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
     throw new HttpError(404, 'Transaction not found');
   }
   throw err;

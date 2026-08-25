@@ -20,6 +20,27 @@ import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 
+// Prisma raises P2025 when an update in the approve/merge batch matches no
+// row — a concurrent delete won the race. Map it back to the 404 the
+// non-batched path used to return.
+function isMissingRowError(err: unknown): boolean {
+  return (err as { code?: string })?.code === 'P2025';
+}
+
+function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (isMissingRowError(err)) {
+    throw new HttpError(404, 'Imported transaction not found');
+  }
+  throw err;
+}
+
+function throwTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (isMissingRowError(err)) {
+    throw new HttpError(404, 'Transaction not found');
+  }
+  throw err;
+}
+
 interface BatchResult {
   total: number;
   succeeded: number;
@@ -225,12 +246,9 @@ class ImportService {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
-    await importedTransactionRepository.clearMatchingTransaction(
-      importedTransactionId,
-      userId,
-    );
-
-    await transactionService.createTransaction({
+    // Categorization may call the AI service, so it runs before the batch:
+    // network work has no place inside a database transaction.
+    const transactionModel = await transactionService.prepareCreateTransaction({
       description: transactionData.description,
       value: transactionData.value,
       date: transactionData.date,
@@ -240,10 +258,21 @@ class ImportService {
       categoryId: transactionData.categoryId,
     });
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
+    // One batch, so a failure cannot create the transaction while the imported
+    // row stays PENDING — retrying that state would create it a second time.
+    const [createdTransaction] = await prisma
+      .$transaction([
+        transactionRepository.createTransactionOp(transactionModel),
+        importedTransactionRepository.markApprovedOp(
+          importedTransactionId,
+          userId,
+        ),
+      ])
+      .catch(throwImportedTransactionNotFoundOnMissingRow);
+
+    await transactionService.notifyTransactionCreatedSafe(
+      createdTransaction.id,
       userId,
-      ImportedTransactionStatus.APPROVED,
     );
   }
 
@@ -281,31 +310,47 @@ class ImportService {
       throw new HttpError(404, 'Matching transaction not found');
     }
 
-    await transactionService.updateTransaction(
-      importedTransaction.matchingTransactionId,
-      {
-        description: transactionData.description,
-        type: transactionData.type,
-        value: transactionData.value,
-        date: transactionData.date,
-        categoryId: transactionData.categoryId,
-      },
-      userId,
-    );
-
-    if (matchingTransaction.status === TransactionStatus.PENDING_APPROVAL) {
-      await transactionService.updateTransactionStatus(
-        importedTransaction.matchingTransactionId,
-        TransactionStatus.APPROVED,
+    if (transactionData.categoryId) {
+      await transactionService.learnCategoryMappingSafe(
+        matchingTransaction,
+        transactionData.categoryId,
         userId,
       );
     }
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
-      userId,
-      ImportedTransactionStatus.MERGED,
-    );
+    const approveMatch =
+      matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
+
+    // One batch, so the matched transaction cannot end up updated while the
+    // imported row stays PENDING and re-mergeable.
+    await prisma
+      .$transaction([
+        transactionRepository.updateTransactionOp(
+          importedTransaction.matchingTransactionId,
+          {
+            description: transactionData.description,
+            type: transactionData.type,
+            value: transactionData.value,
+            date: transactionData.date,
+            categoryId: transactionData.categoryId,
+            ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+          },
+          userId,
+        ),
+        importedTransactionRepository.updateStatusOp(
+          importedTransactionId,
+          userId,
+          ImportedTransactionStatus.MERGED,
+        ),
+      ])
+      .catch(throwTransactionNotFoundOnMissingRow);
+
+    if (approveMatch) {
+      await transactionService.notifyTransactionCreatedSafe(
+        importedTransaction.matchingTransactionId,
+        userId,
+      );
+    }
   }
 
   public async ignoreImportedTransaction(

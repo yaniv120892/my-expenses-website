@@ -13,6 +13,7 @@ import {
   TransactionFile,
 } from '@/shared/types/transaction';
 import { CreateTransactionRequest } from '@/shared/schemas/transactions';
+import { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import axios from 'axios';
 import logger from '@/server/logging/logger';
@@ -58,37 +59,52 @@ class TransactionService {
     data: CreateTransaction,
   ): Promise<CreateTransactionResult> {
     const userProvidedCategory = !!data.categoryId;
-    const createTransaction = await this.updateCategory(data);
-    await this.validateCreateTransaction(createTransaction);
-    const CreateTransactionDbModel = {
-      description: createTransaction.description,
-      value: createTransaction.value,
-      date: createTransaction.date || new Date(),
-      categoryId: createTransaction.categoryId as string,
-      type: createTransaction.type,
-      status: createTransaction.status || 'APPROVED',
-      userId: createTransaction.userId,
-    };
-    const transactionId = await transactionRepository.createTransaction(
-      CreateTransactionDbModel,
-    );
+    const transactionModel = await this.prepareCreateTransaction(data);
+    const transactionId =
+      await transactionRepository.createTransaction(transactionModel);
 
     await this.notifyTransactionCreatedSafe(
       transactionId,
-      createTransaction.userId,
+      transactionModel.userId,
     );
 
     const result: CreateTransactionResult = { id: transactionId };
 
-    if (!userProvidedCategory && createTransaction.categoryId) {
+    if (!userProvidedCategory) {
       const categories = await categoryRepository.getAllCategories();
-      const cat = categories.find((c) => c.id === createTransaction.categoryId);
+      const cat = categories.find((c) => c.id === transactionModel.categoryId);
       if (cat) {
         result.suggestedCategory = { id: cat.id, name: cat.name };
       }
     }
 
     return result;
+  }
+
+  /**
+   * Categorization and validation without the write, so a caller can run the
+   * AI/network work first and batch the insert into a prisma.$transaction
+   * (via createTransactionOp) with its own writes.
+   */
+  public async prepareCreateTransaction(
+    data: CreateTransaction,
+  ): Promise<CreateTransactionDbModel> {
+    const resolved = await this.updateCategory(data);
+    await this.validateCreateTransaction(resolved);
+    if (!resolved.categoryId) {
+      throw new CustomValidationError(
+        'Could not determine a category for this transaction; please choose one',
+      );
+    }
+    return {
+      description: resolved.description,
+      value: resolved.value,
+      date: resolved.date || new Date(),
+      categoryId: resolved.categoryId,
+      type: resolved.type,
+      status: resolved.status || 'APPROVED',
+      userId: resolved.userId,
+    };
   }
 
   /**
@@ -202,17 +218,11 @@ class TransactionService {
           id,
           userId,
         );
-        if (existing && existing.category.id !== data.categoryId) {
-          const normalizedDescription = existing.description
-            .toLowerCase()
-            .trim();
-          await userCategoryMappingRepository.upsert(
-            userId,
-            normalizedDescription,
+        if (existing) {
+          await this.learnCategoryMappingSafe(
+            existing,
             data.categoryId,
-          );
-          logger.debug(
-            `Saved category mapping: "${normalizedDescription}" -> ${data.categoryId}`,
+            userId,
           );
         }
       } catch (err) {
@@ -220,6 +230,36 @@ class TransactionService {
       }
     }
     await transactionRepository.updateTransaction(id, data, userId);
+  }
+
+  /**
+   * Remembers a manual recategorization so future imports of the same
+   * description categorize themselves. Non-critical: a failure logs a warning
+   * and never fails the write it accompanies.
+   */
+  public async learnCategoryMappingSafe(
+    transaction: Transaction,
+    categoryId: string,
+    userId: string,
+  ): Promise<void> {
+    if (transaction.category.id === categoryId) {
+      return;
+    }
+    try {
+      const normalizedDescription = transaction.description
+        .toLowerCase()
+        .trim();
+      await userCategoryMappingRepository.upsert(
+        userId,
+        normalizedDescription,
+        categoryId,
+      );
+      logger.debug(
+        `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
+      );
+    } catch (err) {
+      logger.warn({ err }, 'Failed to save category mapping on update');
+    }
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {
@@ -446,7 +486,7 @@ class TransactionService {
     };
   }
 
-  private async notifyTransactionCreatedSafe(
+  public async notifyTransactionCreatedSafe(
     transactionId: string,
     userId: string,
   ) {

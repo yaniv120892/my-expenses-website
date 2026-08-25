@@ -14,6 +14,7 @@ import {
 } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
+import { escapeMarkdown } from '@/server/services/telegramService';
 import logger from '@/server/logging/logger';
 import {
   nextExpectedDateAfter,
@@ -68,7 +69,7 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
       totalMonthly += monthly;
       totalAnnual += sub.annualCost;
       lines.push(
-        `- ${sub.displayName}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
+        `- ${escapeMarkdown(sub.displayName)}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
       );
     }
     lines.push('');

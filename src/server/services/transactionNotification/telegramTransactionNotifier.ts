@@ -2,6 +2,7 @@ import { TransactionNotifier } from '@/server/services/transactionNotification/t
 import { Transaction } from '@/shared/types/transaction';
 import { telegramService } from '@/server/services/telegramService';
 import { formatTransaction } from '@/server/utils/transactionUtils';
+import { escapeMarkdown } from '@/server/services/telegramService';
 import logger from '@/server/logging/logger';
 import userSettingsService from '@/server/services/userSettingsService';
 
@@ -23,7 +24,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         );
         return;
       }
-      const message = `Transaction Created\n${formatTransaction(transaction)}`;
+      const message = `Transaction Created\n${escapeMarkdown(formatTransaction(transaction))}`;
       await telegramService.sendMessage(chatId, message);
       logger.debug(
         { userId, transactionId: transaction.id },

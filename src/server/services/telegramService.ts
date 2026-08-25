@@ -3,6 +3,15 @@ import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
 
+// Telegram parses these as Markdown entities; an unescaped one inside user
+// text (a merchant name, a description) makes the API reject the whole
+// message with a 400 — which fails the daily-summary cron outright.
+const TELEGRAM_MARKDOWN_ENTITY_CHARS = /[_*[`]/g;
+
+export function escapeMarkdown(value: string): string {
+  return value.replace(TELEGRAM_MARKDOWN_ENTITY_CHARS, (char) => `\\${char}`);
+}
+
 class TelegramService {
   private getBot = lazy((): TelegramBot | null => {
     const token = optionalEnv('TELEGRAM_BOT_TOKEN');

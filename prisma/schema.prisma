@@ -164,7 +164,6 @@ model Import {
   extractionCompletedAt    DateTime?
   user                     User      @relation(fields: [userId], references: [id])
 
-  // Matches the list query: a user's undeleted imports, newest first.
   @@index([userId, deleted, createdAt])
 }
 
@@ -200,8 +199,6 @@ model Category {
   autoApproveRules      AutoApproveRule[]
   categoryMappings      UserCategoryMapping[]
   detectedSubscriptions DetectedSubscription[]
-
-  @@index([parentId])
 }
 
 model ScheduledTransaction {
@@ -221,11 +218,10 @@ model ScheduledTransaction {
   userId        String          @db.Uuid
   user          User            @relation(fields: [userId], references: [id])
 
-  // The 07:00 cron scans nextRunDate across all users; the page lists and
-  // sorts per user. Without these, both are full-table scans.
+  // The cron scans nextRunDate across all users, so it cannot use the
+  // userId-prefixed index.
   @@index([nextRunDate])
   @@index([userId, nextRunDate])
-  @@index([categoryId])
 }
 
 model TransactionFile {
@@ -257,7 +253,6 @@ model UserCategoryMapping {
 
   @@unique([userId, descriptionPattern])
   @@index([userId])
-  @@index([categoryId])
 }
 
 model AutoApproveRule {
@@ -273,7 +268,6 @@ model AutoApproveRule {
   category           Category        @relation(fields: [categoryId], references: [id])
 
   @@index([userId])
-  @@index([categoryId])
 }
 
 model DetectedSubscription {

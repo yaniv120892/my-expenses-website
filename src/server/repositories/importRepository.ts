@@ -42,7 +42,9 @@ export class ImportRepository {
   public async findByUserId(userId: string): Promise<ImportWithPendingCount[]> {
     return prisma.import.findMany({
       where: { userId, deleted: false },
-      orderBy: [{ createdAt: 'desc' }, { paymentMonth: 'desc' }],
+      // paymentMonth is an MM/YYYY string that sorts lexicographically, so
+      // as a tiebreaker it was noise; createdAt alone is the real order.
+      orderBy: { createdAt: 'desc' },
       include: {
         _count: {
           select: {

@@ -8,6 +8,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { formatDateRange, formatDay } from '@/utils/dateUtils';
+import { DAY_FORMAT } from '@/shared/dates';
 
 export type DateRangePresetId =
   'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'all-time';
@@ -23,7 +24,7 @@ export interface DateRangePreset {
   range: (now: Date) => DateRange;
 }
 
-const asDay = (value: Date) => format(value, 'yyyy-MM-dd');
+const asDay = (value: Date) => format(value, DAY_FORMAT);
 
 const thisMonth = (now: Date): DateRange => ({
   startDate: asDay(startOfMonth(now)),

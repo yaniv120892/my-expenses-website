@@ -27,6 +27,7 @@ import {
   useDirectS3UploadForAttachment,
 } from '@/hooks/useTransactionFilesQuery';
 import { validateTransactionForm } from '@/utils/transactionFormValidation';
+import { DAY_FORMAT } from '@/shared/dates';
 
 type TransactionFormType = {
   id: string;
@@ -52,12 +53,12 @@ const defaultForm: TransactionFormType = {
   value: '',
   categoryId: '',
   type: 'EXPENSE',
-  date: format(new Date(), 'yyyy-MM-dd'),
+  date: format(new Date(), DAY_FORMAT),
 };
 
 // Built per call so the default date is today's, not the module-load day.
 function freshDefaultForm(): TransactionFormType {
-  return { ...defaultForm, date: format(new Date(), 'yyyy-MM-dd') };
+  return { ...defaultForm, date: format(new Date(), DAY_FORMAT) };
 }
 
 function toFormValues(initialData: TransactionFormType): TransactionFormType {
@@ -67,7 +68,7 @@ function toFormValues(initialData: TransactionFormType): TransactionFormType {
     value: initialData.value,
     categoryId: initialData.categoryId || '',
     type: initialData.type,
-    date: format(new Date(initialData.date), 'yyyy-MM-dd'),
+    date: format(new Date(initialData.date), DAY_FORMAT),
   };
 }
 
@@ -126,7 +127,7 @@ export default function TransactionForm({
   };
 
   const getCurrentDateTimeString = () => {
-    return format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
+    return format(new Date(), `${DAY_FORMAT}'T'HH:mm:ss`);
   };
 
   const showSnackbar = (
@@ -157,7 +158,7 @@ export default function TransactionForm({
     try {
       let dateToUse = form.date;
       if (!initialData) {
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const today = format(new Date(), DAY_FORMAT);
         if (form.date === today) {
           dateToUse = getCurrentDateTimeString();
         }

@@ -5,6 +5,7 @@ import {
   ComparisonMeasure,
   TrendPeriod,
 } from '@/types/trends';
+import { DAY_FORMAT } from '@/shared/dates';
 
 export const MEASURE_LABELS: Record<ComparisonMeasure, string> = {
   net: 'Net',
@@ -77,7 +78,7 @@ export function comparisonToCsv(
 }
 
 export function comparisonFileName(comparison: CategoryComparison): string {
-  const start = format(parseISO(comparison.startDate), 'yyyy-MM-dd');
-  const end = format(parseISO(comparison.endDate), 'yyyy-MM-dd');
+  const start = format(parseISO(comparison.startDate), DAY_FORMAT);
+  const end = format(parseISO(comparison.endDate), DAY_FORMAT);
   return `comparison_${comparison.period}_${start}_${end}.csv`;
 }

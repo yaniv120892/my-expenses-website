@@ -19,6 +19,27 @@ import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 
+// Prisma raises P2025 when an update in the approve/merge batch matches no
+// row — a concurrent delete won the race. Map it back to the 404 the
+// non-batched path used to return.
+function isMissingRowError(err: unknown): boolean {
+  return (err as { code?: string })?.code === 'P2025';
+}
+
+function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (isMissingRowError(err)) {
+    throw new HttpError(404, 'Imported transaction not found');
+  }
+  throw err;
+}
+
+function throwTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (isMissingRowError(err)) {
+    throw new HttpError(404, 'Transaction not found');
+  }
+  throw err;
+}
+
 interface BatchResult {
   total: number;
   succeeded: number;
@@ -238,18 +259,15 @@ class ImportService {
 
     // One batch, so a failure cannot create the transaction while the imported
     // row stays PENDING — retrying that state would create it a second time.
-    const [, createdTransaction] = await prisma.$transaction([
-      importedTransactionRepository.clearMatchingTransactionOp(
-        importedTransactionId,
-        userId,
-      ),
-      transactionRepository.createTransactionOp(transactionModel),
-      importedTransactionRepository.updateStatusOp(
-        importedTransactionId,
-        userId,
-        ImportedTransactionStatus.APPROVED,
-      ),
-    ]);
+    const [createdTransaction] = await prisma
+      .$transaction([
+        transactionRepository.createTransactionOp(transactionModel),
+        importedTransactionRepository.markApprovedOp(
+          importedTransactionId,
+          userId,
+        ),
+      ])
+      .catch(throwImportedTransactionNotFoundOnMissingRow);
 
     await transactionService.notifyTransactionCreatedSafe(
       createdTransaction.id,
@@ -289,7 +307,7 @@ class ImportService {
 
     if (transactionData.categoryId) {
       await transactionService.learnCategoryMappingSafe(
-        importedTransaction.matchingTransactionId,
+        matchingTransaction,
         transactionData.categoryId,
         userId,
       );
@@ -300,25 +318,27 @@ class ImportService {
 
     // One batch, so the matched transaction cannot end up updated while the
     // imported row stays PENDING and re-mergeable.
-    await prisma.$transaction([
-      transactionRepository.updateTransactionOp(
-        importedTransaction.matchingTransactionId,
-        {
-          description: transactionData.description,
-          type: transactionData.type,
-          value: transactionData.value,
-          date: transactionData.date,
-          categoryId: transactionData.categoryId,
-          ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
-        },
-        userId,
-      ),
-      importedTransactionRepository.updateStatusOp(
-        importedTransactionId,
-        userId,
-        ImportedTransactionStatus.MERGED,
-      ),
-    ]);
+    await prisma
+      .$transaction([
+        transactionRepository.updateTransactionOp(
+          importedTransaction.matchingTransactionId,
+          {
+            description: transactionData.description,
+            type: transactionData.type,
+            value: transactionData.value,
+            date: transactionData.date,
+            categoryId: transactionData.categoryId,
+            ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+          },
+          userId,
+        ),
+        importedTransactionRepository.updateStatusOp(
+          importedTransactionId,
+          userId,
+          ImportedTransactionStatus.MERGED,
+        ),
+      ])
+      .catch(throwTransactionNotFoundOnMissingRow);
 
     if (approveMatch) {
       await transactionService.notifyTransactionCreatedSafe(

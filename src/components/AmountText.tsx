@@ -23,9 +23,6 @@ export default function AmountText({
   format = 'currency',
 }: Props) {
   const theme = useTheme();
-  // theme.vars, not theme.palette: with cssVariables the palette holds the
-  // light scheme's literals, and only the var() references track dark mode.
-  const { charts } = (theme.vars ?? theme).palette;
 
   return (
     <Typography
@@ -33,7 +30,10 @@ export default function AmountText({
       sx={{
         fontWeight,
         whiteSpace: 'nowrap',
-        color: type === 'INCOME' ? charts.income : charts.expense,
+        color:
+          type === 'INCOME'
+            ? theme.palette.charts.income
+            : theme.palette.charts.expense,
       }}
     >
       {format === 'currency'

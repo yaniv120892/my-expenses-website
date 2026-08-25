@@ -69,7 +69,7 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
       totalMonthly += monthly;
       totalAnnual += sub.annualCost;
       lines.push(
-        `- ${escapeMarkdown(sub.displayName)}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
+        `- ${sub.displayName}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
       );
     }
     lines.push('');
@@ -84,7 +84,9 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
     );
   }
 
-  return lines.join('\n');
+  // The whole message is data — no intended Markdown — but it rides the same
+  // Markdown-parsed notifier path as the daily summary, so escape it all.
+  return escapeMarkdown(lines.join('\n'));
 }
 
 function isUniqueViolation(error: unknown): boolean {

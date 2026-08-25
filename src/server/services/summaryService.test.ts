@@ -30,11 +30,9 @@ describe('getTodayTransactions', () => {
     await service.getTodayTransactions('user-1');
 
     const { startDate, endDate } = getAllTransactions.mock.calls[0][0];
-    expect(startDate).toEqual(new Date(2026, 7, 25));
-    // The repository widens endDate to endOfDay, so any moment today is the
-    // right bound; day+1 used to widen to end of tomorrow.
-    expect(endDate.getDate()).toBe(25);
-    expect(endDate.getMonth()).toBe(7);
+    // The repository normalizes both bounds to the day's edges.
+    expect(startDate).toEqual(new Date('2026-08-25T21:00:00'));
+    expect(endDate).toEqual(new Date('2026-08-25T21:00:00'));
   });
 });
 

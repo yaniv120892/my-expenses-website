@@ -66,18 +66,12 @@ class SummaryService {
   private async getTodayTransactions(
     userId: string,
   ): Promise<SummaryTransaction[]> {
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-    // The repository widens endDate to endOfDay, so `now` covers exactly
-    // today; the previous day+1 bound made the "today" summary span tomorrow
-    // as well.
+    // One normalizer owns both bounds: the repository floors startDate to
+    // startOfDay and widens endDate to endOfDay.
+    const today = new Date();
     return transactionService.getAllTransactions({
-      startDate: startOfToday,
-      endDate: now,
+      startDate: today,
+      endDate: today,
       userId,
     });
   }

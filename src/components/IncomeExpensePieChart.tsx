@@ -68,7 +68,7 @@ export default function IncomeExpensePieChart({
   onSelectType,
 }: Props) {
   const theme = useTheme();
-  const { charts, background } = (theme.vars ?? theme).palette;
+  const { charts } = theme.palette;
   const pieData: PieDatum[] = [
     { name: 'Income', value: income, type: 'INCOME' },
     { name: 'Expense', value: expense, type: 'EXPENSE' },
@@ -117,7 +117,7 @@ export default function IncomeExpensePieChart({
                     cy="50%"
                     outerRadius={62}
                     innerRadius={38}
-                    stroke={background.paper}
+                    stroke={theme.palette.background.paper}
                     strokeWidth={2}
                     startAngle={90}
                     endAngle={-270}

@@ -33,6 +33,19 @@ class TelegramService {
     return bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
   }
 
+  /** For messages that are pure data: no parse_mode, so nothing to escape. */
+  public async sendPlainMessage(chatId: string, message: string) {
+    const bot = this.getBot();
+    if (!bot) {
+      logger.warn(
+        { chatId },
+        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram sendPlainMessage',
+      );
+      return;
+    }
+    return bot.sendMessage(chatId, message);
+  }
+
   public async editMessage(chatId: string, messageId: number, newText: string) {
     const bot = this.getBot();
     if (!bot) {

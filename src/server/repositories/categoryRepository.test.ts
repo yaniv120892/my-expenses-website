@@ -79,4 +79,41 @@ describe('categoryRepository.getCategoryById', () => {
       expect.any(Number),
     );
   });
+
+  it('falls back to the database when the cache read fails', async () => {
+    getValueMock.mockRejectedValue(new Error('redis down'));
+    findUniqueMock.mockResolvedValue(groceries);
+
+    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(
+      groceries,
+    );
+  });
+});
+
+describe('categoryRepository list caches', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getAllCategories parses a legacy double-stringified entry', async () => {
+    getValueMock.mockResolvedValue(JSON.stringify([groceries]));
+
+    await expect(categoryRepository.getAllCategories()).resolves.toEqual([
+      groceries,
+    ]);
+    expect(vi.mocked(prisma.category.findMany)).not.toHaveBeenCalled();
+  });
+
+  it('getTopLevelCategories caches the raw array', async () => {
+    getValueMock.mockResolvedValue(null);
+    vi.mocked(prisma.category.findMany).mockResolvedValue([groceries]);
+
+    await categoryRepository.getTopLevelCategories();
+
+    expect(vi.mocked(setValue)).toHaveBeenCalledWith(
+      'topLevelCategories',
+      [groceries],
+      expect.any(Number),
+    );
+  });
 });

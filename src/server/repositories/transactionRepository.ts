@@ -25,8 +25,8 @@ import {
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
 
-// Prisma raises P2025 when an update/delete matches no row — here that means
-// the transaction does not exist or belongs to another user.
+// An update/delete matching no row means the transaction does not exist or
+// belongs to another user.
 function throwNotFoundOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
     throw new HttpError(404, 'Transaction not found');

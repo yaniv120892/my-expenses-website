@@ -14,7 +14,10 @@ import {
 } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
-import { getPrismaErrorCode } from '@/server/db/prismaErrors';
+import {
+  getPrismaErrorCode,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
 import { escapeMarkdown } from '@/server/services/telegramService';
 import logger from '@/server/logging/logger';
 import {
@@ -91,7 +94,9 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return getPrismaErrorCode(error) === 'P2002';
+  return (
+    getPrismaErrorCode(error) === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT_VIOLATION
+  );
 }
 
 class SubscriptionDetectionService {

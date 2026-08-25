@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import {
   TrendPeriod,
   SpendingTrend,
@@ -8,6 +7,7 @@ import {
   TransactionType,
 } from '@/types/trends';
 import api from './api';
+import { toDayString } from '@/shared/dates';
 
 interface GetTrendsParams {
   startDate?: Date;
@@ -31,9 +31,9 @@ export async function fetchSpendingTrends(
 ): Promise<SpendingTrend> {
   const queryParams = {
     ...(params.startDate && {
-      startDate: format(params.startDate, 'yyyy-MM-dd'),
+      startDate: toDayString(params.startDate),
     }),
-    ...(params.endDate && { endDate: format(params.endDate, 'yyyy-MM-dd') }),
+    ...(params.endDate && { endDate: toDayString(params.endDate) }),
     period: params.period,
     ...(params.categoryId && { categoryId: params.categoryId }),
     ...(params.transactionType && { transactionType: params.transactionType }),
@@ -48,9 +48,9 @@ export async function fetchCategorySpendingTrends(
 ): Promise<CategorySpendingTrend[]> {
   const queryParams = {
     ...(params.startDate && {
-      startDate: format(params.startDate, 'yyyy-MM-dd'),
+      startDate: toDayString(params.startDate),
     }),
-    ...(params.endDate && { endDate: format(params.endDate, 'yyyy-MM-dd') }),
+    ...(params.endDate && { endDate: toDayString(params.endDate) }),
     period: params.period,
     ...(params.transactionType && { transactionType: params.transactionType }),
   };
@@ -63,8 +63,8 @@ export async function fetchCategoryComparison(
   params: GetComparisonParams,
 ): Promise<CategoryComparison> {
   const queryParams = {
-    startDate: format(params.startDate, 'yyyy-MM-dd'),
-    endDate: format(params.endDate, 'yyyy-MM-dd'),
+    startDate: toDayString(params.startDate),
+    endDate: toDayString(params.endDate),
     period: params.period,
     // Comma-joined, not repeated params: the API flattens searchParams and
     // would keep only the last value of a repeated key.

@@ -14,6 +14,7 @@ import {
 } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
+import { getPrismaErrorCode } from '@/server/db/prismaErrors';
 import logger from '@/server/logging/logger';
 import {
   nextExpectedDateAfter,
@@ -87,7 +88,7 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (error as { code?: string } | null)?.code === 'P2002';
+  return getPrismaErrorCode(error) === 'P2002';
 }
 
 class SubscriptionDetectionService {

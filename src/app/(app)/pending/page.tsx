@@ -6,6 +6,7 @@ import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
+import { handleApiError } from '@/utils/api';
 import {
   usePendingTransactionsQuery,
   useConfirmTransactionMutation,
@@ -14,8 +15,26 @@ import {
 
 type Notice = { message: string; severity: 'success' | 'error' };
 
+function isAxiosGenericMessage(message: string): boolean {
+  return (
+    message === 'Network Error' ||
+    message.startsWith('Request failed with status code') ||
+    message.startsWith('timeout of ')
+  );
+}
+
 export default function PendingPage() {
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  // Remounts the snackbar per notice, restarting its auto-hide timer and
+  // entry animation for rapid consecutive outcomes.
+  const [noticeKey, setNoticeKey] = useState(0);
+
+  function showNotice(next: Notice) {
+    setNotice(next);
+    setNoticeOpen(true);
+    setNoticeKey((key) => key + 1);
+  }
   const {
     data: pendingTransactions = [],
     isLoading,
@@ -31,10 +50,13 @@ export default function PendingPage() {
   ) {
     try {
       await action();
-      setNotice({ message: successMessage, severity: 'success' });
+      showNotice({ message: successMessage, severity: 'success' });
     } catch (error) {
-      setNotice({
-        message: error instanceof Error ? error.message : failureMessage,
+      // Axios's own messages ("Network Error") are not user-facing; only a
+      // server-provided message beats the friendly fallback.
+      const message = handleApiError(error, failureMessage);
+      showNotice({
+        message: isAxiosGenericMessage(message) ? failureMessage : message,
         severity: 'error',
       });
     }
@@ -74,10 +96,11 @@ export default function PendingPage() {
         />
       )}
       <NotificationSnackbar
-        open={!!notice}
+        key={noticeKey}
+        open={noticeOpen}
         message={notice?.message ?? ''}
         severity={notice?.severity}
-        onClose={() => setNotice(null)}
+        onClose={() => setNoticeOpen(false)}
       />
     </>
   );

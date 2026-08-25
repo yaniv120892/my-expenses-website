@@ -20,11 +20,12 @@ import {
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { HttpError } from '@/server/http/errors';
+import { getPrismaErrorCode } from '@/server/db/prismaErrors';
 
 // Prisma raises P2025 when an update/delete matches no row — here that means
 // the transaction does not exist or belongs to another user.
 function throwNotFoundOnMissingRow(err: unknown): never {
-  if ((err as { code?: string })?.code === 'P2025') {
+  if (getPrismaErrorCode(err) === 'P2025') {
     throw new HttpError(404, 'Transaction not found');
   }
   throw err;
@@ -82,13 +83,21 @@ class TransactionRepository {
       where: this.buildListWhere(filters, startDate, endDate),
     });
 
-    const groupOf = (type: TransactionType) =>
-      groups.find((group) => group.type === type);
+    const incomeGroup = groups.find(
+      (group) => group.type === TransactionType.INCOME,
+    );
+    const expenseGroup = groups.find(
+      (group) => group.type === TransactionType.EXPENSE,
+    );
+    const incomeCount = incomeGroup?._count._all ?? 0;
+    const expenseCount = expenseGroup?._count._all ?? 0;
 
     return {
-      totalIncome: groupOf(TransactionType.INCOME)?._sum.value ?? 0,
-      totalExpense: groupOf(TransactionType.EXPENSE)?._sum.value ?? 0,
-      count: groups.reduce((total, group) => total + group._count._all, 0),
+      totalIncome: incomeGroup?._sum.value ?? 0,
+      totalExpense: expenseGroup?._sum.value ?? 0,
+      count: incomeCount + expenseCount,
+      incomeCount,
+      expenseCount,
     };
   }
 

@@ -1,4 +1,5 @@
 import { Message } from '@/hooks/useChat';
+import { fitChatHistory } from '@/utils/chatHistory';
 
 export interface StreamHandlers {
   onDelta: (delta: string) => void;
@@ -19,7 +20,7 @@ export const streamMessage = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages: fitChatHistory(messages) }),
     signal,
   });
 

@@ -15,6 +15,7 @@ import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
@@ -269,11 +270,15 @@ class ImportService {
     );
 
     if (!matchingTransaction) {
-      throw new HttpError(
-        404,
-        'Matching transaction not found with id: ' +
-          importedTransaction.matchingTransactionId,
+      logger.warn(
+        {
+          userId,
+          importedTransactionId: importedTransaction.id,
+          matchingTransactionId: importedTransaction.matchingTransactionId,
+        },
+        'Stored matching transaction is missing or not owned by the user',
       );
+      throw new HttpError(404, 'Matching transaction not found');
     }
 
     await transactionService.updateTransaction(
@@ -669,13 +674,16 @@ class ImportService {
       return null;
     }
 
-    const bestMatchId = await this.getAiProvider().findMatchingTransaction(
-      transaction.description,
+    // Providers validate their answer already; re-applying the idempotent
+    // resolver here makes "never an invented id" structural rather than a
+    // contract a future provider could forget.
+    const matchingTransactionId = resolveMatchedTransactionId(
+      await this.getAiProvider().findMatchingTransaction(
+        transaction.description,
+        availableMatches,
+      ),
       availableMatches,
     );
-
-    const matchingTransactionId =
-      bestMatchId ?? availableMatches[0]?.id ?? null;
 
     if (matchingTransactionId) {
       await prisma.importedTransaction.update({

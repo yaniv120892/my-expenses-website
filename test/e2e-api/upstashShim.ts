@@ -4,23 +4,66 @@ import http from 'http';
  * Minimal stand-in for the Upstash REST API.
  *
  * `@upstash/redis` speaks HTTP/REST rather than the Redis wire protocol, so a
- * local redis-server cannot be used. Only the commands redisProvider issues are
- * implemented (set/get/del); values are stored verbatim, since the client
- * serialises before sending and parses after receiving.
+ * local redis-server cannot be used. Only the commands the server issues are
+ * implemented (set/get/del/incr/expire); values are stored verbatim, since the
+ * client serialises before sending and parses after receiving. TTLs are
+ * honoured lazily, so a rate-limit window expires here just as it would in
+ * Redis instead of a counter surviving until the shim restarts.
  */
-const store = new Map<string, string>();
+const store = new Map<string, { value: string; expiresAt?: number }>();
+
+function liveEntry(key: string): { value: string; expiresAt?: number } | null {
+  const entry = store.get(key);
+  if (!entry) {
+    return null;
+  }
+  if (entry.expiresAt !== undefined && Date.now() > entry.expiresAt) {
+    store.delete(key);
+    return null;
+  }
+  return entry;
+}
 
 function runCommand(command: unknown[]): unknown {
-  const [name, key, value] = command as [string, string, string];
+  const [name, key, value, ...rest] = command as [
+    string,
+    string,
+    string,
+    ...string[],
+  ];
 
   switch (String(name).toLowerCase()) {
-    case 'set':
-      store.set(key, value);
+    case 'set': {
+      // setValue sends ['set', key, value, 'EX', seconds].
+      const exIndex = rest.findIndex(
+        (part) => String(part).toLowerCase() === 'ex',
+      );
+      const ttlSeconds = exIndex >= 0 ? Number(rest[exIndex + 1]) : undefined;
+      store.set(key, {
+        value,
+        ...(ttlSeconds ? { expiresAt: Date.now() + ttlSeconds * 1000 } : {}),
+      });
       return 'OK';
+    }
     case 'get':
-      return store.has(key) ? store.get(key) : null;
+      return liveEntry(key)?.value ?? null;
     case 'del':
       return store.delete(key) ? 1 : 0;
+    case 'incr': {
+      const entry = liveEntry(key);
+      const next = Number(entry?.value ?? '0') + 1;
+      // INCR keeps the key's existing TTL, as Redis does.
+      store.set(key, { value: String(next), expiresAt: entry?.expiresAt });
+      return next;
+    }
+    case 'expire': {
+      const entry = liveEntry(key);
+      if (!entry) {
+        return 0;
+      }
+      entry.expiresAt = Date.now() + Number(value) * 1000;
+      return 1;
+    }
     default:
       return null;
   }
@@ -80,5 +123,5 @@ export function startUpstashShim(port: number): Promise<http.Server> {
 
 /** Lets the seed script write a session key directly. */
 export function seedKey(key: string, value: string): void {
-  store.set(key, value);
+  store.set(key, { value });
 }

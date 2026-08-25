@@ -1,30 +1,34 @@
-import { Transaction } from '@/shared/types/transaction';
+import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 import {
-  AggregationType,
   AggregationResult,
-  ComparisonPeriod,
+  RowAggregationType,
+  TotalsAggregationType,
 } from '@/shared/types/chat';
 import { formatCurrencyPlain } from '@/utils/format';
 
+export interface ComparisonPeriodTotals {
+  label: string;
+  totals: TransactionSummary;
+}
+
 class ChatAggregationService {
   /**
-   * Compares two periods and returns the difference and percentage change.
-   *
-   * Derived figures are computed here rather than left to the model. Without
-   * this, answering "how much more did I spend in February?" would mean handing
-   * the assistant two totals and having it do the subtraction itself.
+   * Compares two periods from their SQL summaries and returns the difference
+   * and percentage change. Derived figures are computed here rather than left
+   * to the model: answering "how much more did I spend in February?" must not
+   * mean handing the assistant two totals and having it subtract.
    */
   public computeComparison(
-    periodA: ComparisonPeriod,
-    periodB: ComparisonPeriod,
+    periodA: ComparisonPeriodTotals,
+    periodB: ComparisonPeriodTotals,
   ): AggregationResult {
-    const totalA = this.sumValues(periodA.transactions);
-    const totalB = this.sumValues(periodB.transactions);
+    const totalA = this.round(this.combinedTotal(periodA.totals));
+    const totalB = this.round(this.combinedTotal(periodB.totals));
     const difference = this.round(totalB - totalA);
 
     const lines = [
-      `${periodA.label}: ${formatCurrencyPlain(totalA)} (${this.pluralize(periodA.transactions.length, 'transaction')})`,
-      `${periodB.label}: ${formatCurrencyPlain(totalB)} (${this.pluralize(periodB.transactions.length, 'transaction')})`,
+      `${periodA.label}: ${formatCurrencyPlain(totalA)} (${this.pluralize(periodA.totals.count, 'transaction')})`,
+      `${periodB.label}: ${formatCurrencyPlain(totalB)} (${this.pluralize(periodB.totals.count, 'transaction')})`,
       `Difference: ${difference >= 0 ? '+' : '-'}${formatCurrencyPlain(Math.abs(difference))} (${periodB.label} vs ${periodA.label})`,
     ];
 
@@ -52,22 +56,69 @@ class ChatAggregationService {
     return {
       summary: lines.join('\n'),
       data,
-      transactionCount:
-        periodA.transactions.length + periodB.transactions.length,
+      transactionCount: periodA.totals.count + periodB.totals.count,
     };
+  }
+
+  /**
+   * Totals, counts and averages come from a SQL summary instead of loaded
+   * rows, so they are exact however many rows match.
+   */
+  public aggregateFromTotals(
+    totals: TransactionSummary,
+    aggregationType: TotalsAggregationType,
+  ): AggregationResult {
+    switch (aggregationType) {
+      case 'total': {
+        const net = totals.totalIncome - totals.totalExpense;
+        return {
+          summary: [
+            `Total Income: ${formatCurrencyPlain(totals.totalIncome)}`,
+            `Total Expenses: ${formatCurrencyPlain(totals.totalExpense)}`,
+            `Net: ${formatCurrencyPlain(net)}`,
+          ].join('\n'),
+          data: {
+            income: totals.totalIncome,
+            expense: totals.totalExpense,
+            net,
+          },
+          transactionCount: totals.count,
+        };
+      }
+      case 'average': {
+        if (totals.count === 0) {
+          return {
+            summary: 'No transactions found to calculate an average.',
+            data: { average: 0 },
+            transactionCount: 0,
+          };
+        }
+        const total = this.combinedTotal(totals);
+        const average = this.round(total / totals.count);
+        return {
+          summary: `Average transaction value: ${formatCurrencyPlain(average)} (across ${totals.count} transactions, total: ${formatCurrencyPlain(total)})`,
+          data: { average, total, count: totals.count },
+          transactionCount: totals.count,
+        };
+      }
+      case 'count':
+        return {
+          summary: `Total transactions: ${totals.count} (${totals.incomeCount} income, ${totals.expenseCount} expenses)`,
+          data: {
+            total: totals.count,
+            incomeCount: totals.incomeCount,
+            expenseCount: totals.expenseCount,
+          },
+          transactionCount: totals.count,
+        };
+    }
   }
 
   public aggregate(
     transactions: Transaction[],
-    aggregationType: AggregationType,
+    aggregationType: RowAggregationType,
   ): AggregationResult {
     switch (aggregationType) {
-      case 'total':
-        return this.computeTotal(transactions);
-      case 'average':
-        return this.computeAverage(transactions);
-      case 'count':
-        return this.computeCount(transactions);
       case 'breakdown_by_category':
         return this.computeCategoryBreakdown(transactions);
       case 'breakdown_by_month':
@@ -77,56 +128,6 @@ class ChatAggregationService {
       case 'list':
         return this.formatList(transactions);
     }
-  }
-
-  private computeTotal(transactions: Transaction[]): AggregationResult {
-    const income = this.sumByType(transactions, 'INCOME');
-    const expense = this.sumByType(transactions, 'EXPENSE');
-    const net = income - expense;
-
-    const lines = [
-      `Total Income: ${formatCurrencyPlain(income)}`,
-      `Total Expenses: ${formatCurrencyPlain(expense)}`,
-      `Net: ${formatCurrencyPlain(net)}`,
-    ];
-
-    return {
-      summary: lines.join('\n'),
-      data: { income, expense, net },
-      transactionCount: transactions.length,
-    };
-  }
-
-  private computeAverage(transactions: Transaction[]): AggregationResult {
-    if (transactions.length === 0) {
-      return {
-        summary: 'No transactions found to calculate an average.',
-        data: { average: 0 },
-        transactionCount: 0,
-      };
-    }
-
-    const total = transactions.reduce((sum, t) => sum + t.value, 0);
-    const average = this.round(total / transactions.length);
-
-    return {
-      summary: `Average transaction value: ${formatCurrencyPlain(average)} (across ${transactions.length} transactions, total: ${formatCurrencyPlain(total)})`,
-      data: { average, total, count: transactions.length },
-      transactionCount: transactions.length,
-    };
-  }
-
-  private computeCount(transactions: Transaction[]): AggregationResult {
-    const incomeCount = transactions.filter((t) => t.type === 'INCOME').length;
-    const expenseCount = transactions.filter(
-      (t) => t.type === 'EXPENSE',
-    ).length;
-
-    return {
-      summary: `Total transactions: ${transactions.length} (${incomeCount} income, ${expenseCount} expenses)`,
-      data: { total: transactions.length, incomeCount, expenseCount },
-      transactionCount: transactions.length,
-    };
   }
 
   private computeCategoryBreakdown(
@@ -238,17 +239,8 @@ class ChatAggregationService {
     };
   }
 
-  private sumByType(
-    transactions: Transaction[],
-    type: 'INCOME' | 'EXPENSE',
-  ): number {
-    return transactions
-      .filter((t) => t.type === type)
-      .reduce((sum, t) => sum + t.value, 0);
-  }
-
-  private sumValues(transactions: Transaction[]): number {
-    return this.round(transactions.reduce((sum, t) => sum + t.value, 0));
+  private combinedTotal(totals: TransactionSummary): number {
+    return totals.totalIncome + totals.totalExpense;
   }
 
   /** Formats a signed percentage the way computeComparison reports one. */

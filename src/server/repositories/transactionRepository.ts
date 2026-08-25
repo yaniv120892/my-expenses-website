@@ -83,7 +83,17 @@ class TransactionRepository {
   public async createTransaction(
     data: CreateTransactionDbModel,
   ): Promise<string> {
-    const transaction = await prisma.transaction.create({
+    const transaction = await this.createTransactionOp(data);
+    return transaction.id;
+  }
+
+  /**
+   * Returned unawaited so the caller can batch it into one prisma.$transaction
+   * with related writes (import approval marks the imported row in the same
+   * batch).
+   */
+  public createTransactionOp(data: CreateTransactionDbModel) {
+    return prisma.transaction.create({
       data: {
         description: data.description,
         value: data.value,
@@ -93,10 +103,7 @@ class TransactionRepository {
         status: data.status || TransactionStatus.APPROVED,
         userId: data.userId,
       },
-      include: { category: true },
     });
-
-    return transaction.id;
   }
 
   /**
@@ -228,20 +235,29 @@ class TransactionRepository {
     data: UpdateTransactionDbModel,
     userId: string,
   ): Promise<string> {
-    const transaction = await prisma.transaction
-      .update({
-        where: { id, userId },
-        data: {
-          description: data.description,
-          value: data.value,
-          date: data.date,
-          categoryId: data.categoryId,
-          type: data.type,
-          status: data.status,
-        },
-      })
-      .catch(throwNotFoundOnMissingRow);
+    const transaction = await this.updateTransactionOp(id, data, userId).catch(
+      throwNotFoundOnMissingRow,
+    );
     return transaction.id;
+  }
+
+  /** Unawaited for batching; a missing row fails as raw P2025, not a 404. */
+  public updateTransactionOp(
+    id: string,
+    data: UpdateTransactionDbModel,
+    userId: string,
+  ) {
+    return prisma.transaction.update({
+      where: { id, userId },
+      data: {
+        description: data.description,
+        value: data.value,
+        date: data.date,
+        categoryId: data.categoryId,
+        type: data.type,
+        status: data.status,
+      },
+    });
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {

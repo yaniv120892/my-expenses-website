@@ -19,23 +19,20 @@ import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
+import { getPrismaErrorCode } from '@/server/db/prismaErrors';
 
 // Prisma raises P2025 when an update in the approve/merge batch matches no
 // row — a concurrent delete won the race. Map it back to the 404 the
 // non-batched path used to return.
-function isMissingRowError(err: unknown): boolean {
-  return (err as { code?: string })?.code === 'P2025';
-}
-
 function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
-  if (isMissingRowError(err)) {
+  if (getPrismaErrorCode(err) === 'P2025') {
     throw new HttpError(404, 'Imported transaction not found');
   }
   throw err;
 }
 
 function throwTransactionNotFoundOnMissingRow(err: unknown): never {
-  if (isMissingRowError(err)) {
+  if (getPrismaErrorCode(err) === 'P2025') {
     throw new HttpError(404, 'Transaction not found');
   }
   throw err;

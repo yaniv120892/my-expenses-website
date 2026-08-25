@@ -31,7 +31,7 @@ import {
   findScheduleMatch,
   indexSchedules,
 } from '@/server/utils/scheduleMatching';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrencyPlain } from '@/utils/format';
 
 const DETECTION_WINDOW_MONTHS = 12;
 
@@ -69,12 +69,12 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
       totalMonthly += monthly;
       totalAnnual += sub.annualCost;
       lines.push(
-        `- ${sub.displayName}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
+        `- ${sub.displayName}: ${formatCurrencyPlain(monthly)}/mo (${formatCurrencyPlain(sub.annualCost)}/yr)`,
       );
     }
     lines.push('');
     lines.push(
-      `Total: ${formatCurrency(totalMonthly)}/month | ${formatCurrency(totalAnnual)}/year`,
+      `Total: ${formatCurrencyPlain(totalMonthly)}/month | ${formatCurrencyPlain(totalAnnual)}/year`,
     );
   }
 

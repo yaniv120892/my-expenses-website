@@ -45,6 +45,18 @@ function encodeCursor(transaction: { date: Date; id: string }): string {
   return `${transaction.date.toISOString()}${CURSOR_SEPARATOR}${transaction.id}`;
 }
 
+/**
+ * Date filters address whole days: startDate floors to the day's start and
+ * endDate widens to its end. Callers (the daily summary among them) rely on
+ * this to pass plain timestamps for both bounds.
+ */
+export function normalizeDateRange(startDate?: Date, endDate?: Date) {
+  return {
+    startDate: startDate ? startOfDay(new Date(startDate)) : undefined,
+    endDate: endDate ? endOfDay(new Date(endDate)) : undefined,
+  };
+}
+
 function decodeCursor(cursor: string): { date: Date; id: string } {
   const separatorIndex = cursor.indexOf(CURSOR_SEPARATOR);
   const date = new Date(cursor.slice(0, separatorIndex));
@@ -59,7 +71,7 @@ class TransactionRepository {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -107,7 +119,7 @@ class TransactionRepository {
   public async getTransactions(
     filters: TransactionFilters,
   ): Promise<Transaction[]> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -130,7 +142,7 @@ class TransactionRepository {
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -272,7 +284,7 @@ class TransactionRepository {
       count: number;
     }[]
   > {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       params.startDate,
       params.endDate,
     );
@@ -297,14 +309,6 @@ class TransactionRepository {
       sum: group._sum?.value ?? 0,
       count: group._count?._all ?? 0,
     }));
-  }
-
-  private getNormalizedDateRange(startDate?: Date, endDate?: Date) {
-    const normalizedStartDate = startDate
-      ? startOfDay(new Date(startDate))
-      : undefined;
-    const normalizedEndDate = endDate ? endOfDay(new Date(endDate)) : undefined;
-    return { startDate: normalizedStartDate, endDate: normalizedEndDate };
   }
 
   public async findPotentialMatches(

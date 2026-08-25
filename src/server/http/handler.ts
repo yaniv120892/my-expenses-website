@@ -5,6 +5,7 @@ import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
+import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
@@ -90,7 +91,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-function errorResponse(err: unknown): NextResponse {
+function errorResponse(err: unknown, auth: AuthMode): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
@@ -106,13 +107,20 @@ function errorResponse(err: unknown): NextResponse {
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const error = (err ?? {}) as { message?: string; status?: number };
-  // An error never maps to a success status: callers (heartbeats, the 5xx log)
-  // read `status < 400` as "the handler resolved".
-  const status = error.status && error.status >= 400 ? error.status : 500;
+  // Only routes with a human client get the 4xx mapping. A cron or Telegram
+  // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
+  // logging and alerting.
+  if (auth === 'session' || auth === 'public') {
+    const prismaHttpError = prismaErrorToHttpError(err);
+    if (prismaHttpError) {
+      return errorResponse(prismaHttpError, auth);
+    }
+  }
+  // Neutral to the client — the real message goes to the log and Sentry below.
+  // Any deliberate client-facing status must be thrown as an HttpError.
   return NextResponse.json(
-    { message: error.message || 'Internal Server Error' },
-    { status },
+    { message: 'Internal Server Error' },
+    { status: 500 },
   );
 }
 
@@ -177,7 +185,7 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err);
+      response = errorResponse(err, options.auth);
       if (response.status >= 500) {
         logger.error(
           { requestId, path, err, ...(userId && { userId }) },

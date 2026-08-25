@@ -3,6 +3,7 @@ import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
+import { requireEnv } from '@/server/env';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -14,7 +15,7 @@ export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
     () =>
       new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: requireEnv('OPENAI_API_KEY'),
       }),
   );
 

@@ -15,7 +15,7 @@ type PresignerClient = Parameters<typeof getSignedUrl>[0];
 const getS3Client = lazy(
   () =>
     new S3Client({
-      region: process.env.TRANSACTION_ATTACHMENT_S3_REGION,
+      region: requireEnv('TRANSACTION_ATTACHMENT_S3_REGION'),
       credentials: {
         accessKeyId: requireEnv('TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID'),
         secretAccessKey: requireEnv(

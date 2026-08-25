@@ -1,43 +1,55 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { ZodType, ZodTypeDef, ZodError } from 'zod';
+import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
+import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
-export interface HandlerContext<TBody, TQuery> {
+// Every dynamic segment in this API is a uuid column, so params are validated
+// as uuids by default and a new route cannot silently skip validation. A route
+// with a non-uuid segment must opt out with its own paramsSchema.
+const uuidRouteParamsSchema = z.record(z.string().uuid());
+
+export interface HandlerContext<
+  TBody,
+  TQuery,
+  TParams = Record<string, string>,
+> {
   req: NextRequest;
   userId: string;
   body: TBody;
   query: TQuery;
-  params: Record<string, string>;
+  params: TParams;
 }
 
-interface BaseHandlerOptions<TBody, TQuery, TResult> {
+interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
+  paramsSchema?: ZodType<TParams, ZodTypeDef, unknown>;
   status?: number;
-  handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
+  handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 }
 
 // Rules are derived from the request context, so a key can be built from
 // whichever identity the route limits by: IP, email, or user id.
-type RateLimitResolver<TBody, TQuery> = (
-  handlerContext: HandlerContext<TBody, TQuery>,
+type RateLimitResolver<TBody, TQuery, TParams = Record<string, string>> = (
+  handlerContext: HandlerContext<TBody, TQuery, TParams>,
 ) => RateLimitRule[];
 
-type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
+type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
   TBody,
   TQuery,
-  TResult
+  TResult,
+  TParams
 > &
   (
     | {
@@ -50,19 +62,19 @@ type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
         // Required on public routes so a new one cannot ship unlimited by
         // omission; 'none' is the deliberate opt-out.
         auth: 'public';
-        rateLimit: RateLimitResolver<TBody, TQuery> | 'none';
+        rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
       }
     | {
         auth: 'session' | 'telegram';
-        rateLimit?: RateLimitResolver<TBody, TQuery>;
+        rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
       }
   );
 
-// Next passes segment params for dynamic routes; static routes get an empty
-// object, so the loose Record type covers both.
-type RouteContext = { params: Promise<Record<string, string>> };
+// Next passes segment params for dynamic routes; a static route's promise
+// resolves to undefined (not an empty object).
+type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
 // `/api/transactions/<uuid>` becomes `/api/transactions/[id]`, so alert quotas
 // are keyed per route rather than per record id.
@@ -98,7 +110,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
   }
 }
 
-function errorResponse(err: unknown): NextResponse {
+function errorResponse(err: unknown, auth: AuthMode): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
@@ -114,13 +126,20 @@ function errorResponse(err: unknown): NextResponse {
   if (err instanceof HttpError) {
     return NextResponse.json({ message: err.message }, { status: err.status });
   }
-  const error = (err ?? {}) as { message?: string; status?: number };
-  // An error never maps to a success status: callers (heartbeats, the 5xx log)
-  // read `status < 400` as "the handler resolved".
-  const status = error.status && error.status >= 400 ? error.status : 500;
+  // Only routes with a human client get the 4xx mapping. A cron or Telegram
+  // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
+  // logging and alerting.
+  if (auth === 'session' || auth === 'public') {
+    const prismaHttpError = prismaErrorToHttpError(err);
+    if (prismaHttpError) {
+      return errorResponse(prismaHttpError, auth);
+    }
+  }
+  // Neutral to the client — the real message goes to the log and Sentry below.
+  // Any deliberate client-facing status must be thrown as an HttpError.
   return NextResponse.json(
-    { message: error.message || 'Internal Server Error' },
-    { status },
+    { message: 'Internal Server Error' },
+    { status: 500 },
   );
 }
 
@@ -128,7 +147,8 @@ export function createHandler<
   TBody = unknown,
   TQuery = unknown,
   TResult = unknown,
->(options: HandlerOptions<TBody, TQuery, TResult>) {
+  TParams = Record<string, string>,
+>(options: HandlerOptions<TBody, TQuery, TResult, TParams>) {
   return async (
     req: NextRequest,
     routeContext: RouteContext,
@@ -142,7 +162,12 @@ export function createHandler<
 
     try {
       userId = await resolveAuth(req, options.auth);
-      params = routeContext ? await routeContext.params : {};
+      params = (routeContext ? await routeContext.params : undefined) ?? {};
+      // Params are validated before the body: the check is cheaper and a
+      // malformed id is the more precise rejection when both are bad.
+      const parsedParams = options.paramsSchema
+        ? options.paramsSchema.parse(params)
+        : (uuidRouteParamsSchema.parse(params) as TParams);
       let body = undefined as TBody;
       if (options.bodySchema) {
         let raw: unknown;
@@ -159,7 +184,7 @@ export function createHandler<
           )
         : (undefined as TQuery);
 
-      const handlerContext = { req, userId, body, query, params };
+      const handlerContext = { req, userId, body, query, params: parsedParams };
       if (options.rateLimit && options.rateLimit !== 'none') {
         await enforceRateLimits(options.rateLimit(handlerContext));
       }
@@ -178,7 +203,7 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err);
+      response = errorResponse(err, options.auth);
       if (response.status >= 500) {
         logger.error(
           { requestId, path, err, ...(userId && { userId }) },
@@ -191,6 +216,7 @@ export function createHandler<
           tags: { path, requestId },
           ...(userId && { user: { id: userId } }),
         });
+        // Raw params, not parsed: the replace must match the exact path text.
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.

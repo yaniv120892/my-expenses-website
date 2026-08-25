@@ -24,8 +24,9 @@ npm run test:e2e:ui      # Playwright specs in e2e/
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI
-(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests, and both
-e2e suites against `npx prisma dev` as the local Prisma Postgres.
+(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests + the
+production build, and both e2e suites against `npx prisma dev` as the local
+Prisma Postgres.
 
 Vitest runs on `node` by default; a component or hook test opts into a DOM
 with a `// @vitest-environment jsdom` docblock and renders through
@@ -44,6 +45,10 @@ runs them alone.
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `cron` | `telegram` | `public`), zod-validates body/query,
+  validates dynamic route params as uuids by default (a route with a
+  non-uuid segment must declare its own `paramsSchema`),
+  enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
+  on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
   request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
@@ -67,6 +72,10 @@ runs them alone.
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
 - `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
+- `next.config.ts` — security response headers on every route via `headers()`
+  (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
+  permissions) and `poweredByHeader: false`; not middleware, whose matcher
+  skips static assets.
 
 ## Key invariants
 

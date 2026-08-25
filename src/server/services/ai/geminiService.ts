@@ -9,6 +9,7 @@ import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
+  resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 
 export class GeminiService implements AIProvider {
@@ -160,13 +161,16 @@ export class GeminiService implements AIProvider {
         ],
       });
 
-      const result = this.cleanGeminiResponse(
-        response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
+      const result = resolveMatchedTransactionId(
+        this.cleanGeminiResponse(
+          response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
+        ),
+        potentialMatches,
       );
 
       logger.debug({ result }, 'Done finding matching transaction');
 
-      return result === 'none' ? null : result;
+      return result;
     } catch (err) {
       logger.error({ err }, 'Error finding matching transaction');
       return null;

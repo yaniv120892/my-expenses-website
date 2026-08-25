@@ -18,6 +18,11 @@ export interface AIProvider {
     categoryOptions: Category[],
     categorizerHint?: CategorizerHint,
   ): Promise<string | null>;
+  /**
+   * Resolves to the id of one of `potentialMatches`, or null. Implementations
+   * validate the model's free-text answer through
+   * `resolveMatchedTransactionId`, so callers never see an invented id.
+   */
   findMatchingTransaction(
     importedDescription: string,
     potentialMatches: Transaction[],

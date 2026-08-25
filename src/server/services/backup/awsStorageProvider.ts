@@ -29,7 +29,7 @@ export class AwsStorageProvider implements BackupStorageProvider {
       ContentType: mimeType,
     });
     await this.getS3Client().send(putCommand);
-    const url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-    return url;
+    const region = requireEnv('BACKUP_S3_REGION');
+    return `https://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
   }
 }

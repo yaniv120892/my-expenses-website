@@ -81,6 +81,8 @@ export interface TransactionSummary {
   totalIncome: number;
   totalExpense: number;
   count: number;
+  incomeCount: number;
+  expenseCount: number;
 }
 
 export interface CreateTransactionResult {

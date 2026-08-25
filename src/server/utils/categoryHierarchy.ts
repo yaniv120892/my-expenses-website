@@ -69,7 +69,15 @@ export async function expandCategoryToSubtree(
   categoryId: string,
 ): Promise<string[]> {
   const categories = await categoryRepository.getAllCategories();
-  return collectSubtree(buildChildrenIndex(categories), categoryId);
+  return collectCategorySubtree(categories, categoryId);
+}
+
+/** The same expansion for a caller that already holds the category list. */
+export function collectCategorySubtree(
+  categories: CategoryNode[],
+  rootId: string,
+): string[] {
+  return collectSubtree(buildChildrenIndex(categories), rootId);
 }
 
 /**

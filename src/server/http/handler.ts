@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { ZodType, ZodTypeDef, ZodError } from 'zod';
+import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
@@ -11,27 +11,38 @@ import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
-export interface HandlerContext<TBody, TQuery> {
+// Every dynamic segment in this API is a uuid column, so params are validated
+// as uuids by default and a new route cannot silently skip validation. A route
+// with a non-uuid segment must opt out with its own paramsSchema.
+const uuidRouteParamsSchema = z.record(z.string().uuid());
+
+export interface HandlerContext<
+  TBody,
+  TQuery,
+  TParams = Record<string, string>,
+> {
   req: NextRequest;
   userId: string;
   body: TBody;
   query: TQuery;
-  params: Record<string, string>;
+  params: TParams;
 }
 
-interface BaseHandlerOptions<TBody, TQuery, TResult> {
+interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
   querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
+  paramsSchema?: ZodType<TParams, ZodTypeDef, unknown>;
   status?: number;
-  handler: (ctx: HandlerContext<TBody, TQuery>) => Promise<TResult>;
+  handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 }
 
-type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
+type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
   TBody,
   TQuery,
-  TResult
+  TResult,
+  TParams
 > &
   (
     | {
@@ -42,9 +53,9 @@ type HandlerOptions<TBody, TQuery, TResult> = BaseHandlerOptions<
     | { auth: Exclude<AuthMode, 'cron'>; heartbeatEnvVar?: never }
   );
 
-// Next passes segment params for dynamic routes; static routes get an empty
-// object, so the loose Record type covers both.
-type RouteContext = { params: Promise<Record<string, string>> };
+// Next passes segment params for dynamic routes; a static route's promise
+// resolves to undefined (not an empty object).
+type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
 // `/api/transactions/<uuid>` becomes `/api/transactions/[id]`, so alert quotas
 // are keyed per route rather than per record id.
@@ -117,7 +128,8 @@ export function createHandler<
   TBody = unknown,
   TQuery = unknown,
   TResult = unknown,
->(options: HandlerOptions<TBody, TQuery, TResult>) {
+  TParams = Record<string, string>,
+>(options: HandlerOptions<TBody, TQuery, TResult, TParams>) {
   return async (
     req: NextRequest,
     routeContext: RouteContext,
@@ -131,7 +143,12 @@ export function createHandler<
 
     try {
       userId = await resolveAuth(req, options.auth);
-      params = routeContext ? await routeContext.params : {};
+      params = (routeContext ? await routeContext.params : undefined) ?? {};
+      // Params are validated before the body: the check is cheaper and a
+      // malformed id is the more precise rejection when both are bad.
+      const parsedParams = options.paramsSchema
+        ? options.paramsSchema.parse(params)
+        : (uuidRouteParamsSchema.parse(params) as TParams);
       let body = undefined as TBody;
       if (options.bodySchema) {
         let raw: unknown;
@@ -153,7 +170,7 @@ export function createHandler<
         userId,
         body,
         query,
-        params,
+        params: parsedParams,
       });
       // A handler may return a full Response (cookies, streams); anything
       // else is JSON-wrapped. null serializes as null; undefined becomes {}.
@@ -181,6 +198,7 @@ export function createHandler<
           tags: { path, requestId },
           ...(userId && { user: { id: userId } }),
         });
+        // Raw params, not parsed: the replace must match the exact path text.
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.

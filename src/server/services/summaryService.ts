@@ -4,14 +4,10 @@ import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
-import { formatCurrencyPlain } from '@/utils/format';
-import { escapeMarkdown } from '@/server/services/telegramService';
-
-interface SummaryTransaction {
-  description?: string | null;
-  value: number;
-  category?: { name: string } | null;
-}
+import {
+  formatSummaryMessage,
+  SummaryTransaction,
+} from '@/server/utils/summaryMessage';
 
 class SummaryService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
@@ -60,7 +56,7 @@ class SummaryService {
       'add a funny summary based on my expenses at the end',
     );
     const total = transactions.reduce((sum, t) => sum + t.value, 0);
-    return this.formatSummaryMessage(transactions, total, aiInsights);
+    return formatSummaryMessage(transactions, total, aiInsights);
   }
 
   private async getTodayTransactions(
@@ -74,27 +70,6 @@ class SummaryService {
       endDate: today,
       userId,
     });
-  }
-
-  private formatSummaryMessage(
-    transactions: SummaryTransaction[],
-    totalAmount: number,
-    aiInsights: string,
-  ): string {
-    const list = transactions
-      .map(
-        (t) =>
-          `${escapeMarkdown(t.category?.name || '')}, ${escapeMarkdown(t.description || '')}, ${formatCurrencyPlain(t.value || 0)}`,
-      )
-      .join('\n');
-    return [
-      '*ההוצאות של היום:*',
-      list,
-      '',
-      `*סך הכל הוצאות:*\n${formatCurrencyPlain(totalAmount)}\n`,
-      '',
-      `*סיכום:*\n${aiInsights}`,
-    ].join('\n');
   }
 }
 

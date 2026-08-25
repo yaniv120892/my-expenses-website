@@ -9,9 +9,11 @@ vi.mock('@/server/services/transactionService', () => ({
 }));
 
 import summaryService from '@/server/services/summaryService';
+import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
-// The window and message builders are private; reaching them directly keeps
-// the tests off the AI and notifier plumbing.
+// The window computation is private; reaching it directly keeps the test off
+// the AI and notifier plumbing, following the transactionService.test.ts
+// precedent for private access.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = summaryService as any;
 
@@ -26,11 +28,10 @@ describe('getTodayTransactions', () => {
     vi.useRealTimers();
   });
 
-  it('bounds the window to today, not tomorrow', async () => {
+  it('passes today for both bounds and lets the repository own the edges', async () => {
     await service.getTodayTransactions('user-1');
 
     const { startDate, endDate } = getAllTransactions.mock.calls[0][0];
-    // The repository normalizes both bounds to the day's edges.
     expect(startDate).toEqual(new Date('2026-08-25T21:00:00'));
     expect(endDate).toEqual(new Date('2026-08-25T21:00:00'));
   });
@@ -38,7 +39,7 @@ describe('getTodayTransactions', () => {
 
 describe('formatSummaryMessage', () => {
   it('escapes Markdown entities in user text but keeps its own bold markers', () => {
-    const message = service.formatSummaryMessage(
+    const message = formatSummaryMessage(
       [
         {
           category: { name: 'Food_Delivery' },
@@ -52,7 +53,12 @@ describe('formatSummaryMessage', () => {
 
     expect(message).toContain('Food\\_Delivery');
     expect(message).toContain('Pizza \\*Roma\\* \\[deal]');
-    // The template's own headers stay real Markdown.
     expect(message).toContain('*ההוצאות של היום:*');
+  });
+
+  it('escapes the model-written insights too', () => {
+    const message = formatSummaryMessage([], 0, 'you spent *a lot_');
+
+    expect(message).toContain('you spent \\*a lot\\_');
   });
 });

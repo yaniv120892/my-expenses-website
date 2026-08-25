@@ -22,28 +22,28 @@ class TelegramService {
   });
 
   public async sendMessage(chatId: string, message: string) {
-    const bot = this.getBot();
-    if (!bot) {
-      logger.warn(
-        { chatId },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram sendMessage',
-      );
-      return;
-    }
-    return bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    return this.send(chatId, message, { parse_mode: 'Markdown' });
   }
 
   /** For messages that are pure data: no parse_mode, so nothing to escape. */
   public async sendPlainMessage(chatId: string, message: string) {
+    return this.send(chatId, message, {});
+  }
+
+  private async send(
+    chatId: string,
+    message: string,
+    options: TelegramBot.SendMessageOptions,
+  ) {
     const bot = this.getBot();
     if (!bot) {
       logger.warn(
         { chatId },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram sendPlainMessage',
+        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send',
       );
       return;
     }
-    return bot.sendMessage(chatId, message);
+    return bot.sendMessage(chatId, message, options);
   }
 
   public async editMessage(chatId: string, messageId: number, newText: string) {

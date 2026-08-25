@@ -5,6 +5,7 @@ import TransactionNotifierFactory from '@/server/services/transactionNotificatio
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
 import { formatCurrencyPlain } from '@/utils/format';
+import { escapeMarkdown } from '@/server/services/telegramService';
 
 interface SummaryTransaction {
   description?: string | null;
@@ -71,14 +72,12 @@ class SummaryService {
       now.getMonth(),
       now.getDate(),
     );
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-    );
+    // The repository widens endDate to endOfDay, so `now` covers exactly
+    // today; the previous day+1 bound made the "today" summary span tomorrow
+    // as well.
     return transactionService.getAllTransactions({
       startDate: startOfToday,
-      endDate: endOfToday,
+      endDate: now,
       userId,
     });
   }
@@ -91,7 +90,7 @@ class SummaryService {
     const list = transactions
       .map(
         (t) =>
-          `${t.category?.name || ''}, ${t.description || ''}, ${formatCurrencyPlain(t.value || 0)}`,
+          `${escapeMarkdown(t.category?.name || '')}, ${escapeMarkdown(t.description || '')}, ${formatCurrencyPlain(t.value || 0)}`,
       )
       .join('\n');
     return [

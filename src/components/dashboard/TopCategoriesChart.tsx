@@ -71,7 +71,8 @@ function CategoryTrendIcon({
 
 export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
   const theme = useTheme();
-  const seriesColors = theme.palette.charts.series;
+  const { charts, background } = (theme.vars ?? theme).palette;
+  const seriesColors = charts.series;
 
   if (!categories.length) {
     return (
@@ -126,7 +127,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   cy="50%"
                   outerRadius={90}
                   innerRadius={50}
-                  stroke={theme.palette.background.paper}
+                  stroke={background.paper}
                   strokeWidth={2}
                   onClick={
                     onSelectCategory

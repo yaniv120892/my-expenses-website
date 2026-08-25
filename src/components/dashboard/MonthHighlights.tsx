@@ -53,7 +53,7 @@ function SpendingBar({
 
 export function MonthHighlights({ comparison, categories }: Props) {
   const theme = useTheme();
-  const { charts } = theme.palette;
+  const { charts, primary } = (theme.vars ?? theme).palette;
   const { currentMonth, previousMonth } = comparison;
   const maxExpense = Math.max(
     currentMonth.totalExpense,
@@ -90,7 +90,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             label="Last Month"
             value={previousMonth.totalExpense}
             max={maxExpense}
-            barColor={theme.palette.primary.main}
+            barColor={primary.main}
           />
         </Stack>
 

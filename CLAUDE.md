@@ -46,6 +46,8 @@ runs them alone.
   (`session` | `cron` | `telegram` | `public`), zod-validates body/query,
   validates dynamic route params as uuids by default (a route with a
   non-uuid segment must declare its own `paramsSchema`),
+  enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
+  on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
   request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`

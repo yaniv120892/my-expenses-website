@@ -9,6 +9,8 @@ import { verifyToken } from '@/server/auth/tokens';
 // token — the Redis session still gets invalidated.
 export const POST = createHandler({
   auth: 'public',
+  // Deleting your own session is idempotent and cheap; no cap needed.
+  rateLimit: 'none',
   handler: async ({ req }) => {
     const token = extractToken(req);
     if (!token) {

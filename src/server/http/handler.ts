@@ -196,6 +196,10 @@ export function createHandler<
         status: response.status,
         durationMs: Date.now() - started,
         ...(userId && { userId }),
+        // A cron runs a handful of times a day and its only other signal is a
+        // heartbeat that says nothing about why it stayed silent, so its
+        // request line ships even though info normally does not.
+        ...(options.auth === 'cron' && { ship: true }),
       },
       'request',
     );
@@ -203,6 +207,10 @@ export function createHandler<
     // Awaited rather than deferred: crons are not latency-sensitive, and the
     // ping is logged after the request line so it stays out of durationMs.
     if (options.heartbeatEnvVar && response.status < 400) {
+      // The run's own records go out before the ping, which is the outbound
+      // call most likely to hang: a request killed there still leaves behind
+      // the line saying it got that far.
+      await flushRemoteLogs();
       await pingHeartbeat(options.heartbeatEnvVar);
     }
 

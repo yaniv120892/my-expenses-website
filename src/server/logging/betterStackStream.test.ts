@@ -9,12 +9,18 @@ const { betterStackStream, flushRemoteLogs } =
 const SOURCE_URL = 'https://in.betterstack.example/v1/logs';
 const SOURCE_TOKEN = 'source-token';
 
-function writeRecords(count: number, level = 50): void {
+// Warn by default: error records flush eagerly, which is its own test below.
+function writeRecords(count: number, level = 40): void {
   for (let index = 0; index < count; index += 1) {
     betterStackStream.write(
       `${JSON.stringify({ level, msg: `record-${index}` })}\n`,
     );
   }
+}
+
+// Lets an eager flush's promise settle so the next case starts unguarded.
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function sentBatch(): Record<string, unknown>[] {
@@ -30,6 +36,7 @@ describe('betterStackStream', () => {
     fetchMock.mockReset();
     fetchMock.mockResolvedValue(new Response(null, { status: 202 }));
     await flushRemoteLogs();
+    await settle();
     fetchMock.mockClear();
   });
 
@@ -85,6 +92,59 @@ describe('betterStackStream', () => {
     expect(
       sentBatch().some((record) => record.droppedRecords !== undefined),
     ).toBe(false);
+  });
+
+  it('drops an info record that is not marked for shipping', async () => {
+    writeRecords(3, 30);
+
+    await flushRemoteLogs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('ships an info record marked with ship', async () => {
+    betterStackStream.write(
+      `${JSON.stringify({ level: 30, ship: true, msg: 'request' })}\n`,
+    );
+
+    await flushRemoteLogs();
+
+    expect(sentBatch().map((record) => record.msg)).toEqual(['request']);
+  });
+
+  it('ships an error without waiting for a flush', async () => {
+    writeRecords(1, 50);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentBatch().map((record) => record.msg)).toEqual(['record-0']);
+    await settle();
+  });
+
+  it('sends one eager batch for a burst and defers the rest', async () => {
+    writeRecords(5, 50);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await settle();
+    fetchMock.mockClear();
+
+    await flushRemoteLogs();
+
+    expect(sentBatch().map((record) => record.msg)).toEqual([
+      'record-1',
+      'record-2',
+      'record-3',
+      'record-4',
+    ]);
+  });
+
+  it('leaves nothing behind for the deferred flush after an eager one', async () => {
+    writeRecords(1, 50);
+    await settle();
+    fetchMock.mockClear();
+
+    await flushRemoteLogs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('ignores a line that is not JSON', async () => {

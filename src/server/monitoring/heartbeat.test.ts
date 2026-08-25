@@ -34,14 +34,14 @@ describe('pingHeartbeat', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the env var is unset', async () => {
+  it('warns when the env var is unset so the no-op is not silent', async () => {
     delete process.env[ENV_VAR];
 
     await pingHeartbeat(ENV_VAR);
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(warn).not.toHaveBeenCalled();
-    expect(info).toHaveBeenCalledWith({ envVar: ENV_VAR }, expect.any(String));
+    expect(info).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith({ envVar: ENV_VAR }, expect.any(String));
   });
 
   it('swallows a non-2xx response and warns', async () => {

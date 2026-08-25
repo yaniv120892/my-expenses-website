@@ -1,13 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { pingHeartbeat, loggerMock, after } = vi.hoisted(() => ({
-  pingHeartbeat: vi.fn(),
-  loggerMock: { info: vi.fn(), error: vi.fn() },
-  after: vi.fn(),
-}));
+const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(
+  () => {
+    const calls: string[] = [];
+    return {
+      calls,
+      pingHeartbeat: vi.fn(() => {
+        calls.push('ping');
+      }),
+      loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+      after: vi.fn(),
+      flushRemoteLogs: vi.fn(async () => {
+        calls.push('flush');
+      }),
+    };
+  },
+);
 
 vi.mock('@/server/monitoring/heartbeat', () => ({ pingHeartbeat }));
+vi.mock('@/server/logging/betterStackStream', () => ({
+  flushRemoteLogs,
+  betterStackStream: { write: vi.fn() },
+}));
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
 // `after` throws outside a request scope, which is where these tests call the
 // handler; everything else in the module stays real.
@@ -30,7 +45,7 @@ function request(): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  pingHeartbeat.mockResolvedValue(undefined);
+  calls.length = 0;
   process.env.CRON_SECRET = 'cron-secret';
 });
 
@@ -88,5 +103,48 @@ describe('createHandler heartbeat', () => {
     await route(request(), ROUTE_CONTEXT);
 
     expect(pingHeartbeat).not.toHaveBeenCalled();
+  });
+
+  it('ships the run record before the ping can hang', async () => {
+    const route = createHandler({
+      auth: 'cron',
+      heartbeatEnvVar: HEARTBEAT_ENV_VAR,
+      handler: async () => ({ sent: 1 }),
+    });
+
+    await route(request(), ROUTE_CONTEXT);
+
+    expect(calls).toEqual(['flush', 'ping']);
+  });
+});
+
+describe('createHandler request log', () => {
+  function requestLine(): Record<string, unknown> {
+    const call = loggerMock.info.mock.calls.find(
+      ([, msg]) => msg === 'request',
+    );
+    return call?.[0] as Record<string, unknown>;
+  }
+
+  it('marks a cron request line for shipping', async () => {
+    const route = createHandler({
+      auth: 'cron',
+      handler: async () => ({ ok: true }),
+    });
+
+    await route(request(), ROUTE_CONTEXT);
+
+    expect(requestLine()).toMatchObject({ status: 200, ship: true });
+  });
+
+  it('leaves a non-cron request line unmarked', async () => {
+    const route = createHandler({
+      auth: 'public',
+      handler: async () => ({ ok: true }),
+    });
+
+    await route(request(), ROUTE_CONTEXT);
+
+    expect(requestLine().ship).toBeUndefined();
   });
 });

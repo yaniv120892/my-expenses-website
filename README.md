@@ -69,13 +69,23 @@ feature, so logs are shipped from inside the app rather than by the platform.
 Leave both unset and shipping is silently off; stdout logging is unaffected,
 so local development and CI need no configuration.
 
-Only **`warn` and above** is shipped. The free tier allows 3 GB a month with
-3-day retention, and one `info` line per request would exhaust it while
-burying the records worth keeping — the full stream is still in Vercel's logs
-for the hour after a request. Records are buffered in memory (capped at 100,
-oldest dropped, with the dropped count reported in the next batch) and sent as
-one POST per request from a `next/server` `after` hook, which runs once the
-response is out and before the serverless instance freezes.
+**`warn` and above** is shipped, plus any record marked `ship: true`. The free
+tier allows 3 GB a month with 3-day retention, and one `info` line per request
+would exhaust it while burying the records worth keeping — the full stream is
+still in Vercel's logs for the hour after a request. The marker is the
+exception that pays for itself: `createHandler` sets it on the request line of
+every `auth: 'cron'` route, six lines a day, so a cron that ran and finished
+says so. Without it a successful run and a run killed mid-request both ship
+nothing, and the absence of logs means nothing at all.
+
+Records are buffered in memory (capped at 100, oldest dropped, with the dropped
+count reported in the next batch) and sent as one POST per request from a
+`next/server` `after` hook, which runs once the response is out and before the
+serverless instance freezes. Two cases do not wait for that hook, because a
+process that dies takes the whole buffer with it: an `error` record ships the
+moment it is logged (guarded, so a burst costs one extra POST rather than one
+per record), and `createHandler` flushes before pinging a heartbeat, the
+outbound call most likely to hang.
 
 ## Cron heartbeats
 
@@ -91,7 +101,14 @@ accepts only on `auth: 'cron'` handlers — anywhere else it is a type error. Th
 full set is listed in `.env.example`. Create one heartbeat per var in Better
 Stack (the free tier includes 10) and paste the URL it gives you into the
 matching var. **Any var left unset simply disables that heartbeat** — nothing
-else changes.
+else changes, so `pingHeartbeat` warns rather than logs `info` when it finds no
+URL: an unset var is a no-op that looks identical to a ping that never arrived,
+and only the warn ships far enough to tell them apart.
+
+A missed ping says a run did not finish, never why. The paired signal is the
+run's own request line, which ships because `createHandler` marks cron routes
+(see "Log shipping"): a heartbeat incident with no matching line in Better
+Stack means the run did not get to the end of the handler.
 
 Set each heartbeat's period to the longest possible gap between two runs, plus
 a grace window: 24h / 1h for the daily crons, 7d / 2h for the weekly ones, and

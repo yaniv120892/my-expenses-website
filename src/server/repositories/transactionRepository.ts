@@ -265,7 +265,7 @@ class TransactionRepository {
     return transaction.id;
   }
 
-  /** Unawaited for batching; a missing row fails as raw P2025, not a 404. */
+  /** Unawaited for batching; a missing row fails as a raw Prisma error, not a 404. */
   public updateTransactionOp(
     id: string,
     data: UpdateTransactionDbModel,

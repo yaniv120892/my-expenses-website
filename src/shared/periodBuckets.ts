@@ -10,19 +10,19 @@ import {
   format,
 } from 'date-fns';
 import { TrendPeriod } from '@/shared/types/trends';
-import { DAY_FORMAT } from '@/shared/dates';
+import { DAY_FORMAT, MONTH_FORMAT } from '@/shared/dates';
 
 // Weekly uses ISO week-year + ISO week ('RRRR-II') so year-boundary weeks
 // don't collide with week 1 of the same calendar year.
 export const PERIOD_FORMATS: Record<string, string> = {
   daily: DAY_FORMAT,
   weekly: 'RRRR-II',
-  monthly: 'yyyy-MM',
+  monthly: MONTH_FORMAT,
   yearly: 'yyyy',
 };
 
 export function bucketKeyFor(date: Date, period: string): string {
-  return format(date, PERIOD_FORMATS[period] ?? DAY_FORMAT);
+  return format(date, PERIOD_FORMATS[period] ?? PERIOD_FORMATS.daily);
 }
 
 /**

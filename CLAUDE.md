@@ -59,8 +59,9 @@ runs them alone.
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
   `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
   `integrations` live inside services as `lazy()` fields.
-- `src/shared/` — zod request schemas (`schemas/`, inferred types shared by
-  routes and client) and domain types (`types/`).
+- `src/shared/` — code both routes and client import: zod request schemas
+  (`schemas/`, with inferred types), domain types (`types/`), and cross-cutting
+  constants and pure helpers (`dates.ts`, `csv.ts`, `periodBuckets.ts`).
 - `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
   `src/services/` (thin axios client, SSE chat client), `src/utils/` (pure
   helpers — components and hooks import from here, never the reverse),

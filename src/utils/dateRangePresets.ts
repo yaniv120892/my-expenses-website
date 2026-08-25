@@ -8,7 +8,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { formatDateRange, formatDay } from '@/utils/dateUtils';
-import { DAY_FORMAT } from '@/shared/dates';
+import { toDayString } from '@/shared/dates';
 
 export type DateRangePresetId =
   'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'all-time';
@@ -24,11 +24,9 @@ export interface DateRangePreset {
   range: (now: Date) => DateRange;
 }
 
-const asDay = (value: Date) => format(value, DAY_FORMAT);
-
 const thisMonth = (now: Date): DateRange => ({
-  startDate: asDay(startOfMonth(now)),
-  endDate: asDay(endOfMonth(now)),
+  startDate: toDayString(startOfMonth(now)),
+  endDate: toDayString(endOfMonth(now)),
 });
 
 export const DATE_RANGE_PRESETS: DateRangePreset[] = [
@@ -37,24 +35,24 @@ export const DATE_RANGE_PRESETS: DateRangePreset[] = [
     id: 'last-month',
     label: 'Last month',
     range: (now) => ({
-      startDate: asDay(startOfMonth(subMonths(now, 1))),
-      endDate: asDay(endOfMonth(subMonths(now, 1))),
+      startDate: toDayString(startOfMonth(subMonths(now, 1))),
+      endDate: toDayString(endOfMonth(subMonths(now, 1))),
     }),
   },
   {
     id: 'last-3-months',
     label: 'Last 3 months',
     range: (now) => ({
-      startDate: asDay(startOfMonth(subMonths(now, 2))),
-      endDate: asDay(endOfMonth(now)),
+      startDate: toDayString(startOfMonth(subMonths(now, 2))),
+      endDate: toDayString(endOfMonth(now)),
     }),
   },
   {
     id: 'this-year',
     label: 'This year',
     range: (now) => ({
-      startDate: asDay(startOfYear(now)),
-      endDate: asDay(endOfYear(now)),
+      startDate: toDayString(startOfYear(now)),
+      endDate: toDayString(endOfYear(now)),
     }),
   },
   { id: 'all-time', label: 'All time', range: () => ({}) },
@@ -87,14 +85,14 @@ export function describeDateRange(range: DateRange): string {
   const start = parseISO(startDate);
 
   if (
-    startDate === asDay(startOfYear(start)) &&
-    endDate === asDay(endOfYear(start))
+    startDate === toDayString(startOfYear(start)) &&
+    endDate === toDayString(endOfYear(start))
   ) {
     return format(start, 'yyyy');
   }
   if (
-    startDate === asDay(startOfMonth(start)) &&
-    endDate === asDay(endOfMonth(start))
+    startDate === toDayString(startOfMonth(start)) &&
+    endDate === toDayString(endOfMonth(start))
   ) {
     return format(start, 'MMMM yyyy');
   }

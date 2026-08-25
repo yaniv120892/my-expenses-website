@@ -3,6 +3,15 @@ import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
 
+// Telegram parses these as Markdown entities; an unescaped one inside user
+// text (a merchant name, a description) makes the API reject the whole
+// message with a 400 — which fails the daily-summary cron outright.
+const TELEGRAM_MARKDOWN_ENTITY_CHARS = /[_*[`]/g;
+
+export function escapeMarkdown(value: string): string {
+  return value.replace(TELEGRAM_MARKDOWN_ENTITY_CHARS, (char) => `\\${char}`);
+}
+
 class TelegramService {
   private getBot = lazy((): TelegramBot | null => {
     const token = optionalEnv('TELEGRAM_BOT_TOKEN');
@@ -13,15 +22,28 @@ class TelegramService {
   });
 
   public async sendMessage(chatId: string, message: string) {
+    return this.send(chatId, message, { parse_mode: 'Markdown' });
+  }
+
+  /** For messages that are pure data: no parse_mode, so nothing to escape. */
+  public async sendPlainMessage(chatId: string, message: string) {
+    return this.send(chatId, message, {});
+  }
+
+  private async send(
+    chatId: string,
+    message: string,
+    options: TelegramBot.SendMessageOptions,
+  ) {
     const bot = this.getBot();
     if (!bot) {
       logger.warn(
         { chatId },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram sendMessage',
+        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send',
       );
       return;
     }
-    return bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    return bot.sendMessage(chatId, message, options);
   }
 
   public async editMessage(chatId: string, messageId: number, newText: string) {

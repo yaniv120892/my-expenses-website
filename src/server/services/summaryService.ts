@@ -4,13 +4,10 @@ import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
-import { formatCurrencyPlain } from '@/utils/format';
-
-interface SummaryTransaction {
-  description?: string | null;
-  value: number;
-  category?: { name: string } | null;
-}
+import {
+  formatSummaryMessage,
+  SummaryTransaction,
+} from '@/server/utils/summaryMessage';
 
 class SummaryService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
@@ -59,49 +56,20 @@ class SummaryService {
       'add a funny summary based on my expenses at the end',
     );
     const total = transactions.reduce((sum, t) => sum + t.value, 0);
-    return this.formatSummaryMessage(transactions, total, aiInsights);
+    return formatSummaryMessage(transactions, total, aiInsights);
   }
 
   private async getTodayTransactions(
     userId: string,
   ): Promise<SummaryTransaction[]> {
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-    );
+    // One normalizer owns both bounds: the repository floors startDate to
+    // startOfDay and widens endDate to endOfDay.
+    const today = new Date();
     return transactionService.getAllTransactions({
-      startDate: startOfToday,
-      endDate: endOfToday,
+      startDate: today,
+      endDate: today,
       userId,
     });
-  }
-
-  private formatSummaryMessage(
-    transactions: SummaryTransaction[],
-    totalAmount: number,
-    aiInsights: string,
-  ): string {
-    const list = transactions
-      .map(
-        (t) =>
-          `${t.category?.name || ''}, ${t.description || ''}, ${formatCurrencyPlain(t.value || 0)}`,
-      )
-      .join('\n');
-    return [
-      '*ההוצאות של היום:*',
-      list,
-      '',
-      `*סך הכל הוצאות:*\n${formatCurrencyPlain(totalAmount)}\n`,
-      '',
-      `*סיכום:*\n${aiInsights}`,
-    ].join('\n');
   }
 }
 

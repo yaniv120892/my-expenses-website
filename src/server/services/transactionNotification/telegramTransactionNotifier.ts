@@ -24,7 +24,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         return;
       }
       const message = `Transaction Created\n${formatTransaction(transaction)}`;
-      await telegramService.sendMessage(chatId, message);
+      await telegramService.sendPlainMessage(chatId, message);
       logger.debug(
         { userId, transactionId: transaction.id },
         'Done sending transaction notification to Telegram',

@@ -8,14 +8,19 @@ import categoryRepository from '@/server/repositories/categoryRepository';
 import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
 import { formatCurrencyPlain } from '@/utils/format';
-import { Transaction } from '@/shared/types/transaction';
-import { AggregationType } from '@/shared/types/chat';
+import { collectCategorySubtree } from '@/server/utils/categoryHierarchy';
+import { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import {
+  AggregationType,
+  RowAggregationType,
+  TotalsAggregationType,
+} from '@/shared/types/chat';
 import { TREND_PERIODS } from '@/shared/types/trends';
 
 export const USER_ID_CONTEXT_KEY = 'userId';
 
-// Caps rows returned per tool call, not rows read — the smart-search path in
-// the repository still selects all matches and paginates in memory.
+// Row-level aggregations (lists, breakdowns, min/max) read at most this many
+// rows; when more match, the result carries an explicit partial-data note.
 const MAX_TRANSACTIONS = 5000;
 
 /**
@@ -58,13 +63,27 @@ const dateFilterSchema = z.object({
     .describe('Free-text term matched against the transaction description'),
 });
 
-type DateFilterInput = z.infer<typeof dateFilterSchema> & {
-  categoryId?: string;
+type DateFilterInput = z.infer<typeof dateFilterSchema>;
+
+// What the repository receives: the category name has been resolved to its
+// subtree ids, so the resolved and unresolved states cannot be confused.
+type ResolvedTransactionFilters = {
+  startDate?: string;
+  endDate?: string;
+  transactionType?: 'INCOME' | 'EXPENSE';
+  searchTerm?: string;
+  categoryIds?: string[];
 };
 
 const summaryOutputSchema = z.object({
   summary: z.string(),
   transactionCount: z.number(),
+  resolvedCategory: z
+    .string()
+    .nullable()
+    .describe(
+      'The category the figures actually cover, or null when unfiltered',
+    ),
 });
 
 const periodSchema = (exampleLabel: string) =>
@@ -74,9 +93,18 @@ const periodSchema = (exampleLabel: string) =>
     endDate: z.string().describe('Inclusive end date, YYYY-MM-DD'),
   });
 
-async function resolveCategoryId(
+type ResolvedCategory = { ids: string[]; name: string };
+
+/**
+ * A name that resolves to nothing or to several categories is a tool error
+ * rather than a silently dropped or arbitrarily chosen filter; the error text
+ * is model-facing so the model can retry with an exact name. A resolved
+ * category covers its whole subtree, matching how the transactions list
+ * filters.
+ */
+async function resolveCategory(
   categoryName?: string,
-): Promise<string | undefined> {
+): Promise<ResolvedCategory | undefined> {
   if (!categoryName) {
     return undefined;
   }
@@ -84,48 +112,149 @@ async function resolveCategoryId(
   const categories = await categoryRepository.getAllCategories();
   const lowerName = categoryName.toLowerCase();
 
-  const exact = categories.find((c) => c.name.toLowerCase() === lowerName);
+  const exact = categories.find(
+    (category) => category.name.toLowerCase() === lowerName,
+  );
   if (exact) {
-    return exact.id;
+    return {
+      ids: collectCategorySubtree(categories, exact.id),
+      name: exact.name,
+    };
   }
 
-  const partial = categories.find((c) =>
-    c.name.toLowerCase().includes(lowerName),
+  // Only a name-contains-query hit may resolve; a query that merely contains
+  // a category name ("health care" ⊃ "Car") is suggestion material, never a
+  // unique match.
+  const partials = categories.filter((category) =>
+    category.name.toLowerCase().includes(lowerName),
   );
-  return partial?.id;
+  if (partials.length === 1) {
+    return {
+      ids: collectCategorySubtree(categories, partials[0].id),
+      name: partials[0].name,
+    };
+  }
+
+  const suggestions = partials.length
+    ? partials
+    : categories.filter((category) =>
+        lowerName.includes(category.name.toLowerCase()),
+      );
+  const nearMatches = suggestions.map((category) => category.name);
+  throw new Error(
+    nearMatches.length
+      ? `Category "${categoryName}" is ambiguous. Close matches: ${nearMatches.join(', ')}. Retry with one exact name.`
+      : `Unknown category "${categoryName}". Call listCategories and retry with an exact name from the list.`,
+  );
+}
+
+function isTotalsAggregation(
+  aggregation: AggregationType,
+): aggregation is TotalsAggregationType {
+  switch (aggregation) {
+    case 'total':
+    case 'average':
+    case 'count':
+      return true;
+    default:
+      return false;
+  }
+}
+
+export type SummaryToolResult = z.infer<typeof summaryOutputSchema>;
+
+function toToolResult(
+  result: { summary: string; transactionCount: number },
+  category?: ResolvedCategory,
+): SummaryToolResult {
+  return {
+    summary: result.summary,
+    transactionCount: result.transactionCount,
+    resolvedCategory: category?.name ?? null,
+  };
 }
 
 async function summarize(
   userId: string,
   filters: DateFilterInput,
   aggregation: AggregationType,
-): Promise<{ summary: string; transactionCount: number }> {
-  const transactions = await fetchTransactions(userId, filters);
-  const { summary, transactionCount } = chatAggregationService.aggregate(
-    transactions,
-    aggregation,
-  );
-  return { summary, transactionCount };
+): Promise<SummaryToolResult> {
+  const category = await resolveCategory(filters.categoryName);
+  // Field-by-field rather than a spread, so the unresolved categoryName can
+  // never ride along into the resolved shape.
+  const scoped: ResolvedTransactionFilters = {
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    transactionType: filters.transactionType,
+    searchTerm: filters.searchTerm,
+    categoryIds: category?.ids,
+  };
+
+  const result = isTotalsAggregation(aggregation)
+    ? chatAggregationService.aggregateFromTotals(
+        await fetchTotals(userId, scoped),
+        aggregation,
+      )
+    : await aggregateRows(userId, scoped, aggregation);
+
+  return toToolResult(result, category);
 }
 
-async function fetchTransactions(
+async function aggregateRows(
   userId: string,
-  filters: DateFilterInput,
-): Promise<Transaction[]> {
-  const categoryId =
-    filters.categoryId ?? (await resolveCategoryId(filters.categoryName));
+  filters: ResolvedTransactionFilters,
+  aggregation: RowAggregationType,
+): Promise<{ summary: string; transactionCount: number }> {
+  const transactions = await fetchTransactions(userId, filters);
+  const result = chatAggregationService.aggregate(transactions, aggregation);
+  // A short page proves every matching row was read; only a full page needs
+  // the count query to say how much is missing.
+  if (transactions.length < MAX_TRANSACTIONS) {
+    return result;
+  }
+  const { count } = await fetchTotals(userId, filters);
+  if (count <= transactions.length) {
+    return result;
+  }
+  return {
+    ...result,
+    summary: `${result.summary}\n\nNote: computed from the newest ${transactions.length} of ${count} matching transactions — report these figures as partial.`,
+  };
+}
 
-  return transactionRepository.getTransactions({
+function toRepositoryFilters(
+  userId: string,
+  filters: ResolvedTransactionFilters,
+) {
+  return {
     userId,
-    page: 1,
-    perPage: MAX_TRANSACTIONS,
     ...(filters.startDate ? { startDate: new Date(filters.startDate) } : {}),
     ...(filters.endDate ? { endDate: new Date(filters.endDate) } : {}),
     ...(filters.transactionType
       ? { transactionType: filters.transactionType }
       : {}),
     ...(filters.searchTerm ? { searchTerm: filters.searchTerm } : {}),
-    ...(categoryId ? { categoryId } : {}),
+    ...(filters.categoryIds ? { categoryIds: filters.categoryIds } : {}),
+  };
+}
+
+async function fetchTotals(
+  userId: string,
+  filters: ResolvedTransactionFilters,
+): Promise<TransactionSummary> {
+  return transactionRepository.getTransactionsSummary(
+    toRepositoryFilters(userId, filters),
+  );
+}
+
+async function fetchTransactions(
+  userId: string,
+  filters: ResolvedTransactionFilters,
+): Promise<Transaction[]> {
+  return transactionRepository.getTransactions({
+    ...toRepositoryFilters(userId, filters),
+    page: 1,
+    perPage: MAX_TRANSACTIONS,
   });
 }
 
@@ -196,20 +325,19 @@ export function buildAssistantTools() {
     execute: async (input, context) => {
       const userId = requireUserId(context);
 
-      // Resolved once and shared so each period does not re-fetch the
-      // category list to map the same name.
-      const shared: DateFilterInput = {
-        categoryId: await resolveCategoryId(input.categoryName),
+      const category = await resolveCategory(input.categoryName);
+      const shared: ResolvedTransactionFilters = {
+        categoryIds: category?.ids,
         transactionType: input.transactionType,
       };
 
-      const [transactionsA, transactionsB] = await Promise.all([
-        fetchTransactions(userId, {
+      const [totalsA, totalsB] = await Promise.all([
+        fetchTotals(userId, {
           ...shared,
           startDate: input.periodA.startDate,
           endDate: input.periodA.endDate,
         }),
-        fetchTransactions(userId, {
+        fetchTotals(userId, {
           ...shared,
           startDate: input.periodB.startDate,
           endDate: input.periodB.endDate,
@@ -217,14 +345,11 @@ export function buildAssistantTools() {
       ]);
 
       const result = chatAggregationService.computeComparison(
-        { label: input.periodA.label, transactions: transactionsA },
-        { label: input.periodB.label, transactions: transactionsB },
+        { label: input.periodA.label, totals: totalsA },
+        { label: input.periodB.label, totals: totalsB },
       );
 
-      return {
-        summary: result.summary,
-        transactionCount: result.transactionCount,
-      };
+      return toToolResult(result, category);
     },
   });
 
@@ -248,10 +373,15 @@ export function buildAssistantTools() {
     }),
     outputSchema: z.object({
       summary: z.string(),
+      resolvedCategory: z.string().nullable(),
     }),
     execute: async (input, context) => {
       const userId = requireUserId(context);
-      const categoryId = await resolveCategoryId(input.categoryName);
+      const category = await resolveCategory(input.categoryName);
+      // The subtree's root id: trendService takes one categoryId and filters
+      // it exact-match today — expanding trends to the subtree is a separate
+      // fix, tracked with trendService's own exact-match filter.
+      const categoryId = category?.ids[0];
 
       const request = {
         period: input.period,
@@ -277,6 +407,7 @@ export function buildAssistantTools() {
           summary: lines.length
             ? `Category trends (${input.period}):\n${lines.join('\n')}`
             : 'No trend data found for that period.',
+          resolvedCategory: category?.name ?? null,
         };
       }
 
@@ -293,6 +424,7 @@ export function buildAssistantTools() {
           `\nTotal: ${formatCurrencyPlain(trend.totalAmount)}`,
           `Change vs previous period: ${chatAggregationService.formatPercentChange(trend.percentageChange)} (trending ${trend.trend})`,
         ].join('\n'),
+        resolvedCategory: category?.name ?? null,
       };
     },
   });

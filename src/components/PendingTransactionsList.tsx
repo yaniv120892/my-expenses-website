@@ -56,17 +56,25 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
+  // finally: even a handler that breaks the never-reject contract must not
+  // leave the dialog stuck open with no feedback.
   async function handleApprove() {
     if (selectedTransaction) {
-      await onConfirmAction(selectedTransaction.id);
-      closeDialog();
+      try {
+        await onConfirmAction(selectedTransaction.id);
+      } finally {
+        closeDialog();
+      }
     }
   }
 
   async function handleDelete() {
     if (selectedTransaction) {
-      await onDeleteAction(selectedTransaction.id);
-      closeDialog();
+      try {
+        await onDeleteAction(selectedTransaction.id);
+      } finally {
+        closeDialog();
+      }
     }
   }
 

@@ -1,9 +1,9 @@
 import { ScheduleType, Transaction } from '../types';
 import { SubscriptionFrequency } from '../types/subscription';
-import { format } from 'date-fns';
+import { toDayString } from '@/shared/dates';
 
 export function formatTransactionDate(date: string) {
-  return format(new Date(date), 'yyyy-MM-dd');
+  return toDayString(new Date(date));
 }
 
 export function formatTransaction(transaction: Transaction) {

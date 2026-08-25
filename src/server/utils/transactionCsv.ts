@@ -1,7 +1,7 @@
-import { format } from 'date-fns';
 import { parse } from 'json2csv';
 import { CSV_BOM } from '@/shared/csv';
 import { Transaction } from '@/shared/types/transaction';
+import { toDayString } from '@/shared/dates';
 
 const FIELDS = ['date', 'description', 'value', 'type', 'categoryName'];
 
@@ -37,7 +37,7 @@ function buildCsv(
  * export and the monthly report attachment.
  */
 export function buildTransactionsCsv(transactions: Transaction[]): string {
-  return buildCsv(transactions, (date) => format(date, 'yyyy-MM-dd'), asText);
+  return buildCsv(transactions, toDayString, asText);
 }
 
 export function buildTransactionsCsvFile(transactions: Transaction[]): string {
@@ -65,9 +65,9 @@ export function transactionsCsvFileName(
   now: Date = new Date(),
 ): string {
   if (range.startDate && range.endDate) {
-    const start = format(range.startDate, 'yyyy-MM-dd');
-    const end = format(range.endDate, 'yyyy-MM-dd');
+    const start = toDayString(range.startDate);
+    const end = toDayString(range.endDate);
     return `transactions_${start}_${end}.csv`;
   }
-  return `transactions_${format(now, 'yyyy-MM-dd')}.csv`;
+  return `transactions_${toDayString(now)}.csv`;
 }

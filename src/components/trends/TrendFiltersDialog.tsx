@@ -31,8 +31,8 @@ import { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { seriesColor } from '@/utils/comparison';
 import { isOneOf } from '@/utils/oneOf';
-import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
+import { toDayString } from '@/shared/dates';
 
 interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;
@@ -266,7 +266,7 @@ export const TrendFiltersDialog = ({
           <TextField
             label="Start Date"
             type="date"
-            value={format(new Date(startDate), 'yyyy-MM-dd')}
+            value={toDayString(new Date(startDate))}
             onChange={handleStartDateChange}
             fullWidth
             slotProps={{ inputLabel: { shrink: true } }}
@@ -275,7 +275,7 @@ export const TrendFiltersDialog = ({
           <TextField
             label="End Date"
             type="date"
-            value={format(new Date(endDate), 'yyyy-MM-dd')}
+            value={toDayString(new Date(endDate))}
             onChange={handleEndDateChange}
             fullWidth
             slotProps={{ inputLabel: { shrink: true } }}

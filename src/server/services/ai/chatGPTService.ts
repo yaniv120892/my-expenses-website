@@ -12,6 +12,8 @@ import {
 } from '@/server/services/ai/prompts';
 import logger from '@/server/logging/logger';
 
+const OPENAI_MODEL = 'gpt-4-turbo';
+
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
     () =>
@@ -23,7 +25,7 @@ export class ChatGPTService implements AIProvider {
   public async generateContent(prompt: string): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'user',
@@ -46,7 +48,7 @@ export class ChatGPTService implements AIProvider {
   ): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -81,7 +83,7 @@ export class ChatGPTService implements AIProvider {
       );
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -119,7 +121,7 @@ export class ChatGPTService implements AIProvider {
       }
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',

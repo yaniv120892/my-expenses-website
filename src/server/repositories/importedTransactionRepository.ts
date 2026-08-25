@@ -69,18 +69,17 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async clearMatchingTransaction(
-    id: string,
-    userId: string,
-  ): Promise<void> {
-    await this.clearMatchingTransactionOp(id, userId);
-  }
-
-  /** Unawaited so approval can batch it with the writes it must succeed with. */
-  public clearMatchingTransactionOp(id: string, userId: string) {
+  /**
+   * Records approval — the row is APPROVED and its match claim released.
+   * Unawaited so approval can batch it with the transaction it creates.
+   */
+  public markApprovedOp(id: string, userId: string) {
     return prisma.importedTransaction.update({
       where: { id, userId },
-      data: { matchingTransactionId: null },
+      data: {
+        status: ImportedTransactionStatus.APPROVED,
+        matchingTransactionId: null,
+      },
     });
   }
 

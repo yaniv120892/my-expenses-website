@@ -213,7 +213,21 @@ class TransactionService {
     userId: string,
   ): Promise<void> {
     if (data.categoryId) {
-      await this.learnCategoryMappingSafe(id, data.categoryId, userId);
+      try {
+        const existing = await transactionRepository.getTransactionItem(
+          id,
+          userId,
+        );
+        if (existing) {
+          await this.learnCategoryMappingSafe(
+            existing,
+            data.categoryId,
+            userId,
+          );
+        }
+      } catch (err) {
+        logger.warn({ err }, 'Failed to save category mapping on update');
+      }
     }
     await transactionRepository.updateTransaction(id, data, userId);
   }
@@ -224,26 +238,25 @@ class TransactionService {
    * and never fails the write it accompanies.
    */
   public async learnCategoryMappingSafe(
-    transactionId: string,
+    transaction: Transaction,
     categoryId: string,
     userId: string,
   ): Promise<void> {
+    if (transaction.category.id === categoryId) {
+      return;
+    }
     try {
-      const existing = await transactionRepository.getTransactionItem(
-        transactionId,
+      const normalizedDescription = transaction.description
+        .toLowerCase()
+        .trim();
+      await userCategoryMappingRepository.upsert(
         userId,
+        normalizedDescription,
+        categoryId,
       );
-      if (existing && existing.category.id !== categoryId) {
-        const normalizedDescription = existing.description.toLowerCase().trim();
-        await userCategoryMappingRepository.upsert(
-          userId,
-          normalizedDescription,
-          categoryId,
-        );
-        logger.debug(
-          `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
-        );
-      }
+      logger.debug(
+        `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
+      );
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
     }

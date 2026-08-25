@@ -1,32 +1,22 @@
 import { HttpError } from '@/server/http/errors';
 
-// The codes the app branches on, named for what they mean. The raw P-number
+// The codes call sites branch on, named for what they mean — the raw P-number
 // means nothing without the Prisma manual open.
 export const PRISMA_ERROR_CODES = {
   RECORD_NOT_FOUND: 'P2025',
   UNIQUE_CONSTRAINT_VIOLATION: 'P2002',
-  FOREIGN_KEY_VIOLATION: 'P2003',
-  INVALID_IDENTIFIER: 'P2023',
 } as const;
 
 type PrismaHttpMapping = { status: number; message: string };
 
 // The recoverable request errors: a client mistake or a lost race, not an
-// incident. Codes left unmapped stay 500s and keep alerting.
+// incident. Codes left unmapped stay 500s and keep alerting. This definition
+// site keeps the raw codes — the scannable table is the protocol.
 const PRISMA_HTTP_MAPPINGS: Record<string, PrismaHttpMapping | undefined> = {
-  [PRISMA_ERROR_CODES.RECORD_NOT_FOUND]: { status: 404, message: 'Not found' },
-  [PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT_VIOLATION]: {
-    status: 409,
-    message: 'Already exists',
-  },
-  [PRISMA_ERROR_CODES.FOREIGN_KEY_VIOLATION]: {
-    status: 400,
-    message: 'Invalid reference',
-  },
-  [PRISMA_ERROR_CODES.INVALID_IDENTIFIER]: {
-    status: 400,
-    message: 'Invalid identifier',
-  },
+  P2025: { status: 404, message: 'Not found' },
+  P2002: { status: 409, message: 'Already exists' },
+  P2003: { status: 400, message: 'Invalid reference' },
+  P2023: { status: 400, message: 'Invalid identifier' },
 };
 
 // Structural rather than instanceof: the Accelerate/edge client bundles its

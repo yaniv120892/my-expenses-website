@@ -12,8 +12,9 @@ import {
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
 export class GeminiService implements AIProvider {
-  private modelName: string = 'gemini-2.0-flash';
   private getGemini = lazy(
     () => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')),
   );
@@ -22,7 +23,7 @@ export class GeminiService implements AIProvider {
     try {
       logger.debug({ prompt }, 'Start generating content');
       const model = this.getGemini().getGenerativeModel({
-        model: this.modelName,
+        model: GEMINI_MODEL,
       });
       const response = await model.generateContent({
         contents: [
@@ -53,7 +54,7 @@ export class GeminiService implements AIProvider {
     try {
       logger.debug('Start analyzing expenses');
       const model = this.getGemini().getGenerativeModel({
-        model: this.modelName,
+        model: GEMINI_MODEL,
       });
       const response = await model.generateContent({
         contents: [
@@ -91,7 +92,7 @@ export class GeminiService implements AIProvider {
         'Start suggesting category for expense',
       );
       const model = this.getGemini().getGenerativeModel({
-        model: this.modelName,
+        model: GEMINI_MODEL,
       });
 
       const promptText = buildSuggestCategoryPrompt(
@@ -143,7 +144,7 @@ export class GeminiService implements AIProvider {
       }
 
       const model = this.getGemini().getGenerativeModel({
-        model: this.modelName,
+        model: GEMINI_MODEL,
       });
       const response = await model.generateContent({
         contents: [

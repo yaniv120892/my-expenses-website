@@ -224,12 +224,9 @@ class ImportService {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
-    await importedTransactionRepository.clearMatchingTransaction(
-      importedTransactionId,
-      userId,
-    );
-
-    await transactionService.createTransaction({
+    // Categorization may call the AI service, so it runs before the batch:
+    // network work has no place inside a database transaction.
+    const transactionModel = await transactionService.prepareCreateTransaction({
       description: transactionData.description,
       value: transactionData.value,
       date: transactionData.date,
@@ -239,10 +236,24 @@ class ImportService {
       categoryId: transactionData.categoryId,
     });
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
+    // One batch, so a failure cannot create the transaction while the imported
+    // row stays PENDING — retrying that state would create it a second time.
+    const [, createdTransaction] = await prisma.$transaction([
+      importedTransactionRepository.clearMatchingTransactionOp(
+        importedTransactionId,
+        userId,
+      ),
+      transactionRepository.createTransactionOp(transactionModel),
+      importedTransactionRepository.updateStatusOp(
+        importedTransactionId,
+        userId,
+        ImportedTransactionStatus.APPROVED,
+      ),
+    ]);
+
+    await transactionService.notifyTransactionCreatedSafe(
+      createdTransaction.id,
       userId,
-      ImportedTransactionStatus.APPROVED,
     );
   }
 
@@ -276,31 +287,45 @@ class ImportService {
       );
     }
 
-    await transactionService.updateTransaction(
-      importedTransaction.matchingTransactionId,
-      {
-        description: transactionData.description,
-        type: transactionData.type,
-        value: transactionData.value,
-        date: transactionData.date,
-        categoryId: transactionData.categoryId,
-      },
-      userId,
-    );
-
-    if (matchingTransaction.status === TransactionStatus.PENDING_APPROVAL) {
-      await transactionService.updateTransactionStatus(
+    if (transactionData.categoryId) {
+      await transactionService.learnCategoryMappingSafe(
         importedTransaction.matchingTransactionId,
-        TransactionStatus.APPROVED,
+        transactionData.categoryId,
         userId,
       );
     }
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
-      userId,
-      ImportedTransactionStatus.MERGED,
-    );
+    const approveMatch =
+      matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
+
+    // One batch, so the matched transaction cannot end up updated while the
+    // imported row stays PENDING and re-mergeable.
+    await prisma.$transaction([
+      transactionRepository.updateTransactionOp(
+        importedTransaction.matchingTransactionId,
+        {
+          description: transactionData.description,
+          type: transactionData.type,
+          value: transactionData.value,
+          date: transactionData.date,
+          categoryId: transactionData.categoryId,
+          ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+        },
+        userId,
+      ),
+      importedTransactionRepository.updateStatusOp(
+        importedTransactionId,
+        userId,
+        ImportedTransactionStatus.MERGED,
+      ),
+    ]);
+
+    if (approveMatch) {
+      await transactionService.notifyTransactionCreatedSafe(
+        importedTransaction.matchingTransactionId,
+        userId,
+      );
+    }
   }
 
   public async ignoreImportedTransaction(

@@ -73,7 +73,12 @@ export class ImportedTransactionRepository {
     id: string,
     userId: string,
   ): Promise<void> {
-    await prisma.importedTransaction.update({
+    await this.clearMatchingTransactionOp(id, userId);
+  }
+
+  /** Unawaited so approval can batch it with the writes it must succeed with. */
+  public clearMatchingTransactionOp(id: string, userId: string) {
+    return prisma.importedTransaction.update({
       where: { id, userId },
       data: { matchingTransactionId: null },
     });
@@ -84,7 +89,16 @@ export class ImportedTransactionRepository {
     userId: string,
     status: ImportedTransactionStatus,
   ): Promise<void> {
-    await prisma.importedTransaction.update({
+    await this.updateStatusOp(id, userId, status);
+  }
+
+  /** Unawaited so approval/merge can batch it with the writes it records. */
+  public updateStatusOp(
+    id: string,
+    userId: string,
+    status: ImportedTransactionStatus,
+  ) {
+    return prisma.importedTransaction.update({
       where: { id, userId },
       data: { status },
     });

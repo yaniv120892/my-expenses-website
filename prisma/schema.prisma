@@ -164,7 +164,7 @@ model Import {
   extractionCompletedAt    DateTime?
   user                     User      @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@index([userId, deleted, createdAt])
 }
 
 model ImportedTransaction {
@@ -217,6 +217,11 @@ model ScheduledTransaction {
   nextRunDate   DateTime?
   userId        String          @db.Uuid
   user          User            @relation(fields: [userId], references: [id])
+
+  // The cron scans nextRunDate across all users, so it cannot use the
+  // userId-prefixed index.
+  @@index([nextRunDate])
+  @@index([userId, nextRunDate])
 }
 
 model TransactionFile {

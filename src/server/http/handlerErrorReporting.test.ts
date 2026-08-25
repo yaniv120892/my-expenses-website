@@ -37,6 +37,7 @@ describe('createHandler error reporting', () => {
     const err = new Error('boom');
     const handler = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => {
         throw err;
       },
@@ -52,6 +53,7 @@ describe('createHandler error reporting', () => {
   it('does not report a client error', async () => {
     const handler = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => {
         throw new HttpError(404, 'Not found');
       },
@@ -75,6 +77,7 @@ describe('createHandler error responses', () => {
   function routeThrowing(err: unknown) {
     return createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => {
         throw err;
       },
@@ -153,6 +156,7 @@ describe('createHandler params validation', () => {
 
   const echoParams = createHandler({
     auth: 'public',
+    rateLimit: 'none',
     handler: async ({ params }) => ({ received: params }),
   });
 
@@ -197,6 +201,7 @@ describe('createHandler params validation', () => {
   it('lets a route opt out of uuid validation with its own schema', async () => {
     const handler = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       paramsSchema: z.object({ slug: z.string().min(1) }),
       handler: async ({ params }) => ({ slug: params.slug }),
     });

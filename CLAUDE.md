@@ -99,12 +99,18 @@ runs them alone.
   `logger.info({ userId }, 'msg')`; errors under the `err` key. Vercel keeps
   runtime logs for an hour, so anything swallowed is invisible soon after.
   `createHandler` logs every 5xx; `instrumentation.ts` logs errors Next raises
-  outside a route handler. Outside development, warn and above is also shipped
-  to Better Stack through `pino.multistream` (never a pino transport — its
-  worker threads are unreliable on Vercel) and flushed in one batched POST per
-  request from a `next/server` `after` hook. Unset
-  `BETTERSTACK_SOURCE_URL`/`_TOKEN` means shipping is off, not an error. See
-  README "Log shipping".
+  outside a route handler. Outside development, records are also shipped to
+  Better Stack through `pino.multistream` (never a pino transport — its worker
+  threads are unreliable on Vercel) and flushed in one batched POST per request
+  from a `next/server` `after` hook. The stream is attached at `info` and
+  decides for itself what leaves: warn and above, plus any record carrying
+  `ship: true`. That marker is how a cron's request line gets out — a healthy
+  cron run is otherwise exactly as silent as one killed mid-request, which
+  makes the silence unreadable. An `error` record flushes eagerly rather than
+  waiting for the hook, and `createHandler` flushes once more before the
+  heartbeat ping, so a request that dies on that call still leaves the line
+  saying it got that far. Unset `BETTERSTACK_SOURCE_URL`/`_TOKEN` means
+  shipping is off, not an error. See README "Log shipping".
 - **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set.
   Logs say what happened; Sentry groups and counts it, and outlives the hour.
   `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs

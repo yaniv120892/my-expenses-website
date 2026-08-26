@@ -22,9 +22,12 @@ function createLogger(): pino.Logger {
   if (remoteShippingEnabled()) {
     return pino(
       { level, base: undefined },
+      // Attached at info, not warn: the stream itself decides what ships, so a
+      // line marked `ship: true` reaches Better Stack without opening the
+      // floodgates on every request's info log.
       pino.multistream([
         { stream: process.stdout },
-        { stream: betterStackStream, level: 'warn' },
+        { stream: betterStackStream, level: 'info' },
       ]),
     );
   }

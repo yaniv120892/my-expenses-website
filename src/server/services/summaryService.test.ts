@@ -61,4 +61,17 @@ describe('formatSummaryMessage', () => {
 
     expect(message).toContain('you spent \\*a lot\\_');
   });
+
+  it('drops the summary section when the provider returned nothing', () => {
+    const message = formatSummaryMessage(
+      [{ category: { name: 'Food' }, description: 'Pizza', value: 42 }],
+      42,
+      null,
+    );
+
+    expect(message).not.toContain('*סיכום:*');
+    expect(message).toContain('*סך הכל הוצאות:*');
+    // The apology the provider used to return would have been escaped and sent.
+    expect(message).not.toMatch(/I encountered/);
+  });
 });

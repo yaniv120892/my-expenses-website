@@ -8,10 +8,15 @@ export interface CategorizerHint {
 
 export interface AIProvider {
   generateContent(prompt: string): Promise<string>;
+  /**
+   * Resolves to the analysis, or null when the provider call failed. Never a
+   * human-readable apology: callers parse this, and prose shaped like a result
+   * turns a provider outage into a parse error that names the wrong culprit.
+   */
   analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
-  ): Promise<string>;
+  ): Promise<string | null>;
   /** Resolves to the matched category id, or null when nothing matched. */
   suggestCategory(
     expenseDescription: string,

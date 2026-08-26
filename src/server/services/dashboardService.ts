@@ -223,6 +223,11 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {"unusualSpending": ["insight 1", "insight 2"], "summary": "A brief overall summary"}`;
 
       const response = await this.getAiService().analyzeExpenses(prompt);
+      if (response === null) {
+        // The provider already reported why; calling that a parse failure here
+        // would name the wrong culprit in the logs and in Sentry.
+        return null;
+      }
 
       const cleaned = response
         .replace(/```json?\n?/g, '')

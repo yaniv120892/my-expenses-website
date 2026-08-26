@@ -3,16 +3,18 @@ import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
-import { requireEnv } from '@/server/env';
+import { optionalEnv, requireEnv } from '@/server/env';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
-import logger from '@/server/logging/logger';
 
-const OPENAI_MODEL = 'gpt-4-turbo';
+// Overridable for the same reason as the Gemini id: a retired model should be
+// a dashboard edit, not a deploy.
+const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
 
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
@@ -25,7 +27,7 @@ export class ChatGPTService implements AIProvider {
   public async generateContent(prompt: string): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: OPENAI_MODEL,
+        model: this.modelName(),
         messages: [
           {
             role: 'user',
@@ -37,18 +39,21 @@ export class ChatGPTService implements AIProvider {
 
       return response.choices[0].message?.content || 'No insights available.';
     } catch (err) {
-      logger.error({ err }, 'ChatGPT API error');
-      return 'I encountered an issue generating content.';
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'ChatGPT API error',
+      );
+      return '';
     }
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
-  ): Promise<string> {
+  ): Promise<string | null> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: OPENAI_MODEL,
+        model: this.modelName(),
         messages: [
           {
             role: 'system',
@@ -63,10 +68,13 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 200,
       });
 
-      return response.choices[0].message?.content || 'No insights available.';
+      return response.choices[0].message?.content || null;
     } catch (err) {
-      logger.error({ err }, 'ChatGPT API error');
-      return 'I encountered an issue analyzing your expenses.';
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'ChatGPT API error',
+      );
+      return null;
     }
   }
 
@@ -83,7 +91,7 @@ export class ChatGPTService implements AIProvider {
       );
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: OPENAI_MODEL,
+        model: this.modelName(),
         messages: [
           {
             role: 'system',
@@ -106,7 +114,10 @@ export class ChatGPTService implements AIProvider {
 
       return suggestedCategory?.id ?? null;
     } catch (err) {
-      logger.error({ err }, 'ChatGPT API error');
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'ChatGPT API error',
+      );
       return null;
     }
   }
@@ -121,7 +132,7 @@ export class ChatGPTService implements AIProvider {
       }
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: OPENAI_MODEL,
+        model: this.modelName(),
         messages: [
           {
             role: 'system',
@@ -145,8 +156,15 @@ export class ChatGPTService implements AIProvider {
         potentialMatches,
       );
     } catch (err) {
-      logger.error({ err }, 'ChatGPT API error');
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'ChatGPT API error',
+      );
       return null;
     }
+  }
+
+  private modelName(): string {
+    return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
   }
 }

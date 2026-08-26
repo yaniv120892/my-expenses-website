@@ -122,8 +122,12 @@ runs them alone.
   `onRequestError` cannot see those, because the error never escapes the route.
   `onRequestError` covers what does escape, and the React boundaries report via
   `src/components/ErrorFallback.tsx`, skipping errors carrying a `digest` since
-  the server already reported those. A `logger.error` in a path that swallows
-  its error reports alongside the log, or Sentry never learns of it. Tracing and
+  the server already reported those. A path that catches its error and returns a
+  fallback calls `reportSwallowedError`
+  (`src/server/logging/reportSwallowedError.ts`) rather than `logger.error`: it
+  logs the same record and files the Sentry issue, and without the second half
+  such an error is visible for Better Stack's three days and then nowhere.
+  Pre-existing `logger.error` swallows have not all been converted. Tracing and
   Session Replay are off — the free tier budgets errors only.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 

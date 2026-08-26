@@ -14,7 +14,7 @@ export interface SummaryTransaction {
 export function formatSummaryMessage(
   transactions: SummaryTransaction[],
   totalAmount: number,
-  aiInsights: string,
+  aiInsights: string | null,
 ): string {
   const list = transactions
     .map(
@@ -22,12 +22,16 @@ export function formatSummaryMessage(
         `${escapeMarkdown(t.category?.name || '')}, ${escapeMarkdown(t.description || '')}, ${formatCurrencyPlain(t.value || 0)}`,
     )
     .join('\n');
-  return [
+  const sections = [
     '*ההוצאות של היום:*',
     list,
     '',
     `*סך הכל הוצאות:*\n${formatCurrencyPlain(totalAmount)}\n`,
-    '',
-    `*סיכום:*\n${escapeMarkdown(aiInsights)}`,
-  ].join('\n');
+  ];
+  // No insights means the provider failed, which is not worth telling the user
+  // about in their daily summary — the section simply does not appear.
+  if (aiInsights) {
+    sections.push('', `*סיכום:*\n${escapeMarkdown(aiInsights)}`);
+  }
+  return sections.join('\n');
 }

@@ -4,7 +4,8 @@ import logger from '@/server/logging/logger';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
-import { requireEnv } from '@/server/env';
+import { optionalEnv, requireEnv } from '@/server/env';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -12,7 +13,10 @@ import {
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+// Google retires a Flash generation roughly twice a year and names the
+// successor in the 404 it starts returning, so the id is overridable: the next
+// retirement is a dashboard edit rather than a deploy.
+const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
 export class GeminiService implements AIProvider {
   private getGemini = lazy(
@@ -23,7 +27,7 @@ export class GeminiService implements AIProvider {
     try {
       logger.debug({ prompt }, 'Start generating content');
       const model = this.getGemini().getGenerativeModel({
-        model: GEMINI_MODEL,
+        model: this.modelName(),
       });
       const response = await model.generateContent({
         contents: [
@@ -42,19 +46,22 @@ export class GeminiService implements AIProvider {
       logger.debug({ prompt }, 'Done generating content');
       return content || '';
     } catch (err) {
-      logger.error({ err }, 'Gemini API error');
-      return 'I encountered an issue generating content.';
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'Gemini API error',
+      );
+      return '';
     }
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
-  ): Promise<string> {
+  ): Promise<string | null> {
     try {
       logger.debug('Start analyzing expenses');
       const model = this.getGemini().getGenerativeModel({
-        model: GEMINI_MODEL,
+        model: this.modelName(),
       });
       const response = await model.generateContent({
         contents: [
@@ -74,10 +81,13 @@ export class GeminiService implements AIProvider {
       );
       logger.debug({ analysis }, 'Done analyzing expenses');
 
-      return analysis || 'No expense analysis available.';
+      return analysis || null;
     } catch (err) {
-      logger.error({ err }, 'Gemini API error');
-      return 'I encountered an issue analyzing your expenses.';
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'Gemini API error',
+      );
+      return null;
     }
   }
 
@@ -92,7 +102,7 @@ export class GeminiService implements AIProvider {
         'Start suggesting category for expense',
       );
       const model = this.getGemini().getGenerativeModel({
-        model: GEMINI_MODEL,
+        model: this.modelName(),
       });
 
       const promptText = buildSuggestCategoryPrompt(
@@ -124,7 +134,10 @@ export class GeminiService implements AIProvider {
       );
       return categoryId ?? null;
     } catch (err) {
-      logger.error({ err }, 'Gemini API error');
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'Gemini API error',
+      );
       return null;
     }
   }
@@ -144,7 +157,7 @@ export class GeminiService implements AIProvider {
       }
 
       const model = this.getGemini().getGenerativeModel({
-        model: GEMINI_MODEL,
+        model: this.modelName(),
       });
       const response = await model.generateContent({
         contents: [
@@ -173,9 +186,16 @@ export class GeminiService implements AIProvider {
 
       return result;
     } catch (err) {
-      logger.error({ err }, 'Error finding matching transaction');
+      reportSwallowedError(
+        { err, model: this.modelName() },
+        'Error finding matching transaction',
+      );
       return null;
     }
+  }
+
+  private modelName(): string {
+    return optionalEnv('GEMINI_MODEL', DEFAULT_GEMINI_MODEL);
   }
 
   private cleanGeminiResponse(response: string | undefined): string {

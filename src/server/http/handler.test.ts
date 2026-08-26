@@ -140,6 +140,7 @@ describe('createHandler request log', () => {
   it('leaves a non-cron request line unmarked', async () => {
     const route = createHandler({
       auth: 'public',
+      rateLimit: 'none',
       handler: async () => ({ ok: true }),
     });
 

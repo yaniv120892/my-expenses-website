@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -27,6 +27,7 @@ import {
   useDirectS3UploadForAttachment,
 } from '@/hooks/useTransactionFilesQuery';
 import { validateTransactionForm } from '@/utils/transactionFormValidation';
+import { DAY_TIME_FORMAT, toDayString } from '@/shared/dates';
 
 type TransactionFormType = {
   id: string;
@@ -46,14 +47,29 @@ type Props = {
   mode?: 'approve' | 'merge';
 };
 
-const defaultForm: TransactionFormType = {
+const defaultForm: Omit<TransactionFormType, 'date'> = {
   id: '',
   description: '',
   value: '',
   categoryId: '',
   type: 'EXPENSE',
-  date: format(new Date(), 'yyyy-MM-dd'),
 };
+
+// Built per call so the default date is today's, not the module-load day.
+function freshDefaultForm(): TransactionFormType {
+  return { ...defaultForm, date: toDayString(new Date()) };
+}
+
+function toFormValues(initialData: TransactionFormType): TransactionFormType {
+  return {
+    id: initialData.id,
+    description: initialData.description,
+    value: initialData.value,
+    categoryId: initialData.categoryId || '',
+    type: initialData.type,
+    date: toDayString(new Date(initialData.date)),
+  };
+}
 
 export default function TransactionForm({
   open,
@@ -64,7 +80,9 @@ export default function TransactionForm({
   mode,
 }: Props) {
   const fullScreen = useIsCompact();
-  const [form, setForm] = useState<TransactionFormType>(defaultForm);
+  const [form, setForm] = useState<TransactionFormType>(() =>
+    initialData ? toFormValues(initialData) : freshDefaultForm(),
+  );
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
@@ -80,24 +98,18 @@ export default function TransactionForm({
   const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
 
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        id: initialData.id,
-        description: initialData.description,
-        value: initialData.value,
-        categoryId: initialData.categoryId || '',
-        type: initialData.type,
-        date: format(new Date(initialData.date), 'yyyy-MM-dd'),
-      });
-    } else {
-      setForm({
-        ...defaultForm,
-        date: format(new Date(), 'yyyy-MM-dd'),
-      });
-    }
+  // Parents rebuild initialData as a fresh literal every render, so keying
+  // the reset on its identity would wipe typed input on a background refetch.
+  const resetKey = `${open}:${initialData?.id ?? 'new'}`;
+  const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
+  if (appliedResetKey !== resetKey) {
+    setAppliedResetKey(resetKey);
+    setForm(initialData ? toFormValues(initialData) : freshDefaultForm());
     setErrors({});
-  }, [initialData, open]);
+    setPendingFiles([]);
+    setFilesToRemove([]);
+    setFileUploadError(null);
+  }
 
   // Which endpoint this submit hits decides the rule: merge and update need a
   // uuid, while create and import-approve let the server categorize.
@@ -114,7 +126,7 @@ export default function TransactionForm({
   };
 
   const getCurrentDateTimeString = () => {
-    return format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
+    return format(new Date(), DAY_TIME_FORMAT);
   };
 
   const showSnackbar = (
@@ -145,7 +157,7 @@ export default function TransactionForm({
     try {
       let dateToUse = form.date;
       if (!initialData) {
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const today = toDayString(new Date());
         if (form.date === today) {
           dateToUse = getCurrentDateTimeString();
         }

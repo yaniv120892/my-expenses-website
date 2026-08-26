@@ -14,6 +14,11 @@ import {
 } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
+import {
+  getPrismaErrorCode,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
+import { escapeMarkdown } from '@/server/services/telegramService';
 import logger from '@/server/logging/logger';
 import {
   nextExpectedDateAfter,
@@ -30,7 +35,7 @@ import {
   findScheduleMatch,
   indexSchedules,
 } from '@/server/utils/scheduleMatching';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrencyPlain } from '@/utils/format';
 
 const DETECTION_WINDOW_MONTHS = 12;
 
@@ -68,12 +73,12 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
       totalMonthly += monthly;
       totalAnnual += sub.annualCost;
       lines.push(
-        `- ${sub.displayName}: ${formatCurrency(monthly)}/mo (${formatCurrency(sub.annualCost)}/yr)`,
+        `- ${sub.displayName}: ${formatCurrencyPlain(monthly)}/mo (${formatCurrencyPlain(sub.annualCost)}/yr)`,
       );
     }
     lines.push('');
     lines.push(
-      `Total: ${formatCurrency(totalMonthly)}/month | ${formatCurrency(totalAnnual)}/year`,
+      `Total: ${formatCurrencyPlain(totalMonthly)}/month | ${formatCurrencyPlain(totalAnnual)}/year`,
     );
   }
 
@@ -83,11 +88,15 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
     );
   }
 
-  return lines.join('\n');
+  // The whole message is data — no intended Markdown — but it rides the same
+  // Markdown-parsed notifier path as the daily summary, so escape it all.
+  return escapeMarkdown(lines.join('\n'));
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (error as { code?: string } | null)?.code === 'P2002';
+  return (
+    getPrismaErrorCode(error) === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT_VIOLATION
+  );
 }
 
 class SubscriptionDetectionService {

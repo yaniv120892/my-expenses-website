@@ -3,25 +3,29 @@ import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
+import { requireEnv } from '@/server/env';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
+  resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 import logger from '@/server/logging/logger';
+
+const OPENAI_MODEL = 'gpt-4-turbo';
 
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
     () =>
       new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: requireEnv('OPENAI_API_KEY'),
       }),
   );
 
   public async generateContent(prompt: string): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'user',
@@ -44,7 +48,7 @@ export class ChatGPTService implements AIProvider {
   ): Promise<string> {
     try {
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -79,7 +83,7 @@ export class ChatGPTService implements AIProvider {
       );
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -117,7 +121,7 @@ export class ChatGPTService implements AIProvider {
       }
 
       const response = await this.getOpenAI().chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -136,9 +140,10 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 50,
       });
 
-      const result = response.choices[0].message?.content?.trim();
-
-      return result === 'none' ? null : result || null;
+      return resolveMatchedTransactionId(
+        response.choices[0].message?.content,
+        potentialMatches,
+      );
     } catch (err) {
       logger.error({ err }, 'ChatGPT API error');
       return null;

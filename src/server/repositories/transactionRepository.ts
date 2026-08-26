@@ -20,11 +20,15 @@ import {
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { HttpError } from '@/server/http/errors';
+import {
+  getPrismaErrorCode,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
 
-// Prisma raises P2025 when an update/delete matches no row — here that means
-// the transaction does not exist or belongs to another user.
+// An update/delete matching no row means the transaction does not exist or
+// belongs to another user.
 function throwNotFoundOnMissingRow(err: unknown): never {
-  if ((err as { code?: string })?.code === 'P2025') {
+  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
     throw new HttpError(404, 'Transaction not found');
   }
   throw err;
@@ -45,6 +49,18 @@ function encodeCursor(transaction: { date: Date; id: string }): string {
   return `${transaction.date.toISOString()}${CURSOR_SEPARATOR}${transaction.id}`;
 }
 
+/**
+ * Date filters address whole days: startDate floors to the day's start and
+ * endDate widens to its end. Callers (the daily summary among them) rely on
+ * this to pass plain timestamps for both bounds.
+ */
+export function normalizeDateRange(startDate?: Date, endDate?: Date) {
+  return {
+    startDate: startDate ? startOfDay(new Date(startDate)) : undefined,
+    endDate: endDate ? endOfDay(new Date(endDate)) : undefined,
+  };
+}
+
 function decodeCursor(cursor: string): { date: Date; id: string } {
   const separatorIndex = cursor.indexOf(CURSOR_SEPARATOR);
   const date = new Date(cursor.slice(0, separatorIndex));
@@ -59,7 +75,7 @@ class TransactionRepository {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -70,20 +86,38 @@ class TransactionRepository {
       where: this.buildListWhere(filters, startDate, endDate),
     });
 
-    const groupOf = (type: TransactionType) =>
-      groups.find((group) => group.type === type);
+    const incomeGroup = groups.find(
+      (group) => group.type === TransactionType.INCOME,
+    );
+    const expenseGroup = groups.find(
+      (group) => group.type === TransactionType.EXPENSE,
+    );
+    const incomeCount = incomeGroup?._count._all ?? 0;
+    const expenseCount = expenseGroup?._count._all ?? 0;
 
     return {
-      totalIncome: groupOf(TransactionType.INCOME)?._sum.value ?? 0,
-      totalExpense: groupOf(TransactionType.EXPENSE)?._sum.value ?? 0,
-      count: groups.reduce((total, group) => total + group._count._all, 0),
+      totalIncome: incomeGroup?._sum.value ?? 0,
+      totalExpense: expenseGroup?._sum.value ?? 0,
+      count: incomeCount + expenseCount,
+      incomeCount,
+      expenseCount,
     };
   }
 
   public async createTransaction(
     data: CreateTransactionDbModel,
   ): Promise<string> {
-    const transaction = await prisma.transaction.create({
+    const transaction = await this.createTransactionOp(data);
+    return transaction.id;
+  }
+
+  /**
+   * Returned unawaited so the caller can batch it into one prisma.$transaction
+   * with related writes (import approval marks the imported row in the same
+   * batch).
+   */
+  public createTransactionOp(data: CreateTransactionDbModel) {
+    return prisma.transaction.create({
       data: {
         description: data.description,
         value: data.value,
@@ -93,10 +127,7 @@ class TransactionRepository {
         status: data.status || TransactionStatus.APPROVED,
         userId: data.userId,
       },
-      include: { category: true },
     });
-
-    return transaction.id;
   }
 
   /**
@@ -107,7 +138,7 @@ class TransactionRepository {
   public async getTransactions(
     filters: TransactionFilters,
   ): Promise<Transaction[]> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -130,7 +161,7 @@ class TransactionRepository {
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       filters.startDate,
       filters.endDate,
     );
@@ -228,20 +259,29 @@ class TransactionRepository {
     data: UpdateTransactionDbModel,
     userId: string,
   ): Promise<string> {
-    const transaction = await prisma.transaction
-      .update({
-        where: { id, userId },
-        data: {
-          description: data.description,
-          value: data.value,
-          date: data.date,
-          categoryId: data.categoryId,
-          type: data.type,
-          status: data.status,
-        },
-      })
-      .catch(throwNotFoundOnMissingRow);
+    const transaction = await this.updateTransactionOp(id, data, userId).catch(
+      throwNotFoundOnMissingRow,
+    );
     return transaction.id;
+  }
+
+  /** Unawaited for batching; a missing row fails as a raw Prisma error, not a 404. */
+  public updateTransactionOp(
+    id: string,
+    data: UpdateTransactionDbModel,
+    userId: string,
+  ) {
+    return prisma.transaction.update({
+      where: { id, userId },
+      data: {
+        description: data.description,
+        value: data.value,
+        date: data.date,
+        categoryId: data.categoryId,
+        type: data.type,
+        status: data.status,
+      },
+    });
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {
@@ -272,7 +312,7 @@ class TransactionRepository {
       count: number;
     }[]
   > {
-    const { startDate, endDate } = this.getNormalizedDateRange(
+    const { startDate, endDate } = normalizeDateRange(
       params.startDate,
       params.endDate,
     );
@@ -297,14 +337,6 @@ class TransactionRepository {
       sum: group._sum?.value ?? 0,
       count: group._count?._all ?? 0,
     }));
-  }
-
-  private getNormalizedDateRange(startDate?: Date, endDate?: Date) {
-    const normalizedStartDate = startDate
-      ? startOfDay(new Date(startDate))
-      : undefined;
-    const normalizedEndDate = endDate ? endOfDay(new Date(endDate)) : undefined;
-    return { startDate: normalizedStartDate, endDate: normalizedEndDate };
   }
 
   public async findPotentialMatches(

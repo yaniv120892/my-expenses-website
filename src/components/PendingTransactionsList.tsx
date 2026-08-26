@@ -27,13 +27,13 @@ import { formatTransactionDate } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
-import NotificationSnackbar from './NotificationSnackbar';
 import SwipeableRow from './SwipeableRow';
 
 type Props = {
   transactions: Transaction[];
-  onConfirmAction: (id: string) => void;
-  onDeleteAction: (id: string) => void;
+  // Outcome toasts belong to the caller that owns the mutation.
+  onConfirmAction: (id: string) => Promise<void>;
+  onDeleteAction: (id: string) => Promise<void>;
 };
 
 export default function PendingTransactionsList({
@@ -45,20 +45,6 @@ export default function PendingTransactionsList({
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
-    'success',
-  );
-
-  function showSnackbar(
-    message: string,
-    severity: 'success' | 'error' = 'success',
-  ) {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  }
 
   function openDialog(transaction: Transaction) {
     setSelectedTransaction(transaction);
@@ -70,35 +56,25 @@ export default function PendingTransactionsList({
     setSelectedTransaction(null);
   }
 
-  async function approve(id: string) {
-    try {
-      await onConfirmAction(id);
-      showSnackbar('Transaction approved successfully', 'success');
-    } catch {
-      showSnackbar('Failed to approve transaction', 'error');
-    }
-  }
-
-  async function reject(id: string) {
-    try {
-      await onDeleteAction(id);
-      showSnackbar('Transaction rejected successfully', 'success');
-    } catch {
-      showSnackbar('Failed to reject transaction', 'error');
-    }
-  }
-
+  // finally: even a handler that breaks the never-reject contract must not
+  // leave the dialog stuck open with no feedback.
   async function handleApprove() {
     if (selectedTransaction) {
-      await approve(selectedTransaction.id);
-      closeDialog();
+      try {
+        await onConfirmAction(selectedTransaction.id);
+      } finally {
+        closeDialog();
+      }
     }
   }
 
   async function handleDelete() {
     if (selectedTransaction) {
-      await reject(selectedTransaction.id);
-      closeDialog();
+      try {
+        await onDeleteAction(selectedTransaction.id);
+      } finally {
+        closeDialog();
+      }
     }
   }
 
@@ -116,8 +92,8 @@ export default function PendingTransactionsList({
             {transactions.map((tx) => (
               <SwipeableRow
                 key={tx.id}
-                onSwipeRight={() => approve(tx.id)}
-                onSwipeLeft={() => reject(tx.id)}
+                onSwipeRight={() => void onConfirmAction(tx.id)}
+                onSwipeLeft={() => void onDeleteAction(tx.id)}
                 rightLabel="Approve"
                 rightColor="success.main"
                 leftLabel="Delete"
@@ -194,7 +170,7 @@ export default function PendingTransactionsList({
                         aria-label="Approve transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          approve(tx.id);
+                          void onConfirmAction(tx.id);
                         }}
                       >
                         <CheckRoundedIcon fontSize="small" />
@@ -207,7 +183,7 @@ export default function PendingTransactionsList({
                         aria-label="Delete transaction"
                         onClick={(e) => {
                           e.stopPropagation();
-                          reject(tx.id);
+                          void onDeleteAction(tx.id);
                         }}
                       >
                         <DeleteOutlineRoundedIcon fontSize="small" />
@@ -251,13 +227,6 @@ export default function PendingTransactionsList({
           </>
         )}
       </Dialog>
-
-      <NotificationSnackbar
-        open={snackbarOpen}
-        message={snackbarMessage}
-        severity={snackbarSeverity}
-        onClose={() => setSnackbarOpen(false)}
-      />
     </>
   );
 }

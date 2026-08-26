@@ -15,9 +15,30 @@ import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
+import {
+  getPrismaErrorCode,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
+
+// A missing row in the approve/merge batch means a concurrent delete won the
+// race. Map it back to the 404 the non-batched path used to return.
+function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
+    throw new HttpError(404, 'Imported transaction not found');
+  }
+  throw err;
+}
+
+function throwTransactionNotFoundOnMissingRow(err: unknown): never {
+  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
+    throw new HttpError(404, 'Transaction not found');
+  }
+  throw err;
+}
 
 interface BatchResult {
   total: number;
@@ -224,12 +245,9 @@ class ImportService {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
-    await importedTransactionRepository.clearMatchingTransaction(
-      importedTransactionId,
-      userId,
-    );
-
-    await transactionService.createTransaction({
+    // Categorization may call the AI service, so it runs before the batch:
+    // network work has no place inside a database transaction.
+    const transactionModel = await transactionService.prepareCreateTransaction({
       description: transactionData.description,
       value: transactionData.value,
       date: transactionData.date,
@@ -239,10 +257,21 @@ class ImportService {
       categoryId: transactionData.categoryId,
     });
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
+    // One batch, so a failure cannot create the transaction while the imported
+    // row stays PENDING — retrying that state would create it a second time.
+    const [createdTransaction] = await prisma
+      .$transaction([
+        transactionRepository.createTransactionOp(transactionModel),
+        importedTransactionRepository.markApprovedOp(
+          importedTransactionId,
+          userId,
+        ),
+      ])
+      .catch(throwImportedTransactionNotFoundOnMissingRow);
+
+    await transactionService.notifyTransactionCreatedSafe(
+      createdTransaction.id,
       userId,
-      ImportedTransactionStatus.APPROVED,
     );
   }
 
@@ -269,38 +298,58 @@ class ImportService {
     );
 
     if (!matchingTransaction) {
-      throw new HttpError(
-        404,
-        'Matching transaction not found with id: ' +
-          importedTransaction.matchingTransactionId,
+      logger.warn(
+        {
+          userId,
+          importedTransactionId: importedTransaction.id,
+          matchingTransactionId: importedTransaction.matchingTransactionId,
+        },
+        'Stored matching transaction is missing or not owned by the user',
       );
+      throw new HttpError(404, 'Matching transaction not found');
     }
 
-    await transactionService.updateTransaction(
-      importedTransaction.matchingTransactionId,
-      {
-        description: transactionData.description,
-        type: transactionData.type,
-        value: transactionData.value,
-        date: transactionData.date,
-        categoryId: transactionData.categoryId,
-      },
-      userId,
-    );
-
-    if (matchingTransaction.status === TransactionStatus.PENDING_APPROVAL) {
-      await transactionService.updateTransactionStatus(
-        importedTransaction.matchingTransactionId,
-        TransactionStatus.APPROVED,
+    if (transactionData.categoryId) {
+      await transactionService.learnCategoryMappingSafe(
+        matchingTransaction,
+        transactionData.categoryId,
         userId,
       );
     }
 
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
-      userId,
-      ImportedTransactionStatus.MERGED,
-    );
+    const approveMatch =
+      matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
+
+    // One batch, so the matched transaction cannot end up updated while the
+    // imported row stays PENDING and re-mergeable.
+    await prisma
+      .$transaction([
+        transactionRepository.updateTransactionOp(
+          importedTransaction.matchingTransactionId,
+          {
+            description: transactionData.description,
+            type: transactionData.type,
+            value: transactionData.value,
+            date: transactionData.date,
+            categoryId: transactionData.categoryId,
+            ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+          },
+          userId,
+        ),
+        importedTransactionRepository.updateStatusOp(
+          importedTransactionId,
+          userId,
+          ImportedTransactionStatus.MERGED,
+        ),
+      ])
+      .catch(throwTransactionNotFoundOnMissingRow);
+
+    if (approveMatch) {
+      await transactionService.notifyTransactionCreatedSafe(
+        importedTransaction.matchingTransactionId,
+        userId,
+      );
+    }
   }
 
   public async ignoreImportedTransaction(
@@ -669,13 +718,16 @@ class ImportService {
       return null;
     }
 
-    const bestMatchId = await this.getAiProvider().findMatchingTransaction(
-      transaction.description,
+    // Providers validate their answer already; re-applying the idempotent
+    // resolver here makes "never an invented id" structural rather than a
+    // contract a future provider could forget.
+    const matchingTransactionId = resolveMatchedTransactionId(
+      await this.getAiProvider().findMatchingTransaction(
+        transaction.description,
+        availableMatches,
+      ),
       availableMatches,
     );
-
-    const matchingTransactionId =
-      bestMatchId ?? availableMatches[0]?.id ?? null;
 
     if (matchingTransactionId) {
       await prisma.importedTransaction.update({

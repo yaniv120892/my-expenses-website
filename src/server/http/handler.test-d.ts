@@ -35,6 +35,25 @@ test('a non-cron route may not declare a heartbeat env var', () => {
   }>().not.toExtend<Options>();
 });
 
+test('a public route must declare a rate limit or opt out', () => {
+  // Omitting rateLimit entirely must not compile on a public route.
+  expectTypeOf<{ auth: 'public'; handler: Handler }>().not.toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'public';
+    rateLimit: 'none';
+    handler: Handler;
+  }>().toExtend<Options>();
+});
+
+test('cron routes may not declare a rate limit', () => {
+  expectTypeOf<{
+    auth: 'cron';
+    rateLimit: 'none';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+});
+
 test('body and query inference survives the union', () => {
   createHandler({
     auth: 'session',

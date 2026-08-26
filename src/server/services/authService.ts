@@ -20,6 +20,14 @@ const MAX_CODE_ATTEMPTS = 5;
 const VERIFICATION_CODE_SENT =
   'Verification code sent to email. Code is valid for 10 minutes.';
 
+function loginCodeKey(email: string): string {
+  return `loginCode:${email}`;
+}
+
+function loginCodeAttemptsKey(email: string): string {
+  return `loginCodeAttempts:${email}`;
+}
+
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
     const existingUser = await userRepository.findByEmailOrUsername(
@@ -54,8 +62,8 @@ class AuthService {
 
   private async issueVerificationCode(email: string) {
     const code = this.generateCode();
-    await setValue(`loginCode:${email}`, code, 600);
-    await deleteValue(`loginCodeAttempts:${email}`);
+    await setValue(loginCodeKey(email), code, 600);
+    await deleteValue(loginCodeAttemptsKey(email));
     await this.sendCodeByEmail(email, code);
     return { message: VERIFICATION_CODE_SENT };
   }
@@ -82,13 +90,13 @@ class AuthService {
     // attempt cap. The cap locks the code for the counter's window rather than
     // deleting it: /api/auth/verify is public, so burning the code here would
     // let anyone who knows a pending signup's address strand that account.
-    const attemptsKey = `loginCodeAttempts:${email}`;
+    const attemptsKey = loginCodeAttemptsKey(email);
     const attempts = await incrementWithTtl(attemptsKey, 600);
     if (attempts > MAX_CODE_ATTEMPTS) {
       return { error: 'Too many attempts. Please request a new code.' };
     }
 
-    const cachedCode = await getValue<string>(`loginCode:${email}`);
+    const cachedCode = await getValue<string>(loginCodeKey(email));
     if (!cachedCode || !this.safeCodeCompare(String(cachedCode), code)) {
       return { error: 'Invalid or expired code' };
     }
@@ -98,7 +106,7 @@ class AuthService {
     }
     await userRepository.verifyUser(email);
     const token = await signToken(user.id);
-    await deleteValue(`loginCode:${email}`);
+    await deleteValue(loginCodeKey(email));
     await deleteValue(attemptsKey);
     await storeSession(user.id, token, tokenTtlSeconds());
     return { token };

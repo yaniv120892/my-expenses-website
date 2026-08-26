@@ -6,14 +6,35 @@ import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
+import { handleApiError } from '@/utils/api';
 import {
   usePendingTransactionsQuery,
   useConfirmTransactionMutation,
   useDeletePendingTransactionMutation,
 } from '@/hooks/usePendingTransactionsQuery';
 
+type Notice = { message: string; severity: 'success' | 'error' };
+
+function isAxiosGenericMessage(message: string): boolean {
+  return (
+    message === 'Network Error' ||
+    message.startsWith('Request failed with status code') ||
+    message.startsWith('timeout of ')
+  );
+}
+
 export default function PendingPage() {
-  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  // Remounts the snackbar per notice, restarting its auto-hide timer and
+  // entry animation for rapid consecutive outcomes.
+  const [noticeKey, setNoticeKey] = useState(0);
+
+  function showNotice(next: Notice) {
+    setNotice(next);
+    setNoticeOpen(true);
+    setNoticeKey((key) => key + 1);
+  }
   const {
     data: pendingTransactions = [],
     isLoading,
@@ -22,23 +43,38 @@ export default function PendingPage() {
   const confirmMutation = useConfirmTransactionMutation();
   const deleteMutation = useDeletePendingTransactionMutation();
 
-  async function handleConfirm(id: string) {
+  async function runWithNotice(
+    action: () => Promise<unknown>,
+    successMessage: string,
+    failureMessage: string,
+  ) {
     try {
-      await confirmMutation.mutateAsync(id);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Failed to confirm transaction',
-      );
+      await action();
+      showNotice({ message: successMessage, severity: 'success' });
+    } catch (error) {
+      // Axios's own messages ("Network Error") are not user-facing; only a
+      // server-provided message beats the friendly fallback.
+      const message = handleApiError(error, failureMessage);
+      showNotice({
+        message: isAxiosGenericMessage(message) ? failureMessage : message,
+        severity: 'error',
+      });
     }
   }
 
-  async function handleDelete(id: string) {
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-    }
-  }
+  const handleConfirm = (id: string) =>
+    runWithNotice(
+      () => confirmMutation.mutateAsync(id),
+      'Transaction approved successfully',
+      'Failed to confirm transaction',
+    );
+
+  const handleDelete = (id: string) =>
+    runWithNotice(
+      () => deleteMutation.mutateAsync(id),
+      'Transaction rejected successfully',
+      'Failed to delete transaction',
+    );
 
   return (
     <>
@@ -60,10 +96,11 @@ export default function PendingPage() {
         />
       )}
       <NotificationSnackbar
-        open={!!error}
-        message={error ?? ''}
-        severity="error"
-        onClose={() => setError(null)}
+        key={noticeKey}
+        open={noticeOpen}
+        message={notice?.message ?? ''}
+        severity={notice?.severity}
+        onClose={() => setNoticeOpen(false)}
       />
     </>
   );

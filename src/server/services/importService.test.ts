@@ -1,24 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { importRepo, importedTxRepo, prismaMock, agentClient } = vi.hoisted(
-  () => ({
-    importRepo: {
-      findById: vi.fn(),
-      updateStatus: vi.fn(),
-      create: vi.fn(),
-    },
-    importedTxRepo: {
-      findByUserIdAndImportId: vi.fn(),
-      findByImportId: vi.fn(),
-      findClaimedMatchingTransactionIds: vi.fn(),
-    },
-    prismaMock: {
-      importedTransaction: { updateMany: vi.fn() },
-      import: { updateMany: vi.fn() },
-    },
-    agentClient: { submitExtractionRequest: vi.fn() },
-  }),
-);
+const {
+  importRepo,
+  importedTxRepo,
+  prismaMock,
+  agentClient,
+  findPotentialMatches,
+  findMatchingTransaction,
+} = vi.hoisted(() => ({
+  importRepo: {
+    findById: vi.fn(),
+    updateStatus: vi.fn(),
+    create: vi.fn(),
+  },
+  importedTxRepo: {
+    findByUserIdAndImportId: vi.fn(),
+    findByImportId: vi.fn(),
+    findClaimedMatchingTransactionIds: vi.fn(),
+  },
+  prismaMock: {
+    importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
+    import: { updateMany: vi.fn() },
+  },
+  agentClient: { submitExtractionRequest: vi.fn() },
+  findPotentialMatches: vi.fn(),
+  findMatchingTransaction: vi.fn(),
+}));
 
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
@@ -27,15 +34,18 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
+vi.mock('@/server/repositories/transactionRepository', () => ({
+  default: { findPotentialMatches, getTransactionItem: vi.fn() },
+}));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
 }));
 
 import { importService } from '@/server/services/importService';
 
-// Matching and the extraction-id write are private and covered elsewhere;
-// stubbing them keeps these cases on the orchestration — which rows are
-// re-matched, in what order, and how the import's status moves.
+// Matching is stubbed here to keep these cases on the orchestration — which
+// rows are re-matched, in what order, and how the import's status moves; the
+// real method is exercised in its own describe below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = importService as any;
 
@@ -313,5 +323,60 @@ describe('findPotentialMatchesForImport', () => {
     await expect(run()).resolves.toBeUndefined();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('matchSingleTransaction', () => {
+  const candidates = [
+    {
+      id: 'tx-a',
+      description: 'Coffee',
+      date: new Date(2026, 2, 7),
+      value: 10,
+    },
+    {
+      id: 'tx-b',
+      description: 'Bakery',
+      date: new Date(2026, 2, 7),
+      value: 10,
+    },
+  ];
+
+  const originalGetAiProvider = service.getAiProvider;
+
+  beforeEach(() => {
+    // The file-level beforeEach stubs the method; this describe wants the
+    // real one, with the provider stubbed at its instance getter instead.
+    delete service.matchSingleTransaction;
+    service.getAiProvider = () => ({ findMatchingTransaction });
+    findPotentialMatches.mockResolvedValue(candidates);
+    prismaMock.importedTransaction.update.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    // Direct property assignment survives vi.clearAllMocks; restore so no
+    // later describe inherits the override.
+    service.getAiProvider = originalGetAiProvider;
+  });
+
+  it('stores the id the provider validated', async () => {
+    findMatchingTransaction.mockResolvedValue('tx-b');
+
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBe('tx-b');
+    expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { matchingTransactionId: 'tx-b' },
+    });
+  });
+
+  it('leaves the row unmatched when the provider reports none', async () => {
+    findMatchingTransaction.mockResolvedValue(null);
+
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBeNull();
+    expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
   });
 });

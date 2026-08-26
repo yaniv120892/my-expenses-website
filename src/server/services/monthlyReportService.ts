@@ -7,6 +7,7 @@ import { buildTransactionsCsvFile } from '@/server/utils/transactionCsv';
 import { Transaction } from '@/shared/types/transaction';
 import logger from '@/server/logging/logger';
 import { formatCurrency } from '@/utils/format';
+import { MONTH_FORMAT } from '@/shared/dates';
 
 interface CategoryTotal {
   categoryName: string;
@@ -119,7 +120,7 @@ class MonthlyReportService {
       attachments: transactions.length
         ? [
             {
-              filename: `transactions_${format(reportMonth, 'yyyy-MM')}.csv`,
+              filename: `transactions_${format(reportMonth, MONTH_FORMAT)}.csv`,
               content: Buffer.from(
                 buildTransactionsCsvFile(transactions),
                 'utf8',

@@ -6,7 +6,9 @@ const { sendMessage, incrementWithTtl, loggerError } = vi.hoisted(() => ({
   loggerError: vi.fn(),
 }));
 
-vi.mock('@/server/services/telegramService', () => ({
+vi.mock('@/server/services/telegramService', async (importOriginal) => ({
+  // The real escapeMarkdown stays live: these tests assert escaping.
+  ...(await importOriginal<object>()),
   telegramService: { sendMessage },
 }));
 vi.mock('@/server/redis', () => ({ incrementWithTtl }));

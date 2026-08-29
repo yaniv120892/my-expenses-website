@@ -17,6 +17,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The parent my-expenses directory keeps its own lockfile, so without this
+  // Next 15.5 infers the monorepo root as the workspace root and warns.
+  turbopack: { root: __dirname },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

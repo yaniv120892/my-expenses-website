@@ -5,6 +5,7 @@ import {
   BatchActionRequest,
   BatchResult,
   AutoApproveRule,
+  BootstrapAutoApproveRulesResult,
 } from '../types/import';
 import { CreateTransactionInput } from '../types';
 
@@ -128,6 +129,13 @@ class ImportService {
     data: Pick<AutoApproveRule, 'descriptionPattern' | 'categoryId' | 'type'>,
   ): Promise<AutoApproveRule> {
     const response = await api.post('/api/imports/auto-approve-rules', data);
+    return response.data;
+  }
+
+  public async bootstrapAutoApproveRules(): Promise<BootstrapAutoApproveRulesResult> {
+    const response = await api.post(
+      '/api/imports/auto-approve-rules/bootstrap',
+    );
     return response.data;
   }
 

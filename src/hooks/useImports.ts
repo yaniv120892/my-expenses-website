@@ -178,6 +178,18 @@ export const useCreateAutoApproveRuleMutation = () => {
   });
 };
 
+export const useBootstrapAutoApproveRulesMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => importService.bootstrapAutoApproveRules(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: importKeys.autoApproveRules(),
+      });
+    },
+  });
+};
+
 export const useUpdateAutoApproveRuleMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

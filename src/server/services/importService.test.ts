@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   importRepo,
   importedTxRepo,
+  categoryMappingRepo,
+  autoApproveRepo,
   prismaMock,
   agentClient,
   findPotentialMatches,
   findMatchingTransaction,
+  countTypesByDescription,
 } = vi.hoisted(() => ({
   importRepo: {
     findById: vi.fn(),
@@ -18,6 +21,8 @@ const {
     findByImportId: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
   },
+  categoryMappingRepo: { findFrequentByUserId: vi.fn() },
+  autoApproveRepo: { findByUserId: vi.fn(), createMany: vi.fn() },
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
     import: { updateMany: vi.fn() },
@@ -25,6 +30,7 @@ const {
   agentClient: { submitExtractionRequest: vi.fn() },
   findPotentialMatches: vi.fn(),
   findMatchingTransaction: vi.fn(),
+  countTypesByDescription: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/importRepository', () => ({
@@ -33,9 +39,19 @@ vi.mock('@/server/repositories/importRepository', () => ({
 vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
 }));
+vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
+  default: categoryMappingRepo,
+}));
+vi.mock('@/server/repositories/autoApproveRuleRepository', () => ({
+  autoApproveRuleRepository: autoApproveRepo,
+}));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/repositories/transactionRepository', () => ({
-  default: { findPotentialMatches, getTransactionItem: vi.fn() },
+  default: {
+    findPotentialMatches,
+    getTransactionItem: vi.fn(),
+    countTypesByDescription,
+  },
 }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
@@ -378,5 +394,102 @@ describe('matchSingleTransaction', () => {
 
     expect(matched).toBeNull();
     expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('bootstrapAutoApproveRules', () => {
+  const run = () => importService.bootstrapAutoApproveRules('user-1');
+
+  const mapping = (over: Record<string, unknown> = {}) => ({
+    descriptionPattern: 'wolt',
+    categoryId: 'cat-1',
+    ...over,
+  });
+
+  beforeEach(() => {
+    categoryMappingRepo.findFrequentByUserId.mockResolvedValue([]);
+    autoApproveRepo.findByUserId.mockResolvedValue([]);
+    autoApproveRepo.createMany.mockImplementation(
+      async (rules: unknown[]) => rules.length,
+    );
+    countTypesByDescription.mockResolvedValue([]);
+  });
+
+  it('loads only mappings at or above the hit-count threshold', async () => {
+    await run();
+    expect(categoryMappingRepo.findFrequentByUserId).toHaveBeenCalledWith(
+      'user-1',
+      3,
+    );
+  });
+
+  it('returns zeros without writing when the user has no frequent mappings', async () => {
+    await expect(run()).resolves.toEqual({ created: 0, skipped: 0 });
+    expect(autoApproveRepo.createMany).not.toHaveBeenCalled();
+    expect(countTypesByDescription).not.toHaveBeenCalled();
+  });
+
+  it('skips patterns already covered by a rule, case-insensitively and even when inactive', async () => {
+    categoryMappingRepo.findFrequentByUserId.mockResolvedValue([
+      mapping(),
+      mapping({ descriptionPattern: 'spotify', categoryId: 'cat-2' }),
+    ]);
+    autoApproveRepo.findByUserId.mockResolvedValue([
+      { descriptionPattern: 'WOLT', isActive: false },
+    ]);
+
+    await expect(run()).resolves.toEqual({ created: 1, skipped: 1 });
+    expect(autoApproveRepo.createMany).toHaveBeenCalledWith([
+      {
+        userId: 'user-1',
+        descriptionPattern: 'spotify',
+        categoryId: 'cat-2',
+        type: 'EXPENSE',
+      },
+    ]);
+  });
+
+  it('derives the type from the majority of matching transactions', async () => {
+    categoryMappingRepo.findFrequentByUserId.mockResolvedValue([
+      mapping({ descriptionPattern: 'salary', categoryId: 'cat-3' }),
+    ]);
+    countTypesByDescription.mockResolvedValue([
+      { description: 'Salary', type: 'INCOME', count: 5 },
+      { description: 'SALARY', type: 'EXPENSE', count: 2 },
+    ]);
+
+    await run();
+
+    expect(countTypesByDescription).toHaveBeenCalledWith('user-1', ['salary']);
+    expect(autoApproveRepo.createMany).toHaveBeenCalledWith([
+      expect.objectContaining({ descriptionPattern: 'salary', type: 'INCOME' }),
+    ]);
+  });
+
+  it('defaults to EXPENSE on a tie or when no transactions match the pattern', async () => {
+    categoryMappingRepo.findFrequentByUserId.mockResolvedValue([
+      mapping({ descriptionPattern: 'tied' }),
+      mapping({ descriptionPattern: 'unseen', categoryId: 'cat-2' }),
+    ]);
+    countTypesByDescription.mockResolvedValue([
+      { description: 'tied', type: 'INCOME', count: 2 },
+      { description: 'tied', type: 'EXPENSE', count: 2 },
+    ]);
+
+    await run();
+
+    expect(autoApproveRepo.createMany).toHaveBeenCalledWith([
+      expect.objectContaining({ descriptionPattern: 'tied', type: 'EXPENSE' }),
+      expect.objectContaining({
+        descriptionPattern: 'unseen',
+        type: 'EXPENSE',
+      }),
+    ]);
+  });
+
+  it('reports the count the database actually inserted', async () => {
+    categoryMappingRepo.findFrequentByUserId.mockResolvedValue([mapping()]);
+    autoApproveRepo.createMany.mockResolvedValue(1);
+    await expect(run()).resolves.toEqual({ created: 1, skipped: 0 });
   });
 });

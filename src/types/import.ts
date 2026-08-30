@@ -85,3 +85,8 @@ export interface AutoApproveRule {
   updatedAt: string;
   category?: { id: string; name: string };
 }
+
+export interface BootstrapAutoApproveRulesResult {
+  created: number;
+  skipped: number;
+}

@@ -23,12 +23,15 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HistoryIcon from '@mui/icons-material/History';
 import CategorySelect from './CategorySelect';
+import NotificationSnackbar from './NotificationSnackbar';
 import {
   useAutoApproveRulesQuery,
   useCreateAutoApproveRuleMutation,
   useUpdateAutoApproveRuleMutation,
   useDeleteAutoApproveRuleMutation,
+  useBootstrapAutoApproveRulesMutation,
 } from '../hooks/useImports';
 import { AutoApproveRule } from '../types/import';
 import { TransactionType } from '../types';
@@ -52,10 +55,12 @@ export default function AutoApproveRuleManager() {
   const createMutation = useCreateAutoApproveRuleMutation();
   const updateMutation = useUpdateAutoApproveRuleMutation();
   const deleteMutation = useDeleteAutoApproveRuleMutation();
+  const bootstrapMutation = useBootstrapAutoApproveRulesMutation();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutoApproveRule | null>(null);
   const [form, setForm] = useState<RuleFormState>(emptyForm);
+  const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
 
   const handleOpen = (rule?: AutoApproveRule) => {
     if (rule) {
@@ -98,6 +103,15 @@ export default function AutoApproveRuleManager() {
     await deleteMutation.mutateAsync(ruleId);
   };
 
+  const handleBootstrap = async () => {
+    const result = await bootstrapMutation.mutateAsync();
+    setBootstrapMessage(
+      result.created === 0
+        ? 'No new rules to create from your history'
+        : `Created ${result.created} rule${result.created === 1 ? '' : 's'} from your history`,
+    );
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={2}>
@@ -117,15 +131,27 @@ export default function AutoApproveRuleManager() {
         }}
       >
         <Typography variant="h6">Auto-Approve Rules</Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-          sx={{ textTransform: 'none' }}
-        >
-          Add Rule
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<HistoryIcon />}
+            onClick={handleBootstrap}
+            disabled={bootstrapMutation.isPending}
+            sx={{ textTransform: 'none' }}
+          >
+            Generate from history
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpen()}
+            sx={{ textTransform: 'none' }}
+          >
+            Add Rule
+          </Button>
+        </Box>
       </Box>
 
       {rules.length === 0 ? (
@@ -235,6 +261,12 @@ export default function AutoApproveRuleManager() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <NotificationSnackbar
+        open={!!bootstrapMessage}
+        message={bootstrapMessage ?? ''}
+        onClose={() => setBootstrapMessage(null)}
+      />
     </Box>
   );
 }

@@ -13,6 +13,16 @@ class UserCategoryMappingRepository {
     });
   }
 
+  public async findFrequentByUserId(
+    userId: string,
+    minHitCount: number,
+  ): Promise<{ descriptionPattern: string; categoryId: string }[]> {
+    return prisma.userCategoryMapping.findMany({
+      where: { userId, hitCount: { gte: minHitCount } },
+      select: { descriptionPattern: true, categoryId: true },
+    });
+  }
+
   public async upsert(
     userId: string,
     descriptionPattern: string,

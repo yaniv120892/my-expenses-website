@@ -11,6 +11,18 @@ export class AutoApproveRuleRepository {
     return prisma.autoApproveRule.create({ data });
   }
 
+  public async createMany(
+    rules: {
+      userId: string;
+      descriptionPattern: string;
+      categoryId: string;
+      type: TransactionType;
+    }[],
+  ): Promise<number> {
+    const result = await prisma.autoApproveRule.createMany({ data: rules });
+    return result.count;
+  }
+
   public async findByUserId(userId: string): Promise<AutoApproveRule[]> {
     return prisma.autoApproveRule.findMany({
       where: { userId },

@@ -339,6 +339,26 @@ class TransactionRepository {
     }));
   }
 
+  public async countTypesByDescription(
+    userId: string,
+    descriptions: string[],
+  ): Promise<{ description: string; type: TransactionType; count: number }[]> {
+    const grouped = await prisma.transaction.groupBy({
+      by: ['description', 'type'],
+      where: {
+        userId,
+        description: { in: descriptions, mode: 'insensitive' },
+      },
+      _count: { _all: true },
+    });
+
+    return grouped.map((row) => ({
+      description: row.description,
+      type: row.type,
+      count: row._count._all,
+    }));
+  }
+
   public async findPotentialMatches(
     userId: string,
     date: Date,

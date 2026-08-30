@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/server/utils/errorUtils';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
+import userCategoryMappingRepository from '@/server/repositories/userCategoryMappingRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
@@ -38,6 +39,15 @@ function throwTransactionNotFoundOnMissingRow(err: unknown): never {
     throw new HttpError(404, 'Transaction not found');
   }
   throw err;
+}
+
+// A category mapping seen this often is treated as settled intent rather than
+// a one-off correction, and graduates into an auto-approve rule.
+const BOOTSTRAP_RULE_MIN_HIT_COUNT = 3;
+
+interface BootstrapAutoApproveRulesResult {
+  created: number;
+  skipped: number;
 }
 
 interface BatchResult {
@@ -471,6 +481,88 @@ class ImportService {
     }
 
     return this.runMergeOrApproveBatch(items, userId);
+  }
+
+  public async bootstrapAutoApproveRules(
+    userId: string,
+  ): Promise<BootstrapAutoApproveRulesResult> {
+    const [mappings, existingRules] = await Promise.all([
+      userCategoryMappingRepository.findFrequentByUserId(
+        userId,
+        BOOTSTRAP_RULE_MIN_HIT_COUNT,
+      ),
+      autoApproveRuleRepository.findByUserId(userId),
+    ]);
+
+    // An inactive rule still blocks bootstrapping: the user disabled it on
+    // purpose, and recreating the pattern would silently re-enable it.
+    const existingPatterns = new Set(
+      existingRules.map((rule) => rule.descriptionPattern.toLowerCase()),
+    );
+
+    const newMappings = mappings.filter(
+      (mapping) =>
+        !existingPatterns.has(mapping.descriptionPattern.toLowerCase()),
+    );
+    const skipped = mappings.length - newMappings.length;
+
+    if (newMappings.length === 0) {
+      return { created: 0, skipped };
+    }
+
+    const typeByPattern = await this.deriveRuleTypes(
+      userId,
+      newMappings.map((mapping) => mapping.descriptionPattern),
+    );
+
+    const created = await autoApproveRuleRepository.createMany(
+      newMappings.map((mapping) => ({
+        userId,
+        descriptionPattern: mapping.descriptionPattern,
+        categoryId: mapping.categoryId,
+        type:
+          typeByPattern.get(mapping.descriptionPattern.toLowerCase()) ??
+          TransactionType.EXPENSE,
+      })),
+    );
+
+    return { created, skipped };
+  }
+
+  /**
+   * Mapping patterns are learned as lowercased transaction descriptions, so
+   * the user's own transactions carry each pattern's real type and one grouped
+   * case-insensitive query answers every pattern at once. A pattern with no
+   * matching transactions, or an INCOME/EXPENSE tie, defaults to EXPENSE —
+   * imports are overwhelmingly expenses.
+   */
+  private async deriveRuleTypes(
+    userId: string,
+    patterns: string[],
+  ): Promise<Map<string, TransactionType>> {
+    const typeCounts = await transactionRepository.countTypesByDescription(
+      userId,
+      patterns,
+    );
+
+    const incomeMinusExpenseCount = new Map<string, number>();
+    for (const { description, type, count } of typeCounts) {
+      const pattern = description.toLowerCase();
+      const signedCount = type === TransactionType.INCOME ? count : -count;
+      incomeMinusExpenseCount.set(
+        pattern,
+        (incomeMinusExpenseCount.get(pattern) ?? 0) + signedCount,
+      );
+    }
+
+    const typeByPattern = new Map<string, TransactionType>();
+    for (const [pattern, incomeLead] of incomeMinusExpenseCount) {
+      typeByPattern.set(
+        pattern,
+        incomeLead > 0 ? TransactionType.INCOME : TransactionType.EXPENSE,
+      );
+    }
+    return typeByPattern;
   }
 
   private async runMergeOrApproveBatch(

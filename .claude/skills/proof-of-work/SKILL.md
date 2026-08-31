@@ -29,47 +29,41 @@ as one command: `npm run typecheck && npm run lint && npm test`.
 
 ## Bringing the stack up
 
-The app's Prisma client runs through Accelerate (`prisma://`), so a local run
-needs `prisma dev` rather than a bare Postgres URL. `DIRECT_URL` stays plain
-Postgres for migrations, the seed, and Mastra's memory.
-
-`prisma dev` prints a plain `postgres://` URL to the terminal, which the app's
-edge client rejects. The `prisma://` one is in its state file — read both from
-there, exactly as `.github/workflows/ci.yml` does:
-
 ```bash
-npx prisma dev --name pow &
-STATE="$HOME/.local/share/prisma-dev-nodejs/pow/server.json"
-export DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")
-export DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")
-npx prisma migrate deploy           # uses DIRECT_URL
+npm run dev:local
 ```
 
-Then bring up the app. The e2e harness already assembles a full working
-environment — a mock OpenAI-compatible model server, an in-process Upstash
-REST shim, a mock extraction agent, and a seeded pair of users — so prefer it
-over hand-assembling env vars. Copy the `env:` block from
-`.github/workflows/ci.yml` for the rest; it is the maintained list.
+That is the whole thing. `scripts/dev-local.sh` starts a local Prisma Postgres,
+applies migrations, brings up the mock model server, the Upstash REST shim and
+the mock extraction agent, seeds two users, starts the dev server, and blocks
+until `/api/health/deep` reports both `db` and `redis` healthy. It then prints
+the seeded email and password, and a bearer token, and tails the Next log.
+Ctrl-C stops the app and the mocks; the database stays up for the next run
+(`npx prisma dev stop` ends it).
 
-```bash
-npx tsx test/e2e-api/serve.ts       # stays alive, prints E2E_AUTH_TOKEN
-```
+Read the script before working around it — every value in it is load-bearing:
+
+- `DATABASE_URL` must be the `prisma+postgres://` proxy URL, because the app's
+  client speaks the Accelerate protocol. `prisma dev` prints the plain
+  `postgres://` address on startup, which the edge client rejects; both URLs
+  live in its state file, and that file is under `Application Support` on macOS
+  and the XDG data home on Linux.
+- The env block is a copy of the `env:` block in `.github/workflows/ci.yml`.
+  Change one and change the other, or local and CI diverge silently.
+- `TELEGRAM_BOT_TOKEN` stays unset, so the bot code no-ops instead of opening
+  sockets to api.telegram.org.
+- `serve.ts` and `npm run test:e2e:api` both bind the shim's port. Stop
+  `dev:local` before running the API suite.
 
 `/api/health` returns 200 without touching anything, so it only proves Next is
-serving. Use `/api/health/deep` to check the dependencies: until `serve.ts` is
-up it returns 503 with `{"checks":{"db":"ok","redis":"fail"}}` because it cannot
-reach the Redis shim, and that is the expected failure, not a broken setup.
+serving — `/api/health/deep` is the one that checks the dependencies.
 
-That token is a valid `session` JWT for the seeded user A. Use it as
-`Authorization: Bearer` for API calls and as the `session` cookie for the
-browser — `e2e/helpers.ts` `signIn()` plants it.
+The printed bearer token is a valid `session` JWT for the seeded user A: use it
+as `Authorization: Bearer` for API calls and as the `session` cookie for the
+browser, which is what `e2e/helpers.ts` `signIn()` plants. The password is there
+for signing in through the form by hand.
 
-`serve.ts` and `npm run test:e2e:api` both bind the shim's port, so they cannot
-run at once; stop the former before the latter.
-
-Read `test/e2e-api/README.md` for the full environment, including why
-`TELEGRAM_BOT_TOKEN` must stay unset locally (with no token the bot code
-no-ops instead of opening sockets).
+`test/e2e-api/README.md` documents the harness itself.
 
 If the change needs data the seed does not create, add it with a short `tsx`
 script against `DIRECT_URL` rather than clicking it in by hand — a script is
@@ -85,7 +79,7 @@ Call the real endpoint and paste what came back. Keep responses short enough
 to read — trim long arrays with an ellipsis and say what you trimmed.
 
 ```bash
-TOKEN=...   # from serve.ts
+TOKEN=...   # printed by npm run dev:local
 curl -s -X PATCH localhost:3000/api/subscriptions/$ID \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"frequency":"MONTHLY","amount":89.9}' | jq

@@ -1,3 +1,4 @@
+import { SEED_PASSWORD } from './seed';
 import { startStack } from './stack';
 
 /**
@@ -23,9 +24,12 @@ async function main(): Promise<void> {
     extraction: EXTRACTION_PORT,
   });
 
-  // Consumed by the Playwright run.
+  // Consumed by the Playwright run; the credentials by scripts/dev-local.sh,
+  // which prints them for signing in through the browser.
   console.log(`E2E_AUTH_TOKEN=${seeded.userA.token}`);
   console.log(`E2E_USER_ID=${seeded.userA.id}`);
+  console.log(`E2E_USER_EMAIL=${seeded.userA.email}`);
+  console.log(`E2E_PASSWORD=${SEED_PASSWORD}`);
   console.log('ready');
 }
 

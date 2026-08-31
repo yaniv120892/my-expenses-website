@@ -211,9 +211,10 @@ function textOf(frames: Frame[]): string {
 }
 
 /**
- * Login → me → logout against a user with a real bcrypt password (the seeded
- * users carry an uncomparable placeholder). Must run inside the harness: the
- * cookie session is only valid while the upstash shim holds the session key.
+ * Login → me → logout against a user of its own: logout deletes the session
+ * key, so running this against a seeded user would invalidate the token the
+ * other checks share. Must run inside the harness — the cookie session is only
+ * valid while the upstash shim holds that key.
  */
 async function authLifecycleFlow(): Promise<void> {
   const email = 'login-flow@e2e.test';

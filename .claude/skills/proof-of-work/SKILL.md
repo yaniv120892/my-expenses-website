@@ -41,19 +41,10 @@ the seeded email and password, and a bearer token, and tails the Next log.
 Ctrl-C stops the app and the mocks; the database stays up for the next run
 (`npx prisma dev stop` ends it).
 
-Read the script before working around it — every value in it is load-bearing:
-
-- `DATABASE_URL` must be the `prisma+postgres://` proxy URL, because the app's
-  client speaks the Accelerate protocol. `prisma dev` prints the plain
-  `postgres://` address on startup, which the edge client rejects; both URLs
-  live in its state file, and that file is under `Application Support` on macOS
-  and the XDG data home on Linux.
-- The env block is a copy of the `env:` block in `.github/workflows/ci.yml`.
-  Change one and change the other, or local and CI diverge silently.
-- `TELEGRAM_BOT_TOKEN` stays unset, so the bot code no-ops instead of opening
-  sockets to api.telegram.org.
-- `serve.ts` and `npm run test:e2e:api` both bind the shim's port. Stop
-  `dev:local` before running the API suite.
+Read `scripts/dev-local.sh` before working around it — every value in it is
+load-bearing, and each one carries the comment saying why. The one constraint
+that shapes what you can run: `dev:local` and `npm run test:e2e:api` bind the
+same mock ports, so stop the former before the latter.
 
 `/api/health` returns 200 without touching anything, so it only proves Next is
 serving — `/api/health/deep` is the one that checks the dependencies.

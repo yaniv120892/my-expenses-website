@@ -10,18 +10,11 @@ import {
   CHUNK_DELAY_MS,
 } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
+import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
 
-const MOCK_PORT = 51231;
-const SHIM_PORT = Number(
-  new URL(process.env.REDIS_URL || 'http://127.0.0.1:51230').port,
-);
-const EXTRACTION_PORT = Number(
-  new URL(process.env.EXCEL_EXTRACTION_AGENT_URL || 'http://127.0.0.1:51232')
-    .port,
-);
 const APP_PORT = Number(process.env.PORT || 3000);
 
 interface Frame {

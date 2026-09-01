@@ -21,8 +21,7 @@ API keys or external services are needed.
 
 `npm run dev:local` assembles this whole environment — database, migrations,
 the three mock servers, the seed, and the app — and stays up. Read
-`scripts/dev-local.sh` for the env every piece needs; it is a copy of the
-`env:` block in `.github/workflows/ci.yml`.
+`scripts/dev-local.sh` for the env every piece needs.
 
 `npm run test:e2e:api` (`run.ts`) brings the same stack up on its own and exits
 when the checks finish, so it binds the ports `dev:local` already holds. Stop

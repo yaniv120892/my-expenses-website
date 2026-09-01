@@ -14,8 +14,8 @@ import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
  */
 
 /**
- * Shared by both seeded users, stored as a real bcrypt hash so a local run can
- * sign in through the login form rather than only by planting the cookie.
+ * Hashed rather than stored as a placeholder so a local run can sign in through
+ * the login form instead of only by planting the cookie.
  */
 export const SEED_PASSWORD = 'local-dev-password';
 
@@ -74,11 +74,12 @@ export async function seed(): Promise<SeedResult> {
     });
     const rent = await prisma.category.create({ data: { name: 'Rent' } });
 
+    const passwordHash = await hash(SEED_PASSWORD, 10);
     const userA = await prisma.user.create({
       data: {
         username: 'e2e-user-a',
         email: 'a@e2e.test',
-        password: await hash(SEED_PASSWORD, 10),
+        password: passwordHash,
         verified: true,
       },
     });
@@ -86,7 +87,7 @@ export async function seed(): Promise<SeedResult> {
       data: {
         username: 'e2e-user-b',
         email: 'b@e2e.test',
-        password: await hash(SEED_PASSWORD, 10),
+        password: passwordHash,
         verified: true,
       },
     });

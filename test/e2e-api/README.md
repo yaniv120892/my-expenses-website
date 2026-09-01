@@ -19,42 +19,17 @@ API keys or external services are needed.
 
 ## Running
 
-1. Start a local Postgres and apply migrations:
+`npm run dev:local` assembles this whole environment — database, migrations,
+the three mock servers, the seed, and the app — and stays up. Read
+`scripts/dev-local.sh` for the env every piece needs.
 
-   ```bash
-   docker run -d --name e2e-pg -p 5433:5432 \
-     -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password \
-     -e POSTGRES_DB=my-expenses postgres:15
-   export DIRECT_URL='postgresql://user:password@127.0.0.1:5433/my-expenses'
-   npx prisma migrate deploy
-   ```
+`npm run test:e2e:api` (`run.ts`) brings the same stack up on its own and exits
+when the checks finish, so it binds the ports `dev:local` already holds. Stop
+`dev:local` first.
 
-2. Start the app with the harness environment. The app's Prisma client runs
-   through Accelerate (`prisma://` DATABASE_URL); for a local run either use
-   `npx prisma dev` or point DATABASE_URL at a local Accelerate-compatible
-   proxy. The assistant memory and the seed use DIRECT_URL.
-
-   ```bash
-   JWT_SECRET=e2e-test-secret \
-   REDIS_URL=http://127.0.0.1:51230 REDIS_TOKEN=e2e \
-   AI_PROVIDER=chatgpt OPENAI_API_KEY=e2e \
-   ASSISTANT_MODEL_URL=http://127.0.0.1:51231/v1 \
-   DIRECT_URL=... DATABASE_URL=... CRON_SECRET=e2e \
-   npm run dev
-   ```
-
-   Leave `TELEGRAM_BOT_TOKEN` unset locally — with no token the bot code
-   no-ops instead of opening sockets to api.telegram.org.
-
-3. In a second terminal, with the same `JWT_SECRET`/`DIRECT_URL`/`REDIS_URL`:
-
-   ```bash
-   npm run test:e2e:api
-   ```
-
-`test/e2e-api/serve.ts` (`npx tsx test/e2e-api/serve.ts`) brings up the same
-stack but stays alive and prints `E2E_AUTH_TOKEN` for the Playwright chat
-spec (`e2e/chat.spec.ts`).
+`serve.ts` is the third entry point: the same stack, staying alive, printing
+`E2E_AUTH_TOKEN` for the Playwright chat spec (`e2e/chat.spec.ts`) and the
+seeded credentials for `dev:local`.
 
 ## Serverless traps this guards against
 

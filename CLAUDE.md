@@ -12,6 +12,7 @@ Two sibling services stay external and are reached over HTTP: `expense-categoriz
 
 ```bash
 npm run dev              # Next.js dev server with Turbopack (port 3000)
+npm run dev:local        # whole local stack in one command (see below)
 npm run build            # prisma generate && next build
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
@@ -27,6 +28,16 @@ Pre-commit runs lint-staged + typecheck (husky). CI
 (`.github/workflows/ci.yml`) runs lint + typecheck + unit tests + the
 production build, and both e2e suites against `npx prisma dev` as the local
 Prisma Postgres.
+
+`npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
+app on a machine: database, migrations, the mock services the integrations
+point at, and the dev server, blocking until `/api/health/deep` is green. `npm
+run dev` on its own only works if every var that script exports is already in
+the environment, and its env block is a copy of the `env:` block CI gives its
+e2e job — change one and change the other, or local and CI diverge silently.
+It restarts `prisma dev` each run rather than reusing it: that server fronts
+Postgres with a pooler, and `migrate deploy` inherits the previous run's
+query-engine session and dies on an already-prepared statement.
 
 Vitest runs on `node` by default; a component or hook test opts into a DOM
 with a `// @vitest-environment jsdom` docblock and renders through
@@ -159,7 +170,12 @@ README "Cron heartbeats".
 
 Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next build`.
 Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
-jobs 401. The Telegram webhook must be registered with
+jobs 401. Anything that has to name the site's own origin — extraction webhook
+callbacks, verification links — goes through `requireSiteUrl()`
+(`src/server/env.ts`), never a bare `WEBSITE_URL` read: preview deployments
+leave that var unset so the origin comes from `VERCEL_BRANCH_URL`, and setting
+it project-wide sends preview callbacks to production. The Telegram webhook
+must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 
 ## Documentation

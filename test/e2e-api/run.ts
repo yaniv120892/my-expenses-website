@@ -10,18 +10,11 @@ import {
   CHUNK_DELAY_MS,
 } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
+import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
 
-const MOCK_PORT = 51231;
-const SHIM_PORT = Number(
-  new URL(process.env.REDIS_URL || 'http://127.0.0.1:51230').port,
-);
-const EXTRACTION_PORT = Number(
-  new URL(process.env.EXCEL_EXTRACTION_AGENT_URL || 'http://127.0.0.1:51232')
-    .port,
-);
 const APP_PORT = Number(process.env.PORT || 3000);
 
 interface Frame {
@@ -211,9 +204,10 @@ function textOf(frames: Frame[]): string {
 }
 
 /**
- * Login → me → logout against a user with a real bcrypt password (the seeded
- * users carry an uncomparable placeholder). Must run inside the harness: the
- * cookie session is only valid while the upstash shim holds the session key.
+ * Login → me → logout against a user of its own: logout deletes the session
+ * key, so running this against a seeded user would invalidate the token the
+ * other checks share. Must run inside the harness — the cookie session is only
+ * valid while the upstash shim holds that key.
  */
 async function authLifecycleFlow(): Promise<void> {
   const email = 'login-flow@e2e.test';

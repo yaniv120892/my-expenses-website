@@ -26,3 +26,15 @@ export function requireEnv(name: string): string {
 export function optionalEnv(name: string, fallback = ''): string {
   return process.env[name] ?? fallback;
 }
+
+// Preview deployments get a hostname per deployment, so they leave WEBSITE_URL
+// unset: a fixed value would point extraction callbacks and verification links
+// at production. VERCEL_BRANCH_URL is preferred over VERCEL_URL because it is
+// stable across redeploys of the same branch.
+export function requireSiteUrl(): string {
+  const vercelHost = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+  if (!process.env.WEBSITE_URL && vercelHost) {
+    return `https://${vercelHost}`;
+  }
+  return requireEnv('WEBSITE_URL');
+}

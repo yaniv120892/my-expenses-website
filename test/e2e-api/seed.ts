@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 
@@ -11,6 +12,12 @@ import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
  * User B exists purely so a test can assert that A's answers never contain B's
  * numbers — the check behind the claim that userId is server-injected.
  */
+
+/**
+ * Hashed rather than stored as a placeholder so a local run can sign in through
+ * the login form instead of only by planting the cookie.
+ */
+export const SEED_PASSWORD = 'local-dev-password';
 
 export interface SeededUser {
   id: string;
@@ -67,11 +74,12 @@ export async function seed(): Promise<SeedResult> {
     });
     const rent = await prisma.category.create({ data: { name: 'Rent' } });
 
+    const passwordHash = await hash(SEED_PASSWORD, 10);
     const userA = await prisma.user.create({
       data: {
         username: 'e2e-user-a',
         email: 'a@e2e.test',
-        password: 'x',
+        password: passwordHash,
         verified: true,
       },
     });
@@ -79,7 +87,7 @@ export async function seed(): Promise<SeedResult> {
       data: {
         username: 'e2e-user-b',
         email: 'b@e2e.test',
-        password: 'x',
+        password: passwordHash,
         verified: true,
       },
     });

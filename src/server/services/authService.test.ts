@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash } from 'bcryptjs';
 
 const redis = vi.hoisted(() => ({
@@ -41,8 +41,15 @@ const PASSWORD = 'correct horse';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The verification email links back to the site, so signup cannot run
+  // without an origin to build that link from.
+  vi.stubEnv('WEBSITE_URL', 'https://expenses.example');
   redis.incrementWithTtl.mockResolvedValue(1);
   redis.getValue.mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('verifyLoginCode', () => {

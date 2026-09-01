@@ -15,6 +15,7 @@ import { signToken, tokenTtlSeconds, verifyToken } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
+import { requireSiteUrl } from '@/server/env';
 
 const MAX_CODE_ATTEMPTS = 5;
 const VERIFICATION_CODE_SENT =
@@ -145,7 +146,7 @@ class AuthService {
   }
 
   private generateVerificationEmailText(code: string, email: string) {
-    const websiteUrl = process.env.WEBSITE_URL;
+    const websiteUrl = requireSiteUrl();
     return [
       'Hello,',
       '',
@@ -167,7 +168,7 @@ class AuthService {
   }
 
   private generateVerificationEmailHtml(code: string, email: string) {
-    const websiteUrl = process.env.WEBSITE_URL;
+    const websiteUrl = requireSiteUrl();
     return `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 480px; margin: 0 auto;">
         <p>Hello,</p>

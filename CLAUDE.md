@@ -170,7 +170,12 @@ README "Cron heartbeats".
 
 Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next build`.
 Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
-jobs 401. The Telegram webhook must be registered with
+jobs 401. Anything that has to name the site's own origin — extraction webhook
+callbacks, verification links — goes through `requireSiteUrl()`
+(`src/server/env.ts`), never a bare `WEBSITE_URL` read: preview deployments
+leave that var unset so the origin comes from `VERCEL_BRANCH_URL`, and setting
+it project-wide sends preview callbacks to production. The Telegram webhook
+must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 
 ## Documentation

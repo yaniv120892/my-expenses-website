@@ -2,7 +2,7 @@ import axios from 'axios';
 import logger from '@/server/logging/logger';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
-import { requireEnv } from '@/server/env';
+import { requireEnv, requireSiteUrl } from '@/server/env';
 import {
   SubmitExtractionRequest,
   SubmitExtractionResponse,
@@ -15,7 +15,7 @@ export class ExcelExtractionAgentClient {
 
   constructor() {
     this.serviceUrl = requireEnv('EXCEL_EXTRACTION_AGENT_URL');
-    this.webhookBaseUrl = requireEnv('WEBSITE_URL');
+    this.webhookBaseUrl = requireSiteUrl();
   }
 
   public async submitExtractionRequest(

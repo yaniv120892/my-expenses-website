@@ -172,9 +172,12 @@ Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next bu
 Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
 jobs 401. Anything that has to name the site's own origin — extraction webhook
 callbacks, verification links — goes through `requireSiteUrl()`
-(`src/server/env.ts`), never a bare `WEBSITE_URL` read: preview deployments
-leave that var unset so the origin comes from `VERCEL_BRANCH_URL`, and setting
-it project-wide sends preview callbacks to production. The Telegram webhook
+(`src/server/env.ts`), never a bare `WEBSITE_URL` read. Set that var on
+production and nowhere else: previews leave it unset and derive the origin from
+`VERCEL_BRANCH_URL`, while production has the fallback gated off, so a missing
+value fails loudly instead of mailing users a `vercel.app` link. It is resolved
+before the first write of a signup, not while rendering the email, so a
+misconfigured deployment cannot strand a half-created account. The Telegram webhook
 must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 

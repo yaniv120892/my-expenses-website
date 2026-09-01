@@ -31,6 +31,10 @@ function loginCodeAttemptsKey(email: string): string {
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
+    // Before any write: the verification email cannot be built without an
+    // origin, and throwing after createUser would leave an unverified account
+    // that the retry path below cannot rescue either.
+    const websiteUrl = requireSiteUrl();
     const existingUser = await userRepository.findByEmailOrUsername(
       email,
       username,
@@ -44,7 +48,7 @@ class AuthService {
       // a real conflict.
       if (!existingUser.verified && existingUser.email === email) {
         if (await compare(password, existingUser.password)) {
-          return this.issueVerificationCode(existingUser.email);
+          return this.issueVerificationCode(existingUser.email, websiteUrl);
         }
         return { message: VERIFICATION_CODE_SENT };
       }
@@ -58,14 +62,14 @@ class AuthService {
     );
     // Nothing that shipped before this account existed is "new" to it.
     await announcementService.acknowledgeAllForNewUser(user.id);
-    return this.issueVerificationCode(email);
+    return this.issueVerificationCode(email, websiteUrl);
   }
 
-  private async issueVerificationCode(email: string) {
+  private async issueVerificationCode(email: string, websiteUrl: string) {
     const code = this.generateCode();
     await setValue(loginCodeKey(email), code, 600);
     await deleteValue(loginCodeAttemptsKey(email));
-    await this.sendCodeByEmail(email, code);
+    await this.sendCodeByEmail(email, code, websiteUrl);
     return { message: VERIFICATION_CODE_SENT };
   }
 
@@ -145,8 +149,11 @@ class AuthService {
     );
   }
 
-  private generateVerificationEmailText(code: string, email: string) {
-    const websiteUrl = requireSiteUrl();
+  private generateVerificationEmailText(
+    code: string,
+    email: string,
+    websiteUrl: string,
+  ) {
     return [
       'Hello,',
       '',
@@ -167,8 +174,11 @@ class AuthService {
     ].join('\n');
   }
 
-  private generateVerificationEmailHtml(code: string, email: string) {
-    const websiteUrl = requireSiteUrl();
+  private generateVerificationEmailHtml(
+    code: string,
+    email: string,
+    websiteUrl: string,
+  ) {
     return `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 480px; margin: 0 auto;">
         <p>Hello,</p>
@@ -185,12 +195,16 @@ class AuthService {
     `;
   }
 
-  private async sendCodeByEmail(email: string, code: string) {
+  private async sendCodeByEmail(
+    email: string,
+    code: string,
+    websiteUrl: string,
+  ) {
     await emailService.send({
       to: email,
       subject: 'Your Verification Code',
-      text: this.generateVerificationEmailText(code, email),
-      html: this.generateVerificationEmailHtml(code, email),
+      text: this.generateVerificationEmailText(code, email, websiteUrl),
+      html: this.generateVerificationEmailHtml(code, email, websiteUrl),
     });
   }
 }

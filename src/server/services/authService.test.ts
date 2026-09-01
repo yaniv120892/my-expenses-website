@@ -52,6 +52,27 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe('signupUser without a configured origin', () => {
+  // Regression: the origin used to be resolved while rendering the email, so
+  // signup created the user and stored the code, then threw — and the retry
+  // path threw at the same point, leaving the address permanently unverifiable.
+  it('fails before writing anything', async () => {
+    vi.stubEnv('WEBSITE_URL', undefined);
+    vi.stubEnv('VERCEL_BRANCH_URL', undefined);
+    vi.stubEnv('VERCEL_URL', undefined);
+    users.findByEmailOrUsername.mockResolvedValue(null);
+
+    await expect(
+      authService.signupUser(EMAIL, 'someone', PASSWORD),
+    ).rejects.toThrow('WEBSITE_URL');
+
+    expect(users.findByEmailOrUsername).not.toHaveBeenCalled();
+    expect(users.createUser).not.toHaveBeenCalled();
+    expect(redis.setValue).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 describe('verifyLoginCode', () => {
   // Regression: the cap deleted the code, and /api/auth/verify is public with
   // no resend behind it — so six posts against a known pending signup left

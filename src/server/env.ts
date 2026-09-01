@@ -27,14 +27,26 @@ export function optionalEnv(name: string, fallback = ''): string {
   return process.env[name] ?? fallback;
 }
 
-// Preview deployments get a hostname per deployment, so they leave WEBSITE_URL
-// unset: a fixed value would point extraction callbacks and verification links
-// at production. VERCEL_BRANCH_URL is preferred over VERCEL_URL because it is
-// stable across redeploys of the same branch.
+// A preview gets a hostname per deployment, so it leaves WEBSITE_URL unset and
+// derives the origin from Vercel's own vars. Production names itself instead:
+// those vars resolve there too, so falling back would quietly mail real users a
+// vercel.app link rather than failing where someone would notice.
 export function requireSiteUrl(): string {
-  const vercelHost = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
-  if (!process.env.WEBSITE_URL && vercelHost) {
-    return `https://${vercelHost}`;
+  return (
+    process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL')
+  );
+}
+
+// VERCEL_BRANCH_URL before VERCEL_URL because it survives a redeploy of the same
+// branch; `||` rather than `??` because Vercel sets both to the empty string for
+// a deployment that has no branch.
+function previewSiteUrl(): string | undefined {
+  if (process.env.VERCEL_ENV === 'production') {
+    return undefined;
   }
-  return requireEnv('WEBSITE_URL');
+  const vercelHost = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+  if (!vercelHost) {
+    return undefined;
+  }
+  return `https://${vercelHost}`;
 }

@@ -1,5 +1,9 @@
 # My Expenses
 
+[![CI](https://github.com/yaniv120892/my-expenses-website/actions/workflows/ci.yml/badge.svg)](https://github.com/yaniv120892/my-expenses-website/actions/workflows/ci.yml)
+
+**Live app: <https://my-expenses-website.vercel.app>**
+
 Personal expense management: transaction tracking with AI-powered
 categorization, bulk imports from credit-card statements, scheduled and
 recurring transactions, subscription detection, trends, Telegram bot, and a

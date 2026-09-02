@@ -25,21 +25,21 @@ export async function storeSession(
   token: string,
   ttlSeconds: number,
 ): Promise<void> {
-  await setValue(sessionKey(userId, token), '1', ttlSeconds);
+  await setValue(sessionKey(userId, token), '1', ttlSeconds, 'branch');
 }
 
 export async function invalidateSession(
   userId: string,
   token: string,
 ): Promise<void> {
-  await deleteValue(sessionKey(userId, token));
+  await deleteValue(sessionKey(userId, token), 'branch');
 }
 
 export async function isSessionActive(
   userId: string,
   token: string,
 ): Promise<boolean> {
-  return (await getValue(sessionKey(userId, token))) !== null;
+  return (await getValue(sessionKey(userId, token), 'branch')) !== null;
 }
 
 export function extractToken(req: NextRequest): string | null {

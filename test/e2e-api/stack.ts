@@ -1,5 +1,6 @@
 import http from 'http';
 import { startUpstashShim, seedKey } from './upstashShim';
+import { redisKeyPrefix } from '../../src/server/redis';
 import { startMockModelServer } from './mockModelServer';
 import { startMockExtractionAgent } from './mockExtractionAgent';
 import { seed, SeedResult } from './seed';
@@ -32,7 +33,10 @@ export async function startStack(ports: {
 
   // authenticateRequest requires both a valid JWT and a live session key.
   for (const user of [seeded.userA, seeded.userB]) {
-    seedKey(`session:${user.id}:${user.token}`, JSON.stringify('1'));
+    seedKey(
+      `${redisKeyPrefix('branch')}session:${user.id}:${user.token}`,
+      JSON.stringify('1'),
+    );
   }
 
   return {

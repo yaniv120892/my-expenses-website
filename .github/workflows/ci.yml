@@ -62,9 +62,12 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # The app's Prisma client speaks the Accelerate protocol (prisma://),
-      # so DATABASE_URL comes from prisma dev's local Prisma Postgres server;
-      # DIRECT_URL is its plain TCP address (migrations, seed, Mastra memory).
+      # DATABASE_URL is prisma dev's proxy URL, not the plain TCP address in
+      # the same state file: that port multiplexes every client onto one backend
+      # session, where the app client collides on prepared statements with the
+      # schema engine and with Mastra. Production runs a plain pooled Postgres
+      # URL, so no job here exercises that engine path. DIRECT_URL is the plain
+      # address (migrations, seed, Mastra memory).
       - name: Start local Prisma Postgres
         run: |
           npx prisma dev --detach --port 51213 --db-port 51214 --shadow-db-port 51215

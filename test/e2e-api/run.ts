@@ -612,7 +612,6 @@ interface ImportRecord {
   creditCardLastFourDigits: string | null;
 }
 
-/** Fresh per run, so an import can never be deduplicated into an older one. */
 function randomCardDigits(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }

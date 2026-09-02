@@ -617,6 +617,17 @@ function randomCardDigits(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+async function findImport(
+  token: string,
+  importId: string,
+): Promise<ImportRecord | undefined> {
+  const listed = await api('GET', '/api/imports', { token });
+  const imports = Array.isArray(listed.body)
+    ? (listed.body as ImportRecord[])
+    : [];
+  return imports.find((record) => record.id === importId);
+}
+
 async function waitForImportCompletion(
   token: string,
   importId: string,
@@ -625,11 +636,7 @@ async function waitForImportCompletion(
   const deadline = Date.now() + timeoutMs;
   let found: ImportRecord | undefined;
   while (Date.now() < deadline) {
-    const listed = await api('GET', '/api/imports', { token });
-    const imports = Array.isArray(listed.body)
-      ? (listed.body as ImportRecord[])
-      : [];
-    found = imports.find((record) => record.id === importId);
+    found = await findImport(token, importId);
     const settled =
       found && found.status !== 'PENDING' && found.status !== 'PROCESSING';
     if (settled) {
@@ -639,6 +646,17 @@ async function waitForImportCompletion(
   }
   return found;
 }
+
+/**
+ * A value this app's field encryption produced before the client was rebuilt on
+ * `@prisma/client`, kept as a literal with the digits it decrypts to. Every
+ * other assertion here writes and reads within one client, so all of them stay
+ * green on the day the extension's format or the encryption key changes and
+ * every row already in the database stops decrypting.
+ */
+const CIPHERTEXT_FROM_AN_EARLIER_CLIENT =
+  'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
+const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
 
 /**
  * The encrypted column, written and read through the app's own client and then
@@ -685,6 +703,18 @@ async function importEncryptionFlow(token: string): Promise<void> {
     'imports: card digits are ciphertext at rest',
     Boolean(atRest) && atRest !== digits,
     atRest === digits ? 'the column holds the plaintext digits' : `${atRest}`,
+  );
+
+  await query(
+    'update "Import" set "creditCardLastFourDigits" = $1 where id = $2',
+    [CIPHERTEXT_FROM_AN_EARLIER_CLIENT, importId],
+  );
+  const withOlderCiphertext = await findImport(token, importId);
+  check(
+    'imports: a column encrypted by an earlier client still decrypts',
+    withOlderCiphertext?.creditCardLastFourDigits ===
+      DIGITS_BEHIND_THAT_CIPHERTEXT,
+    `read ${withOlderCiphertext?.creditCardLastFourDigits}, expected ${DIGITS_BEHIND_THAT_CIPHERTEXT}`,
   );
 }
 

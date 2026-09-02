@@ -606,6 +606,88 @@ async function excelWebhookFlow(userId: string): Promise<void> {
   }
 }
 
+interface ImportRecord {
+  id: string;
+  status: string;
+  creditCardLastFourDigits: string | null;
+}
+
+/** Fresh per run, so an import can never be deduplicated into an older one. */
+function randomCardDigits(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+async function waitForImportCompletion(
+  token: string,
+  importId: string,
+  timeoutMs = 30_000,
+): Promise<ImportRecord | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  let found: ImportRecord | undefined;
+  while (Date.now() < deadline) {
+    const listed = await api('GET', '/api/imports', { token });
+    const imports = Array.isArray(listed.body)
+      ? (listed.body as ImportRecord[])
+      : [];
+    found = imports.find((record) => record.id === importId);
+    const settled =
+      found && found.status !== 'PENDING' && found.status !== 'PROCESSING';
+    if (settled) {
+      return found;
+    }
+    await sleep(500);
+  }
+  return found;
+}
+
+/**
+ * The encrypted column, written and read through the app's own client and then
+ * inspected raw. Reading the digits back proves the extension decrypts; the raw
+ * column proves it encrypted rather than silently storing plaintext.
+ */
+async function importEncryptionFlow(token: string): Promise<void> {
+  const digits = randomCardDigits();
+  const originalFileName = `card-${digits}_03_2026.csv`;
+  const fileUrl = `https://${process.env.IMPORTS_S3_BUCKET}.s3.${process.env.IMPORTS_S3_REGION}.amazonaws.com/imports/${originalFileName}`;
+
+  const created = await api('POST', '/api/imports/process', {
+    token,
+    body: { fileUrl, originalFileName },
+  });
+  const importId = (created.body as { id?: string } | null)?.id;
+  check(
+    'imports: process accepts a file URL inside the imports bucket',
+    created.status === 200 && Boolean(importId),
+    `status ${created.status}`,
+  );
+  if (!importId) {
+    return;
+  }
+
+  const completed = await waitForImportCompletion(token, importId);
+  check(
+    'imports: the extraction callback completed the import',
+    completed?.status === 'COMPLETED',
+    `status ${completed?.status ?? 'import never listed'}`,
+  );
+  check(
+    'imports: card digits decrypt back through the app client',
+    completed?.creditCardLastFourDigits === digits,
+    `read ${completed?.creditCardLastFourDigits}, submitted ${digits}`,
+  );
+
+  const [stored] = await query<{ creditCardLastFourDigits: string | null }>(
+    'select "creditCardLastFourDigits" from "Import" where id = $1',
+    [importId],
+  );
+  const atRest = stored?.creditCardLastFourDigits;
+  check(
+    'imports: card digits are ciphertext at rest',
+    Boolean(atRest) && atRest !== digits,
+    atRest === digits ? 'the column holds the plaintext digits' : `${atRest}`,
+  );
+}
+
 async function main(): Promise<void> {
   const { seeded, stop: shutdown } = await startStack({
     mock: MOCK_PORT,
@@ -797,6 +879,7 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
+  await importEncryptionFlow(seeded.userA.token);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

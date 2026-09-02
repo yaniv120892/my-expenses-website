@@ -99,6 +99,17 @@ runs them alone.
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
+- **Redis keys**: every key written through `src/server/redis.ts` is namespaced
+  by `redisKeyPrefix(scope)`. Upstash's free tier allows one database, so
+  previews share production's. Only production is bare — the keys above are
+  literal there; everything else is namespaced, an unconfigured local process
+  included, so nothing but production can write into production's keyspace. A
+  preview's caches key on the commit (`preview:<sha>:`), since a value cached by
+  a buggy commit must not still be served after the fix is pushed; sessions and
+  login codes pass `'branch'` and key on `preview:<branch>:`, which survives the
+  pushes a person holds a session or a code across. Superseded namespaces are
+  left to their keys' TTLs — except a counter killed between INCR and EXPIRE,
+  which has none and outlives its namespace.
 - **Prisma**: schema + migrations in `prisma/`; the app client is
   `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
   be any address that client accepts. On Vercel it is Neon's pooled endpoint

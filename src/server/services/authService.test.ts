@@ -114,10 +114,12 @@ describe('signupUser', () => {
       `loginCode:${EMAIL}`,
       expect.any(String),
       600,
+      'branch',
     );
     // The lockout has to lift too, or the fresh code is unusable.
     expect(redis.deleteValue).toHaveBeenCalledWith(
       `loginCodeAttempts:${EMAIL}`,
+      'branch',
     );
     expect(send).toHaveBeenCalledTimes(1);
     expect(users.createUser).not.toHaveBeenCalled();

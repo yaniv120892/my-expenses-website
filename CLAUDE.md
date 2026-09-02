@@ -100,12 +100,16 @@ runs them alone.
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
-  by `redisKeyPrefix()`. Production and local are unprefixed, so the keys above
-  are literal there; a preview writes under `preview:<commit sha>:`. Upstash's
-  free tier allows one database, so previews share production's. Per commit
-  rather than per branch: a commit that caches a wrong value would otherwise go
-  on serving it after the fix is pushed, until the TTL lapsed. Every key carries
-  a TTL, so superseded namespaces expire unattended.
+  by `redisKeyPrefix(scope)`. Upstash's free tier allows one database, so
+  previews share production's. Only production is bare — the keys above are
+  literal there; everything else is namespaced, an unconfigured local process
+  included, so nothing but production can write into production's keyspace. A
+  preview's caches key on the commit (`preview:<sha>:`), since a value cached by
+  a buggy commit must not still be served after the fix is pushed; sessions and
+  login codes pass `'branch'` and key on `preview:<branch>:`, which survives the
+  pushes a person holds a session or a code across. Superseded namespaces are
+  left to their keys' TTLs — except a counter killed between INCR and EXPIRE,
+  which has none and outlives its namespace.
 - **Prisma**: schema + migrations in `prisma/`; app client is
   `@prisma/client/edge` + field-encryption + Accelerate (DATABASE_URL must be
   a `prisma://` URL; DIRECT_URL is plain Postgres for migrations, the seed,

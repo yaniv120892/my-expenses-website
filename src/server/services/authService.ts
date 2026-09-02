@@ -67,8 +67,8 @@ class AuthService {
 
   private async issueVerificationCode(email: string, websiteUrl: string) {
     const code = this.generateCode();
-    await setValue(loginCodeKey(email), code, 600);
-    await deleteValue(loginCodeAttemptsKey(email));
+    await setValue(loginCodeKey(email), code, 600, 'branch');
+    await deleteValue(loginCodeAttemptsKey(email), 'branch');
     await this.sendCodeByEmail(email, code, websiteUrl);
     return { message: VERIFICATION_CODE_SENT };
   }
@@ -96,12 +96,12 @@ class AuthService {
     // deleting it: /api/auth/verify is public, so burning the code here would
     // let anyone who knows a pending signup's address strand that account.
     const attemptsKey = loginCodeAttemptsKey(email);
-    const attempts = await incrementWithTtl(attemptsKey, 600);
+    const attempts = await incrementWithTtl(attemptsKey, 600, 'branch');
     if (attempts > MAX_CODE_ATTEMPTS) {
       return { error: 'Too many attempts. Please request a new code.' };
     }
 
-    const cachedCode = await getValue<string>(loginCodeKey(email));
+    const cachedCode = await getValue<string>(loginCodeKey(email), 'branch');
     if (!cachedCode || !this.safeCodeCompare(String(cachedCode), code)) {
       return { error: 'Invalid or expired code' };
     }
@@ -111,8 +111,8 @@ class AuthService {
     }
     await userRepository.verifyUser(email);
     const token = await signToken(user.id);
-    await deleteValue(loginCodeKey(email));
-    await deleteValue(attemptsKey);
+    await deleteValue(loginCodeKey(email), 'branch');
+    await deleteValue(attemptsKey, 'branch');
     await storeSession(user.id, token, tokenTtlSeconds());
     return { token };
   }

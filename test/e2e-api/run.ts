@@ -11,6 +11,7 @@ import {
 } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
+import { redisKeyPrefix } from '../../src/server/redis';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
@@ -233,7 +234,7 @@ async function authLifecycleFlow(): Promise<void> {
     `status ${login.status}`,
   );
 
-  const sessionKey = `session:${user.id}:${token}`;
+  const sessionKey = `${redisKeyPrefix('branch')}session:${user.id}:${token}`;
   check(
     'auth: login stores the redis session key',
     (await redisGet(sessionKey)) !== null,

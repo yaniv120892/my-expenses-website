@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
+const POOLED_HOST_MARKER = '-pooler';
+
 const coreEnvSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string().min(1).refine(pooledUrlDisablesPreparedStatements, {
+    message:
+      'DATABASE_URL names a pooled endpoint without pgbouncer=true; add it (and connection_limit=1 on serverless)',
+  }),
   DIRECT_URL: z.string().min(1),
   JWT_SECRET: z.string().min(1),
   REDIS_URL: z.string().min(1),
@@ -35,6 +40,23 @@ export function requireSiteUrl(): string {
   return (
     process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL')
   );
+}
+
+// A pooler in transaction mode hands the next query a different backend, where
+// the prepared statements Prisma names by default collide. Neon's console
+// offers the pooled URL without `pgbouncer=true`, and the resulting
+// `prepared statement "s0" already exists` surfaces only under concurrency.
+function pooledUrlDisablesPreparedStatements(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+  if (!parsed.hostname.includes(POOLED_HOST_MARKER)) {
+    return true;
+  }
+  return parsed.searchParams.get('pgbouncer') === 'true';
 }
 
 // VERCEL_BRANCH_URL before VERCEL_URL because it survives a redeploy of the same

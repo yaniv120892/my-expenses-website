@@ -5,6 +5,44 @@ import {
   ImportedTransactionStatus,
 } from '@prisma/client';
 import prisma from '@/server/db/client';
+import { isSameCharge } from '@/server/utils/transactionMatching';
+
+// The queries that include the matched transaction return more than the bare
+// model describes, and callers decide merge-vs-create from that relation.
+type ImportedTransactionWithMatch = Prisma.ImportedTransactionGetPayload<{
+  include: { matchingTransaction: true };
+}>;
+
+type DuplicateComparable = {
+  description: string;
+  value: number;
+  date: Date;
+  type: TransactionType;
+};
+
+/**
+ * The rows of `incoming` that `existing` does not already account for, using
+ * isSameCharge as the identity. Each existing row is claimed by at most one
+ * incoming row, so a statement that genuinely charges the same amount twice on
+ * a day still brings both across.
+ */
+export function selectNonDuplicateRows<T extends DuplicateComparable>(
+  existing: DuplicateComparable[],
+  incoming: T[],
+): T[] {
+  const unclaimed = [...existing];
+
+  return incoming.filter((row) => {
+    const claimed = unclaimed.findIndex((candidate) =>
+      isSameCharge(candidate, row),
+    );
+    if (claimed === -1) {
+      return true;
+    }
+    unclaimed.splice(claimed, 1);
+    return false;
+  });
+}
 
 export class ImportedTransactionRepository {
   public async createMany(
@@ -28,7 +66,7 @@ export class ImportedTransactionRepository {
   public async findByUserIdAndImportId(
     userId: string,
     importId: string,
-  ): Promise<ImportedTransaction[]> {
+  ): Promise<ImportedTransactionWithMatch[]> {
     return prisma.importedTransaction.findMany({
       where: {
         userId,
@@ -54,7 +92,9 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async findById(id: string): Promise<ImportedTransaction | null> {
+  public async findById(
+    id: string,
+  ): Promise<ImportedTransactionWithMatch | null> {
     return prisma.importedTransaction.findUnique({
       where: { id },
       include: {
@@ -122,10 +162,30 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
+  public async findPendingByIds(
+    importId: string,
+    ids: string[],
+    userId: string,
+  ): Promise<ImportedTransactionWithMatch[]> {
+    return prisma.importedTransaction.findMany({
+      where: {
+        importId,
+        id: { in: ids },
+        userId,
+        status: ImportedTransactionStatus.PENDING,
+        deleted: false,
+      },
+      include: {
+        matchingTransaction: true,
+      },
+      orderBy: { date: 'desc' },
+    });
+  }
+
   public async findPendingByImportId(
     importId: string,
     userId: string,
-  ): Promise<ImportedTransaction[]> {
+  ): Promise<ImportedTransactionWithMatch[]> {
     return prisma.importedTransaction.findMany({
       where: {
         importId,
@@ -208,16 +268,7 @@ export class ImportedTransactionRepository {
       transactions,
     );
 
-    const existingKeys = new Set(
-      existingTransactions.map(
-        (tx) => `${tx.description}|${tx.value}|${tx.date.getTime()}|${tx.type}`,
-      ),
-    );
-
-    return transactions.filter((tx) => {
-      const key = `${tx.description}|${tx.value}|${tx.date.getTime()}|${tx.type}`;
-      return !existingKeys.has(key);
-    });
+    return selectNonDuplicateRows(existingTransactions, transactions);
   }
 
   private async findExistingTransactions(
@@ -233,19 +284,11 @@ export class ImportedTransactionRepository {
       return [];
     }
 
-    const existingTransactions = await prisma.importedTransaction.findMany({
-      where: {
-        importId,
-        OR: transactions.map((tx) => ({
-          description: tx.description,
-          value: tx.value,
-          date: tx.date,
-          type: tx.type,
-        })),
-      },
-    });
-
-    return existingTransactions;
+    // The whole import rather than a disjunction per incoming row: the set is
+    // one statement's worth of rows, and selectNonDuplicateRows re-derives the
+    // comparison anyway, so a hand-built OR would only have to stay in sync
+    // with it.
+    return prisma.importedTransaction.findMany({ where: { importId } });
   }
 }
 

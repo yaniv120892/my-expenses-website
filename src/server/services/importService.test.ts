@@ -16,6 +16,8 @@ const {
   importedTxRepo: {
     findByUserIdAndImportId: vi.fn(),
     findByImportId: vi.fn(),
+    findPendingByImportId: vi.fn(),
+    findPendingByIds: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
   },
   prismaMock: {
@@ -342,6 +344,11 @@ describe('matchSingleTransaction', () => {
     },
   ];
 
+  // Spelled like neither candidate, so the model is what decides — which is
+  // what the provider cases below are about. A row spelled exactly like one
+  // candidate never reaches the model.
+  const ambiguousRow = () => row({ description: 'Coffee Shop' });
+
   const originalGetAiProvider = service.getAiProvider;
 
   beforeEach(() => {
@@ -362,7 +369,10 @@ describe('matchSingleTransaction', () => {
   it('stores the id the provider validated', async () => {
     findMatchingTransaction.mockResolvedValue('tx-b');
 
-    const matched = await service.matchSingleTransaction(row(), 'user-1');
+    const matched = await service.matchSingleTransaction(
+      ambiguousRow(),
+      'user-1',
+    );
 
     expect(matched).toBe('tx-b');
     expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
@@ -374,9 +384,160 @@ describe('matchSingleTransaction', () => {
   it('leaves the row unmatched when the provider reports none', async () => {
     findMatchingTransaction.mockResolvedValue(null);
 
-    const matched = await service.matchSingleTransaction(row(), 'user-1');
+    const matched = await service.matchSingleTransaction(
+      ambiguousRow(),
+      'user-1',
+    );
 
     expect(matched).toBeNull();
     expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
+  });
+
+  it('asks only for candidates of the same direction', async () => {
+    await service.matchSingleTransaction(row({ type: 'EXPENSE' }), 'user-1');
+
+    expect(findPotentialMatches).toHaveBeenCalledWith(
+      'user-1',
+      new Date(2026, 2, 7),
+      10,
+      'EXPENSE',
+    );
+  });
+
+  it('claims an unambiguous spelling match without calling the provider', async () => {
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBe('tx-a');
+    expect(findMatchingTransaction).not.toHaveBeenCalled();
+    expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { matchingTransactionId: 'tx-a' },
+    });
+  });
+
+  it('defers to the provider when two candidates share a spelling', async () => {
+    findPotentialMatches.mockResolvedValue([
+      candidates[0],
+      { ...candidates[1], description: 'coffee!' },
+    ]);
+    findMatchingTransaction.mockResolvedValue('tx-b');
+
+    const matched = await service.matchSingleTransaction(row(), 'user-1');
+
+    expect(matched).toBe('tx-b');
+    expect(findMatchingTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('buildReconciliationPlan', () => {
+  const matchedTransaction = {
+    id: 'tx-1',
+    description: 'Coffee at the corner',
+    value: 11,
+    date: new Date(2026, 2, 5),
+    status: 'PENDING_APPROVAL',
+    categoryId: 'category-1',
+  };
+
+  const pendingRow = (over: Record<string, unknown> = {}) => ({
+    id: 'r1',
+    userId: 'user-1',
+    status: 'PENDING',
+    description: 'Coffee',
+    value: 12.5,
+    date: new Date(2026, 2, 7),
+    type: 'EXPENSE',
+    matchingTransaction: null,
+    ...over,
+  });
+
+  it('plans a CREATE for a row with no match', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([pendingRow()]);
+
+    const plan = await importService.buildReconciliationPlan('imp-1', 'user-1');
+
+    expect(plan).toEqual([
+      {
+        importedTransactionId: 'r1',
+        action: 'CREATE',
+        description: 'Coffee',
+        value: 12.5,
+        date: new Date(2026, 2, 7),
+        type: 'EXPENSE',
+        categoryId: null,
+        match: null,
+      },
+    ]);
+  });
+
+  it('plans a MERGE carrying the diff the commit would write', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({ matchingTransaction: matchedTransaction }),
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.action).toBe('MERGE');
+    expect(item.categoryId).toBe('category-1');
+    expect(item.match).toEqual({
+      transactionId: 'tx-1',
+      approvesPendingTransaction: true,
+      before: {
+        description: 'Coffee at the corner',
+        value: 11,
+        date: new Date(2026, 2, 5),
+      },
+    });
+    // The item itself is the "after"; nothing restates it.
+    expect(item.description).toBe('Coffee');
+    expect(item.value).toBe(12.5);
+    expect(item.date).toEqual(new Date(2026, 2, 7));
+  });
+
+  it('marks a merge onto an already approved transaction as no approval', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({
+        matchingTransaction: { ...matchedTransaction, status: 'APPROVED' },
+      }),
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.match).not.toBeNull();
+    expect(item.match?.approvesPendingTransaction).toBe(false);
+  });
+
+  it("asks only for this user's pending rows in the import", async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([]);
+
+    await importService.buildReconciliationPlan('imp-1', 'user-1');
+
+    expect(importedTxRepo.findPendingByImportId).toHaveBeenCalledWith(
+      'imp-1',
+      'user-1',
+    );
+    expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
+  });
+
+  it('scopes an explicit selection to the same user', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([]);
+
+    await importService.buildReconciliationPlan('imp-1', 'user-1', [
+      'r1',
+      'r2',
+    ]);
+
+    expect(importedTxRepo.findPendingByIds).toHaveBeenCalledWith(
+      'imp-1',
+      ['r1', 'r2'],
+      'user-1',
+    );
+    expect(importedTxRepo.findPendingByImportId).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,11 @@
 #
 # The environment below is the same block `.github/workflows/ci.yml` gives its
 # e2e job. Keeping one list means a local run and CI fail in the same places.
+#
+# The ${VAR:-...} defaults are exactly those CI values, so a plain run is
+# unchanged. Presetting one of those vars points that single integration at the
+# real service — the extraction agent, S3, OpenAI — which is how a real
+# statement is exercised end to end without editing this file.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -22,18 +27,18 @@ export JWT_SECRET=e2e-test-secret
 export REDIS_URL="http://127.0.0.1:$SHIM_PORT"
 export REDIS_TOKEN=e2e
 export AI_PROVIDER=chatgpt
-export OPENAI_API_KEY=e2e
+export OPENAI_API_KEY=${OPENAI_API_KEY:-e2e}
 export ASSISTANT_MODEL_URL="http://127.0.0.1:$MOCK_MODEL_PORT/v1"
 export CRON_SECRET=e2e
 # Test-only key; production uses its own secret.
 export PRISMA_FIELD_ENCRYPTION_KEY=k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=
 export WEBSITE_URL="http://127.0.0.1:$APP_PORT"
-export EXCEL_EXTRACTION_AGENT_URL="http://127.0.0.1:$EXTRACTION_PORT"
+export EXCEL_EXTRACTION_AGENT_URL="${EXCEL_EXTRACTION_AGENT_URL:-http://127.0.0.1:$EXTRACTION_PORT}"
 export EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET=e2e-extraction-secret
-export IMPORTS_S3_BUCKET=dev-local-imports
-export IMPORTS_S3_REGION=us-east-1
-export IMPORTS_S3_ACCESS_KEY_ID=dev
-export IMPORTS_S3_SECRET_ACCESS_KEY=dev
+export IMPORTS_S3_BUCKET=${IMPORTS_S3_BUCKET:-dev-local-imports}
+export IMPORTS_S3_REGION=${IMPORTS_S3_REGION:-us-east-1}
+export IMPORTS_S3_ACCESS_KEY_ID=${IMPORTS_S3_ACCESS_KEY_ID:-dev}
+export IMPORTS_S3_SECRET_ACCESS_KEY=${IMPORTS_S3_SECRET_ACCESS_KEY:-dev}
 # With no token the bot code no-ops instead of opening sockets to Telegram.
 unset TELEGRAM_BOT_TOKEN
 

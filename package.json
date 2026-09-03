@@ -19,6 +19,7 @@
     "test:types": "vitest run --typecheck.only",
     "db:migrate": "prisma migrate deploy",
     "test:e2e:api": "tsx test/e2e-api/run.ts",
+    "statements:import": "tsx scripts/import-statements.ts",
     "test:e2e:ui": "playwright test",
     "postinstall": "prisma generate",
     "prepare": "husky"

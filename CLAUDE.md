@@ -201,11 +201,12 @@ misconfigured deployment cannot strand a half-created account. The Telegram webh
 must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 
-Functions run in `fra1`, the region holding the Neon database (`regions` in
+Functions run in `fra1`, the region holding both the Neon database and the
+Upstash Redis every authenticated request reads a session from (`regions` in
 `vercel.json`). The app client opens ordinary Postgres connections, so each
 query costs a round trip from wherever the function executes and a connection
 handshake costs several; co-location is what keeps that cost off the request.
-Moving the database region moves this one with it.
+Moving either store's region moves this one with it.
 
 ## Documentation
 

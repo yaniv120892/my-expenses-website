@@ -15,8 +15,8 @@ both the web UI and the API.
 - **App**: Next.js 15 (App Router) + React 19 + MUI 7 + TanStack Query 5
 - **API**: Next.js route handlers under `src/app/api`, business logic in
   `src/server`
-- **Database**: PostgreSQL via Prisma (Accelerate for the app,
-  field-level encryption for sensitive columns)
+- **Database**: PostgreSQL via Prisma (field-level encryption for sensitive
+  columns)
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
 - **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
   Gemini via `AI_PROVIDER`, plus an external FastText categorizer service
@@ -31,10 +31,10 @@ npm run db:migrate     # applies prisma/migrations via DIRECT_URL
 npm run dev            # http://localhost:3000
 ```
 
-`DATABASE_URL` must be a Prisma Accelerate URL (`prisma://…`); `DIRECT_URL`
-is the plain Postgres connection used by migrations, the e2e seed, and the
-assistant's memory store. For local development `npx prisma dev` provides a
-compatible local setup.
+`DATABASE_URL` is the connection the app runs on — on a hosted deployment the
+pooled Postgres endpoint, with `?pgbouncer=true`; `DIRECT_URL` is the direct
+connection used by migrations, the e2e seed, and the assistant's memory store.
+For local development `npx prisma dev` publishes both.
 
 ## Scripts
 

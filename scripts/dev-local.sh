@@ -139,9 +139,11 @@ STATE_CANDIDATES=(
   "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
 )
 
-# The app's client speaks the Accelerate protocol, so DATABASE_URL has to be
-# the prisma+postgres:// proxy URL; the plain postgres:// address prisma dev
-# prints on startup is DIRECT_URL, used by migrations, the seed and Mastra.
+# DATABASE_URL is the prisma+postgres:// proxy URL, not the plain postgres://
+# address in the same state file: that port multiplexes every client onto one
+# backend session, where the app client collides on prepared statements with the
+# schema engine and with Mastra. The plain address is DIRECT_URL, used by
+# migrations, the seed and Mastra.
 read_state() {
   node -e '
     const fs = require("fs");

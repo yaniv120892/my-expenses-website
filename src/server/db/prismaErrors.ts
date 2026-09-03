@@ -19,8 +19,8 @@ const PRISMA_HTTP_MAPPINGS: Record<string, PrismaHttpMapping | undefined> = {
   P2023: { status: 400, message: 'Invalid identifier' },
 };
 
-// Structural rather than instanceof: the Accelerate/edge client bundles its
-// own error classes, so identity checks against @prisma/client are unreliable.
+// Structural rather than instanceof: the error crosses an extended-client
+// boundary, so the P#### code is the stable contract and the error class is not.
 export function getPrismaErrorCode(error: unknown): string | undefined {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === 'string' && /^P\d{4}$/.test(code) ? code : undefined;

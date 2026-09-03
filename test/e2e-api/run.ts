@@ -607,6 +607,117 @@ async function excelWebhookFlow(userId: string): Promise<void> {
   }
 }
 
+interface ImportRecord {
+  id: string;
+  status: string;
+  creditCardLastFourDigits: string | null;
+}
+
+function randomCardDigits(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+async function findImport(
+  token: string,
+  importId: string,
+): Promise<ImportRecord | undefined> {
+  const listed = await api('GET', '/api/imports', { token });
+  const imports = Array.isArray(listed.body)
+    ? (listed.body as ImportRecord[])
+    : [];
+  return imports.find((record) => record.id === importId);
+}
+
+async function waitForImportCompletion(
+  token: string,
+  importId: string,
+  timeoutMs = 30_000,
+): Promise<ImportRecord | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  let found: ImportRecord | undefined;
+  while (Date.now() < deadline) {
+    found = await findImport(token, importId);
+    const settled =
+      found && found.status !== 'PENDING' && found.status !== 'PROCESSING';
+    if (settled) {
+      return found;
+    }
+    await sleep(500);
+  }
+  return found;
+}
+
+/**
+ * A value this app's field encryption produced before the client was rebuilt on
+ * `@prisma/client`, kept as a literal with the digits it decrypts to. Every
+ * other assertion here writes and reads within one client, so all of them stay
+ * green on the day the extension's format or the encryption key changes and
+ * every row already in the database stops decrypting.
+ */
+const CIPHERTEXT_FROM_AN_EARLIER_CLIENT =
+  'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
+const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
+
+/**
+ * The encrypted column, written and read through the app's own client and then
+ * inspected raw. Reading the digits back proves the extension decrypts; the raw
+ * column proves it encrypted rather than silently storing plaintext.
+ */
+async function importEncryptionFlow(token: string): Promise<void> {
+  const digits = randomCardDigits();
+  const originalFileName = `card-${digits}_03_2026.csv`;
+  const fileUrl = `https://${process.env.IMPORTS_S3_BUCKET}.s3.${process.env.IMPORTS_S3_REGION}.amazonaws.com/imports/${originalFileName}`;
+
+  const created = await api('POST', '/api/imports/process', {
+    token,
+    body: { fileUrl, originalFileName },
+  });
+  const importId = (created.body as { id?: string } | null)?.id;
+  check(
+    'imports: process accepts a file URL inside the imports bucket',
+    created.status === 200 && Boolean(importId),
+    `status ${created.status}`,
+  );
+  if (!importId) {
+    return;
+  }
+
+  const completed = await waitForImportCompletion(token, importId);
+  check(
+    'imports: the extraction callback completed the import',
+    completed?.status === 'COMPLETED',
+    `status ${completed?.status ?? 'import never listed'}`,
+  );
+  check(
+    'imports: card digits decrypt back through the app client',
+    completed?.creditCardLastFourDigits === digits,
+    `read ${completed?.creditCardLastFourDigits}, submitted ${digits}`,
+  );
+
+  const [stored] = await query<{ creditCardLastFourDigits: string | null }>(
+    'select "creditCardLastFourDigits" from "Import" where id = $1',
+    [importId],
+  );
+  const atRest = stored?.creditCardLastFourDigits;
+  check(
+    'imports: card digits are ciphertext at rest',
+    Boolean(atRest) && atRest !== digits,
+    atRest === digits ? 'the column holds the plaintext digits' : `${atRest}`,
+  );
+
+  await query(
+    'update "Import" set "creditCardLastFourDigits" = $1 where id = $2',
+    [CIPHERTEXT_FROM_AN_EARLIER_CLIENT, importId],
+  );
+  const withOlderCiphertext = await findImport(token, importId);
+  check(
+    'imports: a column encrypted by an earlier client still decrypts',
+    withOlderCiphertext?.creditCardLastFourDigits ===
+      DIGITS_BEHIND_THAT_CIPHERTEXT,
+    `read ${withOlderCiphertext?.creditCardLastFourDigits}, expected ${DIGITS_BEHIND_THAT_CIPHERTEXT}`,
+  );
+}
+
 async function main(): Promise<void> {
   const { seeded, stop: shutdown } = await startStack({
     mock: MOCK_PORT,
@@ -798,6 +909,7 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
+  await importEncryptionFlow(seeded.userA.token);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

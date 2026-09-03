@@ -30,9 +30,10 @@ export interface SeedResult {
   userB: SeededUser;
 }
 
-// A direct (non-Accelerate) client: the seed talks to Postgres straight,
-// independently of the app's edge client. `pgbouncer=true` disables prepared
-// statements, which collide when a pooler reuses sessions.
+// The seed's own client, against DIRECT_URL and deliberately carrying no
+// encryption extension, so what it writes is whatever it was handed.
+// `pgbouncer=true` disables prepared statements, which collide when a pooler
+// reuses sessions.
 function directClient(): PrismaClient {
   const base = process.env.DIRECT_URL || '';
   const url = base.includes('pgbouncer=true')

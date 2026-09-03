@@ -1,11 +1,10 @@
-import { PrismaClient } from '@prisma/client/edge';
-import { withAccelerate } from '@prisma/extension-accelerate';
+import { PrismaClient } from '@prisma/client';
 import { fieldEncryptionExtension } from 'prisma-field-encryption';
 
 function createPrismaClient() {
-  return new PrismaClient({ log: ['warn', 'error'] })
-    .$extends(fieldEncryptionExtension())
-    .$extends(withAccelerate());
+  return new PrismaClient({ log: ['warn', 'error'] }).$extends(
+    fieldEncryptionExtension(),
+  );
 }
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
@@ -19,9 +18,9 @@ function getClient(): ExtendedPrismaClient {
   return (globalThis.__prisma ??= createPrismaClient());
 }
 
-// A lazy proxy: the edge client validates DATABASE_URL at construction, which
-// must not happen at import time (it would fail the build and any route that
-// merely imports a repository).
+// A lazy proxy: the client is built on first use, so a missing DATABASE_URL
+// fails the call rather than the import of any module that reaches a
+// repository.
 const prisma = new Proxy({} as ExtendedPrismaClient, {
   get(_target, prop) {
     const client = getClient();

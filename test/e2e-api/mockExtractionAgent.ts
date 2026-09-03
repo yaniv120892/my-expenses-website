@@ -49,7 +49,7 @@ function cardDigitsFromFilename(filename: string): string {
 }
 
 function paymentMonthFromFilename(filename: string): string {
-  const match = filename.match(/(\d{2})_(\d{4})/);
+  const match = filename.match(/(\d{2})[-_](\d{4})/);
   return match ? `${match[1]}/${match[2]}` : '03/2026';
 }
 

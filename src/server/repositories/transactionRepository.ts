@@ -7,6 +7,10 @@ import {
 } from '@prisma/client';
 import prisma from '@/server/db/client';
 import {
+  CHARGE_DATE_DAY_RANGE,
+  matchValueTolerance,
+} from '@/server/utils/transactionMatching';
+import {
   TransactionFilters,
   Transaction,
   TransactionListFilters,
@@ -343,24 +347,28 @@ class TransactionRepository {
     userId: string,
     date: Date,
     value: number,
-    tolerance: number = 2,
-    dayRange: number = 2,
+    type: TransactionType,
   ): Promise<Transaction[]> {
+    const valueTolerance = matchValueTolerance(value);
     const startDate = new Date(date);
-    startDate.setDate(startDate.getDate() - dayRange);
+    startDate.setDate(startDate.getDate() - CHARGE_DATE_DAY_RANGE);
     const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + dayRange);
+    endDate.setDate(endDate.getDate() + CHARGE_DATE_DAY_RANGE);
 
     const potentialTransactions = await prisma.transaction.findMany({
       where: {
         userId,
+        // value is a positive magnitude with the direction in `type`, so
+        // without this a refund is a candidate for the charge it reverses —
+        // and merging would rewrite the refund into an expense.
+        type,
         date: {
           gte: startDate,
           lte: endDate,
         },
         value: {
-          gte: value - tolerance,
-          lte: value + tolerance,
+          gte: value - valueTolerance,
+          lte: value + valueTolerance,
         },
         status: {
           in: [TransactionStatus.APPROVED, TransactionStatus.PENDING_APPROVAL],

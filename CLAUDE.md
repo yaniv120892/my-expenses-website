@@ -22,6 +22,7 @@ npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.t
 npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
+npm run statements:import -- <dir> [--dry-run]   # bulk import + reconcile
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI
@@ -64,7 +65,9 @@ runs them alone.
   request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
-  bound to the import it was submitted for), `/api/auth/*` (cookie handling).
+  bound to the import it was submitted for),
+  `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
+  import would do, writing nothing), `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
@@ -95,6 +98,34 @@ runs them alone.
   client (OpenAI, Gemini, Telegram, SMTP, S3, Google, excel extraction) is
   built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
   `requireEnv`. A missing env var must fail the call, never the import.
+- **Import matching**: an imported row is paired with an existing transaction
+  by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
+  value tolerance of `max(2, 1%)` (`matchValueTolerance`). Both are wider than
+  they first look because a card dates a row by when the charge settled, not
+  when it was made, and a flat tolerance generous for a 20 charge is far too
+  tight for a 2000 one. Among the candidates a single normalized-equal
+  description wins outright (`findExactNormalizedMatch`,
+  `src/server/utils/transactionMatching.ts`) and never reaches the model; a tie
+  or no exact hit does. That short-circuit is what makes a multi-month backfill
+  affordable — it is one model call per row otherwise.
+- **One function decides merge-vs-create.**
+  `importService.buildReconciliationPlan` resolves every pending row, and the
+  preview endpoint, `batchApproveImportedTransactions` and
+  `applyAutoApproveRules` all consume it, so no server path re-derives the
+  decision differently. The plan itself is not sent back on commit — the API
+  takes row ids, not a plan — so `scripts/import-statements.ts` names the rows
+  it previewed rather than re-approving whatever is pending by then.
+  `ImportedTransactionList` still derives its own view of the same decision;
+  the invariant covers the server paths only.
+- **Duplicate import rows are matched up to truncation.** `isSameCharge`
+  (`src/server/utils/transactionMatching.ts`) requires date, value and type to
+  agree exactly, and the normalized descriptions to agree as far as the shorter
+  one runs. The extraction service shortens the same merchant differently
+  between runs, so demanding the whole description made a re-imported statement
+  inject phantom charges — while ignoring the description entirely would
+  collapse two merchants charging the same amount on the same day.
+  `selectNonDuplicateRows` claims each existing row at most once, so a
+  genuinely repeated charge still imports.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -219,6 +250,11 @@ notes are not committed — `.superpowers/`, `docs/superpowers/`, and
 output stays in the ignored directories or in the session. A spec that
 describes work already shipped is worse than no spec: it drifts, and readers
 cannot tell it from current intent.
+
+`.claude/skills/collect-statements/` holds the per-portal recipes for pulling
+statements out of Cal, Isracard and Amex IL with Claude in Chrome. Credentials
+and one-time passwords are always the human's; the skill records only
+navigation, and marks what has not been observed rather than guessing it.
 
 `.claude/rules/` holds the craft rules — comments, control flow, naming, error
 handling, typing, env wiring, secret handling — vendored from

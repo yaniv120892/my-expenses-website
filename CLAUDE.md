@@ -114,7 +114,9 @@ runs them alone.
   `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
   be any address that client accepts. On Vercel it is Neon's pooled endpoint
   with `?pgbouncer=true` (plus `connection_limit=1` on serverless), because that
-  pooler reuses sessions and collides on prepared statements. `DIRECT_URL` is
+  pooler reuses sessions and collides on prepared statements — `assertCoreEnv`
+  refuses a `-pooler` host missing that parameter, since the collision it causes
+  appears only under concurrency. `DIRECT_URL` is
   the direct endpoint, used by migrations, the seed, and Mastra's memory store;
   both are scoped per environment, since `vercel-build` runs
   `prisma migrate deploy` against `DIRECT_URL`. CI and `dev:local` keep the app

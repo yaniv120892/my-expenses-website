@@ -12,6 +12,8 @@ import {
 import { USER_B_MARKERS } from './seed';
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
 import { redisKeyPrefix } from '../../src/server/redis';
+import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
+import { ImportStatus } from '../../src/shared/types/import';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
@@ -609,7 +611,7 @@ async function excelWebhookFlow(userId: string): Promise<void> {
 
 interface ImportRecord {
   id: string;
-  status: string;
+  status: ImportStatus;
   creditCardLastFourDigits: string | null;
 }
 
@@ -637,8 +639,7 @@ async function waitForImportCompletion(
   let found: ImportRecord | undefined;
   while (Date.now() < deadline) {
     found = await findImport(token, importId);
-    const settled =
-      found && found.status !== 'PENDING' && found.status !== 'PROCESSING';
+    const settled = found && !ACTIVE_IMPORT_STATUSES.includes(found.status);
     if (settled) {
       return found;
     }
@@ -666,7 +667,22 @@ const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
 async function importEncryptionFlow(token: string): Promise<void> {
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_03_2026.csv`;
-  const fileUrl = `https://${process.env.IMPORTS_S3_BUCKET}.s3.${process.env.IMPORTS_S3_REGION}.amazonaws.com/imports/${originalFileName}`;
+
+  // The server rejects any URL outside its own bucket, so a harness missing
+  // these would submit `https://undefined.s3.undefined…` and read as a server
+  // bug rather than as its own environment.
+  const bucket = process.env.IMPORTS_S3_BUCKET;
+  const region = process.env.IMPORTS_S3_REGION;
+  if (!bucket || !region) {
+    check(
+      'imports: harness carries the bucket env the upload URL is built from',
+      false,
+      'set IMPORTS_S3_BUCKET and IMPORTS_S3_REGION for this harness process',
+    );
+    return;
+  }
+
+  const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`;
 
   const created = await api('POST', '/api/imports/process', {
     token,

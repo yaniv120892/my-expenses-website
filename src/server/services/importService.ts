@@ -23,7 +23,10 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
-import { ReconciliationPlanItem } from '@/shared/types/import';
+import {
+  ReconciliationPlanItem,
+  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
+} from '@/shared/types/import';
 import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 
 // A missing row in the approve/merge batch means a concurrent delete won the
@@ -41,6 +44,12 @@ function throwTransactionNotFoundOnMissingRow(err: unknown): never {
   }
   throw err;
 }
+
+// A requested id a concurrent action already approved, ignored or deleted out
+// from under this batch — reported as a failure rather than silently dropped
+// from the count.
+const STALE_TRANSACTION_ID_ERROR =
+  'Not found, not pending, or not in this import';
 
 interface BatchResult {
   total: number;
@@ -65,6 +74,16 @@ interface MergeImportedTransactionData {
   // Absent means keep the matched transaction's existing category.
   categoryId?: string;
 }
+
+// What matchSequentially/matchSingleTransaction need from a row to find its
+// counterpart — an imported row and a pending transaction both satisfy it.
+type MatchableTransaction = {
+  id: string;
+  description: string;
+  date: Date;
+  value: number;
+  type: TransactionType;
+};
 
 type ImportedTransactionRecord = Awaited<
   ReturnType<typeof importedTransactionRepository.findByUserIdAndImportId>
@@ -375,13 +394,13 @@ class ImportService {
     userId: string,
     transactionIds: string[] | 'all' = 'all',
   ): Promise<ReconciliationPlanItem[]> {
-    const pendingTransactions = await this.loadPendingSelection(
+    const { pending } = await this.loadPendingSelection(
       importId,
       userId,
       transactionIds,
     );
 
-    return pendingTransactions.map((transaction) =>
+    return pending.map((transaction) =>
       this.toReconciliationPlanItem(transaction),
     );
   }
@@ -391,13 +410,16 @@ class ImportService {
     userId: string,
     transactionIds: string[] | 'all',
   ): Promise<BatchResult> {
-    const plan = await this.buildReconciliationPlan(
+    const { pending, missingIds } = await this.loadPendingSelection(
       importId,
       userId,
       transactionIds,
     );
+    const plan = pending.map((transaction) =>
+      this.toReconciliationPlanItem(transaction),
+    );
 
-    return this.runReconciliationPlan(plan, userId);
+    return this.runReconciliationPlan(plan, userId, missingIds);
   }
 
   public async batchIgnoreImportedTransactions(
@@ -405,17 +427,12 @@ class ImportService {
     userId: string,
     transactionIds: string[] | 'all',
   ): Promise<BatchResult> {
-    let ids: string[];
-
-    if (transactionIds === 'all') {
-      const pending = await importedTransactionRepository.findPendingByImportId(
-        importId,
-        userId,
-      );
-      ids = pending.map((t) => t.id);
-    } else {
-      ids = transactionIds;
-    }
+    const { pending, missingIds } = await this.loadPendingSelection(
+      importId,
+      userId,
+      transactionIds,
+    );
+    const ids = pending.map((t) => t.id);
 
     const count = await importedTransactionRepository.updateStatusBatch(
       ids,
@@ -424,10 +441,13 @@ class ImportService {
     );
 
     return {
-      total: ids.length,
+      total: ids.length + missingIds.length,
       succeeded: count,
-      failed: ids.length - count,
-      errors: [],
+      failed: ids.length - count + missingIds.length,
+      errors: missingIds.map((id) => ({
+        id,
+        error: STALE_TRANSACTION_ID_ERROR,
+      })),
     };
   }
 
@@ -462,23 +482,34 @@ class ImportService {
 
   // Both queries constrain import, owner and status in SQL, so no caller can
   // widen the selection past the user's own pending rows in this import.
+  // `missingIds` names every requested id the query did not return, so a
+  // caller can report it as a failure instead of letting it silently shrink
+  // the batch.
   private async loadPendingSelection(
     importId: string,
     userId: string,
     transactionIds: string[] | 'all',
-  ): Promise<ImportedTransactionRecord[]> {
+  ): Promise<{
+    pending: ImportedTransactionRecord[];
+    missingIds: string[];
+  }> {
     if (transactionIds === 'all') {
-      return importedTransactionRepository.findPendingByImportId(
+      const pending = await importedTransactionRepository.findPendingByImportId(
         importId,
         userId,
       );
+      return { pending, missingIds: [] };
     }
 
-    return importedTransactionRepository.findPendingByIds(
+    const pending = await importedTransactionRepository.findPendingByIds(
       importId,
       transactionIds,
       userId,
     );
+    const foundIds = new Set(pending.map((transaction) => transaction.id));
+    const missingIds = transactionIds.filter((id) => !foundIds.has(id));
+
+    return { pending, missingIds };
   }
 
   private toReconciliationPlanItem(
@@ -514,12 +545,16 @@ class ImportService {
   private async runReconciliationPlan(
     plan: ReconciliationPlanItem[],
     userId: string,
+    missingIds: string[] = [],
   ): Promise<BatchResult> {
     const result: BatchResult = {
-      total: plan.length,
+      total: plan.length + missingIds.length,
       succeeded: 0,
-      failed: 0,
-      errors: [],
+      failed: missingIds.length,
+      errors: missingIds.map((id) => ({
+        id,
+        error: STALE_TRANSACTION_ID_ERROR,
+      })),
     };
 
     for (const item of plan) {
@@ -600,7 +635,7 @@ class ImportService {
     );
 
     if (pendingTransactions.length === 0) {
-      throw new HttpError(409, 'No pending transactions to re-match');
+      throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
     await importRepository.updateStatus(importId, ImportStatus.REMATCHING);
@@ -673,13 +708,7 @@ class ImportService {
    * rather than failing the rest.
    */
   private async matchSequentially(
-    transactions: {
-      id: string;
-      description: string;
-      date: Date;
-      value: number;
-      type: TransactionType;
-    }[],
+    transactions: MatchableTransaction[],
     userId: string,
     excludedTransactionIds: Set<string>,
     errorMessage: string,
@@ -747,13 +776,7 @@ class ImportService {
   }
 
   private async matchSingleTransaction(
-    transaction: {
-      id: string;
-      description: string;
-      date: Date;
-      value: number;
-      type: TransactionType;
-    },
+    transaction: MatchableTransaction,
     userId: string,
     excludedIds?: Set<string>,
   ): Promise<string | null> {

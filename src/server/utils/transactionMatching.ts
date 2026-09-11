@@ -73,15 +73,17 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
+// A truncated extraction still keeps most of the merchant's characters, so
+// requiring the shorter side to cover at least this fraction of the longer
+// tells a re-shortened name (kept most of the string) apart from two
+// different merchants that happen to share a short prefix.
+const MINIMUM_TRUNCATION_COVERAGE = 0.5;
+
 /**
- * Whether two rows of one import describe the same charge.
- *
- * Date, value and type must agree exactly. Descriptions only have to agree up
- * to truncation, because the extraction service shortens the same merchant
- * differently between runs and a re-imported statement would otherwise read as
- * a page of new charges. Requiring one to be a prefix of the other still keeps
- * two different merchants charging the same amount on the same day apart,
- * which ignoring the description altogether would not.
+ * Whether two rows of one import describe the same charge. Date, value and
+ * type must agree exactly; descriptions only have to agree up to truncation
+ * (one a prefix of the other, covering most of its length), since the
+ * extraction service shortens the same merchant differently between runs.
  */
 export function isSameCharge(
   left: ImportedCharge,
@@ -97,14 +99,24 @@ export function isSameCharge(
 
   const leftDescription = normalizeDescription(left.description);
   const rightDescription = normalizeDescription(right.description);
+  const bothBlank = !leftDescription && !rightDescription;
   // One side blank is no evidence of sameness; both blank leaves the amount,
   // day and direction as the only thing either row says.
   if (!leftDescription || !rightDescription) {
-    return !leftDescription && !rightDescription;
+    return bothBlank;
+  }
+  if (leftDescription === rightDescription) {
+    return true;
   }
 
-  return (
-    leftDescription.startsWith(rightDescription) ||
-    rightDescription.startsWith(leftDescription)
-  );
+  return isTruncatedMerchantMatch(leftDescription, rightDescription);
+}
+
+function isTruncatedMerchantMatch(a: string, b: string): boolean {
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (!longer.startsWith(shorter)) {
+    return false;
+  }
+
+  return shorter.length >= longer.length * MINIMUM_TRUNCATION_COVERAGE;
 }

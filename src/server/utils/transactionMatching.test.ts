@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { TransactionType } from '@prisma/client';
 import {
   findExactNormalizedMatch,
+  isSameCharge,
   matchValueTolerance,
   normalizeDescription,
 } from '@/server/utils/transactionMatching';
@@ -109,5 +111,93 @@ describe('matchValueTolerance', () => {
 
   it('treats income and expense sign-symmetrically', () => {
     expect(matchValueTolerance(-2000)).toBe(20);
+  });
+});
+
+describe('isSameCharge', () => {
+  const base: { value: number; date: Date; type: TransactionType } = {
+    value: 45,
+    date: new Date('2026-03-05'),
+    type: TransactionType.EXPENSE,
+  };
+  const charge = (
+    overrides: Partial<typeof base & { description: string }>,
+  ) => ({
+    description: '',
+    ...base,
+    ...overrides,
+  });
+
+  it('matches identical descriptions', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm' }),
+        charge({ description: 'Super Pharm' }),
+      ),
+    ).toBe(true);
+  });
+
+  it('matches a description truncated down to most of its length', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm Ramat Aviv' }),
+        charge({ description: 'Super Pharm Ramat' }),
+      ),
+    ).toBe(true);
+  });
+
+  // Regression: a shared prefix used to be enough on its own, so two
+  // distinct merchants charging the same amount on the same day (a real
+  // coincidence, not a re-imported row) read as duplicates and the second
+  // one silently never imported.
+  it('does not match two different merchants that only share a short prefix', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm' }),
+        charge({ description: 'Super Pharm Tlv Mall Complex' }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not match when the value differs', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm', value: 45 }),
+        charge({ description: 'Super Pharm', value: 46 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not match when the date differs', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm', date: new Date('2026-03-05') }),
+        charge({ description: 'Super Pharm', date: new Date('2026-03-06') }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not match when the type differs', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Super Pharm', type: TransactionType.EXPENSE }),
+        charge({ description: 'Super Pharm', type: TransactionType.INCOME }),
+      ),
+    ).toBe(false);
+  });
+
+  it('treats two blank descriptions as the same charge', () => {
+    expect(
+      isSameCharge(charge({ description: '' }), charge({ description: '' })),
+    ).toBe(true);
+  });
+
+  it('does not treat one blank description as evidence of sameness', () => {
+    expect(
+      isSameCharge(
+        charge({ description: '' }),
+        charge({ description: 'Super Pharm' }),
+      ),
+    ).toBe(false);
   });
 });

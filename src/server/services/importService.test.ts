@@ -19,6 +19,7 @@ const {
     findPendingByImportId: vi.fn(),
     findPendingByIds: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
+    updateStatusBatch: vi.fn(),
   },
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
@@ -539,5 +540,115 @@ describe('buildReconciliationPlan', () => {
       'user-1',
     );
     expect(importedTxRepo.findPendingByImportId).not.toHaveBeenCalled();
+  });
+});
+
+describe('batchApproveImportedTransactions', () => {
+  const pendingRow = (over: Record<string, unknown> = {}) => ({
+    id: 'r1',
+    userId: 'user-1',
+    status: 'PENDING',
+    description: 'Coffee',
+    value: 12.5,
+    date: new Date(2026, 2, 7),
+    type: 'EXPENSE',
+    matchingTransaction: null,
+    ...over,
+  });
+
+  // Regression: loadPendingSelection's SQL filter (PENDING/userId/not-deleted)
+  // used to make a stale requested id vanish from the batch silently —
+  // `total` shrank to match, so a caller comparing `total` to what it asked
+  // for never saw a mismatch.
+  it('reports a stale id as a failure instead of shrinking the total', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
+    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1', 'already-approved-elsewhere'],
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.succeeded).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors).toEqual([
+      {
+        id: 'already-approved-elsewhere',
+        error: 'Not found, not pending, or not in this import',
+      },
+    ]);
+  });
+
+  it('reports every id as succeeded when none are stale', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      pendingRow({ id: 'r1' }),
+      pendingRow({ id: 'r2' }),
+    ]);
+    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1', 'r2'],
+    );
+
+    expect(result).toEqual({
+      total: 2,
+      succeeded: 2,
+      failed: 0,
+      errors: [],
+    });
+  });
+});
+
+describe('batchIgnoreImportedTransactions', () => {
+  it('reports a stale id as a failure instead of shrinking the total', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([{ id: 'r1' }]);
+    importedTxRepo.updateStatusBatch.mockResolvedValue(1);
+
+    const result = await importService.batchIgnoreImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1', 'already-approved-elsewhere'],
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.succeeded).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors).toEqual([
+      {
+        id: 'already-approved-elsewhere',
+        error: 'Not found, not pending, or not in this import',
+      },
+    ]);
+    expect(importedTxRepo.updateStatusBatch).toHaveBeenCalledWith(
+      ['r1'],
+      'user-1',
+      'IGNORED',
+    );
+  });
+
+  it("ignores every currently-pending row when 'all' is requested", async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      { id: 'r1' },
+      { id: 'r2' },
+    ]);
+    importedTxRepo.updateStatusBatch.mockResolvedValue(2);
+
+    const result = await importService.batchIgnoreImportedTransactions(
+      'imp-1',
+      'user-1',
+      'all',
+    );
+
+    expect(result).toEqual({
+      total: 2,
+      succeeded: 2,
+      failed: 0,
+      errors: [],
+    });
+    expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
   });
 });

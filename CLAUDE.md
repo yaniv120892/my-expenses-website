@@ -109,23 +109,28 @@ runs them alone.
   or no exact hit does. That short-circuit is what makes a multi-month backfill
   affordable — it is one model call per row otherwise.
 - **One function decides merge-vs-create.**
-  `importService.buildReconciliationPlan` resolves every pending row, and the
-  preview endpoint, `batchApproveImportedTransactions` and
-  `applyAutoApproveRules` all consume it, so no server path re-derives the
-  decision differently. The plan itself is not sent back on commit — the API
-  takes row ids, not a plan — so `scripts/import-statements.ts` names the rows
-  it previewed rather than re-approving whatever is pending by then.
-  `ImportedTransactionList` still derives its own view of the same decision;
-  the invariant covers the server paths only.
-- **Duplicate import rows are matched up to truncation.** `isSameCharge`
-  (`src/server/utils/transactionMatching.ts`) requires date, value and type to
-  agree exactly, and the normalized descriptions to agree as far as the shorter
-  one runs. The extraction service shortens the same merchant differently
-  between runs, so demanding the whole description made a re-imported statement
-  inject phantom charges — while ignoring the description entirely would
-  collapse two merchants charging the same amount on the same day.
-  `selectNonDuplicateRows` claims each existing row at most once, so a
-  genuinely repeated charge still imports.
+  `importService.toReconciliationPlanItem` is the only place a pending row's
+  MERGE/CREATE action is derived from its matched transaction; the preview
+  endpoint, `batchApproveImportedTransactions` and `applyAutoApproveRules` each
+  resolve their own pending rows but all map them through it, so no server path
+  re-derives the decision differently. The plan itself is not sent back on
+  commit — the API takes row ids, not a plan — so
+  `scripts/import-statements.ts` names the rows it previewed rather than
+  re-approving whatever is pending by then. `ImportedTransactionList` still
+  derives its own view of the same decision; the invariant covers the server
+  paths only.
+- **Duplicate import rows are matched up to truncation, but not past half the
+  name.** `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires
+  date, value and type to agree exactly, and the normalized descriptions to
+  agree as far as the shorter one runs — but only when that shorter one covers
+  at least half the longer one's length, so two different merchants that
+  happen to share a short prefix (and, coincidentally, the same amount and
+  day) do not read as the same charge. The extraction service shortens the
+  same merchant differently between runs, so demanding the whole description
+  made a re-imported statement inject phantom charges — while ignoring the
+  description entirely would collapse two merchants charging the same amount
+  on the same day. `selectNonDuplicateRows` claims each existing row at most
+  once, so a genuinely repeated charge still imports.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

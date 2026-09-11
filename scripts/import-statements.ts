@@ -8,7 +8,10 @@ import { readdir, readFile } from 'fs/promises';
 import { basename, extname, join } from 'path';
 import { createInterface } from 'readline/promises';
 import { toDayString } from '../src/shared/dates';
-import type { ReconciliationPlanItem } from '../src/shared/types/import';
+import {
+  type ReconciliationPlanItem,
+  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
+} from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
@@ -100,7 +103,7 @@ async function main(): Promise<void> {
   );
   const targets = resolveTargets(submitted, imports);
   reportFailedImports(targets);
-  await settleMergedTargets(client, targets);
+  const rematchedCount = await settleMergedTargets(client, targets);
 
   const planned = await loadPlans(client, targets);
   renderPlanTable(planned);
@@ -112,7 +115,13 @@ async function main(): Promise<void> {
   }
 
   if (dryRun) {
-    console.log('\n--dry-run: nothing was written.');
+    if (rematchedCount > 0) {
+      console.log(
+        `\n--dry-run: re-matched ${rematchedCount} merged import(s) to produce this preview; nothing was approved, ignored or created.`,
+      );
+    } else {
+      console.log('\n--dry-run: nothing was written.');
+    }
     return;
   }
 
@@ -341,7 +350,9 @@ function resolveTargets(
 async function settleMergedTargets(
   client: ApiClient,
   targets: ResolvedTarget[],
-): Promise<void> {
+): Promise<number> {
+  let rematchedCount = 0;
+
   for (const target of targets) {
     if (!target.followedMerge) {
       continue;
@@ -352,15 +363,25 @@ async function settleMergedTargets(
         `/api/imports/${target.importRecord.id}/rematch`,
         {},
       );
+      rematchedCount += 1;
     } catch (error) {
-      // A survivor with nothing left pending answers 409, which is the ordinary
-      // outcome of re-importing a statement that is already reconciled.
-      if (error instanceof ApiError && error.status === 409) {
+      // A survivor with nothing left pending answers 409 with this exact
+      // message, which is the ordinary outcome of re-importing a statement
+      // that is already reconciled. A 409 for a survivor not in COMPLETED
+      // status (e.g. a concurrent rematch) carries a different message and
+      // is a real failure, not a benign no-op.
+      if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message.includes(NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR)
+      ) {
         continue;
       }
       throw error;
     }
   }
+
+  return rematchedCount;
 }
 
 function findMergeSurvivor(

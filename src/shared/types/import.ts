@@ -102,3 +102,10 @@ export type ReconciliationPlanItem = {
   categoryId: string | null;
   match: ReconciliationMatch | null;
 };
+
+// The 409 rematchImport throws when a survivor's pending rows were already
+// re-matched by another call — a benign no-op, distinct from its other 409
+// (import not COMPLETED). Shared so a caller distinguishing the two, such as
+// scripts/import-statements.ts, matches this exact text rather than a copy.
+export const NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR =
+  'No pending transactions to re-match';

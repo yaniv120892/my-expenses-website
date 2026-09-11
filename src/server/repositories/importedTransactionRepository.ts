@@ -263,32 +263,21 @@ export class ImportedTransactionRepository {
       return [];
     }
 
-    const existingTransactions = await this.findExistingTransactions(
-      importId,
-      transactions,
-    );
+    const existingTransactions = await this.findExistingTransactions(importId);
 
     return selectNonDuplicateRows(existingTransactions, transactions);
   }
 
+  // The whole import rather than a disjunction per incoming row: the set is
+  // one statement's worth of rows, and selectNonDuplicateRows re-derives the
+  // comparison anyway, so a hand-built OR would only have to stay in sync
+  // with it.
   private async findExistingTransactions(
     importId: string,
-    transactions: {
-      description: string;
-      value: number;
-      date: Date;
-      type: TransactionType;
-    }[],
   ): Promise<ImportedTransaction[]> {
-    if (transactions.length === 0) {
-      return [];
-    }
-
-    // The whole import rather than a disjunction per incoming row: the set is
-    // one statement's worth of rows, and selectNonDuplicateRows re-derives the
-    // comparison anyway, so a hand-built OR would only have to stay in sync
-    // with it.
-    return prisma.importedTransaction.findMany({ where: { importId } });
+    return prisma.importedTransaction.findMany({
+      where: { importId, deleted: false },
+    });
   }
 }
 

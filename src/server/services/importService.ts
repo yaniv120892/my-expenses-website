@@ -455,8 +455,8 @@ class ImportService {
     importId: string,
     userId: string,
   ): Promise<BatchResult> {
-    const [pendingTransactions, rules] = await Promise.all([
-      importedTransactionRepository.findPendingByImportId(importId, userId),
+    const [{ pending: pendingTransactions }, rules] = await Promise.all([
+      this.loadPendingSelection(importId, userId, 'all'),
       autoApproveRuleRepository.findActiveByUserId(userId),
     ]);
 

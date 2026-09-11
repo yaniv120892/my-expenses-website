@@ -99,10 +99,11 @@ export function isSameCharge(
 
   const leftDescription = normalizeDescription(left.description);
   const rightDescription = normalizeDescription(right.description);
+  const eitherBlank = !leftDescription || !rightDescription;
   const bothBlank = !leftDescription && !rightDescription;
   // One side blank is no evidence of sameness; both blank leaves the amount,
   // day and direction as the only thing either row says.
-  if (!leftDescription || !rightDescription) {
+  if (eitherBlank) {
     return bothBlank;
   }
   if (leftDescription === rightDescription) {

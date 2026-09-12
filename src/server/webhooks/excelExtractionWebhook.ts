@@ -263,9 +263,10 @@ async function handleCompletedExtraction(
 
   await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
-  if (!mergedIntoImportId) {
-    await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
-  }
+  // A survivor sat in REMATCHING while the moved rows were matched; COMPLETED
+  // is what tells a poller — the web UI, the import script — that its preview
+  // is now the whole story.
+  await importRepository.updateStatus(finalImportId, ImportStatus.COMPLETED);
 
   logger.info(
     { importId, finalImportId, transactionCount: transactions.length },
@@ -395,27 +396,39 @@ async function mergeIntoDuplicateImport(
     ownRows,
   );
 
-  // One batch, so a failure between the move and the delete cannot leave the
-  // rows reparented under an import that still exists. Whatever is not moved
-  // is by definition already present in the survivor, and would block the
-  // delete anyway — the FK is Restrict.
+  // One batch, so nothing observes rows reparented under an import that is
+  // not yet marked merged. Whatever is not moved is by definition already
+  // present in the survivor. The survivor leaves COMPLETED here and returns
+  // to it only after the moved rows are matched, so a poller cannot read a
+  // preview of them mid-match; the duplicate stays as the pointer to follow.
   await prisma.$transaction([
     ...importedTransactionRepository.moveToImportOps(
       nonDuplicateRows.map((row) => row.id),
       existingImport.id,
     ),
     importedTransactionRepository.deleteByImportIdOp(importId),
-    prisma.import.delete({ where: { id: importId } }),
+    prisma.import.update({
+      where: { id: existingImport.id },
+      data: { status: ImportStatus.REMATCHING },
+    }),
+    prisma.import.update({
+      where: { id: importId },
+      data: {
+        status: ImportStatus.MERGED,
+        mergedIntoImportId: existingImport.id,
+        completedAt: new Date(),
+      },
+    }),
   ]);
 
   logger.info(
     {
-      deletedImportId: importId,
+      mergedImportId: importId,
       keptImportId: existingImport.id,
       mergedTransactionCount: nonDuplicateRows.length,
       totalTransactionCount: ownRows.length,
     },
-    'Merged non-duplicate transactions and deleted duplicate import',
+    'Merged non-duplicate transactions into the older import',
   );
 
   return existingImport.id;

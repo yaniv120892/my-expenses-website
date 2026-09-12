@@ -34,6 +34,8 @@ export interface Import {
   creditCardLastFourDigits?: string | null;
   paymentMonth?: string | null;
   isVerified: boolean;
+  mergedIntoImportId?: string | null;
+  mergedIntoFileName?: string | null;
 }
 
 export interface MatchingTransaction {

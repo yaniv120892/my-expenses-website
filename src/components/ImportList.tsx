@@ -60,6 +60,7 @@ function getStatusColor(status: ImportStatus) {
     case ImportStatus.PROCESSING:
     case ImportStatus.REMATCHING:
       return 'primary';
+    case ImportStatus.MERGED:
     default:
       return 'default';
   }
@@ -120,6 +121,13 @@ function ExpandedContent({ importItem }: { importItem: Import }) {
       {importItem.status === ImportStatus.FAILED && (
         <Typography color="error" variant="body2">
           Error: {importItem.error}
+        </Typography>
+      )}
+      {importItem.status === ImportStatus.MERGED && (
+        <Typography color="text.secondary" variant="body2">
+          Duplicate of an earlier import for the same card and month. Its new
+          rows were moved into {importItem.mergedIntoFileName ?? 'that import'}{' '}
+          and are reconciled there.
         </Typography>
       )}
     </Box>

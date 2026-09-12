@@ -75,7 +75,9 @@ runs them alone.
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
   `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
-  import would do, writing nothing), `/api/auth/*` (cookie handling).
+  import would do, writing nothing), `/api/imports/[importId]` (GET; one
+  import with its pending count and, when merged, the import it merged into),
+  `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
@@ -142,6 +144,18 @@ runs them alone.
   description entirely would collapse two merchants charging the same amount
   on the same day. `selectNonDuplicateRows` claims each existing row at most
   once, so a genuinely repeated charge still imports.
+- **A duplicate import is kept as a pointer, and its survivor is held until
+  the moved rows are matched.** When the extraction webhook finds an older
+  COMPLETED import for the same card and month, one transaction moves the
+  non-duplicate rows there, puts the survivor in `REMATCHING`, and marks the
+  duplicate `MERGED` with `mergedIntoImportId`; the survivor returns to
+  `COMPLETED` only after `findPotentialMatchesForImport` has run over it. So
+  `COMPLETED` always means "every row's match is decided", the web UI and
+  `scripts/import-statements.ts` both wait on that status rather than racing
+  it, and the script follows the recorded pointer (`GET /api/imports/[id]`)
+  instead of reconstructing the survivor from the filename. A `MERGED` import
+  holds no rows and never becomes a merge target (`findExisting` requires
+  `COMPLETED`).
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

@@ -123,6 +123,10 @@ beforeEach(() => {
     op: 'deleteImport',
     args,
   }));
+  prismaMock.import.update.mockImplementation((args: unknown) => ({
+    op: 'updateImport',
+    args,
+  }));
   prismaMock.$transaction.mockResolvedValue([]);
   findPotentialMatchesForImport.mockResolvedValue(undefined);
 });
@@ -251,7 +255,7 @@ describe('completed extraction', () => {
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
   });
 
-  it('older duplicate: moves non-duplicate rows into it and drops this import', async () => {
+  it('older duplicate: moves non-duplicate rows into it and marks this import merged', async () => {
     importRepo.findExisting.mockResolvedValue({
       id: 'imp-old',
       createdAt: OLDER,
@@ -273,19 +277,46 @@ describe('completed extraction', () => {
       ['row-1'],
       'imp-old',
     );
-    // Move, remove-the-leftovers and drop-the-import go as one batch: the
-    // duplicate row left behind would block the delete, and a partial apply
-    // would strand rows under an import that still exists.
+    // Move, remove-the-leftovers, hold the survivor and mark the duplicate go
+    // as one batch, so nothing reads rows reparented under an import that is
+    // not yet marked merged, or a survivor whose moved rows are unmatched.
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'move', ids: ['row-1'], to: 'imp-old' },
       { op: 'deleteRows', id: 'imp-1' },
-      { op: 'deleteImport', args: { where: { id: 'imp-1' } } },
+      {
+        op: 'updateImport',
+        args: { where: { id: 'imp-old' }, data: { status: 'REMATCHING' } },
+      },
+      {
+        op: 'updateImport',
+        args: {
+          where: { id: 'imp-1' },
+          data: {
+            status: 'MERGED',
+            mergedIntoImportId: 'imp-old',
+            completedAt: expect.any(Date),
+          },
+        },
+      },
     ]);
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(
       'imp-old',
       'user-1',
     );
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    // The survivor is released only once the moved rows are matched.
+    const matchOrder =
+      findPotentialMatchesForImport.mock.invocationCallOrder[0];
+    const releaseOrder = importRepo.updateStatus.mock.invocationCallOrder[0];
+    expect(matchOrder).toBeLessThan(releaseOrder);
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-old',
+      'COMPLETED',
+    );
+    expect(importRepo.updateStatus).not.toHaveBeenCalledWith(
+      'imp-1',
+      'COMPLETED',
+    );
   });
 
   it('a newer import is not a merge target, so neither side deletes the other', async () => {
@@ -313,8 +344,12 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(prismaMock.import.delete).toHaveBeenCalledWith({
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
       where: { id: 'imp-1' },
+      data: expect.objectContaining({
+        status: 'MERGED',
+        mergedIntoImportId: 'imp-0',
+      }),
     });
   });
 

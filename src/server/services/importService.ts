@@ -7,7 +7,10 @@ import {
 } from '@prisma/client';
 import logger from '@/server/logging/logger';
 import { getErrorMessage } from '@/server/utils/errorUtils';
-import { importRepository } from '@/server/repositories/importRepository';
+import {
+  importRepository,
+  type ImportWithPendingCount,
+} from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
@@ -223,13 +226,27 @@ class ImportService {
 
   public async getImports(userId: string) {
     const imports = await importRepository.findByUserId(userId);
-    return imports.map((imp) => {
-      const { _count, ...importData } = imp;
-      return {
-        ...importData,
-        isVerified: _count.transactions === 0,
-      };
-    });
+    return imports.map((imp) => this.toImportListItem(imp));
+  }
+
+  public async getImport(importId: string, userId: string) {
+    const importRecord = await importRepository.findByIdForUser(
+      importId,
+      userId,
+    );
+    if (!importRecord) {
+      throw new HttpError(404, 'Import not found');
+    }
+    return this.toImportListItem(importRecord);
+  }
+
+  private toImportListItem(imp: ImportWithPendingCount) {
+    const { _count, mergedInto, ...importData } = imp;
+    return {
+      ...importData,
+      isVerified: _count.transactions === 0,
+      mergedIntoFileName: mergedInto?.originalFileName ?? null,
+    };
   }
 
   public async getImportedTransactions(importId: string, userId: string) {

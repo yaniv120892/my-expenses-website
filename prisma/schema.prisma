@@ -36,6 +36,7 @@ enum ImportStatus {
   COMPLETED
   FAILED
   REMATCHING
+  MERGED
 }
 
 enum ImportFileType {
@@ -162,9 +163,15 @@ model Import {
   excelExtractionRequestId String?   @unique
   // Claimed by the first extraction callback, so a redelivery is a no-op.
   extractionCompletedAt    DateTime?
+  // Set when this import duplicated an older one for the same card and month:
+  // its rows moved there and this record stays as the pointer (status MERGED).
+  mergedIntoImportId       String?   @db.Uuid
+  mergedInto               Import?   @relation("ImportMerges", fields: [mergedIntoImportId], references: [id], onDelete: SetNull)
+  mergedFrom               Import[]  @relation("ImportMerges")
   user                     User      @relation(fields: [userId], references: [id])
 
   @@index([userId, deleted, createdAt])
+  @@index([mergedIntoImportId])
 }
 
 model ImportedTransaction {

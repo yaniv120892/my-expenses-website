@@ -127,15 +127,18 @@ runs them alone.
   re-approving whatever is pending by then. `ImportedTransactionList` still
   derives its own view of the same decision; the invariant covers the server
   paths only.
-- **Duplicate import rows are matched up to truncation, but not past half the
-  name.** `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires
-  date, value and type to agree exactly, and the normalized descriptions to
-  agree as far as the shorter one runs — but only when that shorter one covers
-  at least half the longer one's length, so two different merchants that
-  happen to share a short prefix (and, coincidentally, the same amount and
-  day) do not read as the same charge. The extraction service shortens the
-  same merchant differently between runs, so demanding the whole description
-  made a re-imported statement inject phantom charges — while ignoring the
+- **Duplicate import rows are matched up to a shortened merchant name.**
+  `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires date,
+  value and type to agree exactly, and the shorter normalized description to
+  be whole words from one end of the longer one — the extraction service
+  shortens a merchant by dropping its trailing branch, mall or city (usually
+  more than half the string on real statements) and occasionally a leading
+  "refund" — or a leading prefix past half the longer one when the cut lands
+  inside a word. A shorter side under three characters never matches. Two different merchants sharing an opening inside
+  a word, or a bare initial, do not read as the same charge; two sharing a
+  whole first word are told apart by their second. Demanding the whole
+  description made a re-imported statement inject phantom charges, and so did
+  the earlier half-length rule on Hebrew merchant strings — while ignoring the
   description entirely would collapse two merchants charging the same amount
   on the same day. `selectNonDuplicateRows` claims each existing row at most
   once, so a genuinely repeated charge still imports.

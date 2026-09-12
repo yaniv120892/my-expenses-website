@@ -146,15 +146,80 @@ describe('isSameCharge', () => {
     ).toBe(true);
   });
 
+  // The extraction service drops a merchant's trailing words — branch, mall,
+  // city — between runs, and on real statements the location is usually
+  // longer than the name, so the shortened side covers well under half.
+  it.each([
+    ['Super Pharm', 'Super Pharm Tlv Mall Complex'],
+    ['רמי לוי', 'רמי לוי בן גוריון גבעתיים'],
+    ['אמריקן איגל', 'אמריקן איגל קניון איילון'],
+    ['צומת ספרים', 'צומת ספרים קניון אילון'],
+    ['ביגה', 'ביגה קניון איילון'],
+    ['קסטרו', 'קסטרו קניון אילון'],
+    ['AMPM', 'AMPM אלנבי'],
+  ])('matches a merchant shortened to its leading words: %s', (short, full) => {
+    expect(
+      isSameCharge(
+        charge({ description: short }),
+        charge({ description: full }),
+      ),
+    ).toBe(true);
+  });
+
+  it('matches a name cut inside its last word when most of it is kept', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'שלומי קריבי עיצוב שיער' }),
+        charge({ description: 'שלומי קריבי עיצוב שיערגב' }),
+      ),
+    ).toBe(true);
+  });
+
+  it('matches a refund whose leading word was dropped', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'CashPro', type: TransactionType.INCOME }),
+        charge({ description: 'החזר CashPro', type: TransactionType.INCOME }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not match a name that only ends the same way inside a word', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'Pharm' }),
+        charge({ description: 'Superpharm' }),
+      ),
+    ).toBe(false);
+  });
+
   // Regression: a shared prefix used to be enough on its own, so two
   // distinct merchants charging the same amount on the same day (a real
   // coincidence, not a re-imported row) read as duplicates and the second
   // one silently never imported.
-  it('does not match two different merchants that only share a short prefix', () => {
+  it('does not match two different merchants that share an opening inside a word', () => {
     expect(
       isSameCharge(
-        charge({ description: 'Super Pharm' }),
-        charge({ description: 'Super Pharm Tlv Mall Complex' }),
+        charge({ description: 'Super' }),
+        charge({ description: 'Superland Water Park' }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not match two different merchants that share only their first word', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'קפה גרג' }),
+        charge({ description: 'קפה ג׳ו רמת גן' }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not let a bare initial stand for a merchant', () => {
+    expect(
+      isSameCharge(
+        charge({ description: 'א' }),
+        charge({ description: 'אלמה מרקט' }),
       ),
     ).toBe(false);
   });

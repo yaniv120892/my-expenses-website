@@ -618,6 +618,7 @@ interface ImportRecord {
   id: string;
   status: ImportStatus;
   creditCardLastFourDigits: string | null;
+  mergedIntoImportId?: string | null;
 }
 
 function randomCardDigits(): string {
@@ -736,6 +737,71 @@ async function importEncryptionFlow(token: string): Promise<void> {
     withOlderCiphertext?.creditCardLastFourDigits ===
       DIGITS_BEHIND_THAT_CIPHERTEXT,
     `read ${withOlderCiphertext?.creditCardLastFourDigits}, expected ${DIGITS_BEHIND_THAT_CIPHERTEXT}`,
+  );
+}
+
+/**
+ * The same statement submitted twice: the second import is kept as a MERGED
+ * pointer at the first, the first is COMPLETED again only after its rows were
+ * matched, and the duplicate row was not carried across.
+ */
+async function importMergeFlow(token: string): Promise<void> {
+  const bucket = process.env.IMPORTS_S3_BUCKET;
+  const region = process.env.IMPORTS_S3_REGION;
+  if (!bucket || !region) {
+    return;
+  }
+  const digits = randomCardDigits();
+  const originalFileName = `card-${digits}_04_2026.csv`;
+  const body = {
+    fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
+    originalFileName,
+  };
+
+  const first = await api('POST', '/api/imports/process', { token, body });
+  const firstId = (first.body as { id?: string } | null)?.id;
+  if (!firstId) {
+    check('imports: merge flow could submit the first import', false, '');
+    return;
+  }
+  await waitForImportCompletion(token, firstId);
+
+  const second = await api('POST', '/api/imports/process', { token, body });
+  const secondId = (second.body as { id?: string } | null)?.id;
+  if (!secondId) {
+    check('imports: merge flow could submit the second import', false, '');
+    return;
+  }
+  const merged = await waitForImportCompletion(token, secondId);
+  check(
+    'imports: a duplicate upload is kept as MERGED, pointing at the older import',
+    merged?.status === 'MERGED' && merged.mergedIntoImportId === firstId,
+    `status ${merged?.status ?? 'never listed'}, mergedInto ${merged?.mergedIntoImportId ?? 'null'}`,
+  );
+
+  const survivor = await waitForImportCompletion(token, firstId);
+  check(
+    'imports: the survivor is COMPLETED again once the moved rows are matched',
+    survivor?.status === 'COMPLETED',
+    `status ${survivor?.status ?? 'never listed'}`,
+  );
+
+  const byId = await api('GET', `/api/imports/${secondId}`, { token });
+  const byIdRecord = byId.body as ImportRecord | null;
+  check(
+    'imports: GET by id returns the merged import with its pointer',
+    byId.status === 200 && byIdRecord?.mergedIntoImportId === firstId,
+    `status ${byId.status}, mergedInto ${byIdRecord?.mergedIntoImportId ?? 'null'}`,
+  );
+
+  const [rows] = await query<{ count: number }>(
+    'select count(*)::int as count from "ImportedTransaction" where "importId" = $1',
+    [firstId],
+  );
+  check(
+    'imports: the duplicate row was not carried into the survivor',
+    rows?.count === 1,
+    `survivor holds ${rows?.count ?? 'unknown'} row(s), expected 1`,
   );
 }
 
@@ -931,6 +997,7 @@ async function main(): Promise<void> {
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
   await importEncryptionFlow(seeded.userA.token);
+  await importMergeFlow(seeded.userA.token);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

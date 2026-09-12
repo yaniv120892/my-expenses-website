@@ -5,7 +5,6 @@ import {
   isLocalTarget,
   parseImportArguments,
   parseStatementName,
-  pickOldestImport,
 } from './importStatements';
 
 describe('isLocalTarget', () => {
@@ -126,32 +125,5 @@ describe('parseStatementName', () => {
 
   it('is null for a portal-named file', () => {
     expect(parseStatementName('transactions 12.09.2026.xlsx')).toBeNull();
-  });
-});
-
-describe('pickOldestImport', () => {
-  it('picks the earliest createdAt regardless of list order', () => {
-    const oldest = { id: 'b', createdAt: '2026-03-10T09:00:00.000Z' };
-    expect(
-      pickOldestImport([
-        { id: 'a', createdAt: '2026-03-10T11:00:00.000Z' },
-        oldest,
-        { id: 'c', createdAt: '2026-03-10T10:00:00.000Z' },
-      ]),
-    ).toBe(oldest);
-  });
-
-  it('breaks a createdAt tie on id, the way the server does', () => {
-    const lowerId = { id: 'imp-0', createdAt: '2026-03-10T09:00:00.000Z' };
-    expect(
-      pickOldestImport([
-        { id: 'imp-1', createdAt: '2026-03-10T09:00:00.000Z' },
-        lowerId,
-      ]),
-    ).toBe(lowerId);
-  });
-
-  it('is undefined for no candidates', () => {
-    expect(pickOldestImport([])).toBeUndefined();
   });
 });

@@ -15,6 +15,9 @@ export enum ImportStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   REMATCHING = 'REMATCHING',
+  // A duplicate of an older import for the same card and month; its rows live
+  // under the import mergedIntoImportId names.
+  MERGED = 'MERGED',
 }
 
 export enum ImportedTransactionStatus {
@@ -44,10 +47,12 @@ export interface Import {
   creditCardLastFourDigits?: string;
   paymentMonth?: string;
   excelExtractionRequestId?: string;
+  mergedIntoImportId?: string | null;
 }
 
 export interface ImportWithVerification extends Import {
   isVerified: boolean;
+  mergedIntoFileName?: string | null;
 }
 
 export interface ImportedTransaction {

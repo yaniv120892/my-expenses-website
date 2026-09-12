@@ -9,7 +9,9 @@
  * after a dry run, a re-run to check nothing is left — act on that import
  * rather than uploading again. Uploading twice would hand the extractor the
  * same statement twice, and it does not spell every merchant the same way on
- * the second pass. `--resubmit` uploads everything regardless.
+ * the second pass. `--resubmit` uploads everything regardless; an upload that
+ * duplicates an older import is followed to it through the pointer the server
+ * records on the duplicate.
  *
  * The token may come from IMPORT_API_TOKEN_FILE instead. A non-local
  * --base-url has to be confirmed by typing its hostname before anything is
@@ -39,13 +41,9 @@ import {
   isLocalTarget,
   parseImportArguments,
   parseStatementName,
-  pickOldestImport,
 } from './lib/importStatements';
 import { toDayString } from '../src/shared/dates';
-import {
-  type ReconciliationPlanItem,
-  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
-} from '../src/shared/types/import';
+import type { ReconciliationPlanItem } from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
@@ -72,8 +70,15 @@ type ImportRecord = Pick<
   | 'error'
   | 'creditCardLastFourDigits'
   | 'paymentMonth'
-  | 'createdAt'
+  | 'mergedIntoImportId'
+  | 'mergedIntoFileName'
 >;
+
+/** Every submitted import followed to the import its rows ended up in. */
+type WaitedImports = {
+  byId: Map<string, ImportRecord>;
+  finalIdBySubmittedId: Map<string, string>;
+};
 
 type Statement = {
   filePath: string;
@@ -92,8 +97,6 @@ type SubmittedStatement = {
 
 type ResolvedTarget = {
   importRecord: ImportRecord;
-  // Reached by following a merge, so its rows may still be being matched.
-  followedMerge: boolean;
 };
 
 type PlannedImport = {
@@ -149,13 +152,12 @@ async function main(): Promise<void> {
   }
 
   console.log('\nWaiting for extraction to finish...');
-  const imports = await waitForImports(
+  const waited = await waitForImports(
     client,
     submitted.map((entry) => entry.importId),
   );
-  const { targets, importIdByFileName } = resolveTargets(submitted, imports);
+  const { targets, importIdByFileName } = resolveTargets(submitted, waited);
   reportFailedImports(targets);
-  const rematchedCount = await settleMergedTargets(client, targets);
 
   const planned = await loadPlans(client, targets);
   renderPlanTable(planned);
@@ -173,13 +175,7 @@ async function main(): Promise<void> {
   }
 
   if (dryRun) {
-    if (rematchedCount > 0) {
-      console.log(
-        `\n--dry-run: re-matched ${rematchedCount} merged import(s) to produce this preview; nothing was approved, ignored or created.`,
-      );
-    } else {
-      console.log('\n--dry-run: nothing was written.');
-    }
+    console.log('\n--dry-run: nothing was approved, ignored or created.');
     return;
   }
 
@@ -405,34 +401,44 @@ async function submitStatement(
 }
 
 /**
- * The interval backs off because `/api/imports` counts every import's rows and
- * a full backfill's extraction runs for minutes.
+ * Polls each import by id until none is in flight, following a merge to the
+ * import the rows went into. A survivor is held in REMATCHING until those rows
+ * are matched, so a terminal status means the preview is the whole story.
  */
 async function waitForImports(
   client: ApiClient,
   submittedIds: string[],
-): Promise<ImportRecord[]> {
+): Promise<WaitedImports> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let interval = FIRST_POLL_INTERVAL_MS;
+  const finalIdBySubmittedId = new Map(submittedIds.map((id) => [id, id]));
+  const byId = new Map<string, ImportRecord>();
 
   while (Date.now() < deadline) {
-    const imports = await client.getJson<ImportRecord[]>('/api/imports');
-    const byId = new Map(imports.map((record) => [record.id, record]));
-    const stillRunning = submittedIds.filter((id) => {
-      const record = byId.get(id);
-      return (
-        record !== undefined && ACTIVE_IMPORT_STATUSES.includes(record.status)
-      );
-    });
+    const tracked = [...new Set(finalIdBySubmittedId.values())];
+    const records = await Promise.all(
+      tracked.map((id) => fetchImport(client, id)),
+    );
 
-    if (stillRunning.length === 0) {
-      const mergedAway = submittedIds.filter((id) => !byId.has(id)).length;
-      if (mergedAway > 0) {
-        console.log(
-          `  ${mergedAway} import(s) merged into an existing import for the same card and month`,
-        );
+    let stillRunning = 0;
+    for (const record of records) {
+      if (!record) {
+        continue;
       }
-      return imports;
+      byId.set(record.id, record);
+      if (record.status === ImportStatus.MERGED && record.mergedIntoImportId) {
+        followMerge(finalIdBySubmittedId, record, record.mergedIntoImportId);
+        // The survivor is fetched on the next tick.
+        stillRunning += 1;
+        continue;
+      }
+      if (ACTIVE_IMPORT_STATUSES.includes(record.status)) {
+        stillRunning += 1;
+      }
+    }
+
+    if (stillRunning === 0) {
+      return { byId, finalIdBySubmittedId };
     }
 
     await sleep(interval);
@@ -444,25 +450,48 @@ async function waitForImports(
   );
 }
 
-/**
- * A statement whose import merged into an older one for the same card and month
- * has its rows waiting under that survivor, so reconciliation has to follow it
- * there. Without this a re-import silently reconciles nothing.
- */
+function followMerge(
+  finalIdBySubmittedId: Map<string, string>,
+  merged: ImportRecord,
+  survivorId: string,
+): void {
+  for (const [submittedId, currentId] of finalIdBySubmittedId) {
+    if (currentId === merged.id) {
+      finalIdBySubmittedId.set(submittedId, survivorId);
+    }
+  }
+  console.log(
+    `  ${merged.originalFileName}: duplicate of an earlier import for the same card and month; its rows moved into ${merged.mergedIntoFileName ?? survivorId}`,
+  );
+}
+
+async function fetchImport(
+  client: ApiClient,
+  importId: string,
+): Promise<ImportRecord | undefined> {
+  try {
+    return await client.getJson<ImportRecord>(`/api/imports/${importId}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 function resolveTargets(
   submitted: SubmittedStatement[],
-  imports: ImportRecord[],
+  waited: WaitedImports,
 ): {
   targets: ResolvedTarget[];
   importIdByFileName: Map<string, string>;
 } {
-  const byId = new Map(imports.map((record) => [record.id, record]));
   const resolved = new Map<string, ResolvedTarget>();
   const importIdByFileName = new Map<string, string>();
 
   for (const { statement, importId, reused } of submitted) {
-    const direct = byId.get(importId);
-    const target = direct ?? findMergeSurvivor(statement, imports);
+    const finalId = waited.finalIdBySubmittedId.get(importId) ?? importId;
+    const target = waited.byId.get(finalId);
     if (!target) {
       const hint = reused
         ? `import ${importId} recorded in ${MANIFEST_FILE_NAME} no longer exists; run again with --resubmit to upload it afresh`
@@ -472,83 +501,11 @@ function resolveTargets(
       );
       continue;
     }
-    const followedMerge = direct === undefined;
-    const existing = resolved.get(target.id);
-    resolved.set(target.id, {
-      importRecord: target,
-      followedMerge: followedMerge || (existing?.followedMerge ?? false),
-    });
+    resolved.set(target.id, { importRecord: target });
     importIdByFileName.set(statement.fileName, target.id);
   }
 
   return { targets: [...resolved.values()], importIdByFileName };
-}
-
-/**
- * The webhook deletes a duplicate import before it finishes matching the rows
- * it moved into the survivor, so the id disappearing is not proof that matching
- * has run. Re-matching the survivor makes it deterministic before anything is
- * previewed — otherwise the plan can show CREATE for rows that become MERGE a
- * second later, and approving it writes duplicates.
- */
-async function settleMergedTargets(
-  client: ApiClient,
-  targets: ResolvedTarget[],
-): Promise<number> {
-  let rematchedCount = 0;
-
-  for (const target of targets) {
-    if (!target.followedMerge) {
-      continue;
-    }
-
-    try {
-      await client.postJson<{ success: boolean }>(
-        `/api/imports/${target.importRecord.id}/rematch`,
-        {},
-      );
-      rematchedCount += 1;
-    } catch (error) {
-      // A survivor with nothing left pending answers 409 with this exact
-      // message, which is the ordinary outcome of re-importing a statement
-      // that is already reconciled. A 409 for a survivor not in COMPLETED
-      // status (e.g. a concurrent rematch) carries a different message and
-      // is a real failure, not a benign no-op.
-      if (
-        error instanceof ApiError &&
-        error.status === 409 &&
-        error.message.includes(NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR)
-      ) {
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  return rematchedCount;
-}
-
-function findMergeSurvivor(
-  statement: Statement,
-  imports: ImportRecord[],
-): ImportRecord | undefined {
-  const parsed = statement.parsedName;
-  if (!parsed) {
-    return undefined;
-  }
-
-  const candidates = imports.filter(
-    (record) =>
-      record.creditCardLastFourDigits === parsed.cardLastFour &&
-      record.paymentMonth === parsed.paymentMonth,
-  );
-  if (candidates.length > 1) {
-    console.log(
-      `  ${statement.fileName}: ${candidates.length} imports exist for card ${parsed.cardLastFour}, ${parsed.paymentMonth}; following the oldest, which is the one a duplicate merges into`,
-    );
-  }
-
-  return pickOldestImport(candidates);
 }
 
 function reportFailedImports(targets: ResolvedTarget[]): void {

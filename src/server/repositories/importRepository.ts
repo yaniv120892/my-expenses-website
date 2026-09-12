@@ -12,7 +12,22 @@ export type ImportWithPendingCount = Import & {
   _count: {
     transactions: number;
   };
+  mergedInto: { originalFileName: string } | null;
 };
+
+const listItemInclude = {
+  _count: {
+    select: {
+      transactions: {
+        where: {
+          status: ImportedTransactionStatus.PENDING,
+          deleted: false,
+        },
+      },
+    },
+  },
+  mergedInto: { select: { originalFileName: true } },
+} as const;
 
 export class ImportRepository {
   public async create(data: {
@@ -44,18 +59,17 @@ export class ImportRepository {
       where: { userId, deleted: false },
       // id breaks createdAt ties so the polled list keeps a stable order.
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: {
-        _count: {
-          select: {
-            transactions: {
-              where: {
-                status: ImportedTransactionStatus.PENDING,
-                deleted: false,
-              },
-            },
-          },
-        },
-      },
+      include: listItemInclude,
+    });
+  }
+
+  public async findByIdForUser(
+    id: string,
+    userId: string,
+  ): Promise<ImportWithPendingCount | null> {
+    return prisma.import.findFirst({
+      where: { id, userId, deleted: false },
+      include: listItemInclude,
     });
   }
 

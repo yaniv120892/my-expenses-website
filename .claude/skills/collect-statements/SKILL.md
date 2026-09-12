@@ -43,11 +43,10 @@ Rename each file to:
 <issuer>-<last4>-<MM>-<YYYY>.xlsx      e.g. cal-6125-08-2026.xlsx
 ```
 
-`scripts/import-statements.ts` reads the payment month and card from this name.
-It is also how the script follows a statement whose import gets merged into an
-older one for the same card and month. The portals' own filenames do not carry
-the billing month — Cal's are dated the day you downloaded them — so renaming
-is not optional.
+`scripts/import-statements.ts` reads the payment month and card from this name,
+and the payment month is half of what identifies a duplicate import. The
+portals' own filenames do not carry the billing month — Cal's are dated the
+day you downloaded them — so renaming is not optional.
 
 Put every file for a run in one directory. The script targets
 `http://127.0.0.1:3000` unless told otherwise, so **a run with no `--base-url`

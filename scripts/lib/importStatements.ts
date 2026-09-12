@@ -120,32 +120,6 @@ export function commitConfirmation(
   };
 }
 
-type DatedRecord = { id: string; createdAt: string };
-
-/**
- * The server merges a duplicate import into the oldest one for the same card
- * and month, tie-broken on id, so following a merge means picking the same one.
- */
-export function pickOldestImport<T extends DatedRecord>(
-  records: T[],
-): T | undefined {
-  return records.reduce<T | undefined>((oldest, record) => {
-    if (!oldest || isOlder(record, oldest)) {
-      return record;
-    }
-    return oldest;
-  }, undefined);
-}
-
-function isOlder(candidate: DatedRecord, reference: DatedRecord): boolean {
-  const candidateTime = new Date(candidate.createdAt).getTime();
-  const referenceTime = new Date(reference.createdAt).getTime();
-  if (candidateTime !== referenceTime) {
-    return candidateTime < referenceTime;
-  }
-  return candidate.id < reference.id;
-}
-
 const WEB_PROTOCOLS = ['http:', 'https:'];
 
 // `localhost:3000` parses as a URL whose scheme is `localhost:`, so being

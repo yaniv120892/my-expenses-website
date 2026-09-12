@@ -10,14 +10,14 @@ export const POST = createHandler({
     if (body.action === 'approve') {
       return importService.batchApproveImportedTransactions(
         body.importId,
-        transactionIds,
         userId,
+        transactionIds,
       );
     }
     return importService.batchIgnoreImportedTransactions(
       body.importId,
-      transactionIds,
       userId,
+      transactionIds,
     );
   },
 });

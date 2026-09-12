@@ -10,7 +10,12 @@ import {
   CHUNK_DELAY_MS,
 } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
-import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
+import {
+  MOCK_PORT,
+  SHIM_PORT,
+  EXTRACTION_PORT,
+  EXTRACTION_MOCK_PORT,
+} from './ports';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import { ImportStatus } from '../../src/shared/types/import';
@@ -738,10 +743,10 @@ async function main(): Promise<void> {
   const { seeded, stop: shutdown } = await startStack({
     mock: MOCK_PORT,
     shim: SHIM_PORT,
-    extraction: EXTRACTION_PORT,
+    extraction: EXTRACTION_MOCK_PORT,
   });
   console.log(
-    `mock model on ${MOCK_PORT}, upstash shim on ${SHIM_PORT}, extraction agent on ${EXTRACTION_PORT}`,
+    `mock model on ${MOCK_PORT}, upstash shim on ${SHIM_PORT}, extraction agent on ${EXTRACTION_PORT}${EXTRACTION_MOCK_PORT === null ? ' (real service, mock not started)' : ''}`,
   );
   console.log('seeded users', seeded.userA.id, seeded.userB.id);
 

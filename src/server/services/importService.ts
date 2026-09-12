@@ -23,6 +23,11 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
+import {
+  ReconciliationPlanItem,
+  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
+} from '@/shared/types/import';
+import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 
 // A missing row in the approve/merge batch means a concurrent delete won the
 // race. Map it back to the 404 the non-batched path used to return.
@@ -39,6 +44,12 @@ function throwTransactionNotFoundOnMissingRow(err: unknown): never {
   }
   throw err;
 }
+
+// A requested id a concurrent action already approved, ignored or deleted out
+// from under this batch — reported as a failure rather than silently dropped
+// from the count.
+const STALE_TRANSACTION_ID_ERROR =
+  'Not found, not pending, or not in this import';
 
 interface BatchResult {
   total: number;
@@ -64,19 +75,15 @@ interface MergeImportedTransactionData {
   categoryId?: string;
 }
 
-interface BatchImportedTransaction {
+// What matchSequentially/matchSingleTransaction need from a row to find its
+// counterpart — an imported row and a pending transaction both satisfy it.
+type MatchableTransaction = {
   id: string;
   description: string;
-  value: number;
   date: Date;
+  value: number;
   type: TransactionType;
-  matchingTransactionId: string | null;
-}
-
-interface BatchItem {
-  transaction: BatchImportedTransaction;
-  categoryId: string | null;
-}
+};
 
 type ImportedTransactionRecord = Awaited<
   ReturnType<typeof importedTransactionRepository.findByUserIdAndImportId>
@@ -377,60 +384,55 @@ class ImportService {
     );
   }
 
-  public async batchApproveImportedTransactions(
+  /**
+   * What approving the selection would do, without writing anything.
+   * batchApproveImportedTransactions commits this same plan, so the preview
+   * cannot promise an outcome the commit would not produce.
+   */
+  public async buildReconciliationPlan(
     importId: string,
-    transactionIds: string[] | 'all',
     userId: string,
-  ): Promise<BatchResult> {
-    const transactions =
-      transactionIds === 'all'
-        ? await importedTransactionRepository.findPendingByImportId(
-            importId,
-            userId,
-          )
-        : await Promise.all(
-            transactionIds.map((id) =>
-              importedTransactionRepository.findById(id),
-            ),
-          ).then((results) => results.filter((t) => t !== null));
-
-    const pendingTransactions = transactions.filter(
-      (t) =>
-        t.status === ImportedTransactionStatus.PENDING && t.userId === userId,
+    transactionIds: string[] | 'all' = 'all',
+  ): Promise<ReconciliationPlanItem[]> {
+    const { pending } = await this.loadPendingSelection(
+      importId,
+      userId,
+      transactionIds,
     );
 
-    const items = pendingTransactions.map((transaction) => {
-      // The query that loaded these rows includes the matched transaction,
-      // which the row's declared type does not describe.
-      const matchingTx = (
-        transaction as { matchingTransaction?: { categoryId?: string } }
-      ).matchingTransaction;
-      return {
-        transaction,
-        // Never fall back to the transaction id — it is not a category id.
-        categoryId: matchingTx?.categoryId ?? null,
-      };
-    });
+    return pending.map((transaction) =>
+      this.toReconciliationPlanItem(transaction),
+    );
+  }
 
-    return this.runMergeOrApproveBatch(items, userId);
+  public async batchApproveImportedTransactions(
+    importId: string,
+    userId: string,
+    transactionIds: string[] | 'all',
+  ): Promise<BatchResult> {
+    const { pending, missingIds } = await this.loadPendingSelection(
+      importId,
+      userId,
+      transactionIds,
+    );
+    const plan = pending.map((transaction) =>
+      this.toReconciliationPlanItem(transaction),
+    );
+
+    return this.runReconciliationPlan(plan, userId, missingIds);
   }
 
   public async batchIgnoreImportedTransactions(
     importId: string,
-    transactionIds: string[] | 'all',
     userId: string,
+    transactionIds: string[] | 'all',
   ): Promise<BatchResult> {
-    let ids: string[];
-
-    if (transactionIds === 'all') {
-      const pending = await importedTransactionRepository.findPendingByImportId(
-        importId,
-        userId,
-      );
-      ids = pending.map((t) => t.id);
-    } else {
-      ids = transactionIds;
-    }
+    const { pending, missingIds } = await this.loadPendingSelection(
+      importId,
+      userId,
+      transactionIds,
+    );
+    const ids = pending.map((t) => t.id);
 
     const count = await importedTransactionRepository.updateStatusBatch(
       ids,
@@ -439,10 +441,13 @@ class ImportService {
     );
 
     return {
-      total: ids.length,
+      total: ids.length + missingIds.length,
       succeeded: count,
-      failed: ids.length - count,
-      errors: [],
+      failed: ids.length - count + missingIds.length,
+      errors: missingIds.map((id) => ({
+        id,
+        error: STALE_TRANSACTION_ID_ERROR,
+      })),
     };
   }
 
@@ -450,12 +455,12 @@ class ImportService {
     importId: string,
     userId: string,
   ): Promise<BatchResult> {
-    const [pendingTransactions, rules] = await Promise.all([
-      importedTransactionRepository.findPendingByImportId(importId, userId),
+    const [{ pending: pendingTransactions }, rules] = await Promise.all([
+      this.loadPendingSelection(importId, userId, 'all'),
       autoApproveRuleRepository.findActiveByUserId(userId),
     ]);
 
-    const items: BatchItem[] = [];
+    const plan: ReconciliationPlanItem[] = [];
     for (const transaction of pendingTransactions) {
       const matchingRule = rules.find((rule) =>
         transaction.description
@@ -467,31 +472,99 @@ class ImportService {
         continue;
       }
 
-      items.push({ transaction, categoryId: matchingRule.categoryId });
+      plan.push(
+        this.toReconciliationPlanItem(transaction, matchingRule.categoryId),
+      );
     }
 
-    return this.runMergeOrApproveBatch(items, userId);
+    return this.runReconciliationPlan(plan, userId);
   }
 
-  private async runMergeOrApproveBatch(
-    items: BatchItem[],
+  // Both queries constrain import, owner and status in SQL, so no caller can
+  // widen the selection past the user's own pending rows in this import.
+  // `missingIds` names every requested id the query did not return, so a
+  // caller can report it as a failure instead of letting it silently shrink
+  // the batch.
+  private async loadPendingSelection(
+    importId: string,
     userId: string,
+    transactionIds: string[] | 'all',
+  ): Promise<{
+    pending: ImportedTransactionRecord[];
+    missingIds: string[];
+  }> {
+    if (transactionIds === 'all') {
+      const pending = await importedTransactionRepository.findPendingByImportId(
+        importId,
+        userId,
+      );
+      return { pending, missingIds: [] };
+    }
+
+    const pending = await importedTransactionRepository.findPendingByIds(
+      importId,
+      transactionIds,
+      userId,
+    );
+    const foundIds = new Set(pending.map((transaction) => transaction.id));
+    const missingIds = transactionIds.filter((id) => !foundIds.has(id));
+
+    return { pending, missingIds };
+  }
+
+  private toReconciliationPlanItem(
+    transaction: ImportedTransactionRecord,
+    categoryOverride?: string,
+  ): ReconciliationPlanItem {
+    const match = transaction.matchingTransaction;
+
+    return {
+      importedTransactionId: transaction.id,
+      action: match ? 'MERGE' : 'CREATE',
+      description: transaction.description,
+      value: transaction.value,
+      date: transaction.date,
+      type: transaction.type,
+      // Never fall back to the transaction id — it is not a category id.
+      categoryId: categoryOverride ?? match?.categoryId ?? null,
+      match: match
+        ? {
+            transactionId: match.id,
+            approvesPendingTransaction:
+              match.status === TransactionStatus.PENDING_APPROVAL,
+            before: {
+              description: match.description,
+              value: match.value,
+              date: match.date,
+            },
+          }
+        : null,
+    };
+  }
+
+  private async runReconciliationPlan(
+    plan: ReconciliationPlanItem[],
+    userId: string,
+    missingIds: string[] = [],
   ): Promise<BatchResult> {
     const result: BatchResult = {
-      total: items.length,
+      total: plan.length + missingIds.length,
       succeeded: 0,
-      failed: 0,
-      errors: [],
+      failed: missingIds.length,
+      errors: missingIds.map((id) => ({
+        id,
+        error: STALE_TRANSACTION_ID_ERROR,
+      })),
     };
 
-    for (const { transaction, categoryId } of items) {
+    for (const item of plan) {
       try {
-        await this.mergeOrApprove(transaction, userId, categoryId);
+        await this.applyReconciliationPlanItem(item, userId);
         result.succeeded++;
       } catch (error) {
         result.failed++;
         result.errors.push({
-          id: transaction.id,
+          id: item.importedTransactionId,
           error: getErrorMessage(error),
         });
       }
@@ -500,30 +573,38 @@ class ImportService {
     return result;
   }
 
-  private async mergeOrApprove(
-    transaction: BatchImportedTransaction,
+  private async applyReconciliationPlanItem(
+    item: ReconciliationPlanItem,
     userId: string,
-    categoryId: string | null,
   ): Promise<void> {
     const payload = {
-      description: transaction.description,
-      value: transaction.value,
-      date: transaction.date,
-      type: transaction.type,
+      description: item.description,
+      value: item.value,
+      date: item.date,
+      type: item.type,
     };
 
-    if (transaction.matchingTransactionId) {
-      await this.mergeImportedTransaction(transaction.id, userId, {
-        ...payload,
-        categoryId: categoryId ?? undefined,
-      });
-      return;
+    switch (item.action) {
+      case 'MERGE':
+        await this.mergeImportedTransaction(
+          item.importedTransactionId,
+          userId,
+          {
+            ...payload,
+            categoryId: item.categoryId ?? undefined,
+          },
+        );
+        return;
+      case 'CREATE':
+        await this.approveImportedTransaction(
+          item.importedTransactionId,
+          userId,
+          { ...payload, categoryId: item.categoryId },
+        );
+        return;
+      default:
+        throw new Error(`Unknown reconciliation action: ${item.action}`);
     }
-
-    await this.approveImportedTransaction(transaction.id, userId, {
-      ...payload,
-      categoryId,
-    });
   }
 
   public async rematchImport(importId: string, userId: string): Promise<void> {
@@ -554,7 +635,7 @@ class ImportService {
     );
 
     if (pendingTransactions.length === 0) {
-      throw new HttpError(409, 'No pending transactions to re-match');
+      throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
     await importRepository.updateStatus(importId, ImportStatus.REMATCHING);
@@ -627,12 +708,7 @@ class ImportService {
    * rather than failing the rest.
    */
   private async matchSequentially(
-    transactions: {
-      id: string;
-      description: string;
-      date: Date;
-      value: number;
-    }[],
+    transactions: MatchableTransaction[],
     userId: string,
     excludedTransactionIds: Set<string>,
     errorMessage: string,
@@ -700,7 +776,7 @@ class ImportService {
   }
 
   private async matchSingleTransaction(
-    transaction: { id: string; description: string; date: Date; value: number },
+    transaction: MatchableTransaction,
     userId: string,
     excludedIds?: Set<string>,
   ): Promise<string | null> {
@@ -708,6 +784,7 @@ class ImportService {
       userId,
       transaction.date,
       transaction.value,
+      transaction.type,
     );
 
     const availableMatches = excludedIds
@@ -716,6 +793,18 @@ class ImportService {
 
     if (availableMatches.length === 0) {
       return null;
+    }
+
+    // One unambiguous spelling match needs no model call, which is what keeps a
+    // multi-month backfill affordable. A tie falls through to the model, whose
+    // job is exactly that judgement.
+    const exactMatchId = findExactNormalizedMatch(
+      transaction.description,
+      availableMatches,
+    );
+    if (exactMatchId) {
+      await this.claimMatch(transaction.id, exactMatchId);
+      return exactMatchId;
     }
 
     // Providers validate their answer already; re-applying the idempotent
@@ -730,13 +819,20 @@ class ImportService {
     );
 
     if (matchingTransactionId) {
-      await prisma.importedTransaction.update({
-        where: { id: transaction.id },
-        data: { matchingTransactionId },
-      });
+      await this.claimMatch(transaction.id, matchingTransactionId);
     }
 
     return matchingTransactionId;
+  }
+
+  private async claimMatch(
+    importedTransactionId: string,
+    matchingTransactionId: string,
+  ): Promise<void> {
+    await prisma.importedTransaction.update({
+      where: { id: importedTransactionId },
+      data: { matchingTransactionId },
+    });
   }
 }
 

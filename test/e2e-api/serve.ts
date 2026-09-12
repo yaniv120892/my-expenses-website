@@ -1,4 +1,4 @@
-import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT } from './ports';
+import { MOCK_PORT, SHIM_PORT, EXTRACTION_MOCK_PORT } from './ports';
 import { SEED_PASSWORD } from './seed';
 import { startStack } from './stack';
 
@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   const { seeded } = await startStack({
     mock: MOCK_PORT,
     shim: SHIM_PORT,
-    extraction: EXTRACTION_PORT,
+    extraction: EXTRACTION_MOCK_PORT,
   });
 
   // An interface, not debug output: the Playwright run reads the token and

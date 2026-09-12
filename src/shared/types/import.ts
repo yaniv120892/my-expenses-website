@@ -69,3 +69,43 @@ export interface ImportQueueMessage {
   importType: ImportFileType;
   userId: string;
 }
+
+export type ReconciliationAction = 'MERGE' | 'CREATE';
+
+/** The matched transaction as it stands, before a merge overwrites it. */
+export type ReconciliationBefore = {
+  description: string;
+  value: number;
+  date: Date;
+};
+
+export type ReconciliationMatch = {
+  transactionId: string;
+  // Merging onto a pending transaction is what approves it; onto an already
+  // approved one the merge is only an edit.
+  approvesPendingTransaction: boolean;
+  before: ReconciliationBefore;
+};
+
+/**
+ * What approving one imported row would do, resolved before anything is
+ * written. The batch that commits is driven by these same items, so a preview
+ * cannot describe an outcome the commit would not produce.
+ */
+export type ReconciliationPlanItem = {
+  importedTransactionId: string;
+  action: ReconciliationAction;
+  description: string;
+  value: number;
+  date: Date;
+  type: TransactionType;
+  categoryId: string | null;
+  match: ReconciliationMatch | null;
+};
+
+// The 409 rematchImport throws when a survivor's pending rows were already
+// re-matched by another call — a benign no-op, distinct from its other 409
+// (import not COMPLETED). Shared so a caller distinguishing the two, such as
+// scripts/import-statements.ts, matches this exact text rather than a copy.
+export const NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR =
+  'No pending transactions to re-match';

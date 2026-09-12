@@ -73,17 +73,23 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
-// A truncated extraction still keeps most of the merchant's characters, so
-// requiring the shorter side to cover at least this fraction of the longer
-// tells a re-shortened name (kept most of the string) apart from two
-// different merchants that happen to share a short prefix.
+// The extraction service shortens a merchant by dropping words at an end —
+// usually the trailing branch, mall or city, sometimes a leading "refund" —
+// so a shortened name is a whole word or words from one end of the full one.
+// A bare initial is not a shortened merchant, hence the minimum length; below
+// it the amount and day would be doing all the work.
+const MINIMUM_SHORTENED_MERCHANT_LENGTH = 3;
+// A cut inside a word is a truncation rather than a shortening, and one that
+// keeps most of the characters is still the same merchant; one that keeps a
+// few is two merchants sharing an opening.
 const MINIMUM_TRUNCATION_COVERAGE = 0.5;
 
 /**
  * Whether two rows of one import describe the same charge. Date, value and
- * type must agree exactly; descriptions only have to agree up to truncation
- * (one a prefix of the other, covering most of its length), since the
- * extraction service shortens the same merchant differently between runs.
+ * type must agree exactly; descriptions only have to agree as far as the
+ * shorter one runs — to a word boundary, or most of the way into a word —
+ * since the extraction service shortens the same merchant differently between
+ * runs.
  */
 export function isSameCharge(
   left: ImportedCharge,
@@ -115,9 +121,19 @@ export function isSameCharge(
 
 function isTruncatedMerchantMatch(a: string, b: string): boolean {
   const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-  if (!longer.startsWith(shorter)) {
+  if (shorter.length < MINIMUM_SHORTENED_MERCHANT_LENGTH) {
     return false;
   }
 
-  return shorter.length >= longer.length * MINIMUM_TRUNCATION_COVERAGE;
+  if (longer.startsWith(shorter)) {
+    const endsOnWordBoundary = longer[shorter.length] === ' ';
+    const keepsMostOfTheWord =
+      shorter.length >= longer.length * MINIMUM_TRUNCATION_COVERAGE;
+    return endsOnWordBoundary || keepsMostOfTheWord;
+  }
+
+  // A dropped leading word: a refund's "החזר X" comes back as "X".
+  const startsOnWordBoundary =
+    longer[longer.length - shorter.length - 1] === ' ';
+  return longer.endsWith(shorter) && startsOnWordBoundary;
 }

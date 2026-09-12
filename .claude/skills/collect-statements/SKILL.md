@@ -78,9 +78,16 @@ it from its parent between runs.
 IMPORT_API_TOKEN=<bearer> npm run statements:import -- <dir> --dry-run
 ```
 
-Read the table, re-run without `--dry-run` to commit, then **run the same
-directory once more** — the re-import is the path that used to inject phantom
-charges, and the one worth watching.
+Read the table, then re-run without `--dry-run` to commit. The commit does not
+upload again: the dry run recorded each file's import in
+`.import-statements.json` beside the statements (per target, so a rehearsal
+never stands in for production), and the commit approves those imports. If the
+plan differs from what the dry run showed, the script says so before asking.
+
+Then **run the same directory once more with `--resubmit`** — that uploads
+every file again, which is the re-import path that used to inject phantom
+charges, and the one worth watching. Without the flag a re-run reuses the
+recorded imports and only tells you nothing is left to reconcile.
 
 ## Running against production
 
@@ -103,7 +110,8 @@ plan proves the connection and the token without changing a row.
 A dry run is not free of writes. Upload and process create the import and its
 pending rows on the target; only the approve step is skipped. A dry run you do
 not follow with a commit leaves a pending import that the imports page can
-delete.
+delete — and if you delete it, run with `--resubmit`, since the manifest still
+points at it.
 
 ## Cal — cal-online.co.il
 

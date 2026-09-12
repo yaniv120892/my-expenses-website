@@ -43,18 +43,68 @@ function directClient(): PrismaClient {
   return new PrismaClient({ datasources: { db: { url } } });
 }
 
-function mintToken(userId: string): Promise<string> {
+function mintToken(userId: string, expiresIn = '1h'): Promise<string> {
   const secret = new TextEncoder().encode(
     process.env.JWT_SECRET || 'e2e-test-secret',
   );
   return new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('1h')
+    .setExpirationTime(expiresIn)
     .sign(secret);
 }
 
+const LOCAL_DATABASE_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+
+/**
+ * The seed wipes every table, so it must never reach a database that is not
+ * this machine's — a remote copy exists precisely to keep its data.
+ */
+export function assertSeedTargetIsLocal(directUrl: string): void {
+  let host: string;
+  try {
+    host = new URL(directUrl).hostname;
+  } catch {
+    throw new Error(
+      `DIRECT_URL is not a URL, refusing to seed: "${directUrl}"`,
+    );
+  }
+  if (!LOCAL_DATABASE_HOSTS.includes(host)) {
+    throw new Error(
+      `Refusing to seed: DIRECT_URL points at ${host}, and the seed wipes every table. Only a database on ${LOCAL_DATABASE_HOSTS.join('/')} may be seeded.`,
+    );
+  }
+}
+
+/**
+ * A session for an account that already exists, for running the stack over a
+ * database that must keep its data. Twelve hours rather than the seed's one:
+ * an import sitting over many statements outlives an hour.
+ */
+export async function sessionForExistingUser(
+  email: string,
+): Promise<SeededUser> {
+  const prisma = directClient();
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new Error(
+        `No user with email ${email} in the database DIRECT_URL points at`,
+      );
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      token: await mintToken(user.id, '12h'),
+    };
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 export async function seed(): Promise<SeedResult> {
+  assertSeedTargetIsLocal(process.env.DIRECT_URL || '');
   const prisma = directClient();
 
   try {

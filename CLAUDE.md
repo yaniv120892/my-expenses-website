@@ -40,6 +40,14 @@ It restarts `prisma dev` each run rather than reusing it: that server fronts
 Postgres with a pooler, and `migrate deploy` inherits the previous run's
 query-engine session and dies on an already-prepared statement.
 
+Presetting `DATABASE_URL` and `DIRECT_URL` runs the same stack over that
+database instead — no `prisma dev`, no seed, a session minted for the account
+`SESSION_USER_EMAIL` names, and `REMOTE_DATABASE_OK=1` required so the host is
+looked at before anything is written. That is how a statement backfill is
+rehearsed over a branch of the production database before it runs for real
+(`.claude/skills/collect-statements/SKILL.md`). The seed itself refuses any
+`DIRECT_URL` not on this machine, since it wipes every table.
+
 Vitest runs on `node` by default; a component or hook test opts into a DOM
 with a `// @vitest-environment jsdom` docblock and renders through
 `src/test/renderWithClient.tsx` (React Testing Library + a QueryClient). Keep

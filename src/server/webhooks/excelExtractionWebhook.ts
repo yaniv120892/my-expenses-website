@@ -238,8 +238,9 @@ async function handleCompletedExtraction(
   );
 
   const transactions = toImportedTransactionRows(result, importId);
+  const metadata = reconcileMetadata(importRecord, result.metadata);
 
-  await writeExtractionMetadata(importId, result.metadata);
+  await writeExtractionMetadata(importId, metadata);
 
   // Rows are written to their own import first so that a concurrent callback
   // merging into this one sees them and can de-duplicate against them.
@@ -256,7 +257,7 @@ async function handleCompletedExtraction(
     importId,
     importRecord.userId,
     importRecord.createdAt,
-    result.metadata,
+    metadata,
   );
   const finalImportId = mergedIntoImportId ?? importId;
 
@@ -287,6 +288,33 @@ function toImportedTransactionRows(result: ExtractionResult, importId: string) {
       importId,
     };
   });
+}
+
+/**
+ * A payment month the import was submitted with wins over the one extraction
+ * reports. The caller names the billing month outright — a statement file is
+ * downloaded per billing month — while extraction infers it from the sheet and
+ * may read a transaction month, or nothing. A null from extraction must not
+ * wipe it: the month is half of what identifies a duplicate import.
+ */
+function reconcileMetadata(
+  importRecord: Import,
+  extracted: ExtractionMetadata,
+): ExtractionMetadata {
+  const submittedMonth = importRecord.paymentMonth;
+  const extractedMonth = extracted.paymentMonth ?? null;
+  if (!submittedMonth) {
+    return extracted;
+  }
+
+  if (extractedMonth && extractedMonth !== submittedMonth) {
+    logger.warn(
+      { importId: importRecord.id, submittedMonth, extractedMonth },
+      'Extraction reported a different payment month than the import was submitted with; keeping the submitted one',
+    );
+  }
+
+  return { ...extracted, paymentMonth: submittedMonth };
 }
 
 async function writeExtractionMetadata(

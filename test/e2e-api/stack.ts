@@ -3,7 +3,7 @@ import { startUpstashShim, seedKey } from './upstashShim';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { startMockModelServer } from './mockModelServer';
 import { startMockExtractionAgent } from './mockExtractionAgent';
-import { seed, SeedResult } from './seed';
+import { seed, sessionForExistingUser, SeededUser, SeedResult } from './seed';
 
 /**
  * Brings up the supporting services and seeds data.
@@ -12,19 +12,47 @@ import { seed, SeedResult } from './seed';
  * `run.ts` runs the checks and exits, `serve.ts` stays up while Playwright
  * drives the website.
  */
-export interface Stack {
+type Services = {
   shim: http.Server;
   mock: http.Server;
   extraction: http.Server | null;
-  seeded: SeedResult;
   stop: () => void;
-}
+};
 
-export async function startStack(ports: {
+export type Stack = Services & { seeded: SeedResult };
+
+/** The same services over a database that keeps its data: no seed, one session. */
+export type UserStack = Services & { user: SeededUser };
+
+export type StackPorts = {
   mock: number;
   shim: number;
   extraction: number | null;
-}): Promise<Stack> {
+};
+
+export async function startStack(ports: StackPorts): Promise<Stack> {
+  const services = await startServices(ports);
+  const seeded = await seed();
+
+  for (const user of [seeded.userA, seeded.userB]) {
+    plantSession(user);
+  }
+
+  return { ...services, seeded };
+}
+
+export async function startStackForUser(
+  ports: StackPorts,
+  email: string,
+): Promise<UserStack> {
+  const services = await startServices(ports);
+  const user = await sessionForExistingUser(email);
+  plantSession(user);
+
+  return { ...services, user };
+}
+
+async function startServices(ports: StackPorts): Promise<Services> {
   const shim = await startUpstashShim(ports.shim);
   const mock = await startMockModelServer(ports.mock);
   const extraction =
@@ -32,21 +60,10 @@ export async function startStack(ports: {
       ? null
       : await startMockExtractionAgent(ports.extraction);
 
-  const seeded = await seed();
-
-  // authenticateRequest requires both a valid JWT and a live session key.
-  for (const user of [seeded.userA, seeded.userB]) {
-    seedKey(
-      `${redisKeyPrefix('branch')}session:${user.id}:${user.token}`,
-      JSON.stringify('1'),
-    );
-  }
-
   return {
     shim,
     mock,
     extraction,
-    seeded,
     // The listeners keep the event loop alive; without closing them a run
     // finishes its work and then hangs until something kills it.
     stop: () => {
@@ -55,4 +72,12 @@ export async function startStack(ports: {
       extraction?.close();
     },
   };
+}
+
+// authenticateRequest requires both a valid JWT and a live session key.
+function plantSession(user: SeededUser): void {
+  seedKey(
+    `${redisKeyPrefix('branch')}session:${user.id}:${user.token}`,
+    JSON.stringify('1'),
+  );
 }

@@ -22,7 +22,7 @@ npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.t
 npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
-npm run statements:import -- <dir> [--dry-run]   # bulk import + reconcile
+npm run statements:import -- <dir> [--dry-run] [--resubmit] [--base-url=<url>]   # bulk import + reconcile
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI

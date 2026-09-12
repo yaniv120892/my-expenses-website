@@ -55,7 +55,14 @@ describe('parseImportArguments', () => {
       directory: '/tmp/statements',
       dryRun: false,
       baseUrl: DEFAULT_BASE_URL,
+      resubmit: false,
     });
+  });
+
+  it('reads --resubmit', () => {
+    expect(
+      parseImportArguments(['/tmp/statements', '--resubmit']).resubmit,
+    ).toBe(true);
   });
 
   it('reads --dry-run and --base-url in any order', () => {
@@ -69,6 +76,7 @@ describe('parseImportArguments', () => {
       directory: '/tmp/statements',
       dryRun: true,
       baseUrl: 'https://example.com',
+      resubmit: false,
     });
   });
 

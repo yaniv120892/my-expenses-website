@@ -8,6 +8,8 @@ export type ImportArguments = {
   directory: string;
   dryRun: boolean;
   baseUrl: string;
+  // Upload every file again even when the manifest records an import for it.
+  resubmit: boolean;
 };
 
 export type ParsedStatementName = {
@@ -18,19 +20,25 @@ export type ParsedStatementName = {
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:3000';
 
 const USAGE =
-  'Usage: tsx scripts/import-statements.ts <dir> [--dry-run] [--base-url=<url>]';
+  'Usage: tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]';
 const DRY_RUN_FLAG = '--dry-run';
+const RESUBMIT_FLAG = '--resubmit';
 const BASE_URL_FLAG = '--base-url=';
 const STATEMENT_NAME_PATTERN = /^(.+)-(\d{4})-(\d{2})-(\d{4})$/;
 
 export function parseImportArguments(args: string[]): ImportArguments {
   let directory: string | undefined;
   let dryRun = false;
+  let resubmit = false;
   let baseUrl = DEFAULT_BASE_URL;
 
   for (const arg of args) {
     if (arg === DRY_RUN_FLAG) {
       dryRun = true;
+      continue;
+    }
+    if (arg === RESUBMIT_FLAG) {
+      resubmit = true;
       continue;
     }
     if (arg.startsWith(BASE_URL_FLAG)) {
@@ -52,7 +60,7 @@ export function parseImportArguments(args: string[]): ImportArguments {
     throw new Error(USAGE);
   }
 
-  return { directory, dryRun, baseUrl };
+  return { directory, dryRun, baseUrl, resubmit };
 }
 
 /**

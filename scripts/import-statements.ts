@@ -2,16 +2,36 @@
  * The upload dialog caps a batch at ten files and applies one payment month to
  * all of them, which a multi-month backfill across several cards cannot use.
  *
- *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--base-url=<url>]
+ *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
+ *
+ * Each file is uploaded once per target: the import it became is recorded in
+ * `.import-statements.json` beside the statements, and later runs — the commit
+ * after a dry run, a re-run to check nothing is left — act on that import
+ * rather than uploading again. Uploading twice would hand the extractor the
+ * same statement twice, and it does not spell every merchant the same way on
+ * the second pass. `--resubmit` uploads everything regardless.
  *
  * The token may come from IMPORT_API_TOKEN_FILE instead. A non-local
  * --base-url has to be confirmed by typing its hostname before anything is
  * approved. The recipe, including the production invocation, is in
  * .claude/skills/collect-statements/SKILL.md.
  */
-import { readdir, readFile } from 'fs/promises';
+import { readdir, readFile, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
+import {
+  type ImportManifest,
+  MANIFEST_FILE_NAME,
+  emptyManifest,
+  parseManifest,
+  planDrift,
+  recordedImport,
+  recordedPreview,
+  serializeManifest,
+  withPreview,
+  withResolvedImport,
+  withSubmission,
+} from './lib/importManifest';
 import {
   type CommitConfirmation,
   type ParsedStatementName,
@@ -66,6 +86,8 @@ type Statement = {
 type SubmittedStatement = {
   statement: Statement;
   importId: string;
+  // Taken from the manifest rather than uploaded on this run.
+  reused: boolean;
 };
 
 type ResolvedTarget = {
@@ -80,7 +102,7 @@ type PlannedImport = {
 };
 
 async function main(): Promise<void> {
-  const { directory, dryRun, baseUrl } = parseImportArguments(
+  const { directory, dryRun, baseUrl, resubmit } = parseImportArguments(
     process.argv.slice(2),
   );
   const token = await resolveToken();
@@ -96,10 +118,33 @@ async function main(): Promise<void> {
   reportTarget(baseUrl, dryRun);
   reportStatements(statements);
 
+  const manifestPath = join(directory, MANIFEST_FILE_NAME);
+  let manifest = await loadManifest(manifestPath);
+
   const submitted: SubmittedStatement[] = [];
   for (const statement of statements) {
+    const recorded = resubmit
+      ? undefined
+      : recordedImport(manifest, baseUrl, statement.fileName);
+    if (recorded) {
+      submitted.push({ statement, importId: recorded.importId, reused: true });
+      console.log(
+        `  reusing import ${recorded.importId} for ${statement.fileName} (submitted ${recorded.submittedAt})`,
+      );
+      continue;
+    }
+
     const importId = await submitStatement(client, statement);
-    submitted.push({ statement, importId });
+    submitted.push({ statement, importId, reused: false });
+    // Saved per file, so an interrupted run still knows what it uploaded.
+    manifest = withSubmission(
+      manifest,
+      baseUrl,
+      statement.fileName,
+      importId,
+      new Date(),
+    );
+    await saveManifest(manifestPath, manifest);
     console.log(`  submitted ${statement.fileName} -> ${importId}`);
   }
 
@@ -108,12 +153,18 @@ async function main(): Promise<void> {
     client,
     submitted.map((entry) => entry.importId),
   );
-  const targets = resolveTargets(submitted, imports);
+  const { targets, importIdByFileName } = resolveTargets(submitted, imports);
   reportFailedImports(targets);
   const rematchedCount = await settleMergedTargets(client, targets);
 
   const planned = await loadPlans(client, targets);
   renderPlanTable(planned);
+  reportPlanDrift(planned, manifest, baseUrl);
+  for (const [fileName, importId] of importIdByFileName) {
+    manifest = withResolvedImport(manifest, baseUrl, fileName, importId);
+  }
+  manifest = recordPreviews(planned, manifest, baseUrl);
+  await saveManifest(manifestPath, manifest);
 
   const totals = countActions(planned);
   if (totals.merge + totals.create === 0) {
@@ -139,6 +190,14 @@ async function main(): Promise<void> {
   }
 
   await commitPlans(client, planned);
+  // The approved rows are no longer pending, so the next run's empty plan is
+  // the expected state, not drift.
+  manifest = recordPreviews(
+    planned.map(({ importRecord }) => ({ importRecord, plan: [] })),
+    manifest,
+    baseUrl,
+  );
+  await saveManifest(manifestPath, manifest);
 }
 
 /**
@@ -164,6 +223,82 @@ async function resolveToken(): Promise<string> {
 
   throw new Error(
     'Set IMPORT_API_TOKEN (dev:local prints one as "Bearer" on startup) or IMPORT_API_TOKEN_FILE',
+  );
+}
+
+async function loadManifest(path: string): Promise<ImportManifest> {
+  let text: string;
+  try {
+    text = await readFile(path, 'utf8');
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return emptyManifest();
+    }
+    throw error;
+  }
+  return parseManifest(text, path);
+}
+
+async function saveManifest(
+  path: string,
+  manifest: ImportManifest,
+): Promise<void> {
+  await writeFile(path, serializeManifest(manifest), 'utf8');
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  );
+}
+
+/**
+ * A plan that differs from the one previewed last time means something wrote
+ * to the import in between — another upload merged into it, a rematch, the
+ * web UI — and the table above is not the one the human already read.
+ */
+function reportPlanDrift(
+  planned: PlannedImport[],
+  manifest: ImportManifest,
+  baseUrl: string,
+): void {
+  for (const { importRecord, plan } of planned) {
+    const previous = recordedPreview(manifest, baseUrl, importRecord.id);
+    if (!previous) {
+      continue;
+    }
+    const drift = planDrift(
+      previous.rowIds,
+      plan.map((item) => item.importedTransactionId),
+    );
+    if (drift.added === 0 && drift.removed === 0) {
+      continue;
+    }
+    console.log(
+      `\n  WARNING ${importRecord.originalFileName}: the plan changed since the preview at ${previous.previewedAt} (+${drift.added} row(s), -${drift.removed} row(s)); read the table above again before approving`,
+    );
+  }
+}
+
+function recordPreviews(
+  planned: PlannedImport[],
+  manifest: ImportManifest,
+  baseUrl: string,
+): ImportManifest {
+  const now = new Date();
+  return planned.reduce(
+    (current, { importRecord, plan }) =>
+      withPreview(
+        current,
+        baseUrl,
+        importRecord.id,
+        plan.map((item) => item.importedTransactionId),
+        now,
+      ),
+    manifest,
   );
 }
 
@@ -317,16 +452,23 @@ async function waitForImports(
 function resolveTargets(
   submitted: SubmittedStatement[],
   imports: ImportRecord[],
-): ResolvedTarget[] {
+): {
+  targets: ResolvedTarget[];
+  importIdByFileName: Map<string, string>;
+} {
   const byId = new Map(imports.map((record) => [record.id, record]));
   const resolved = new Map<string, ResolvedTarget>();
+  const importIdByFileName = new Map<string, string>();
 
-  for (const { statement, importId } of submitted) {
+  for (const { statement, importId, reused } of submitted) {
     const direct = byId.get(importId);
     const target = direct ?? findMergeSurvivor(statement, imports);
     if (!target) {
+      const hint = reused
+        ? `import ${importId} recorded in ${MANIFEST_FILE_NAME} no longer exists; run again with --resubmit to upload it afresh`
+        : 'reconcile it from the imports page';
       console.log(
-        `  could not locate the import for ${statement.fileName}; reconcile it from the imports page`,
+        `  could not locate the import for ${statement.fileName}; ${hint}`,
       );
       continue;
     }
@@ -336,9 +478,10 @@ function resolveTargets(
       importRecord: target,
       followedMerge: followedMerge || (existing?.followedMerge ?? false),
     });
+    importIdByFileName.set(statement.fileName, target.id);
   }
 
-  return [...resolved.values()];
+  return { targets: [...resolved.values()], importIdByFileName };
 }
 
 /**

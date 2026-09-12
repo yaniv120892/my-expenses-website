@@ -2,13 +2,21 @@
  * The upload dialog caps a batch at ten files and applies one payment month to
  * all of them, which a multi-month backfill across several cards cannot use.
  *
- *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run]
+ *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--base-url=<url>]
+ *
+ * The token may come from IMPORT_API_TOKEN_FILE instead. A non-local
+ * --base-url has to be confirmed by typing its hostname before anything is
+ * approved. The recipe, including the production invocation, is in
+ * .claude/skills/collect-statements/SKILL.md.
  */
 import { readdir, readFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
 import {
+  type CommitConfirmation,
   type ParsedStatementName,
+  commitConfirmation,
+  isLocalTarget,
   parseImportArguments,
   parseStatementName,
   pickOldestImport,
@@ -75,12 +83,7 @@ async function main(): Promise<void> {
   const { directory, dryRun, baseUrl } = parseImportArguments(
     process.argv.slice(2),
   );
-  const token = process.env.IMPORT_API_TOKEN;
-  if (!token) {
-    throw new Error(
-      'IMPORT_API_TOKEN is not set; dev:local prints one as "Bearer" on startup',
-    );
-  }
+  const token = await resolveToken();
 
   const client = createApiClient(baseUrl, token);
   const statements = await collectStatements(directory);
@@ -90,6 +93,7 @@ async function main(): Promise<void> {
     );
   }
 
+  reportTarget(baseUrl, dryRun);
   reportStatements(statements);
 
   const submitted: SubmittedStatement[] = [];
@@ -128,15 +132,50 @@ async function main(): Promise<void> {
     return;
   }
 
-  const approved = await confirm(
-    `\nApply ${totals.merge} merge(s) and ${totals.create} create(s)? [y/N] `,
-  );
+  const approved = await confirm(commitConfirmation(baseUrl, totals));
   if (!approved) {
     console.log('Aborted; nothing was written.');
     return;
   }
 
   await commitPlans(client, planned);
+}
+
+/**
+ * The token is a live session for whichever site the run targets, so it is
+ * read from the environment or a file rather than taken as an argument that
+ * would land in shell history.
+ */
+async function resolveToken(): Promise<string> {
+  const fromEnvironment = process.env.IMPORT_API_TOKEN;
+  if (fromEnvironment) {
+    return fromEnvironment;
+  }
+
+  const tokenFile = process.env.IMPORT_API_TOKEN_FILE;
+  if (tokenFile) {
+    const contents = await readFile(tokenFile, 'utf8');
+    const token = contents.trim();
+    if (!token) {
+      throw new Error(`IMPORT_API_TOKEN_FILE is empty: ${tokenFile}`);
+    }
+    return token;
+  }
+
+  throw new Error(
+    'Set IMPORT_API_TOKEN (dev:local prints one as "Bearer" on startup) or IMPORT_API_TOKEN_FILE',
+  );
+}
+
+/**
+ * Printed before the first upload, since even a dry run creates imports on
+ * the target — a wrong site has to be visible before that, not at the commit
+ * prompt.
+ */
+function reportTarget(baseUrl: string, dryRun: boolean): void {
+  const mode = dryRun ? 'dry run: previews, approves nothing' : 'commit run';
+  const remoteWarning = isLocalTarget(baseUrl) ? '' : '  <-- not local';
+  console.log(`Target ${baseUrl} (${mode})${remoteWarning}\n`);
 }
 
 async function collectStatements(directory: string): Promise<Statement[]> {
@@ -488,15 +527,15 @@ async function commitPlans(
   }
 }
 
-async function confirm(question: string): Promise<boolean> {
+async function confirm(confirmation: CommitConfirmation): Promise<boolean> {
   const readline = createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   try {
-    const answer = await readline.question(question);
-    return answer.trim().toLowerCase() === 'y';
+    const answer = await readline.question(confirmation.prompt);
+    return confirmation.accepts(answer);
   } finally {
     readline.close();
   }

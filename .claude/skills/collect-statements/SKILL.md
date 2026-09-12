@@ -49,13 +49,61 @@ older one for the same card and month. The portals' own filenames do not carry
 the billing month — Cal's are dated the day you downloaded them — so renaming
 is not optional.
 
-Put every file for a run in one directory, then:
+Put every file for a run in one directory. The script targets
+`http://127.0.0.1:3000` unless told otherwise, so **a run with no `--base-url`
+imports into whatever is on this machine**, never production.
+
+## Rehearsing a provider before its first production run
+
+Rehearse over a Neon branch of the production database, not the seeded local
+one: the seed holds only Jan–Feb 2026 rows, so a real statement's first run
+there is all CREATE and the MERGE path — matching rows onto real pending
+transactions — goes untested until production. The branch is disposable; reset
+it from its parent between runs.
+
+1. `~/.config/my-expenses/rehearsal.env` holds the branch's `DATABASE_URL` and
+   `DIRECT_URL`, `REMOTE_DATABASE_OK=1`, `SESSION_USER_EMAIL`, production's
+   `PRISMA_FIELD_ENCRYPTION_KEY`, the real `IMPORTS_S3_*`, and
+   `EXCEL_EXTRACTION_AGENT_URL=http://127.0.0.1:51242`. It stays outside the
+   repo, and is composed by hand — a wholesale `vercel env pull` would carry
+   production's `DATABASE_URL`.
+2. Terminal 1, the real extractor:
+   `cd ~/Develop/my-expenses-agent && npm run dev` (its `.env` has `PORT=51242`).
+3. Terminal 2: `set -a; source ~/.config/my-expenses/rehearsal.env; set +a; npm run dev:local`.
+   The summary must show the branch's `ep-…` host under `Database` and the
+   mock extractor must not have started.
+4. Terminal 3, with the bearer the summary printed:
 
 ```bash
 IMPORT_API_TOKEN=<bearer> npm run statements:import -- <dir> --dry-run
 ```
 
-Read the table, then re-run without `--dry-run` to commit.
+Read the table, re-run without `--dry-run` to commit, then **run the same
+directory once more** — the re-import is the path that used to inject phantom
+charges, and the one worth watching.
+
+## Running against production
+
+The bearer is the `session` cookie from a logged-in browser tab (DevTools →
+Application → Cookies → the site). It is a live seven-day credential: keep it
+out of transcripts and shell history — put it in a file and point the script
+at that, or paste it from the clipboard.
+
+```bash
+chmod 600 ~/.config/my-expenses/production-token   # the cookie value, one line
+IMPORT_API_TOKEN_FILE=~/.config/my-expenses/production-token \
+  npm run statements:import -- <dir> --base-url=https://<site> --dry-run
+```
+
+The script prints its target before the first upload and, for a non-local
+target, asks for the **hostname** typed back rather than `y` before approving
+anything. Start with a single already-imported month: an empty or all-MERGE
+plan proves the connection and the token without changing a row.
+
+A dry run is not free of writes. Upload and process create the import and its
+pending rows on the target; only the approve step is skipped. A dry run you do
+not follow with a commit leaves a pending import that the imports page can
+delete.
 
 ## Cal — cal-online.co.il
 

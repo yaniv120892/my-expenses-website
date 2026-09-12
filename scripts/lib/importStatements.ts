@@ -74,6 +74,44 @@ export function parseStatementName(
   return { cardLastFour, paymentMonth: `${month}/${year}` };
 }
 
+export type PlanTotals = { merge: number; create: number };
+
+/** The question asked before a commit, and what answer counts as yes. */
+export type CommitConfirmation = {
+  prompt: string;
+  accepts: (answer: string) => boolean;
+};
+
+const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+
+export function isLocalTarget(baseUrl: string): boolean {
+  return LOCAL_HOSTS.includes(new URL(baseUrl).hostname);
+}
+
+/**
+ * A local target takes `y`. Anything else is a real site whose rows cannot be
+ * un-approved, so the answer has to be its hostname — a typo'd flag several
+ * minutes earlier must not be the only thing between a preview and the write.
+ */
+export function commitConfirmation(
+  baseUrl: string,
+  totals: PlanTotals,
+): CommitConfirmation {
+  const summary = `Apply ${totals.merge} merge(s) and ${totals.create} create(s) to ${baseUrl}?`;
+  if (isLocalTarget(baseUrl)) {
+    return {
+      prompt: `\n${summary} [y/N] `,
+      accepts: (answer) => answer.trim().toLowerCase() === 'y',
+    };
+  }
+
+  const { hostname } = new URL(baseUrl);
+  return {
+    prompt: `\n${summary}\nThis is not a local target. Type its hostname (${hostname}) to confirm, anything else to abort: `,
+    accepts: (answer) => answer.trim() === hostname,
+  };
+}
+
 type DatedRecord = { id: string; createdAt: string };
 
 /**

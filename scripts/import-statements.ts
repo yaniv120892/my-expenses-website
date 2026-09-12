@@ -5,8 +5,14 @@
  *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run]
  */
 import { readdir, readFile } from 'fs/promises';
-import { basename, extname, join } from 'path';
+import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
+import {
+  type ParsedStatementName,
+  parseImportArguments,
+  parseStatementName,
+  pickOldestImport,
+} from './lib/importStatements';
 import { toDayString } from '../src/shared/dates';
 import {
   type ReconciliationPlanItem,
@@ -26,7 +32,6 @@ class ApiError extends Error {
 }
 
 const IMPORTABLE_EXTENSIONS = ['.csv', '.xls', '.xlsx'];
-const STATEMENT_NAME_PATTERN = /^(.+)-(\d{4})-(\d{2})-(\d{4})$/;
 const FIRST_POLL_INTERVAL_MS = 2000;
 const MAX_POLL_INTERVAL_MS = 10000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
@@ -39,12 +44,8 @@ type ImportRecord = Pick<
   | 'error'
   | 'creditCardLastFourDigits'
   | 'paymentMonth'
+  | 'createdAt'
 >;
-
-type ParsedStatementName = {
-  cardLastFour: string;
-  paymentMonth: string;
-};
 
 type Statement = {
   filePath: string;
@@ -71,7 +72,9 @@ type PlannedImport = {
 };
 
 async function main(): Promise<void> {
-  const { directory, dryRun, baseUrl } = parseArguments();
+  const { directory, dryRun, baseUrl } = parseImportArguments(
+    process.argv.slice(2),
+  );
   const token = process.env.IMPORT_API_TOKEN;
   if (!token) {
     throw new Error(
@@ -136,35 +139,6 @@ async function main(): Promise<void> {
   await commitPlans(client, planned);
 }
 
-function parseArguments(): {
-  directory: string;
-  dryRun: boolean;
-  baseUrl: string;
-} {
-  const args = process.argv.slice(2);
-  const directory = args.find((arg) => !arg.startsWith('--'));
-  if (!directory) {
-    throw new Error(
-      'Usage: tsx scripts/import-statements.ts <dir> [--dry-run] [--base-url=<url>]',
-    );
-  }
-
-  const baseUrlArg = args.find((arg) => arg.startsWith('--base-url='));
-
-  return {
-    directory,
-    dryRun: args.includes('--dry-run'),
-    baseUrl: baseUrlArg
-      ? baseUrlArg.slice('--base-url='.length)
-      : 'http://127.0.0.1:3000',
-  };
-}
-
-/**
- * `<issuer>-<last4>-<MM>-<YYYY>.xlsx` carries the payment month the dialog
- * would otherwise ask for per batch, and identifies the import to follow when a
- * duplicate is merged away.
- */
 async function collectStatements(directory: string): Promise<Statement[]> {
   const entries = await readdir(directory);
 
@@ -178,18 +152,6 @@ async function collectStatements(directory: string): Promise<Statement[]> {
       fileName: entry,
       parsedName: parseStatementName(entry),
     }));
-}
-
-function parseStatementName(fileName: string): ParsedStatementName | null {
-  const match = STATEMENT_NAME_PATTERN.exec(
-    basename(fileName, extname(fileName)),
-  );
-  if (!match) {
-    return null;
-  }
-
-  const [, , cardLastFour, month, year] = match;
-  return { cardLastFour, paymentMonth: `${month}/${year}` };
 }
 
 function reportStatements(statements: Statement[]): void {
@@ -393,11 +355,18 @@ function findMergeSurvivor(
     return undefined;
   }
 
-  return imports.find(
+  const candidates = imports.filter(
     (record) =>
       record.creditCardLastFourDigits === parsed.cardLastFour &&
       record.paymentMonth === parsed.paymentMonth,
   );
+  if (candidates.length > 1) {
+    console.log(
+      `  ${statement.fileName}: ${candidates.length} imports exist for card ${parsed.cardLastFour}, ${parsed.paymentMonth}; following the oldest, which is the one a duplicate merges into`,
+    );
+  }
+
+  return pickOldestImport(candidates);
 }
 
 function reportFailedImports(targets: ResolvedTarget[]): void {

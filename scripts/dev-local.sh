@@ -7,6 +7,14 @@
 # unchanged. Presetting one of those vars points that single integration at the
 # real service — the extraction agent, S3, OpenAI — which is how a real
 # statement is exercised end to end without editing this file.
+#
+# Presetting DATABASE_URL and DIRECT_URL together runs the app over that
+# database instead of a local prisma dev: no seed, the schema migrated, and a
+# session minted for the account SESSION_USER_EMAIL names. That is how a run is
+# rehearsed over a copy of real data, whose card digits need the key that
+# encrypted them — hence PRISMA_FIELD_ENCRYPTION_KEY is overridable too. The
+# seed refuses any database that is not on this machine, so the wipe cannot
+# reach a remote one by accident.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -31,7 +39,7 @@ export OPENAI_API_KEY=${OPENAI_API_KEY:-e2e}
 export ASSISTANT_MODEL_URL="http://127.0.0.1:$MOCK_MODEL_PORT/v1"
 export CRON_SECRET=e2e
 # Test-only key; production uses its own secret.
-export PRISMA_FIELD_ENCRYPTION_KEY=k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=
+export PRISMA_FIELD_ENCRYPTION_KEY=${PRISMA_FIELD_ENCRYPTION_KEY:-k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=}
 export WEBSITE_URL="http://127.0.0.1:$APP_PORT"
 export EXCEL_EXTRACTION_AGENT_URL="${EXCEL_EXTRACTION_AGENT_URL:-http://127.0.0.1:$EXTRACTION_PORT}"
 export EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET=e2e-extraction-secret
@@ -125,46 +133,73 @@ fi
 # leaves that run pointed at a dead server.
 require_free_ports "$SHIM_PORT" "$MOCK_MODEL_PORT" "$EXTRACTION_PORT" "$APP_PORT"
 
-step 'Starting local Prisma Postgres'
-# Restarted rather than reused. prisma dev fronts Postgres with a pooler, and
-# the query engine left from the previous run holds a session carrying its
-# prepared statements; `migrate deploy` is handed that session and dies on
-# "prepared statement s0 already exists". Stopping drops the sessions — the
-# data lives on disk and survives.
-"$BIN/prisma" dev stop "$PRISMA_SERVER" >/dev/null 2>&1 || true
-"$BIN/prisma" dev --detach --name "$PRISMA_SERVER" >"$PRISMA_LOG" 2>&1 ||
-  die 'prisma dev failed to start' "$PRISMA_LOG"
+start_local_database() {
+  step 'Starting local Prisma Postgres'
+  # Restarted rather than reused. prisma dev fronts Postgres with a pooler, and
+  # the query engine left from the previous run holds a session carrying its
+  # prepared statements; `migrate deploy` is handed that session and dies on
+  # "prepared statement s0 already exists". Stopping drops the sessions — the
+  # data lives on disk and survives.
+  "$BIN/prisma" dev stop "$PRISMA_SERVER" >/dev/null 2>&1 || true
+  "$BIN/prisma" dev --detach --name "$PRISMA_SERVER" >"$PRISMA_LOG" 2>&1 ||
+    die 'prisma dev failed to start' "$PRISMA_LOG"
 
-# Ports are whatever prisma dev picked, so every URL is read back from its
-# state file, which lands under Application Support on macOS and the XDG data
-# home on Linux — and lands some time after --detach returns, so finding it and
-# reading it are both retried together below.
-STATE_CANDIDATES=(
-  "$HOME/Library/Application Support/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
-  "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
-)
+  # Ports are whatever prisma dev picked, so every URL is read back from its
+  # state file, which lands under Application Support on macOS and the XDG data
+  # home on Linux — and lands some time after --detach returns, so finding it and
+  # reading it are both retried together below.
+  STATE_CANDIDATES=(
+    "$HOME/Library/Application Support/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
+    "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
+  )
 
-# DATABASE_URL is the prisma+postgres:// proxy URL, not the plain postgres://
-# address in the same state file: that port multiplexes every client onto one
-# backend session, where the app client collides on prepared statements with the
-# schema engine and with Mastra. The plain address is DIRECT_URL, used by
-# migrations, the seed and Mastra.
-read_state() {
-  node -e '
-    const fs = require("fs");
-    const file = process.argv.slice(1).find((path) => fs.existsSync(path));
-    const { exports: state } = require(file);
-    console.log(state.ppg.url);
-    console.log(state.database.connectionString);
-  ' "${STATE_CANDIDATES[@]}" 2>/dev/null
+  # DATABASE_URL is the prisma+postgres:// proxy URL, not the plain postgres://
+  # address in the same state file: that port multiplexes every client onto one
+  # backend session, where the app client collides on prepared statements with the
+  # schema engine and with Mastra. The plain address is DIRECT_URL, used by
+  # migrations, the seed and Mastra.
+  read_state() {
+    node -e '
+      const fs = require("fs");
+      const file = process.argv.slice(1).find((path) => fs.existsSync(path));
+      const { exports: state } = require(file);
+      console.log(state.ppg.url);
+      console.log(state.database.connectionString);
+    ' "${STATE_CANDIDATES[@]}" 2>/dev/null
+  }
+  wait_for 90 read_state >/dev/null ||
+    die 'prisma dev never published its connection URLs' "$PRISMA_LOG"
+  {
+    read -r DATABASE_URL
+    read -r DIRECT_URL
+  } < <(read_state)
+  export DATABASE_URL DIRECT_URL
 }
-wait_for 90 read_state >/dev/null ||
-  die 'prisma dev never published its connection URLs' "$PRISMA_LOG"
-{
-  read -r DATABASE_URL
-  read -r DIRECT_URL
-} < <(read_state)
-export DATABASE_URL DIRECT_URL
+
+database_host() {
+  node -e 'console.log(new URL(process.argv[1]).hostname)' "$1"
+}
+
+use_preset_database() {
+  if [ -z "${DATABASE_URL:-}" ] || [ -z "${DIRECT_URL:-}" ]; then
+    die 'DATABASE_URL and DIRECT_URL must be preset together, or neither'
+  fi
+  if [ -z "${SESSION_USER_EMAIL:-}" ]; then
+    die 'SESSION_USER_EMAIL names the account to mint a session for when the database is preset'
+  fi
+  DATABASE_HOST=$(database_host "$DIRECT_URL")
+  if [ "${REMOTE_DATABASE_OK:-}" != 1 ]; then
+    die "Refusing a preset database without REMOTE_DATABASE_OK=1. Check that $DATABASE_HOST is the copy you mean to write to, not production, then set it."
+  fi
+  step "Using the preset database at $DATABASE_HOST"
+}
+
+if [ -n "${DATABASE_URL:-}${DIRECT_URL:-}" ]; then
+  use_preset_database
+else
+  DATABASE_HOST=local
+  start_local_database
+fi
 
 step 'Applying migrations'
 "$BIN/prisma" migrate deploy
@@ -184,17 +219,27 @@ wait_for 180 healthy || die 'the app never reported healthy' "$NEXT_LOG" "$SERVE
 
 from_serve_log() { sed -n "s/^$1=//p" "$SERVE_LOG"; }
 
+if [ "$DATABASE_HOST" = local ]; then
+  DATA_NOTE='Seeded transactions are dated January and February 2026, so any view scoped
+  to recent months is empty by design. Every run re-seeds from scratch, so
+  anything you added by hand last run is gone.'
+  SIGN_IN="$(from_serve_log E2E_USER_EMAIL) / $(from_serve_log E2E_PASSWORD)"
+else
+  DATA_NOTE="Running over the database at $DATABASE_HOST: nothing was seeded, and every
+  import written here stays there."
+  SIGN_IN="$(from_serve_log E2E_USER_EMAIL) with that account's own password"
+fi
+
 cat <<SUMMARY
 
   App        http://localhost:$APP_PORT
   Health     $HEALTH
+  Database   $DATABASE_HOST
 
-  Sign in    $(from_serve_log E2E_USER_EMAIL) / $(from_serve_log E2E_PASSWORD)
+  Sign in    $SIGN_IN
   Bearer     $(from_serve_log E2E_AUTH_TOKEN)
 
-  Seeded transactions are dated January and February 2026, so any view scoped
-  to recent months is empty by design. Every run re-seeds from scratch, so
-  anything you added by hand last run is gone.
+  $DATA_NOTE
 
   Logs       $NEXT_LOG, $SERVE_LOG
   Ctrl-C stops the app and the mocks. The database keeps running — stop it

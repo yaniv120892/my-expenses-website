@@ -169,6 +169,74 @@ describe('completed extraction', () => {
     expect(updateOrder).toBeLessThan(findOrder);
   });
 
+  it('keeps the payment month the import was submitted with when extraction disagrees', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      createdAt: CREATED_AT,
+      paymentMonth: '02/2026',
+    });
+
+    await run(payload([tx()]));
+
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+      data: expect.objectContaining({ paymentMonth: '02/2026' }),
+    });
+    expect(importRepo.findExisting).toHaveBeenCalledWith(
+      'user-1',
+      '02/2026',
+      '4242',
+      'imp-1',
+    );
+  });
+
+  it('a null month from extraction does not wipe the submitted one', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      createdAt: CREATED_AT,
+      paymentMonth: '02/2026',
+    });
+
+    await run({
+      requestId: 'req-1',
+      status: 'COMPLETED',
+      result: {
+        transactions: [tx()],
+        metadata: { paymentMonth: null, creditCardLastFour: '4242' },
+      },
+    });
+
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+      data: expect.objectContaining({ paymentMonth: '02/2026' }),
+    });
+    // Duplicate detection needs the month, so it must still run.
+    expect(importRepo.findExisting).toHaveBeenCalledWith(
+      'user-1',
+      '02/2026',
+      '4242',
+      'imp-1',
+    );
+  });
+
+  it('fills the payment month from extraction when the import was submitted without one', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      createdAt: CREATED_AT,
+      paymentMonth: null,
+    });
+
+    await run(payload([tx()]));
+
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+      data: expect.objectContaining({ paymentMonth: '03/2026' }),
+    });
+  });
+
   it('inserts its own rows before looking for a duplicate', async () => {
     await run(payload([tx()]));
 

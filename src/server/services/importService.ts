@@ -829,7 +829,7 @@ class ImportService {
     // contract a future provider could forget.
     const matchingTransactionId = resolveMatchedTransactionId(
       await this.getAiProvider().findMatchingTransaction(
-        transaction.description,
+        transaction,
         availableMatches,
       ),
       availableMatches,

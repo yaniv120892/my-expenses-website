@@ -5,11 +5,13 @@ const {
   getTransactionsList,
   getTransactionsSummary,
   getAllCategories,
+  reportSwallowedError,
 } = vi.hoisted(() => ({
   findByUserAndDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
+  reportSwallowedError: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
@@ -22,6 +24,10 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
+}));
+
+vi.mock('@/server/logging/reportSwallowedError', () => ({
+  reportSwallowedError,
 }));
 
 import transactionService from '@/server/services/transactionService';
@@ -45,6 +51,7 @@ const getSuggestedCategory = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
   categorizeExpense.mockResolvedValue(null);
@@ -238,5 +245,31 @@ describe('getSuggestedCategory', () => {
     categorizeExpense.mockRejectedValue(new Error('categorizer down'));
     expect(await getSuggestedCategory()).toBe('cat-ai');
     expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
+  });
+
+  it('reports a categorizer failure instead of only logging it', async () => {
+    const err = new Error('categorizer down');
+    categorizeExpense.mockRejectedValue(err);
+    await getSuggestedCategory();
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      { err, description: 'Pizza' },
+      'Failed to categorize expense',
+    );
+  });
+
+  it('reports a missing categorizer URL and still falls back to the LLM', async () => {
+    vi.stubEnv('EXPENSE_CATEGORIZER_BASE_URL', '');
+    service.categorizeExpense =
+      Object.getPrototypeOf(service).categorizeExpense;
+    expect(await getSuggestedCategory()).toBe('cat-ai');
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      {
+        err: expect.objectContaining({
+          message: expect.stringContaining('EXPENSE_CATEGORIZER_BASE_URL'),
+        }),
+        description: 'Pizza',
+      },
+      'Failed to categorize expense',
+    );
   });
 });

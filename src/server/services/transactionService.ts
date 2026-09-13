@@ -31,6 +31,7 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
 // cost that matters is the number of round trips.
@@ -449,8 +450,11 @@ class TransactionService {
     let prediction: { category: string; confidence: number } | null = null;
     try {
       prediction = await this.categorizeExpense(description);
-    } catch {
-      logger.warn({ description }, 'Failed to categorize expense');
+    } catch (err) {
+      reportSwallowedError(
+        { err, description },
+        'Failed to categorize expense',
+      );
     }
     if (!prediction) {
       return null;

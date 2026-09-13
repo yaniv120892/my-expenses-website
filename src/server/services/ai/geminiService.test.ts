@@ -5,13 +5,10 @@ const { generateContent, reportSwallowedError } = vi.hoisted(() => ({
   reportSwallowedError: vi.fn(),
 }));
 
-const getGenerativeModel = vi.fn(
-  (params: { model: string }, requestOptions?: { timeout?: number }) => {
-    void params;
-    void requestOptions;
-    return { generateContent };
-  },
-);
+const getGenerativeModel = vi.fn((params: { model: string }) => {
+  void params;
+  return { generateContent };
+});
 
 vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: class {
@@ -103,15 +100,5 @@ describe('GeminiService model id', () => {
     await service.analyzeExpenses('second');
 
     expect(getGenerativeModel.mock.calls[1][0].model).toBe('gemini-switched');
-  });
-});
-
-describe('GeminiService request limits', () => {
-  it('bounds every model with the shared timeout', async () => {
-    generateContent.mockResolvedValue(textResponse('ok'));
-
-    await new GeminiService().analyzeExpenses('summary');
-
-    expect(getGenerativeModel.mock.calls[0][1]).toEqual({ timeout: 30_000 });
   });
 });

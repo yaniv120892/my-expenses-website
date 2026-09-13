@@ -4,19 +4,8 @@ import type { ClientOptions } from 'openai';
 const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(
   () => ({
     reportSwallowedError: vi.fn(),
+    hangingFetch: vi.fn(),
     constructedWith: [] as unknown[],
-    // Never answers; rejects only when the SDK aborts it, as a real stalled
-    // socket would.
-    hangingFetch: vi.fn(
-      (_url: unknown, init?: { signal?: AbortSignal | null }) =>
-        new Promise<never>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => {
-            const abortError = new Error('The operation was aborted');
-            abortError.name = 'AbortError';
-            reject(abortError);
-          });
-        }),
-    ),
   }),
 );
 
@@ -38,8 +27,12 @@ import { APIConnectionTimeoutError } from 'openai';
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
+import { stalledFetch } from '@/test/stalledFetch';
+
+hangingFetch.mockImplementation(stalledFetch);
 
 const categories: Category[] = [{ id: 'cat-food', name: 'Food' }];
+const RETRY_BACKOFF_ALLOWANCE_MS = 2_000;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -61,7 +54,6 @@ describe('ChatGPTService request limits', () => {
     expect(constructedWith).toEqual([
       expect.objectContaining({ timeout: 30_000, maxRetries: 1 }),
     ]);
-    expect(AI_REQUEST_LIMITS).toEqual({ timeoutMs: 30_000, maxRetries: 1 });
   });
 
   it('does not build the client until a call is made', () => {
@@ -81,9 +73,9 @@ describe('ChatGPTService request limits', () => {
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
     expect(settled).toBe(false);
 
-    // Second attempt's timeout plus the SDK's retry backoff (under a second
-    // for the first retry).
-    await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs + 2_000);
+    await vi.advanceTimersByTimeAsync(
+      AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS,
+    );
 
     expect(settled).toBe(true);
     await expect(pending).resolves.toBeNull();

@@ -11,18 +11,11 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 import { GeminiService } from '@/server/services/ai/geminiService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
+import { stalledFetch } from '@/test/stalledFetch';
 
 const categories: Category[] = [{ id: 'cat-food', name: 'Food' }];
 
-// Never answers; rejects only when the SDK aborts it, as a stalled socket would.
-const hangingFetch = vi.fn(
-  (_url: unknown, init?: { signal?: AbortSignal }) =>
-    new Promise<Response>((_resolve, reject) => {
-      init?.signal?.addEventListener('abort', () => {
-        reject(new DOMException('The operation was aborted', 'AbortError'));
-      });
-    }),
-);
+const hangingFetch = vi.fn(stalledFetch);
 
 beforeEach(() => {
   vi.clearAllMocks();

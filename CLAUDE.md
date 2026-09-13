@@ -108,13 +108,14 @@ runs them alone.
   client (OpenAI, Gemini, Telegram, SMTP, S3, Google, excel extraction) is
   built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
   `requireEnv`. A missing env var must fail the call, never the import.
-- **Every model call is bounded.** The OpenAI and Gemini clients behind
+- **Every `AIProvider` call is bounded.** The OpenAI and Gemini clients behind
   `AIProvider` take their timeout (and OpenAI its retry count) from
   `AI_REQUEST_LIMITS` (`src/server/services/ai/requestLimits.ts`), never an SDK
   default: those calls run one row at a time inside a batch request, and
   OpenAI's default of 10 minutes with 2 retries let one stalled answer outlive
-  the function. A timeout is an ordinary provider failure, so it fails that
-  row, not the batch. The assistant's Mastra model is a separate streaming
+  the function. A timeout is an ordinary provider failure that fails its row;
+  the limit is per call, so a batch against a degraded provider can still
+  outrun the function. The assistant's Mastra model is a separate streaming
   client and is not bound by these limits.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_

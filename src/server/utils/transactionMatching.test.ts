@@ -3,8 +3,11 @@ import { TransactionType } from '@prisma/client';
 import {
   findExactNormalizedMatch,
   isSameCharge,
+  isWithinMatchWindow,
   matchValueTolerance,
+  matchWindow,
   normalizeDescription,
+  shareNoWord,
 } from '@/server/utils/transactionMatching';
 
 describe('normalizeDescription', () => {
@@ -264,5 +267,48 @@ describe('isSameCharge', () => {
         charge({ description: 'Super Pharm' }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('isWithinMatchWindow', () => {
+  const window = matchWindow(new Date(2026, 5, 16), 470);
+
+  it('includes the edges of the date and value range', () => {
+    expect(
+      isWithinMatchWindow(window, {
+        date: new Date(2026, 5, 21),
+        value: 474.7,
+      }),
+    ).toBe(true);
+    expect(
+      isWithinMatchWindow(window, {
+        date: new Date(2026, 5, 11),
+        value: 465.3,
+      }),
+    ).toBe(true);
+  });
+
+  it('excludes a day or a value past the range', () => {
+    expect(
+      isWithinMatchWindow(window, { date: new Date(2026, 5, 22), value: 470 }),
+    ).toBe(false);
+    expect(
+      isWithinMatchWindow(window, { date: new Date(2026, 5, 16), value: 475 }),
+    ).toBe(false);
+  });
+});
+
+describe('shareNoWord', () => {
+  it('is true for descriptions with no normalized word in common', () => {
+    expect(shareNoWord('אנימל שופ חנות חיות', 'אוכל לברונו')).toBe(true);
+  });
+
+  it('is false when a word survives normalization on both sides', () => {
+    expect(shareNoWord('NETFLIX.COM', 'netflix com subscription')).toBe(false);
+  });
+
+  it('never reads a blank side as unrelated', () => {
+    expect(shareNoWord('', 'Netflix')).toBe(false);
+    expect(shareNoWord('!!!', 'Netflix')).toBe(false);
   });
 });

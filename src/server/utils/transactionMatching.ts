@@ -73,6 +73,58 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
+/** The dates and values a transaction must fall inside to be a candidate. */
+export type MatchWindow = {
+  earliestDate: Date;
+  latestDate: Date;
+  minimumValue: number;
+  maximumValue: number;
+};
+
+export function matchWindow(date: Date, value: number): MatchWindow {
+  const valueTolerance = matchValueTolerance(value);
+  const earliestDate = new Date(date);
+  earliestDate.setDate(earliestDate.getDate() - CHARGE_DATE_DAY_RANGE);
+  const latestDate = new Date(date);
+  latestDate.setDate(latestDate.getDate() + CHARGE_DATE_DAY_RANGE);
+
+  return {
+    earliestDate,
+    latestDate,
+    minimumValue: value - valueTolerance,
+    maximumValue: value + valueTolerance,
+  };
+}
+
+/** The in-memory form of the bounds the candidate query applies in SQL. */
+export function isWithinMatchWindow(
+  window: MatchWindow,
+  charge: { date: Date; value: number },
+): boolean {
+  const time = charge.date.getTime();
+  return (
+    time >= window.earliestDate.getTime() &&
+    time <= window.latestDate.getTime() &&
+    charge.value >= window.minimumValue &&
+    charge.value <= window.maximumValue
+  );
+}
+
+/**
+ * Whether two descriptions have no normalized word in common. A blank side
+ * says nothing about the charge, so it is never read as unrelated.
+ */
+export function shareNoWord(left: string, right: string): boolean {
+  const leftWords = toWords(left);
+  const rightWords = new Set(toWords(right));
+  const eitherBlank = leftWords.length === 0 || rightWords.size === 0;
+  if (eitherBlank) {
+    return false;
+  }
+
+  return !leftWords.some((word) => rightWords.has(word));
+}
+
 // The extraction service shortens a merchant by dropping words at an end —
 // usually the trailing branch, mall or city, sometimes a leading "refund" —
 // so a shortened name is a whole word or words from one end of the full one.
@@ -136,4 +188,9 @@ function isTruncatedMerchantMatch(a: string, b: string): boolean {
   const startsOnWordBoundary =
     longer[longer.length - shorter.length - 1] === ' ';
   return longer.endsWith(shorter) && startsOnWordBoundary;
+}
+
+function toWords(description: string): string[] {
+  const normalized = normalizeDescription(description);
+  return normalized ? normalized.split(' ') : [];
 }

@@ -1,7 +1,7 @@
 // Type-only imports: this module is also bundled client-side (src/types/import
 // re-exports its enums), so it must not pull in @prisma/client at runtime.
 import type { Prisma } from '@prisma/client';
-import type { TransactionType } from './transaction';
+import type { TransactionStatus, TransactionType } from './transaction';
 
 export enum ImportFileType {
   VISA_CREDIT = 'VISA_CREDIT',
@@ -106,6 +106,38 @@ export type ReconciliationPlanItem = {
   type: TransactionType;
   categoryId: string | null;
   match: ReconciliationMatch | null;
+};
+
+/** The existing transaction a review hint puts beside a planned row. */
+export type ReconciliationCounterpart = {
+  transactionId: string;
+  description: string;
+  value: number;
+  date: Date;
+  status: TransactionStatus;
+};
+
+/**
+ * Why a planned row is worth a human's look before committing. Informational
+ * only: the action is decided before the hint is derived and never changes.
+ * `rejected-candidate` is a CREATE with a transaction inside its match window
+ * (the closest one, of `candidateCount`); `unrelated-merge` is a MERGE onto a
+ * transaction whose description shares no word with the row's.
+ */
+export type ReconciliationReviewHint =
+  | {
+      reason: 'rejected-candidate';
+      counterpart: ReconciliationCounterpart;
+      candidateCount: number;
+    }
+  | {
+      reason: 'unrelated-merge';
+      counterpart: ReconciliationCounterpart;
+    };
+
+/** A plan item as the reconciliation preview returns it. */
+export type ReconciliationPreviewItem = ReconciliationPlanItem & {
+  reviewHint: ReconciliationReviewHint | null;
 };
 
 // The 409 rematchImport throws when a survivor's pending rows were already

@@ -247,8 +247,52 @@ about charges abroad billed in a later month. It has no rows to extract.
 
 ## American Express IL — americanexpress.co.il
 
-Not yet mapped. Amex IL runs on Isracard's platform, so expect that flow to
-resemble Isracard's rather than Cal's — but confirm before writing it down.
+Verified end to end. Amex IL runs on Isracard's platform: after login it is the
+same site under another hostname, and the file has the same layout.
+
+1. Go straight to `https://he.americanexpress.co.il/personalarea/login/`. The
+   homepage's `החשבון שלי` links there.
+2. The login form matches Isracard's, down to the reCAPTCHA: `כניסה באמצעות SMS`
+   with `תעודת זהות` + the card's last four digits → `שלחו קוד לנייד`, or
+   `או כניסה עם סיסמה קבועה`.
+3. **Hand over here.** After login you land on
+   `https://web.americanexpress.co.il/StatusPage`.
+4. Every statement has its own address:
+   `https://web.americanexpress.co.il/transactions?monthAndYear=<MM>.<YYYY>&cardSuffix=<last4>`,
+   listed by billing date. The `הורדה ל- Excel` button
+   (`aria-label="download excel"`) downloads one file named
+   `<last4>_<MM>_<YYYY>.xlsx`. Rename it `amex-<last4>-<MM>-<YYYY>.xlsx`.
+
+The automatic-downloads permission belongs on `web.americanexpress.co.il`, the
+host the download runs on. Allowing `he.americanexpress.co.il`, where the login
+lives, does nothing.
+
+The file reads exactly as Isracard's does (see above): title rows with the
+month and billed total, `תאריך רכישה | שם בית עסק | סכום עסקה | …`, text
+`DD.MM.YY` dates, and a `סה"כ לחיוב החודש בכרטיס בש"ח` line equal to the sum of
+`סכום חיוב`.
+
+### Merges onto an unrelated recurring bill
+
+Read every MERGE whose two descriptions share nothing. The matcher can merge a
+small charge onto a pending recurring bill that happens to be within tolerance.
+The model sees only descriptions, not the candidate's category or that it
+recurs (YAN-114). On Amex this merged the card's `דמי כרטיס הנפקה` fee
+(22.90) and a 21.90 pharmacy purchase onto the monthly `019` phone bill
+(22.00 / 20.00). Committing that marks the phone bill paid under the wrong
+charge.
+
+Before the commit, approve each such row on its own. The row then becomes a
+new transaction and leaves the pending bill alone:
+
+```bash
+curl -X POST -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+  -d '{"description":"<row description>","value":<row value>,"date":"<row date>","type":"EXPENSE"}' \
+  <base-url>/api/imports/transactions/<imported-row-id>/approve
+```
+
+Then run the commit. The script reports that the plan changed since the preview
+(`-1 row(s)` per row taken out) and applies the rest.
 
 ## After collecting
 

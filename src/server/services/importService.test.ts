@@ -382,6 +382,25 @@ describe('matchSingleTransaction', () => {
     });
   });
 
+  it("gives the provider the row's amount, date and type, not just its description", async () => {
+    findMatchingTransaction.mockResolvedValue(null);
+
+    await service.matchSingleTransaction(
+      row({ description: 'Coffee Shop', type: 'EXPENSE' }),
+      'user-1',
+    );
+
+    expect(findMatchingTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Coffee Shop',
+        value: 10,
+        date: new Date(2026, 2, 7),
+        type: 'EXPENSE',
+      }),
+      candidates,
+    );
+  });
+
   it('leaves the row unmatched when the provider reports none', async () => {
     findMatchingTransaction.mockResolvedValue(null);
 

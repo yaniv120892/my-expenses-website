@@ -1,9 +1,17 @@
 import { Category } from '@/shared/types/category';
-import { Transaction } from '@/shared/types/transaction';
+import { Transaction, TransactionType } from '@/shared/types/transaction';
 
 export interface CategorizerHint {
   hint: string;
   confidence: number;
+}
+
+/** The imported statement row an existing transaction is sought for. */
+export interface ImportedChargeToMatch {
+  description: string;
+  value: number;
+  date: Date;
+  type: TransactionType;
 }
 
 export interface AIProvider {
@@ -29,7 +37,7 @@ export interface AIProvider {
    * `resolveMatchedTransactionId`, so callers never see an invented id.
    */
   findMatchingTransaction(
-    importedDescription: string,
+    importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null>;
 }

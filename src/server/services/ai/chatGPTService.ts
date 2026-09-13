@@ -1,5 +1,9 @@
 import OpenAI from 'openai';
-import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
+import {
+  AIProvider,
+  CategorizerHint,
+  ImportedChargeToMatch,
+} from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
@@ -10,6 +14,7 @@ import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
+  FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 
@@ -126,7 +131,7 @@ export class ChatGPTService implements AIProvider {
   }
 
   public async findMatchingTransaction(
-    importedDescription: string,
+    importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
     try {
@@ -139,18 +144,17 @@ export class ChatGPTService implements AIProvider {
         messages: [
           {
             role: 'system',
-            content:
-              'You are a helpful assistant that matches similar transaction descriptions. Respond only with the ID of the best matching transaction or "none" if no good match is found.',
+            content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
           },
           {
             role: 'user',
             content: buildFindMatchingTransactionPrompt(
-              importedDescription,
+              importedCharge,
               potentialMatches,
             ),
           },
         ],
-        temperature: 0.3,
+        temperature: 0,
         max_tokens: 50,
       });
 

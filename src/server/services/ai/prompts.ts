@@ -1,6 +1,10 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
-import { CategorizerHint } from '@/server/services/ai/aiProvider';
+import {
+  CategorizerHint,
+  ImportedChargeToMatch,
+} from '@/server/services/ai/aiProvider';
+import { toDayString } from '@/shared/dates';
 import logger from '@/server/logging/logger';
 
 // Prompts live here so both providers send identical instructions; switching
@@ -28,26 +32,36 @@ export function buildSuggestCategoryPrompt(
   return prompt;
 }
 
+export const FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT =
+  'You decide whether an imported credit-card charge is the same real-world charge as one of the user\'s existing transactions. Respond only with the matching transaction ID, or "none".';
+
+// Candidates are pre-selected by amount and date alone, so the model must be
+// told that closeness is the filter, not evidence; otherwise a lone candidate
+// reads as the answer and an unrelated same-value bill gets merged.
 export function buildFindMatchingTransactionPrompt(
-  importedDescription: string,
+  importedCharge: ImportedChargeToMatch,
   potentialMatches: Transaction[],
 ): string {
-  return `You are a helpful assistant that matches similar transaction descriptions. Your task is to find the most semantically similar transaction from a list of potential matches.
+  return `Decide whether this imported credit-card statement row is the same real-world charge as one of the existing transactions below.
+
+Imported row:
+- description: ${JSON.stringify(importedCharge.description)}
+- amount: ${formatAmount(importedCharge.value)}
+- date: ${toDayString(importedCharge.date)}
+- type: ${importedCharge.type}
+
+Existing transactions:
+${potentialMatches.map(describeCandidate).join('\n')}
 
 Rules:
-1. Compare the imported description with each potential match
-2. Consider semantic similarity, not just exact matches
-3. Account for variations in merchant names and transaction descriptions
-4. Return ONLY the ID of the best matching transaction
-5. If no good match is found, return "none"
-6. Do not explain your choice, just return the ID or "none"
+1. Every existing transaction above was listed only because its amount and date are close to the imported row's. A similar amount or date is never enough to call it a match.
+2. A transaction matches only when its description names the same merchant or payee, for the same kind of charge, as the imported row. Use its category to understand what it is.
+3. Card statements shorten, truncate or transliterate merchant names between Hebrew and English, and add branch, city or reference codes. "AMZN MKTP US*2K4" is Amazon, "וולט" is Wolt, and "רמי לוי" is "רמי לוי שיווק השקמה". Treat such variants as the same merchant.
+4. A different merchant, or a different kind of charge (a card or bank fee, a phone or utility bill, a shop purchase and a subscription are all different kinds), is not a match.
+5. "none" is the expected answer whenever no transaction is clearly the same charge, including when only one transaction is listed.
+6. Status PENDING_APPROVAL marks a charge the user expects (often a scheduled recurring bill) but has not confirmed; it makes a transaction no more likely to match.
 
-Given this imported transaction description: "${importedDescription}"
-
-Find the best matching transaction from this list:
-${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
-
-Return only the ID of the best match, or "none" if no good match exists.`;
+Return only the ID of the matching transaction, or "none". Do not explain.`;
 }
 
 /**
@@ -74,4 +88,12 @@ export function resolveMatchedTransactionId(
     'Model answer did not name an offered match; treating as no match',
   );
   return null;
+}
+
+function describeCandidate(transaction: Transaction): string {
+  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatAmount(transaction.value)} | date: ${toDayString(transaction.date)} | type: ${transaction.type} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
+}
+
+function formatAmount(value: number): string {
+  return value.toFixed(2);
 }

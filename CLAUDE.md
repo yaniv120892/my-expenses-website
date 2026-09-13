@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant. Formerly split across `my-expenses` (Express API, now deprecated) and this repo.
 
-Two sibling services stay external and are reached over HTTP: `expense-categorizer` (FastAPI/FastText, `POST /predict`) and `excel-extraction-service` (Express + Gemini, async webhook callbacks).
+One sibling service stays external and is reached over HTTP: `excel-extraction-service` (Express + Gemini, async webhook callbacks). Transaction categories come from a user's own description mapping first, then the AI provider.
 
 ## Commands
 

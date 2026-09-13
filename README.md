@@ -19,7 +19,7 @@ both the web UI and the API.
   columns)
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
 - **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
-  Gemini via `AI_PROVIDER`, plus an external FastText categorizer service
+  Gemini via `AI_PROVIDER`
 - **Observability**: pino structured logs, Vercel Analytics + Speed Insights
 
 ## Getting started
@@ -190,7 +190,6 @@ wrong-URL failure visible regardless of how it is wrong.
 
 | Service                  | Contract                                                                                                                |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| expense-categorizer      | `POST ${EXPENSE_CATEGORIZER_BASE_URL}/predict` `{description}` → category + confidence                                  |
 | excel-extraction-service | `POST ${EXCEL_EXTRACTION_AGENT_URL}/api/extract`; result arrives at `/api/excel-extraction-agent/webhook` (HMAC-signed) |
 
 ## History

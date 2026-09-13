@@ -91,8 +91,8 @@ during approval — needs the stack restarted before the next run. Approval is
 atomic per row, so a commit that failed part-way leaves its failed rows
 PENDING, and re-running the same command applies just those.
 
-A commit takes seconds per created row locally: the categorizer is not running,
-so every row falls back to a model call for its category.
+A commit takes seconds per created row: a row whose description has no user
+mapping costs a model call for its category.
 
 Then **run the same directory once more with `--resubmit`** — that uploads
 every file again, which is the re-import path that used to inject phantom

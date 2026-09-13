@@ -15,7 +15,6 @@ import {
 import { CreateTransactionRequest } from '@/shared/schemas/transactions';
 import { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
-import axios from 'axios';
 import logger from '@/server/logging/logger';
 import { Category } from '@/shared/types/category';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
@@ -28,7 +27,6 @@ import {
 } from '@/server/services/transactionAttachmentFileUtils';
 import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
-import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
 
@@ -45,9 +43,6 @@ export interface TransactionFileView {
   fileSize: number;
   mimeType: string;
 }
-
-const HIGH_CONFIDENCE_THRESHOLD = 0.7;
-const MEDIUM_CONFIDENCE_THRESHOLD = 0.4;
 
 class TransactionService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());
@@ -389,28 +384,6 @@ class TransactionService {
       return mappedCategoryId;
     }
 
-    const prediction = await this.predictKnownCategory(description, categories);
-
-    if (prediction && prediction.confidence >= HIGH_CONFIDENCE_THRESHOLD) {
-      logger.debug(
-        `High confidence (${prediction.confidence.toFixed(2)}) category: ${prediction.category.name}`,
-      );
-      return prediction.category.id;
-    }
-
-    if (prediction && prediction.confidence >= MEDIUM_CONFIDENCE_THRESHOLD) {
-      logger.debug(
-        `Medium confidence (${prediction.confidence.toFixed(2)}), passing hint to LLM: ${prediction.category.name}`,
-      );
-      return this.getAiService().suggestCategory(description, categories, {
-        hint: prediction.category.name,
-        confidence: prediction.confidence,
-      });
-    }
-
-    logger.warn(
-      `No reliable category from categorizer for: ${description}. Using AI service.`,
-    );
     return this.getAiService().suggestCategory(description, categories);
   }
 
@@ -438,52 +411,6 @@ class TransactionService {
       logger.warn({ err }, 'Failed to check user category mapping');
     }
     return null;
-  }
-
-  // Null covers both a categorizer that returned nothing and a predicted name
-  // that is not one of this user's categories; both mean "no usable hint".
-  private async predictKnownCategory(
-    description: string,
-    categories: Category[],
-  ): Promise<{ category: Category; confidence: number } | null> {
-    let prediction: { category: string; confidence: number } | null = null;
-    try {
-      prediction = await this.categorizeExpense(description);
-    } catch {
-      logger.warn({ description }, 'Failed to categorize expense');
-    }
-    if (!prediction) {
-      return null;
-    }
-
-    const { category: predictedName, confidence } = prediction;
-    const category = categories.find((c) => c.name === predictedName);
-    return category ? { category, confidence } : null;
-  }
-
-  private async categorizeExpense(
-    description: string,
-  ): Promise<{ category: string; confidence: number } | null> {
-    const expenseCategorizerBaseUrl = requireEnv(
-      'EXPENSE_CATEGORIZER_BASE_URL',
-    );
-    const response = await axios.post(`${expenseCategorizerBaseUrl}/predict`, {
-      description,
-    });
-    logger.debug({ description }, 'Done categorizing expense');
-
-    if (!response.data.category) {
-      logger.error(
-        { description },
-        'No category found for expense using categorizer',
-      );
-      return null;
-    }
-
-    return {
-      category: response.data.category,
-      confidence: response.data.confidence ?? 0,
-    };
   }
 
   public async notifyTransactionCreatedSafe(

@@ -1,106 +1,88 @@
 import type {
-  ReconciliationCounterpart,
   ReconciliationPlanItem,
   ReconciliationReviewHint,
 } from '@/shared/types/import';
-import type {
-  TransactionStatus,
-  TransactionType,
-} from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 import {
   isWithinMatchWindow,
   matchWindow,
   shareNoWord,
 } from '@/server/utils/transactionMatching';
 
-type ExistingTransaction = {
-  id: string;
-  description: string;
-  value: number;
-  date: Date;
-  status: TransactionStatus;
-};
+type CandidateTransaction = Pick<
+  Transaction,
+  'id' | 'description' | 'value' | 'date' | 'type' | 'status'
+>;
 
-type CandidateTransaction = ExistingTransaction & { type: TransactionType };
-
-/**
- * The review hint for an already-decided plan item. `matched` is the
- * transaction a MERGE lands on; `candidates` may span many rows' windows and
- * is narrowed to this item's own here.
- */
+// `candidates` may span many rows' match windows; this narrows them to the item's own.
 export function deriveReviewHint(
   item: ReconciliationPlanItem,
-  matched: ExistingTransaction | null,
   candidates: CandidateTransaction[],
 ): ReconciliationReviewHint | null {
   switch (item.action) {
     case 'MERGE':
-      return unrelatedMergeHint(item, matched);
+      return unrelatedMergeHint(item);
     case 'CREATE':
-      return rejectedCandidateHint(item, candidates);
-    default:
-      return null;
+      return unmatchedCandidateHint(item, candidates);
+    default: {
+      const unhandledAction: never = item.action;
+      throw new Error(`Unhandled reconciliation action ${unhandledAction}`);
+    }
   }
 }
 
 function unrelatedMergeHint(
   item: ReconciliationPlanItem,
-  matched: ExistingTransaction | null,
 ): ReconciliationReviewHint | null {
-  if (!matched || !shareNoWord(item.description, matched.description)) {
-    return null;
-  }
+  const isUnrelated =
+    item.match !== null &&
+    shareNoWord(item.description, item.match.before.description);
 
-  return { reason: 'unrelated-merge', counterpart: toCounterpart(matched) };
+  return isUnrelated ? { reason: 'unrelated-merge' } : null;
 }
 
-function rejectedCandidateHint(
+function unmatchedCandidateHint(
   item: ReconciliationPlanItem,
   candidates: CandidateTransaction[],
 ): ReconciliationReviewHint | null {
-  const window = matchWindow(item.date, item.value);
-  const inWindow = candidates.filter(
-    (candidate) =>
-      candidate.type === item.type && isWithinMatchWindow(window, candidate),
+  const window = matchWindow(item);
+  const inWindow = candidates.filter((candidate) =>
+    isWithinMatchWindow(window, candidate),
   );
   if (inWindow.length === 0) {
     return null;
   }
 
-  const [closest] = [...inWindow].sort(
-    (a, b) =>
-      valueDistance(item, a) - valueDistance(item, b) ||
-      dateDistance(item, a) - dateDistance(item, b),
+  const closest = inWindow.reduce((best, candidate) =>
+    isCloser(item, candidate, best) ? candidate : best,
   );
   return {
-    reason: 'rejected-candidate',
-    counterpart: toCounterpart(closest),
+    reason: 'unmatched-candidate',
+    counterpart: {
+      transactionId: closest.id,
+      description: closest.description,
+      value: closest.value,
+      date: closest.date,
+      status: closest.status,
+    },
     candidateCount: inWindow.length,
   };
 }
 
-function valueDistance(
+function isCloser(
   item: ReconciliationPlanItem,
   candidate: CandidateTransaction,
-): number {
-  return Math.abs(candidate.value - item.value);
-}
+  best: CandidateTransaction,
+): boolean {
+  const valueGap =
+    Math.abs(candidate.value - item.value) - Math.abs(best.value - item.value);
+  if (valueGap !== 0) {
+    return valueGap < 0;
+  }
 
-function dateDistance(
-  item: ReconciliationPlanItem,
-  candidate: CandidateTransaction,
-): number {
-  return Math.abs(candidate.date.getTime() - item.date.getTime());
-}
-
-function toCounterpart(
-  transaction: ExistingTransaction,
-): ReconciliationCounterpart {
-  return {
-    transactionId: transaction.id,
-    description: transaction.description,
-    value: transaction.value,
-    date: transaction.date,
-    status: transaction.status,
-  };
+  const time = item.date.getTime();
+  return (
+    Math.abs(candidate.date.getTime() - time) <
+    Math.abs(best.date.getTime() - time)
+  );
 }

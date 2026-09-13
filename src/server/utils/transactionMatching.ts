@@ -1,4 +1,5 @@
 import { TransactionType } from '@prisma/client';
+import { addDays, subDays } from 'date-fns';
 
 // A statement row and a hand-logged transaction rarely agree exactly: the
 // merchant string is spelled differently and the charged amount can drift from
@@ -73,47 +74,51 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
-/** The dates and values a transaction must fall inside to be a candidate. */
+export type MatchableCharge = {
+  date: Date;
+  value: number;
+  type: TransactionType;
+};
+
 export type MatchWindow = {
+  // value is a positive magnitude with the direction in `type`, so without it
+  // a refund is a candidate for the charge it reverses — and merging would
+  // rewrite the refund into an expense.
+  type: TransactionType;
   earliestDate: Date;
   latestDate: Date;
   minimumValue: number;
   maximumValue: number;
 };
 
-export function matchWindow(date: Date, value: number): MatchWindow {
-  const valueTolerance = matchValueTolerance(value);
-  const earliestDate = new Date(date);
-  earliestDate.setDate(earliestDate.getDate() - CHARGE_DATE_DAY_RANGE);
-  const latestDate = new Date(date);
-  latestDate.setDate(latestDate.getDate() + CHARGE_DATE_DAY_RANGE);
+export function matchWindow(charge: MatchableCharge): MatchWindow {
+  const valueTolerance = matchValueTolerance(charge.value);
 
   return {
-    earliestDate,
-    latestDate,
-    minimumValue: value - valueTolerance,
-    maximumValue: value + valueTolerance,
+    type: charge.type,
+    earliestDate: subDays(charge.date, CHARGE_DATE_DAY_RANGE),
+    latestDate: addDays(charge.date, CHARGE_DATE_DAY_RANGE),
+    minimumValue: charge.value - valueTolerance,
+    maximumValue: charge.value + valueTolerance,
   };
 }
 
 /** The in-memory form of the bounds the candidate query applies in SQL. */
 export function isWithinMatchWindow(
   window: MatchWindow,
-  charge: { date: Date; value: number },
+  candidate: MatchableCharge,
 ): boolean {
-  const time = charge.date.getTime();
+  const time = candidate.date.getTime();
   return (
+    candidate.type === window.type &&
     time >= window.earliestDate.getTime() &&
     time <= window.latestDate.getTime() &&
-    charge.value >= window.minimumValue &&
-    charge.value <= window.maximumValue
+    candidate.value >= window.minimumValue &&
+    candidate.value <= window.maximumValue
   );
 }
 
-/**
- * Whether two descriptions have no normalized word in common. A blank side
- * says nothing about the charge, so it is never read as unrelated.
- */
+// A blank side says nothing about the charge, so it is never read as unrelated.
 export function shareNoWord(left: string, right: string): boolean {
   const leftWords = toWords(left);
   const rightWords = new Set(toWords(right));

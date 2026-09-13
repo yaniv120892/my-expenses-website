@@ -108,7 +108,6 @@ export type ReconciliationPlanItem = {
   match: ReconciliationMatch | null;
 };
 
-/** The existing transaction a review hint puts beside a planned row. */
 export type ReconciliationCounterpart = {
   transactionId: string;
   description: string;
@@ -117,25 +116,16 @@ export type ReconciliationCounterpart = {
   status: TransactionStatus;
 };
 
-/**
- * Why a planned row is worth a human's look before committing. Informational
- * only: the action is decided before the hint is derived and never changes.
- * `rejected-candidate` is a CREATE with a transaction inside its match window
- * (the closest one, of `candidateCount`); `unrelated-merge` is a MERGE onto a
- * transaction whose description shares no word with the row's.
- */
+// Informational only: derived after the plan item's action is decided, and
+// never changes it. `counterpart` is the closest of `candidateCount`.
 export type ReconciliationReviewHint =
   | {
-      reason: 'rejected-candidate';
+      reason: 'unmatched-candidate';
       counterpart: ReconciliationCounterpart;
       candidateCount: number;
     }
-  | {
-      reason: 'unrelated-merge';
-      counterpart: ReconciliationCounterpart;
-    };
+  | { reason: 'unrelated-merge' };
 
-/** A plan item as the reconciliation preview returns it. */
 export type ReconciliationPreviewItem = ReconciliationPlanItem & {
   reviewHint: ReconciliationReviewHint | null;
 };

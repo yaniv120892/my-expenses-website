@@ -25,13 +25,16 @@ const item = (
   ...over,
 });
 
-const merge = (over: Partial<ReconciliationPreviewItem> = {}) =>
+const merge = (
+  over: Partial<ReconciliationPreviewItem> = {},
+  approvesPendingTransaction = true,
+) =>
   item({
     action: 'MERGE',
     description: 'Netflix',
     match: {
       transactionId: 'tx-1',
-      approvesPendingTransaction: true,
+      approvesPendingTransaction,
       before: {
         description: 'Netflix',
         value: 470,
@@ -48,11 +51,11 @@ describe('describePlanItem', () => {
     );
   });
 
-  it('marks a CREATE with a rejected candidate and names it', () => {
+  it('marks a CREATE with an unmatched candidate and names it', () => {
     const line = describePlanItem(
       item({
         reviewHint: {
-          reason: 'rejected-candidate',
+          reason: 'unmatched-candidate',
           counterpart,
           candidateCount: 2,
         },
@@ -61,7 +64,7 @@ describe('describePlanItem', () => {
 
     expect(line).toBe(
       'CREATE? 2026-06-16     470.00  אנימל שופ חנות חיות\n' +
-        '            check: a candidate was not matched: "אוכל לברונו" 470.00 on 2026-06-17 (approved) (+1 more)',
+        '            check: not matched to "אוכל לברונו" 470.00 on 2026-06-17 (approved) (+1 more)',
     );
   });
 
@@ -71,33 +74,29 @@ describe('describePlanItem', () => {
     );
   });
 
-  it('marks an unrelated MERGE and names the other side', () => {
+  it('marks an unrelated MERGE with the other side in its diff', () => {
     const line = describePlanItem(
-      merge({
-        description: 'Pizza Place',
-        match: {
-          transactionId: 'tx-1',
-          approvesPendingTransaction: false,
-          before: {
-            description: 'Netflix',
-            value: 470,
-            date: new Date(2026, 5, 16),
-          },
+      merge(
+        {
+          description: 'Pizza Place',
+          reviewHint: { reason: 'unrelated-merge' },
         },
-        reviewHint: {
-          reason: 'unrelated-merge',
-          counterpart: { ...counterpart, description: 'Netflix' },
-        },
-      }),
+        false,
+      ),
     );
 
-    expect(line.split('\n')[0]).toBe(
-      'MERGE?  2026-06-16     470.00  Pizza Place',
+    expect(line).toBe(
+      'MERGE?  2026-06-16     470.00  Pizza Place\n' +
+        '            check: the merged descriptions share no word\n' +
+        '            description "Netflix" -> "Pizza Place"',
     );
-    expect(line).toContain(
-      'check: merges onto a transaction sharing no word with this row: "Netflix"',
+  });
+
+  it('keeps a MERGE diff on its continuation line', () => {
+    expect(describePlanItem(merge({ value: 471 }))).toBe(
+      'MERGE   2026-06-16     471.00  Netflix (approves pending)\n' +
+        '            value 470.00 -> 471.00',
     );
-    expect(line).toContain('description "Netflix" -> "Pizza Place"');
   });
 
   it('accepts dates serialized as JSON strings', () => {
@@ -111,10 +110,17 @@ describe('reviewReminder', () => {
     expect(reviewReminder([item(), merge()])).toBeNull();
   });
 
+  it('does not count rows from a server that sends no reviewHint', () => {
+    const { reviewHint: _omitted, ...withoutHint } = item();
+    const legacyRows = JSON.parse(JSON.stringify([withoutHint, withoutHint]));
+
+    expect(reviewReminder(legacyRows)).toBeNull();
+  });
+
   it('counts the flagged rows', () => {
     const flagged = item({
       reviewHint: {
-        reason: 'rejected-candidate',
+        reason: 'unmatched-candidate',
         counterpart,
         candidateCount: 1,
       },

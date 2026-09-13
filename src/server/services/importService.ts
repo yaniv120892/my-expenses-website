@@ -428,13 +428,9 @@ class ImportService {
       userId,
     );
 
-    return plan.map((item, index) => ({
+    return plan.map((item) => ({
       ...item,
-      reviewHint: deriveReviewHint(
-        item,
-        pending[index].matchingTransaction,
-        candidates,
-      ),
+      reviewHint: deriveReviewHint(item, candidates),
     }));
   }
 
@@ -545,9 +541,8 @@ class ImportService {
     return { pending, missingIds };
   }
 
-  // One query for every CREATE row's window rather than one per row. A
-  // transaction another pending row already claims was never offered to the
-  // matcher, so it is not a candidate the model rejected.
+  // A transaction another pending row already claims is left out: that row's
+  // merge will consume it, so it cannot be this row's missed match.
   private async findUnclaimedCandidatesForCreates(
     plan: ReconciliationPlanItem[],
     userId: string,

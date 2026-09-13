@@ -271,29 +271,37 @@ describe('isSameCharge', () => {
 });
 
 describe('isWithinMatchWindow', () => {
-  const window = matchWindow(new Date(2026, 5, 16), 470);
+  const expense = (date: Date, value: number) => ({
+    date,
+    value,
+    type: TransactionType.EXPENSE,
+  });
+  const window = matchWindow(expense(new Date(2026, 5, 16), 470));
 
   it('includes the edges of the date and value range', () => {
     expect(
-      isWithinMatchWindow(window, {
-        date: new Date(2026, 5, 21),
-        value: 474.7,
-      }),
+      isWithinMatchWindow(window, expense(new Date(2026, 5, 21), 474.7)),
     ).toBe(true);
     expect(
-      isWithinMatchWindow(window, {
-        date: new Date(2026, 5, 11),
-        value: 465.3,
-      }),
+      isWithinMatchWindow(window, expense(new Date(2026, 5, 11), 465.3)),
     ).toBe(true);
   });
 
   it('excludes a day or a value past the range', () => {
     expect(
-      isWithinMatchWindow(window, { date: new Date(2026, 5, 22), value: 470 }),
+      isWithinMatchWindow(window, expense(new Date(2026, 5, 22), 470)),
     ).toBe(false);
     expect(
-      isWithinMatchWindow(window, { date: new Date(2026, 5, 16), value: 475 }),
+      isWithinMatchWindow(window, expense(new Date(2026, 5, 16), 475)),
+    ).toBe(false);
+  });
+
+  it('excludes the opposite direction at the same day and value', () => {
+    expect(
+      isWithinMatchWindow(window, {
+        ...expense(new Date(2026, 5, 16), 470),
+        type: TransactionType.INCOME,
+      }),
     ).toBe(false);
   });
 });

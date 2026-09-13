@@ -458,6 +458,16 @@ describe('buildReconciliationPlan', () => {
     ...over,
   });
 
+  const candidateTransaction = (over: Record<string, unknown> = {}) => ({
+    id: 'tx-bruno',
+    description: 'Food for Bruno',
+    value: 470,
+    date: new Date(2026, 5, 17),
+    type: 'EXPENSE',
+    status: 'APPROVED',
+    ...over,
+  });
+
   beforeEach(() => {
     findPotentialMatchesForCharges.mockResolvedValue([]);
     importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
@@ -488,14 +498,7 @@ describe('buildReconciliationPlan', () => {
       pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
     ]);
     findPotentialMatchesForCharges.mockResolvedValue([
-      {
-        id: 'tx-bruno',
-        description: 'Food for Bruno',
-        value: 470,
-        date: new Date(2026, 5, 17),
-        type: 'EXPENSE',
-        status: 'APPROVED',
-      },
+      candidateTransaction({ id: 'tx-bruno' }),
     ]);
 
     const [item] = await importService.buildReconciliationPlan(
@@ -505,7 +508,7 @@ describe('buildReconciliationPlan', () => {
 
     expect(item.action).toBe('CREATE');
     expect(item.reviewHint).toMatchObject({
-      reason: 'rejected-candidate',
+      reason: 'unmatched-candidate',
       counterpart: { transactionId: 'tx-bruno' },
       candidateCount: 1,
     });
@@ -517,14 +520,7 @@ describe('buildReconciliationPlan', () => {
       pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
     ]);
     findPotentialMatchesForCharges.mockResolvedValue([
-      {
-        id: 'tx-claimed',
-        description: 'Food for Bruno',
-        value: 470,
-        date: new Date(2026, 5, 17),
-        type: 'EXPENSE',
-        status: 'APPROVED',
-      },
+      candidateTransaction({ id: 'tx-claimed' }),
     ]);
     importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
       'tx-claimed',
@@ -552,10 +548,7 @@ describe('buildReconciliationPlan', () => {
     );
 
     expect(item.action).toBe('MERGE');
-    expect(item.reviewHint).toMatchObject({
-      reason: 'unrelated-merge',
-      counterpart: { transactionId: 'tx-1', status: 'PENDING_APPROVAL' },
-    });
+    expect(item.reviewHint).toEqual({ reason: 'unrelated-merge' });
     expect(findPotentialMatchesForCharges).not.toHaveBeenCalled();
   });
 

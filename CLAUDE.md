@@ -133,11 +133,14 @@ runs them alone.
 - **A preview flags close calls without deciding them.** Each preview item
   carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
   action, from database lookups only and never a model call:
-  `rejected-candidate` when a CREATE row still has an unclaimed transaction
+  `unmatched-candidate` when a CREATE row still has an unclaimed transaction
   inside its match window (fetched for every CREATE row in one query), and
   `unrelated-merge` when a MERGE's two descriptions share no normalized word.
-  Neither changes what the commit does; `scripts/import-statements.ts` prints
-  flagged rows as `CREATE?`/`MERGE?` with the other side's description.
+  The window is `matchWindow` (`src/server/utils/transactionMatching.ts`), the
+  same bounds `findPotentialMatches` queries by, so a flagged candidate is
+  one the matcher's own query would return today. Neither hint changes what the commit does;
+  `scripts/import-statements.ts` prints flagged rows as `CREATE?`/`MERGE?`
+  with the other side's description.
 - **Duplicate import rows are matched up to a shortened merchant name.**
   `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires date,
   value and type to agree exactly, and the shorter normalized description to

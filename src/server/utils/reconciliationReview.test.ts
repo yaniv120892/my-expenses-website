@@ -28,10 +28,10 @@ const transaction = (over: Record<string, unknown> = {}) => ({
 
 describe('deriveReviewHint for a CREATE', () => {
   it('flags a same-value candidate the matcher did not take', () => {
-    const hint = deriveReviewHint(createItem(), null, [transaction()]);
+    const hint = deriveReviewHint(createItem(), [transaction()]);
 
     expect(hint).toEqual({
-      reason: 'rejected-candidate',
+      reason: 'unmatched-candidate',
       counterpart: {
         transactionId: 'tx-1',
         description: 'אוכל לברונו',
@@ -44,7 +44,7 @@ describe('deriveReviewHint for a CREATE', () => {
   });
 
   it('is null with no candidate in the window', () => {
-    expect(deriveReviewHint(createItem(), null, [])).toBeNull();
+    expect(deriveReviewHint(createItem(), [])).toBeNull();
   });
 
   it("ignores candidates that belong to another row's window", () => {
@@ -54,7 +54,7 @@ describe('deriveReviewHint for a CREATE', () => {
       transaction({ id: 'refund', type: 'INCOME' }),
     ];
 
-    expect(deriveReviewHint(createItem(), null, candidates)).toBeNull();
+    expect(deriveReviewHint(createItem(), candidates)).toBeNull();
   });
 
   it('names the closest candidate by value, then date, and counts the rest', () => {
@@ -68,11 +68,13 @@ describe('deriveReviewHint for a CREATE', () => {
       transaction({ id: 'near-day', date: new Date(2026, 5, 15) }),
     ];
 
-    const hint = deriveReviewHint(createItem(), null, candidates);
+    const hint = deriveReviewHint(createItem(), candidates);
 
-    expect(hint?.reason).toBe('rejected-candidate');
-    expect(hint?.counterpart.transactionId).toBe('near-day');
-    expect(hint).toMatchObject({ candidateCount: 3 });
+    expect(hint).toMatchObject({
+      reason: 'unmatched-candidate',
+      counterpart: { transactionId: 'near-day' },
+      candidateCount: 3,
+    });
   });
 });
 
@@ -93,30 +95,18 @@ describe('deriveReviewHint for a MERGE', () => {
     });
 
   it('flags a merge whose descriptions share no word', () => {
-    const hint = deriveReviewHint(
-      mergeItem('אנימל שופ'),
-      transaction({ status: 'PENDING_APPROVAL' }),
-      [],
-    );
-
-    expect(hint).toEqual({
+    expect(deriveReviewHint(mergeItem('אנימל שופ'), [])).toEqual({
       reason: 'unrelated-merge',
-      counterpart: expect.objectContaining({
-        transactionId: 'tx-1',
-        status: 'PENDING_APPROVAL',
-      }),
     });
   });
 
   it('is null when a normalized word is shared', () => {
-    expect(
-      deriveReviewHint(mergeItem('אוכל, לכלב'), transaction(), []),
-    ).toBeNull();
+    expect(deriveReviewHint(mergeItem('אוכל, לכלב'), [])).toBeNull();
   });
 
-  it('never reads a same-value candidate as a rejection on a MERGE', () => {
+  it('never reads an in-window candidate as unmatched on a MERGE', () => {
     expect(
-      deriveReviewHint(mergeItem('אוכל לברונו'), transaction(), [
+      deriveReviewHint(mergeItem('אוכל לברונו'), [
         transaction({ id: 'tx-2', description: 'something else' }),
       ]),
     ).toBeNull();

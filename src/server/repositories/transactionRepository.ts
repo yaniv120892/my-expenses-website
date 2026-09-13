@@ -6,7 +6,10 @@ import {
   Category as PrismaCategory,
 } from '@prisma/client';
 import prisma from '@/server/db/client';
-import { matchWindow } from '@/server/utils/transactionMatching';
+import {
+  type MatchableCharge,
+  matchWindow,
+} from '@/server/utils/transactionMatching';
 import {
   TransactionFilters,
   Transaction,
@@ -25,12 +28,6 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
-
-type MatchableCharge = {
-  date: Date;
-  value: number;
-  type: TransactionType;
-};
 
 const MATCHABLE_STATUSES = [
   TransactionStatus.APPROVED,
@@ -357,23 +354,10 @@ class TransactionRepository {
     value: number,
     type: TransactionType,
   ): Promise<Transaction[]> {
-    const potentialTransactions = await prisma.transaction.findMany({
-      where: {
-        userId,
-        ...this.buildMatchWindowWhere({ date, value, type }),
-        status: { in: MATCHABLE_STATUSES },
-      },
-      orderBy: { status: 'desc' },
-      include: { category: true },
-    });
-
-    return potentialTransactions.map(this.mapToDomain);
+    return this.findPotentialMatchesForCharges(userId, [{ date, value, type }]);
   }
 
-  /**
-   * Every transaction that is a potential match for at least one of the
-   * charges, in one query; which charge each belongs to is left to the caller.
-   */
+  // Which charge each returned transaction belongs to is left to the caller.
   public async findPotentialMatchesForCharges(
     userId: string,
     charges: MatchableCharge[],
@@ -388,6 +372,7 @@ class TransactionRepository {
         status: { in: MATCHABLE_STATUSES },
         OR: charges.map((charge) => this.buildMatchWindowWhere(charge)),
       },
+      orderBy: { status: 'desc' },
       include: { category: true },
     });
 
@@ -395,12 +380,9 @@ class TransactionRepository {
   }
 
   private buildMatchWindowWhere(charge: MatchableCharge) {
-    const window = matchWindow(charge.date, charge.value);
+    const window = matchWindow(charge);
     return {
-      // value is a positive magnitude with the direction in `type`, so
-      // without this a refund is a candidate for the charge it reverses —
-      // and merging would rewrite the refund into an expense.
-      type: charge.type,
+      type: window.type,
       date: { gte: window.earliestDate, lte: window.latestDate },
       value: { gte: window.minimumValue, lte: window.maximumValue },
     };

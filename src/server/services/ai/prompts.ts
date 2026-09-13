@@ -5,6 +5,7 @@ import {
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
+import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
 // Prompts live here so both providers send identical instructions; switching
@@ -32,36 +33,31 @@ export function buildSuggestCategoryPrompt(
   return prompt;
 }
 
-export const FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT =
-  'You decide whether an imported credit-card charge is the same real-world charge as one of the user\'s existing transactions. Respond only with the matching transaction ID, or "none".';
+// Without rule 1 and the single-candidate "none", a lone same-value candidate
+// reads as the answer and an unrelated recurring bill gets merged.
+export const FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT = `You decide whether an imported credit-card statement row is the same real-world charge as one of the user's existing transactions.
 
-// Candidates are pre-selected by amount and date alone, so the model must be
-// told that closeness is the filter, not evidence; otherwise a lone candidate
-// reads as the answer and an unrelated same-value bill gets merged.
+Rules:
+1. The existing transactions are only nearby candidates in amount and date. A similar amount or date is never enough to call one a match.
+2. A transaction matches only when its description names the same merchant or payee, for the same kind of charge, as the imported row. Use its category to understand what it is. A card or bank fee, a phone or utility bill, a shop purchase and a subscription are different kinds of charge.
+3. Card statements shorten, truncate or transliterate merchant names between Hebrew and English, and add branch, city or reference codes: "AMZN MKTP US*2K4" is Amazon, and "רמי לוי" is "רמי לוי שיווק השקמה". Treat such variants as the same merchant.
+4. Status PENDING_APPROVAL marks an expected charge the user has not confirmed, often a scheduled recurring bill. It does not make a transaction more likely to match.
+5. Answer "none" whenever no transaction is clearly the same charge, including when only one is listed. A bank transfer fee next to a pending electricity bill of a similar amount is "none".
+
+Respond with only the matching transaction ID, or "none". Do not explain.`;
+
 export function buildFindMatchingTransactionPrompt(
   importedCharge: ImportedChargeToMatch,
   potentialMatches: Transaction[],
 ): string {
-  return `Decide whether this imported credit-card statement row is the same real-world charge as one of the existing transactions below.
-
-Imported row:
+  return `Imported row:
 - description: ${JSON.stringify(importedCharge.description)}
-- amount: ${formatAmount(importedCharge.value)}
+- amount: ${formatCurrencyPlain(importedCharge.value)}
 - date: ${toDayString(importedCharge.date)}
 - type: ${importedCharge.type}
 
 Existing transactions:
-${potentialMatches.map(describeCandidate).join('\n')}
-
-Rules:
-1. Every existing transaction above was listed only because its amount and date are close to the imported row's. A similar amount or date is never enough to call it a match.
-2. A transaction matches only when its description names the same merchant or payee, for the same kind of charge, as the imported row. Use its category to understand what it is.
-3. Card statements shorten, truncate or transliterate merchant names between Hebrew and English, and add branch, city or reference codes. "AMZN MKTP US*2K4" is Amazon, "וולט" is Wolt, and "רמי לוי" is "רמי לוי שיווק השקמה". Treat such variants as the same merchant.
-4. A different merchant, or a different kind of charge (a card or bank fee, a phone or utility bill, a shop purchase and a subscription are all different kinds), is not a match.
-5. "none" is the expected answer whenever no transaction is clearly the same charge, including when only one transaction is listed.
-6. Status PENDING_APPROVAL marks a charge the user expects (often a scheduled recurring bill) but has not confirmed; it makes a transaction no more likely to match.
-
-Return only the ID of the matching transaction, or "none". Do not explain.`;
+${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
 /**
@@ -91,9 +87,5 @@ export function resolveMatchedTransactionId(
 }
 
 function describeCandidate(transaction: Transaction): string {
-  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatAmount(transaction.value)} | date: ${toDayString(transaction.date)} | type: ${transaction.type} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
-}
-
-function formatAmount(value: number): string {
-  return value.toFixed(2);
+  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatCurrencyPlain(transaction.value)} | date: ${toDayString(transaction.date)} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
 }

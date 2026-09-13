@@ -6,7 +6,6 @@ export interface CategorizerHint {
   confidence: number;
 }
 
-/** The imported statement row an existing transaction is sought for. */
 export interface ImportedChargeToMatch {
   description: string;
   value: number;

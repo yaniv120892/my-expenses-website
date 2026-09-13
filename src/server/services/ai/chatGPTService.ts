@@ -3,6 +3,7 @@ import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
+import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
@@ -21,6 +22,8 @@ export class ChatGPTService implements AIProvider {
     () =>
       new OpenAI({
         apiKey: requireEnv('OPENAI_API_KEY'),
+        timeout: AI_REQUEST_LIMITS.timeoutMs,
+        maxRetries: AI_REQUEST_LIMITS.maxRetries,
       }),
   );
 

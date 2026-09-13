@@ -1,9 +1,10 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
 import logger from '@/server/logging/logger';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
+import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
@@ -26,9 +27,7 @@ export class GeminiService implements AIProvider {
   public async generateContent(prompt: string): Promise<string> {
     try {
       logger.debug({ prompt }, 'Start generating content');
-      const model = this.getGemini().getGenerativeModel({
-        model: this.modelName(),
-      });
+      const model = this.generativeModel();
       const response = await model.generateContent({
         contents: [
           {
@@ -60,9 +59,7 @@ export class GeminiService implements AIProvider {
   ): Promise<string | null> {
     try {
       logger.debug('Start analyzing expenses');
-      const model = this.getGemini().getGenerativeModel({
-        model: this.modelName(),
-      });
+      const model = this.generativeModel();
       const response = await model.generateContent({
         contents: [
           {
@@ -101,9 +98,7 @@ export class GeminiService implements AIProvider {
         { expenseDescription },
         'Start suggesting category for expense',
       );
-      const model = this.getGemini().getGenerativeModel({
-        model: this.modelName(),
-      });
+      const model = this.generativeModel();
 
       const promptText = buildSuggestCategoryPrompt(
         expenseDescription,
@@ -156,9 +151,7 @@ export class GeminiService implements AIProvider {
         return null;
       }
 
-      const model = this.getGemini().getGenerativeModel({
-        model: this.modelName(),
-      });
+      const model = this.generativeModel();
       const response = await model.generateContent({
         contents: [
           {
@@ -192,6 +185,13 @@ export class GeminiService implements AIProvider {
       );
       return null;
     }
+  }
+
+  private generativeModel(): GenerativeModel {
+    return this.getGemini().getGenerativeModel(
+      { model: this.modelName() },
+      { timeout: AI_REQUEST_LIMITS.timeoutMs },
+    );
   }
 
   private modelName(): string {

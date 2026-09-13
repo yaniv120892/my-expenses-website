@@ -188,8 +188,7 @@ agree to the agora when nothing was dropped.
 
 ## Isracard — isracard.co.il
 
-Login verified; the statement pages are **not yet mapped** — fill this in on
-the next run rather than guessing.
+Verified end to end.
 
 1. Go straight to `https://digital.isracard.co.il/personalarea/Login/`.
    Reaching it from the homepage opens it in a **new tab**.
@@ -198,7 +197,53 @@ the next run rather than guessing.
    password alternative.
 3. The page carries a reCAPTCHA. Never attempt it — if it challenges, the human
    completes it.
-4. **Hand over here.**
+4. **Hand over here.** After login you land on
+   `https://web.isracard.co.il/StatusPage`. Wait for the human to say the cards
+   page is showing: loading a page while the login is still redirecting sends
+   the tab back to the login form.
+5. Every statement has its own address, so no clicking through menus is
+   needed:
+   `https://web.isracard.co.il/transactions?monthAndYear=<MM>.<YYYY>&cardSuffix=<last4>`.
+   Without `cardSuffix` the page opens on the first card, and the carousel
+   arrows switch cards. The page already lists `עסקאות למועד חיוב` (by billing
+   date), so the month in the address is the billing month.
+6. The export is the `הורדה ל- Excel` button (`aria-label="download excel"`) at
+   the bottom of the list. It downloads one file per click, already named
+   `<last4>_<MM>_<YYYY>.xlsx`.
+
+The session ends after roughly ten idle minutes (`היי, לא היית כאן הרבה זמן`),
+and every page then redirects to the login form. Export all months in one go
+right after the hand-back, and do the checking afterwards.
+
+Chrome needs two settings for this portal, and both belong to the human:
+`Ask where to save each file before downloading` off, and
+`web.isracard.co.il` allowed under Site settings → Automatic downloads. Without
+the second, only the first export of a visit arrives. The later clicks
+still build the file (the page calls `URL.createObjectURL` and clicks a
+download link), but Chrome drops them without a prompt.
+
+The `פרטים אינם סופיים` notice appears on every month, so it says nothing
+about whether a month has closed. A month is closed once its billing day on
+the card (`לחיוב ב-10.09`) has passed.
+
+### What Isracard's file looks like
+
+Title rows first: `פירוט עסקאות` with the month name (`ספטמבר 2026`), then
+the card name with its last four digits and the month's billed total
+(`פלטינה מסטרקארד - 9301 … ₪ 1,048.36`), then the cardholder's name. A
+`עסקאות למועד חיוב` label comes next, then the header row:
+
+```
+תאריך רכישה | שם בית עסק | סכום עסקה | מטבע עסקה | סכום חיוב | מטבע חיוב | מס' שובר | פירוט נוסף
+```
+
+Dates are text, `DD.MM.YY`. After the charge rows comes a short
+`סה"כ לחיוב החודש בכרטיס בש"ח` line whose number equals the title row's
+total. That total is the sum of `סכום חיוב`, the shekel amount actually
+billed. Charges made abroad carry the original amount and currency (`€`, `$`)
+in `סכום עסקה`/`מטבע עסקה`, so the original column sums to nothing
+meaningful. A later `עסקאות בחיוב עתידי` block only holds a count and a note
+about charges abroad billed in a later month. It has no rows to extract.
 
 ## American Express IL — americanexpress.co.il
 

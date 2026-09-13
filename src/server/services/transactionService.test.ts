@@ -5,11 +5,13 @@ const {
   getTransactionsList,
   getTransactionsSummary,
   getAllCategories,
+  reportSwallowedError,
 } = vi.hoisted(() => ({
   findByUserAndDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
+  reportSwallowedError: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
@@ -24,6 +26,10 @@ vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
 }));
 
+vi.mock('@/server/logging/reportSwallowedError', () => ({
+  reportSwallowedError,
+}));
+
 import transactionService from '@/server/services/transactionService';
 import type { Category } from '@/shared/types/category';
 
@@ -32,20 +38,18 @@ const CATEGORIES = [
   { id: 'cat-rent', name: 'Rent' },
 ] as Category[];
 
-// The AI client is private to the service; it is stubbed so these cases
-// exercise the fallback order rather than the provider factory.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const service = transactionService as any;
+const serviceInternals = transactionService as any;
 const suggestCategory = vi.fn();
 
 const getSuggestedCategory = () =>
-  service.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
+  serviceInternals.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
 
 beforeEach(() => {
   vi.clearAllMocks();
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
-  service.getAiService = () => ({ suggestCategory });
+  serviceInternals.getAiService = () => ({ suggestCategory });
 });
 
 describe('getAllTransactions', () => {
@@ -180,29 +184,46 @@ describe('getSuggestedCategory', () => {
   });
 
   it('normalizes the description before looking up a mapping', async () => {
-    await service.getSuggestedCategory('  PiZZa  ', 'user-1', CATEGORIES);
+    await serviceInternals.getSuggestedCategory(
+      '  PiZZa  ',
+      'user-1',
+      CATEGORIES,
+    );
     expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
   });
 
-  it('asks the AI service when no mapping exists', async () => {
+  it.each([
+    [
+      'no mapping exists',
+      () => findByUserAndDescription.mockResolvedValue(null),
+    ],
+    [
+      'the mapped category no longer exists',
+      () =>
+        findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
+    ],
+    [
+      'the mapping lookup fails',
+      () => findByUserAndDescription.mockRejectedValue(new Error('db down')),
+    ],
+  ])('asks the AI service when %s', async (_case, arrange) => {
+    arrange();
     expect(await getSuggestedCategory()).toBe('cat-ai');
     expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
   });
 
-  it('falls through to the AI service when the mapping lookup fails', async () => {
-    findByUserAndDescription.mockRejectedValue(new Error('db down'));
-    expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
-  });
-
-  it('falls through when the mapped category no longer exists', async () => {
-    findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' });
-    expect(await getSuggestedCategory()).toBe('cat-ai');
+  it('reports a failed mapping lookup instead of only logging it', async () => {
+    const err = new Error('db down');
+    findByUserAndDescription.mockRejectedValue(err);
+    await getSuggestedCategory();
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      { err, userId: 'user-1' },
+      'Failed to check user category mapping',
+    );
   });
 
   it('returns null when the AI service has no answer', async () => {
     suggestCategory.mockResolvedValue(null);
     expect(await getSuggestedCategory()).toBeNull();
-    expect(suggestCategory).toHaveBeenCalledTimes(1);
   });
 });

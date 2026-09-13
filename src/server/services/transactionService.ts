@@ -29,6 +29,7 @@ import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
 // cost that matters is the number of round trips.
@@ -375,16 +376,10 @@ class TransactionService {
     userId: string,
     categories: Category[],
   ): Promise<string | null> {
-    const mappedCategoryId = await this.findUserMappedCategoryId(
-      description,
-      userId,
-      categories,
+    return (
+      (await this.findUserMappedCategoryId(description, userId, categories)) ??
+      this.getAiService().suggestCategory(description, categories)
     );
-    if (mappedCategoryId) {
-      return mappedCategoryId;
-    }
-
-    return this.getAiService().suggestCategory(description, categories);
   }
 
   private async findUserMappedCategoryId(
@@ -408,7 +403,10 @@ class TransactionService {
         return mappedCategory.id;
       }
     } catch (err) {
-      logger.warn({ err }, 'Failed to check user category mapping');
+      reportSwallowedError(
+        { err, userId },
+        'Failed to check user category mapping',
+      );
     }
     return null;
   }

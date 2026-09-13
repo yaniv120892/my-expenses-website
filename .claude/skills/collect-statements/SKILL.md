@@ -83,6 +83,17 @@ upload again: the dry run recorded each file's import in
 never stands in for production), and the commit approves those imports. If the
 plan differs from what the dry run showed, the script says so before asking.
 
+The branch's compute scales to zero after five idle minutes, and the local
+server's connection pool does not recover from it: requests then fail with
+`Timed out fetching a new connection from the connection pool` or hang. Anything
+that leaves the database quiet that long — reading a plan, a stalled model call
+during approval — needs the stack restarted before the next run. Approval is
+atomic per row, so a commit that failed part-way leaves its failed rows
+PENDING, and re-running the same command applies just those.
+
+A commit takes seconds per created row locally: the categorizer is not running,
+so every row falls back to a model call for its category.
+
 Then **run the same directory once more with `--resubmit`** — that uploads
 every file again, which is the re-import path that used to inject phantom
 charges, and the one worth watching. Without the flag a re-run reuses the
@@ -129,10 +140,19 @@ Verified end to end.
 5. Sidebar `עסקאות וחיובים` → `עסקאות בכרטיס לפי מועד חיוב`, which lands on
    `https://digital-web.cal-online.co.il/transactions` and can be opened
    directly on later runs.
-6. Cards are a carousel at the top (arrows either side); months are tabs below
-   it (`יולי | אוגוסט | ספטמבר`) with arrows for earlier months. Pick the card,
-   then the month.
-7. `ייצוא` → `ייצוא לאקסל` downloads an `.xlsx`.
+6. Cards are a carousel at the top (arrows either side, wrapping around);
+   months are tabs below it (`יולי | אוגוסט | ספטמבר`) with arrows for earlier
+   months. The selected month stays put when the card changes, so do one month
+   across every card, then the next. Each card shows its own billing day
+   (`חיוב ב 15/08`) — cards on one account bill on different days.
+   The carousel sits above the fold only at the top of the page; press `Home`
+   before clicking its arrows. The page also holds a marketing carousel whose
+   "next slide" button is easy to hit by mistake.
+7. `ייצוא` opens a menu; `ייצוא לאקסל` in it downloads an `.xlsx`. **Every
+   export arrives twice** (`… .xlsx` and `… (1).xlsx`, identical rows), so
+   keep one and delete the other before renaming. Chrome's filename carries
+   the card but the download date, not the billing month — read the second
+   title row to confirm the month before naming the file.
 
 Choose `לפי מועד חיוב` (by billing date) rather than `לפי תאריך ביצוע` (by
 transaction date): the billing month is what the import records as
@@ -154,10 +174,17 @@ The sheet is right-to-left, the card's last four digits sit in the first title
 row, and the second carries the billing date and total
 (`עסקאות לחיוב ב-10/08/2026: 3,083.91 ₪`). That total is the sum of the
 **expense** rows; refunds such as `החזר CashPro` are typed `INCOME` and sit
-outside it — a useful check that nothing was dropped in extraction.
+outside it — a useful check that nothing was dropped in extraction. After the
+last row sits a single-cell footer, which is why the sheet has one more
+line than the import has rows.
 
 There are two amount columns: `סכום עסקה` (original) and `סכום חיוב` (actually
-billed). They differ on foreign-currency charges.
+billed). They differ on foreign-currency charges, and the billed one is what
+must land as the value — the check above only holds for it.
+
+To verify a run without reading rows into the transcript, compare each
+import's summed `EXPENSE` values with the second title row's total; they
+agree to the agora when nothing was dropped.
 
 ## Isracard — isracard.co.il
 

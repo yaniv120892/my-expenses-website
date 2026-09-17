@@ -1,6 +1,11 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
-import { CategorizerHint } from '@/server/services/ai/aiProvider';
+import {
+  CategorizerHint,
+  ImportedChargeToMatch,
+} from '@/server/services/ai/aiProvider';
+import { toDayString } from '@/shared/dates';
+import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
 // Prompts live here so both providers send identical instructions; switching
@@ -28,26 +33,31 @@ export function buildSuggestCategoryPrompt(
   return prompt;
 }
 
-export function buildFindMatchingTransactionPrompt(
-  importedDescription: string,
-  potentialMatches: Transaction[],
-): string {
-  return `You are a helpful assistant that matches similar transaction descriptions. Your task is to find the most semantically similar transaction from a list of potential matches.
+// Without rule 1 and the single-candidate "none", a lone same-value candidate
+// reads as the answer and an unrelated recurring bill gets merged.
+export const FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT = `You decide whether an imported credit-card statement row is the same real-world charge as one of the user's existing transactions.
 
 Rules:
-1. Compare the imported description with each potential match
-2. Consider semantic similarity, not just exact matches
-3. Account for variations in merchant names and transaction descriptions
-4. Return ONLY the ID of the best matching transaction
-5. If no good match is found, return "none"
-6. Do not explain your choice, just return the ID or "none"
+1. The existing transactions are only nearby candidates in amount and date. A similar amount or date is never enough to call one a match.
+2. A transaction matches only when its description names the same merchant or payee, for the same kind of charge, as the imported row. Use its category to understand what it is. A card or bank fee, a phone or utility bill, a shop purchase and a subscription are different kinds of charge.
+3. Card statements shorten, truncate or transliterate merchant names between Hebrew and English, and add branch, city or reference codes: "AMZN MKTP US*2K4" is Amazon, and "רמי לוי" is "רמי לוי שיווק השקמה". Treat such variants as the same merchant.
+4. Status PENDING_APPROVAL marks an expected charge the user has not confirmed, often a scheduled recurring bill. It does not make a transaction more likely to match.
+5. Answer "none" whenever no transaction is clearly the same charge, including when only one is listed. A bank transfer fee next to a pending electricity bill of a similar amount is "none".
 
-Given this imported transaction description: "${importedDescription}"
+Respond with only the matching transaction ID, or "none". Do not explain.`;
 
-Find the best matching transaction from this list:
-${potentialMatches.map((t) => `- "${t.description}" (ID: ${t.id})`).join('\n')}
+export function buildFindMatchingTransactionPrompt(
+  importedCharge: ImportedChargeToMatch,
+  potentialMatches: Transaction[],
+): string {
+  return `Imported row:
+- description: ${JSON.stringify(importedCharge.description)}
+- amount: ${formatCurrencyPlain(importedCharge.value)}
+- date: ${toDayString(importedCharge.date)}
+- type: ${importedCharge.type}
 
-Return only the ID of the best match, or "none" if no good match exists.`;
+Existing transactions:
+${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
 /**
@@ -74,4 +84,8 @@ export function resolveMatchedTransactionId(
     'Model answer did not name an offered match; treating as no match',
   );
   return null;
+}
+
+function describeCandidate(transaction: Transaction): string {
+  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatCurrencyPlain(transaction.value)} | date: ${toDayString(transaction.date)} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
 }

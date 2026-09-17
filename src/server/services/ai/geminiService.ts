@@ -1,5 +1,9 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
-import { AIProvider, CategorizerHint } from '@/server/services/ai/aiProvider';
+import {
+  AIProvider,
+  CategorizerHint,
+  ImportedChargeToMatch,
+} from '@/server/services/ai/aiProvider';
 import logger from '@/server/logging/logger';
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
@@ -11,6 +15,7 @@ import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
+  FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
 
@@ -138,12 +143,12 @@ export class GeminiService implements AIProvider {
   }
 
   public async findMatchingTransaction(
-    importedDescription: string,
+    importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
     try {
       logger.debug(
-        { importedDescription },
+        { importedDescription: importedCharge.description },
         'Start finding matching transaction',
       );
 
@@ -153,19 +158,21 @@ export class GeminiService implements AIProvider {
 
       const model = this.generativeModel();
       const response = await model.generateContent({
+        systemInstruction: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
         contents: [
           {
             role: 'user',
             parts: [
               {
                 text: buildFindMatchingTransactionPrompt(
-                  importedDescription,
+                  importedCharge,
                   potentialMatches,
                 ),
               },
             ],
           },
         ],
+        generationConfig: { temperature: 0 },
       });
 
       const result = resolveMatchedTransactionId(

@@ -5,11 +5,13 @@ const {
   getTransactionsList,
   getTransactionsSummary,
   getAllCategories,
+  reportSwallowedError,
 } = vi.hoisted(() => ({
   findByUserAndDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
+  reportSwallowedError: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
@@ -24,6 +26,10 @@ vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
 }));
 
+vi.mock('@/server/logging/reportSwallowedError', () => ({
+  reportSwallowedError,
+}));
+
 import transactionService from '@/server/services/transactionService';
 import type { Category } from '@/shared/types/category';
 
@@ -32,24 +38,18 @@ const CATEGORIES = [
   { id: 'cat-rent', name: 'Rent' },
 ] as Category[];
 
-// The categorization chain and the AI client are private to the service; both
-// are stubbed so these cases exercise the fallback order rather than the
-// categorizer's HTTP call or the provider factory.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const service = transactionService as any;
+const serviceInternals = transactionService as any;
 const suggestCategory = vi.fn();
-const categorizeExpense = vi.fn();
 
 const getSuggestedCategory = () =>
-  service.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
+  serviceInternals.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
 
 beforeEach(() => {
   vi.clearAllMocks();
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
-  categorizeExpense.mockResolvedValue(null);
-  service.getAiService = () => ({ suggestCategory });
-  service.categorizeExpense = categorizeExpense;
+  serviceInternals.getAiService = () => ({ suggestCategory });
 });
 
 describe('getAllTransactions', () => {
@@ -180,63 +180,50 @@ describe('getSuggestedCategory', () => {
   it('returns a user mapping that resolves to a known category', async () => {
     findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-rent' });
     expect(await getSuggestedCategory()).toBe('cat-rent');
-    expect(categorizeExpense).not.toHaveBeenCalled();
-  });
-
-  it('normalizes the description before looking up a mapping', async () => {
-    await service.getSuggestedCategory('  PiZZa  ', 'user-1', CATEGORIES);
-    expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
-  });
-
-  it('falls through to the categorizer when the mapping lookup fails', async () => {
-    findByUserAndDescription.mockRejectedValue(new Error('db down'));
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.9 });
-    expect(await getSuggestedCategory()).toBe('cat-food');
-  });
-
-  it('falls through when the mapped category no longer exists', async () => {
-    findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' });
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.9 });
-    expect(await getSuggestedCategory()).toBe('cat-food');
-  });
-
-  it('takes a high-confidence prediction without asking the LLM', async () => {
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.7 });
-    expect(await getSuggestedCategory()).toBe('cat-food');
     expect(suggestCategory).not.toHaveBeenCalled();
   });
 
-  it('passes a medium-confidence prediction to the LLM as a hint', async () => {
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.55 });
-    expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES, {
-      hint: 'Food',
-      confidence: 0.55,
-    });
+  it('normalizes the description before looking up a mapping', async () => {
+    await serviceInternals.getSuggestedCategory(
+      '  PiZZa  ',
+      'user-1',
+      CATEGORIES,
+    );
+    expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
   });
 
-  it('keeps a null answer from the hinted LLM call instead of retrying', async () => {
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.4 });
+  it.each([
+    [
+      'no mapping exists',
+      () => findByUserAndDescription.mockResolvedValue(null),
+    ],
+    [
+      'the mapped category no longer exists',
+      () =>
+        findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
+    ],
+    [
+      'the mapping lookup fails',
+      () => findByUserAndDescription.mockRejectedValue(new Error('db down')),
+    ],
+  ])('asks the AI service when %s', async (_case, arrange) => {
+    arrange();
+    expect(await getSuggestedCategory()).toBe('cat-ai');
+    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
+  });
+
+  it('reports a failed mapping lookup instead of only logging it', async () => {
+    const err = new Error('db down');
+    findByUserAndDescription.mockRejectedValue(err);
+    await getSuggestedCategory();
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      { err, userId: 'user-1' },
+      'Failed to check user category mapping',
+    );
+  });
+
+  it('returns null when the AI service has no answer', async () => {
     suggestCategory.mockResolvedValue(null);
     expect(await getSuggestedCategory()).toBeNull();
-    expect(suggestCategory).toHaveBeenCalledTimes(1);
-  });
-
-  it('asks the LLM without a hint below the medium threshold', async () => {
-    categorizeExpense.mockResolvedValue({ category: 'Food', confidence: 0.39 });
-    expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
-  });
-
-  it('ignores confidence when the predicted name is not a known category', async () => {
-    categorizeExpense.mockResolvedValue({ category: 'Yachts', confidence: 1 });
-    expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
-  });
-
-  it('falls back to the unhinted LLM call when the categorizer throws', async () => {
-    categorizeExpense.mockRejectedValue(new Error('categorizer down'));
-    expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
   });
 });

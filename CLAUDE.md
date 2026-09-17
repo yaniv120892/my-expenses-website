@@ -75,7 +75,8 @@ runs them alone.
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
   `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
-  import would do, writing nothing), `/api/imports/[importId]` (GET; one
+  import would do, writing nothing, each row with a `reviewHint` naming a
+  close call), `/api/imports/[importId]` (GET; one
   import with its pending count and, when merged, the import it merged into),
   `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
@@ -138,6 +139,17 @@ runs them alone.
   re-approving whatever is pending by then. `ImportedTransactionList` still
   derives its own view of the same decision; the invariant covers the server
   paths only.
+- **A preview flags close calls without deciding them.** Each preview item
+  carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
+  action, from database lookups only and never a model call:
+  `unmatched-candidate` when a CREATE row still has an unclaimed transaction
+  inside its match window (fetched for every CREATE row in one query), and
+  `unrelated-merge` when a MERGE's two descriptions share no normalized word.
+  The window is `matchWindow` (`src/server/utils/transactionMatching.ts`), the
+  same bounds `findPotentialMatches` queries by, so a flagged candidate is
+  one the matcher's own query would return today. Neither hint changes what the commit does;
+  `scripts/import-statements.ts` prints flagged rows as `CREATE?`/`MERGE?`
+  with the other side's description.
 - **Duplicate import rows are matched up to a shortened merchant name.**
   `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires date,
   value and type to agree exactly, and the shorter normalized description to

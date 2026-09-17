@@ -1,7 +1,7 @@
 // Type-only imports: this module is also bundled client-side (src/types/import
 // re-exports its enums), so it must not pull in @prisma/client at runtime.
 import type { Prisma } from '@prisma/client';
-import type { TransactionType } from './transaction';
+import type { TransactionStatus, TransactionType } from './transaction';
 
 export enum ImportFileType {
   VISA_CREDIT = 'VISA_CREDIT',
@@ -106,6 +106,28 @@ export type ReconciliationPlanItem = {
   type: TransactionType;
   categoryId: string | null;
   match: ReconciliationMatch | null;
+};
+
+export type ReconciliationCounterpart = {
+  transactionId: string;
+  description: string;
+  value: number;
+  date: Date;
+  status: TransactionStatus;
+};
+
+// Informational only: derived after the plan item's action is decided, and
+// never changes it. `counterpart` is the closest of `candidateCount`.
+export type ReconciliationReviewHint =
+  | {
+      reason: 'unmatched-candidate';
+      counterpart: ReconciliationCounterpart;
+      candidateCount: number;
+    }
+  | { reason: 'unrelated-merge' };
+
+export type ReconciliationPreviewItem = ReconciliationPlanItem & {
+  reviewHint: ReconciliationReviewHint | null;
 };
 
 // The 409 rematchImport throws when a survivor's pending rows were already

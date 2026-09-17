@@ -7,8 +7,8 @@ import {
 } from '@prisma/client';
 import prisma from '@/server/db/client';
 import {
-  CHARGE_DATE_DAY_RANGE,
-  matchValueTolerance,
+  type MatchableCharge,
+  matchWindow,
 } from '@/server/utils/transactionMatching';
 import {
   TransactionFilters,
@@ -28,6 +28,11 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
+
+const MATCHABLE_STATUSES = [
+  TransactionStatus.APPROVED,
+  TransactionStatus.PENDING_APPROVAL,
+];
 
 // An update/delete matching no row means the transaction does not exist or
 // belongs to another user.
@@ -349,36 +354,38 @@ class TransactionRepository {
     value: number,
     type: TransactionType,
   ): Promise<Transaction[]> {
-    const valueTolerance = matchValueTolerance(value);
-    const startDate = new Date(date);
-    startDate.setDate(startDate.getDate() - CHARGE_DATE_DAY_RANGE);
-    const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + CHARGE_DATE_DAY_RANGE);
+    return this.findPotentialMatchesForCharges(userId, [{ date, value, type }]);
+  }
+
+  // Which charge each returned transaction belongs to is left to the caller.
+  public async findPotentialMatchesForCharges(
+    userId: string,
+    charges: MatchableCharge[],
+  ): Promise<Transaction[]> {
+    if (charges.length === 0) {
+      return [];
+    }
 
     const potentialTransactions = await prisma.transaction.findMany({
       where: {
         userId,
-        // value is a positive magnitude with the direction in `type`, so
-        // without this a refund is a candidate for the charge it reverses —
-        // and merging would rewrite the refund into an expense.
-        type,
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-        value: {
-          gte: value - valueTolerance,
-          lte: value + valueTolerance,
-        },
-        status: {
-          in: [TransactionStatus.APPROVED, TransactionStatus.PENDING_APPROVAL],
-        },
+        status: { in: MATCHABLE_STATUSES },
+        OR: charges.map((charge) => this.buildMatchWindowWhere(charge)),
       },
       orderBy: { status: 'desc' },
       include: { category: true },
     });
 
     return potentialTransactions.map(this.mapToDomain);
+  }
+
+  private buildMatchWindowWhere(charge: MatchableCharge) {
+    const window = matchWindow(charge);
+    return {
+      type: window.type,
+      date: { gte: window.earliestDate, lte: window.latestDate },
+      value: { gte: window.minimumValue, lte: window.maximumValue },
+    };
   }
 
   /**

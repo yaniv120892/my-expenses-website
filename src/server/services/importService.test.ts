@@ -6,6 +6,7 @@ const {
   prismaMock,
   agentClient,
   findPotentialMatches,
+  findPotentialMatchesForCharges,
   findMatchingTransaction,
 } = vi.hoisted(() => ({
   importRepo: {
@@ -27,6 +28,7 @@ const {
   },
   agentClient: { submitExtractionRequest: vi.fn() },
   findPotentialMatches: vi.fn(),
+  findPotentialMatchesForCharges: vi.fn(),
   findMatchingTransaction: vi.fn(),
 }));
 
@@ -38,7 +40,11 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/repositories/transactionRepository', () => ({
-  default: { findPotentialMatches, getTransactionItem: vi.fn() },
+  default: {
+    findPotentialMatches,
+    findPotentialMatchesForCharges,
+    getTransactionItem: vi.fn(),
+  },
 }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
@@ -471,6 +477,21 @@ describe('buildReconciliationPlan', () => {
     ...over,
   });
 
+  const candidateTransaction = (over: Record<string, unknown> = {}) => ({
+    id: 'tx-bruno',
+    description: 'Food for Bruno',
+    value: 470,
+    date: new Date(2026, 5, 17),
+    type: 'EXPENSE',
+    status: 'APPROVED',
+    ...over,
+  });
+
+  beforeEach(() => {
+    findPotentialMatchesForCharges.mockResolvedValue([]);
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
+  });
+
   it('plans a CREATE for a row with no match', async () => {
     importedTxRepo.findPendingByImportId.mockResolvedValue([pendingRow()]);
 
@@ -486,8 +507,68 @@ describe('buildReconciliationPlan', () => {
         type: 'EXPENSE',
         categoryId: null,
         match: null,
+        reviewHint: null,
       },
     ]);
+  });
+
+  it('flags a CREATE whose window holds an unclaimed transaction', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
+    ]);
+    findPotentialMatchesForCharges.mockResolvedValue([
+      candidateTransaction({ id: 'tx-bruno' }),
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.action).toBe('CREATE');
+    expect(item.reviewHint).toMatchObject({
+      reason: 'unmatched-candidate',
+      counterpart: { transactionId: 'tx-bruno' },
+      candidateCount: 1,
+    });
+    expect(findPotentialMatchesForCharges).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not flag a candidate another pending row already claims', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
+    ]);
+    findPotentialMatchesForCharges.mockResolvedValue([
+      candidateTransaction({ id: 'tx-claimed' }),
+    ]);
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
+      'tx-claimed',
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.reviewHint).toBeNull();
+  });
+
+  it('flags an unrelated MERGE without querying for candidates', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({
+        description: 'Pet shop',
+        matchingTransaction: matchedTransaction,
+      }),
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.action).toBe('MERGE');
+    expect(item.reviewHint).toEqual({ reason: 'unrelated-merge' });
+    expect(findPotentialMatchesForCharges).not.toHaveBeenCalled();
   });
 
   it('plans a MERGE carrying the diff the commit would write', async () => {

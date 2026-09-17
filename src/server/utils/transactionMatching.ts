@@ -1,4 +1,5 @@
 import { TransactionType } from '@prisma/client';
+import { addDays, subDays } from 'date-fns';
 
 // A statement row and a hand-logged transaction rarely agree exactly: the
 // merchant string is spelled differently and the charged amount can drift from
@@ -73,6 +74,62 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
+export type MatchableCharge = {
+  date: Date;
+  value: number;
+  type: TransactionType;
+};
+
+export type MatchWindow = {
+  // value is a positive magnitude with the direction in `type`, so without it
+  // a refund is a candidate for the charge it reverses — and merging would
+  // rewrite the refund into an expense.
+  type: TransactionType;
+  earliestDate: Date;
+  latestDate: Date;
+  minimumValue: number;
+  maximumValue: number;
+};
+
+export function matchWindow(charge: MatchableCharge): MatchWindow {
+  const valueTolerance = matchValueTolerance(charge.value);
+
+  return {
+    type: charge.type,
+    earliestDate: subDays(charge.date, CHARGE_DATE_DAY_RANGE),
+    latestDate: addDays(charge.date, CHARGE_DATE_DAY_RANGE),
+    minimumValue: charge.value - valueTolerance,
+    maximumValue: charge.value + valueTolerance,
+  };
+}
+
+/** The in-memory form of the bounds the candidate query applies in SQL. */
+export function isWithinMatchWindow(
+  window: MatchWindow,
+  candidate: MatchableCharge,
+): boolean {
+  const time = candidate.date.getTime();
+  return (
+    candidate.type === window.type &&
+    time >= window.earliestDate.getTime() &&
+    time <= window.latestDate.getTime() &&
+    candidate.value >= window.minimumValue &&
+    candidate.value <= window.maximumValue
+  );
+}
+
+// A blank side says nothing about the charge, so it is never read as unrelated.
+export function shareNoWord(left: string, right: string): boolean {
+  const leftWords = toWords(left);
+  const rightWords = new Set(toWords(right));
+  const eitherBlank = leftWords.length === 0 || rightWords.size === 0;
+  if (eitherBlank) {
+    return false;
+  }
+
+  return !leftWords.some((word) => rightWords.has(word));
+}
+
 // The extraction service shortens a merchant by dropping words at an end —
 // usually the trailing branch, mall or city, sometimes a leading "refund" —
 // so a shortened name is a whole word or words from one end of the full one.
@@ -136,4 +193,9 @@ function isTruncatedMerchantMatch(a: string, b: string): boolean {
   const startsOnWordBoundary =
     longer[longer.length - shorter.length - 1] === ' ';
   return longer.endsWith(shorter) && startsOnWordBoundary;
+}
+
+function toWords(description: string): string[] {
+  const normalized = normalizeDescription(description);
+  return normalized ? normalized.split(' ') : [];
 }

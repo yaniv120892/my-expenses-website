@@ -28,9 +28,12 @@ import {
 } from '@/server/db/prismaErrors';
 import {
   ReconciliationPlanItem,
+  ReconciliationPreviewItem,
   NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
+import type { Transaction } from '@/shared/types/transaction';
 import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
+import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 
 // A missing row in the approve/merge batch means a concurrent delete won the
 // race. Map it back to the 404 the non-batched path used to return.
@@ -404,22 +407,31 @@ class ImportService {
   /**
    * What approving the selection would do, without writing anything.
    * batchApproveImportedTransactions commits this same plan, so the preview
-   * cannot promise an outcome the commit would not produce.
+   * cannot promise an outcome the commit would not produce. Each item also
+   * carries a review hint, derived after the action and never feeding it.
    */
   public async buildReconciliationPlan(
     importId: string,
     userId: string,
     transactionIds: string[] | 'all' = 'all',
-  ): Promise<ReconciliationPlanItem[]> {
+  ): Promise<ReconciliationPreviewItem[]> {
     const { pending } = await this.loadPendingSelection(
       importId,
       userId,
       transactionIds,
     );
-
-    return pending.map((transaction) =>
+    const plan = pending.map((transaction) =>
       this.toReconciliationPlanItem(transaction),
     );
+    const candidates = await this.findUnclaimedCandidatesForCreates(
+      plan,
+      userId,
+    );
+
+    return plan.map((item) => ({
+      ...item,
+      reviewHint: deriveReviewHint(item, candidates),
+    }));
   }
 
   public async batchApproveImportedTransactions(
@@ -527,6 +539,26 @@ class ImportService {
     const missingIds = transactionIds.filter((id) => !foundIds.has(id));
 
     return { pending, missingIds };
+  }
+
+  // A transaction another pending row already claims is left out: that row's
+  // merge will consume it, so it cannot be this row's missed match.
+  private async findUnclaimedCandidatesForCreates(
+    plan: ReconciliationPlanItem[],
+    userId: string,
+  ): Promise<Transaction[]> {
+    const creates = plan.filter((item) => item.action === 'CREATE');
+    if (creates.length === 0) {
+      return [];
+    }
+
+    const [candidates, claimedIds] = await Promise.all([
+      transactionRepository.findPotentialMatchesForCharges(userId, creates),
+      importedTransactionRepository.findClaimedMatchingTransactionIds(userId),
+    ]);
+    const claimed = new Set(claimedIds);
+
+    return candidates.filter((candidate) => !claimed.has(candidate.id));
   }
 
   private toReconciliationPlanItem(

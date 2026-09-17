@@ -42,8 +42,8 @@ import {
   parseImportArguments,
   parseStatementName,
 } from './lib/importStatements';
-import { toDayString } from '../src/shared/dates';
-import type { ReconciliationPlanItem } from '../src/shared/types/import';
+import { describePlanItem, reviewReminder } from './lib/reconciliationTable';
+import type { ReconciliationPreviewItem } from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
@@ -101,7 +101,7 @@ type ResolvedTarget = {
 
 type PlannedImport = {
   importRecord: ImportRecord;
-  plan: ReconciliationPlanItem[];
+  plan: ReconciliationPreviewItem[];
 };
 
 async function main(): Promise<void> {
@@ -172,6 +172,11 @@ async function main(): Promise<void> {
   if (totals.merge + totals.create === 0) {
     console.log('\nNothing pending to reconcile.');
     return;
+  }
+
+  const reminder = reviewReminder(planned.flatMap(({ plan }) => plan));
+  if (reminder) {
+    console.log(`\n${reminder}`);
   }
 
   if (dryRun) {
@@ -529,7 +534,7 @@ async function loadPlans(
   return Promise.all(
     completed.map(async (importRecord) => ({
       importRecord,
-      plan: await client.getJson<ReconciliationPlanItem[]>(
+      plan: await client.getJson<ReconciliationPreviewItem[]>(
         `/api/imports/${importRecord.id}/reconciliation-preview`,
       ),
     })),
@@ -553,38 +558,6 @@ function renderPlanTable(planned: PlannedImport[]): void {
       console.log(`  ${describePlanItem(item)}`);
     }
   }
-}
-
-function describePlanItem(item: ReconciliationPlanItem): string {
-  const date = formatDate(item.date);
-  const summary = `${date}  ${item.value.toFixed(2).padStart(9)}  ${item.description}`;
-
-  if (item.action === 'CREATE' || !item.match) {
-    return `CREATE  ${summary}`;
-  }
-
-  const approves = item.match.approvesPendingTransaction
-    ? ' (approves pending)'
-    : '';
-  const before = item.match.before;
-  const beforeDate = formatDate(before.date);
-  const changes = [
-    before.description === item.description
-      ? null
-      : `description "${before.description}" -> "${item.description}"`,
-    before.value === item.value
-      ? null
-      : `value ${before.value.toFixed(2)} -> ${item.value.toFixed(2)}`,
-    beforeDate === date ? null : `date ${beforeDate} -> ${date}`,
-  ].filter((change) => change !== null);
-
-  const diff = changes.length > 0 ? `\n            ${changes.join('; ')}` : '';
-  return `MERGE   ${summary}${approves}${diff}`;
-}
-
-/** Dates arrive as JSON strings even though the plan type names them Date. */
-function formatDate(value: Date | string): string {
-  return toDayString(new Date(value));
 }
 
 function countActions(planned: PlannedImport[]): {

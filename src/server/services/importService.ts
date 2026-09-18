@@ -34,6 +34,7 @@ import {
 import type { Transaction } from '@/shared/types/transaction';
 import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
+import { isCardHoldingFee } from '@/shared/cardFees';
 
 // A missing row in the approve/merge batch means a concurrent delete won the
 // race. Map it back to the 404 the non-batched path used to return.
@@ -408,7 +409,8 @@ class ImportService {
    * What approving the selection would do, without writing anything.
    * batchApproveImportedTransactions commits this same plan, so the preview
    * cannot promise an outcome the commit would not produce. Each item also
-   * carries a review hint, derived after the action and never feeding it.
+   * carries a review hint and a card-holding-fee flag, both derived after the
+   * action from what is already loaded, and neither feeding it.
    */
   public async buildReconciliationPlan(
     importId: string,
@@ -431,6 +433,7 @@ class ImportService {
     return plan.map((item) => ({
       ...item,
       reviewHint: deriveReviewHint(item, candidates),
+      cardHoldingFee: isCardHoldingFee(item.description),
     }));
   }
 

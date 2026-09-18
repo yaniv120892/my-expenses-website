@@ -294,6 +294,32 @@ curl -X POST -H "Authorization: Bearer <token>" -H 'Content-Type: application/js
 Then run the commit. The script reports that the plan changed since the preview
 (`-1 row(s)` per row taken out) and applies the rest.
 
+## Reporting the card-holding fees
+
+Every run ends by reporting the cards' holding fees to the user, unprompted.
+
+The charge is for holding the card, not for anything bought: `דמי כרטיס`,
+`דמי כרטיס /הנפקה`, `דמי הנפקה`, `דמי שימוש`, `דמי חבר`, or an English
+`card fee` / `annual fee` / `membership fee`. It is cancellable by phoning the
+issuer, and it hides — the category guess scatters these rows across
+Transportation, Entertainment and Bills, so no report shows them as one line.
+
+Search the account's whole transaction history over the imported span, not only
+the rows just added: the fee recurs monthly and its wording moves (`דמי כרטיס`
+one month, `דמי כרטיס הנפקה` the next).
+
+```bash
+curl -s -H "Authorization: Bearer <token>" \
+  '<base-url>/api/transactions?startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>&limit=100'
+```
+
+Page on `nextCursor`; the rows come back under `items`, not `transactions`.
+
+Report per card: the monthly amount, the annual cost, and the months it was
+seen. As of 2026-09-18 that is Amex 4730 at ₪22.90 a month and Isracard 0329 at
+₪17.90, both on the 22nd–23rd, together about ₪490 a year; an older ₪12.90
+Shufersal-card fee ran Dec 2025–Mar 2026 and stopped.
+
 ## After collecting
 
 Statements are financial records. Keep them in a working directory outside the

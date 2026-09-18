@@ -76,7 +76,11 @@ runs them alone.
   bound to the import it was submitted for),
   `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
   import would do, writing nothing, each row with a `reviewHint` naming a
-  close call), `/api/imports/[importId]` (GET; one
+  close call and a `cardHoldingFee` flag marking the issuer's monthly charge
+  for holding the card — recognized from the description alone by
+  `src/shared/cardFees.ts`, with no model call and no extra query. It is its
+  own field rather than a hint reason because it never bears on the
+  MERGE/CREATE decision), `/api/imports/[importId]` (GET; one
   import with its pending count and, when merged, the import it merged into),
   `/api/auth/*` (cookie handling).
 - `src/server/` — backend logic: `services/` (business logic; singletons),

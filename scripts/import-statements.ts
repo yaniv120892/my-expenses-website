@@ -42,7 +42,11 @@ import {
   parseImportArguments,
   parseStatementName,
 } from './lib/importStatements';
-import { describePlanItem, reviewReminder } from './lib/reconciliationTable';
+import {
+  cardFeeNotice,
+  describePlanItem,
+  reviewReminder,
+} from './lib/reconciliationTable';
 import type { ReconciliationPreviewItem } from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
@@ -174,9 +178,15 @@ async function main(): Promise<void> {
     return;
   }
 
-  const reminder = reviewReminder(planned.flatMap(({ plan }) => plan));
+  const items = planned.flatMap(({ plan }) => plan);
+  const reminder = reviewReminder(items);
   if (reminder) {
     console.log(`\n${reminder}`);
+  }
+
+  const feeNotice = cardFeeNotice(items);
+  if (feeNotice) {
+    console.log(`\n${feeNotice}`);
   }
 
   if (dryRun) {

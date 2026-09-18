@@ -38,6 +38,29 @@ export function reviewReminder(
   return `${flagged} row(s) marked CREATE? or MERGE? above are close calls; review them before confirming.`;
 }
 
+/**
+ * The fee rows the plan carries, printed apart from the table: they are
+ * ordinary CREATE/MERGE rows, and the point is that nobody spots them in it.
+ */
+export function cardFeeNotice(
+  items: ReconciliationPreviewItem[],
+): string | null {
+  // A server deployed before the flag existed omits the field rather than falsing it.
+  const fees = items.filter((item) => item.cardHoldingFee);
+  if (fees.length === 0) {
+    return null;
+  }
+
+  const rows = fees.map(
+    (item) =>
+      `  ${formatDate(item.date)}  ${item.value.toFixed(2).padStart(9)}  ${item.description}`,
+  );
+  return [
+    `${fees.length} row(s) are charges for holding the card, not spending; they can be cancelled by phoning the issuer:`,
+    ...rows,
+  ].join('\n');
+}
+
 function describeHint(hint: ReconciliationReviewHint): string {
   switch (hint.reason) {
     case 'unmatched-candidate': {

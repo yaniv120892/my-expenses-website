@@ -508,8 +508,21 @@ describe('buildReconciliationPlan', () => {
         categoryId: null,
         match: null,
         reviewHint: null,
+        cardHoldingFee: false,
       },
     ]);
+  });
+
+  it('flags a card-holding fee row without querying or asking the model', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({ description: 'דמי כרטיס /הנפקה', value: 22.9 }),
+      pendingRow({ id: 'r2', description: 'דמי לידה', value: 22.9 }),
+    ]);
+
+    const plan = await importService.buildReconciliationPlan('imp-1', 'user-1');
+
+    expect(plan.map((item) => item.cardHoldingFee)).toEqual([true, false]);
+    expect(findMatchingTransaction).not.toHaveBeenCalled();
   });
 
   it('flags a CREATE whose window holds an unclaimed transaction', async () => {

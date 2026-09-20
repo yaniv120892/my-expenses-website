@@ -121,7 +121,7 @@ describe('optionalEnv', () => {
     vi.unstubAllEnvs();
   });
 
-  it('treats an empty value as unset, since a copied .env.example leaves one', () => {
+  it('treats an empty value as unset', () => {
     vi.stubEnv('OPTIONAL_ENV_UNDER_TEST', '');
     expect(optionalEnv('OPTIONAL_ENV_UNDER_TEST', 'fallback')).toBe('fallback');
   });

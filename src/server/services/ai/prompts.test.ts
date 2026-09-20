@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import {
-  buildFindMatchingTransactionPrompt,
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  buildCategoryEvaluation,
+  buildFindMatchingTransactionPrompt,
   resolveMatchedTransactionId,
+  resolveSuggestedCategoryId,
 } from '@/server/services/ai/prompts';
 import { Transaction } from '@/shared/types/transaction';
 import { formatCurrencyPlain } from '@/utils/format';
@@ -114,5 +116,41 @@ describe('FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT', () => {
     expect(FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT).toContain(
       'Respond with only the matching transaction ID, or "none"',
     );
+  });
+});
+
+describe('resolveSuggestedCategoryId', () => {
+  const categories = [{ id: 'cat-food', name: 'Food & Drinks' }];
+
+  it('strips the quotes and whitespace completion styles add', () => {
+    expect(resolveSuggestedCategoryId(' "Food & Drinks"\n', categories)).toBe(
+      'cat-food',
+    );
+  });
+
+  it('rejects a name that was not offered, and an empty or missing answer', () => {
+    expect(resolveSuggestedCategoryId('Food', categories)).toBeNull();
+    expect(resolveSuggestedCategoryId('', categories)).toBeNull();
+    expect(resolveSuggestedCategoryId(null, categories)).toBeNull();
+    expect(resolveSuggestedCategoryId(undefined, categories)).toBeNull();
+  });
+});
+
+describe('buildCategoryEvaluation', () => {
+  const categories = [{ id: 'cat-food', name: 'Food' }];
+
+  it('reports an empty answer as no name, not an empty string', () => {
+    expect(
+      buildCategoryEvaluation('  ', categories, {
+        inputTokens: 10,
+        outputTokens: null,
+      }),
+    ).toEqual({
+      categoryId: null,
+      categoryName: null,
+      probability: null,
+      inputTokens: 10,
+      outputTokens: null,
+    });
   });
 });

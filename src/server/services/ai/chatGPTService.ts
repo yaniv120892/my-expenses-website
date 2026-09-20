@@ -17,12 +17,13 @@ import {
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
   SUGGEST_CATEGORY_SYSTEM_PROMPT,
   resolveMatchedTransactionId,
-  resolveSuggestedCategoryId,
+  buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
+import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
 // Overridable for the same reason as the Gemini id: a retired model should be
 // a dashboard edit, not a deploy.
-export const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
+const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
 
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
@@ -92,19 +93,11 @@ export class ChatGPTService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    try {
-      const evaluation = await this.evaluateCategory(
-        expenseDescription,
-        categoryOptions,
-      );
-      return evaluation.categoryId;
-    } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
-      return null;
-    }
+    return suggestCategoryOrNull(
+      () => this.evaluateCategory(expenseDescription, categoryOptions),
+      this.modelName(),
+      'ChatGPT API error',
+    );
   }
 
   public async evaluateCategory(
@@ -129,14 +122,14 @@ export class ChatGPTService implements AIProvider {
       max_tokens: 50,
     });
 
-    const answer = response.choices[0].message?.content?.trim() ?? null;
-    return {
-      categoryId: resolveSuggestedCategoryId(answer, categoryOptions),
-      categoryName: answer,
-      probability: null,
-      inputTokens: response.usage?.prompt_tokens ?? null,
-      outputTokens: response.usage?.completion_tokens ?? null,
-    };
+    return buildCategoryEvaluation(
+      response.choices[0]?.message?.content,
+      categoryOptions,
+      {
+        inputTokens: response.usage?.prompt_tokens ?? null,
+        outputTokens: response.usage?.completion_tokens ?? null,
+      },
+    );
   }
 
   public async findMatchingTransaction(

@@ -38,14 +38,24 @@ beforeEach(() => {
   vi.clearAllMocks();
   constructedWith.length = 0;
   process.env.OPENAI_API_KEY = 'test-key';
-  vi.useFakeTimers();
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('ChatGPTService request limits', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('builds the client with the shared timeout and retry count', async () => {
     const pending = new ChatGPTService().suggestCategory('coffee', categories);
     await vi.runAllTimersAsync();
@@ -89,16 +99,11 @@ describe('ChatGPTService request limits', () => {
 
 describe('ChatGPTService.evaluateCategory', () => {
   it('resolves the answer to a category id and reports token usage', async () => {
-    vi.useRealTimers();
-    hangingFetch.mockImplementationOnce(
-      async () =>
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { role: 'assistant', content: ' Food \n' } }],
-            usage: { prompt_tokens: 140, completion_tokens: 2 },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+    hangingFetch.mockImplementationOnce(async () =>
+      jsonResponse(200, {
+        choices: [{ message: { role: 'assistant', content: ' "Food" \n' } }],
+        usage: { prompt_tokens: 140, completion_tokens: 2 },
+      }),
     );
 
     const evaluation = await new ChatGPTService().evaluateCategory(
@@ -113,5 +118,35 @@ describe('ChatGPTService.evaluateCategory', () => {
       inputTokens: 140,
       outputTokens: 2,
     });
+  });
+
+  it('returns no name when the completion has no choices', async () => {
+    hangingFetch.mockImplementationOnce(async () =>
+      jsonResponse(200, { choices: [], usage: { prompt_tokens: 140 } }),
+    );
+
+    const evaluation = await new ChatGPTService().evaluateCategory(
+      'coffee',
+      categories,
+    );
+
+    expect(evaluation).toMatchObject({ categoryId: null, categoryName: null });
+  });
+
+  it('rejects on provider failure where suggestCategory swallows', async () => {
+    hangingFetch.mockImplementation(async () =>
+      jsonResponse(400, { error: { message: 'bad request' } }),
+    );
+
+    await expect(
+      new ChatGPTService().evaluateCategory('coffee', categories),
+    ).rejects.toBeInstanceOf(Error);
+    expect(reportSwallowedError).not.toHaveBeenCalled();
+
+    await expect(
+      new ChatGPTService().suggestCategory('coffee', categories),
+    ).resolves.toBeNull();
+    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    hangingFetch.mockImplementation(stalledFetch);
   });
 });

@@ -10,7 +10,7 @@ export interface ImportedChargeToMatch {
 
 export interface CategoryEvaluation {
   categoryId: string | null;
-  /** The option the model named, whether or not it resolved to an id. */
+  /** The model's answer after normalization, kept even when it names no offered category. */
   categoryName: string | null;
   probability: number | null;
   inputTokens: number | null;

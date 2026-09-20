@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
-  serviceInternals.getAiService = () => ({ suggestCategory });
+  serviceInternals.getCategorySuggester = () => ({ suggestCategory });
 });
 
 describe('getAllTransactions', () => {

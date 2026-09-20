@@ -25,6 +25,32 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).not.toThrow();
   });
 
+  it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
+    expect(() => assertCoreEnv()).toThrow(/AI_CATEGORY_SUGGESTER/);
+  });
+
+  it('accepts AI_CATEGORY_SUGGESTER unset or empty, and jev with a key in any case', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'gateway-key');
+    for (const value of [undefined, '', 'jev', 'JEV']) {
+      vi.stubEnv('AI_CATEGORY_SUGGESTER', value);
+      expect(() => assertCoreEnv()).not.toThrow();
+    }
+  });
+
+  it('rejects jev without either key, since the flag would then silently do nothing', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jev');
+    vi.stubEnv('AI_GATEWAY_API_KEY', '');
+    vi.stubEnv('TYPESAFE_AI_API_KEY', '');
+    expect(() => assertCoreEnv()).toThrow(/needs TYPESAFE_AI_API_KEY/);
+
+    vi.stubEnv('TYPESAFE_AI_API_KEY', 'direct-key');
+    expect(() => assertCoreEnv()).not.toThrow();
+  });
+
   it('rejects a pooled URL that would let Prisma name prepared statements', () => {
     vi.stubEnv(
       'DATABASE_URL',

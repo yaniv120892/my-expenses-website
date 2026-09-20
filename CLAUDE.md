@@ -106,18 +106,27 @@ runs them alone.
 ## Key invariants
 
 - **No module-load-time construction of network clients.** Every external
-  client (OpenAI, Gemini, Telegram, SMTP, S3, Google, excel extraction) is
-  built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
-  `requireEnv`. A missing env var must fail the call, never the import.
-- **Every `AIProvider` call is bounded.** The OpenAI and Gemini clients behind
-  `AIProvider` take their timeout (and OpenAI its retry count) from
-  `AI_REQUEST_LIMITS` (`src/server/services/ai/requestLimits.ts`), never an SDK
-  default: those calls run one row at a time inside a batch request, and
-  OpenAI's default of 10 minutes with 2 retries let one stalled answer outlive
-  the function. A timeout is an ordinary provider failure that fails its row;
-  the limit is per call, so a batch against a degraded provider can still
-  outrun the function. The assistant's Mastra model is a separate streaming
-  client and is not bound by these limits.
+  client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
+  Google, excel extraction) is built through `lazy()` from
+  `src/server/lib/lazy.ts` and reads env via `requireEnv`. A missing env var
+  must fail the call, never the import.
+- **Every model call made per transaction row is bounded.** The OpenAI and
+  Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their
+  timeout (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
+  (`src/server/services/ai/requestLimits.ts`), never an SDK default: those
+  calls run one row at a time inside a batch request, and OpenAI's default of
+  10 minutes with 2 retries let one stalled answer outlive the function. A
+  timeout is an ordinary provider failure that fails its row; the limit is per
+  call, so a batch against a degraded provider can still outrun the function.
+  The assistant's Mastra model is a separate streaming client and is not bound
+  by these limits.
+- **Only the category decision may leave the `AI_PROVIDER` model.**
+  `AIServiceFactory.getCategorySuggester()` is the one place that decides,
+  on `AI_CATEGORY_SUGGESTER`; the prose-producing methods have no such flag.
+  Every suggester offers exactly the option list
+  `src/server/services/ai/prompts.ts` builds and ends in its
+  `buildCategoryEvaluation`, so the flag changes the model and never the
+  question or the record.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
   value tolerance of `max(2, 1%)` (`matchValueTolerance`). Both are wider than

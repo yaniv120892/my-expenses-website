@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import {
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
   buildFindMatchingTransactionPrompt,
   resolveMatchedTransactionId,
@@ -151,6 +152,20 @@ describe('buildCategoryEvaluation', () => {
       probability: null,
       inputTokens: 10,
       outputTokens: null,
+    });
+  });
+});
+
+describe('buildCategoryChoiceCriteria', () => {
+  it('offers every category by the bare name the LLM prompt lists, with no description', () => {
+    const categories = [
+      { id: 'cat-food', name: 'Food & Drinks' },
+      { id: 'cat-taxi', name: 'Taxi' },
+    ];
+
+    expect(buildCategoryChoiceCriteria(categories)).toEqual({
+      'Food & Drinks': null,
+      Taxi: null,
     });
   });
 });

@@ -20,7 +20,8 @@ export function buildAnalyzeExpensesPrompt(
 
 export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
   'You are a financial assistant helping users categorize their expenses.';
-const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
+export const SUGGEST_CATEGORY_QUESTION =
+  'Which category does this expense belong to?';
 
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
@@ -37,6 +38,16 @@ export function normalizeModelAnswer(
     .replace(/^["']|["']$/g, '')
     .trim();
   return answer || null;
+}
+
+// Jev's choice criteria are the option list of buildSuggestCategoryPrompt, so
+// switching suggester changes the model and never the question.
+export function buildCategoryChoiceCriteria(
+  categoryOptions: Category[],
+): Record<string, null> {
+  return Object.fromEntries(
+    categoryOptions.map((category) => [category.name, null]),
+  );
 }
 
 export function resolveSuggestedCategoryId(
@@ -65,13 +76,18 @@ export function resolveSuggestedCategoryId(
 export function buildCategoryEvaluation(
   rawAnswer: string | null | undefined,
   categoryOptions: Category[],
-  usage: { inputTokens: number | null; outputTokens: number | null },
+  measured: {
+    inputTokens: number | null;
+    outputTokens: number | null;
+    probability?: number | null;
+  },
 ): CategoryEvaluation {
   return {
     categoryId: resolveSuggestedCategoryId(rawAnswer, categoryOptions),
     categoryName: normalizeModelAnswer(rawAnswer),
-    probability: null,
-    ...usage,
+    probability: measured.probability ?? null,
+    inputTokens: measured.inputTokens,
+    outputTokens: measured.outputTokens,
   };
 }
 

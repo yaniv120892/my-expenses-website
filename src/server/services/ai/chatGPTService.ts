@@ -173,7 +173,7 @@ export class ChatGPTService implements AIProvider {
     }
   }
 
-  private modelName(): string {
+  public modelName(): string {
     return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
   }
 }

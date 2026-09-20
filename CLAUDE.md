@@ -307,6 +307,13 @@ statements out of Cal, Isracard and Amex IL with Claude in Chrome. Credentials
 and one-time passwords are always the human's; the skill records only
 navigation, and marks what has not been observed rather than guessing it.
 
+A skill vendored from the plugins in `yaniv120892/claude-config` names its
+upstream path in a `Canonical source` line in its header; edit there first,
+then re-vendor, as with `.claude/rules/`. This repo's sessions have no CLI and
+no `~/.claude`, so every skill drives GitHub through the MCP tools and reads
+rules from `.claude/rules/`, and a review checks documentation drift against
+this file.
+
 `.claude/rules/` holds the craft rules — comments, control flow, naming, error
 handling, typing, env wiring, secret handling — vendored from
 `yaniv120892/claude-config` so they load without that repo's `install.sh`,

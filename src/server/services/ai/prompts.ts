@@ -20,7 +20,8 @@ export function buildAnalyzeExpensesPrompt(
 
 export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
   'You are a financial assistant helping users categorize their expenses.';
-const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
+export const SUGGEST_CATEGORY_QUESTION =
+  'Which category does this expense belong to?';
 
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
@@ -37,6 +38,19 @@ export function normalizeModelAnswer(
     .replace(/^["']|["']$/g, '')
     .trim();
   return answer || null;
+}
+
+/**
+ * The option list of `buildSuggestCategoryPrompt` as a Jev choice: every
+ * category by its bare name with no description, exactly what the LLM prompt
+ * lists, so switching suggester changes the model and never the question.
+ */
+export function buildCategoryChoiceCriteria(
+  categoryOptions: Category[],
+): Record<string, null> {
+  return Object.fromEntries(
+    categoryOptions.map((category) => [category.name, null]),
+  );
 }
 
 export function resolveSuggestedCategoryId(

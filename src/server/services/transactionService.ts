@@ -46,7 +46,9 @@ export interface TransactionFileView {
 }
 
 class TransactionService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getCategorySuggester = lazy(() =>
+    AIServiceFactory.getCategorySuggester(),
+  );
   private getTransactionNotifier = lazy(() =>
     TransactionNotifierFactory.getNotifier(),
   );
@@ -378,7 +380,7 @@ class TransactionService {
   ): Promise<string | null> {
     return (
       (await this.findUserMappedCategoryId(description, userId, categories)) ??
-      this.getAiService().suggestCategory(description, categories)
+      this.getCategorySuggester().suggestCategory(description, categories)
     );
   }
 

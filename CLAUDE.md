@@ -106,18 +106,29 @@ runs them alone.
 ## Key invariants
 
 - **No module-load-time construction of network clients.** Every external
-  client (OpenAI, Gemini, Telegram, SMTP, S3, Google, excel extraction) is
+  client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
+  Google, excel extraction) is
   built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
   `requireEnv`. A missing env var must fail the call, never the import.
-- **Every `AIProvider` call is bounded.** The OpenAI and Gemini clients behind
-  `AIProvider` take their timeout (and OpenAI its retry count) from
-  `AI_REQUEST_LIMITS` (`src/server/services/ai/requestLimits.ts`), never an SDK
-  default: those calls run one row at a time inside a batch request, and
-  OpenAI's default of 10 minutes with 2 retries let one stalled answer outlive
-  the function. A timeout is an ordinary provider failure that fails its row;
-  the limit is per call, so a batch against a degraded provider can still
-  outrun the function. The assistant's Mastra model is a separate streaming
-  client and is not bound by these limits.
+- **Every model call made per transaction row is bounded.** The OpenAI and
+  Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their
+  timeout (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
+  (`src/server/services/ai/requestLimits.ts`), never an SDK default: those
+  calls run one row at a time inside a batch request, and OpenAI's default of
+  10 minutes with 2 retries let one stalled answer outlive the function. A
+  timeout is an ordinary provider failure that fails its row; the limit is per
+  call, so a batch against a degraded provider can still outrun the function.
+  The assistant's Mastra model is a separate streaming client and is not bound
+  by these limits.
+- **Only the category decision may leave the `AI_PROVIDER` model.**
+  `AIServiceFactory.getCategorySuggester()` returns that model unless
+  `AI_CATEGORY_SUGGESTER=jev`, which routes `suggestCategory` alone to
+  TypeSafe's Jev (`src/server/services/ai/jevCategorySuggester.ts`), directly
+  when `TYPESAFE_API_KEY` is set and through Vercel AI Gateway otherwise; the
+  prose-producing
+  methods have no such flag. Every suggester offers exactly the option list
+  `src/server/services/ai/prompts.ts` builds, so the flag changes the model
+  and never the question.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
   value tolerance of `max(2, 1%)` (`matchValueTolerance`). Both are wider than

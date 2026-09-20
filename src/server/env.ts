@@ -12,6 +12,12 @@ const coreEnvSchema = z.object({
   REDIS_URL: z.string().min(1),
   REDIS_TOKEN: z.string().min(1),
   CRON_SECRET: z.string().min(1),
+  // A typo here would silently keep the LLM categorizing while the operator
+  // believes Jev is live, so the deployment fails at boot instead.
+  AI_CATEGORY_SUGGESTER: z.preprocess(
+    lowercaseString,
+    z.enum(['', 'jev']).optional(),
+  ),
 });
 
 // Called from instrumentation.ts so a misconfigured deployment fails at boot
@@ -73,4 +79,8 @@ function previewSiteUrl(): string | undefined {
     return undefined;
   }
   return `https://${vercelHost}`;
+}
+
+function lowercaseString(value: unknown): unknown {
+  return typeof value === 'string' ? value.toLowerCase() : value;
 }

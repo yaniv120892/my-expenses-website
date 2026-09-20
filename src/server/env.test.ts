@@ -25,6 +25,20 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).not.toThrow();
   });
 
+  it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
+    expect(() => assertCoreEnv()).toThrow(/AI_CATEGORY_SUGGESTER/);
+  });
+
+  it('accepts AI_CATEGORY_SUGGESTER unset, empty or jev in any case', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    for (const value of ['', 'jev', 'JEV']) {
+      vi.stubEnv('AI_CATEGORY_SUGGESTER', value);
+      expect(() => assertCoreEnv()).not.toThrow();
+    }
+  });
+
   it('rejects a pooled URL that would let Prisma name prepared statements', () => {
     vi.stubEnv(
       'DATABASE_URL',

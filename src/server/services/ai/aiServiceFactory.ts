@@ -1,6 +1,8 @@
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { GeminiService } from '@/server/services/ai/geminiService';
-import { AIProvider } from '@/server/services/ai/aiProvider';
+import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
+import { AIProvider, CategorySuggester } from '@/server/services/ai/aiProvider';
+import logger from '@/server/logging/logger';
 
 class AIServiceFactory {
   public static getAIService(): AIProvider {
@@ -12,6 +14,24 @@ class AIServiceFactory {
       case 'chatgpt':
       default:
         return new ChatGPTService();
+    }
+  }
+
+  public static getCategorySuggester(): CategorySuggester {
+    const categorySuggester = process.env.AI_CATEGORY_SUGGESTER?.toLowerCase();
+
+    switch (categorySuggester) {
+      case 'jev':
+        return new JevCategorySuggester();
+      case undefined:
+      case '':
+        return AIServiceFactory.getAIService();
+      default:
+        logger.warn(
+          { categorySuggester },
+          'Unknown AI_CATEGORY_SUGGESTER value; categorizing with AI_PROVIDER',
+        );
+        return AIServiceFactory.getAIService();
     }
   }
 }

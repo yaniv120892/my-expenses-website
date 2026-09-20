@@ -28,8 +28,10 @@ export function requireEnv(name: string): string {
   return value;
 }
 
+// `||` rather than `??`: a copied `.env.example` leaves a var set to the empty
+// string, and an empty model id or URL is never what a caller meant.
 export function optionalEnv(name: string, fallback = ''): string {
-  return process.env[name] ?? fallback;
+  return process.env[name] || fallback;
 }
 
 // A preview gets a hostname per deployment, so it leaves WEBSITE_URL unset and

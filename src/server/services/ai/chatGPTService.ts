@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import {
   AIProvider,
-  CategorizerHint,
+  CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
@@ -15,12 +15,14 @@ import {
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  SUGGEST_CATEGORY_SYSTEM_PROMPT,
   resolveMatchedTransactionId,
+  resolveSuggestedCategoryId,
 } from '@/server/services/ai/prompts';
 
 // Overridable for the same reason as the Gemini id: a retired model should be
 // a dashboard edit, not a deploy.
-const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
+export const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
 
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
@@ -89,38 +91,13 @@ export class ChatGPTService implements AIProvider {
   public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
-    categorizerHint?: CategorizerHint,
   ): Promise<string | null> {
     try {
-      const userContent = buildSuggestCategoryPrompt(
+      const evaluation = await this.evaluateCategory(
         expenseDescription,
         categoryOptions,
-        categorizerHint,
       );
-
-      const response = await this.getOpenAI().chat.completions.create({
-        model: this.modelName(),
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a financial assistant helping users categorize their expenses.',
-          },
-          {
-            role: 'user',
-            content: userContent,
-          },
-        ],
-        max_tokens: 50,
-      });
-
-      const aiSuggestedCategory = response.choices[0].message?.content?.trim();
-
-      const suggestedCategory = categoryOptions.find(
-        (category) => category.name === aiSuggestedCategory,
-      );
-
-      return suggestedCategory?.id ?? null;
+      return evaluation.categoryId;
     } catch (err) {
       reportSwallowedError(
         { err, model: this.modelName() },
@@ -128,6 +105,38 @@ export class ChatGPTService implements AIProvider {
       );
       return null;
     }
+  }
+
+  public async evaluateCategory(
+    expenseDescription: string,
+    categoryOptions: Category[],
+  ): Promise<CategoryEvaluation> {
+    const response = await this.getOpenAI().chat.completions.create({
+      model: this.modelName(),
+      messages: [
+        {
+          role: 'system',
+          content: SUGGEST_CATEGORY_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: buildSuggestCategoryPrompt(
+            expenseDescription,
+            categoryOptions,
+          ),
+        },
+      ],
+      max_tokens: 50,
+    });
+
+    const answer = response.choices[0].message?.content?.trim() ?? null;
+    return {
+      categoryId: resolveSuggestedCategoryId(answer, categoryOptions),
+      categoryName: answer,
+      probability: null,
+      inputTokens: response.usage?.prompt_tokens ?? null,
+      outputTokens: response.usage?.completion_tokens ?? null,
+    };
   }
 
   public async findMatchingTransaction(

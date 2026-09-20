@@ -86,3 +86,32 @@ describe('ChatGPTService request limits', () => {
     );
   });
 });
+
+describe('ChatGPTService.evaluateCategory', () => {
+  it('resolves the answer to a category id and reports token usage', async () => {
+    vi.useRealTimers();
+    hangingFetch.mockImplementationOnce(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { role: 'assistant', content: ' Food \n' } }],
+            usage: { prompt_tokens: 140, completion_tokens: 2 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+
+    const evaluation = await new ChatGPTService().evaluateCategory(
+      'coffee',
+      categories,
+    );
+
+    expect(evaluation).toEqual({
+      categoryId: 'cat-food',
+      categoryName: 'Food',
+      probability: null,
+      inputTokens: 140,
+      outputTokens: 2,
+    });
+  });
+});

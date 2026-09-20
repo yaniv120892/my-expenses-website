@@ -1,9 +1,6 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
-import {
-  CategorizerHint,
-  ImportedChargeToMatch,
-} from '@/server/services/ai/aiProvider';
+import { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
@@ -18,19 +15,26 @@ export function buildAnalyzeExpensesPrompt(
   return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;
 }
 
+export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
+  'You are a financial assistant helping users categorize their expenses.';
+export const SUGGEST_CATEGORY_QUESTION =
+  'Which category does this expense belong to?';
+
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
   categoryOptions: Category[],
-  categorizerHint?: CategorizerHint,
 ): string {
-  let prompt = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
+  return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
+}
 
-  if (categorizerHint) {
-    prompt += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
-  }
-
-  prompt += '\n\nReturn only the category name, nothing else.';
-  return prompt;
+export function resolveSuggestedCategoryId(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+): string | null {
+  const answer = rawAnswer?.trim();
+  return (
+    categoryOptions.find((category) => category.name === answer)?.id ?? null
+  );
 }
 
 // Without rule 1 and the single-candidate "none", a lone same-value candidate

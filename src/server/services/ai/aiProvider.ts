@@ -1,11 +1,6 @@
 import { Category } from '@/shared/types/category';
 import { Transaction, TransactionType } from '@/shared/types/transaction';
 
-export interface CategorizerHint {
-  hint: string;
-  confidence: number;
-}
-
 export interface ImportedChargeToMatch {
   description: string;
   value: number;
@@ -13,7 +8,28 @@ export interface ImportedChargeToMatch {
   type: TransactionType;
 }
 
-export interface AIProvider {
+export interface CategoryEvaluation {
+  categoryId: string | null;
+  /** The option the model named, whether or not it resolved to an id. */
+  categoryName: string | null;
+  probability: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+export interface CategorySuggester {
+  suggestCategory(
+    expenseDescription: string,
+    categoryOptions: Category[],
+  ): Promise<string | null>;
+  /** Throws on provider failure, where `suggestCategory` swallows. */
+  evaluateCategory(
+    expenseDescription: string,
+    categoryOptions: Category[],
+  ): Promise<CategoryEvaluation>;
+}
+
+export interface AIProvider extends CategorySuggester {
   generateContent(prompt: string): Promise<string>;
   /**
    * Resolves to the analysis, or null when the provider call failed. Never a
@@ -23,12 +39,6 @@ export interface AIProvider {
   analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
-  ): Promise<string | null>;
-  /** Resolves to the matched category id, or null when nothing matched. */
-  suggestCategory(
-    expenseDescription: string,
-    categoryOptions: Category[],
-    categorizerHint?: CategorizerHint,
   ): Promise<string | null>;
   /**
    * Resolves to the id of one of `potentialMatches`, or null. Implementations

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { assertCoreEnv, requireSiteUrl } from '@/server/env';
+import { assertCoreEnv, optionalEnv, requireSiteUrl } from '@/server/env';
 
 describe('assertCoreEnv', () => {
   const POOLED = 'ep-dry-flower-a2cf61nu-pooler.eu-central-1.aws.neon.tech';
@@ -113,5 +113,21 @@ describe('requireSiteUrl', () => {
     vi.stubEnv('VERCEL_ENV', 'preview');
     vi.stubEnv('VERCEL_BRANCH_URL', 'branch.vercel.app');
     expect(requireSiteUrl()).toBe('https://branch.vercel.app');
+  });
+});
+
+describe('optionalEnv', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('treats an empty value as unset, since a copied .env.example leaves one', () => {
+    vi.stubEnv('OPTIONAL_ENV_UNDER_TEST', '');
+    expect(optionalEnv('OPTIONAL_ENV_UNDER_TEST', 'fallback')).toBe('fallback');
+  });
+
+  it('returns a set value untouched', () => {
+    vi.stubEnv('OPTIONAL_ENV_UNDER_TEST', 'value');
+    expect(optionalEnv('OPTIONAL_ENV_UNDER_TEST', 'fallback')).toBe('value');
   });
 });

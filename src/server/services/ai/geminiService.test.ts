@@ -102,3 +102,47 @@ describe('GeminiService model id', () => {
     expect(getGenerativeModel.mock.calls[1][0].model).toBe('gemini-switched');
   });
 });
+
+describe('GeminiService.evaluateCategory', () => {
+  const categories = [
+    { id: 'cat-taxi', name: 'Taxi' },
+    { id: 'cat-car', name: 'Car' },
+  ];
+
+  it('resolves the cleaned answer to a category id and reports token usage', async () => {
+    generateContent.mockResolvedValue({
+      response: {
+        candidates: [{ content: { parts: [{ text: ' "Taxi"\n' }] } }],
+        usageMetadata: { promptTokenCount: 120, candidatesTokenCount: 2 },
+      },
+    });
+
+    const evaluation = await new GeminiService().evaluateCategory(
+      'GETT',
+      categories,
+    );
+
+    expect(evaluation).toEqual({
+      categoryId: 'cat-taxi',
+      categoryName: 'Taxi',
+      probability: null,
+      inputTokens: 120,
+      outputTokens: 2,
+    });
+  });
+
+  it('keeps an answer that names no offered category, without an id', async () => {
+    generateContent.mockResolvedValue(textResponse('Transportation'));
+
+    const evaluation = await new GeminiService().evaluateCategory(
+      'GETT',
+      categories,
+    );
+
+    expect(evaluation).toMatchObject({
+      categoryId: null,
+      categoryName: 'Transportation',
+      inputTokens: null,
+    });
+  });
+});

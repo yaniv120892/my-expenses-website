@@ -1,7 +1,7 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import {
-  CategorizerHint,
+  CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
@@ -18,19 +18,61 @@ export function buildAnalyzeExpensesPrompt(
   return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;
 }
 
+export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
+  'You are a financial assistant helping users categorize their expenses.';
+const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
+
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
   categoryOptions: Category[],
-  categorizerHint?: CategorizerHint,
 ): string {
-  let prompt = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
+  return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
+}
 
-  if (categorizerHint) {
-    prompt += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
+export function normalizeModelAnswer(
+  rawAnswer: string | null | undefined,
+): string | null {
+  const answer = rawAnswer
+    ?.trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  return answer || null;
+}
+
+export function resolveSuggestedCategoryId(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+): string | null {
+  const answer = normalizeModelAnswer(rawAnswer);
+  if (answer === null) {
+    return null;
   }
+  const match = categoryOptions.find((category) => category.name === answer);
+  if (match) {
+    return match.id;
+  }
+  logger.warn(
+    { rawAnswer },
+    'Model answer did not name an offered category; treating as no suggestion',
+  );
+  return null;
+}
 
-  prompt += '\n\nReturn only the category name, nothing else.';
-  return prompt;
+/**
+ * Every provider's `evaluateCategory` ends here, so the record's shape and its
+ * null conventions are decided once rather than per provider.
+ */
+export function buildCategoryEvaluation(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+  usage: { inputTokens: number | null; outputTokens: number | null },
+): CategoryEvaluation {
+  return {
+    categoryId: resolveSuggestedCategoryId(rawAnswer, categoryOptions),
+    categoryName: normalizeModelAnswer(rawAnswer),
+    probability: null,
+    ...usage,
+  };
 }
 
 // Without rule 1 and the single-candidate "none", a lone same-value candidate
@@ -70,8 +112,8 @@ export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
 ): string | null {
-  const answer = rawAnswer?.trim().replace(/^["']|["']$/g, '');
-  if (!answer || answer === 'none') {
+  const answer = normalizeModelAnswer(rawAnswer);
+  if (answer === null || answer === 'none') {
     return null;
   }
   if (potentialMatches.some((match) => match.id === answer)) {

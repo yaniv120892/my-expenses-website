@@ -20,13 +20,26 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
+import { SUGGEST_CATEGORY_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
 
 const RETIRED_MODEL_ERROR = new Error(
   '[404 Not Found] This model models/gemini-2.0-flash is no longer available.',
 );
 
-function textResponse(text: string): unknown {
-  return { response: { candidates: [{ content: { parts: [{ text }] } }] } };
+function textResponse(
+  text: string,
+  usageMetadata?: {
+    promptTokenCount: number;
+    candidatesTokenCount: number;
+    totalTokenCount: number;
+  },
+): unknown {
+  return {
+    response: {
+      candidates: [{ content: { parts: [{ text }] } }],
+      usageMetadata,
+    },
+  };
 }
 
 beforeEach(() => {
@@ -100,5 +113,73 @@ describe('GeminiService model id', () => {
     await service.analyzeExpenses('second');
 
     expect(getGenerativeModel.mock.calls[1][0].model).toBe('gemini-switched');
+  });
+});
+
+describe('GeminiService.evaluateCategory', () => {
+  const categories = [
+    { id: 'cat-taxi', name: 'Taxi' },
+    { id: 'cat-car', name: 'Car' },
+  ];
+
+  it('resolves a quoted answer to a category id and counts thinking tokens as output', async () => {
+    generateContent.mockResolvedValue(
+      textResponse(' "Taxi"\n', {
+        promptTokenCount: 120,
+        candidatesTokenCount: 2,
+        totalTokenCount: 322,
+      }),
+    );
+
+    const evaluation = await new GeminiService().evaluateCategory(
+      'GETT',
+      categories,
+    );
+
+    expect(evaluation).toEqual({
+      categoryId: 'cat-taxi',
+      categoryName: 'Taxi',
+      probability: null,
+      inputTokens: 120,
+      outputTokens: 202,
+    });
+  });
+
+  it('sends the same system prompt the OpenAI provider sends', async () => {
+    generateContent.mockResolvedValue(textResponse('Taxi'));
+
+    await new GeminiService().evaluateCategory('GETT', categories);
+
+    expect(generateContent.mock.calls[0][0].systemInstruction).toBe(
+      SUGGEST_CATEGORY_SYSTEM_PROMPT,
+    );
+  });
+
+  it('keeps an answer that names no offered category, without an id', async () => {
+    generateContent.mockResolvedValue(textResponse('Transportation'));
+
+    const evaluation = await new GeminiService().evaluateCategory(
+      'GETT',
+      categories,
+    );
+
+    expect(evaluation).toMatchObject({
+      categoryId: null,
+      categoryName: 'Transportation',
+    });
+  });
+
+  it('rejects on provider failure where suggestCategory swallows', async () => {
+    generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
+
+    await expect(
+      new GeminiService().evaluateCategory('GETT', categories),
+    ).rejects.toBe(RETIRED_MODEL_ERROR);
+    expect(reportSwallowedError).not.toHaveBeenCalled();
+
+    await expect(
+      new GeminiService().suggestCategory('GETT', categories),
+    ).resolves.toBeNull();
+    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import {
   AIProvider,
-  CategorizerHint,
+  CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
@@ -15,8 +15,11 @@ import {
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  SUGGEST_CATEGORY_SYSTEM_PROMPT,
   resolveMatchedTransactionId,
+  buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
+import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
 // Overridable for the same reason as the Gemini id: a retired model should be
 // a dashboard edit, not a deploy.
@@ -89,45 +92,44 @@ export class ChatGPTService implements AIProvider {
   public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
-    categorizerHint?: CategorizerHint,
   ): Promise<string | null> {
-    try {
-      const userContent = buildSuggestCategoryPrompt(
-        expenseDescription,
-        categoryOptions,
-        categorizerHint,
-      );
+    return suggestCategoryOrNull(
+      () => this.evaluateCategory(expenseDescription, categoryOptions),
+      this.modelName(),
+      'ChatGPT API error',
+    );
+  }
 
-      const response = await this.getOpenAI().chat.completions.create({
-        model: this.modelName(),
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a financial assistant helping users categorize their expenses.',
-          },
-          {
-            role: 'user',
-            content: userContent,
-          },
-        ],
-        max_tokens: 50,
-      });
+  public async evaluateCategory(
+    expenseDescription: string,
+    categoryOptions: Category[],
+  ): Promise<CategoryEvaluation> {
+    const response = await this.getOpenAI().chat.completions.create({
+      model: this.modelName(),
+      messages: [
+        {
+          role: 'system',
+          content: SUGGEST_CATEGORY_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: buildSuggestCategoryPrompt(
+            expenseDescription,
+            categoryOptions,
+          ),
+        },
+      ],
+      max_tokens: 50,
+    });
 
-      const aiSuggestedCategory = response.choices[0].message?.content?.trim();
-
-      const suggestedCategory = categoryOptions.find(
-        (category) => category.name === aiSuggestedCategory,
-      );
-
-      return suggestedCategory?.id ?? null;
-    } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
-      return null;
-    }
+    return buildCategoryEvaluation(
+      response.choices[0]?.message?.content,
+      categoryOptions,
+      {
+        inputTokens: response.usage?.prompt_tokens ?? null,
+        outputTokens: response.usage?.completion_tokens ?? null,
+      },
+    );
   }
 
   public async findMatchingTransaction(

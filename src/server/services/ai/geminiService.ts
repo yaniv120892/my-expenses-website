@@ -1,7 +1,7 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import {
   AIProvider,
-  CategorizerHint,
+  CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import logger from '@/server/logging/logger';
@@ -16,8 +16,11 @@ import {
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  SUGGEST_CATEGORY_SYSTEM_PROMPT,
+  buildCategoryEvaluation,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
+import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
 // Google retires a Flash generation roughly twice a year and names the
 // successor in the 404 it starts returning, so the id is overridable: the next
@@ -96,50 +99,56 @@ export class GeminiService implements AIProvider {
   public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
-    categorizerHint?: CategorizerHint,
   ): Promise<string | null> {
-    try {
-      logger.debug(
-        { expenseDescription },
-        'Start suggesting category for expense',
-      );
-      const model = this.generativeModel();
+    return suggestCategoryOrNull(
+      () => this.evaluateCategory(expenseDescription, categoryOptions),
+      this.modelName(),
+      'Gemini API error',
+    );
+  }
 
-      const promptText = buildSuggestCategoryPrompt(
-        expenseDescription,
-        categoryOptions,
-        categorizerHint,
-      );
+  public async evaluateCategory(
+    expenseDescription: string,
+    categoryOptions: Category[],
+  ): Promise<CategoryEvaluation> {
+    logger.debug(
+      { expenseDescription },
+      'Start suggesting category for expense',
+    );
+    const response = await this.generativeModel().generateContent({
+      systemInstruction: SUGGEST_CATEGORY_SYSTEM_PROMPT,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: buildSuggestCategoryPrompt(
+                expenseDescription,
+                categoryOptions,
+              ),
+            },
+          ],
+        },
+      ],
+    });
 
-      const response = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: promptText }],
-          },
-        ],
-      });
-
-      const aiSuggestedCategory = this.cleanGeminiResponse(
-        response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
-      );
-
-      const categoryId = categoryOptions.find(
-        (category) => category.name === aiSuggestedCategory,
-      )?.id;
-
-      logger.debug(
-        { expenseDescription, aiSuggestedCategory },
-        'Done suggesting category for expense',
-      );
-      return categoryId ?? null;
-    } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'Gemini API error',
-      );
-      return null;
-    }
+    const usage = response.response?.usageMetadata;
+    const evaluation = buildCategoryEvaluation(
+      response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
+      categoryOptions,
+      {
+        inputTokens: usage?.promptTokenCount ?? null,
+        // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
+        outputTokens: usage
+          ? usage.totalTokenCount - usage.promptTokenCount
+          : null,
+      },
+    );
+    logger.debug(
+      { expenseDescription, categoryName: evaluation.categoryName },
+      'Done suggesting category for expense',
+    );
+    return evaluation;
   }
 
   public async findMatchingTransaction(

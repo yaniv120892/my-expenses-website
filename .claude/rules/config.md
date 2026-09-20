@@ -1,16 +1,19 @@
 ---
+# Vendored from yaniv120892/claude-config rules/config.md at acdb1a5 — edit upstream, then re-copy.
 paths:
   - "**/*.env*"
+  - "**/*.tf"
+  - "**/*.tfvars"
+  - "**/settings.json"
+  - "**/*.mcp.json"
+  - "**/docker-compose*.y*ml"
+  - "**/values*.y*ml"
   - "**/.github/workflows/*.y*ml"
-  - "**/*.json"
+  - "**/.gitlab-ci.y*ml"
 description: Configuration and infrastructure files — secret handling and environment wiring.
 ---
 
 # Configuration Files
-
-Vendored from `yaniv120892/claude-config` (`rules/config.md`) so it loads for every
-session in this repo — including Claude Code on the web and any contributor who has
-not run that repo's `install.sh`. Keep it in sync with upstream; edit there first.
 
 Read with `code.md`, whose comment rule explicitly covers config.
 

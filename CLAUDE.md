@@ -307,13 +307,12 @@ statements out of Cal, Isracard and Amex IL with Claude in Chrome. Credentials
 and one-time passwords are always the human's; the skill records only
 navigation, and marks what has not been observed rather than guessing it.
 
-The other skills — `steward`, `pr-description`, `proof-of-work`, `pr-review`,
-`prune-comments` — are vendored from the plugins in `yaniv120892/claude-config`
-and adapted to this repo: they name this repo's commands and rule files, drive
-GitHub through the MCP tools rather than `gh` (a web session has no CLI), and
-`pr-review` checks documentation drift against this file, since it is the only
-design document. Each names its canonical source in its header; edit there
-first, then re-vendor, as with `.claude/rules/`.
+A skill vendored from the plugins in `yaniv120892/claude-config` names its
+upstream path in a `Canonical source` line in its header; edit there first,
+then re-vendor, as with `.claude/rules/`. This repo's sessions have no CLI and
+no `~/.claude`, so every skill drives GitHub through the MCP tools and reads
+rules from `.claude/rules/`, and a review checks documentation drift against
+this file.
 
 `.claude/rules/` holds the craft rules — comments, control flow, naming, error
 handling, typing, env wiring, secret handling — vendored from

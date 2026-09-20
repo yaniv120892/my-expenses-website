@@ -9,8 +9,7 @@ Delete every comment the code can carry itself, and rename whatever the comment 
 propping up. Comments go stale; names do not.
 
 Canonical source: `plugins/dev-workflows/skills/prune-comments/` in
-yaniv120892/claude-config — edit there, then sync this copy. This copy points at
-the rules vendored into this repo, since a web session has no `~/.claude`.
+yaniv120892/claude-config — edit there, then sync this copy.
 
 The governing rule is **Self-Documenting Code Over Comments** in
 `.claude/rules/code.md`. Read that file — do not work from memory of it.
@@ -55,10 +54,6 @@ For each comment, in order:
 - Bare ticket refs with no explanation (`// ABC-123`).
 - Comments describing behaviour that the code no longer has. These are the reason
   the rule exists; flag them loudly, since a stale comment is worse than none.
-
-Config counts as code here — `.env.example`, `vercel.json`, CI YAML. Keep only
-what the file cannot show: hidden behaviour of the consuming tool, a key that is
-inert unless mirrored elsewhere, an upstream-bug workaround. Delete the rest.
 
 **Docs are not comments.** `CLAUDE.md` is this repo's one design document and the
 right home for the context you are stripping out of code. When deleting a

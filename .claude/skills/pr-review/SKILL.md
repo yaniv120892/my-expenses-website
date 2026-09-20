@@ -10,10 +10,7 @@ PR gets a code review, a rules check and a CLAUDE.md drift check. Findings
 merge into one report, you approve once, everything posts.
 
 Canonical source: `plugins/pr-workflows/skills/pr-review/` in
-yaniv120892/claude-config — edit there, then sync this copy. This copy is
-adapted to this repo: the GitHub MCP tools replace `gh` and the Python helpers
-(a web session has neither), and the documentation whose drift is checked is
-`CLAUDE.md`, this repo's only design document, instead of a Notion tree.
+yaniv120892/claude-config — edit there, then sync this copy.
 
 ## Step 1 — Require explicit targets
 
@@ -43,17 +40,12 @@ Agent({
     Read these first, in order:
       <REPO_ROOT>/.claude/skills/pr-review/references/rubric.md
       <REPO_ROOT>/.claude/skills/pr-review/references/docs-alignment.md
-    Then read whichever of these match the diff, and skip the rest:
-      <REPO_ROOT>/.claude/skills/pr-review/references/backend-review.md
-      <REPO_ROOT>/.claude/skills/pr-review/references/nextjs-frontend-review.md
-      <REPO_ROOT>/.claude/skills/pr-review/references/code-smells.md
 
     Follow rubric.md exactly. Do not delegate further. Do not post anything —
     the caller posts after the user approves.
 
-    Budget: at most ~25 tool calls. Fetch the diff ONCE and work from it. Read at
-    most 3 surrounding source files. If you are running long, return what you
-    have rather than continuing.
+    Fetch the diff ONCE and work from it. If you are running long, return
+    what you have rather than continuing.
 
     Return the sections rubric.md's output contract specifies and nothing else."
 })
@@ -70,12 +62,15 @@ The others' results still stand — never re-run the whole batch.
 ```markdown
 ## Review — <N> pull requests
 
-| PR  | Severity | file:line | Issue | Fix |
-| --- | -------- | --------- | ----- | --- |
+| PR  | tag | severity | file:line | comment |
+| --- | --- | -------- | --------- | ------- |
 ```
 
 One table, sorted HIGH → MEDIUM → LOW across every PR, so the worst thing in
-the batch is the first row regardless of which PR it came from. Then:
+the batch is the first row regardless of which PR it came from. Each row's
+comment is the subagent's, already in comment-contract form; the tagged
+suggestion blocks follow below the table, as the subagents returned them.
+Then:
 
 - **Rule violations** — a separate table. A style violation is not a bug, and
   mixing them buries the bugs.
@@ -104,14 +99,11 @@ adds each finding (added line → `RIGHT` side; removed line → `LEFT`), and
 posts them all at once. A docs-alignment finding is a general note on the PR
 (`add_issue_comment`), since it has no line.
 
-Every comment obeys the comment contract in `references/rubric.md`, which is
-the single source of truth for comment form — do not restate its rules here.
-Every comment ends with the Claude Code attribution footer the session
-requires.
+Post each comment as the subagent returned it — the rubric's comment contract
+already shaped it — and end every one with the Claude Code attribution
+footer the session requires on anything it posts to GitHub.
 
 ## Gotchas
 
 - A review cannot approve its author's own PR; `COMMENT` is the event to use
   for a review of your own branch.
-- Docs alignment never edits `CLAUDE.md`. It reports drift; the PR's author
-  decides, and `CLAUDE.md` requires the fix to land in the same PR.

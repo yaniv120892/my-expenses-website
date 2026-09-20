@@ -5,23 +5,11 @@ this check **never edits `CLAUDE.md`**; the finding tells the author what to
 change, and `CLAUDE.md`'s own Documentation section requires the change in the
 same PR.
 
-Upstream (`yaniv120892/claude-config`) runs this check against a Notion tree.
-This repo has one design document, so the check runs against it instead.
-
-## Where the docs live
-
-`CLAUDE.md` at the repo root. The sections that go stale:
-
-| Section             | Goes stale when the diff touches                                                                                                                                       |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Commands            | an npm script, its flags, what CI or `dev:local` runs                                                                                                                  |
-| Architecture        | a route, a directory's role, the auth modes, polling behaviour, a special endpoint                                                                                     |
-| Key invariants      | anything a bullet there states as a rule: matching windows, the merge-vs-create seam, request limits, Redis namespacing, Prisma URLs, styling, logging, error tracking |
-| Database (Prisma)   | a model added, removed or renamed                                                                                                                                      |
-| Crons (vercel.json) | a cron path or schedule                                                                                                                                                |
-| Deployment          | an env var the app must have, the site-origin rules, regions                                                                                                           |
-
 ## How to check
+
+`CLAUDE.md` at the repo root is the one design document. Read its headings at
+review time rather than a list kept here; every section states rules a diff
+can falsify.
 
 1. **Name the subsystem from the diff** — a route, service, invariant, cron,
    model, or env var. Not the file names.
@@ -72,6 +60,3 @@ Pick exactly one closing line, by this test:
 | A section covering the subsystem, nothing in it contradicted                | `None` — name the section and the one thing it does claim, so the reader knows you read it           |
 | A section covering the subsystem at a higher altitude than the diff touches | `None` — same. A bullet that abstracts over the detail you changed is working as intended, not a gap |
 | No section mentions the subsystem anywhere                                  | `No section covers <subsystem>`                                                                      |
-
-The middle row is the common case and it is **not** a gap. Only claim a gap when
-the grep genuinely returned nothing about the subsystem.

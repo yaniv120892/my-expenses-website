@@ -107,9 +107,9 @@ runs them alone.
 
 - **No module-load-time construction of network clients.** Every external
   client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
-  Google, excel extraction) is
-  built through `lazy()` from `src/server/lib/lazy.ts` and reads env via
-  `requireEnv`. A missing env var must fail the call, never the import.
+  Google, excel extraction) is built through `lazy()` from
+  `src/server/lib/lazy.ts` and reads env via `requireEnv`. A missing env var
+  must fail the call, never the import.
 - **Every model call made per transaction row is bounded.** The OpenAI and
   Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their
   timeout (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
@@ -121,14 +121,12 @@ runs them alone.
   The assistant's Mastra model is a separate streaming client and is not bound
   by these limits.
 - **Only the category decision may leave the `AI_PROVIDER` model.**
-  `AIServiceFactory.getCategorySuggester()` returns that model unless
-  `AI_CATEGORY_SUGGESTER=jev`, which routes `suggestCategory` alone to
-  TypeSafe's Jev (`src/server/services/ai/jevCategorySuggester.ts`), directly
-  when `TYPESAFE_API_KEY` is set and through Vercel AI Gateway otherwise; the
-  prose-producing
-  methods have no such flag. Every suggester offers exactly the option list
-  `src/server/services/ai/prompts.ts` builds, so the flag changes the model
-  and never the question.
+  `AIServiceFactory.getCategorySuggester()` is the one place that decides,
+  on `AI_CATEGORY_SUGGESTER`; the prose-producing methods have no such flag.
+  Every suggester offers exactly the option list
+  `src/server/services/ai/prompts.ts` builds and ends in its
+  `buildCategoryEvaluation`, so the flag changes the model and never the
+  question or the record.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
   value tolerance of `max(2, 1%)` (`matchValueTolerance`). Both are wider than

@@ -12,18 +12,31 @@ const coreEnvSchema = z.object({
   REDIS_URL: z.string().min(1),
   REDIS_TOKEN: z.string().min(1),
   CRON_SECRET: z.string().min(1),
-  // A typo here would silently keep the LLM categorizing while the operator
-  // believes Jev is live, so the deployment fails at boot instead.
+  // A typo here, or the flag without a key, would silently keep the LLM
+  // categorizing while the operator believes Jev is live, so boot fails instead.
   AI_CATEGORY_SUGGESTER: z.preprocess(
     lowercaseString,
     z.enum(['', 'jev']).optional(),
   ),
+  TYPESAFE_AI_API_KEY: z.string().optional(),
+  AI_GATEWAY_API_KEY: z.string().optional(),
 });
+
+const envSchema = coreEnvSchema.refine(
+  (env) =>
+    env.AI_CATEGORY_SUGGESTER !== 'jev' ||
+    Boolean(env.TYPESAFE_AI_API_KEY || env.AI_GATEWAY_API_KEY),
+  {
+    message:
+      'AI_CATEGORY_SUGGESTER=jev needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
+    path: ['AI_CATEGORY_SUGGESTER'],
+  },
+);
 
 // Called from instrumentation.ts so a misconfigured deployment fails at boot
 // instead of on the first request.
 export function assertCoreEnv(): void {
-  coreEnvSchema.parse(process.env);
+  envSchema.parse(process.env);
 }
 
 export function requireEnv(name: string): string {

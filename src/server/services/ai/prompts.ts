@@ -40,11 +40,8 @@ export function normalizeModelAnswer(
   return answer || null;
 }
 
-/**
- * The option list of `buildSuggestCategoryPrompt` as a Jev choice: every
- * category by its bare name with no description, exactly what the LLM prompt
- * lists, so switching suggester changes the model and never the question.
- */
+// Jev's choice criteria are the option list of buildSuggestCategoryPrompt, so
+// switching suggester changes the model and never the question.
 export function buildCategoryChoiceCriteria(
   categoryOptions: Category[],
 ): Record<string, null> {
@@ -79,13 +76,18 @@ export function resolveSuggestedCategoryId(
 export function buildCategoryEvaluation(
   rawAnswer: string | null | undefined,
   categoryOptions: Category[],
-  usage: { inputTokens: number | null; outputTokens: number | null },
+  measured: {
+    inputTokens: number | null;
+    outputTokens: number | null;
+    probability?: number | null;
+  },
 ): CategoryEvaluation {
   return {
     categoryId: resolveSuggestedCategoryId(rawAnswer, categoryOptions),
     categoryName: normalizeModelAnswer(rawAnswer),
-    probability: null,
-    ...usage,
+    probability: measured.probability ?? null,
+    inputTokens: measured.inputTokens,
+    outputTokens: measured.outputTokens,
   };
 }
 

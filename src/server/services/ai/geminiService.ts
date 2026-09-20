@@ -210,7 +210,7 @@ export class GeminiService implements AIProvider {
     );
   }
 
-  private modelName(): string {
+  public modelName(): string {
     return optionalEnv('GEMINI_MODEL', DEFAULT_GEMINI_MODEL);
   }
 

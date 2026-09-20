@@ -27,6 +27,8 @@ export interface CategorySuggester {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation>;
+  /** The model id this suggester sends, after any env override. */
+  modelName(): string;
 }
 
 export interface AIProvider extends CategorySuggester {

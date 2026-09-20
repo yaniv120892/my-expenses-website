@@ -22,7 +22,8 @@
     "statements:import": "tsx scripts/import-statements.ts",
     "test:e2e:ui": "playwright test",
     "postinstall": "prisma generate",
-    "prepare": "husky"
+    "prepare": "husky",
+    "categories:compare": "LOG_LEVEL=error tsx scripts/compare-category-suggesters.ts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

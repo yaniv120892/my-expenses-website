@@ -1,0 +1,246 @@
+{
+  "categories": [
+    "Food & Drinks",
+    "Eating out",
+    "Bar",
+    "Food/Drinks",
+    "Bills",
+    "Electricity",
+    "Water Bill",
+    "Gas Bill",
+    "Internet & TV",
+    "Phone",
+    "Home",
+    "Rent",
+    "Home Products",
+    "Building Committee",
+    "Mortgage",
+    "Income",
+    "Salary",
+    "Other (Income)",
+    "Odd jobs",
+    "Kids & Babies",
+    "Children",
+    "Family",
+    "Babies",
+    "Investments",
+    "Technology",
+    "Shopping",
+    "Clothing",
+    "Shoes",
+    "Books/Magazines",
+    "eBay/AliExpress",
+    "Gifts",
+    "Entertainment",
+    "Sport",
+    "XBOX",
+    "Cinema",
+    "Health",
+    "HMO/Health Fund",
+    "Pets",
+    "Food - Pets",
+    "Transportation",
+    "Car",
+    "Taxi",
+    "Bikes & Scooters",
+    "Taxes",
+    "Donation",
+    "Travels",
+    "Wedding",
+    "Other (Expenses)"
+  ],
+  "samples": [
+    {
+      "description": "ארומה תל אביב",
+      "expected": ["Eating out", "Food & Drinks"]
+    },
+    {
+      "description": "רמי לוי שיווק השקמה",
+      "expected": ["Food/Drinks", "Food & Drinks"]
+    },
+    {
+      "description": "שופרסל דיל",
+      "expected": ["Food/Drinks", "Food & Drinks"]
+    },
+    {
+      "description": "וולט WOLT",
+      "expected": ["Eating out", "Food & Drinks"]
+    },
+    {
+      "description": "מקדונלדס קניון עזריאלי",
+      "expected": ["Eating out", "Food & Drinks"]
+    },
+    {
+      "description": "פורט 19 בר",
+      "expected": ["Bar", "Food & Drinks"]
+    },
+    {
+      "description": "חברת החשמל לישראל",
+      "expected": ["Electricity", "Bills"]
+    },
+    {
+      "description": "מי אביבים 2010",
+      "expected": ["Water Bill", "Bills"]
+    },
+    {
+      "description": "סופרגז",
+      "expected": ["Gas Bill", "Bills"]
+    },
+    {
+      "description": "פרטנר תקשורת",
+      "expected": ["Phone", "Internet & TV", "Bills"]
+    },
+    {
+      "description": "HOT מובייל",
+      "expected": ["Phone", "Bills"]
+    },
+    {
+      "description": "yes טלוויזיה בלווין",
+      "expected": ["Internet & TV", "Bills"]
+    },
+    {
+      "description": "בזק בינלאומי",
+      "expected": ["Internet & TV", "Bills"]
+    },
+    {
+      "description": "ועד בית רחוב הרצל 12",
+      "expected": ["Building Committee", "Home"]
+    },
+    {
+      "description": "איקאה נתניה",
+      "expected": ["Home Products", "Home"]
+    },
+    {
+      "description": "ACE קנה ובנה",
+      "expected": ["Home Products", "Home"]
+    },
+    {
+      "description": "בנק לאומי משכנתא",
+      "expected": ["Mortgage", "Home"]
+    },
+    {
+      "description": "העברה משכורת",
+      "expected": ["Salary", "Income"]
+    },
+    {
+      "description": "שילב",
+      "expected": ["Babies", "Kids & Babies"]
+    },
+    {
+      "description": "גן ילדים עיריית תל אביב",
+      "expected": ["Children", "Kids & Babies"]
+    },
+    {
+      "description": "KSP מחשבים",
+      "expected": ["Technology"]
+    },
+    {
+      "description": "APPLE.COM/BILL",
+      "expected": ["Technology"]
+    },
+    {
+      "description": "ZARA ISRAEL",
+      "expected": ["Clothing", "Shopping"]
+    },
+    {
+      "description": "FOX HOME",
+      "expected": ["Home Products", "Home", "Shopping"]
+    },
+    {
+      "description": "נייק ישראל",
+      "expected": ["Shoes", "Clothing", "Shopping"]
+    },
+    {
+      "description": "סטימצקי",
+      "expected": ["Books/Magazines", "Shopping"]
+    },
+    {
+      "description": "ALIEXPRESS",
+      "expected": ["eBay/AliExpress", "Shopping"]
+    },
+    {
+      "description": "AMZN MKTP US*2K4",
+      "expected": ["Shopping", "eBay/AliExpress"]
+    },
+    {
+      "description": "הולמס פלייס",
+      "expected": ["Sport", "Entertainment"]
+    },
+    {
+      "description": "יס פלאנט ראשון",
+      "expected": ["Cinema", "Entertainment"]
+    },
+    {
+      "description": "Microsoft*Xbox",
+      "expected": ["XBOX", "Entertainment"]
+    },
+    {
+      "description": "NETFLIX.COM",
+      "expected": ["Entertainment", "Internet & TV"]
+    },
+    {
+      "description": "SPOTIFY",
+      "expected": ["Entertainment"]
+    },
+    {
+      "description": "מכבי שירותי בריאות",
+      "expected": ["HMO/Health Fund", "Health"]
+    },
+    {
+      "description": "סופר-פארם",
+      "expected": ["Health"]
+    },
+    {
+      "description": "פטשופ אנימל",
+      "expected": ["Food - Pets", "Pets"]
+    },
+    {
+      "description": "פז ידידים",
+      "expected": ["Car", "Transportation"]
+    },
+    {
+      "description": "GETT",
+      "expected": ["Taxi", "Transportation"]
+    },
+    {
+      "description": "רב קו",
+      "expected": ["Transportation"]
+    },
+    {
+      "description": "Lime",
+      "expected": ["Bikes & Scooters", "Transportation"]
+    },
+    {
+      "description": "עיריית תל אביב ארנונה",
+      "expected": ["Taxes"]
+    },
+    {
+      "description": "לתת - ארגון סיוע",
+      "expected": ["Donation"]
+    },
+    {
+      "description": "EL AL ISRAEL AIRLINES",
+      "expected": ["Travels"]
+    },
+    {
+      "description": "BOOKING.COM",
+      "expected": ["Travels"]
+    },
+    {
+      "description": "AIRBNB",
+      "expected": ["Travels"]
+    },
+    {
+      "description": "חתונה - אולם ארועים",
+      "expected": ["Wedding"]
+    },
+    {
+      "description": "דואר ישראל",
+      "expected": ["Other (Expenses)"]
+    },
+    {
+      "description": "PAYBOX",
+      "expected": ["Other (Expenses)"]
+    }
+  ]
+}

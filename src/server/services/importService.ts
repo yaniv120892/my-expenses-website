@@ -514,6 +514,7 @@ class ImportService {
       const matchingRule = rules.find(
         (rule) =>
           rule.type === record.type &&
+          rule.descriptionPattern.trim() !== '' &&
           record.description
             .toLowerCase()
             .includes(rule.descriptionPattern.toLowerCase()),

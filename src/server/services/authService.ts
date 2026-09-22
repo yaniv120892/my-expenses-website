@@ -16,6 +16,7 @@ import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
 import { requireSiteUrl } from '@/server/env';
+import { secretsEqual } from '@/server/utils/webhookAuth';
 
 const MAX_CODE_ATTEMPTS = 5;
 const VERIFICATION_CODE_SENT =
@@ -96,7 +97,7 @@ class AuthService {
     }
 
     const cachedCode = await getValue<string>(loginCodeKey(email), 'branch');
-    if (!cachedCode || !this.safeCodeCompare(String(cachedCode), code)) {
+    if (!cachedCode || !secretsEqual(code, String(cachedCode))) {
       return { error: 'Invalid or expired code' };
     }
     const user = await userRepository.findByEmail(email);
@@ -132,15 +133,6 @@ class AuthService {
 
   private generateCode() {
     return crypto.randomInt(100000, 999999).toString();
-  }
-
-  private safeCodeCompare(expected: string, provided: string): boolean {
-    const expectedBuffer = Buffer.from(expected);
-    const providedBuffer = Buffer.from(provided);
-    return (
-      expectedBuffer.length === providedBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, providedBuffer)
-    );
   }
 
   private generateVerificationEmailText(

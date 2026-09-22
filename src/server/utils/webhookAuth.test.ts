@@ -204,4 +204,8 @@ describe('secretsEqual', () => {
     expect(secretsEqual('', 's3cret')).toBe(false);
     expect(secretsEqual(null, 's3cret')).toBe(false);
   });
+
+  it('never matches an empty expected secret', () => {
+    expect(secretsEqual('', '')).toBe(false);
+  });
 });

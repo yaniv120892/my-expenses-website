@@ -100,12 +100,13 @@ export function verifyWebhookToken(
 /**
  * Constant-time for equal-length inputs; a length mismatch returns early, since
  * timingSafeEqual throws on it and the length of a secret is not the secret.
+ * An empty expected value never matches, so an unset secret cannot authorize.
  */
 export function secretsEqual(
   provided: string | null,
   expected: string,
 ): boolean {
-  if (provided === null) {
+  if (!provided || !expected) {
     return false;
   }
   const providedBytes = Buffer.from(provided);

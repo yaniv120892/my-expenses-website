@@ -101,7 +101,10 @@ export class ImportedTransactionRepository {
     });
   }
 
-  /** Pending-scoped, so a concurrent approval fails with P2025 and rolls the batch back instead of creating the transaction twice. */
+  /**
+   * Pending-scoped, so a concurrent approval fails with P2025 and rolls the
+   * batch back instead of creating the transaction twice.
+   */
   public markApprovedOp(id: string, userId: string) {
     return prisma.importedTransaction.update({
       where: { id, userId, ...PENDING_ROW },

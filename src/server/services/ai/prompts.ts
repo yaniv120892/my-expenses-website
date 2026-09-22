@@ -109,7 +109,10 @@ Existing transactions:
 ${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
-/** A hallucinated or prompt-injected id never leaves the provider; idempotent, so callers may re-apply it. */
+/**
+ * A hallucinated or prompt-injected id never leaves the provider; idempotent,
+ * so callers may re-apply it.
+ */
 export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
@@ -121,7 +124,8 @@ export function resolveMatchedTransactionId(
   if (potentialMatches.some((match) => match.id === answer)) {
     return answer;
   }
-  // At warn so it ships, keeping a match rate silently dropping to zero diagnosable.
+  // At warn so it ships, keeping a match rate silently dropping to zero
+  // diagnosable.
   logger.warn(
     { rawAnswer },
     'Model answer did not name an offered match; treating as no match',

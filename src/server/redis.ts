@@ -14,6 +14,8 @@ export type KeyScope = 'build' | 'branch';
 
 export function redisKeyPrefix(scope: KeyScope = 'build'): string {
   const environment = process.env.VERCEL_ENV;
+  // Production stays bare: prefixing it would orphan every session and cache
+  // entry already stored under the current names.
   if (environment === 'production') {
     return '';
   }
@@ -110,8 +112,8 @@ export async function incrementManyWithTtl(
     incrementPipeline.incr(increment.key);
   }
   const counts = await incrementPipeline.exec<number[]>();
-  // Missing counts are never === 1, so those counters would get no TTL and never
-  // reset; discard them and fail loudly instead.
+  // Missing counts are never === 1, so those counters would get no TTL and
+  // never reset; discard them and fail loudly instead.
   if (counts.length !== namespacedIncrements.length) {
     await discardCounters(client, namespacedIncrements);
     throw new Error(

@@ -296,7 +296,8 @@ describe('processImport', () => {
         includeRawData: false,
       },
     });
-    // The callback may already have completed the import, so the status is not re-stated.
+    // The callback may already have completed the import, so the status is not
+    // re-stated.
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },

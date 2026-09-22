@@ -74,6 +74,8 @@ function pooledUrlDisablesPreparedStatements(url: string): boolean {
 // branch; `||` rather than `??` because Vercel sets both to the empty string for
 // a deployment that has no branch.
 function previewSiteUrl(): string | undefined {
+  // The Vercel vars resolve in production too; falling back there would mail
+  // real users a vercel.app link instead of failing on a lost WEBSITE_URL.
   if (process.env.VERCEL_ENV === 'production') {
     return undefined;
   }

@@ -727,7 +727,10 @@ class ImportService {
     }
   }
 
-  /** Excludes every transaction another row already claims, so two rows cannot land on the same one. */
+  /**
+   * Excludes every transaction another row already claims, so two rows cannot
+   * land on the same one.
+   */
   private async rematchPendingTransactions(
     importId: string,
     userId: string,

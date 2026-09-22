@@ -1,6 +1,6 @@
 ---
 name: proof-of-work
-description: Produce real evidence that a change works — bring the app up locally against a real Postgres, exercise the endpoint or flow, and capture Playwright screenshots for UI changes — then hand that evidence to the PR's Proof of Work section, whose shape the writing-pr-description plugin skill owns. Use this whenever you finish a change and need to show it works, when writing or filling in a PR's Proof of Work section, when asked to "prove it works", "show it working", "test this manually", "take screenshots", or before claiming any change is done. Passing unit tests alone are not proof of work.
+description: Produce runtime evidence that a change works in this app — the dev:local stack on a real Postgres, real endpoint calls, Playwright screenshots for UI — for a PR's Proof of Work section. Use when finishing a change, filling in Proof of Work, or asked to prove, demo or screenshot a change. Passing unit tests are not proof of work.
 ---
 
 # Proof of work
@@ -40,7 +40,7 @@ the mock extraction agent, seeds two users, starts the dev server, and blocks
 until `/api/health/deep` reports both `db` and `redis` healthy. It then prints
 the seeded email and password, and a bearer token, and tails the Next log.
 Ctrl-C stops the app and the mocks; the database stays up for the next run
-(`npx prisma dev stop` ends it).
+(`npx prisma dev stop my-expenses` ends it).
 
 Read `scripts/dev-local.sh` before working around it — every value in it is
 load-bearing, and each one carries the comment saying why. The one constraint
@@ -243,7 +243,7 @@ much the evidence is worth.
 
 ## Cleaning up
 
-Stop `serve.ts` and `prisma dev` when done. Nothing from a proof-of-work run
+Ctrl-C the `dev:local` run and `npx prisma dev stop my-expenses` when done. Nothing from a proof-of-work run
 belongs in the PR: not the seed script, not `.env` files, not Playwright traces,
 and not the screenshots — those go to the assets branch. `capture.ts` writes to
 a gitignored directory for exactly this reason, so the only thing to check is

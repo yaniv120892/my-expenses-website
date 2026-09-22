@@ -7,3 +7,6 @@ docs/proof-of-work
 # Vendored verbatim from yaniv120892/claude-config; formatting drift here would
 # make the diff against upstream unreadable when re-vendoring.
 .claude/rules
+.claude/skills/pr-review
+.claude/skills/prune-comments
+.claude/skills/steward

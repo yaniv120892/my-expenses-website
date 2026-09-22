@@ -50,7 +50,8 @@ export interface CreateTransactionInput {
 
 export type UpdateTransactionInput = CreateTransactionInput;
 
-// No paging: the list pages by cursor, and the same filters drive the summary totals.
+// No paging: the list pages by cursor, and the same filters drive the summary
+// totals.
 export interface TransactionFilters {
   searchTerm?: string;
   categoryId?: string;

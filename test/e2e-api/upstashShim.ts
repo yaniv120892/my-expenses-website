@@ -1,7 +1,8 @@
 import http from 'http';
 
 // `@upstash/redis` speaks REST rather than the Redis wire protocol, so a local
-// redis-server cannot stand in. TTLs expire lazily so rate-limit windows behave.
+// redis-server cannot stand in. TTLs expire lazily so rate-limit windows
+// behave.
 const store = new Map<string, { value: string; expiresAt?: number }>();
 
 function liveEntry(key: string): { value: string; expiresAt?: number } | null {

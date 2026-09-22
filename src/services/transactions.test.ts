@@ -119,7 +119,8 @@ describe('exportTransactionsCsv', () => {
   });
 });
 
-// Totals, list and export must narrow alike, including the default endDate the client injects.
+// Totals, list and export must narrow alike, including the default endDate the
+// client injects.
 describe('list, summary and export filters', () => {
   // The default endDate is now+7d to the millisecond, so the clock is frozen.
   beforeEach(() => {

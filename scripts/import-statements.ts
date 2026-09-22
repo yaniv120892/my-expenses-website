@@ -1,7 +1,8 @@
 // IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
 //
-// Each file is uploaded once per target and recorded in `.import-statements.json`:
-// the extractor does not spell every merchant the same way on a second pass.
+// Each file is uploaded once per target and recorded in
+// `.import-statements.json`: the extractor does not spell every merchant the
+// same way on a second pass.
 import { readdir, readFile, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
@@ -183,7 +184,8 @@ async function main(): Promise<void> {
   await saveManifest(manifestPath, manifest);
 }
 
-// Never an argument: the token is a live session and would land in shell history.
+// Never an argument: the token is a live session and would land in shell
+// history.
 async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.IMPORT_API_TOKEN;
   if (fromEnvironment) {
@@ -278,7 +280,8 @@ function recordPreviews(
   );
 }
 
-// Printed before the first upload, since even a dry run creates imports on the target.
+// Printed before the first upload, since even a dry run creates imports on the
+// target.
 function reportTarget(baseUrl: string, dryRun: boolean): void {
   const mode = dryRun ? 'dry run: previews, approves nothing' : 'commit run';
   const remoteWarning = isLocalTarget(baseUrl) ? '' : '  <-- not local';

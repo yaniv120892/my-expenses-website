@@ -13,8 +13,8 @@ type Props = {
 
 export default function ErrorFallback({ error, reset, minHeight }: Props) {
   useEffect(() => {
-    // A `digest` means Next redacted a server error that `onRequestError` already
-    // reported with its real stack.
+    // A `digest` means Next redacted a server error that `onRequestError`
+    // already reported with its real stack.
     if (error.digest) {
       return;
     }

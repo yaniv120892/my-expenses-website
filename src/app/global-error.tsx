@@ -2,8 +2,9 @@
 
 import ErrorFallback from '@/components/ErrorFallback';
 
-// Replaces the whole document, outside the theme and emotion cache — deliberately
-// plain, because whatever broke the root layout may break those too.
+// Replaces the whole document, outside the theme and emotion cache —
+// deliberately plain, because whatever broke the root layout may break those
+// too.
 export default function GlobalError({
   error,
   reset,

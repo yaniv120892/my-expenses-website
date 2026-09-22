@@ -25,7 +25,8 @@ export function bucketKeyFor(date: Date, period: string): string {
   return format(date, PERIOD_FORMATS[period] ?? PERIOD_FORMATS.daily);
 }
 
-// Dense, so a period with no transactions renders as zero instead of disappearing.
+// Dense, so a period with no transactions renders as zero instead of
+// disappearing.
 export function enumerateBuckets(
   startDate: Date,
   endDate: Date,

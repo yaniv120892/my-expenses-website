@@ -7,7 +7,8 @@ export interface TransactionFormValues {
 }
 
 // Update and merge require a category uuid while create and import-approve let
-// the server categorize, so the endpoint the submit targets decides `requireCategory`.
+// the server categorize, so the endpoint the submit targets decides
+// `requireCategory`.
 export function validateTransactionForm(
   form: TransactionFormValues,
   requireCategory: boolean,

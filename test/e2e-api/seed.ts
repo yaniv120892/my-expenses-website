@@ -21,7 +21,8 @@ export interface SeedResult {
 }
 
 // Deliberately carries no encryption extension, so what it writes is whatever
-// it was handed. `pgbouncer=true` disables prepared statements for pooled hosts.
+// it was handed. `pgbouncer=true` disables prepared statements for pooled
+// hosts.
 function directClient(): PrismaClient {
   const base = process.env.DIRECT_URL || '';
   const url = base.includes('pgbouncer=true')

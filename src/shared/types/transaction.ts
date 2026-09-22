@@ -29,7 +29,10 @@ export interface TransactionSummaryFilters {
   startDate?: Date;
   endDate?: Date;
   categoryId?: string;
-  /** `categoryId` expanded to its subtree by the service layer; callers send `categoryId`. */
+  /**
+   * `categoryId` expanded to its subtree by the service layer; callers send
+   * `categoryId`.
+   */
   categoryIds?: string[];
   transactionType?: TransactionType;
   searchTerm?: string;

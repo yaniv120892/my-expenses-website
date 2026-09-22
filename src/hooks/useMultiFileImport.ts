@@ -65,7 +65,8 @@ export function useMultiFileImport({
   const isDrained = selectIsDrained(state);
   const summary = isDrained ? toBatchResult(state) : null;
 
-  // Passed in rather than read from state: the caller's dispatch has not rendered yet.
+  // Passed in rather than read from state: the caller's dispatch has not
+  // rendered yet.
   const runBatch = useCallback(
     async (batch: UploadItem[]) => {
       if (isRunningRef.current || batch.length === 0) {

@@ -6,7 +6,8 @@ import http from 'http';
 const CALLBACK_DELAY_MS = 150;
 
 // Callbacks go one at a time: the local `prisma dev` proxy intermittently fails
-// concurrent webhook writes on a prepared-statement mismatch, a proxy limitation.
+// concurrent webhook writes on a prepared-statement mismatch, a proxy
+// limitation.
 let callbackChain: Promise<void> = Promise.resolve();
 
 export interface ExtractionRequestRecord {

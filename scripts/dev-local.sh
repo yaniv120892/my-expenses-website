@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The env below mirrors the block `.github/workflows/ci.yml` gives its e2e job;
-# change both together. Presetting a var points that one integration at the real service.
+# change both together. Presetting a var points that one integration at the real
+# service.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -122,20 +123,22 @@ require_free_ports "$SHIM_PORT" "$MOCK_MODEL_PORT" "$EXTRACTION_PORT" "$APP_PORT
 start_local_database() {
   step 'Starting local Prisma Postgres'
   # Restarted rather than reused: the previous run's query-engine session still
-  # holds its prepared statements, and `migrate deploy` dies on "s0 already exists".
+  # holds its prepared statements, and `migrate deploy` dies on "s0 already
+  # exists".
   "$BIN/prisma" dev stop "$PRISMA_SERVER" >/dev/null 2>&1 || true
   "$BIN/prisma" dev --detach --name "$PRISMA_SERVER" >"$PRISMA_LOG" 2>&1 ||
     die 'prisma dev failed to start' "$PRISMA_LOG"
 
-  # Ports are whatever prisma dev picked, and its state file lands some time after
-  # --detach returns, so finding and reading it are retried together.
+  # Ports are whatever prisma dev picked, and its state file lands some time
+  # after --detach returns, so finding and reading it are retried together.
   STATE_CANDIDATES=(
     "$HOME/Library/Application Support/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
     "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
   )
 
-  # The proxy URL, not the plain postgres:// one: that port multiplexes every client
-  # onto one backend session, where the app collides on prepared statements.
+  # The proxy URL, not the plain postgres:// one: that port multiplexes every
+  # client onto one backend session, where the app collides on prepared
+  # statements.
   read_state() {
     node -e '
       const fs = require("fs");

@@ -203,7 +203,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   unnamed (Mastra's memory store fails to init) with it.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
-  components (charts read `theme.palette.charts`).
+  components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
   `logger.info({ userId }, 'msg')`; errors under the `err` key. Outside
   development records also ship to Better Stack through `pino.multistream`

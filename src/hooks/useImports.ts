@@ -1,5 +1,10 @@
 import { useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  QueryClient,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
 import { CreateTransactionInput } from '@/types';
@@ -56,9 +61,7 @@ export const useApproveImportedTransactionMutation = (importId: string) => {
     mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
       importService.approveImportedTransaction(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -71,9 +74,7 @@ export const useIgnoreImportedTransactionMutation = (importId: string) => {
     mutationFn: (transactionId: string) =>
       importService.ignoreImportedTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
     },
   });
 };
@@ -85,9 +86,7 @@ export const useMergeImportedTransactionMutation = (importId: string) => {
     mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
       importService.mergeImportedTransaction(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -123,9 +122,7 @@ export const useDeleteImportedTransactionMutation = (importId: string) => {
     mutationFn: (transactionId: string) =>
       importService.deleteImportedTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
     },
   });
 };
@@ -136,9 +133,7 @@ export const useBatchActionMutation = (importId: string) => {
     mutationFn: (request: BatchActionRequest) =>
       importService.batchAction(request),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -149,9 +144,7 @@ export const useApplyAutoApproveRulesMutation = (importId: string) => {
   return useMutation({
     mutationFn: () => importService.applyAutoApproveRules(importId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -206,3 +199,11 @@ export const useDeleteAutoApproveRuleMutation = () => {
     },
   });
 };
+
+// An import's `isVerified` is derived from its pending rows, so the list goes stale with them.
+function invalidateImportRows(queryClient: QueryClient, importId: string) {
+  queryClient.invalidateQueries({
+    queryKey: importKeys.transactions(importId),
+  });
+  queryClient.invalidateQueries({ queryKey: importKeys.lists() });
+}

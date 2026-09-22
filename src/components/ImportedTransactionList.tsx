@@ -48,6 +48,8 @@ import {
 } from '../types/import';
 import TransactionForm from './TransactionForm';
 import BatchActionToolbar from './BatchActionToolbar';
+import NotificationSnackbar from './NotificationSnackbar';
+import { describeApiError } from '../utils/api';
 import { CreateTransactionInput } from '../types';
 
 interface ImportedTransactionListProps {
@@ -276,6 +278,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     Record<string, string>
   >({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { data: autoApproveRules = [] } = useAutoApproveRulesQuery();
   const [statusFilter, setStatusFilter] = useState<string>(
     ImportedTransactionStatus.PENDING,
@@ -308,6 +311,16 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
       ),
     [filteredTransactions],
   );
+  // Rows leave view on a filter change or once decided; a batch must never act on them.
+  const effectiveSelectedIds = useMemo(
+    () =>
+      new Set(
+        visiblePendingTransactions
+          .map((t) => t.id)
+          .filter((id) => selectedIds.has(id)),
+      ),
+    [visiblePendingTransactions, selectedIds],
+  );
   const expenseTransactions = useMemo(
     () => filteredTransactions.filter((t) => t.type === 'EXPENSE'),
     [filteredTransactions],
@@ -326,15 +339,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   };
 
   const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    const next = new Set(effectiveSelectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
   };
 
   const handleMerge = (transactionId: string) => {
@@ -359,6 +370,8 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     setPendingOperations((prev) => ({ ...prev, [transactionId]: 'ignore' }));
     try {
       await ignoreMutation.mutateAsync(transactionId);
+    } catch (error) {
+      setErrorMessage(describeApiError(error, 'Failed to ignore transaction'));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -372,6 +385,8 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     setPendingOperations((prev) => ({ ...prev, [transactionId]: 'delete' }));
     try {
       await deleteMutation.mutateAsync(transactionId);
+    } catch (error) {
+      setErrorMessage(describeApiError(error, 'Failed to delete transaction'));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -474,11 +489,12 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     <>
       <BatchActionToolbar
         importId={importId}
-        selectedIds={Array.from(selectedIds)}
+        selectedIds={Array.from(effectiveSelectedIds)}
         pendingCount={pendingTransactions.length}
         onSelectAll={handleSelectAll}
         onClearSelection={handleClearSelection}
         hasAutoApproveRules={autoApproveRules.length > 0}
+        onErrorAction={setErrorMessage}
       />
       <Box sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -521,7 +537,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                     variant="outlined"
                     sx={{
                       p: 1.5,
-                      bgcolor: selectedIds.has(transaction.id)
+                      bgcolor: effectiveSelectedIds.has(transaction.id)
                         ? 'action.selected'
                         : 'background.paper',
                     }}
@@ -532,7 +548,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         <Checkbox
                           size="small"
                           sx={{ p: 0.5, mt: -0.25 }}
-                          checked={selectedIds.has(transaction.id)}
+                          checked={effectiveSelectedIds.has(transaction.id)}
                           onChange={() => handleToggleSelect(transaction.id)}
                         />
                       )}
@@ -584,12 +600,14 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                 <TableCell padding="checkbox">
                   <Checkbox
                     indeterminate={
-                      selectedIds.size > 0 &&
-                      selectedIds.size < visiblePendingTransactions.length
+                      effectiveSelectedIds.size > 0 &&
+                      effectiveSelectedIds.size <
+                        visiblePendingTransactions.length
                     }
                     checked={
                       visiblePendingTransactions.length > 0 &&
-                      selectedIds.size === visiblePendingTransactions.length
+                      effectiveSelectedIds.size ===
+                        visiblePendingTransactions.length
                     }
                     onChange={(e) =>
                       e.target.checked
@@ -615,13 +633,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                   {section.items.map((transaction) => (
                     <TableRow
                       key={transaction.id}
-                      selected={selectedIds.has(transaction.id)}
+                      selected={effectiveSelectedIds.has(transaction.id)}
                     >
                       <TableCell padding="checkbox">
                         {transaction.status ===
                         ImportedTransactionStatus.PENDING ? (
                           <Checkbox
-                            checked={selectedIds.has(transaction.id)}
+                            checked={effectiveSelectedIds.has(transaction.id)}
                             onChange={() => handleToggleSelect(transaction.id)}
                           />
                         ) : null}
@@ -680,6 +698,12 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
               : null
         }
         mode={formMode}
+      />
+      <NotificationSnackbar
+        open={!!errorMessage}
+        message={errorMessage ?? ''}
+        severity="error"
+        onClose={() => setErrorMessage(null)}
       />
     </>
   );

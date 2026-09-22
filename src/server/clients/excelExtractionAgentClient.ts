@@ -6,7 +6,6 @@ import { requireEnv, requireSiteUrl } from '@/server/env';
 import {
   SubmitExtractionRequest,
   SubmitExtractionResponse,
-  ExtractionStatusResponse,
 } from '@/server/clients/excelExtractionAgentClientTypes';
 
 export class ExcelExtractionAgentClient {
@@ -92,62 +91,6 @@ export class ExcelExtractionAgentClient {
     }
   }
 
-  public async getExtractionStatus(
-    requestId: string,
-  ): Promise<ExtractionStatusResponse> {
-    try {
-      logger.debug({ requestId }, 'Fetching extraction status');
-
-      const client = axios.create({
-        baseURL: this.serviceUrl,
-        timeout: 5000,
-      });
-
-      const response = await client.get<ExtractionStatusResponse>(
-        `/api/status/${requestId}`,
-      );
-
-      logger.debug(
-        { requestId, status: response.data.status },
-        'Extraction status retrieved',
-      );
-
-      return response.data;
-    } catch (error) {
-      logger.error(
-        { err: this.formatError(error), requestId },
-        'Failed to get extraction status',
-      );
-
-      throw this.handleError(error, 'Failed to get extraction status');
-    }
-  }
-
-  public async checkHealth(): Promise<boolean> {
-    try {
-      const client = axios.create({
-        baseURL: this.serviceUrl,
-        timeout: 5000,
-      });
-
-      const response = await client.get('/api/health');
-
-      const isHealthy = response.status === 200;
-      logger.debug(
-        { healthy: isHealthy, status: response.status },
-        'Excel extraction service health check',
-      );
-
-      return isHealthy;
-    } catch (error) {
-      logger.warn(
-        { err: this.formatError(error) },
-        'Excel extraction service health check failed',
-      );
-      return false;
-    }
-  }
-
   private formatError(error: unknown): unknown {
     if (axios.isAxiosError(error)) {
       return {
@@ -204,11 +147,5 @@ export const excelExtractionAgentClient = {
     request: SubmitExtractionRequest,
   ): Promise<SubmitExtractionResponse> {
     return getClient().submitExtractionRequest(request);
-  },
-  getExtractionStatus(requestId: string): Promise<ExtractionStatusResponse> {
-    return getClient().getExtractionStatus(requestId);
-  },
-  checkHealth(): Promise<boolean> {
-    return getClient().checkHealth();
   },
 };

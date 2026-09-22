@@ -6,12 +6,8 @@ import {
   deleteValue,
   incrementWithTtl,
 } from '@/server/redis';
-import {
-  invalidateSession,
-  isSessionActive,
-  storeSession,
-} from '@/server/auth/session';
-import { signToken, tokenTtlSeconds, verifyToken } from '@/server/auth/tokens';
+import { invalidateSession, storeSession } from '@/server/auth/session';
+import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
@@ -114,21 +110,6 @@ class AuthService {
 
   public async logoutUser(userId: string, token: string) {
     await invalidateSession(userId, token);
-  }
-
-  public async validateSession(
-    userId: string,
-    token: string,
-  ): Promise<boolean> {
-    if (!(await isSessionActive(userId, token))) {
-      return false;
-    }
-    try {
-      await verifyToken(token);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   private generateCode() {

@@ -20,7 +20,7 @@ export enum TransactionApprovalStatus {
   APPROVED = 'APPROVED',
 }
 
-/** Wire shape of the shared ImportWithVerification: JSON string dates, no server-only fields. */
+/** An import as the API serializes it: JSON string dates, no server-only fields. */
 export interface Import {
   id: string;
   fileUrl: string;
@@ -49,7 +49,7 @@ export interface MatchingTransaction {
   userId: string;
 }
 
-/** Wire shape of the shared ImportedTransaction, joined with its matching transaction. */
+/** An imported row as the API serializes it, joined with its matching transaction. */
 export interface ImportedTransaction {
   id: string;
   importId: string;

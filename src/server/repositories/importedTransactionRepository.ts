@@ -105,12 +105,6 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async delete(id: string): Promise<void> {
-    await prisma.importedTransaction.delete({
-      where: { id },
-    });
-  }
-
   /**
    * Unawaited so approval can batch it with the transaction it creates. Scoped
    * to a pending row, so a concurrent approval fails with P2025 and rolls the
@@ -201,14 +195,6 @@ export class ImportedTransactionRepository {
       },
       orderBy: { date: 'desc' },
     });
-  }
-
-  public async softDeleteBatch(ids: string[], userId: string): Promise<number> {
-    const result = await prisma.importedTransaction.updateMany({
-      where: { id: { in: ids }, userId },
-      data: { deleted: true },
-    });
-    return result.count;
   }
 
   /** Unawaited so the caller can batch it with the delete that follows. */

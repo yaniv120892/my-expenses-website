@@ -1,10 +1,21 @@
 {
+  "env": {
+    "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1"
+  },
+  "extraKnownMarketplaces": {
+    "yaniv-claude-config": {
+      "source": {
+        "source": "github",
+        "repo": "yaniv120892/claude-config"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pr-workflows@yaniv-claude-config": true,
+    "dev-workflows@yaniv-claude-config": true
+  },
   "permissions": {
-    "allow": [
-      "mcp__Linear",
-      "mcp__BetterStack",
-      "mcp__Vercel"
-    ],
+    "allow": ["mcp__Linear", "mcp__BetterStack", "mcp__Vercel"],
     "ask": [
       "mcp__Linear__delete_comment",
       "mcp__Linear__delete_diff_comment",

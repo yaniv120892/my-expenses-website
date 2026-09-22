@@ -1,20 +1,26 @@
 ---
+# Vendored from yaniv120892/claude-config rules/code.md at acdb1a5 — edit upstream, then re-copy.
 paths:
   - "**/*.ts"
   - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
   - "**/*.mjs"
+  - "**/*.cjs"
+  - "**/*.py"
+  - "**/*.go"
+  - "**/*.java"
+  - "**/*.rb"
   - "**/*.sql"
+  - "**/*.prisma"
+  - "**/*.sh"
+  - "**/*.bash"
 description: Language-agnostic craft rules: comments, naming, control flow, error handling, guards.
 ---
 
 # Writing Code — Craft Rules
 
-Vendored from `yaniv120892/claude-config` (`rules/code.md`) so it loads for every
-session in this repo — including Claude Code on the web and any contributor who has
-not run that repo's `install.sh`. Keep it in sync with upstream; edit there first.
-
-Language-agnostic. TypeScript specifics are in `typescript.md`. This repo has no
-Python, so upstream's `python.md` is not vendored.
+Language-agnostic. TypeScript specifics are in `typescript.md`, Python in `python.md`.
 
 
 **Self-Documenting Code Over Comments** — the most-repeated review comment; the bar is high
@@ -28,6 +34,19 @@ Python, so upstream's `python.md` is not vendored.
 > no types or functions to extract to, so the urge to narrate is strongest where the payoff is
 > lowest. Comment only what the file cannot show: hidden behaviour of the consuming tool, a key
 > that's inert unless mirrored elsewhere, an upstream-bug workaround.
+
+**Comments Name the Mechanism, Not Today's Provider** — the behaviour belongs to the class of
+thing, so a comment naming the current vendor goes wrong the day the vendor changes while the
+code it describes stays right
+> Pattern: State the property that forces the code — "a transaction pooler does not hold the
+> advisory lock `prisma migrate` takes". That stays true across every pooler, and it tells a
+> reader what to re-check rather than what to look up.
+> Avoid: The current host, region, plan tier, or dashboard named beside code that would read
+> identically on any other provider.
+> Exception: a workaround for one named product's own bug — there the vendor *is* the mechanism,
+> and the name is what lets a reader retest it.
+> The deployment fact still belongs somewhere: one maintained place (`CLAUDE.md`, README), not
+> restated in each file that reacts to it.
 
 **Always Use Braces for Control Flow** — including single-statement guards and early returns
 > Pattern: `if (!x) { return null; }` — never `if (!x) return null;`
@@ -115,3 +134,10 @@ configuring it a single atomic step nobody can sequence; the first request after
 > integration URL has not been pasted into the dashboard yet.
 > Exception: config the process genuinely cannot run without (DB URL, JWT secret) is required —
 > but assert it at boot next to the others, never on first use.
+> Also: **open a provisioning ticket for the var in the same breath as the code.** A default keeps
+> the deploy alive; it does not make the feature work. Merged code reading an unprovisioned var is
+> silently inert, and neither the repo nor CI surfaces that — the code half looks done, so the
+> config half is forgotten until someone notices the feature never ran. The ticket covers: set it
+> in the host (Vercel: production **and** preview); where a third party issues the value, extract
+> it from that provider rather than inventing one; and update the consuming service or monitor in
+> the same change, so a new gate cannot lock out the caller it was meant to admit.

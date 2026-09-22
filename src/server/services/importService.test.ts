@@ -29,6 +29,7 @@ const {
     findPendingByIds: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
     updateStatusBatch: vi.fn(),
+    updateStatus: vi.fn(),
   },
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
@@ -737,6 +738,36 @@ describe('batchApproveImportedTransactions', () => {
     ]);
   });
 
+  it('fails only the row a concurrent action took, and applies the rest', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      pendingRow({ id: 'r1' }),
+      pendingRow({ id: 'r2' }),
+    ]);
+    prismaMock.$transaction.mockRejectedValueOnce({
+      code: 'P2025',
+      meta: { modelName: 'ImportedTransaction' },
+    });
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1', 'r2'],
+    );
+
+    expect(result).toEqual({
+      total: 2,
+      succeeded: 1,
+      failed: 1,
+      errors: [
+        { id: 'r1', error: 'Imported transaction is no longer pending' },
+      ],
+    });
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['created-1'],
+      'user-1',
+    );
+  });
+
   it('reports every id as succeeded when none are stale', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([
       pendingRow({ id: 'r1' }),
@@ -895,7 +926,7 @@ describe('a batch applies the rows it already loaded', () => {
   });
 });
 
-describe('single-row approve and merge', () => {
+describe('single-row approve, merge and ignore', () => {
   const approve = () =>
     importService.approveImportedTransaction('r1', 'user-1', {
       description: 'Coffee',
@@ -912,6 +943,8 @@ describe('single-row approve and merge', () => {
       date: new Date(2026, 2, 7),
       type: 'EXPENSE',
     });
+
+  const ignore = () => importService.ignoreImportedTransaction('r1', 'user-1');
 
   it('409s for a row that is no longer pending, before writing', async () => {
     importedTxRepo.findById.mockResolvedValue(
@@ -930,11 +963,52 @@ describe('single-row approve and merge', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it('turns a row approved concurrently inside the batch into a 404', async () => {
-    importedTxRepo.findById.mockResolvedValue(pendingRow({ deleted: false }));
-    prismaMock.$transaction.mockRejectedValue({ code: 'P2025' });
+  it('409s when a concurrent action takes the row between the read and the write', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({
+        deleted: false,
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+      }),
+    );
+    const lostRace = {
+      code: 'P2025',
+      meta: { modelName: 'ImportedTransaction' },
+    };
+    prismaMock.$transaction.mockRejectedValue(lostRace);
+    importedTxRepo.updateStatus.mockRejectedValueOnce(lostRace);
 
-    await expect(approve()).rejects.toMatchObject({ status: 404 });
+    await expect(approve()).rejects.toMatchObject({ status: 409 });
+    await expect(merge()).rejects.toMatchObject({ status: 409 });
+    await expect(ignore()).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('404s a merge whose matched transaction vanished inside the batch', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({
+        deleted: false,
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+      }),
+    );
+    prismaMock.$transaction.mockRejectedValue({
+      code: 'P2025',
+      meta: { modelName: 'Transaction' },
+    });
+
+    await expect(merge()).rejects.toMatchObject({
+      status: 404,
+      message: 'Transaction not found',
+    });
+  });
+
+  it('409s ignoring a row that is no longer pending, before writing', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({ status: 'IGNORED', deleted: false }),
+    );
+
+    await expect(ignore()).rejects.toMatchObject({ status: 409 });
+    expect(importedTxRepo.updateStatus).not.toHaveBeenCalled();
   });
 });
 

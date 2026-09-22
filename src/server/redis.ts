@@ -10,9 +10,6 @@ const getClient = lazy(
     }),
 );
 
-// Previews share production's Upstash database, so only production is bare.
-// 'build' keys per commit so a buggy commit's cache dies with it; 'branch'
-// survives pushes for sessions and login codes.
 export type KeyScope = 'build' | 'branch';
 
 export function redisKeyPrefix(scope: KeyScope = 'build'): string {
@@ -113,10 +110,8 @@ export async function incrementManyWithTtl(
     incrementPipeline.incr(increment.key);
   }
   const counts = await incrementPipeline.exec<number[]>();
-  // The number[] return type promises one count per increment. A short result
-  // reads as `undefined` past the end, which is never === 1, so those counters
-  // would never be given a TTL and would never reset — the same jam the
-  // discard above exists to avoid. Discard them and fail loudly instead.
+  // Missing counts are never === 1, so those counters would get no TTL and never
+  // reset; discard them and fail loudly instead.
   if (counts.length !== namespacedIncrements.length) {
     await discardCounters(client, namespacedIncrements);
     throw new Error(

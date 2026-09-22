@@ -397,7 +397,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     }
   };
 
-  // Must not catch: the form reports the outcome (see CLAUDE.md).
+  // Must not catch: the form reports the outcome.
   const handleFormSubmit = async (data: CreateTransactionInput) => {
     // Resolving without writing would read as a successful save.
     if (!selectedTransaction || !formMode) {

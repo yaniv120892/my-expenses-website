@@ -41,8 +41,7 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
   }
   const tripped = rules.find((rule, index) => counts[index] > rule.limit);
   if (tripped) {
-    // warn ships to Better Stack, so an attack stays visible past Vercel's one-
-    // hour log retention.
+    // At warn so it ships, keeping an attack visible past runtime log retention.
     logger.warn(
       { key: tripped.key, limit: tripped.limit },
       'Rate limit exceeded',

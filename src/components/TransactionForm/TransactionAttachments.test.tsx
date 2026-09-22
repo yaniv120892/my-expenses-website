@@ -41,7 +41,6 @@ describe('pending image previews', () => {
     const { rerender } = renderWithPendingImage();
     await screen.findByText('receipt.png');
 
-    // Same file, three renders of the same open panel.
     rerender(attachmentsWith(PENDING_IMAGE));
     rerender(attachmentsWith(PENDING_IMAGE));
 

@@ -21,8 +21,7 @@ import {
 } from '@/server/services/ai/prompts';
 import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
-// Overridable for the same reason as the Gemini id: a retired model should be
-// a dashboard edit, not a deploy.
+// Overridable so a retired model is a dashboard edit, not a deploy.
 const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
 
 export class ChatGPTService implements AIProvider {

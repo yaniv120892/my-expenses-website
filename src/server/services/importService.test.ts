@@ -296,8 +296,7 @@ describe('processImport', () => {
         includeRawData: false,
       },
     });
-    // The import is created PROCESSING, so nothing re-states it here — the
-    // callback carries the importId and may already have completed the import.
+    // The callback may already have completed the import, so the status is not re-stated.
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },
@@ -310,8 +309,6 @@ describe('processImport', () => {
       new Error('agent down'),
     );
     await expect(run()).rejects.toThrow('agent down');
-    // Scoped to an unclaimed import: a callback that already completed (or
-    // merged away) this import must not be overwritten with FAILED.
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },
       data: { status: 'FAILED', error: 'agent down' },
@@ -716,8 +713,6 @@ describe('buildReconciliationPlan', () => {
 });
 
 describe('batchApproveImportedTransactions', () => {
-  // Regression: a stale requested id vanished from the batch and `total` shrank
-  // to match.
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
 
@@ -870,9 +865,7 @@ describe('a batch applies the rows it already loaded', () => {
     );
 
     expect(result.succeeded).toBe(1);
-    // The row and its match both came from the batch's own read.
     expect(importedTxRepo.findById).not.toHaveBeenCalled();
-    // Merged, not created: the matched transaction is updated in place.
     expect(updateTransactionOp).toHaveBeenCalledWith(
       'tx-1',
       expect.objectContaining({ status: 'APPROVED' }),
@@ -880,7 +873,6 @@ describe('a batch applies the rows it already loaded', () => {
     );
     expect(updateStatusOp).toHaveBeenCalledWith('r1', 'user-1', 'MERGED');
     expect(createTransactionOp).not.toHaveBeenCalled();
-    // The approved match is what the user hears about, not a new transaction.
     expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
       ['tx-1'],
       'user-1',

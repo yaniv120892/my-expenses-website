@@ -74,8 +74,7 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).not.toThrow();
   });
 
-  // Putting the Accelerate URL back is the rollback for the pooled cutover, so
-  // this check must not be what stops it.
+  // Putting the Accelerate URL back is the rollback path, so this check must not block it.
   it('accepts an Accelerate URL', () => {
     vi.stubEnv(
       'DATABASE_URL',

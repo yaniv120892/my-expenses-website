@@ -80,7 +80,6 @@ interface MergeImportedTransactionData {
   categoryId?: string;
 }
 
-// Satisfied by both an imported row and a pending transaction.
 type MatchableTransaction = {
   id: string;
   description: string;
@@ -89,9 +88,6 @@ type MatchableTransaction = {
   type: TransactionType;
 };
 
-// A plan item beside the row it was derived from. loadPendingSelection has
-// already read the row with its matched transaction, so applying the item
-// needs no further read.
 type PlannedRow = {
   record: ImportedTransactionWithMatch;
   item: ReconciliationPlanItem;
@@ -425,10 +421,7 @@ class ImportService {
     );
   }
 
-  /**
-   * What approving the selection would do, without writing anything;
-   * batchApproveImportedTransactions commits the same plan.
-   */
+  /** Writes nothing; batchApproveImportedTransactions commits the same plan. */
   public async buildReconciliationPlan(
     importId: string,
     userId: string,
@@ -533,8 +526,6 @@ class ImportService {
     return this.runReconciliationPlan(plan, userId);
   }
 
-  // Constrained to the user's own pending rows in SQL; `missingIds` lets a
-  // caller report ids the query did not return.
   private async loadPendingSelection(
     importId: string,
     userId: string,
@@ -736,11 +727,7 @@ class ImportService {
     }
   }
 
-  /**
-   * Keeps transactions claimed by this import's non-pending rows, or by any
-   * other pending row of the user's, out of the running so two rows cannot land
-   * on the same one.
-   */
+  /** Excludes every transaction another row already claims, so two rows cannot land on the same one. */
   private async rematchPendingTransactions(
     importId: string,
     userId: string,
@@ -782,10 +769,6 @@ class ImportService {
     );
   }
 
-  /**
-   * One row at a time against a running exclusion set, so no two rows claim the
-   * same transaction; a throwing row is logged and skipped.
-   */
   private async matchSequentially(
     transactions: MatchableTransaction[],
     userId: string,
@@ -827,8 +810,6 @@ class ImportService {
         'Processing imported transactions for matches',
       );
 
-      // Seeded from every transaction this user's other pending rows already
-      // claim, so a row here cannot take one out from under them.
       const excludedTransactionIds = new Set(
         await importedTransactionRepository.findClaimedMatchingTransactionIds(
           userId,
@@ -878,8 +859,6 @@ class ImportService {
       return null;
     }
 
-    // An unambiguous spelling match skips the model call; a tie falls through
-    // to it.
     const exactMatchId = findExactNormalizedMatch(
       transaction.description,
       availableMatches,

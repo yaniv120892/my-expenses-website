@@ -4,8 +4,9 @@ package-lock.json
 prisma/migrations
 docs/proof-of-work
 
-# Vendored verbatim from yaniv120892/claude-config; formatting drift here would
-# make the diff against upstream unreadable when re-vendoring.
+# Vendored from yaniv120892/claude-config; formatting drift here would make the
+# diff against the synced copy unreadable when re-vendoring. pr-review and
+# prune-comments are deliberate forks of their upstream twins, not verbatim.
 .claude/rules
 .claude/skills/pr-review
 .claude/skills/prune-comments

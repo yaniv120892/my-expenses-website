@@ -320,17 +320,15 @@ navigation, and marks what has not been observed rather than guessing it.
 `settings.json` references the `yaniv120892/claude-config` marketplace and
 enables `pr-workflows` and `dev-workflows`, so those skills, commands and hooks
 are fetched rather than copied and stay current; `CLAUDE_CODE_PLUGIN_PREFER_HTTPS`
-keeps that fetch on HTTPS, since a fresh container has no SSH key. A few skills
-stay vendored under `.claude/skills/` because this repo's sessions have no `gh`
-CLI: `pr-review` and `prune-comments` are the variants that drive GitHub through
-the MCP tools, and `steward` is read from the head branch by remote sessions.
-Each names its upstream in a `Canonical source` line; edit there first, then
-re-vendor. Where a vendored skill shares a name with a plugin skill, follow the
-vendored copy. `proof-of-work` and the examples under
-`pr-description/references/` are this repo's own — how to prove a change here,
-and what a good description of one looks like — and the plugin's
-`writing-pr-description` reads both. A review checks documentation drift
-against this file.
+keeps that fetch on HTTPS, since a fresh container has no SSH key. `pr-review` and
+`prune-comments` stay vendored under `.claude/skills/` as MCP-driven variants,
+because this repo's sessions have no `gh` CLI; `steward` stays vendored because
+remote sessions read it from the head branch. Each names its upstream in a
+`Canonical source` line; edit there first, then re-vendor. Where a vendored
+skill shares a name with a plugin skill, follow the vendored copy.
+`proof-of-work` and the examples under `pr-description/references/` are this
+repo's own — how to prove a change here, and what a good description of one
+looks like — and the plugin's `writing-pr-description` reads both.
 
 `.claude/rules/` holds the craft rules — comments, control flow, naming, error
 handling, typing, env wiring, secret handling — vendored from

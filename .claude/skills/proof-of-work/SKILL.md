@@ -9,10 +9,10 @@ A green test suite says the code does what the test expects. Proof of work
 says the _feature_ does what the PR claims, in the running app — a real
 Postgres, a real HTTP request, a real browser.
 
-What *counts* as proof — the same command run without and with the change,
+What _counts_ as proof — the same command run without and with the change,
 output pasted rather than described, a `**Not proven locally:**` line — is the
-writing-pr-description plugin skill's job. This file is how to produce it *in
-this app*.
+writing-pr-description plugin skill's job. This file is how to produce it _in
+this app_.
 
 Decide what to produce from what the change touches:
 
@@ -26,8 +26,7 @@ Decide what to produce from what the change touches:
 | Tooling, docs, a skill           | No runtime surface — apply it to real inputs from this repo and show what came out   |
 
 Run `npm run typecheck && npm run lint && npm test` before claiming anything
-is done — but their results stay out of the PR body. CI already shows them,
-and a green count in the evidence section reads as proof without being any.
+is done — but their results stay out of the PR body; CI already shows them.
 
 ## Bringing the stack up
 

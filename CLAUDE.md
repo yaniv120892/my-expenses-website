@@ -148,7 +148,17 @@ runs them alone.
   `scripts/import-statements.ts` names the rows it previewed rather than
   re-approving whatever is pending by then. `ImportedTransactionList` still
   derives its own view of the same decision; the invariant covers the server
-  paths only.
+  paths only. Applying a decision is shared the same way:
+  `applyCreate` and `applyMerge` take the row `loadPendingSelection` already
+  read with its matched transaction, rather than re-reading the row and its
+  match per item, and they return the transaction to notify about instead of
+  notifying — so the batch hands the whole list to
+  `transactionService.notifyTransactionsCreatedSafe`, which reads the user's
+  preference once. The single-row routes load the row themselves and call the
+  same two methods, so a batch must never be written as a loop over the public
+  `approveImportedTransaction`/`mergeImportedTransaction`. Applying from the
+  loaded row means a merge acts on the match as it was when the batch started,
+  so a rematch running concurrently is not seen.
 - **A preview flags close calls without deciding them.** Each preview item
   carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
   action, from database lookups only and never a model call:

@@ -218,7 +218,10 @@ class TransactionService {
         );
         if (existing) {
           await this.learnCategoryMappingSafe(
-            existing,
+            {
+              description: existing.description,
+              categoryId: existing.category.id,
+            },
             data.categoryId,
             userId,
           );
@@ -236,17 +239,15 @@ class TransactionService {
    * and never fails the write it accompanies.
    */
   public async learnCategoryMappingSafe(
-    transaction: Transaction,
+    charge: { description: string; categoryId: string },
     categoryId: string,
     userId: string,
   ): Promise<void> {
-    if (transaction.category.id === categoryId) {
+    if (charge.categoryId === categoryId) {
       return;
     }
     try {
-      const normalizedDescription = transaction.description
-        .toLowerCase()
-        .trim();
+      const normalizedDescription = charge.description.toLowerCase().trim();
       await userCategoryMappingRepository.upsert(
         userId,
         normalizedDescription,
@@ -417,6 +418,52 @@ class TransactionService {
     transactionId: string,
     userId: string,
   ) {
+    await this.notifyTransactionsCreatedSafe([transactionId], userId);
+  }
+
+  /**
+   * The preference is read once for the whole list, so approving an imported
+   * statement does not ask it again per row. Each transaction is still
+   * notified on its own, so one failure cannot silence the rest.
+   */
+  public async notifyTransactionsCreatedSafe(
+    transactionIds: string[],
+    userId: string,
+  ) {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    let isNotificationEnabled: boolean;
+    try {
+      isNotificationEnabled =
+        await userSettingsService.isCreateTransactionNotificationEnabled(
+          userId,
+        );
+    } catch (error) {
+      logger.error(
+        { err: error, userId },
+        'Failed to read the create-transaction notification preference',
+      );
+      return;
+    }
+
+    if (!isNotificationEnabled) {
+      logger.debug(
+        `skipped ${transactionIds.length} notification(s) - not enabled for user ${userId}`,
+      );
+      return;
+    }
+
+    for (const transactionId of transactionIds) {
+      await this.notifyOneTransactionCreatedSafe(transactionId, userId);
+    }
+  }
+
+  private async notifyOneTransactionCreatedSafe(
+    transactionId: string,
+    userId: string,
+  ) {
     try {
       const transaction = await this.getTransactionItem(transactionId, userId);
       if (!transaction) {
@@ -429,17 +476,6 @@ class TransactionService {
       if (transaction.status !== 'APPROVED') {
         logger.debug(
           `skipped notification for transaction ${transactionId} - transaction not approved`,
-        );
-        return;
-      }
-
-      const isNotificationEnabled =
-        await userSettingsService.isCreateTransactionNotificationEnabled(
-          userId,
-        );
-      if (!isNotificationEnabled) {
-        logger.debug(
-          `skipped notification for transaction ${transactionId} - notification not enabled for user ${userId}`,
         );
         return;
       }

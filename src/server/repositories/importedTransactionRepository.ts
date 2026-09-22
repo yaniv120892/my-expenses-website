@@ -9,9 +9,10 @@ import { isSameCharge } from '@/server/utils/transactionMatching';
 
 // The queries that include the matched transaction return more than the bare
 // model describes, and callers decide merge-vs-create from that relation.
-type ImportedTransactionWithMatch = Prisma.ImportedTransactionGetPayload<{
-  include: { matchingTransaction: true };
-}>;
+export type ImportedTransactionWithMatch =
+  Prisma.ImportedTransactionGetPayload<{
+    include: { matchingTransaction: true };
+  }>;
 
 type DuplicateComparable = {
   description: string;

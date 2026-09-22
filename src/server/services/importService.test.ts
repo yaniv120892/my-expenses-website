@@ -8,6 +8,12 @@ const {
   findPotentialMatches,
   findPotentialMatchesForCharges,
   findMatchingTransaction,
+  updateStatusOp,
+  markApprovedOp,
+  getTransactionItem,
+  createTransactionOp,
+  updateTransactionOp,
+  txService,
 } = vi.hoisted(() => ({
   importRepo: {
     findById: vi.fn(),
@@ -15,6 +21,7 @@ const {
     create: vi.fn(),
   },
   importedTxRepo: {
+    findById: vi.fn(),
     findByUserIdAndImportId: vi.fn(),
     findByImportId: vi.fn(),
     findPendingByImportId: vi.fn(),
@@ -25,27 +32,46 @@ const {
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
     import: { updateMany: vi.fn() },
+    $transaction: vi.fn(),
   },
   agentClient: { submitExtractionRequest: vi.fn() },
   findPotentialMatches: vi.fn(),
   findPotentialMatchesForCharges: vi.fn(),
   findMatchingTransaction: vi.fn(),
+  getTransactionItem: vi.fn(),
+  createTransactionOp: vi.fn(),
+  updateTransactionOp: vi.fn(),
+  txService: {
+    prepareCreateTransaction: vi.fn(),
+    notifyTransactionCreatedSafe: vi.fn(),
+    notifyTransactionsCreatedSafe: vi.fn(),
+    learnCategoryMappingSafe: vi.fn(),
+  },
+  updateStatusOp: vi.fn(),
+  markApprovedOp: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
 }));
 vi.mock('@/server/repositories/importedTransactionRepository', () => ({
-  importedTransactionRepository: importedTxRepo,
+  importedTransactionRepository: {
+    ...importedTxRepo,
+    updateStatusOp,
+    markApprovedOp,
+  },
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/repositories/transactionRepository', () => ({
   default: {
     findPotentialMatches,
     findPotentialMatchesForCharges,
-    getTransactionItem: vi.fn(),
+    getTransactionItem,
+    createTransactionOp,
+    updateTransactionOp,
   },
 }));
+vi.mock('@/server/services/transactionService', () => ({ default: txService }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
 }));
@@ -59,6 +85,18 @@ import { importService } from '@/server/services/importService';
 const service = importService as any;
 
 const matchSingleTransaction = vi.fn();
+
+const pendingRow = (over: Record<string, unknown> = {}) => ({
+  id: 'r1',
+  userId: 'user-1',
+  status: 'PENDING',
+  description: 'Coffee',
+  value: 12.5,
+  date: new Date(2026, 2, 7),
+  type: 'EXPENSE',
+  matchingTransaction: null,
+  ...over,
+});
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'r1',
@@ -85,6 +123,8 @@ beforeEach(() => {
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
   service.matchSingleTransaction = matchSingleTransaction;
+  txService.prepareCreateTransaction.mockResolvedValue({ id: 'model' });
+  prismaMock.$transaction.mockResolvedValue([{ id: 'created-1' }]);
 });
 
 describe('rematchImport', () => {
@@ -644,25 +684,12 @@ describe('buildReconciliationPlan', () => {
 });
 
 describe('batchApproveImportedTransactions', () => {
-  const pendingRow = (over: Record<string, unknown> = {}) => ({
-    id: 'r1',
-    userId: 'user-1',
-    status: 'PENDING',
-    description: 'Coffee',
-    value: 12.5,
-    date: new Date(2026, 2, 7),
-    type: 'EXPENSE',
-    matchingTransaction: null,
-    ...over,
-  });
-
   // Regression: loadPendingSelection's SQL filter (PENDING/userId/not-deleted)
   // used to make a stale requested id vanish from the batch silently —
   // `total` shrank to match, so a caller comparing `total` to what it asked
   // for never saw a mismatch.
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
-    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
 
     const result = await importService.batchApproveImportedTransactions(
       'imp-1',
@@ -686,7 +713,6 @@ describe('batchApproveImportedTransactions', () => {
       pendingRow({ id: 'r1' }),
       pendingRow({ id: 'r2' }),
     ]);
-    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
 
     const result = await importService.batchApproveImportedTransactions(
       'imp-1',
@@ -750,5 +776,92 @@ describe('batchIgnoreImportedTransactions', () => {
       errors: [],
     });
     expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
+  });
+});
+
+describe('a batch applies the rows it already loaded', () => {
+  const pendingMatch = {
+    id: 'tx-1',
+    userId: 'user-1',
+    description: 'Coffee',
+    categoryId: 'cat-1',
+    status: 'PENDING_APPROVAL',
+  };
+
+  const loadedRow = (over: Record<string, unknown> = {}) => ({
+    ...pendingRow(),
+    matchingTransactionId: null,
+    ...over,
+  });
+
+  it('merges from the joined transaction instead of re-reading it', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({
+        id: 'r1',
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: pendingMatch,
+      }),
+    ]);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1'],
+    );
+
+    expect(result.succeeded).toBe(1);
+    // The row and its match both came from the batch's own read.
+    expect(importedTxRepo.findById).not.toHaveBeenCalled();
+    // Merged, not created: the matched transaction is updated in place.
+    expect(updateTransactionOp).toHaveBeenCalledWith(
+      'tx-1',
+      expect.objectContaining({ status: 'APPROVED' }),
+      'user-1',
+    );
+    expect(updateStatusOp).toHaveBeenCalledWith('r1', 'user-1', 'MERGED');
+    expect(createTransactionOp).not.toHaveBeenCalled();
+    // The approved match is what the user hears about, not a new transaction.
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['tx-1'],
+      'user-1',
+    );
+  });
+
+  it('creates for an unmatched row and marks it approved', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({ id: 'r1' }),
+    ]);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1'],
+    );
+
+    expect(result.succeeded).toBe(1);
+    expect(createTransactionOp).toHaveBeenCalledTimes(1);
+    expect(markApprovedOp).toHaveBeenCalledWith('r1', 'user-1');
+    expect(updateTransactionOp).not.toHaveBeenCalled();
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['created-1'],
+      'user-1',
+    );
+  });
+
+  it('hands the whole batch to one notification call', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({ id: 'r1' }),
+      loadedRow({ id: 'r2' }),
+      loadedRow({ id: 'r3' }),
+    ]);
+
+    await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'r2',
+      'r3',
+    ]);
+
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledTimes(1);
+    expect(txService.notifyTransactionCreatedSafe).not.toHaveBeenCalled();
   });
 });

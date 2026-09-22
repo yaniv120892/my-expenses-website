@@ -11,7 +11,10 @@ import {
   importRepository,
   type ImportWithPendingCount,
 } from '@/server/repositories/importRepository';
-import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
+import {
+  importedTransactionRepository,
+  type ImportedTransactionWithMatch,
+} from '@/server/repositories/importedTransactionRepository';
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
@@ -91,9 +94,13 @@ type MatchableTransaction = {
   type: TransactionType;
 };
 
-type ImportedTransactionRecord = Awaited<
-  ReturnType<typeof importedTransactionRepository.findByUserIdAndImportId>
->[number];
+// A plan item beside the row it was derived from. loadPendingSelection has
+// already read the row with its matched transaction, so applying the item
+// needs no further read.
+type PlannedRow = {
+  record: ImportedTransactionWithMatch;
+  item: ReconciliationPlanItem;
+};
 
 // The extraction agent fetches this URL server-side, so accepting an arbitrary
 // URL would let a user point it at internal hosts. Only files the upload
@@ -264,40 +271,10 @@ class ImportService {
     userId: string,
     transactionData: ApproveImportedTransactionData,
   ) {
-    const importedTransaction = await importedTransactionRepository.findById(
-      importedTransactionId,
-    );
-
-    if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new HttpError(404, 'Imported transaction not found');
-    }
-
-    // Categorization may call the AI service, so it runs before the batch:
-    // network work has no place inside a database transaction.
-    const transactionModel = await transactionService.prepareCreateTransaction({
-      description: transactionData.description,
-      value: transactionData.value,
-      date: transactionData.date,
-      type: transactionData.type,
-      userId: importedTransaction.userId,
-      status: TransactionStatus.APPROVED,
-      categoryId: transactionData.categoryId,
-    });
-
-    // One batch, so a failure cannot create the transaction while the imported
-    // row stays PENDING — retrying that state would create it a second time.
-    const [createdTransaction] = await prisma
-      .$transaction([
-        transactionRepository.createTransactionOp(transactionModel),
-        importedTransactionRepository.markApprovedOp(
-          importedTransactionId,
-          userId,
-        ),
-      ])
-      .catch(throwImportedTransactionNotFoundOnMissingRow);
-
+    const record = await this.loadOwnedRow(importedTransactionId, userId);
+    const notifyTransactionId = await this.applyCreate(record, transactionData);
     await transactionService.notifyTransactionCreatedSafe(
-      createdTransaction.id,
+      notifyTransactionId,
       userId,
     );
   }
@@ -307,29 +284,76 @@ class ImportService {
     userId: string,
     transactionData: MergeImportedTransactionData,
   ) {
-    const importedTransaction = await importedTransactionRepository.findById(
+    const record = await this.loadOwnedRow(importedTransactionId, userId);
+    const notifyTransactionId = await this.applyMerge(record, transactionData);
+    if (notifyTransactionId) {
+      await transactionService.notifyTransactionCreatedSafe(
+        notifyTransactionId,
+        userId,
+      );
+    }
+  }
+
+  private async loadOwnedRow(
+    importedTransactionId: string,
+    userId: string,
+  ): Promise<ImportedTransactionWithMatch> {
+    const record = await importedTransactionRepository.findById(
       importedTransactionId,
     );
 
-    if (!importedTransaction || importedTransaction.userId !== userId) {
+    if (!record || record.userId !== userId) {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
-    if (!importedTransaction.matchingTransactionId) {
+    return record;
+  }
+
+  private async applyCreate(
+    record: ImportedTransactionWithMatch,
+    transactionData: ApproveImportedTransactionData,
+  ): Promise<string> {
+    // Categorization may call the AI service, so it runs before the batch:
+    // network work has no place inside a database transaction.
+    const transactionModel = await transactionService.prepareCreateTransaction({
+      description: transactionData.description,
+      value: transactionData.value,
+      date: transactionData.date,
+      type: transactionData.type,
+      userId: record.userId,
+      status: TransactionStatus.APPROVED,
+      categoryId: transactionData.categoryId,
+    });
+
+    // One batch, so a failure cannot create the transaction while the imported
+    // row stays PENDING — retrying that state would create it a second time.
+    const [createdTransaction] = await prisma
+      .$transaction([
+        transactionRepository.createTransactionOp(transactionModel),
+        importedTransactionRepository.markApprovedOp(record.id, record.userId),
+      ])
+      .catch(throwImportedTransactionNotFoundOnMissingRow);
+
+    return createdTransaction.id;
+  }
+
+  /** Returns the transaction to notify about only if the merge approved it. */
+  private async applyMerge(
+    record: ImportedTransactionWithMatch,
+    transactionData: MergeImportedTransactionData,
+  ): Promise<string | null> {
+    const { matchingTransaction, matchingTransactionId, userId } = record;
+
+    if (!matchingTransactionId) {
       throw new HttpError(409, 'No matching transaction to merge with');
     }
 
-    const matchingTransaction = await transactionRepository.getTransactionItem(
-      importedTransaction.matchingTransactionId,
-      userId,
-    );
-
-    if (!matchingTransaction) {
+    if (!matchingTransaction || matchingTransaction.userId !== userId) {
       logger.warn(
         {
           userId,
-          importedTransactionId: importedTransaction.id,
-          matchingTransactionId: importedTransaction.matchingTransactionId,
+          importedTransactionId: record.id,
+          matchingTransactionId,
         },
         'Stored matching transaction is missing or not owned by the user',
       );
@@ -352,7 +376,7 @@ class ImportService {
     await prisma
       .$transaction([
         transactionRepository.updateTransactionOp(
-          importedTransaction.matchingTransactionId,
+          matchingTransactionId,
           {
             description: transactionData.description,
             type: transactionData.type,
@@ -364,19 +388,14 @@ class ImportService {
           userId,
         ),
         importedTransactionRepository.updateStatusOp(
-          importedTransactionId,
+          record.id,
           userId,
           ImportedTransactionStatus.MERGED,
         ),
       ])
       .catch(throwTransactionNotFoundOnMissingRow);
 
-    if (approveMatch) {
-      await transactionService.notifyTransactionCreatedSafe(
-        importedTransaction.matchingTransactionId,
-        userId,
-      );
-    }
+    return approveMatch ? matchingTransactionId : null;
   }
 
   public async ignoreImportedTransaction(
@@ -444,9 +463,10 @@ class ImportService {
       userId,
       transactionIds,
     );
-    const plan = pending.map((transaction) =>
-      this.toReconciliationPlanItem(transaction),
-    );
+    const plan = pending.map((record) => ({
+      record,
+      item: this.toReconciliationPlanItem(record),
+    }));
 
     return this.runReconciliationPlan(plan, userId, missingIds);
   }
@@ -489,10 +509,10 @@ class ImportService {
       autoApproveRuleRepository.findActiveByUserId(userId),
     ]);
 
-    const plan: ReconciliationPlanItem[] = [];
-    for (const transaction of pendingTransactions) {
+    const plan: PlannedRow[] = [];
+    for (const record of pendingTransactions) {
       const matchingRule = rules.find((rule) =>
-        transaction.description
+        record.description
           .toLowerCase()
           .includes(rule.descriptionPattern.toLowerCase()),
       );
@@ -501,9 +521,10 @@ class ImportService {
         continue;
       }
 
-      plan.push(
-        this.toReconciliationPlanItem(transaction, matchingRule.categoryId),
-      );
+      plan.push({
+        record,
+        item: this.toReconciliationPlanItem(record, matchingRule.categoryId),
+      });
     }
 
     return this.runReconciliationPlan(plan, userId);
@@ -519,7 +540,7 @@ class ImportService {
     userId: string,
     transactionIds: string[] | 'all',
   ): Promise<{
-    pending: ImportedTransactionRecord[];
+    pending: ImportedTransactionWithMatch[];
     missingIds: string[];
   }> {
     if (transactionIds === 'all') {
@@ -562,7 +583,7 @@ class ImportService {
   }
 
   private toReconciliationPlanItem(
-    transaction: ImportedTransactionRecord,
+    transaction: ImportedTransactionWithMatch,
     categoryOverride?: string,
   ): ReconciliationPlanItem {
     const match = transaction.matchingTransaction;
@@ -592,12 +613,12 @@ class ImportService {
   }
 
   private async runReconciliationPlan(
-    plan: ReconciliationPlanItem[],
+    plannedRows: PlannedRow[],
     userId: string,
     missingIds: string[] = [],
   ): Promise<BatchResult> {
     const result: BatchResult = {
-      total: plan.length + missingIds.length,
+      total: plannedRows.length + missingIds.length,
       succeeded: 0,
       failed: missingIds.length,
       errors: missingIds.map((id) => ({
@@ -606,26 +627,35 @@ class ImportService {
       })),
     };
 
-    for (const item of plan) {
+    const notifyTransactionIds: string[] = [];
+    for (const entry of plannedRows) {
       try {
-        await this.applyReconciliationPlanItem(item, userId);
+        const notifyTransactionId = await this.applyPlannedRow(entry);
+        if (notifyTransactionId) {
+          notifyTransactionIds.push(notifyTransactionId);
+        }
         result.succeeded++;
       } catch (error) {
         result.failed++;
         result.errors.push({
-          id: item.importedTransactionId,
+          id: entry.record.id,
           error: getErrorMessage(error),
         });
       }
     }
 
+    await transactionService.notifyTransactionsCreatedSafe(
+      notifyTransactionIds,
+      userId,
+    );
+
     return result;
   }
 
-  private async applyReconciliationPlanItem(
-    item: ReconciliationPlanItem,
-    userId: string,
-  ): Promise<void> {
+  private async applyPlannedRow({
+    record,
+    item,
+  }: PlannedRow): Promise<string | null> {
     const payload = {
       description: item.description,
       value: item.value,
@@ -635,22 +665,15 @@ class ImportService {
 
     switch (item.action) {
       case 'MERGE':
-        await this.mergeImportedTransaction(
-          item.importedTransactionId,
-          userId,
-          {
-            ...payload,
-            categoryId: item.categoryId ?? undefined,
-          },
-        );
-        return;
+        return this.applyMerge(record, {
+          ...payload,
+          categoryId: item.categoryId ?? undefined,
+        });
       case 'CREATE':
-        await this.approveImportedTransaction(
-          item.importedTransactionId,
-          userId,
-          { ...payload, categoryId: item.categoryId },
-        );
-        return;
+        return this.applyCreate(record, {
+          ...payload,
+          categoryId: item.categoryId,
+        });
       default:
         throw new Error(`Unknown reconciliation action: ${item.action}`);
     }
@@ -721,8 +744,8 @@ class ImportService {
   private async rematchPendingTransactions(
     importId: string,
     userId: string,
-    allTransactions: ImportedTransactionRecord[],
-    pendingTransactions: ImportedTransactionRecord[],
+    allTransactions: ImportedTransactionWithMatch[],
+    pendingTransactions: ImportedTransactionWithMatch[],
   ): Promise<void> {
     const excludedTransactionIds = new Set(
       allTransactions

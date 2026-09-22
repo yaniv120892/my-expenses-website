@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { incrementManyWithTtl } from '@/server/redis';
 import { HttpError } from '@/server/http/errors';
 import logger from '@/server/logging/logger';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 export type RateLimitRule = {
   key: string;
@@ -32,9 +33,11 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
       })),
     );
   } catch (error) {
-    // Redis being unreachable must not take auth or chat down with it: fail
-    // open, logged per request — an attacker who can break Redis gets a pass.
-    logger.error(
+    // Any failure counting the request — Redis unreachable, or a counter set
+    // that does not match the rules — must not take auth or chat down with
+    // it: fail open, logged per request, so an outage is visible and an
+    // attacker who can break Redis gets a pass.
+    reportSwallowedError(
       { err: error },
       'Rate limit check failed; allowing the request',
     );

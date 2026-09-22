@@ -84,9 +84,16 @@ async function expireOrDiscard(
     }
     await pipeline.exec();
   } catch (error) {
-    await Promise.allSettled(entries.map((entry) => client.del(entry.key)));
+    await discardCounters(client, entries);
     throw error;
   }
+}
+
+async function discardCounters(
+  client: Redis,
+  entries: { key: string }[],
+): Promise<void> {
+  await Promise.allSettled(entries.map((entry) => client.del(entry.key)));
 }
 
 type CounterIncrement = { key: string; ttlSeconds: number };
@@ -97,6 +104,9 @@ type CounterIncrement = { key: string; ttlSeconds: number };
 export async function incrementManyWithTtl(
   increments: CounterIncrement[],
 ): Promise<number[]> {
+  if (increments.length === 0) {
+    return [];
+  }
   const client = getClient();
   if (increments.length === 1) {
     const only = increments[0];
@@ -112,6 +122,18 @@ export async function incrementManyWithTtl(
     incrementPipeline.incr(increment.key);
   }
   const counts = await incrementPipeline.exec<number[]>();
+  // The number[] return type promises one count per increment. A short result
+  // reads as `undefined` past the end, which is never === 1, so those counters
+  // would never be given a TTL and would never reset — the same jam the
+  // discard above exists to avoid. Discard them and fail loudly instead.
+  if (counts.length !== namespacedIncrements.length) {
+    await discardCounters(client, namespacedIncrements);
+    throw new Error(
+      `Expected ${namespacedIncrements.length} counters from the Redis pipeline, got ${counts.length} (${namespacedIncrements
+        .map((increment) => increment.key)
+        .join(', ')})`,
+    );
+  }
   const firstHits = namespacedIncrements.filter(
     (_, index) => counts[index] === 1,
   );

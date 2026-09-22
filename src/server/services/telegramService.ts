@@ -12,13 +12,19 @@ export function escapeMarkdown(value: string): string {
   return value.replace(TELEGRAM_MARKDOWN_ENTITY_CHARS, (char) => `\\${char}`);
 }
 
+// v2 retries timeouts, so a retried send could deliver twice; fail fast instead.
+const TELEGRAM_TIMEOUT_MS = 10_000;
+
 class TelegramService {
   private getApi = lazy((): Api | null => {
     const token = optionalEnv('TELEGRAM_BOT_TOKEN');
     if (!token) {
       return null;
     }
-    return new Api(token);
+    return new Api(token, {
+      timeoutMs: TELEGRAM_TIMEOUT_MS,
+      maxRetries: 0,
+    });
   });
 
   public async sendMessage(chatId: string, message: string) {

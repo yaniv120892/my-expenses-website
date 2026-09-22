@@ -58,7 +58,7 @@ export async function getPresignedUploadUrl(
 ) {
   const ext = fileName.split('.').pop();
   const baseName = fileName.replace(`.${ext}`, '');
-  const fileKey = `transactions/${transactionId}/${randomUUID()}-${baseName}.${ext}`;
+  const fileKey = `${attachmentKeyPrefix(transactionId)}${randomUUID()}-${baseName}.${ext}`;
   const command = new PutObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: fileKey,
@@ -72,4 +72,28 @@ export async function getPresignedUploadUrl(
     },
   );
   return { uploadUrl, fileKey };
+}
+
+/**
+ * Only a key the upload URL could have issued for this transaction. Dot
+ * segments are refused because a URL client normalizes them, which would
+ * climb out of the prefix.
+ */
+export function isAttachmentKeyForTransaction(
+  fileKey: string,
+  transactionId: string,
+): boolean {
+  const prefix = attachmentKeyPrefix(transactionId);
+  const hasDotSegment = fileKey
+    .split('/')
+    .some((segment) => segment === '.' || segment === '..');
+  return (
+    fileKey.startsWith(prefix) &&
+    fileKey.length > prefix.length &&
+    !hasDotSegment
+  );
+}
+
+function attachmentKeyPrefix(transactionId: string): string {
+  return `transactions/${transactionId}/`;
 }

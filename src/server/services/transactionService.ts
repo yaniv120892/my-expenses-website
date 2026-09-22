@@ -24,6 +24,7 @@ import {
   buildPreviewUrl,
   buildDownloadUrl,
   getPresignedUploadUrl,
+  isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
@@ -269,6 +270,13 @@ class TransactionService {
       mimeType: string;
     },
   ): Promise<void> {
+    if (!isAttachmentKeyForTransaction(fileData.fileKey, transactionId)) {
+      throw new HttpError(
+        400,
+        `fileKey was not issued for transaction ${transactionId}`,
+      );
+    }
+
     await this.assertTransactionExists(transactionId, userId);
 
     await transactionFileRepository.create({

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Accordion,
@@ -57,6 +57,22 @@ function FileThumbnail({ src, alt }: { src: string; alt: string }) {
       <Image src={src} alt={alt} fill sizes="40px" unoptimized />
     </Box>
   );
+}
+
+/** Minting the URL in the render body leaked a blob per render, for the life of the document. */
+function PendingFileThumbnail({ file }: { file: File }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  if (!objectUrl) {
+    return null;
+  }
+  return <FileThumbnail src={objectUrl} alt={file.name} />;
 }
 
 export default function TransactionAttachments({
@@ -295,10 +311,7 @@ export default function TransactionAttachments({
                     }}
                   >
                     {file.type.startsWith('image/') && (
-                      <FileThumbnail
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                      />
+                      <PendingFileThumbnail file={file} />
                     )}
                     <Typography
                       variant="body2"

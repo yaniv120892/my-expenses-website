@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 export async function listFiles(transactionId: string) {
   const res = await api.get(`/api/transactions/${transactionId}/attachments`);
@@ -12,7 +12,7 @@ export async function attachFile(
     fileName: string;
     fileSize: number;
     mimeType: string;
-  }
+  },
 ) {
   return api.post(`/api/transactions/${transactionId}/attachments`, fileMeta);
 }
@@ -24,11 +24,11 @@ export async function removeFile(transactionId: string, fileId: string) {
 export async function getPresignedUploadUrl(
   transactionId: string,
   fileName: string,
-  mimeType: string
+  mimeType: string,
 ) {
   const res = await api.post(
     `/api/transactions/${transactionId}/attachments/presign-upload`,
-    { fileName, mimeType }
+    { fileName, mimeType },
   );
   return res.data;
 }

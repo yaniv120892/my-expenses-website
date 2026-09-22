@@ -27,8 +27,8 @@ npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm]
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
-runs audit, lint, typecheck, unit tests and the build, and in a parallel job
-both e2e suites against `npx prisma dev`.
+runs audit, lint, prettier, typecheck, unit tests and the build, and in a
+parallel job both e2e suites against `npx prisma dev`.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

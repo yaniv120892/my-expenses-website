@@ -31,7 +31,8 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
       })),
     );
   } catch (error) {
-    // Fail open so a Redis outage cannot take auth or chat down; reported so it stays visible.
+    // Fail open so a Redis outage cannot take auth or chat down; reported so it
+    // stays visible.
     reportSwallowedError(
       { err: error },
       'Rate limit check failed; allowing the request',

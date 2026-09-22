@@ -8,7 +8,7 @@ export const PRISMA_ERROR_CODES = {
 type PrismaHttpMapping = { status: number; message: string };
 
 // The recoverable request errors. Codes left unmapped stay 500s and keep
-// alerting.
+// alerting. Keyed by raw code on purpose: this table is the protocol to scan.
 const PRISMA_HTTP_MAPPINGS: Record<string, PrismaHttpMapping | undefined> = {
   P2025: { status: 404, message: 'Not found' },
   P2002: { status: 409, message: 'Already exists' },

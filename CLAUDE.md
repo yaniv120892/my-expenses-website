@@ -27,8 +27,8 @@ npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm]
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
-runs audit, lint, typecheck, unit tests and the build, then both e2e
-suites against `npx prisma dev`.
+runs audit, lint, typecheck, unit tests and the build, and in a parallel job
+both e2e suites against `npx prisma dev`.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until
@@ -61,8 +61,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
-  request. Every 5xx is also reported to Sentry and alerted to the Telegram ops
-  chat (README "Alerting"). Special routes: `/api/chat` (SSE streaming), `/api/webhook`
+  request. Every error it maps to a 5xx is also reported to Sentry and alerted
+  to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
@@ -153,8 +153,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires equal date,
   value and type, and the shorter normalized description to be whole words from
   either end of the longer one (the extractor drops a trailing branch, mall or
-  city, and sometimes a leading "refund"), or a leading prefix past half its
-  length when the cut lands mid-word. A side under three characters never
+  city, and sometimes a leading "refund"), or a leading prefix past half the
+  longer one when the cut lands mid-word. A side under three characters never
   matches. `selectNonDuplicateRows` claims each existing row at most once, so a
   genuinely repeated charge still imports.
 - **A duplicate import is kept as a pointer, and its survivor is held until
@@ -169,9 +169,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   instead of reconstructing the survivor from the filename. A `MERGED` import
   holds no rows and never becomes a merge target (`findExisting` requires
   `COMPLETED`). The submitted payment month wins over the one extraction
-  reports, since card + month is the duplicate key. A failed extraction keeps
-  its claim — the webhook is not idempotent — so recovery is delete and
-  re-import.
+  reports, since card + month is the duplicate key. A FAILED import keeps its
+  extraction claim, since a redelivery after a partial write would insert every
+  row again, so recovery is delete and re-import.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -182,7 +182,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   process included, is namespaced. Preview caches key on the commit
   (`preview:<sha>:`) so a fix is never served a buggy commit's value; sessions
   and login codes pass `'branch'` (`preview:<branch>:`) to survive pushes.
-  Superseded namespaces expire by TTL.
+  Superseded namespaces expire by TTL, except a counter killed between
+  INCR and EXPIRE, which has none.
 - **Prisma**: schema + migrations in `prisma/`; the app client is
   `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
   be any address that client accepts. On Vercel it is Neon's pooled endpoint
@@ -213,7 +214,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `Sentry.init`, run by `src/instrumentation.ts` (Node, edge) and
   `src/instrumentation-client.ts` (browser); `initSentry` takes no arguments
   and reads `process.env` itself, since a constant-folded argument breaks the
-  browser bundle. `createHandler` reports every 5xx it returns;
+  browser bundle. `createHandler` reports every 5xx it turns an error into;
   `onRequestError` covers what escapes a route; React boundaries report via
   `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
   that catches an error and returns a fallback calls `reportSwallowedError`

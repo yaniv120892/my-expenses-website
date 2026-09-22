@@ -31,9 +31,10 @@ npm run dev:local   # local Postgres, migrations, mocks, seed and dev server on 
 ```
 
 `dev:local` prints a login and a bearer token once `/api/health/deep` is green.
-To run against a hosted database instead, fill `.env` from `.env.example`:
-`DATABASE_URL` is the pooled endpoint with `?pgbouncer=true`, `DIRECT_URL` the
-direct one used by migrations, the seed and the assistant's memory store.
+To run against a hosted database instead, fill `.env` from `.env.example` and
+run `npm run db:migrate && npm run dev`: `DATABASE_URL` is the pooled endpoint
+with `?pgbouncer=true`, `DIRECT_URL` the direct one used by migrations and the
+assistant's memory store.
 
 ## Scripts
 

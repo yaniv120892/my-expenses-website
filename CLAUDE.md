@@ -97,12 +97,6 @@ runs them alone.
   are the only case today — is observed by polling: `useImportsQuery` sets a
   `refetchInterval` while any import is in flight and `false` otherwise (see
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
-- A dialog form owns reporting its own submit outcome, so a page's
-  `onSubmitAction`/`onDeleteAction` must let the mutation rejection propagate.
-  `TransactionForm` and `ScheduledTransactionForm` read a resolved promise as
-  success: they show the success snackbar and call `onCloseAction`. A handler
-  that catches makes the form report success on a failed save and close over the
-  unsaved edit, which is why none of them catch.
 - `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`
@@ -260,6 +254,14 @@ runs them alone.
   such an error is visible for Better Stack's three days and then nowhere.
   Pre-existing `logger.error` swallows have not all been converted. Tracing and
   Session Replay are off — the free tier budgets errors only.
+- **Who reports a mutation's outcome is per component, not per prop name.**
+  `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
+  `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call
+  `onCloseAction`, so a handler passed to them must let the rejection propagate
+  or the form reports success on a failed save and closes over the unsaved edit.
+  `PendingTransactionsList` is the opposite — it has no error surface, so its
+  handlers must not reject and the page catches (`runWithNotice`). A new dialog
+  picks one and says which in its props.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

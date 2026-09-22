@@ -140,7 +140,7 @@ describe('TransactionForm reset rules', () => {
 describe('TransactionForm submit failure reporting', () => {
   function renderCreateForm(
     onSubmitAction: SubmitAction,
-    onCloseAction = () => {},
+    onCloseAction: () => void,
   ) {
     renderWithClient(
       <TransactionForm
@@ -155,15 +155,23 @@ describe('TransactionForm submit failure reporting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
   }
 
-  it('reports the failure and stays open when onSubmitAction rejects', async () => {
+  it("stays open and shows the server's message when onSubmitAction rejects", async () => {
     const onCloseAction = vi.fn();
     renderCreateForm(async () => {
-      throw new Error('network down');
+      throw new Error('Category not found');
     }, onCloseAction);
 
-    expect(await screen.findByText('Failed to save transaction')).toBeTruthy();
+    expect(await screen.findByText('Category not found')).toBeTruthy();
     expect(onCloseAction).not.toHaveBeenCalled();
     expect(screen.queryByText(/created successfully/i)).toBeNull();
+  });
+
+  it('falls back to a friendly message for an axios generic error', async () => {
+    renderCreateForm(async () => {
+      throw new Error('Network Error');
+    }, vi.fn());
+
+    expect(await screen.findByText('Failed to save transaction')).toBeTruthy();
   });
 
   it('reports success and closes when onSubmitAction resolves', async () => {

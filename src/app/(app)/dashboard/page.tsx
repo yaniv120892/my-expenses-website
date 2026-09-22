@@ -29,7 +29,7 @@ export default function DashboardPage() {
     useDashboardInsightsQuery(!!data);
   const createMutation = useCreateTransactionMutation();
 
-  // Must not catch: see the form-submit invariant in CLAUDE.md.
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleCreate = async (input: CreateTransactionInput) => {
     const result = await createMutation.mutateAsync(input);
     return result.id;

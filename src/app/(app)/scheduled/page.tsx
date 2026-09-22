@@ -35,7 +35,7 @@ export default function ScheduledPage() {
   const updateMutation = useUpdateScheduledTransactionMutation();
   const deleteMutation = useDeleteScheduledTransactionMutation();
 
-  // Neither may catch: see the form-submit invariant in CLAUDE.md.
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   async function handleFormSubmit(
     data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput,
   ) {
@@ -44,10 +44,6 @@ export default function ScheduledPage() {
       return;
     }
     await createMutation.mutateAsync(data as CreateScheduledTransactionInput);
-  }
-
-  async function handleDelete(id: string) {
-    await deleteMutation.mutateAsync(id);
   }
 
   return (
@@ -93,7 +89,7 @@ export default function ScheduledPage() {
           setEditTx(null);
         }}
         onSubmitAction={handleFormSubmit}
-        onDeleteAction={handleDelete}
+        onDeleteAction={deleteMutation.mutateAsync}
         initialData={editTx}
       />
     </>

@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { CreateTransactionInput } from '../types';
+import { describeApiError } from '@/utils/api';
 import { format } from 'date-fns';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
@@ -37,6 +38,8 @@ type TransactionFormType = {
   type: 'EXPENSE' | 'INCOME';
   date: string;
 };
+
+type SnackbarSeverity = 'success' | 'error' | 'warning';
 
 type Props = {
   open: boolean;
@@ -88,12 +91,11 @@ export default function TransactionForm({
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
-    'success',
-  );
+  const [snackbarSeverity, setSnackbarSeverity] =
+    useState<SnackbarSeverity>('success');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
-  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
@@ -108,7 +110,7 @@ export default function TransactionForm({
     setErrors({});
     setPendingFiles([]);
     setFilesToRemove([]);
-    setFileUploadError(null);
+    setAttachmentError(null);
   }
 
   // Which endpoint this submit hits decides the rule: merge and update need a
@@ -131,21 +133,18 @@ export default function TransactionForm({
 
   const showSnackbar = (
     message: string,
-    severity: 'success' | 'error' = 'success',
+    severity: SnackbarSeverity = 'success',
   ) => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   };
 
-  const handleUploadError = (err: unknown) => {
-    let message = 'Direct S3 upload failed.';
-    if (err instanceof Error) {
-      message += ` Error: ${err.message}`;
-    } else if (typeof err === 'string') {
-      message += ` Error: ${err}`;
-    }
-    setFileUploadError(message);
+  const reportAttachmentFailure = (summary: string, err: unknown): string => {
+    const message = describeApiError(err, summary);
+    const detailed = message === summary ? summary : `${summary} ${message}`;
+    setAttachmentError(detailed);
+    return detailed;
   };
 
   const handleSubmit = async () => {
@@ -153,7 +152,7 @@ export default function TransactionForm({
       return;
     }
     setIsLoadingUpdate(true);
-    setFileUploadError(null);
+    setAttachmentError(null);
     try {
       let dateToUse = form.date;
       if (!initialData) {
@@ -170,31 +169,52 @@ export default function TransactionForm({
       };
       const newId = await onSubmitAction(submitData);
       const transactionId = initialData ? initialData.id : newId;
+      let attachmentFailure: string | null = null;
       if (initialData && filesToRemove.length > 0) {
-        for (const fileId of filesToRemove) {
-          await removeFileMutation.mutateAsync(fileId);
+        try {
+          for (const fileId of filesToRemove) {
+            await removeFileMutation.mutateAsync(fileId);
+          }
+          setFilesToRemove([]);
+        } catch (err) {
+          attachmentFailure = reportAttachmentFailure(
+            'Removing an attachment failed.',
+            err,
+          );
         }
-        setFilesToRemove([]);
       }
       if (pendingFiles.length > 0 && transactionId) {
         for (const file of pendingFiles) {
           try {
             await directS3Upload.upload(transactionId, file);
           } catch (err) {
-            handleUploadError(err);
+            attachmentFailure = reportAttachmentFailure(
+              'Direct S3 upload failed.',
+              err,
+            );
           }
         }
         setPendingFiles([]);
       }
-      showSnackbar(
-        initialData
-          ? 'Transaction updated successfully'
-          : 'Transaction created successfully',
-        'success',
-      );
+      // The transaction is saved either way, so an attachment failure is not a
+      // failed save — but it has to reach the user through the snackbar, since
+      // closing the dialog unmounts the alert that also carries it.
+      if (attachmentFailure) {
+        showSnackbar(`Transaction saved. ${attachmentFailure}`, 'warning');
+      } else {
+        showSnackbar(
+          initialData
+            ? 'Transaction updated successfully'
+            : 'Transaction created successfully',
+          'success',
+        );
+      }
       onCloseAction();
-    } catch {
-      showSnackbar('Failed to save transaction', 'error');
+    } catch (err) {
+      showSnackbar(
+        describeApiError(err, 'Failed to save transaction'),
+        'error',
+      );
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -207,8 +227,11 @@ export default function TransactionForm({
         await onDeleteAction(initialData.id);
         showSnackbar('Transaction deleted successfully', 'success');
         onCloseAction();
-      } catch {
-        showSnackbar('Failed to delete transaction', 'error');
+      } catch (err) {
+        showSnackbar(
+          describeApiError(err, 'Failed to delete transaction'),
+          'error',
+        );
       } finally {
         setIsLoadingDelete(false);
       }
@@ -315,9 +338,9 @@ export default function TransactionForm({
               setFilesToRemove={setFilesToRemove}
               submitButtonLabel={getSubmitButtonText()}
             />
-            {fileUploadError && (
+            {attachmentError && (
               <Typography variant="body2" color="error.main">
-                {fileUploadError}
+                {attachmentError}
               </Typography>
             )}
           </Stack>

@@ -381,6 +381,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     }
   };
 
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleFormSubmit = async (data: CreateTransactionInput) => {
     if (!selectedTransaction) {
       return;
@@ -392,7 +393,6 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
       [selectedTransaction.id]: operationType,
     }));
 
-    // No catch: see the form-submit invariant in CLAUDE.md.
     try {
       if (formMode === 'merge') {
         await mergeMutation.mutateAsync({
@@ -659,13 +659,6 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
           setFormOpen(false);
           setSelectedTransaction(null);
           setFormMode(undefined);
-          if (selectedTransaction) {
-            setPendingOperations((prev) => {
-              const updated = { ...prev };
-              delete updated[selectedTransaction.id];
-              return updated;
-            });
-          }
         }}
         onSubmitAction={handleFormSubmit}
         initialData={

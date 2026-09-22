@@ -120,7 +120,7 @@ function TransactionsPageContent() {
     setFormOpen(true);
   };
 
-  // Must not catch: see the form-submit invariant in CLAUDE.md.
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleCreate = async (data: CreateTransactionInput) => {
     const result: CreateTransactionResponse =
       await createMutation.mutateAsync(data);

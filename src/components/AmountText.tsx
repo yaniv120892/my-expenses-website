@@ -23,6 +23,7 @@ export default function AmountText({
   format = 'currency',
 }: Props) {
   const theme = useTheme();
+  const palette = (theme.vars ?? theme).palette;
 
   return (
     <Typography
@@ -31,9 +32,7 @@ export default function AmountText({
         fontWeight,
         whiteSpace: 'nowrap',
         color:
-          type === 'INCOME'
-            ? theme.palette.charts.income
-            : theme.palette.charts.expense,
+          type === 'INCOME' ? palette.charts.income : palette.charts.expense,
       }}
     >
       {format === 'currency'

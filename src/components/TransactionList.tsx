@@ -64,7 +64,6 @@ export default function TransactionList({
 }: {
   transactions: Transaction[];
   onEditAction: (tx: Transaction) => void;
-  onDeleteAction: (id: string) => void;
 }) {
   const isMobile = useIsMobile();
 

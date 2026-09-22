@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Snackbar,
   Alert,
@@ -11,43 +11,50 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from "@mui/material";
-import CategorySelect from "./CategorySelect";
-import { useUpdateTransactionMutation } from "../hooks/useTransactionsQuery";
-import { UpdateTransactionInput } from "../types";
+} from '@mui/material';
+import CategorySelect from './CategorySelect';
+import { useUpdateTransactionMutation } from '../hooks/useTransactionsQuery';
+import { CreateTransactionInput } from '../types';
 
-interface CategoryConfirmationSnackbarProps {
+type CategoryConfirmationSnackbarProps = {
   open: boolean;
   transactionId: string;
-  description: string;
+  // The update endpoint replaces the whole row, so the created input is resent.
+  transactionInput: CreateTransactionInput;
   suggestedCategory: { id: string; name: string };
   onClose: () => void;
-}
+};
 
 export default function CategoryConfirmationSnackbar({
   open,
   transactionId,
-  description,
+  transactionInput,
   suggestedCategory,
   onClose,
 }: CategoryConfirmationSnackbarProps) {
   const [changingCategory, setChangingCategory] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    suggestedCategory.id
+    suggestedCategory.id,
   );
   const updateMutation = useUpdateTransactionMutation();
+  const { description } = transactionInput;
 
   const handleChange = () => {
     setSelectedCategoryId(suggestedCategory.id);
+    updateMutation.reset();
     setChangingCategory(true);
   };
 
   const handleSave = async () => {
     if (selectedCategoryId && selectedCategoryId !== suggestedCategory.id) {
-      await updateMutation.mutateAsync({
-        id: transactionId,
-        data: { categoryId: selectedCategoryId } as UpdateTransactionInput,
-      });
+      try {
+        await updateMutation.mutateAsync({
+          id: transactionId,
+          data: { ...transactionInput, categoryId: selectedCategoryId },
+        });
+      } catch {
+        return;
+      }
     }
     setChangingCategory(false);
     onClose();
@@ -58,7 +65,7 @@ export default function CategoryConfirmationSnackbar({
   };
 
   const truncatedDescription =
-    description.length > 30 ? description.slice(0, 30) + "..." : description;
+    description.length > 30 ? description.slice(0, 30) + '...' : description;
 
   return (
     <>
@@ -66,7 +73,7 @@ export default function CategoryConfirmationSnackbar({
         open={open && !changingCategory}
         autoHideDuration={10000}
         onClose={onClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
           severity="info"
@@ -77,10 +84,10 @@ export default function CategoryConfirmationSnackbar({
               Change
             </Button>
           }
-          sx={{ width: "100%", alignItems: "center" }}
+          sx={{ width: '100%', alignItems: 'center' }}
         >
           <Typography variant="body2">
-            Category for &quot;{truncatedDescription}&quot;:{" "}
+            Category for &quot;{truncatedDescription}&quot;:{' '}
             <strong>{suggestedCategory.name}</strong>
           </Typography>
         </Alert>
@@ -102,6 +109,13 @@ export default function CategoryConfirmationSnackbar({
               value={selectedCategoryId}
               onChange={setSelectedCategoryId}
             />
+            {updateMutation.isError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {updateMutation.error instanceof Error
+                  ? updateMutation.error.message
+                  : 'Failed to update category'}
+              </Alert>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

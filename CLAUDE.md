@@ -254,6 +254,14 @@ runs them alone.
   such an error is visible for Better Stack's three days and then nowhere.
   Pre-existing `logger.error` swallows have not all been converted. Tracing and
   Session Replay are off — the free tier budgets errors only.
+- **Who reports a mutation's outcome is per component, not per prop name.**
+  `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
+  `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call
+  `onCloseAction`, so a handler passed to them must let the rejection propagate
+  or the form reports success on a failed save and closes over the unsaved edit.
+  `PendingTransactionsList` is the opposite — it has no error surface, so its
+  handlers must not reject and the page catches (`runWithNotice`). A new dialog
+  picks one and says which in its props.
 - Comments only where code cannot explain itself, 1–2 sentences max.
 
 ## Database (Prisma)

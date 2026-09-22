@@ -381,9 +381,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     }
   };
 
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleFormSubmit = async (data: CreateTransactionInput) => {
-    if (!selectedTransaction) {
-      return;
+    // Resolving without writing would read as a successful save.
+    if (!selectedTransaction || !formMode) {
+      throw new Error(
+        `No imported row selected for submit (transaction: ${selectedTransaction?.id}, mode: ${formMode})`,
+      );
     }
 
     const operationType = formMode === 'merge' ? 'merge' : 'approve';
@@ -404,11 +408,6 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
           data,
         });
       }
-      setFormOpen(false);
-      setSelectedTransaction(null);
-      setFormMode(undefined);
-    } catch (error) {
-      console.error('Error handling transaction:', error);
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -663,13 +662,6 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
           setFormOpen(false);
           setSelectedTransaction(null);
           setFormMode(undefined);
-          if (selectedTransaction) {
-            setPendingOperations((prev) => {
-              const updated = { ...prev };
-              delete updated[selectedTransaction.id];
-              return updated;
-            });
-          }
         }}
         onSubmitAction={handleFormSubmit}
         initialData={

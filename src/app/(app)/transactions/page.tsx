@@ -120,9 +120,7 @@ function TransactionsPageContent() {
     setFormOpen(true);
   };
 
-  // Submit and form-delete errors are surfaced by TransactionForm itself, so
-  // these handlers must let failures propagate — catching here made the form
-  // report success on a failed save.
+  // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleCreate = async (data: CreateTransactionInput) => {
     const result: CreateTransactionResponse =
       await createMutation.mutateAsync(data);

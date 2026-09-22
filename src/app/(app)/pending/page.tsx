@@ -6,7 +6,7 @@ import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
-import { handleApiError } from '@/utils/api';
+import { describeApiError } from '@/utils/api';
 import {
   usePendingTransactionsQuery,
   useConfirmTransactionMutation,
@@ -14,14 +14,6 @@ import {
 } from '@/hooks/usePendingTransactionsQuery';
 
 type Notice = { message: string; severity: 'success' | 'error' };
-
-function isAxiosGenericMessage(message: string): boolean {
-  return (
-    message === 'Network Error' ||
-    message.startsWith('Request failed with status code') ||
-    message.startsWith('timeout of ')
-  );
-}
 
 export default function PendingPage() {
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -52,11 +44,8 @@ export default function PendingPage() {
       await action();
       showNotice({ message: successMessage, severity: 'success' });
     } catch (error) {
-      // Axios's own messages ("Network Error") are not user-facing; only a
-      // server-provided message beats the friendly fallback.
-      const message = handleApiError(error, failureMessage);
       showNotice({
-        message: isAxiosGenericMessage(message) ? failureMessage : message,
+        message: describeApiError(error, failureMessage),
         severity: 'error',
       });
     }

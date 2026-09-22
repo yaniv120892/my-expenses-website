@@ -17,27 +17,22 @@ import { AiInsightsCard } from '@/components/dashboard/AiInsightsCard';
 import { RecentTransactionsQuickView } from '@/components/dashboard/RecentTransactionsQuickView';
 import { SubscriptionsCard } from '@/components/dashboard/SubscriptionsCard';
 import TransactionForm from '@/components/TransactionForm';
-import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
 import { CreateTransactionInput } from '@/types';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading, error: dashboardError } = useDashboardQuery();
   const { data: insights, isLoading: insightsLoading } =
     useDashboardInsightsQuery(!!data);
   const createMutation = useCreateTransactionMutation();
 
-  const handleCreateSuccess = async (input: CreateTransactionInput) => {
-    try {
-      const result = await createMutation.mutateAsync(input);
-      return result.id;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create transaction');
-    }
+  // Must not catch: see the form-submit invariant in CLAUDE.md.
+  const handleCreate = async (input: CreateTransactionInput) => {
+    const result = await createMutation.mutateAsync(input);
+    return result.id;
   };
 
   const header = (
@@ -130,15 +125,8 @@ export default function DashboardPage() {
       <TransactionForm
         open={formOpen}
         onCloseAction={() => setFormOpen(false)}
-        onSubmitAction={handleCreateSuccess}
+        onSubmitAction={handleCreate}
         initialData={null}
-      />
-
-      <NotificationSnackbar
-        open={!!error}
-        message={error ?? ''}
-        severity="error"
-        onClose={() => setError(null)}
       />
     </>
   );

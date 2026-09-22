@@ -97,6 +97,12 @@ runs them alone.
   are the only case today — is observed by polling: `useImportsQuery` sets a
   `refetchInterval` while any import is in flight and `false` otherwise (see
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
+- A dialog form owns reporting its own submit outcome, so a page's
+  `onSubmitAction`/`onDeleteAction` must let the mutation rejection propagate.
+  `TransactionForm` and `ScheduledTransactionForm` read a resolved promise as
+  success: they show the success snackbar and call `onCloseAction`. A handler
+  that catches makes the form report success on a failed save and close over the
+  unsaved edit, which is why none of them catch.
 - `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`

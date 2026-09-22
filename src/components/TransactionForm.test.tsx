@@ -45,6 +45,14 @@ function descriptionInput(): HTMLInputElement {
   }) as HTMLInputElement;
 }
 
+function valueInput(): HTMLElement {
+  return screen.getByRole('spinbutton', { name: /value/i });
+}
+
+type SubmitAction = React.ComponentProps<
+  typeof TransactionForm
+>['onSubmitAction'];
+
 describe('TransactionForm reset rules', () => {
   it('populates from initialData on first mount', () => {
     renderWithClient(
@@ -126,5 +134,45 @@ describe('TransactionForm reset rules', () => {
     );
 
     expect(descriptionInput().value).toBe('');
+  });
+});
+
+describe('TransactionForm submit failure reporting', () => {
+  function renderCreateForm(
+    onSubmitAction: SubmitAction,
+    onCloseAction = () => {},
+  ) {
+    renderWithClient(
+      <TransactionForm
+        open
+        onCloseAction={onCloseAction}
+        onSubmitAction={onSubmitAction}
+        initialData={null}
+      />,
+    );
+    fireEvent.change(descriptionInput(), { target: { value: 'Supermarket' } });
+    fireEvent.change(valueInput(), { target: { value: '120' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+  }
+
+  it('reports the failure and stays open when onSubmitAction rejects', async () => {
+    const onCloseAction = vi.fn();
+    renderCreateForm(async () => {
+      throw new Error('network down');
+    }, onCloseAction);
+
+    expect(await screen.findByText('Failed to save transaction')).toBeTruthy();
+    expect(onCloseAction).not.toHaveBeenCalled();
+    expect(screen.queryByText(/created successfully/i)).toBeNull();
+  });
+
+  it('reports success and closes when onSubmitAction resolves', async () => {
+    const onCloseAction = vi.fn();
+    renderCreateForm(async () => 'new-id', onCloseAction);
+
+    expect(
+      await screen.findByText('Transaction created successfully'),
+    ).toBeTruthy();
+    expect(onCloseAction).toHaveBeenCalled();
   });
 });

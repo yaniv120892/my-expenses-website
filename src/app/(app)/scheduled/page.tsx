@@ -6,7 +6,6 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
 import ScheduledTransactionListSkeleton from '@/components/ScheduledTransactionListSkeleton';
-import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
 import {
   CreateScheduledTransactionInput,
@@ -24,7 +23,6 @@ import { useCategoriesQuery } from '@/hooks/useTransactionsQuery';
 export default function ScheduledPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const {
     data: scheduledTransactions = [],
@@ -37,36 +35,19 @@ export default function ScheduledPage() {
   const updateMutation = useUpdateScheduledTransactionMutation();
   const deleteMutation = useDeleteScheduledTransactionMutation();
 
+  // Neither may catch: see the form-submit invariant in CLAUDE.md.
   async function handleFormSubmit(
     data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput,
   ) {
-    try {
-      if (editTx) {
-        await updateMutation.mutateAsync({ id: editTx.id, data });
-      } else {
-        await createMutation.mutateAsync(
-          data as CreateScheduledTransactionInput,
-        );
-      }
-      setFormOpen(false);
-      setEditTx(null);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Failed to save scheduled transaction',
-      );
+    if (editTx) {
+      await updateMutation.mutateAsync({ id: editTx.id, data });
+      return;
     }
+    await createMutation.mutateAsync(data as CreateScheduledTransactionInput);
   }
 
   async function handleDelete(id: string) {
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Failed to delete scheduled transaction',
-      );
-    }
+    await deleteMutation.mutateAsync(id);
   }
 
   return (
@@ -114,13 +95,6 @@ export default function ScheduledPage() {
         onSubmitAction={handleFormSubmit}
         onDeleteAction={handleDelete}
         initialData={editTx}
-      />
-
-      <NotificationSnackbar
-        open={!!error}
-        message={error ?? ''}
-        severity="error"
-        onClose={() => setError(null)}
       />
     </>
   );

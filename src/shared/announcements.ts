@@ -1,12 +1,7 @@
 import { Announcement } from '@/shared/types/announcement';
 
-/**
- * Every in-app announcement, newest first.
- *
- * To announce a release, add an entry at the top in the same commit as the
- * feature. Ids are permanent — users who have acknowledged one are keyed by it,
- * so editing an id re-shows the announcement to everybody.
- */
+// Newest first. Ids are permanent: acknowledgements are keyed by them, so a
+// changed id re-shows the entry to everybody.
 export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: '2026-08-transactions-csv-export',

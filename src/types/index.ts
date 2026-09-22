@@ -1,7 +1,5 @@
-// Client entry point for domain types. Shared definitions live in
-// src/shared/types; only client-specific shapes (JSON wire formats with
-// string dates, UI-only types) are declared here, derived from the shared
-// tree so the two cannot drift.
+// Client-only shapes (JSON wire formats with string dates, UI-only types),
+// derived from src/shared/types so the two cannot drift.
 import type { Category } from '@/shared/types/category';
 import type {
   CreateScheduledTransaction,
@@ -41,8 +39,7 @@ export type Transaction = Omit<
   files?: TransactionFile[];
 };
 
-// Request body for POST/PUT /api/transactions; dates travel as strings and
-// are coerced by createTransactionSchema on the server.
+// Dates travel as strings and are coerced by createTransactionSchema.
 export interface CreateTransactionInput {
   description: string;
   value: number;
@@ -53,9 +50,7 @@ export interface CreateTransactionInput {
 
 export type UpdateTransactionInput = CreateTransactionInput;
 
-// Client-side query state for /api/transactions; dates travel as strings.
-// Paging is not part of it — the list pages by cursor, and the same filters
-// drive the summary totals.
+// No paging: the list pages by cursor, and the same filters drive the summary totals.
 export interface TransactionFilters {
   searchTerm?: string;
   categoryId?: string;

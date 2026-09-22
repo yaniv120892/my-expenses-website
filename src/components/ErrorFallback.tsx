@@ -8,17 +8,13 @@ import * as Sentry from '@sentry/nextjs';
 type Props = {
   error: Error & { digest?: string };
   reset: () => void;
-  // The root boundary owns the whole viewport; the route boundary sits inside
-  // the app shell and only fills the content area.
   minHeight: string;
 };
 
 export default function ErrorFallback({ error, reset, minHeight }: Props) {
   useEffect(() => {
-    // A `digest` means Next redacted a server-side error before re-rendering
-    // this boundary on the client. `onRequestError` already reported that one
-    // with its real stack, so reporting the redacted copy would spend a second
-    // event on a message that carries no stack to act on.
+    // A `digest` means Next redacted a server error that `onRequestError` already
+    // reported with its real stack.
     if (error.digest) {
       return;
     }

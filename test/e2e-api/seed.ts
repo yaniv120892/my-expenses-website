@@ -3,20 +3,10 @@ import { hash } from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 
-/**
- * Seeds two users with deliberately distinct amounts.
- *
- * User A's figures are chosen so the expected comparison output is exact:
- *   January ₪4,100.00, February ₪5,200.00 → +₪1,100.00, +26.83%
- *
- * User B exists purely so a test can assert that A's answers never contain B's
- * numbers — the check behind the claim that userId is server-injected.
- */
+// User A's figures make the comparison exact (Jan ₪4,100 → Feb ₪5,200: +₪1,100,
+// +26.83%); user B exists so a check can assert A's answers never contain B's.
 
-/**
- * Hashed rather than stored as a placeholder so a local run can sign in through
- * the login form instead of only by planting the cookie.
- */
+// Hashed, so a local run can sign in through the login form.
 export const SEED_PASSWORD = 'local-dev-password';
 
 export interface SeededUser {
@@ -30,10 +20,8 @@ export interface SeedResult {
   userB: SeededUser;
 }
 
-// The seed's own client, against DIRECT_URL and deliberately carrying no
-// encryption extension, so what it writes is whatever it was handed.
-// `pgbouncer=true` disables prepared statements, which collide when a pooler
-// reuses sessions.
+// Deliberately carries no encryption extension, so what it writes is whatever
+// it was handed. `pgbouncer=true` disables prepared statements for pooled hosts.
 function directClient(): PrismaClient {
   const base = process.env.DIRECT_URL || '';
   const url = base.includes('pgbouncer=true')
@@ -56,10 +44,6 @@ function mintToken(userId: string, expiresIn = '1h'): Promise<string> {
 
 const LOCAL_DATABASE_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
 
-/**
- * The seed wipes every table, so it must never reach a database that is not
- * this machine's — a remote copy exists precisely to keep its data.
- */
 export function assertSeedTargetIsLocal(directUrl: string): void {
   let host: string;
   try {
@@ -76,11 +60,8 @@ export function assertSeedTargetIsLocal(directUrl: string): void {
   }
 }
 
-/**
- * A session for an account that already exists, for running the stack over a
- * database that must keep its data. Twelve hours rather than the seed's one:
- * an import sitting over many statements outlives an hour.
- */
+// Twelve hours rather than the seed's one: an import over many statements
+// outlives an hour.
 export async function sessionForExistingUser(
   email: string,
 ): Promise<SeededUser> {
@@ -108,7 +89,6 @@ export async function seed(): Promise<SeedResult> {
   const prisma = directClient();
 
   try {
-    // Order matters: dependents first, then categories and users.
     await prisma.announcementAck.deleteMany({});
     await prisma.detectedSubscription.deleteMany({});
     await prisma.scheduledTransaction.deleteMany({});
@@ -170,10 +150,8 @@ export async function seed(): Promise<SeedResult> {
 
     await prisma.transaction.createMany({
       data: [
-        // User A — January 4,000 + 100 = 4,100
         tx(userA.id, 4000, '2026-01-05', groceries.id, 'Weekly shop'),
         tx(userA.id, 100, '2026-01-09', groceries.id, 'Corner store'),
-        // User A — February 5,200
         tx(userA.id, 5200, '2026-02-05', groceries.id, 'Monthly shop'),
         // User A — a second category, for percentage-share checks
         tx(userA.id, 900, '2026-01-15', rent.id, 'Rent'),
@@ -201,5 +179,4 @@ export async function seed(): Promise<SeedResult> {
   }
 }
 
-/** Amounts that belong to user B and must never appear in user A's stream. */
 export const USER_B_MARKERS = ['7,777', '8,888', '16,665'];

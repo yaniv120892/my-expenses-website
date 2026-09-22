@@ -9,10 +9,6 @@ import {
   useAnnouncementsQuery,
 } from '@/hooks/useAnnouncementsQuery';
 
-/**
- * Keeps announcements reachable after they have been dismissed, so this is a
- * standing channel rather than a one-shot popup.
- */
 export default function WhatsNewLauncher() {
   const { data: announcements = [] } = useAnnouncementsQuery();
   const { mutate: acknowledge } = useAcknowledgeAnnouncementsMutation();

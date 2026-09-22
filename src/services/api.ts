@@ -3,11 +3,7 @@ import axios from 'axios';
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
 
-/**
- * The server's reason for a failure, from the `{ message }` every route
- * handler emits. A blob responseType applies to errors too, so for those the
- * JSON arrives as a Blob and has to be read back.
- */
+// A blob responseType applies to errors too, so their JSON can arrive as a Blob.
 async function serverMessage(data: unknown): Promise<string | null> {
   try {
     const body = data instanceof Blob ? JSON.parse(await data.text()) : data;

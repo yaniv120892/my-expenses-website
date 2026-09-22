@@ -1,20 +1,6 @@
 #!/usr/bin/env bash
-#
-# The environment below is the same block `.github/workflows/ci.yml` gives its
-# e2e job. Keeping one list means a local run and CI fail in the same places.
-#
-# The ${VAR:-...} defaults are exactly those CI values, so a plain run is
-# unchanged. Presetting one of those vars points that single integration at the
-# real service — the extraction agent, S3, OpenAI — which is how a real
-# statement is exercised end to end without editing this file.
-#
-# Presetting DATABASE_URL and DIRECT_URL together runs the app over that
-# database instead of a local prisma dev: no seed, the schema migrated, and a
-# session minted for the account SESSION_USER_EMAIL names. That is how a run is
-# rehearsed over a copy of real data, whose card digits need the key that
-# encrypted them — hence PRISMA_FIELD_ENCRYPTION_KEY is overridable too. The
-# seed refuses any database that is not on this machine, so the wipe cannot
-# reach a remote one by accident.
+# The env below mirrors the block `.github/workflows/ci.yml` gives its e2e job;
+# change both together. Presetting a var points that one integration at the real service.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -135,29 +121,21 @@ require_free_ports "$SHIM_PORT" "$MOCK_MODEL_PORT" "$EXTRACTION_PORT" "$APP_PORT
 
 start_local_database() {
   step 'Starting local Prisma Postgres'
-  # Restarted rather than reused. prisma dev fronts Postgres with a pooler, and
-  # the query engine left from the previous run holds a session carrying its
-  # prepared statements; `migrate deploy` is handed that session and dies on
-  # "prepared statement s0 already exists". Stopping drops the sessions — the
-  # data lives on disk and survives.
+  # Restarted rather than reused: the previous run's query-engine session still
+  # holds its prepared statements, and `migrate deploy` dies on "s0 already exists".
   "$BIN/prisma" dev stop "$PRISMA_SERVER" >/dev/null 2>&1 || true
   "$BIN/prisma" dev --detach --name "$PRISMA_SERVER" >"$PRISMA_LOG" 2>&1 ||
     die 'prisma dev failed to start' "$PRISMA_LOG"
 
-  # Ports are whatever prisma dev picked, so every URL is read back from its
-  # state file, which lands under Application Support on macOS and the XDG data
-  # home on Linux — and lands some time after --detach returns, so finding it and
-  # reading it are both retried together below.
+  # Ports are whatever prisma dev picked, and its state file lands some time after
+  # --detach returns, so finding and reading it are retried together.
   STATE_CANDIDATES=(
     "$HOME/Library/Application Support/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
     "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
   )
 
-  # DATABASE_URL is the prisma+postgres:// proxy URL, not the plain postgres://
-  # address in the same state file: that port multiplexes every client onto one
-  # backend session, where the app client collides on prepared statements with the
-  # schema engine and with Mastra. The plain address is DIRECT_URL, used by
-  # migrations, the seed and Mastra.
+  # The proxy URL, not the plain postgres:// one: that port multiplexes every client
+  # onto one backend session, where the app collides on prepared statements.
   read_state() {
     node -e '
       const fs = require("fs");

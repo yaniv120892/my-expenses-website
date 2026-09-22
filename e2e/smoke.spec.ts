@@ -35,8 +35,7 @@ for (const { path, heading } of PAGES) {
       page.getByRole('heading', { name: heading }).first(),
     ).toBeVisible();
 
-    // The heading renders even when a page's data query fails, so assert the
-    // error state too — a 400 from the list route used to slip through here.
+    // The heading renders even when a page's data query fails, so assert the error state too.
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(/failed to load/i)).toHaveCount(0);
   });

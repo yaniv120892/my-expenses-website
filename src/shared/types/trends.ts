@@ -2,20 +2,11 @@
 // drag @prisma/client along with it.
 import type { TransactionType } from '@prisma/client';
 
-/**
- * Most categories the comparison view can chart at once. Bounded by
- * theme.palette.charts.series.length — one distinct color per series — and
- * enforced by getCategoryComparisonQuerySchema, so the picker and the route
- * must read the same number.
- */
+// One distinct color per series: theme.palette.charts.series.length.
 export const MAX_COMPARISON_SERIES = 8;
 
-/**
- * The series cap bounds the result's width, not its length: a 1900 start with
- * a daily period enumerates a bucket per day server-side and hands recharts
- * that many grouped bars. A year of days, or three centuries of months, is
- * already far past readable.
- */
+// The series cap bounds width, not length: a 1900 start with a daily period
+// would hand recharts a grouped bar per day.
 export const MAX_COMPARISON_BUCKETS = 366;
 
 export const TREND_PERIODS = ['daily', 'weekly', 'monthly', 'yearly'] as const;

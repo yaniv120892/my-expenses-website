@@ -15,8 +15,6 @@ export enum ImportStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   REMATCHING = 'REMATCHING',
-  // A duplicate of an older import for the same card and month; its rows live
-  // under the import mergedIntoImportId names.
   MERGED = 'MERGED',
 }
 
@@ -77,7 +75,6 @@ export interface ImportQueueMessage {
 
 export type ReconciliationAction = 'MERGE' | 'CREATE';
 
-/** The matched transaction as it stands, before a merge overwrites it. */
 export type ReconciliationBefore = {
   description: string;
   value: number;
@@ -92,11 +89,6 @@ export type ReconciliationMatch = {
   before: ReconciliationBefore;
 };
 
-/**
- * What approving one imported row would do, resolved before anything is
- * written. The batch that commits is driven by these same items, so a preview
- * cannot describe an outcome the commit would not produce.
- */
 export type ReconciliationPlanItem = {
   importedTransactionId: string;
   action: ReconciliationAction;
@@ -116,8 +108,7 @@ export type ReconciliationCounterpart = {
   status: TransactionStatus;
 };
 
-// Informational only: derived after the plan item's action is decided, and
-// never changes it. `counterpart` is the closest of `candidateCount`.
+// `counterpart` is the closest of `candidateCount`.
 export type ReconciliationReviewHint =
   | {
       reason: 'unmatched-candidate';
@@ -130,9 +121,7 @@ export type ReconciliationPreviewItem = ReconciliationPlanItem & {
   reviewHint: ReconciliationReviewHint | null;
 };
 
-// The 409 rematchImport throws when a survivor's pending rows were already
-// re-matched by another call — a benign no-op, distinct from its other 409
-// (import not COMPLETED). Shared so a caller distinguishing the two, such as
-// scripts/import-statements.ts, matches this exact text rather than a copy.
+// The benign 409 rematchImport throws when another call already re-matched the
+// survivor's rows, shared so callers match this exact text rather than a copy.
 export const NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR =
   'No pending transactions to re-match';

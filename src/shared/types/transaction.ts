@@ -29,10 +29,7 @@ export interface TransactionSummaryFilters {
   startDate?: Date;
   endDate?: Date;
   categoryId?: string;
-  /**
-   * `categoryId` expanded to its subtree by the service layer. Callers send
-   * `categoryId`; only the resolved form reaches the query.
-   */
+  /** `categoryId` expanded to its subtree by the service layer; callers send `categoryId`. */
   categoryIds?: string[];
   transactionType?: TransactionType;
   searchTerm?: string;
@@ -45,10 +42,7 @@ export interface TransactionFilters extends TransactionSummaryFilters {
   perPage: number;
 }
 
-/**
- * Cursor pagination for the transactions list. The cursor is opaque to
- * callers; only the repository that issued it may decode it.
- */
+// The cursor is opaque; only the repository that issued it may decode it.
 export interface TransactionListFilters extends TransactionSummaryFilters {
   cursor?: string;
   limit: number;

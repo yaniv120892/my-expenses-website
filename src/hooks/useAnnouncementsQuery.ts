@@ -15,7 +15,6 @@ export const useAnnouncementsQuery = () =>
     queryKey: announcementKeys.list(),
     queryFn: getAnnouncements,
     staleTime: 5 * 60_000,
-    // An announcement is never worth retrying the app to a crawl over.
     retry: false,
   });
 

@@ -1,8 +1,5 @@
-/**
- * Runs `worker` over `items` with at most `limit` in flight. Never rejects: a
- * failing worker settles as a rejected result so one bad item cannot abort the
- * rest of the batch. Results keep the input order.
- */
+// Never rejects: a failing worker settles as a rejected result so one bad item
+// cannot abort the rest. Results keep the input order.
 export async function runWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,

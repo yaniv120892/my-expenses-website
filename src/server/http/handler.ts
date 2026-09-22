@@ -12,9 +12,6 @@ import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
-// Every dynamic segment in this API is a uuid column, so params are validated
-// as uuids by default and a new route cannot silently skip validation. A route
-// with a non-uuid segment must opt out with its own paramsSchema.
 const uuidRouteParamsSchema = z.record(z.string().uuid());
 
 export interface HandlerContext<
@@ -39,8 +36,6 @@ interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 }
 
-// Rules are derived from the request context, so a key can be built from
-// whichever identity the route limits by: IP, email, or user id.
 type RateLimitResolver<TBody, TQuery, TParams = Record<string, string>> = (
   handlerContext: HandlerContext<TBody, TQuery, TParams>,
 ) => RateLimitRule[];
@@ -54,13 +49,10 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
   (
     | {
         auth: 'cron';
-        // Better Stack heartbeat env var, pinged only after a <400 response.
         heartbeatEnvVar?: string;
         rateLimit?: never;
       }
     | {
-        // Required on public routes so a new one cannot ship unlimited by
-        // omission; 'none' is the deliberate opt-out.
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
@@ -72,12 +64,9 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
       }
   );
 
-// Next passes segment params for dynamic routes; a static route's promise
-// resolves to undefined (not an empty object).
+// A static route's params promise resolves to undefined, not an empty object.
 type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
-// `/api/transactions/<uuid>` becomes `/api/transactions/[id]`, so alert quotas
-// are keyed per route rather than per record id.
 function toRoutePattern(path: string, params: Record<string, string>): string {
   return Object.entries(params).reduce(
     (pattern, [name, value]) =>
@@ -135,8 +124,8 @@ function errorResponse(err: unknown, auth: AuthMode): NextResponse {
       return errorResponse(prismaHttpError, auth);
     }
   }
-  // Neutral to the client — the real message goes to the log and Sentry below.
-  // Any deliberate client-facing status must be thrown as an HttpError.
+  // Neutral to the client; a deliberate client-facing status must be thrown as
+  // an HttpError.
   return NextResponse.json(
     { message: 'Internal Server Error' },
     { status: 500 },
@@ -163,8 +152,6 @@ export function createHandler<
     try {
       userId = await resolveAuth(req, options.auth);
       params = (routeContext ? await routeContext.params : undefined) ?? {};
-      // Params are validated before the body: the check is cheaper and a
-      // malformed id is the more precise rejection when both are bad.
       const parsedParams = options.paramsSchema
         ? options.paramsSchema.parse(params)
         : (uuidRouteParamsSchema.parse(params) as TParams);
@@ -190,8 +177,6 @@ export function createHandler<
       }
 
       const result = await options.handler(handlerContext);
-      // A handler may return a full Response (cookies, streams); anything
-      // else is JSON-wrapped. null serializes as null; undefined becomes {}.
       if (result instanceof Response) {
         response = result;
       } else {
@@ -209,9 +194,8 @@ export function createHandler<
           { requestId, path, err, ...(userId && { userId }) },
           'Request failed',
         );
-        // This catch is why Next's onRequestError never fires for an API
-        // route: the error becomes a response here, so Sentry only learns
-        // about it if we report it ourselves.
+        // The error becomes a response here, so Next's onRequestError never
+        // sees it.
         Sentry.captureException(err, {
           tags: { path, requestId },
           ...(userId && { user: { id: userId } }),
@@ -240,27 +224,23 @@ export function createHandler<
         status: response.status,
         durationMs: Date.now() - started,
         ...(userId && { userId }),
-        // A cron runs a handful of times a day and its only other signal is a
-        // heartbeat that says nothing about why it stayed silent, so its
-        // request line ships even though info normally does not.
+        // A cron's request line ships even though info normally does not: its
+        // only other signal is a heartbeat that cannot say why it went silent.
         ...(options.auth === 'cron' && { ship: true }),
       },
       'request',
     );
 
-    // Awaited rather than deferred: crons are not latency-sensitive, and the
-    // ping is logged after the request line so it stays out of durationMs.
+    // Awaited and logged after the request line, so the ping stays out of
+    // durationMs.
     if (options.heartbeatEnvVar && response.status < 400) {
-      // The run's own records go out before the ping, which is the outbound
-      // call most likely to hang: a request killed there still leaves behind
-      // the line saying it got that far.
+      // Flushed before the ping, the call most likely to hang, so a run killed
+      // there still leaves its request line.
       await flushRemoteLogs();
       await pingHeartbeat(options.heartbeatEnvVar);
     }
 
-    // One batched POST per request, run after the response so it cannot add
-    // latency, and before the serverless instance freezes. Registered last so
-    // the batch includes anything the heartbeat ping logged.
+    // Registered last so the batch includes anything the heartbeat ping logged.
     after(() => flushRemoteLogs());
     return response;
   };

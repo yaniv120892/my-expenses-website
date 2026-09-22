@@ -34,18 +34,16 @@ export interface CategorySuggester {
 export interface AIProvider extends CategorySuggester {
   generateContent(prompt: string): Promise<string>;
   /**
-   * Resolves to the analysis, or null when the provider call failed. Never a
-   * human-readable apology: callers parse this, and prose shaped like a result
-   * turns a provider outage into a parse error that names the wrong culprit.
+   * Null when the provider call failed, never an apology: callers parse this,
+   * and prose turns an outage into a parse error that names the wrong culprit.
    */
   analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string | null>;
   /**
-   * Resolves to the id of one of `potentialMatches`, or null. Implementations
-   * validate the model's free-text answer through
-   * `resolveMatchedTransactionId`, so callers never see an invented id.
+   * Implementations validate the answer through `resolveMatchedTransactionId`,
+   * so callers never see an invented id.
    */
   findMatchingTransaction(
     importedCharge: ImportedChargeToMatch,

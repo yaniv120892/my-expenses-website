@@ -169,8 +169,6 @@ export class ExcelExtractionAgentClient {
   }
 
   private handleError(error: unknown, defaultMessage: string): Error {
-    // The type argument is what makes `response.data` typed rather than `any`,
-    // so the message lookup below needs no cast.
     if (axios.isAxiosError<{ message?: string }>(error)) {
       if (error.response?.data?.message) {
         return new Error(`${defaultMessage}: ${error.response.data.message}`);

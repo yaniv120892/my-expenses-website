@@ -5,11 +5,10 @@ import { clearSessionCookie } from '@/server/auth/cookies';
 import { AuthError, extractToken } from '@/server/auth/session';
 import { verifyToken } from '@/server/auth/tokens';
 
-// auth: 'public' because logout must also accept an expired-but-well-formed
-// token — the Redis session still gets invalidated.
+// auth: 'public' so an expired-but-well-formed token still invalidates its
+// Redis session.
 export const POST = createHandler({
   auth: 'public',
-  // Deleting your own session is idempotent and cheap; no cap needed.
   rateLimit: 'none',
   handler: async ({ req }) => {
     const token = extractToken(req);

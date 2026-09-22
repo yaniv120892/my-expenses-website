@@ -10,8 +10,6 @@ export type RateLimitRule = {
   windowSeconds: number;
 };
 
-// The whole rate-limit posture on one screen. Keys are built at the route,
-// where the identity being limited (IP, email, user) is known.
 export const RATE_LIMITS = {
   login: { limit: 10, windowSeconds: 900 },
   signup: { limit: 5, windowSeconds: 3600 },
@@ -33,10 +31,7 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
       })),
     );
   } catch (error) {
-    // Any failure counting the request — Redis unreachable, or a counter set
-    // that does not match the rules — must not take auth or chat down with
-    // it: fail open, logged per request, so an outage is visible and an
-    // attacker who can break Redis gets a pass.
+    // Fail open so a Redis outage cannot take auth or chat down; reported so it stays visible.
     reportSwallowedError(
       { err: error },
       'Rate limit check failed; allowing the request',
@@ -45,8 +40,8 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
   }
   const tripped = rules.find((rule, index) => counts[index] > rule.limit);
   if (tripped) {
-    // warn ships to Better Stack, so "were we attacked?" stays answerable
-    // after Vercel's one-hour log retention; no Sentry or alert-quota cost.
+    // warn ships to Better Stack, so an attack stays visible past Vercel's one-
+    // hour log retention.
     logger.warn(
       { key: tripped.key, limit: tripped.limit },
       'Rate limit exceeded',
@@ -56,10 +51,8 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
 }
 
 export function resolveClientIp(request: NextRequest): string {
-  // x-vercel-forwarded-for is set by the platform and cannot be spoofed by
-  // the client; plain x-forwarded-for is the local/proxy fallback. Off
-  // Vercel, absent headers collapse everyone into one shared bucket —
-  // accepted, since Vercel is the only deploy target.
+  // x-vercel-forwarded-for is set by the platform and cannot be spoofed. Off
+  // Vercel, absent headers collapse everyone into one bucket.
   const forwarded =
     request.headers.get('x-vercel-forwarded-for') ??
     request.headers.get('x-forwarded-for');

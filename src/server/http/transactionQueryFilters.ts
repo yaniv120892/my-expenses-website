@@ -5,9 +5,8 @@ import { TransactionSummaryFilters } from '@/shared/types/transaction';
 type TransactionQuery = z.infer<typeof transactionFilterSchema>;
 
 /**
- * Routes speak `type`, the service layer speaks `transactionType`. Spreading a
- * query straight into a service silently drops the filter — a spread does not
- * trip the excess-property check — so the rename lives here only.
+ * Routes speak `type`, services speak `transactionType`; a spread does not trip
+ * the excess-property check, so the filter would silently drop.
  */
 export function toTransactionFilters<T extends TransactionQuery>(
   query: T,

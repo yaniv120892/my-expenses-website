@@ -119,10 +119,9 @@ ${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
 /**
- * Normalizes the model's free-text answer to buildFindMatchingTransactionPrompt:
- * an id is returned only when it names one of the offered matches, so a
- * hallucinated or prompt-injected id can never leave the provider. Idempotent,
- * so callers may re-apply it to enforce the contract structurally.
+ * Returns an id only when it names one of the offered matches, so a
+ * hallucinated or prompt-injected id never leaves the provider. Idempotent, so
+ * callers may re-apply it.
  */
 export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
@@ -135,8 +134,8 @@ export function resolveMatchedTransactionId(
   if (potentialMatches.some((match) => match.id === answer)) {
     return answer;
   }
-  // warn ships to Better Stack: a match rate silently dropping to zero from
-  // prompt drift or injection must stay diagnosable past Vercel's log window.
+  // warn ships to Better Stack, so a match rate silently dropping to zero stays
+  // diagnosable.
   logger.warn(
     { rawAnswer },
     'Model answer did not name an offered match; treating as no match',

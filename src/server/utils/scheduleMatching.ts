@@ -39,9 +39,8 @@ function toMatch(
 }
 
 /**
- * Finds the scheduled transaction that already covers a subscription: the one
- * a conversion linked, otherwise one whose description normalizes to the same
- * merchant (or contains it, so "Netflix" matches "Netflix subscription").
+ * The schedule a conversion linked, else one whose description normalizes to
+ * (or contains) the same merchant.
  */
 export function findScheduleMatch(
   subscription: { merchantName: string; scheduledTransactionId?: string },

@@ -25,10 +25,8 @@ const webhookEnvelopeSchema = z.object({
   error: z.string().optional(),
 });
 
-// Validates only what the handlers below consume; the sibling service may add
-// fields freely, but a shape drift in these must fail the import, not throw a
-// TypeError mid-processing. Kept tolerant on purpose — a day written 5/8/2026
-// or a statement with no card digits is still worth importing.
+// Validates only what the handlers consume, and tolerantly: a day written
+// 5/8/2026 or no card digits is still worth importing.
 const extractionResultSchema = z.object({
   transactions: z.array(
     z.object({
@@ -193,12 +191,9 @@ export async function processExcelExtractionWebhook(
       { err, requestId: payload?.requestId, importId },
       'Error processing webhook',
     );
-    // This callback is the only thing that ever moves an import out of
-    // PROCESSING, and the sibling service does not retry, so a crash here has
-    // to leave the import failed rather than pending forever. The extraction
-    // claim deliberately stays taken: this handler is not idempotent, so a
-    // redelivery after a failure part-way through would insert every row a
-    // second time. Recovery is deleting the failed import and re-importing.
+    // Only this callback moves an import out of PROCESSING and the service does
+    // not retry, so a crash must fail the import. The claim stays taken because
+    // a redelivery would insert every row again.
     if (importId) {
       await markImportFailedSafe(importId);
     }
@@ -263,9 +258,7 @@ async function handleCompletedExtraction(
 
   await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
-  // A survivor sat in REMATCHING while the moved rows were matched; COMPLETED
-  // is what tells a poller — the web UI, the import script — that its preview
-  // is now the whole story.
+  // COMPLETED tells a poller the preview is now the whole story.
   await importRepository.updateStatus(finalImportId, ImportStatus.COMPLETED);
 
   logger.info(
@@ -292,11 +285,9 @@ function toImportedTransactionRows(result: ExtractionResult, importId: string) {
 }
 
 /**
- * A payment month the import was submitted with wins over the one extraction
- * reports. The caller names the billing month outright — a statement file is
- * downloaded per billing month — while extraction infers it from the sheet and
- * may read a transaction month, or nothing. A null from extraction must not
- * wipe it: the month is half of what identifies a duplicate import.
+ * The submitted payment month wins: the caller names the billing month, while
+ * extraction infers it and may return a transaction month or null, which must
+ * not wipe a month that identifies duplicate imports.
  */
 function reconcileMetadata(
   importRecord: Import,
@@ -334,17 +325,8 @@ async function writeExtractionMetadata(
 }
 
 /**
- * An older import for the same card and month means this one is a duplicate
- * upload, so its rows are moved into that import and this import is dropped.
- * Returns the id of the import that survives, or null when there was no
- * duplicate.
- *
- * A merge target must be strictly older *and* already COMPLETED (findExisting
- * enforces the latter). Older keeps the direction deterministic so two
- * callbacks cannot delete each other; COMPLETED means the target has finished
- * writing its own rows, so de-duplicating against it is meaningful. Two
- * callbacks racing each other therefore both survive as separate imports
- * rather than one silently duplicating every row into the other.
+ * Moves this duplicate's rows into an older COMPLETED import for the same card
+ * and month, returning the survivor's id or null.
  */
 async function mergeIntoDuplicateImport(
   importId: string,
@@ -396,11 +378,8 @@ async function mergeIntoDuplicateImport(
     ownRows,
   );
 
-  // One batch, so nothing observes rows reparented under an import that is
-  // not yet marked merged. Whatever is not moved is by definition already
-  // present in the survivor. The survivor leaves COMPLETED here and returns
-  // to it only after the moved rows are matched, so a poller cannot read a
-  // preview of them mid-match; the duplicate stays as the pointer to follow.
+  // One batch, so nothing observes rows reparented under an unmerged import;
+  // the survivor is held out of COMPLETED until the moved rows are matched.
   await prisma.$transaction([
     ...importedTransactionRepository.moveToImportOps(
       nonDuplicateRows.map((row) => row.id),

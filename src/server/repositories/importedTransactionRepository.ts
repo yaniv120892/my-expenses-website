@@ -7,8 +7,6 @@ import {
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 
-// The queries that include the matched transaction return more than the bare
-// model describes, and callers decide merge-vs-create from that relation.
 export type ImportedTransactionWithMatch =
   Prisma.ImportedTransactionGetPayload<{
     include: { matchingTransaction: true };
@@ -22,10 +20,8 @@ type DuplicateComparable = {
 };
 
 /**
- * The rows of `incoming` that `existing` does not already account for, using
- * isSameCharge as the identity. Each existing row is claimed by at most one
- * incoming row, so a statement that genuinely charges the same amount twice on
- * a day still brings both across.
+ * Each existing row is claimed by at most one incoming row, so a genuinely
+ * repeated charge still imports.
  */
 export function selectNonDuplicateRows<T extends DuplicateComparable>(
   existing: DuplicateComparable[],
@@ -110,10 +106,7 @@ export class ImportedTransactionRepository {
     });
   }
 
-  /**
-   * Records approval — the row is APPROVED and its match claim released.
-   * Unawaited so approval can batch it with the transaction it creates.
-   */
+  /** Unawaited so approval can batch it with the transaction it creates. */
   public markApprovedOp(id: string, userId: string) {
     return prisma.importedTransaction.update({
       where: { id, userId },
@@ -209,11 +202,7 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  /**
-   * Reassigns rows to another import, used when merging a duplicate import.
-   * Returned unawaited so the caller can batch it into one transaction with
-   * the delete that follows.
-   */
+  /** Unawaited so the caller can batch it with the delete that follows. */
   public moveToImportOps(ids: string[], importId: string) {
     if (ids.length === 0) {
       return [];
@@ -232,10 +221,6 @@ export class ImportedTransactionRepository {
     return prisma.importedTransaction.deleteMany({ where: { importId } });
   }
 
-  /**
-   * Transactions already claimed as a match by any pending imported row of
-   * this user, so a concurrent import cannot claim the same one.
-   */
   public async findClaimedMatchingTransactionIds(
     userId: string,
   ): Promise<string[]> {
@@ -269,10 +254,9 @@ export class ImportedTransactionRepository {
     return selectNonDuplicateRows(existingTransactions, transactions);
   }
 
-  // The whole import rather than a disjunction per incoming row: the set is
-  // one statement's worth of rows, and selectNonDuplicateRows re-derives the
-  // comparison anyway, so a hand-built OR would only have to stay in sync
-  // with it.
+  // The whole import rather than an OR per row: selectNonDuplicateRows re-
+  // derives the comparison anyway, and a hand-built OR would have to stay in
+  // sync with it.
   private async findExistingTransactions(
     importId: string,
   ): Promise<ImportedTransaction[]> {

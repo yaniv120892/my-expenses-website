@@ -120,7 +120,6 @@ class SubscriptionDetectionService {
       'Subscription detection run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Subscription detection failed for ${failed} of ${userIds.length} user(s)`,
       );
@@ -314,7 +313,6 @@ class SubscriptionDetectionService {
       'Subscription audit run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Subscription audit failed for ${failed} of ${byUser.size} user(s)`,
       );

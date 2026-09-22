@@ -58,8 +58,6 @@ describe('GeminiService.analyzeExpenses', () => {
 
     const result = await new GeminiService().analyzeExpenses('summary');
 
-    // Prose here is what turned a retired model into "Failed to parse AI
-    // insights response" — a parse error naming the wrong culprit.
     expect(result).toBeNull();
     expect(reportSwallowedError).toHaveBeenCalledWith(
       expect.objectContaining({ err: RETIRED_MODEL_ERROR }),

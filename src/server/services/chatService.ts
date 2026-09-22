@@ -13,10 +13,6 @@ type OutgoingMessage =
   { role: 'user'; content: string } | { role: 'assistant'; content: string };
 
 class ChatService {
-  /**
-   * Runs the assistant and returns a stream of text deltas. The agent decides
-   * which tools to call; figures always come from tool results.
-   */
   public async streamChatResponse(
     messages: ChatMessage[],
     userId: string,

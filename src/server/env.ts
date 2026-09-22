@@ -33,8 +33,6 @@ const envSchema = coreEnvSchema.refine(
   },
 );
 
-// Called from instrumentation.ts so a misconfigured deployment fails at boot
-// instead of on the first request.
 export function assertCoreEnv(): void {
   envSchema.parse(process.env);
 }
@@ -53,20 +51,18 @@ export function optionalEnv(name: string, fallback = ''): string {
   return process.env[name] || fallback;
 }
 
-// A preview gets a hostname per deployment, so it leaves WEBSITE_URL unset and
-// derives the origin from Vercel's own vars. Production names itself instead:
-// those vars resolve there too, so falling back would quietly mail real users a
-// vercel.app link rather than failing where someone would notice.
+// Previews derive the origin from Vercel's vars. Production must name itself:
+// those vars resolve there too, and falling back would mail real users a
+// vercel.app link.
 export function requireSiteUrl(): string {
   return (
     process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL')
   );
 }
 
-// A pooler in transaction mode hands the next query a different backend, where
-// the prepared statements Prisma names by default collide. Neon's console
-// offers the pooled URL without `pgbouncer=true`, and the resulting
-// `prepared statement "s0" already exists` surfaces only under concurrency.
+// A transaction-mode pooler hands the next query a different backend, where
+// Prisma's named prepared statements collide (`s0 already exists`) only under
+// concurrency.
 function pooledUrlDisablesPreparedStatements(url: string): boolean {
   let parsed: URL;
   try {

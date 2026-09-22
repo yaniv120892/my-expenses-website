@@ -15,7 +15,7 @@ vi.mock('@/server/redis', () => ({ getValue }));
 vi.mock('@/server/logging/logger', () => ({ default: { error } }));
 vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
 // `after` throws outside a request scope, which is where these tests call the
-// handler; everything else in the module stays real.
+// handler.
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof import('next/server')>('next/server')),
   after,
@@ -88,7 +88,6 @@ describe('deep check', () => {
     expect(error).toHaveBeenCalledTimes(2);
   });
 
-  // A failed probe logs its own error, which would sit unshipped without this.
   it('schedules a remote log flush', async () => {
     await GET();
 

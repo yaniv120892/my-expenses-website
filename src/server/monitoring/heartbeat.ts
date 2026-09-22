@@ -7,9 +7,8 @@ const PING_TIMEOUT_MS = 5000;
 export async function pingHeartbeat(envVar: string): Promise<void> {
   const url = optionalEnv(envVar);
   if (!url) {
-    // Warn, not info: an unset var makes this a no-op that looks exactly like
-    // a cron whose ping never arrived, so it has to reach Better Stack — where
-    // info does not — for a misspelled var name to be diagnosable at all.
+    // Warn so it reaches Better Stack: an unset var looks exactly like a ping
+    // that never arrived.
     logger.warn({ envVar }, 'Heartbeat not configured');
     return;
   }

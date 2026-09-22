@@ -68,12 +68,9 @@ export class CategoryRepository {
   }
 
   /**
-   * A cache failure must not fail the read the database can still serve.
-   * Entries written before the double-stringify fix were serialized twice, so
-   * they read back as JSON strings — including the string "null" for a
-   * category that was looked up while missing, which is truthy and used to
-   * skip validation. Parse those on the way out; anything unreadable is a
-   * miss.
+   * A cache failure must not fail a read the database can serve. Entries from
+   * before the double-stringify fix read back as JSON strings, so they are
+   * parsed again; anything unreadable is a miss.
    */
   private async readCacheSafe<T>(cacheKey: string): Promise<T | null> {
     try {

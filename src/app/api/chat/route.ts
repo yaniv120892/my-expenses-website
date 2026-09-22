@@ -16,8 +16,6 @@ function sseFrame(payload: Record<string, unknown>): Uint8Array {
 export const POST = createHandler({
   auth: 'session',
   bodySchema: chatRequestSchema,
-  // Each request can hold a model stream open for up to maxDuration, so
-  // this caps the concurrent-stream cost per user, not just abuse.
   rateLimit: ({ userId }) => [
     { key: `chat:user:${userId}`, ...RATE_LIMITS.chat },
   ],

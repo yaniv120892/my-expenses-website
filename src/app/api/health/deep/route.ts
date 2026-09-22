@@ -11,16 +11,14 @@ type CheckStatus = 'ok' | 'fail';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-// A blackholed dependency never rejects, so without this the request would run
-// into the platform timeout and the monitor would get a bodiless 504 instead of
-// the 503 naming what broke.
+// A blackholed dependency never rejects; without this the monitor gets a
+// bodiless 504 instead of a 503 naming what broke.
 const PROBE_TIMEOUT_MS = 5000;
 
 // Every call wakes Neon's compute, so nothing may poll this faster than hourly
 // — see README "Do not lower the deep interval".
 export async function GET(): Promise<NextResponse> {
-  // Bypasses createHandler, so it must drain the remote log buffer itself —
-  // otherwise a failed probe's own error sits unshipped.
+  // Bypasses createHandler, so it drains the remote log buffer itself.
   after(() => flushRemoteLogs());
   const [db, redis] = await Promise.all([
     probe('db', () => prisma.$queryRaw`SELECT 1`),

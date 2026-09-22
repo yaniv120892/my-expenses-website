@@ -46,8 +46,8 @@ describe('categoryRepository.getCategoryById', () => {
   });
 
   it('treats a legacy cached "null" as a miss instead of a category', async () => {
-    // Regression: the string "null" is truthy, so a missing category that got
-    // cached used to come back as a fake Category and skip validation.
+    // Regression: a cached miss read back as the truthy string "null" and
+    // skipped validation.
     getValueMock.mockResolvedValue('null');
     findUniqueMock.mockResolvedValue(null);
 

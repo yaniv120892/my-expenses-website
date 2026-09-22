@@ -43,8 +43,6 @@ function throwNotFoundOnMissingRow(err: unknown): never {
   throw err;
 }
 
-// The Prisma model plus its joined category, and files only when the caller
-// included them.
 type TransactionRow = PrismaTransaction & {
   category: PrismaCategory;
   files?: PrismaTransactionFile[];
@@ -59,9 +57,8 @@ function encodeCursor(transaction: { date: Date; id: string }): string {
 }
 
 /**
- * Date filters address whole days: startDate floors to the day's start and
- * endDate widens to its end. Callers (the daily summary among them) rely on
- * this to pass plain timestamps for both bounds.
+ * startDate floors to the day's start and endDate widens to its end; callers
+ * such as the daily summary rely on this.
  */
 export function normalizeDateRange(startDate?: Date, endDate?: Date) {
   return {
@@ -120,11 +117,7 @@ class TransactionRepository {
     return transaction.id;
   }
 
-  /**
-   * Returned unawaited so the caller can batch it into one prisma.$transaction
-   * with related writes (import approval marks the imported row in the same
-   * batch).
-   */
+  /** Unawaited so the caller can batch it with related writes. */
   public createTransactionOp(data: CreateTransactionDbModel) {
     return prisma.transaction.create({
       data: {
@@ -140,9 +133,8 @@ class TransactionRepository {
   }
 
   /**
-   * Offset paging, kept for the callers that address pages by number (the
-   * assistant reads one; trends walks them to exhaustion). New callers should
-   * prefer getTransactionsList, whose cursor keeps the per-page cost flat.
+   * Offset paging for callers that address pages by number; new callers should
+   * prefer getTransactionsList.
    */
   public async getTransactions(
     filters: TransactionFilters,
@@ -162,11 +154,6 @@ class TransactionRepository {
     return transactions.map(this.mapToDomain);
   }
 
-  /**
-   * Keyset paging for the UI list: each page seeks straight to the cursor
-   * instead of counting past the rows before it, so page cost stays flat no
-   * matter how deep the user scrolls.
-   */
   public async getTransactionsList(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
@@ -301,11 +288,7 @@ class TransactionRepository {
       .catch(throwNotFoundOnMissingRow);
   }
 
-  /**
-   * Per-category, per-type, per-day sums. Aggregating in Postgres keeps the
-   * comparison report to one round trip; the caller folds the day rows into
-   * whatever period buckets it needs.
-   */
+  /** The caller folds the day rows into whatever period buckets it needs. */
   public async getCategoryPeriodTotals(params: {
     userId: string;
     startDate: Date;
@@ -389,8 +372,7 @@ class TransactionRepository {
   }
 
   /**
-   * The single predicate behind both the list and the summary. Search is a SQL
-   * filter rather than an in-memory rank so the totals cover exactly the rows
+   * Shared by the list and the summary, so the totals cover exactly the rows
    * the list pages through.
    */
   private buildListWhere(

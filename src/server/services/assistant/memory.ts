@@ -14,8 +14,8 @@ let memory: Memory | undefined;
 let warned = false;
 
 /**
- * The shared Memory instance, or undefined when no direct connection is
- * configured — the assistant then degrades to stateless chat.
+ * Undefined when no direct connection is configured; the assistant then
+ * degrades to stateless chat.
  */
 export function getAssistantMemory(): Memory | undefined {
   const url = connectionString();
@@ -45,7 +45,6 @@ export function isMemoryEnabled(): boolean {
   return Boolean(connectionString());
 }
 
-// Threads are keyed per user so history is recalled across sessions/devices.
 export function getThreadId(userId: string): string {
   return `financial-assistant:${userId}`;
 }

@@ -43,9 +43,8 @@ const sub = (over: Sub = {}): Sub => ({
   ...over,
 });
 
-// The message header names the month it is sent in, so the clock is pinned
-// rather than recomputed here — otherwise a run crossing midnight on the last
-// of the month would disagree with the service.
+// The header names the send month, so the clock is pinned rather than
+// recomputed here.
 const header = 'Subscription Audit — March 2026';
 
 const enable = (...ids: string[]) =>

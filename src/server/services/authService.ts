@@ -31,21 +31,17 @@ function loginCodeAttemptsKey(email: string): string {
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
-    // Before any write: the verification email cannot be built without an
-    // origin, and throwing after createUser would leave an unverified account
-    // that the retry path below cannot rescue either.
+    // Before any write: throwing after createUser would leave an unverified
+    // account the retry path cannot rescue.
     const websiteUrl = requireSiteUrl();
     const existingUser = await userRepository.findByEmailOrUsername(
       email,
       username,
     );
     if (existingUser) {
-      // Signing up again for an unverified account is a retry, not a conflict —
-      // the only way back after an expired code or exhausted attempts. The reply
-      // is identical either way because this public, unrated endpoint would
-      // otherwise allow unlimited password guessing; the email check is because
-      // the lookup also matches username, where a stranger's pending account is
-      // a real conflict.
+      // A retry of an unverified signup, not a conflict, answered identically
+      // so this public endpoint allows no password guessing. The email check is
+      // because the lookup also matches username.
       if (!existingUser.verified && existingUser.email === email) {
         if (await compare(password, existingUser.password)) {
           return this.issueVerificationCode(existingUser.email, websiteUrl);
@@ -60,7 +56,6 @@ class AuthService {
       username,
       hashedPassword,
     );
-    // Nothing that shipped before this account existed is "new" to it.
     await announcementService.acknowledgeAllForNewUser(user.id);
     return this.issueVerificationCode(email, websiteUrl);
   }
@@ -91,10 +86,9 @@ class AuthService {
   }
 
   public async verifyLoginCode(email: string, code: string) {
-    // A 6-digit code valid for 10 minutes is brute-forceable without an
-    // attempt cap. The cap locks the code for the counter's window rather than
-    // deleting it: /api/auth/verify is public, so burning the code here would
-    // let anyone who knows a pending signup's address strand that account.
+    // The cap locks the code for the counter's window rather than deleting it:
+    // /api/auth/verify is public, so burning the code would let anyone strand a
+    // pending signup.
     const attemptsKey = loginCodeAttemptsKey(email);
     const attempts = await incrementWithTtl(attemptsKey, 600, 'branch');
     if (attempts > MAX_CODE_ATTEMPTS) {

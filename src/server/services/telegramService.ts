@@ -1,4 +1,4 @@
-import TelegramBot from 'node-telegram-bot-api';
+import { Api, type SendMessageParams } from 'node-telegram-bot-api';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
@@ -13,53 +13,36 @@ export function escapeMarkdown(value: string): string {
 }
 
 class TelegramService {
-  private getBot = lazy((): TelegramBot | null => {
+  private getApi = lazy((): Api | null => {
     const token = optionalEnv('TELEGRAM_BOT_TOKEN');
     if (!token) {
       return null;
     }
-    return new TelegramBot(token);
+    return new Api(token);
   });
 
   public async sendMessage(chatId: string, message: string) {
-    return this.send(chatId, message, { parse_mode: 'Markdown' });
+    return this.send({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'Markdown',
+    });
   }
 
-  /** For messages that are pure data: no parse_mode, so nothing to escape. */
   public async sendPlainMessage(chatId: string, message: string) {
-    return this.send(chatId, message, {});
+    return this.send({ chat_id: chatId, text: message });
   }
 
-  private async send(
-    chatId: string,
-    message: string,
-    options: TelegramBot.SendMessageOptions,
-  ) {
-    const bot = this.getBot();
-    if (!bot) {
+  private async send(params: SendMessageParams) {
+    const api = this.getApi();
+    if (!api) {
       logger.warn(
-        { chatId },
+        { chatId: params.chat_id },
         'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send',
       );
       return;
     }
-    return bot.sendMessage(chatId, message, options);
-  }
-
-  public async editMessage(chatId: string, messageId: number, newText: string) {
-    const bot = this.getBot();
-    if (!bot) {
-      logger.warn(
-        { chatId, messageId },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram editMessage',
-      );
-      return;
-    }
-    return bot.editMessageText(newText, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: 'Markdown',
-    });
+    return api.sendMessage(params);
   }
 }
 

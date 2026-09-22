@@ -149,3 +149,42 @@ describe('createHandler request log', () => {
     expect(requestLine().ship).toBeUndefined();
   });
 });
+
+describe('createHandler secret auth', () => {
+  const withHeaders = (headers: Record<string, string>) =>
+    new NextRequest('http://localhost/api/summary/today', { headers });
+
+  it.each([
+    ['a wrong cron secret of the same length', 'Bearer cron-secreT'],
+    ['a cron secret of a different length', 'Bearer x'],
+  ])('401s %s', async (_label, authorization) => {
+    const route = createHandler({
+      auth: 'cron',
+      handler: async () => ({ ok: true }),
+    });
+
+    const response = await route(withHeaders({ authorization }), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('401s a telegram call whose secret header differs in length', async () => {
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'telegram-secret';
+    const route = createHandler({
+      auth: 'telegram',
+      handler: async () => ({ ok: true }),
+    });
+
+    const rejected = await route(
+      withHeaders({ 'x-telegram-bot-api-secret-token': 'nope' }),
+      ROUTE_CONTEXT,
+    );
+    const accepted = await route(
+      withHeaders({ 'x-telegram-bot-api-secret-token': 'telegram-secret' }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(rejected.status).toBe(401);
+    expect(accepted.status).toBe(200);
+  });
+});

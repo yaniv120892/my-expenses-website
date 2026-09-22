@@ -35,7 +35,7 @@ export async function invalidateSession(
   await deleteValue(sessionKey(userId, token), 'branch');
 }
 
-export async function isSessionActive(
+async function isSessionActive(
   userId: string,
   token: string,
 ): Promise<boolean> {

@@ -33,6 +33,7 @@ import {
   useUpdateUserSettingsMutation,
   useUserSettingsQuery,
 } from '@/hooks/useUserSettingsQuery';
+import { describeApiError } from '@/utils/api';
 
 type UserSettingsForm = {
   provider: {
@@ -242,10 +243,10 @@ export default function SettingsPage() {
       });
       reset(data);
       setSaveSuccess(true);
-    } catch (e) {
+    } catch (error) {
       setTestResult({
         success: false,
-        message: e instanceof Error ? e.message : 'Failed to save settings',
+        message: describeApiError(error, 'Failed to save settings'),
       });
     } finally {
       setSaveLoading(false);

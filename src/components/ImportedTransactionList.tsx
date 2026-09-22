@@ -50,6 +50,7 @@ import TransactionForm from './TransactionForm';
 import BatchActionToolbar from './BatchActionToolbar';
 import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
+import { useErrorNotice } from '../hooks/useErrorNotice';
 import { CreateTransactionInput } from '../types';
 
 interface ImportedTransactionListProps {
@@ -278,7 +279,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     Record<string, string>
   >({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { showError, snackbarProps } = useErrorNotice();
   const { data: autoApproveRules = [] } = useAutoApproveRulesQuery();
   const [statusFilter, setStatusFilter] = useState<string>(
     ImportedTransactionStatus.PENDING,
@@ -371,7 +372,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     try {
       await ignoreMutation.mutateAsync(transactionId);
     } catch (error) {
-      setErrorMessage(describeApiError(error, 'Failed to ignore transaction'));
+      showError(describeApiError(error, 'Failed to ignore transaction'));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -386,7 +387,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     try {
       await deleteMutation.mutateAsync(transactionId);
     } catch (error) {
-      setErrorMessage(describeApiError(error, 'Failed to delete transaction'));
+      showError(describeApiError(error, 'Failed to delete transaction'));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -494,7 +495,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         onSelectAll={handleSelectAll}
         onClearSelection={handleClearSelection}
         hasAutoApproveRules={autoApproveRules.length > 0}
-        onErrorAction={setErrorMessage}
+        onErrorAction={showError}
       />
       <Box sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -699,12 +700,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         }
         mode={formMode}
       />
-      <NotificationSnackbar
-        open={!!errorMessage}
-        message={errorMessage ?? ''}
-        severity="error"
-        onClose={() => setErrorMessage(null)}
-      />
+      <NotificationSnackbar {...snackbarProps} />
     </>
   );
 };

@@ -33,6 +33,7 @@ import {
   UpdateSubscriptionPayload,
 } from '@/types/subscription';
 import { describeApiError } from '@/utils/api';
+import { useErrorNotice } from '@/hooks/useErrorNotice';
 import { formatCurrencyRounded } from '@/utils/format';
 import { isOneOf } from '@/utils/oneOf';
 import {
@@ -76,7 +77,7 @@ export default function SubscriptionsPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { showError, snackbarProps } = useErrorNotice();
 
   const statusParam = filterTab === 'ALL' ? undefined : filterTab;
   const { data, isLoading, error } = useSubscriptionsQuery(statusParam);
@@ -91,8 +92,7 @@ export default function SubscriptionsPage() {
   );
 
   function reportFailure(fallback: string) {
-    return (error: unknown) =>
-      setErrorMessage(describeApiError(error, fallback));
+    return (error: unknown) => showError(describeApiError(error, fallback));
   }
 
   function handleConvert(id: string, categoryId: string) {
@@ -287,12 +287,7 @@ export default function SubscriptionsPage() {
         </>
       )}
 
-      <NotificationSnackbar
-        open={!!errorMessage}
-        message={errorMessage ?? ''}
-        severity="error"
-        onClose={() => setErrorMessage(null)}
-      />
+      <NotificationSnackbar {...snackbarProps} />
     </>
   );
 }

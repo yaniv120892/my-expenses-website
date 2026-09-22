@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   AppBar,
@@ -61,8 +61,8 @@ const NAV_ITEMS = [
 ] as const;
 
 function ModeToggle() {
-  const { mode, setMode } = useColorScheme();
-  const isDark = mode === 'dark';
+  const { mode, systemMode, setMode } = useColorScheme();
+  const isDark = (mode === 'system' ? systemMode : mode) === 'dark';
   return (
     <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
       <IconButton
@@ -120,9 +120,11 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
               </ListItemIcon>
               <ListItemText
                 primary={label}
-                primaryTypographyProps={{
-                  fontSize: '0.9rem',
-                  fontWeight: selected ? 600 : 500,
+                slotProps={{
+                  primary: {
+                    fontSize: '0.9rem',
+                    fontWeight: selected ? 600 : 500,
+                  },
                 }}
               />
             </ListItemButton>
@@ -134,12 +136,12 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
-  const router = useRouter();
   const { data: session } = useSession();
 
+  // A full navigation, so the next user never sees this one's cached queries.
   async function handleLogout() {
     await logout();
-    router.push('/login');
+    window.location.assign('/login');
   }
 
   return (

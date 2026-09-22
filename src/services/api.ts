@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logout } from './authClient';
 
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
@@ -14,6 +15,16 @@ async function serverMessage(data: unknown): Promise<string | null> {
   }
 }
 
+// Middleware checks only the JWT, so a cookie whose server session is gone
+// would bounce /login straight back into the app until it is cleared.
+async function clearSessionCookie(): Promise<void> {
+  try {
+    await logout();
+  } catch {
+    // The redirect that follows is the recovery either way.
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -22,6 +33,7 @@ api.interceptors.response.use(
       typeof window !== 'undefined' &&
       !window.location.pathname.startsWith('/login')
     ) {
+      await clearSessionCookie();
       window.location.href = '/login?reason=session-expired';
     }
     // Without this every caller reports axios's "Request failed with status

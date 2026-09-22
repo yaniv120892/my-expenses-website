@@ -11,6 +11,35 @@ vi.mock('@/services/transactionFileService', () => ({
   listFiles: vi.fn().mockResolvedValue([]),
 }));
 
+const upload = vi.fn();
+
+// The real panel adds pending files through react-dropzone; this stub is the
+// smallest seam that lets a test put one into TransactionForm's own state.
+vi.mock('@/components/TransactionForm/TransactionAttachments', () => ({
+  default: ({
+    setPendingFiles,
+  }: {
+    setPendingFiles: (files: File[]) => void;
+  }) => (
+    <button
+      onClick={() =>
+        setPendingFiles([new File(['x'], 'receipt.png', { type: 'image/png' })])
+      }
+    >
+      stub-add-pending-file
+    </button>
+  ),
+}));
+
+vi.mock('@/hooks/useTransactionFilesQuery', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/hooks/useTransactionFilesQuery')>();
+  return {
+    ...actual,
+    useDirectS3UploadForAttachment: () => ({ upload }),
+  };
+});
+
 afterEach(cleanup);
 
 const EDIT_ROW = {
@@ -182,5 +211,35 @@ describe('TransactionForm submit failure reporting', () => {
       await screen.findByText('Transaction created successfully'),
     ).toBeTruthy();
     expect(onCloseAction).toHaveBeenCalled();
+  });
+});
+
+describe('TransactionForm attachment failure reporting', () => {
+  it('still reports the save as done when an attachment upload fails', async () => {
+    upload.mockRejectedValue(new Error('S3 refused the part'));
+    const onCloseAction = vi.fn();
+    const onSubmitAction = vi.fn(async () => 'new-id');
+
+    renderWithClient(
+      <TransactionForm
+        open
+        onCloseAction={onCloseAction}
+        onSubmitAction={onSubmitAction}
+        initialData={null}
+      />,
+    );
+    fireEvent.change(descriptionInput(), { target: { value: 'With receipt' } });
+    fireEvent.change(valueInput(), { target: { value: '18' } });
+    fireEvent.click(screen.getByText('stub-add-pending-file'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    // The transaction saved; only the attachment failed, so this must not
+    // read as a failed save.
+    expect(
+      await screen.findByText(/Transaction saved\. Direct S3 upload failed\./),
+    ).toBeTruthy();
+    expect(screen.queryByText('Failed to save transaction')).toBeNull();
+    expect(screen.queryByText(/created successfully/i)).toBeNull();
+    expect(onSubmitAction).toHaveBeenCalledTimes(1);
   });
 });

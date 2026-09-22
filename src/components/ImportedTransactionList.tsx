@@ -383,8 +383,11 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
 
   // Must not catch: the form reports the outcome (see CLAUDE.md).
   const handleFormSubmit = async (data: CreateTransactionInput) => {
-    if (!selectedTransaction) {
-      return;
+    // Resolving without writing would read as a successful save.
+    if (!selectedTransaction || !formMode) {
+      throw new Error(
+        `No imported row selected for submit (transaction: ${selectedTransaction?.id}, mode: ${formMode})`,
+      );
     }
 
     const operationType = formMode === 'merge' ? 'merge' : 'approve';

@@ -95,7 +95,6 @@ export default function TransactionForm({
     useState<SnackbarSeverity>('success');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const directS3Upload = useDirectS3UploadForAttachment();
   const removeFileMutation = useRemoveFileMutation(initialData?.id || '');
@@ -110,7 +109,6 @@ export default function TransactionForm({
     setErrors({});
     setPendingFiles([]);
     setFilesToRemove([]);
-    setAttachmentError(null);
   }
 
   // Which endpoint this submit hits decides the rule: merge and update need a
@@ -140,11 +138,9 @@ export default function TransactionForm({
     setSnackbarOpen(true);
   };
 
-  const reportAttachmentFailure = (summary: string, err: unknown): string => {
+  const describeAttachmentFailure = (summary: string, err: unknown): string => {
     const message = describeApiError(err, summary);
-    const detailed = message === summary ? summary : `${summary} ${message}`;
-    setAttachmentError(detailed);
-    return detailed;
+    return message === summary ? summary : `${summary} ${message}`;
   };
 
   const handleSubmit = async () => {
@@ -152,7 +148,6 @@ export default function TransactionForm({
       return;
     }
     setIsLoadingUpdate(true);
-    setAttachmentError(null);
     try {
       let dateToUse = form.date;
       if (!initialData) {
@@ -177,7 +172,7 @@ export default function TransactionForm({
           }
           setFilesToRemove([]);
         } catch (err) {
-          attachmentFailure = reportAttachmentFailure(
+          attachmentFailure = describeAttachmentFailure(
             'Removing an attachment failed.',
             err,
           );
@@ -188,7 +183,7 @@ export default function TransactionForm({
           try {
             await directS3Upload.upload(transactionId, file);
           } catch (err) {
-            attachmentFailure = reportAttachmentFailure(
+            attachmentFailure = describeAttachmentFailure(
               'Direct S3 upload failed.',
               err,
             );
@@ -338,11 +333,6 @@ export default function TransactionForm({
               setFilesToRemove={setFilesToRemove}
               submitButtonLabel={getSubmitButtonText()}
             />
-            {attachmentError && (
-              <Typography variant="body2" color="error.main">
-                {attachmentError}
-              </Typography>
-            )}
           </Stack>
         </DialogContent>
         <DialogActions

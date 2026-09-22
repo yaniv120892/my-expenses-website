@@ -7,11 +7,7 @@ import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
 import ScheduledTransactionListSkeleton from '@/components/ScheduledTransactionListSkeleton';
 import PageHeader from '@/components/shell/PageHeader';
-import {
-  CreateScheduledTransactionInput,
-  ScheduledTransaction,
-  UpdateScheduledTransactionInput,
-} from '@/types';
+import { CreateScheduledTransactionInput, ScheduledTransaction } from '@/types';
 import {
   useScheduledTransactionsQuery,
   useCreateScheduledTransactionMutation,
@@ -36,14 +32,12 @@ export default function ScheduledPage() {
   const deleteMutation = useDeleteScheduledTransactionMutation();
 
   // Must not catch: the form reports the outcome (see CLAUDE.md).
-  async function handleFormSubmit(
-    data: CreateScheduledTransactionInput | UpdateScheduledTransactionInput,
-  ) {
+  async function handleFormSubmit(data: CreateScheduledTransactionInput) {
     if (editTx) {
       await updateMutation.mutateAsync({ id: editTx.id, data });
       return;
     }
-    await createMutation.mutateAsync(data as CreateScheduledTransactionInput);
+    await createMutation.mutateAsync(data);
   }
 
   return (

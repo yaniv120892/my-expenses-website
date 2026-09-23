@@ -42,7 +42,9 @@ function LoginForm() {
         Log in
       </Typography>
       {sessionExpired && !error && (
-        <Alert severity="info">Your session has expired. Please log in again.</Alert>
+        <Alert severity="info">
+          Your session has expired. Please log in again.
+        </Alert>
       )}
       {error && <Alert severity="error">{error}</Alert>}
       <TextField

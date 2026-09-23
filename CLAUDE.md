@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant. Formerly split across `my-expenses` (Express API, now deprecated) and this repo.
+Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant.
 
 One sibling service stays external and is reached over HTTP: `excel-extraction-service` (Express + Gemini, async webhook callbacks). Transaction categories come from a user's own description mapping first, then the AI provider.
 
@@ -26,37 +26,27 @@ npm run statements:import -- <dir> [--dry-run] [--resubmit] [--base-url=<url>]  
 npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
 ```
 
-Pre-commit runs lint-staged + typecheck (husky). CI
-(`.github/workflows/ci.yml`) runs lint + typecheck + unit tests + the
-production build, and both e2e suites against `npx prisma dev` as the local
-Prisma Postgres.
+Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
+runs audit, lint, typecheck, unit tests and the build, and in a parallel job
+both e2e suites against `npx prisma dev`.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
-app on a machine: database, migrations, the mock services the integrations
-point at, and the dev server, blocking until `/api/health/deep` is green. `npm
-run dev` on its own only works if every var that script exports is already in
-the environment, and its env block is a copy of the `env:` block CI gives its
-e2e job — change one and change the other, or local and CI diverge silently.
-It restarts `prisma dev` each run rather than reusing it: that server fronts
-Postgres with a pooler, and `migrate deploy` inherits the previous run's
-query-engine session and dies on an already-prepared statement.
+app: database, migrations, mock services, and the dev server, blocking until
+`/api/health/deep` is green. Its env block mirrors the `env:` block of CI's e2e
+job — change both together. It restarts `prisma dev` each run, because that
+server's pooler hands `migrate deploy` the previous run's session and it dies
+on an already-prepared statement.
 
-Presetting `DATABASE_URL` and `DIRECT_URL` runs the same stack over that
-database instead — no `prisma dev`, no seed, a session minted for the account
-`SESSION_USER_EMAIL` names, and `REMOTE_DATABASE_OK=1` required so the host is
-looked at before anything is written. That is how a statement backfill is
-rehearsed over a branch of the production database before it runs for real
-(`.claude/skills/collect-statements/SKILL.md`). The seed itself refuses any
-`DIRECT_URL` not on this machine, since it wipes every table.
+Presetting `DATABASE_URL` and `DIRECT_URL` (plus `REMOTE_DATABASE_OK=1` and
+`SESSION_USER_EMAIL`) runs the same stack over that database with no seed —
+how a statement backfill is rehearsed on a branch of production
+(`.claude/skills/collect-statements/SKILL.md`). The seed refuses any
+non-local `DIRECT_URL`, since it wipes every table.
 
-Vitest runs on `node` by default; a component or hook test opts into a DOM
-with a `// @vitest-environment jsdom` docblock and renders through
-`src/test/renderWithClient.tsx` (React Testing Library + a QueryClient). Keep
-logic that can be tested without a DOM in a plain `.ts` module — most suites
-here are pure functions, not components. Type-level assertions live in
-`*.test-d.ts` files and are checked by tsc via `test.typecheck` in
-`vitest.config.ts`, so they run as part of `npm test`; `npm run test:types`
-runs them alone.
+Vitest runs on `node`; a component or hook test opts into a DOM with a
+`// @vitest-environment jsdom` docblock and renders through
+`src/test/renderWithClient.tsx`. Keep DOM-free logic in plain `.ts` modules.
+`*.test-d.ts` type assertions run inside `npm test`.
 
 ## Architecture
 
@@ -71,7 +61,8 @@ runs them alone.
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}`, and logs one pino line per
-  request. Special routes: `/api/chat` (SSE streaming), `/api/webhook`
+  request. Every error it maps to a 5xx is also reported to Sentry and alerted
+  to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
@@ -79,7 +70,9 @@ runs them alone.
   import would do, writing nothing, each row with a `reviewHint` naming a
   close call), `/api/imports/[importId]` (GET; one
   import with its pending count and, when merged, the import it merged into),
-  `/api/auth/*` (cookie handling).
+  `/api/auth/*` (cookie handling), `/api/health` (liveness only — touches no
+  dependency, so Neon can scale to zero) and `/api/health/deep` (polled at
+  most hourly).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory),
@@ -109,15 +102,14 @@ runs them alone.
 - **No module-load-time construction of network clients.** Every external
   client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
   Google, excel extraction) is built through `lazy()` from
-  `src/server/lib/lazy.ts` and reads env via `requireEnv`. A missing env var
-  must fail the call, never the import.
+  `src/server/lib/lazy.ts` and reads env inside the factory — `requireEnv`, or
+  `optionalEnv` where unset means the feature is off. A missing env var fails
+  the call, never the import.
 - **Every model call made per transaction row is bounded.** The OpenAI and
   Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their
   timeout (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
-  (`src/server/services/ai/requestLimits.ts`), never an SDK default: those
-  calls run one row at a time inside a batch request, and OpenAI's default of
-  10 minutes with 2 retries let one stalled answer outlive the function. A
-  timeout is an ordinary provider failure that fails its row; the limit is per
+  (`src/server/services/ai/requestLimits.ts`), never an SDK default, because
+  those calls run one row at a time inside a batch request. A timeout is an ordinary provider failure that fails its row; the limit is per
   call, so a batch against a degraded provider can still outrun the function.
   The assistant's Mastra model is a separate streaming client and is not bound
   by these limits.
@@ -130,35 +122,22 @@ runs them alone.
   question or the record.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
-  value tolerance of `max(2, 1%)` (`matchValueTolerance`). Both are wider than
-  they first look because a card dates a row by when the charge settled, not
-  when it was made, and a flat tolerance generous for a 20 charge is far too
-  tight for a 2000 one. Among the candidates a single normalized-equal
+  value tolerance of `max(2, 1%)` (`matchValueTolerance`) — a card dates a row
+  by settlement, not purchase, and a flat tolerance does not scale. Among the candidates a single normalized-equal
   description wins outright (`findExactNormalizedMatch`,
   `src/server/utils/transactionMatching.ts`) and never reaches the model; a tie
-  or no exact hit does. That short-circuit is what makes a multi-month backfill
-  affordable — it is one model call per row otherwise.
+  or no exact hit does. That short-circuit keeps a multi-month backfill
+  affordable.
 - **One function decides merge-vs-create.**
-  `importService.toReconciliationPlanItem` is the only place a pending row's
-  MERGE/CREATE action is derived from its matched transaction; the preview
-  endpoint, `batchApproveImportedTransactions` and `applyAutoApproveRules` each
-  resolve their own pending rows but all map them through it, so no server path
-  re-derives the decision differently. The plan itself is not sent back on
-  commit — the API takes row ids, not a plan — so
-  `scripts/import-statements.ts` names the rows it previewed rather than
-  re-approving whatever is pending by then. `ImportedTransactionList` still
-  derives its own view of the same decision; the invariant covers the server
-  paths only. Applying a decision is shared the same way:
-  `applyCreate` and `applyMerge` take the row `loadPendingSelection` already
-  read with its matched transaction, rather than re-reading the row and its
-  match per item, and they return the transaction to notify about instead of
-  notifying — so the batch hands the whole list to
-  `transactionService.notifyTransactionsCreatedSafe`, which reads the user's
-  preference once. The single-row routes load the row themselves and call the
-  same two methods, so a batch must never be written as a loop over the public
-  `approveImportedTransaction`/`mergeImportedTransaction`. Applying from the
-  loaded row means a merge acts on the match as it was when the batch started,
-  so a rematch running concurrently is not seen.
+  `importService.toReconciliationPlanItem` derives every server path's
+  MERGE/CREATE (preview, `batchApproveImportedTransactions`,
+  `applyAutoApproveRules`); `ImportedTransactionList` keeps its own client view.
+  Commits take row ids, not a plan, so `scripts/import-statements.ts` approves
+  the rows it previewed. Applying goes through `applyCreate`/`applyMerge` on the
+  row `loadPendingSelection` loaded — never a loop over the public
+  `approveImportedTransaction`/`mergeImportedTransaction` — and they return what
+  to notify so the batch calls `notifyTransactionsCreatedSafe` once. A merge acts
+  on the match as loaded, so a concurrent rematch is not seen.
 - **A preview flags close calls without deciding them.** Each preview item
   carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
   action, from database lookups only and never a model call:
@@ -166,25 +145,18 @@ runs them alone.
   inside its match window (fetched for every CREATE row in one query), and
   `unrelated-merge` when a MERGE's two descriptions share no normalized word.
   The window is `matchWindow` (`src/server/utils/transactionMatching.ts`), the
-  same bounds `findPotentialMatches` queries by, so a flagged candidate is
-  one the matcher's own query would return today. Neither hint changes what the commit does;
+  same bounds `findPotentialMatches` queries by. Neither hint changes what the
+  commit does;
   `scripts/import-statements.ts` prints flagged rows as `CREATE?`/`MERGE?`
   with the other side's description.
 - **Duplicate import rows are matched up to a shortened merchant name.**
-  `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires date,
-  value and type to agree exactly, and the shorter normalized description to
-  be whole words from one end of the longer one — the extraction service
-  shortens a merchant by dropping its trailing branch, mall or city (usually
-  more than half the string on real statements) and occasionally a leading
-  "refund" — or a leading prefix past half the longer one when the cut lands
-  inside a word. A shorter side under three characters never matches. Two different merchants sharing an opening inside
-  a word, or a bare initial, do not read as the same charge; two sharing a
-  whole first word are told apart by their second. Demanding the whole
-  description made a re-imported statement inject phantom charges, and so did
-  the earlier half-length rule on Hebrew merchant strings — while ignoring the
-  description entirely would collapse two merchants charging the same amount
-  on the same day. `selectNonDuplicateRows` claims each existing row at most
-  once, so a genuinely repeated charge still imports.
+  `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires equal date,
+  value and type, and the shorter normalized description to be whole words from
+  either end of the longer one (the extractor drops a trailing branch, mall or
+  city, and sometimes a leading "refund"), or a leading prefix past half the
+  longer one when the cut lands mid-word. A side under three characters never
+  matches. `selectNonDuplicateRows` claims each existing row at most once, so a
+  genuinely repeated charge still imports.
 - **A duplicate import is kept as a pointer, and its survivor is held until
   the moved rows are matched.** When the extraction webhook finds an older
   COMPLETED import for the same card and month, one transaction moves the
@@ -196,29 +168,28 @@ runs them alone.
   it, and the script follows the recorded pointer (`GET /api/imports/[id]`)
   instead of reconstructing the survivor from the filename. A `MERGED` import
   holds no rows and never becomes a merge target (`findExisting` requires
-  `COMPLETED`).
+  `COMPLETED`). The submitted payment month wins over the one extraction
+  reports, since card + month is the duplicate key. A FAILED import keeps its
+  extraction claim, since a redelivery after a partial write would insert every
+  row again, so recovery is delete and re-import.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
-  by `redisKeyPrefix(scope)`. Upstash's free tier allows one database, so
-  previews share production's. Only production is bare — the keys above are
-  literal there; everything else is namespaced, an unconfigured local process
-  included, so nothing but production can write into production's keyspace. A
-  preview's caches key on the commit (`preview:<sha>:`), since a value cached by
-  a buggy commit must not still be served after the fix is pushed; sessions and
-  login codes pass `'branch'` and key on `preview:<branch>:`, which survives the
-  pushes a person holds a session or a code across. Superseded namespaces are
-  left to their keys' TTLs — except a counter killed between INCR and EXPIRE,
-  which has none and outlives its namespace.
+  by `redisKeyPrefix(scope)`, because previews share production's one Upstash
+  database. Only production is bare; everything else, an unconfigured local
+  process included, is namespaced. Preview caches key on the commit
+  (`preview:<sha>:`) so a fix is never served a buggy commit's value; sessions
+  and login codes pass `'branch'` (`preview:<branch>:`) to survive pushes.
+  Superseded namespaces expire by TTL, except a counter killed between
+  INCR and EXPIRE, which has none.
 - **Prisma**: schema + migrations in `prisma/`; the app client is
   `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
   be any address that client accepts. On Vercel it is Neon's pooled endpoint
   with `?pgbouncer=true` (plus `connection_limit=1` on serverless), because that
-  pooler reuses sessions and collides on prepared statements — `assertCoreEnv`
-  refuses a `-pooler` host missing that parameter, since the collision it causes
-  appears only under concurrency. `DIRECT_URL` is
+  pooler reuses sessions and collides on prepared statements; `assertCoreEnv`
+  refuses a `-pooler` host missing that parameter. `DIRECT_URL` is
   the direct endpoint, used by migrations, the seed, and Mastra's memory store;
   both are scoped per environment, since `vercel-build` runs
   `prisma migrate deploy` against `DIRECT_URL`. CI and `dev:local` keep the app
@@ -231,39 +202,24 @@ runs them alone.
   custom properties, no global utility classes, no hardcoded hex in
   components (charts read `theme.palette.charts`).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. Vercel keeps
-  runtime logs for an hour, so anything swallowed is invisible soon after.
-  `createHandler` logs every 5xx; `instrumentation.ts` logs errors Next raises
-  outside a route handler. Outside development, records are also shipped to
-  Better Stack through `pino.multistream` (never a pino transport — its worker
-  threads are unreliable on Vercel) and flushed in one batched POST per request
-  from a `next/server` `after` hook. The stream is attached at `info` and
-  decides for itself what leaves: warn and above, plus any record carrying
-  `ship: true`. That marker is how a cron's request line gets out — a healthy
-  cron run is otherwise exactly as silent as one killed mid-request, which
-  makes the silence unreadable. An `error` record flushes eagerly rather than
-  waiting for the hook, and `createHandler` flushes once more before the
-  heartbeat ping, so a request that dies on that call still leaves the line
-  saying it got that far. Unset `BETTERSTACK_SOURCE_URL`/`_TOKEN` means
-  shipping is off, not an error. See README "Log shipping".
-- **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set.
-  Logs say what happened; Sentry groups and counts it, and outlives the hour.
-  `sentry.config.ts` holds the single `Sentry.init`; `instrumentation.ts` runs
-  it for the Node and edge runtimes and `src/instrumentation-client.ts` for the
-  browser. `initSentry` takes no arguments and reads every value from
-  `process.env` itself: a parameter whose argument constant-folds gets inlined
-  into an unbound `{environment}` shorthand that throws in the browser bundle.
-  `createHandler` reports every 5xx it turns into a response — Next's
-  `onRequestError` cannot see those, because the error never escapes the route.
-  `onRequestError` covers what does escape, and the React boundaries report via
-  `src/components/ErrorFallback.tsx`, skipping errors carrying a `digest` since
-  the server already reported those. A path that catches its error and returns a
-  fallback calls `reportSwallowedError`
-  (`src/server/logging/reportSwallowedError.ts`) rather than `logger.error`: it
-  logs the same record and files the Sentry issue, and without the second half
-  such an error is visible for Better Stack's three days and then nowhere.
-  Pre-existing `logger.error` swallows have not all been converted. Tracing and
-  Session Replay are off — the free tier budgets errors only.
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. Outside
+  development records also ship to Better Stack through `pino.multistream`
+  (never a pino transport — its worker threads are unreliable on Vercel),
+  flushed from a `next/server` `after` hook, eagerly on `error`, and once more
+  before a cron's heartbeat ping. Warn and above ship, plus any record marked
+  `ship: true` — how a healthy cron's request line gets out. Unset
+  `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns shipping off. README "Log shipping".
+- **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set;
+  errors only, no tracing or replay. `sentry.config.ts` holds the single
+  `Sentry.init`, run by `src/instrumentation.ts` (Node, edge) and
+  `src/instrumentation-client.ts` (browser); `initSentry` takes no arguments
+  and reads `process.env` itself, since a constant-folded argument breaks the
+  browser bundle. `createHandler` reports every 5xx it turns an error into;
+  `onRequestError` covers what escapes a route; React boundaries report via
+  `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
+  that catches an error and returns a fallback calls `reportSwallowedError`
+  (`src/server/logging/reportSwallowedError.ts`), not `logger.error`, so the
+  error outlives Better Stack's retention.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call
@@ -272,13 +228,15 @@ runs them alone.
   `PendingTransactionsList` is the opposite — it has no error surface, so its
   handlers must not reject and the page catches (`runWithNotice`). A new dialog
   picks one and says which in its props.
-- Comments only where code cannot explain itself, 1–2 sentences max.
+- **Comments** only where code cannot explain itself — a surprising why, 1–2
+  sentences. Names carry the what; this file carries the design.
 
 ## Database (Prisma)
 
 Models: User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
-AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider.
+AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
+AnnouncementAck.
 Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
 ## Crons (vercel.json)
@@ -293,10 +251,9 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 | /api/reports/monthly                | 06:00 on the 1st |
 
 Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
-that Better Stack URL after a <400 response (unset var = off). `HandlerOptions`
-is a union discriminated on `auth`, so `heartbeatEnvVar` exists only on the
-`auth: 'cron'` arm — a non-cron route declaring one is a compile error. See
-README "Cron heartbeats".
+that Better Stack URL after a <400 response (unset var = off); the option
+exists only on the `auth: 'cron'` arm of `HandlerOptions`. README "Cron
+heartbeats".
 
 ## Deployment
 
@@ -306,29 +263,22 @@ jobs 401. Anything that has to name the site's own origin — extraction webhook
 callbacks, verification links — goes through `requireSiteUrl()`
 (`src/server/env.ts`), never a bare `WEBSITE_URL` read. Set that var on
 production and nowhere else: previews leave it unset and derive the origin from
-`VERCEL_BRANCH_URL`, while production has the fallback gated off, so a missing
-value fails loudly instead of mailing users a `vercel.app` link. It is resolved
-before the first write of a signup, not while rendering the email, so a
-misconfigured deployment cannot strand a half-created account. The Telegram webhook
-must be registered with
+`VERCEL_BRANCH_URL`; production has that fallback gated off so a missing value
+fails loudly, and it is resolved before a signup's first write. The Telegram
+webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 
-Functions run in `fra1`, the region holding both the Neon database and the
-Upstash Redis every authenticated request reads a session from (`regions` in
-`vercel.json`). The app client opens ordinary Postgres connections, so each
-query costs a round trip from wherever the function executes and a connection
-handshake costs several; co-location is what keeps that cost off the request.
-Moving either store's region moves this one with it.
+Functions run in `fra1` (`regions` in `vercel.json`), co-located with Neon and
+Upstash so each query and session read stays a same-region round trip. Moving
+either store's region moves this one with it.
 
 ## Documentation
 
 This file is the only design document. Per-feature plans, specs, and handover
 notes are not committed — `.superpowers/`, `docs/superpowers/`, and
 `.claude/worktrees/` are gitignored, while `.claude/skills/` and
-`.claude/rules/` stay tracked because they are tooling, not scratch. Agent
-output stays in the ignored directories or in the session. A spec that
-describes work already shipped is worse than no spec: it drifts, and readers
-cannot tell it from current intent.
+`.claude/rules/` stay tracked because they are tooling, not scratch. A spec for
+shipped work drifts and reads as current intent, so it is not kept.
 
 `.claude/skills/collect-statements/` holds the per-portal recipes for pulling
 statements out of Cal, Isracard and Amex IL with Claude in Chrome. Credentials
@@ -348,13 +298,11 @@ skill shares a name with a plugin skill, follow the vendored copy.
 repo's own — how to prove a change here, and what a good description of one
 looks like — and the plugin's `writing-pr-description` reads both.
 
-`.claude/rules/` holds the craft rules — comments, control flow, naming, error
-handling, typing, env wiring, secret handling — vendored from
-`yaniv120892/claude-config` so they load without that repo's `install.sh`,
-which only reaches `~/.claude` on one machine. Each file carries a `paths:`
-list and loads only when a file it governs is read. This file stays the place
-for what is true of _this_ system; `.claude/rules/` is how code gets written
-anywhere. Edit a rule upstream first, then re-vendor. The mechanically
+`.claude/rules/` holds the craft rules (comments, control flow, naming, errors,
+typing, env wiring, secrets), vendored from `yaniv120892/claude-config`; each
+loads by its `paths:` list. This file is what is true of _this_ system; the
+rules are how code gets written anywhere. Edit a rule upstream first, then
+re-vendor. The mechanically
 checkable ones (`curly`, `array-type`, `explicit-member-accessibility`) are
 enforced in `eslint.config.mjs`, so CI fails on them rather than review.
 

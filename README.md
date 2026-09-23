@@ -20,32 +20,27 @@ both the web UI and the API.
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
 - **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
   Gemini via `AI_PROVIDER`
-- **Observability**: pino structured logs, Vercel Analytics + Speed Insights
+- **Observability**: pino → Better Stack logs, Sentry errors, Better Stack
+  heartbeats and uptime, Telegram 5xx alerts, Vercel Analytics + Speed Insights
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env   # fill in values
-npm run db:migrate     # applies prisma/migrations via DIRECT_URL
-npm run dev            # http://localhost:3000
+npm run dev:local   # local Postgres, migrations, mocks, seed and dev server on :3000
 ```
 
-`DATABASE_URL` is the connection the app runs on — on a hosted deployment the
-pooled Postgres endpoint, with `?pgbouncer=true`; `DIRECT_URL` is the direct
-connection used by migrations, the e2e seed, and the assistant's memory store.
-For local development `npx prisma dev` publishes both.
+`dev:local` prints a login and a bearer token once `/api/health/deep` is green.
+To run against a hosted database instead, fill `.env` from `.env.example` and
+run `npm run db:migrate && npm run dev`: `DATABASE_URL` is the pooled endpoint
+with `?pgbouncer=true`, `DIRECT_URL` the direct one used by migrations and the
+assistant's memory store.
 
 ## Scripts
 
-| Script                                  | What it does                                    |
-| --------------------------------------- | ----------------------------------------------- |
-| `npm run dev`                           | Dev server (Turbopack)                          |
-| `npm run build`                         | `prisma generate && next build`                 |
-| `npm run typecheck` / `lint` / `format` | Quality gates (also run pre-commit)             |
-| `npm run db:migrate`                    | `prisma migrate deploy`                         |
-| `npm run test:e2e:api`                  | API/chat harness — see `test/e2e-api/README.md` |
-| `npm run test:e2e:ui`                   | Playwright specs in `e2e/`                      |
+See `package.json`; the ones worth knowing are described in `CLAUDE.md` →
+Commands. `npm test` runs unit and type tests, `npm run test:e2e:api` and
+`npm run test:e2e:ui` the two e2e suites.
 
 ## Deployment (Vercel)
 
@@ -142,7 +137,8 @@ or backtick in an error message makes Telegram reject the send outright.
 Alerts are capped at **5 per hour per alert type**, where the type is the
 method plus the _route pattern_ — `/api/transactions/[id]`, not the concrete
 id — so a storm across many records still trips one shared cap and Redis does
-not accumulate a key per record. The cap is counted with a single `INCR`,
+not accumulate a key per record. The cap is counted with one `INCR` per alert (plus an `EXPIRE` on the first
+of each window),
 which keeps a 5xx storm inside the Upstash free tier's 500K monthly command
 budget. The alert that trips the cap is replaced by a one-off "further alerts
 suppressed" notice, so the silence is never ambiguous. Sending is
@@ -191,10 +187,3 @@ wrong-URL failure visible regardless of how it is wrong.
 | Service                  | Contract                                                                                                                |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | excel-extraction-service | `POST ${EXCEL_EXTRACTION_AGENT_URL}/api/extract`; result arrives at `/api/excel-extraction-agent/webhook` (HMAC-signed) |
-
-## History
-
-The backend previously lived in the now-deprecated
-[my-expenses](https://github.com/yaniv120892/my-expenses) repository and was
-consolidated here — route handlers replaced Express, class-validator DTOs
-became zod schemas, and all external clients construct lazily (serverless-safe).

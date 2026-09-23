@@ -2,7 +2,6 @@
 node_modules
 package-lock.json
 prisma/migrations
-docs/proof-of-work
 
 # Vendored from yaniv120892/claude-config; formatting drift here would make the
 # diff against the synced copy unreadable when re-vendoring. pr-review and

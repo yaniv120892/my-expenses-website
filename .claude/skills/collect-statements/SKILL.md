@@ -208,8 +208,9 @@ Verified end to end.
    arrows switch cards. The page already lists `עסקאות למועד חיוב` (by billing
    date), so the month in the address is the billing month.
 6. The export is the `הורדה ל- Excel` button (`aria-label="download excel"`) at
-   the bottom of the list. It downloads one file per click, already named
-   `<last4>_<MM>_<YYYY>.xlsx`.
+   the bottom of the list. It downloads one file per click, named
+   `<last4>_<MM>_<YYYY>.xlsx`; rename it `isracard-<last4>-<MM>-<YYYY>.xlsx` so
+   the import script recognises it.
 
 The session ends after roughly ten idle minutes (`היי, לא היית כאן הרבה זמן`),
 and every page then redirects to the login form. Export all months in one go
@@ -274,10 +275,11 @@ month and billed total, `תאריך רכישה | שם בית עסק | סכום �
 
 ### Merges onto an unrelated recurring bill
 
-Read every MERGE whose two descriptions share nothing. The matcher can merge a
+Read every row the plan prints as `MERGE?` (the descriptions share no word) or
+`CREATE?` (an unclaimed candidate sits in the match window). The matcher can merge a
 small charge onto a pending recurring bill that happens to be within tolerance.
 The model sees only descriptions, not the candidate's category or that it
-recurs (YAN-114). On Amex this merged the card's `דמי כרטיס הנפקה` fee
+recurs. On Amex this merged the card's `דמי כרטיס הנפקה` fee
 (22.90) and a 21.90 pharmacy purchase onto the monthly `019` phone bill
 (22.00 / 20.00). Committing that marks the phone bill paid under the wrong
 charge.

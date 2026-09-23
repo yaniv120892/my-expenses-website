@@ -18,7 +18,6 @@ export default tseslint.config(
       'node_modules/**',
       'public/**',
       'next-env.d.ts',
-      'docs/proof-of-work/**',
       '.claude/**',
     ],
   },

@@ -46,7 +46,7 @@
     "@mastra/memory": "^1.26.0",
     "@mastra/pg": "^1.19.0",
     "@mui/icons-material": "^7.3.9",
-    "@mui/material": "^7.3.9",
+    "@mui/material": "^9.4.0",
     "@mui/material-nextjs": "^7.3.9",
     "@mui/system": "^7.3.9",
     "@prisma/client": "^6.9.0",

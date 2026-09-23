@@ -38,18 +38,15 @@ import type { Transaction } from '@/shared/types/transaction';
 import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 
-// A missing row in the approve/merge batch means a concurrent delete won the
-// race. Map it back to the 404 the non-batched path used to return.
-function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
+// The imported row's update is scoped to PENDING, so a miss on it means a
+// concurrent approve, merge, ignore or delete got there first.
+function throwOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    throw new HttpError(404, 'Imported transaction not found');
-  }
-  throw err;
-}
-
-function throwTransactionNotFoundOnMissingRow(err: unknown): never {
-  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    throw new HttpError(404, 'Transaction not found');
+    const { modelName } =
+      (err as { meta?: { modelName?: unknown } }).meta ?? {};
+    throw modelName === 'Transaction'
+      ? new HttpError(404, 'Transaction not found')
+      : new HttpError(409, 'Imported transaction is no longer pending');
   }
   throw err;
 }
@@ -297,8 +294,15 @@ class ImportService {
       importedTransactionId,
     );
 
-    if (!record || record.userId !== userId) {
+    if (!record || record.userId !== userId || record.deleted) {
       throw new HttpError(404, 'Imported transaction not found');
+    }
+
+    if (record.status !== ImportedTransactionStatus.PENDING) {
+      throw new HttpError(
+        409,
+        `Imported transaction is already ${record.status}`,
+      );
     }
 
     return record;
@@ -327,7 +331,7 @@ class ImportService {
         transactionRepository.createTransactionOp(transactionModel),
         importedTransactionRepository.markApprovedOp(record.id, record.userId),
       ])
-      .catch(throwImportedTransactionNotFoundOnMissingRow);
+      .catch(throwOnMissingRow);
 
     return createdTransaction.id;
   }
@@ -388,7 +392,7 @@ class ImportService {
           ImportedTransactionStatus.MERGED,
         ),
       ])
-      .catch(throwTransactionNotFoundOnMissingRow);
+      .catch(throwOnMissingRow);
 
     return approveMatch ? matchingTransactionId : null;
   }
@@ -397,11 +401,14 @@ class ImportService {
     importedTransactionId: string,
     userId: string,
   ) {
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
-      userId,
-      ImportedTransactionStatus.IGNORED,
-    );
+    await this.loadOwnedRow(importedTransactionId, userId);
+    await importedTransactionRepository
+      .updateStatus(
+        importedTransactionId,
+        userId,
+        ImportedTransactionStatus.IGNORED,
+      )
+      .catch(throwOnMissingRow);
   }
 
   public async deleteImport(importId: string, userId: string) {
@@ -504,10 +511,13 @@ class ImportService {
 
     const plan: PlannedRow[] = [];
     for (const record of pendingTransactions) {
-      const matchingRule = rules.find((rule) =>
-        record.description
-          .toLowerCase()
-          .includes(rule.descriptionPattern.toLowerCase()),
+      const matchingRule = rules.find(
+        (rule) =>
+          rule.type === record.type &&
+          rule.descriptionPattern.trim() !== '' &&
+          record.description
+            .toLowerCase()
+            .includes(rule.descriptionPattern.toLowerCase()),
       );
 
       if (!matchingRule) {
@@ -727,8 +737,9 @@ class ImportService {
   }
 
   /**
-   * Keeps transactions claimed by non-pending rows out of the running so two
-   * rows cannot land on the same one.
+   * Keeps transactions claimed by this import's non-pending rows, or by any
+   * other pending row of the user's, out of the running so two rows cannot land
+   * on the same one.
    */
   private async rematchPendingTransactions(
     importId: string,
@@ -754,6 +765,14 @@ class ImportService {
       },
       data: { matchingTransactionId: null },
     });
+
+    const claimedElsewhere =
+      await importedTransactionRepository.findClaimedMatchingTransactionIds(
+        userId,
+      );
+    for (const transactionId of claimedElsewhere) {
+      excludedTransactionIds.add(transactionId);
+    }
 
     await this.matchSequentially(
       pendingTransactions,
@@ -817,9 +836,13 @@ class ImportService {
       );
 
       // Rows merged in from a duplicate import keep the match they already
-      // hold; re-matching them would only find it excluded by itself.
+      // hold, and rows already approved or ignored are decided.
       await this.matchSequentially(
-        importedTransactions.filter((t) => !t.matchingTransactionId),
+        importedTransactions.filter(
+          (t) =>
+            t.status === ImportedTransactionStatus.PENDING &&
+            !t.matchingTransactionId,
+        ),
         userId,
         excludedTransactionIds,
         'Error finding match for transaction',

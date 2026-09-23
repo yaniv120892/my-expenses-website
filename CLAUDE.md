@@ -137,7 +137,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   row `loadPendingSelection` loaded — never a loop over the public
   `approveImportedTransaction`/`mergeImportedTransaction` — and they return what
   to notify so the batch calls `notifyTransactionsCreatedSafe` once. A merge acts
-  on the match as loaded, so a concurrent rematch is not seen.
+  on the match as loaded, so a concurrent rematch is not seen. Approve, merge
+  and ignore act only on a PENDING, non-deleted row (409 otherwise, 404 once
+  deleted), and the write itself is scoped to PENDING, so of two concurrent
+  submits one wins and the other gets 409 — in a batch, only that row fails.
 - **A preview flags close calls without deciding them.** Each preview item
   carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
   action, from database lookups only and never a model call:

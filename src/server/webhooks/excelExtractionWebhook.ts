@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import logger from '@/server/logging/logger';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
   verifyWebhookToken,
   extractWebhookParams,
@@ -187,7 +188,7 @@ export async function processExcelExtractionWebhook(
       body: { success: true, message: 'Webhook processed successfully' },
     };
   } catch (err) {
-    logger.error(
+    reportSwallowedError(
       { err, requestId: payload?.requestId, importId },
       'Error processing webhook',
     );
@@ -212,7 +213,7 @@ async function markImportFailedSafe(importId: string): Promise<void> {
       'Processing the extraction result failed',
     );
   } catch (err) {
-    logger.error({ err, importId }, 'Failed to mark import as failed');
+    reportSwallowedError({ err, importId }, 'Failed to mark import as failed');
   }
 }
 
@@ -318,10 +319,26 @@ async function writeExtractionMetadata(
     data: {
       creditCardLastFourDigits: metadata.creditCardLastFour ?? null,
       paymentMonth: metadata.paymentMonth ?? null,
-      bankSourceType: (metadata.bankSourceType ??
-        null) as ImportBankSourceType | null,
+      bankSourceType: toImportBankSourceType(metadata.bankSourceType),
     },
   });
+}
+
+function toImportBankSourceType(
+  extracted: ExtractionMetadata['bankSourceType'],
+): ImportBankSourceType | null {
+  switch (extracted) {
+    case 'BANK_CREDIT':
+      return ImportBankSourceType.BANK_CREDIT;
+    case 'NON_BANK_CREDIT':
+      return ImportBankSourceType.NON_BANK_CREDIT;
+    case 'UNKNOWN':
+    case null:
+    case undefined:
+      return null;
+    default:
+      throw new Error(`Unhandled bankSourceType: ${extracted satisfies never}`);
+  }
 }
 
 /**
@@ -421,7 +438,7 @@ async function findPotentialMatchesSafe(
     await importService.findPotentialMatchesForImport(importId, userId);
   } catch (err) {
     // Matching is best-effort; the import itself already succeeded.
-    logger.error(
+    reportSwallowedError(
       { importId, err },
       'Error finding potential matches for import',
     );

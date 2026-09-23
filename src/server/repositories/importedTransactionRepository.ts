@@ -41,6 +41,11 @@ export function selectNonDuplicateRows<T extends DuplicateComparable>(
   });
 }
 
+const PENDING_ROW = {
+  status: ImportedTransactionStatus.PENDING,
+  deleted: false,
+} as const;
+
 export class ImportedTransactionRepository {
   public async createMany(
     transactions: {
@@ -106,10 +111,14 @@ export class ImportedTransactionRepository {
     });
   }
 
-  /** Unawaited so approval can batch it with the transaction it creates. */
+  /**
+   * Unawaited so approval can batch it with the transaction it creates. Scoped
+   * to a pending row, so a concurrent approval fails with P2025 and rolls the
+   * batch back instead of creating the transaction twice.
+   */
   public markApprovedOp(id: string, userId: string) {
     return prisma.importedTransaction.update({
-      where: { id, userId },
+      where: { id, userId, ...PENDING_ROW },
       data: {
         status: ImportedTransactionStatus.APPROVED,
         matchingTransactionId: null,
@@ -125,14 +134,14 @@ export class ImportedTransactionRepository {
     await this.updateStatusOp(id, userId, status);
   }
 
-  /** Unawaited so approval/merge can batch it with the writes it records. */
+  /** Unawaited so a merge can batch it; pending-scoped like markApprovedOp. */
   public updateStatusOp(
     id: string,
     userId: string,
     status: ImportedTransactionStatus,
   ) {
     return prisma.importedTransaction.update({
-      where: { id, userId },
+      where: { id, userId, ...PENDING_ROW },
       data: { status },
     });
   }
@@ -150,7 +159,7 @@ export class ImportedTransactionRepository {
     status: ImportedTransactionStatus,
   ): Promise<number> {
     const result = await prisma.importedTransaction.updateMany({
-      where: { id: { in: ids }, userId },
+      where: { id: { in: ids }, userId, ...PENDING_ROW },
       data: { status },
     });
     return result.count;

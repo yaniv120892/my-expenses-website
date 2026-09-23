@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  QueryClient,
+  keepPreviousData,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   fetchSubscriptions,
   confirmSubscription,
@@ -8,6 +14,7 @@ import {
 } from '../services/subscriptionService';
 import { UpdateSubscriptionPayload } from '../types/subscription';
 import { scheduledTransactionKeys } from './useScheduledTransactionsQuery';
+import { dashboardKeys } from './useDashboardQuery';
 
 export const subscriptionKeys = {
   all: ['subscriptions'] as const,
@@ -18,6 +25,7 @@ export const useSubscriptionsQuery = (status?: string) => {
   return useQuery({
     queryKey: subscriptionKeys.list(status),
     queryFn: () => fetchSubscriptions(status),
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -27,7 +35,7 @@ export const useConfirmSubscriptionMutation = () => {
   return useMutation({
     mutationFn: (id: string) => confirmSubscription(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      invalidateSubscriptionData(queryClient);
     },
   });
 };
@@ -38,7 +46,7 @@ export const useDismissSubscriptionMutation = () => {
   return useMutation({
     mutationFn: (id: string) => dismissSubscription(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      invalidateSubscriptionData(queryClient);
     },
   });
 };
@@ -55,7 +63,7 @@ export const useUpdateSubscriptionMutation = () => {
       payload: UpdateSubscriptionPayload;
     }) => updateSubscription(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      invalidateSubscriptionData(queryClient);
     },
   });
 };
@@ -67,10 +75,16 @@ export const useConvertSubscriptionMutation = () => {
     mutationFn: ({ id, categoryId }: { id: string; categoryId?: string }) =>
       convertToScheduled(id, categoryId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      invalidateSubscriptionData(queryClient);
       queryClient.invalidateQueries({
         queryKey: scheduledTransactionKeys.all,
       });
     },
   });
 };
+
+// The dashboard carries a subscriptions card, so every change here reaches it.
+function invalidateSubscriptionData(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+}

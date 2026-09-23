@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { TrendPeriod } from '@/types/trends';
 
 export function formatTrendDate(date: string, period: TrendPeriod): string {
@@ -31,6 +31,15 @@ export function formatDay(value: string | Date): string {
     typeof value === 'string' ? parseISO(value) : value,
     'MMM d, yyyy',
   );
+}
+
+/** A cleared or partial date input yields null rather than an Invalid Date that `format` throws on. */
+export function parseDayInput(value: string): Date | null {
+  if (!value) {
+    return null;
+  }
+  const date = parseISO(value);
+  return isValid(date) ? date : null;
 }
 
 /** Renders "MMM d, yyyy - MMM d, yyyy"; a missing bound leaves its side blank. */

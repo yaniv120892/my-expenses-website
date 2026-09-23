@@ -33,6 +33,7 @@ import {
   useUpdateUserSettingsMutation,
   useUserSettingsQuery,
 } from '@/hooks/useUserSettingsQuery';
+import { describeApiError } from '@/utils/api';
 
 type UserSettingsForm = {
   provider: {
@@ -232,16 +233,24 @@ export default function SettingsPage() {
 
   const onSave = async (data: UserSettingsForm) => {
     setSaveLoading(true);
-    await saveUserSettings({
-      ...data,
-      provider: {
-        enabled: Boolean(data.provider.telegramChatId),
-        telegramChatId: data.provider.telegramChatId,
-      },
-    });
-    reset(data);
-    setSaveLoading(false);
-    setSaveSuccess(true);
+    try {
+      await saveUserSettings({
+        ...data,
+        provider: {
+          enabled: Boolean(data.provider.telegramChatId),
+          telegramChatId: data.provider.telegramChatId,
+        },
+      });
+      reset(data);
+      setSaveSuccess(true);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: describeApiError(error, 'Failed to save settings'),
+      });
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   const header = <PageHeader title="Settings" />;

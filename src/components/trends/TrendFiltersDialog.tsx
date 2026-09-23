@@ -33,6 +33,7 @@ import { seriesColor } from '@/utils/comparison';
 import { isOneOf } from '@/utils/oneOf';
 import { useState, useEffect } from 'react';
 import { toDayString } from '@/shared/dates';
+import { parseDayInput } from '@/utils/dateUtils';
 
 interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;
@@ -109,11 +110,17 @@ export const TrendFiltersDialog = ({
   const handleStartDateChange = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    setStartDate(new Date(event.target.value));
+    const date = parseDayInput(event.target.value);
+    if (date) {
+      setStartDate(date);
+    }
   };
 
   const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEndDate(new Date(event.target.value));
+    const date = parseDayInput(event.target.value);
+    if (date) {
+      setEndDate(date);
+    }
   };
 
   const handleCategoryChange = (event: SelectChangeEvent<string>) => {

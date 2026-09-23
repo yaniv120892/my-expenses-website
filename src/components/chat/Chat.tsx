@@ -120,6 +120,8 @@ const Chat: React.FC = () => {
           }}
         >
           <Box
+            role="log"
+            aria-live="polite"
             sx={{
               flexGrow: 1,
               overflowY: 'auto',
@@ -188,6 +190,9 @@ const Chat: React.FC = () => {
             <TextField
               fullWidth
               placeholder="Ask about your transactions..."
+              slotProps={{
+                htmlInput: { 'aria-label': 'Message the assistant' },
+              }}
               value={inputValue}
               onChange={handleInputChange}
               disabled={isLoading}

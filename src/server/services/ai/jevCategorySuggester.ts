@@ -19,16 +19,12 @@ interface JevProvider {
   evaluationModel(modelId: string): Experimental_EvaluationModel;
 }
 
-// The same model has a different id on each route; overridable for the same
-// reason as the OpenAI and Gemini ids.
+// The same model has a different id on each route.
 const DEFAULT_GATEWAY_JEV_MODEL = 'typesafe-ai/jev';
 const DEFAULT_TYPESAFE_JEV_MODEL = 'jev-latest';
 
-/**
- * Routes the category decision to Jev, a non-generative model that returns a
- * probability per offered category instead of text. Only `suggestCategory` is
- * covered: the other `AIProvider` methods produce prose, which Jev cannot.
- */
+// Jev returns a probability per offered category instead of text, so it can
+// make the category decision but none of the prose-producing AIProvider calls.
 export class JevCategorySuggester implements CategorySuggester {
   // Dynamic imports: the AI SDK costs ~110 ms at load, and every transactions
   // route imports this class whether or not the flag is on.

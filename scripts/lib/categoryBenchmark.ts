@@ -1,7 +1,5 @@
-/**
- * The pure half of scripts/compare-category-suggesters.ts, kept apart from the
- * script so it can be unit tested: the script runs on import.
- */
+// Kept apart from scripts/compare-category-suggesters.ts so it can be unit
+// tested: the script runs on import.
 import { z } from 'zod';
 import type { Category } from '../../src/shared/types/category';
 

@@ -80,8 +80,8 @@ class TransactionService {
   }
 
   /**
-   * Categorization and validation without the write, so the AI work runs first
-   * and the insert can be batched via createTransactionOp.
+   * Stops short of the write, so the AI work runs first and the insert can be
+   * batched via createTransactionOp.
    */
   public async prepareCreateTransaction(
     data: CreateTransaction,
@@ -105,8 +105,8 @@ class TransactionService {
   }
 
   /**
-   * Widens a category filter to the whole subtree, so filtering by a parent
-   * covers the transactions filed on its children.
+   * Filtering by a parent category covers the transactions filed on its
+   * children.
    */
   private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
     filters: T,
@@ -229,10 +229,6 @@ class TransactionService {
     await transactionRepository.updateTransaction(id, data, userId);
   }
 
-  /**
-   * Remembers a manual recategorization for future imports; a failure only logs
-   * a warning.
-   */
   public async learnCategoryMappingSafe(
     charge: { description: string; categoryId: string },
     categoryId: string,
@@ -424,9 +420,8 @@ class TransactionService {
   }
 
   /**
-   * The preference is read once for the whole list, so approving an imported
-   * statement does not ask it again per row. Each transaction is still
-   * notified on its own, so one failure cannot silence the rest.
+   * Notifies each transaction on its own, so one failure cannot silence the
+   * rest.
    */
   public async notifyTransactionsCreatedSafe(
     transactionIds: string[],

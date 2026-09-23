@@ -17,8 +17,6 @@ import {
   TransactionFilters,
   CreateTransactionInput,
 } from '@/types';
-// The same shapes the API validates these params with, so a bad link fails
-// here rather than 400-ing every query on the page.
 import { transactionFilterSchema } from '@/shared/schemas/transactions';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
@@ -69,9 +67,8 @@ function TransactionsPageContent() {
     suggestedCategory: { id: string; name: string };
   } | null>(null);
 
-  // Seeded params are consumed, so drop them: left in the address bar they
-  // would restore abandoned filters on a refresh or a shared link. history
-  // rather than router, which would refetch the route and re-render the tree.
+  // Left in the address bar, consumed params would restore abandoned filters on
+  // a refresh. history rather than router, which would refetch the route.
   useEffect(() => {
     if (searchParams.toString()) {
       window.history.replaceState(null, '', '/transactions');
@@ -120,7 +117,7 @@ function TransactionsPageContent() {
     setFormOpen(true);
   };
 
-  // Must not catch: the form reports the outcome (see CLAUDE.md).
+  // Must not catch: the form reports the outcome.
   const handleCreate = async (data: CreateTransactionInput) => {
     const result: CreateTransactionResponse =
       await createMutation.mutateAsync(data);

@@ -1,17 +1,6 @@
-/**
- * Benchmarks Jev against the AI_PROVIDER model on labeled expense descriptions,
- * through each suggester's production evaluateCategory, and prints accuracy,
- * latency and cost side by side.
- *
- *   npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]
- *
- * Keys are the app's: TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY for Jev, and
- * GEMINI_API_KEY or OPENAI_API_KEY for the LLM. With only a gateway key set,
- * the OpenAI side goes through the gateway too, so one key compares both and
- * both bills land on one dashboard. Calls run one at a time, as production
- * makes them, so latencies are per-decision and not a concurrency artefact.
- * A default run costs about $0.30 on gpt-4-turbo and well under a cent on Jev.
- */
+// With only a gateway key set, the OpenAI side goes through the gateway too, so
+// one key compares both. Calls run one at a time, as production makes them, so
+// latencies are per-decision and not a concurrency artefact.
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { optionalEnv } from '../src/server/env';

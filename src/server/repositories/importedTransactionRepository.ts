@@ -19,10 +19,6 @@ type DuplicateComparable = {
   type: TransactionType;
 };
 
-/**
- * Each existing row is claimed by at most one incoming row, so a genuinely
- * repeated charge still imports.
- */
 export function selectNonDuplicateRows<T extends DuplicateComparable>(
   existing: DuplicateComparable[],
   incoming: T[],
@@ -106,8 +102,7 @@ export class ImportedTransactionRepository {
   }
 
   /**
-   * Unawaited so approval can batch it with the transaction it creates. Scoped
-   * to a pending row, so a concurrent approval fails with P2025 and rolls the
+   * Pending-scoped, so a concurrent approval fails with P2025 and rolls the
    * batch back instead of creating the transaction twice.
    */
   public markApprovedOp(id: string, userId: string) {
@@ -128,7 +123,7 @@ export class ImportedTransactionRepository {
     await this.updateStatusOp(id, userId, status);
   }
 
-  /** Unawaited so a merge can batch it; pending-scoped like markApprovedOp. */
+  /** Pending-scoped like markApprovedOp. */
   public updateStatusOp(
     id: string,
     userId: string,
@@ -197,7 +192,6 @@ export class ImportedTransactionRepository {
     });
   }
 
-  /** Unawaited so the caller can batch it with the delete that follows. */
   public moveToImportOps(ids: string[], importId: string) {
     if (ids.length === 0) {
       return [];

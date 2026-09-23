@@ -189,9 +189,8 @@ export default function TransactionForm({
         }
         setPendingFiles([]);
       }
-      // The transaction is saved either way, so an attachment failure is not a
-      // failed save — but it has to reach the user through the snackbar, since
-      // closing the dialog unmounts the alert that also carries it.
+      // Not a failed save, but it goes through the snackbar: closing the dialog
+      // unmounts the alert that also carries it.
       if (attachmentFailure) {
         showSnackbar(`Transaction saved. ${attachmentFailure}`, 'warning');
       } else {

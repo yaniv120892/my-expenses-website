@@ -51,18 +51,12 @@ export function optionalEnv(name: string, fallback = ''): string {
   return process.env[name] || fallback;
 }
 
-// Previews derive the origin from Vercel's vars. Production must name itself:
-// those vars resolve there too, and falling back would mail real users a
-// vercel.app link.
 export function requireSiteUrl(): string {
   return (
     process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL')
   );
 }
 
-// A transaction-mode pooler hands the next query a different backend, where
-// Prisma's named prepared statements collide (`s0 already exists`) only under
-// concurrency.
 function pooledUrlDisablesPreparedStatements(url: string): boolean {
   let parsed: URL;
   try {
@@ -80,6 +74,8 @@ function pooledUrlDisablesPreparedStatements(url: string): boolean {
 // branch; `||` rather than `??` because Vercel sets both to the empty string for
 // a deployment that has no branch.
 function previewSiteUrl(): string | undefined {
+  // The Vercel vars resolve in production too; falling back there would mail
+  // real users a vercel.app link instead of failing on a lost WEBSITE_URL.
   if (process.env.VERCEL_ENV === 'production') {
     return undefined;
   }

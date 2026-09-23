@@ -8,9 +8,6 @@ import { toDayString } from '@/shared/dates';
 import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
-// Prompts live here so both providers send identical instructions; switching
-// AI_PROVIDER must never change product behavior.
-
 export function buildAnalyzeExpensesPrompt(
   expenseSummary: string,
   suffixPrompt?: string,
@@ -40,8 +37,6 @@ export function normalizeModelAnswer(
   return answer || null;
 }
 
-// Jev's choice criteria are the option list of buildSuggestCategoryPrompt, so
-// switching suggester changes the model and never the question.
 export function buildCategoryChoiceCriteria(
   categoryOptions: Category[],
 ): Record<string, null> {
@@ -69,10 +64,6 @@ export function resolveSuggestedCategoryId(
   return null;
 }
 
-/**
- * Every provider's `evaluateCategory` ends here, so the record's shape and its
- * null conventions are decided once rather than per provider.
- */
 export function buildCategoryEvaluation(
   rawAnswer: string | null | undefined,
   categoryOptions: Category[],
@@ -119,9 +110,8 @@ ${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
 /**
- * Returns an id only when it names one of the offered matches, so a
- * hallucinated or prompt-injected id never leaves the provider. Idempotent, so
- * callers may re-apply it.
+ * A hallucinated or prompt-injected id never leaves the provider; idempotent,
+ * so callers may re-apply it.
  */
 export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
@@ -134,7 +124,7 @@ export function resolveMatchedTransactionId(
   if (potentialMatches.some((match) => match.id === answer)) {
     return answer;
   }
-  // warn ships to Better Stack, so a match rate silently dropping to zero stays
+  // At warn so it ships, keeping a match rate silently dropping to zero
   // diagnosable.
   logger.warn(
     { rawAnswer },

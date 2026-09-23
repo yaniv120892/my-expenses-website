@@ -31,8 +31,8 @@ function isAxiosGenericMessage(message: string): boolean {
 }
 
 /**
- * The server's own message when it sent one, else the caller's friendly
- * fallback. Axios's generic messages are not user-facing.
+ * Axios's generic messages are not user-facing, so they give way to the
+ * fallback.
  */
 export function describeApiError(error: unknown, fallback: string): string {
   const message = handleApiError(error, fallback);

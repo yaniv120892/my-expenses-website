@@ -233,8 +233,6 @@ describe('TransactionForm attachment failure reporting', () => {
     fireEvent.click(screen.getByText('stub-add-pending-file'));
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    // The transaction saved; only the attachment failed, so this must not
-    // read as a failed save.
     expect(
       await screen.findByText(/Transaction saved\. Direct S3 upload failed\./),
     ).toBeTruthy();

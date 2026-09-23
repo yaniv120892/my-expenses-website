@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logout } from './authClient';
 
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
@@ -14,6 +15,20 @@ async function serverMessage(data: unknown): Promise<string | null> {
   }
 }
 
+let expiringSession: Promise<void> | null = null;
+
+// Middleware checks only the JWT, so a cookie whose server session is gone
+// would bounce /login straight back into the app until it is cleared. Requests
+// that 401 together share the one logout and redirect.
+function expireSession(): Promise<void> {
+  expiringSession ??= logout()
+    .catch(() => undefined)
+    .then(() => {
+      window.location.href = '/login?reason=session-expired';
+    });
+  return expiringSession;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -22,7 +37,7 @@ api.interceptors.response.use(
       typeof window !== 'undefined' &&
       !window.location.pathname.startsWith('/login')
     ) {
-      window.location.href = '/login?reason=session-expired';
+      await expireSession();
     }
     // Without this every caller reports axios's "Request failed with status
     // code 4xx" instead of the message the server took care to write.

@@ -22,11 +22,8 @@ export const updateTransactionStatusSchema = z.object({
   status: transactionStatusSchema,
 });
 
-/**
- * The filters the list and the summary must agree on. Both endpoints derive
- * from this so a filter can never narrow the rows without also narrowing the
- * totals shown above them.
- */
+// Shared by the list and the summary, so a filter can never narrow the rows
+// without narrowing the totals shown above them.
 export const transactionFilterSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),

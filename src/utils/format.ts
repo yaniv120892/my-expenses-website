@@ -36,7 +36,6 @@ export function formatSubscriptionFrequency(
   return SUBSCRIPTION_FREQUENCY_LABELS[frequency];
 }
 
-// Module-level so a formatter is not constructed per table cell.
 const ilsFormatter = new Intl.NumberFormat('he-IL', {
   style: 'currency',
   currency: 'ILS',
@@ -46,9 +45,8 @@ export function formatCurrency(value: number) {
   return ilsFormatter.format(value);
 }
 
-// he-IL currency output carries directionality marks and a non-breaking space.
-// They are invisible in the DOM but are noise in Telegram text and model
-// prompts, so outbound plain text renders through this instead.
+// he-IL currency output carries invisible directionality marks and a
+// non-breaking space, which are noise in Telegram text and model prompts.
 export function formatCurrencyPlain(value: number) {
   return formatCurrency(value)
     .replace(/[\u200e\u200f]/g, '')

@@ -11,10 +11,8 @@ import {
 
 export const TRANSACTIONS_PAGE_SIZE = 50;
 
-/**
- * The one place list and summary filters are built. Both requests must send
- * the same window, or the totals would describe different rows than the list.
- */
+// List and summary must send the same window, or the totals would describe
+// different rows than the list.
 function listFilters(params?: TransactionFilters) {
   return {
     endDate: new Date(
@@ -49,10 +47,7 @@ export async function getTransactionSummary(
   return res.data;
 }
 
-/**
- * Built from the same filters as the list, so the file holds exactly the rows
- * the page describes — every one of them, not just the pages fetched so far.
- */
+// Every row the filters match, not just the pages fetched so far.
 export async function exportTransactionsCsv(
   params?: TransactionFilters,
 ): Promise<{ blob: Blob; fileName: string }> {

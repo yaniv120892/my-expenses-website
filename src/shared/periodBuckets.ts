@@ -25,11 +25,8 @@ export function bucketKeyFor(date: Date, period: string): string {
   return format(date, PERIOD_FORMATS[period] ?? PERIOD_FORMATS.daily);
 }
 
-/**
- * Every bucket between start and end inclusive, ascending. Callers need the
- * full sequence rather than only the occupied buckets, so a period with no
- * transactions renders as zero instead of disappearing from the series.
- */
+// Dense, so a period with no transactions renders as zero instead of
+// disappearing.
 export function enumerateBuckets(
   startDate: Date,
   endDate: Date,
@@ -64,11 +61,7 @@ export function enumerateBuckets(
   }));
 }
 
-/**
- * How many buckets enumerateBuckets would produce, without building them, so a
- * range can be rejected before the work starts. Kept beside it: the two must
- * agree on every period, weekly included (ISO weeks, Monday-based).
- */
+// Must agree with enumerateBuckets on every period, weekly included.
 export function countBuckets(
   startDate: Date,
   endDate: Date,

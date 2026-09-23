@@ -1,9 +1,3 @@
-/**
- * The manifest `scripts/import-statements.ts` keeps beside a statements
- * directory: which import each file became on each target, and what the last
- * preview of that import contained. It is what lets a commit run act on the
- * dry run's imports instead of uploading everything a second time.
- */
 import { z } from 'zod';
 
 export const MANIFEST_FILE_NAME = '.import-statements.json';
@@ -91,10 +85,6 @@ export function withSubmission(
   });
 }
 
-/**
- * Points a file at the import its rows ended up in — after a merge, the
- * survivor rather than the upload — keeping when it was submitted.
- */
 export function withResolvedImport(
   manifest: ImportManifest,
   baseUrl: string,
@@ -129,7 +119,6 @@ export function withPreview(
   });
 }
 
-/** How the rows in a plan differ from the rows previewed last time. */
 export function planDrift(
   previewedRowIds: string[],
   planRowIds: string[],

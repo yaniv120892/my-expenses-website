@@ -27,8 +27,6 @@ export default tseslint.config(
   prettier,
   {
     rules: {
-      // Mirrors .claude/rules/code.md and typescript.md, so the craft rules are
-      // checked by CI rather than by review.
       curly: ['error', 'all'],
       '@typescript-eslint/array-type': ['error', { default: 'array' }],
       '@typescript-eslint/explicit-member-accessibility': [

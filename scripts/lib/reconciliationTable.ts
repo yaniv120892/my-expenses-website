@@ -1,7 +1,3 @@
-/**
- * How `scripts/import-statements.ts` prints a reconciliation preview, kept
- * apart from the script so it can be unit tested: the script runs on import.
- */
 import { toDayString } from '../../src/shared/dates';
 import type {
   ReconciliationMatch,

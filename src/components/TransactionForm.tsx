@@ -111,8 +111,6 @@ export default function TransactionForm({
     setFilesToRemove([]);
   }
 
-  // Which endpoint this submit hits decides the rule: merge and update need a
-  // uuid, while create and import-approve let the server categorize.
   const requireCategory = mode === 'merge' || (!mode && Boolean(initialData));
 
   const validate = () => {

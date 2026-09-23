@@ -34,9 +34,7 @@ const nextConfig: NextConfig = {
   ],
 };
 
-// The plugin reads org/project/authToken from these vars itself; this only
-// decides whether to generate source maps at all, so a local or CI build
-// without the token skips the work instead of emitting maps it cannot upload.
+// A build without the token skips source maps it could not upload anyway.
 const canUploadSourceMaps = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&
   process.env.SENTRY_ORG &&

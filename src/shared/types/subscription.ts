@@ -10,12 +10,8 @@ export type SubscriptionEvidenceCharge = {
   description: string;
 };
 
-/**
- * The detector's own working figures, stored so the app can explain why a
- * merchant was flagged instead of asking the user to trust a score. Declared
- * as a type rather than an interface so it satisfies Prisma's Json input
- * without a cast.
- */
+// Stored so the app can explain why a merchant was flagged. A type rather than
+// an interface so it satisfies Prisma's Json input without a cast.
 export type SubscriptionDetectionEvidence = {
   analyzedFrom: string;
   analyzedTo: string;
@@ -36,11 +32,8 @@ export type SubscriptionDetectionEvidence = {
   olderChargeCount: number;
 };
 
-/**
- * A scheduled transaction that already covers this subscription — either the
- * one a conversion created (LINKED) or one whose description normalizes to the
- * same merchant (NAME_MATCH).
- */
+// LINKED: the schedule a conversion created; NAME_MATCH: one whose description
+// normalizes to the same merchant.
 export interface SubscriptionScheduleMatch {
   id: string;
   description: string;
@@ -73,7 +66,6 @@ export interface DetectedSubscriptionDomain {
   updatedAt: Date;
 }
 
-/** What the list endpoint adds on top of a stored row. */
 export interface SubscriptionListItem extends DetectedSubscriptionDomain {
   scheduleMatch?: SubscriptionScheduleMatch;
 }

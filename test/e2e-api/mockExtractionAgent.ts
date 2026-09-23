@@ -1,24 +1,13 @@
 import http from 'http';
 
-/**
- * Stands in for the excel-extraction-service. Accepts a POST /api/extract,
- * answers with a request id, and then calls the webhook URL it was given back
- * with a COMPLETED extraction — the same two-step shape the real service uses.
- *
- * The extracted card digits are derived from the filename (`card-1234.csv` ->
- * `1234`) so a test can upload several files and tell the resulting imports
- * apart, which is the whole point of the multi-file flow.
- */
+// Card digits come from the filename (`card-1234.csv` -> `1234`), so a test can
+// tell apart the imports several uploads became.
 
 const CALLBACK_DELAY_MS = 150;
 
-/**
- * Callbacks are delivered one at a time. The local `prisma dev` proxy the e2e
- * runs against intermittently fails a write with a prepared-statement mismatch
- * when two webhooks write concurrently, which is a limitation of that proxy
- * rather than of the app — interleaved callbacks are covered properly in
- * `src/server/webhooks/excelExtractionWebhook.test.ts`.
- */
+// Callbacks go one at a time: the local `prisma dev` proxy intermittently fails
+// concurrent webhook writes on a prepared-statement mismatch, a proxy
+// limitation.
 let callbackChain: Promise<void> = Promise.resolve();
 
 export interface ExtractionRequestRecord {

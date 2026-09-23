@@ -26,7 +26,6 @@ export function selectMeasure(
   return cell.net;
 }
 
-/** Single source of truth for index -> color, so table, chart and legend agree. */
 export function seriesColor(index: number, palette: string[]): string {
   return palette[index % palette.length];
 }

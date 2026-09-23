@@ -14,12 +14,6 @@ export function formatTrendDate(date: string, period: TrendPeriod): string {
   }
 }
 
-/**
- * Format a date string to a readable date string
- * @param dateString - The date string to format
- * @param includeTime - Whether to include the time in the formatted date
- * @returns The formatted date string in the format of DD/MM/YYYY HH:MM
- */
 export const formatDate = (
   dateString: string,
   includeTime: boolean = false,

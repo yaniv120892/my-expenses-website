@@ -25,9 +25,8 @@ export const useImportsQuery = () => {
   return useQuery<Import[]>({
     queryKey: importKeys.lists(),
     queryFn: () => importService.getImports(),
-    // Extraction completes on a webhook, so an in-flight import only changes
-    // server-side. staleTime overrides the global 60s so mount and focus
-    // refetches are not served a stale status from cache.
+    // Overrides the global 60s: extraction completes on a webhook, so a cached
+    // status goes stale without the client doing anything.
     staleTime: 0,
     refetchInterval: (query) => {
       if (!hasActiveImports(query.state.data)) {

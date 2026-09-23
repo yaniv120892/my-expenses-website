@@ -1,23 +1,8 @@
-/**
- * The upload dialog caps a batch at ten files and applies one payment month to
- * all of them, which a multi-month backfill across several cards cannot use.
- *
- *   IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
- *
- * Each file is uploaded once per target: the import it became is recorded in
- * `.import-statements.json` beside the statements, and later runs — the commit
- * after a dry run, a re-run to check nothing is left — act on that import
- * rather than uploading again. Uploading twice would hand the extractor the
- * same statement twice, and it does not spell every merchant the same way on
- * the second pass. `--resubmit` uploads everything regardless; an upload that
- * duplicates an older import is followed to it through the pointer the server
- * records on the duplicate.
- *
- * The token may come from IMPORT_API_TOKEN_FILE instead. A non-local
- * --base-url has to be confirmed by typing its hostname before anything is
- * approved. The recipe, including the production invocation, is in
- * .claude/skills/collect-statements/SKILL.md.
- */
+// IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
+//
+// Each file is uploaded once per target and recorded in
+// `.import-statements.json`: the extractor does not spell every merchant the
+// same way on a second pass.
 import { readdir, readFile, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
@@ -74,7 +59,6 @@ type ImportRecord = Pick<
   | 'mergedIntoFileName'
 >;
 
-/** Every submitted import followed to the import its rows ended up in. */
 type WaitedImports = {
   byId: Map<string, ImportRecord>;
   finalIdBySubmittedId: Map<string, string>;
@@ -91,7 +75,6 @@ type Statement = {
 type SubmittedStatement = {
   statement: Statement;
   importId: string;
-  // Taken from the manifest rather than uploaded on this run.
   reused: boolean;
 };
 
@@ -201,11 +184,8 @@ async function main(): Promise<void> {
   await saveManifest(manifestPath, manifest);
 }
 
-/**
- * The token is a live session for whichever site the run targets, so it is
- * read from the environment or a file rather than taken as an argument that
- * would land in shell history.
- */
+// Never an argument: the token is a live session and would land in shell
+// history.
 async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.IMPORT_API_TOKEN;
   if (fromEnvironment) {
@@ -256,11 +236,8 @@ function isMissingFile(error: unknown): boolean {
   );
 }
 
-/**
- * A plan that differs from the one previewed last time means something wrote
- * to the import in between — another upload merged into it, a rematch, the
- * web UI — and the table above is not the one the human already read.
- */
+// A plan that differs from the last preview means something wrote to the import
+// in between, so the table above is not the one the human already read.
 function reportPlanDrift(
   planned: PlannedImport[],
   manifest: ImportManifest,
@@ -303,11 +280,8 @@ function recordPreviews(
   );
 }
 
-/**
- * Printed before the first upload, since even a dry run creates imports on
- * the target — a wrong site has to be visible before that, not at the commit
- * prompt.
- */
+// Printed before the first upload, since even a dry run creates imports on the
+// target.
 function reportTarget(baseUrl: string, dryRun: boolean): void {
   const mode = dryRun ? 'dry run: previews, approves nothing' : 'commit run';
   const remoteWarning = isLocalTarget(baseUrl) ? '' : '  <-- not local';
@@ -405,11 +379,6 @@ async function submitStatement(
   return created.id;
 }
 
-/**
- * Polls each import by id until none is in flight, following a merge to the
- * import the rows went into. A survivor is held in REMATCHING until those rows
- * are matched, so a terminal status means the preview is the whole story.
- */
 async function waitForImports(
   client: ApiClient,
   submittedIds: string[],

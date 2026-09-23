@@ -65,10 +65,8 @@ export function useMultiFileImport({
   const isDrained = selectIsDrained(state);
   const summary = isDrained ? toBatchResult(state) : null;
 
-  /**
-   * The batch is passed in rather than read back from state: a dispatch made
-   * by the caller has not been rendered yet when this runs.
-   */
+  // Passed in rather than read from state: the caller's dispatch has not
+  // rendered yet.
   const runBatch = useCallback(
     async (batch: UploadItem[]) => {
       if (isRunningRef.current || batch.length === 0) {
@@ -87,7 +85,6 @@ export function useMultiFileImport({
         );
       } finally {
         isRunningRef.current = false;
-        // One refetch for the whole batch, rather than one per file.
         queryClient.invalidateQueries({ queryKey: importKeys.lists() });
       }
     },

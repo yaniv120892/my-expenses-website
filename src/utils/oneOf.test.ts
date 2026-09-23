@@ -16,8 +16,6 @@ describe('isOneOf', () => {
     expect(isOneOf(PERIODS, '')).toBe(false);
   });
 
-  // The narrowing is the point of the helper: a cast would have let any string
-  // through, which is what the call sites used to do.
   it('narrows the value to the union for the caller', () => {
     const value: string = 'monthly';
     if (isOneOf(PERIODS, value)) {

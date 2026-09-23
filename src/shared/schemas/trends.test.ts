@@ -20,12 +20,10 @@ function query(count: number) {
 }
 
 describe('comparison series bound', () => {
-  // The picker and the route used to hold separate copies of this number.
   it('is a single constant, re-exported rather than repeated', () => {
     expect(MAX_COMPARISON_SERIES).toBe(TYPES_MAX);
   });
 
-  // The bound exists because each series needs its own chart color.
   it('matches the number of chart series colors in the theme', () => {
     expect(theme.palette.charts.series).toHaveLength(MAX_COMPARISON_SERIES);
   });
@@ -45,9 +43,6 @@ describe('comparison series bound', () => {
   });
 });
 
-// The series cap bounds the width of the result; nothing bounded its length,
-// so a start date from the date input's open lower end enumerated a bucket per
-// day back to whenever the user typed.
 describe('comparison range bound', () => {
   const range = (startDate: string, endDate: string, period?: string) => ({
     ...query(2),

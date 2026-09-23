@@ -8,10 +8,6 @@ import { randomUUID } from 'crypto';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 
-// The lockfile resolved s3-request-presigner to a newer minor than client-s3,
-// so their private @smithy types diverge; the runtime contract is unchanged.
-type PresignerClient = Parameters<typeof getSignedUrl>[0];
-
 const getS3Client = lazy(
   () =>
     new S3Client({
@@ -30,7 +26,7 @@ export async function buildPreviewUrl(key: string, expiresInSeconds = 600) {
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
   });
-  return getSignedUrl(getS3Client() as unknown as PresignerClient, command, {
+  return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,
   });
 }
@@ -45,7 +41,7 @@ export async function buildDownloadUrl(
     Key: key,
     ResponseContentDisposition: `attachment; filename="${filename}"`,
   });
-  return getSignedUrl(getS3Client() as unknown as PresignerClient, command, {
+  return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,
   });
 }
@@ -64,13 +60,9 @@ export async function getPresignedUploadUrl(
     Key: fileKey,
     ContentType: mimeType,
   });
-  const uploadUrl = await getSignedUrl(
-    getS3Client() as unknown as PresignerClient,
-    command,
-    {
-      expiresIn: expiresInSeconds,
-    },
-  );
+  const uploadUrl = await getSignedUrl(getS3Client(), command, {
+    expiresIn: expiresInSeconds,
+  });
   return { uploadUrl, fileKey };
 }
 

@@ -1,6 +1,3 @@
-// Type-only imports: this module is also bundled client-side (src/types/import
-// re-exports its enums), so it must not pull in @prisma/client at runtime.
-import type { Prisma } from '@prisma/client';
 import type { TransactionStatus, TransactionType } from './transaction';
 
 export enum ImportFileType {
@@ -28,49 +25,6 @@ export enum ImportedTransactionStatus {
 export enum ImportBankSourceType {
   NON_BANK_CREDIT = 'NON_BANK_CREDIT',
   BANK_CREDIT = 'BANK_CREDIT',
-}
-
-export interface Import {
-  id: string;
-  userId: string;
-  fileUrl: string;
-  originalFileName: string;
-  importType?: ImportFileType;
-  bankSourceType?: ImportBankSourceType;
-  status: ImportStatus;
-  error?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  creditCardLastFourDigits?: string;
-  paymentMonth?: string;
-  excelExtractionRequestId?: string;
-  mergedIntoImportId?: string | null;
-}
-
-export interface ImportWithVerification extends Import {
-  isVerified: boolean;
-  mergedIntoFileName?: string | null;
-}
-
-export interface ImportedTransaction {
-  id: string;
-  importId: string;
-  description: string;
-  value: number;
-  date: Date;
-  type: TransactionType;
-  status: ImportedTransactionStatus;
-  matchingTransactionId?: string;
-  rawData: Prisma.InputJsonValue;
-  userId: string;
-}
-
-export interface ImportQueueMessage {
-  importId: string;
-  fileUrl: string;
-  importType: ImportFileType;
-  userId: string;
 }
 
 export type ReconciliationAction = 'MERGE' | 'CREATE';

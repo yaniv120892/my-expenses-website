@@ -26,12 +26,10 @@ vi.mock('@/server/services/announcementService', () => ({
 vi.mock('@/server/auth/session', () => ({
   storeSession: vi.fn(),
   invalidateSession: vi.fn(),
-  isSessionActive: vi.fn(),
 }));
 vi.mock('@/server/auth/tokens', () => ({
   signToken: vi.fn().mockResolvedValue('token'),
   tokenTtlSeconds: () => 60,
-  verifyToken: vi.fn(),
 }));
 
 import authService from '@/server/services/authService';

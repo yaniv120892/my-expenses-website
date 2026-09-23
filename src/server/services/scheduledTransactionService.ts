@@ -13,6 +13,7 @@ class ScheduledTransactionService {
     const dueScheduledTransactions =
       await scheduledTransactionRepository.getDueScheduledTransactions(date);
     let failed = 0;
+    let skipped = 0;
     for (const scheduled of dueScheduledTransactions) {
       try {
         const nextRunDate = calculateNextRunDate(
@@ -25,11 +26,16 @@ class ScheduledTransactionService {
         // Advanced before creation and rolled back on failure, so a crash
         // between the two skips one occurrence instead of duplicating it every
         // run.
-        await scheduledTransactionRepository.updateLastRunAndNextRun(
+        const claimed = await scheduledTransactionRepository.claimDueRun(
           scheduled.id,
+          scheduled.nextRunDate ?? null,
           date,
           nextRunDate,
         );
+        if (!claimed) {
+          skipped += 1;
+          continue;
+        }
         try {
           await transactionService.createTransaction({
             description: scheduled.description,
@@ -64,7 +70,8 @@ class ScheduledTransactionService {
     logger.info(
       {
         total: dueScheduledTransactions.length,
-        succeeded: dueScheduledTransactions.length - failed,
+        succeeded: dueScheduledTransactions.length - failed - skipped,
+        skipped,
         failed,
       },
       'Scheduled transaction run finished',

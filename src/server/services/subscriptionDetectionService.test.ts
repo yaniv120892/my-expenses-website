@@ -10,7 +10,10 @@ const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(
     },
     prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
     sendDailySummary: vi.fn(),
-    scheduledService: { listScheduledTransactions: vi.fn() },
+    scheduledService: {
+      listScheduledTransactions: vi.fn(),
+      createScheduledTransaction: vi.fn(),
+    },
   }),
 );
 
@@ -353,5 +356,21 @@ describe('getSubscriptions', () => {
     const result =
       await subscriptionDetectionService.getSubscriptions('user-1');
     expect(result.subscriptions[0].scheduleMatch).toBeUndefined();
+  });
+});
+
+describe('convertToScheduledTransaction', () => {
+  it('409s for a subscription that is already scheduled, creating nothing', async () => {
+    subRepo.getById.mockResolvedValue(
+      sub({ categoryId: 'cat-1', scheduledTransactionId: 'sched-1' }),
+    );
+
+    await expect(
+      subscriptionDetectionService.convertToScheduledTransaction(
+        's1',
+        'user-1',
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(scheduledService.createScheduledTransaction).not.toHaveBeenCalled();
   });
 });

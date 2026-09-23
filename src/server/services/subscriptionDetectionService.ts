@@ -238,6 +238,13 @@ class SubscriptionDetectionService {
       throw new HttpError(404, 'Subscription not found');
     }
 
+    if (subscription.scheduledTransactionId) {
+      throw new HttpError(
+        409,
+        `Subscription is already scheduled as ${subscription.scheduledTransactionId}`,
+      );
+    }
+
     const targetCategoryId = categoryId ?? subscription.categoryId;
     if (!targetCategoryId) {
       throw new HttpError(400, 'A category is required to schedule this');

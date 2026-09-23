@@ -47,7 +47,6 @@ export function extractToken(req: NextRequest): string | null {
   if (cookieToken) {
     return cookieToken;
   }
-  // Bearer fallback keeps the API usable by scripts and the e2e harness.
   const authHeader = req.headers.get('authorization');
   if (!authHeader) {
     return null;

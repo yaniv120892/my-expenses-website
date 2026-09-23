@@ -36,7 +36,6 @@ test('a non-cron route may not declare a heartbeat env var', () => {
 });
 
 test('a public route must declare a rate limit or opt out', () => {
-  // Omitting rateLimit entirely must not compile on a public route.
   expectTypeOf<{ auth: 'public'; handler: Handler }>().not.toExtend<Options>();
 
   expectTypeOf<{

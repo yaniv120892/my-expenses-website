@@ -45,9 +45,6 @@ describe('redisKeyPrefix', () => {
     expect(redisKeyPrefix('branch')).toBe('');
   });
 
-  // An unconfigured local process pointed at a real REDIS_URL must not be able
-  // to write into production's keyspace, so absence of VERCEL_ENV namespaces
-  // rather than falling through to bare keys.
   it('namespaces local and CI, where VERCEL_ENV is unset', async () => {
     const { redisKeyPrefix } = await import('@/server/redis');
     expect(redisKeyPrefix()).toBe('local:');
@@ -86,9 +83,6 @@ describe('redisKeyPrefix', () => {
   });
 });
 
-// The namespace is only worth anything if every wrapper actually applies it:
-// dropping the call inside one of them would reintroduce cross-environment
-// reads while every prefix test above still passed.
 describe('the wrappers namespace what they send to Redis', () => {
   beforeEach(() => {
     vi.stubEnv('REDIS_URL', 'http://127.0.0.1:1');

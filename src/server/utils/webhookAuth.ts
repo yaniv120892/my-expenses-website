@@ -36,9 +36,8 @@ export function verifyWebhookToken(
   timestamp: number,
   importId?: string,
 ): boolean {
-  // Called for its side effect: it throws when the webhook secret is missing,
-  // failing fast before any comparison — inside the try block below the same
-  // throw would be swallowed into a `false` return.
+  // Throws on a missing secret here, where the try below would swallow it into
+  // `false`.
   getWebhookSecret();
 
   if (!token || !userId || !timestamp) {

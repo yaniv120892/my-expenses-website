@@ -6,8 +6,6 @@ export const POST = createHandler({
   auth: 'session',
   handler: async ({ userId }) => {
     try {
-      // sendWhenEmpty: the scheduled run skips an empty month, but a test that
-      // silently sends nothing is indistinguishable from a broken setup.
       const outcome = await monthlyReportService.sendMonthlyReportForUser(
         userId,
         { sendWhenEmpty: true },

@@ -118,9 +118,6 @@ describe('requireSiteUrl', () => {
     expect(() => requireSiteUrl()).toThrow('WEBSITE_URL');
   });
 
-  // The git-derived hosts resolve in production too, so without this gate a
-  // production deploy that lost WEBSITE_URL would mail real users a
-  // vercel.app link instead of failing where someone would notice.
   it('refuses to guess an origin in production', () => {
     vi.stubEnv('VERCEL_ENV', 'production');
     vi.stubEnv('VERCEL_BRANCH_URL', 'branch.vercel.app');

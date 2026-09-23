@@ -13,7 +13,6 @@ class AnnouncementRepository {
     if (ids.length === 0) {
       return;
     }
-    // skipDuplicates so a double click, a retry, or a second device is a no-op.
     await prisma.announcementAck.createMany({
       data: ids.map((announcementId) => ({ userId, announcementId })),
       skipDuplicates: true,

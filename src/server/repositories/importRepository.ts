@@ -82,15 +82,8 @@ export class ImportRepository {
   }
 
   /**
-   * The oldest COMPLETED, non-deleted import for the same card and month —
-   * a merge target.
-   *
-   * Oldest rather than newest makes the merge direction deterministic when two
-   * callbacks for the same card land at once: only the younger side finds an
-   * eligible target, so only one side merges. COMPLETED is what makes the
-   * de-duplication meaningful — an import reaches it only after writing its own
-   * rows, so a merge cannot dedupe against a set that is still being filled.
-   * Two callbacks racing each other simply both survive as separate imports.
+   * Oldest, so only the younger of two racing callbacks finds a target;
+   * COMPLETED, so a merge never dedupes against rows still being written.
    */
   public async findExisting(
     userId: string,
@@ -120,11 +113,7 @@ export class ImportRepository {
     return null;
   }
 
-  /**
-   * Marks this import's extraction as handled, returning false when another
-   * callback already claimed it. The conditional update is the serialization
-   * point that makes a redelivered webhook a no-op.
-   */
+  /** The conditional update is what makes a redelivered webhook a no-op. */
   public async claimExtraction(id: string): Promise<boolean> {
     const claimed = await prisma.import.updateMany({
       where: { id, extractionCompletedAt: null },

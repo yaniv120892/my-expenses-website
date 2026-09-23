@@ -40,8 +40,6 @@ describe('enforceRateLimits', () => {
       status: 429,
       message: 'Too many requests. Try again later.',
     });
-    // warn ships to Better Stack; the attack stays visible past Vercel's
-    // one-hour log retention.
     expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 

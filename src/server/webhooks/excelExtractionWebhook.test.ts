@@ -277,9 +277,8 @@ describe('completed extraction', () => {
       ['row-1'],
       'imp-old',
     );
-    // Move, remove-the-leftovers, hold the survivor and mark the duplicate go
-    // as one batch, so nothing reads rows reparented under an import that is
-    // not yet marked merged, or a survivor whose moved rows are unmatched.
+    // One batch, so nothing reads rows reparented under an unmerged import or a
+    // survivor with unmatched rows.
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'move', ids: ['row-1'], to: 'imp-old' },
       { op: 'deleteRows', id: 'imp-1' },
@@ -424,7 +423,6 @@ describe('completed extraction', () => {
     expect(res.status).toBe(200);
     const rows = importedTxRepo.createMany.mock.calls[0][0];
     expect(rows[0].date).toEqual(new Date(2026, 7, 5));
-    // Nothing identifies a duplicate without a card and month.
     expect(importRepo.findExisting).not.toHaveBeenCalled();
   });
 

@@ -14,8 +14,6 @@ class ScheduledTransactionService {
       await scheduledTransactionRepository.getDueScheduledTransactions(date);
     let failed = 0;
     for (const scheduled of dueScheduledTransactions) {
-      // Guarded per item so one failing schedule cannot abort the whole
-      // cron run for every other user.
       try {
         const nextRunDate = calculateNextRunDate(
           scheduled.scheduleType,
@@ -24,10 +22,9 @@ class ScheduledTransactionService {
           scheduled.dayOfWeek,
           scheduled.dayOfMonth,
         );
-        // The schedule is advanced before the transaction is created and
-        // rolled back if creation fails: a crash between the two steps then
-        // skips one occurrence (reported below) instead of duplicating it on
-        // every following run.
+        // Advanced before creation and rolled back on failure, so a crash
+        // between the two skips one occurrence instead of duplicating it every
+        // run.
         await scheduledTransactionRepository.updateLastRunAndNextRun(
           scheduled.id,
           date,
@@ -73,7 +70,6 @@ class ScheduledTransactionService {
       'Scheduled transaction run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Scheduled transaction processing failed for ${failed} of ${dueScheduledTransactions.length} schedule(s)`,
       );

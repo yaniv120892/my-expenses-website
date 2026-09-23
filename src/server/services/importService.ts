@@ -54,9 +54,8 @@ function throwTransactionNotFoundOnMissingRow(err: unknown): never {
   throw err;
 }
 
-// A requested id a concurrent action already approved, ignored or deleted out
-// from under this batch — reported as a failure rather than silently dropped
-// from the count.
+// A requested id a concurrent action already handled, reported as a failure
+// rather than silently dropped from the count.
 const STALE_TRANSACTION_ID_ERROR =
   'Not found, not pending, or not in this import';
 
@@ -84,8 +83,7 @@ interface MergeImportedTransactionData {
   categoryId?: string;
 }
 
-// What matchSequentially/matchSingleTransaction need from a row to find its
-// counterpart — an imported row and a pending transaction both satisfy it.
+// Satisfied by both an imported row and a pending transaction.
 type MatchableTransaction = {
   id: string;
   description: string;
@@ -189,11 +187,8 @@ class ImportService {
         'Extraction request submitted',
       );
 
-      // The import is created PROCESSING, and the callback carries the signed
-      // importId — so it can land, complete the import and even merge it away
-      // before this returns. Writing anything unconditionally here would undo
-      // that, so only the request id is recorded, and only while the import is
-      // still waiting for its callback.
+      // The signed callback may already have completed or merged the import, so
+      // only the request id is recorded, and only while the import still waits.
       await this.recordExtractionRequestId(
         importId,
         extractionResponse.requestId,
@@ -424,10 +419,8 @@ class ImportService {
   }
 
   /**
-   * What approving the selection would do, without writing anything.
-   * batchApproveImportedTransactions commits this same plan, so the preview
-   * cannot promise an outcome the commit would not produce. Each item also
-   * carries a review hint, derived after the action and never feeding it.
+   * What approving the selection would do, without writing anything;
+   * batchApproveImportedTransactions commits the same plan.
    */
   public async buildReconciliationPlan(
     importId: string,
@@ -530,11 +523,8 @@ class ImportService {
     return this.runReconciliationPlan(plan, userId);
   }
 
-  // Both queries constrain import, owner and status in SQL, so no caller can
-  // widen the selection past the user's own pending rows in this import.
-  // `missingIds` names every requested id the query did not return, so a
-  // caller can report it as a failure instead of letting it silently shrink
-  // the batch.
+  // Constrained to the user's own pending rows in SQL; `missingIds` lets a
+  // caller report ids the query did not return.
   private async loadPendingSelection(
     importId: string,
     userId: string,
@@ -737,8 +727,7 @@ class ImportService {
   }
 
   /**
-   * Clears the pending rows' matches and matches them again, keeping every
-   * transaction already claimed by a non-pending row out of the running so two
+   * Keeps transactions claimed by non-pending rows out of the running so two
    * rows cannot land on the same one.
    */
   private async rematchPendingTransactions(
@@ -775,9 +764,8 @@ class ImportService {
   }
 
   /**
-   * Matches rows one at a time against a running exclusion set, so no two rows
-   * can claim the same transaction. A row that throws is logged and skipped
-   * rather than failing the rest.
+   * One row at a time against a running exclusion set, so no two rows claim the
+   * same transaction; a throwing row is logged and skipped.
    */
   private async matchSequentially(
     transactions: MatchableTransaction[],
@@ -867,9 +855,8 @@ class ImportService {
       return null;
     }
 
-    // One unambiguous spelling match needs no model call, which is what keeps a
-    // multi-month backfill affordable. A tie falls through to the model, whose
-    // job is exactly that judgement.
+    // An unambiguous spelling match skips the model call; a tie falls through
+    // to it.
     const exactMatchId = findExactNormalizedMatch(
       transaction.description,
       availableMatches,
@@ -879,9 +866,8 @@ class ImportService {
       return exactMatchId;
     }
 
-    // Providers validate their answer already; re-applying the idempotent
-    // resolver here makes "never an invented id" structural rather than a
-    // contract a future provider could forget.
+    // Re-applied so "never an invented id" is structural rather than a contract
+    // a future provider could forget.
     const matchingTransactionId = resolveMatchedTransactionId(
       await this.getAiProvider().findMatchingTransaction(
         transaction,

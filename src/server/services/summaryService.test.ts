@@ -11,9 +11,7 @@ vi.mock('@/server/services/transactionService', () => ({
 import summaryService from '@/server/services/summaryService';
 import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
-// The window computation is private; reaching it directly keeps the test off
-// the AI and notifier plumbing, following the transactionService.test.ts
-// precedent for private access.
+// Private access keeps the test off the AI and notifier plumbing.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = summaryService as any;
 

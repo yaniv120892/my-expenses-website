@@ -22,9 +22,8 @@ import {
 } from '@/server/services/ai/prompts';
 import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
-// Google retires a Flash generation roughly twice a year and names the
-// successor in the 404 it starts returning, so the id is overridable: the next
-// retirement is a dashboard edit rather than a deploy.
+// Google retires Flash generations roughly twice a year, so the id is
+// overridable: the next retirement is a dashboard edit, not a deploy.
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
 export class GeminiService implements AIProvider {

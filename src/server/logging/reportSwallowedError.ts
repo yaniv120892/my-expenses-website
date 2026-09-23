@@ -4,11 +4,9 @@ import logger from '@/server/logging/logger';
 type ErrorFields = { err: unknown } & Record<string, unknown>;
 
 /**
- * For a path that catches its error and returns a fallback instead of
- * rethrowing. Nothing downstream sees such an error: `createHandler` only
- * reports what reaches its 5xx branch, and `onRequestError` only what escapes
- * the route. Logging alone leaves it visible for Better Stack's three days and
- * then nowhere, so the Sentry issue is what makes it countable and alertable.
+ * For a path that catches its error and returns a fallback: neither
+ * createHandler nor onRequestError sees it, so the Sentry issue is what keeps
+ * it visible past Better Stack's retention.
  */
 export function reportSwallowedError(
   fields: ErrorFields,

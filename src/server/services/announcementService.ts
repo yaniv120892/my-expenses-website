@@ -24,9 +24,8 @@ class AnnouncementService {
   }
 
   /**
-   * A brand new account should not be told what is "new" — everything shipped
-   * before it existed is acknowledged up front. This is exact, unlike a
-   * date comparison, which `User` has no createdAt column to support.
+   * Everything shipped before the account existed is acknowledged up front;
+   * `User` has no createdAt to compare against.
    */
   public async acknowledgeAllForNewUser(userId: string): Promise<void> {
     try {

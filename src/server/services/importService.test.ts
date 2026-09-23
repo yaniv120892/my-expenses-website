@@ -78,9 +78,8 @@ vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
 
 import { importService } from '@/server/services/importService';
 
-// Matching is stubbed here to keep these cases on the orchestration — which
-// rows are re-matched, in what order, and how the import's status moves; the
-// real method is exercised in its own describe below.
+// Matching is stubbed to keep these cases on orchestration; the real method has
+// its own describe below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = importService as any;
 
@@ -391,9 +390,7 @@ describe('matchSingleTransaction', () => {
     },
   ];
 
-  // Spelled like neither candidate, so the model is what decides — which is
-  // what the provider cases below are about. A row spelled exactly like one
-  // candidate never reaches the model.
+  // Spelled like neither candidate, so the model decides.
   const ambiguousRow = () => row({ description: 'Coffee Shop' });
 
   const originalGetAiProvider = service.getAiProvider;
@@ -632,7 +629,6 @@ describe('buildReconciliationPlan', () => {
         date: new Date(2026, 2, 5),
       },
     });
-    // The item itself is the "after"; nothing restates it.
     expect(item.description).toBe('Coffee');
     expect(item.value).toBe(12.5);
     expect(item.date).toEqual(new Date(2026, 2, 7));
@@ -684,10 +680,8 @@ describe('buildReconciliationPlan', () => {
 });
 
 describe('batchApproveImportedTransactions', () => {
-  // Regression: loadPendingSelection's SQL filter (PENDING/userId/not-deleted)
-  // used to make a stale requested id vanish from the batch silently —
-  // `total` shrank to match, so a caller comparing `total` to what it asked
-  // for never saw a mismatch.
+  // Regression: a stale requested id vanished from the batch and `total` shrank
+  // to match.
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
 

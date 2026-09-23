@@ -35,7 +35,6 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
-/** An attachment as returned to clients, with signed URLs resolved. */
 export interface TransactionFileView {
   id: string;
   fileName: string;
@@ -80,9 +79,8 @@ class TransactionService {
   }
 
   /**
-   * Categorization and validation without the write, so a caller can run the
-   * AI/network work first and batch the insert into a prisma.$transaction
-   * (via createTransactionOp) with its own writes.
+   * Categorization and validation without the write, so the AI work runs first
+   * and the insert can be batched via createTransactionOp.
    */
   public async prepareCreateTransaction(
     data: CreateTransaction,
@@ -121,7 +119,6 @@ class TransactionService {
     };
   }
 
-  /** For callers that have already resolved the filters. */
   private listResolved(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
@@ -138,10 +135,8 @@ class TransactionService {
   }
 
   /**
-   * Every matching row, for the callers that need the whole set (export,
-   * backup, monthly report). Cursor rather than offset paging, which re-scans
-   * every prior row per page; `maxRows` stops one page past the cap, so an
-   * oversized set is refused without walking the whole history.
+   * Walked by cursor; `maxRows` stops one page past the cap so an oversized set
+   * is refused early.
    */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,
@@ -234,9 +229,8 @@ class TransactionService {
   }
 
   /**
-   * Remembers a manual recategorization so future imports of the same
-   * description categorize themselves. Non-critical: a failure logs a warning
-   * and never fails the write it accompanies.
+   * Remembers a manual recategorization for future imports; a failure only logs
+   * a warning.
    */
   public async learnCategoryMappingSafe(
     charge: { description: string; categoryId: string },

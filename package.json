@@ -72,7 +72,7 @@
     "prisma-field-encryption": "^1.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-dropzone": "^14.3.8",
+    "react-dropzone": "^20.1.2",
     "react-hook-form": "^7.56.4",
     "recharts": "^2.15.3",
     "zod": "^3.25.76"

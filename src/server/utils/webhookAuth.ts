@@ -73,10 +73,7 @@ export function verifyWebhookToken(
 
   try {
     const expectedToken = generateWebhookToken(userId, timestamp, importId);
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(token),
-      Buffer.from(expectedToken),
-    );
+    const isValid = secretsEqual(token, expectedToken);
 
     if (!isValid) {
       logger.warn(
@@ -98,6 +95,26 @@ export function verifyWebhookToken(
     );
     return false;
   }
+}
+
+/**
+ * Constant-time for equal-length inputs; a length mismatch returns early, since
+ * timingSafeEqual throws on it and the length of a secret is not the secret.
+ * An empty expected value never matches, so an unset secret cannot authorize.
+ */
+export function secretsEqual(
+  provided: string | null,
+  expected: string,
+): boolean {
+  if (!provided || !expected) {
+    return false;
+  }
+  const providedBytes = Buffer.from(provided);
+  const expectedBytes = Buffer.from(expected);
+  if (providedBytes.length !== expectedBytes.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(providedBytes, expectedBytes);
 }
 
 export function extractWebhookParams(query: Record<string, string>): {

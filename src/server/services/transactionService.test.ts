@@ -6,12 +6,14 @@ const {
   getTransactionsSummary,
   getAllCategories,
   reportSwallowedError,
+  createTransactionFile,
 } = vi.hoisted(() => ({
   findByUserAndDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
   reportSwallowedError: vi.fn(),
+  createTransactionFile: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
@@ -24,6 +26,10 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
+}));
+
+vi.mock('@/server/repositories/transactionFileRepository', () => ({
+  default: { create: createTransactionFile },
 }));
 
 vi.mock('@/server/logging/reportSwallowedError', () => ({
@@ -225,5 +231,41 @@ describe('getSuggestedCategory', () => {
   it('returns null when the AI service has no answer', async () => {
     suggestCategory.mockResolvedValue(null);
     expect(await getSuggestedCategory()).toBeNull();
+  });
+});
+
+describe('attachFile', () => {
+  const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
+  const attach = (fileKey: string) =>
+    transactionService.attachFile(TRANSACTION_ID, 'user-1', {
+      fileName: 'receipt.pdf',
+      fileKey,
+      fileSize: 10,
+      mimeType: 'application/pdf',
+    });
+
+  beforeEach(() => {
+    serviceInternals.getTransactionItem = vi.fn().mockResolvedValue({
+      id: TRANSACTION_ID,
+    });
+  });
+
+  it('stores a key issued under this transaction', async () => {
+    await attach(`transactions/${TRANSACTION_ID}/uuid-receipt.pdf`);
+
+    expect(createTransactionFile).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      'another transaction',
+      'transactions/22222222-2222-4222-8222-222222222222/uuid-x.pdf',
+    ],
+    ['a key outside the attachments prefix', 'imports/someone-else.xlsx'],
+    ['a dot segment', `transactions/${TRANSACTION_ID}/../other/x.pdf`],
+    ['the bare prefix', `transactions/${TRANSACTION_ID}/`],
+  ])('400s for %s without storing it', async (_label, fileKey) => {
+    await expect(attach(fileKey)).rejects.toMatchObject({ status: 400 });
+    expect(createTransactionFile).not.toHaveBeenCalled();
   });
 });

@@ -175,3 +175,17 @@ describe('signupUser', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('verification email', () => {
+  it('encodes the address in the verification link', async () => {
+    users.findByEmailOrUsername.mockResolvedValue(null);
+    users.createUser.mockResolvedValue({ id: 'user-1' });
+
+    await authService.signupUser('a+tag@example.com', 'someone', PASSWORD);
+
+    const [{ text, html }] = send.mock.calls[0];
+    const link = 'https://expenses.example/verify?email=a%2Btag%40example.com';
+    expect(text).toContain(link);
+    expect(html).toContain(`href="${link}"`);
+  });
+});

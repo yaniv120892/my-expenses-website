@@ -9,6 +9,7 @@ import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
+import { secretsEqual } from '@/server/utils/webhookAuth';
 
 type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
 
@@ -81,7 +82,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
       return requireUser(req);
     case 'cron': {
       const authHeader = req.headers.get('authorization');
-      if (authHeader !== `Bearer ${requireEnv('CRON_SECRET')}`) {
+      if (!secretsEqual(authHeader, `Bearer ${requireEnv('CRON_SECRET')}`)) {
         throw new AuthError('CRON_AUTH_FAILED', 'Authentication required');
       }
       return '';
@@ -89,7 +90,7 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
     case 'telegram': {
       const secret = optionalEnv('TELEGRAM_WEBHOOK_SECRET');
       const header = req.headers.get('x-telegram-bot-api-secret-token');
-      if (!secret || header !== secret) {
+      if (!secret || !secretsEqual(header, secret)) {
         throw new AuthError('TELEGRAM_AUTH_FAILED', 'Authentication required');
       }
       return '';

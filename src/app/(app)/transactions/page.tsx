@@ -65,7 +65,7 @@ function TransactionsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
-    description: string;
+    transactionInput: CreateTransactionInput;
     suggestedCategory: { id: string; name: string };
   } | null>(null);
 
@@ -99,7 +99,7 @@ function TransactionsPageContent() {
   const {
     data: chartSummary,
     isLoading: chartSummaryLoading,
-    error: chartSummaryError,
+    isError: chartSummaryFailed,
   } = useTransactionsSummaryQuery({ ...filters, type: undefined });
 
   const createMutation = useCreateTransactionMutation();
@@ -127,7 +127,7 @@ function TransactionsPageContent() {
     if (result.suggestedCategory) {
       setCategoryConfirmation({
         transactionId: result.id,
-        description: data.description,
+        transactionInput: data,
         suggestedCategory: result.suggestedCategory,
       });
     }
@@ -140,15 +140,6 @@ function TransactionsPageContent() {
 
   const deleteTransaction = async (id: string) => {
     await deleteMutation.mutateAsync(id);
-  };
-
-  // The list has no error surface of its own, so its deletes are caught here.
-  const handleDeleteFromList = async (id: string) => {
-    try {
-      await deleteTransaction(id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-    }
   };
 
   return (
@@ -191,7 +182,7 @@ function TransactionsPageContent() {
         income={chartSummary?.totalIncome || 0}
         expense={chartSummary?.totalExpense || 0}
         loading={chartSummaryLoading}
-        error={chartSummaryError as string | null}
+        error={chartSummaryFailed}
         selectedType={filters.type}
         onSelectType={(type) =>
           setFilters((prev) => ({
@@ -243,7 +234,6 @@ function TransactionsPageContent() {
             <TransactionList
               transactions={transactions}
               onEditAction={handleEdit}
-              onDeleteAction={handleDeleteFromList}
             />
             <InfiniteScrollSentinel
               hasMore={hasNextPage}
@@ -289,7 +279,7 @@ function TransactionsPageContent() {
         <CategoryConfirmationSnackbar
           open={!!categoryConfirmation}
           transactionId={categoryConfirmation.transactionId}
-          description={categoryConfirmation.description}
+          transactionInput={categoryConfirmation.transactionInput}
           suggestedCategory={categoryConfirmation.suggestedCategory}
           onClose={() => setCategoryConfirmation(null)}
         />

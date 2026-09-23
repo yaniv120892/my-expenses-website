@@ -28,7 +28,6 @@ export const transactionKeys = {
   list: (filters: TransactionFilters) =>
     [...transactionKeys.lists(), filters] as const,
   categories: () => [...transactionKeys.all, 'categories'] as const,
-  allTransactions: () => [...transactionKeys.all, 'allTransactions'] as const,
   // Prefix without the filters argument, so invalidation matches every
   // filtered summary query.
   summaries: () => [...transactionKeys.all, 'summary'] as const,

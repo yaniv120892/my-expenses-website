@@ -5,6 +5,7 @@ import {
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
+import { childCategories } from '@/server/services/ai/categoryTree';
 import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
@@ -42,6 +43,33 @@ export function buildCategoryChoiceCriteria(
 ): Record<string, null> {
   return Object.fromEntries(
     categoryOptions.map((category) => [category.name, null]),
+  );
+}
+
+/**
+ * One level of a top-down category decision. A parent is described by its
+ * children so a small model can place a merchant without knowing the label,
+ * and `generalCategory` is the node being refined, offered back so every
+ * category stays reachable.
+ */
+export function buildCategoryLevelCriteria(
+  level: Category[],
+  allCategories: Category[],
+  generalCategory?: Category,
+): Record<string, string | null> {
+  return Object.fromEntries(
+    level.map((category) => {
+      if (category.id === generalCategory?.id) {
+        return [category.name, `Any other ${category.name} expense`];
+      }
+      const children = childCategories(allCategories, category.id);
+      return [
+        category.name,
+        children.length === 0
+          ? null
+          : `Includes ${children.map((child) => child.name).join(', ')}`,
+      ];
+    }),
   );
 }
 

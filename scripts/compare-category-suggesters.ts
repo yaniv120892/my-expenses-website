@@ -7,7 +7,10 @@ import { optionalEnv } from '../src/server/env';
 import type { CategorySuggester } from '../src/server/services/ai/aiProvider';
 import AIServiceFactory from '../src/server/services/ai/aiServiceFactory';
 import { GeminiService } from '../src/server/services/ai/geminiService';
-import { JevCategorySuggester } from '../src/server/services/ai/jevCategorySuggester';
+import {
+  JevCategorySuggester,
+  type JevStrategy,
+} from '../src/server/services/ai/jevCategorySuggester';
 import { getErrorMessage } from '../src/server/utils/errorUtils';
 import type { Category } from '../src/shared/types/category';
 import {
@@ -16,6 +19,7 @@ import {
   GATEWAY_MODEL_PREFIX,
   type Sample,
   type SampleFile,
+  type Suggester,
   type Summary,
   modelPrices,
   parseBenchmarkArguments,
@@ -24,6 +28,7 @@ import {
   scoreDecision,
   summarize,
   toCategories,
+  topLevelNames,
 } from './lib/categoryBenchmark';
 
 const GATEWAY_OPENAI_BASE_URL = 'https://ai-gateway.vercel.sh/v1';
@@ -36,6 +41,7 @@ interface NamedSuggester {
 }
 
 interface Run {
+  label: string;
   model: string;
   decisions: Decision[];
 }
@@ -45,27 +51,30 @@ async function main(): Promise<void> {
   const sampleFile = await loadSamples(options.samplesPath);
   const categories = toCategories(sampleFile.categories);
   const samples = Array(options.repeat).fill(sampleFile.samples).flat();
+  const topLevelByName = topLevelNames(categories);
   const prices = modelPrices(new Date());
 
-  // Both sides are resolved before either runs, so a missing key fails in
+  // Every side is resolved before any runs, so a missing key fails in
   // milliseconds instead of after the first side's paid calls.
-  const suggesters: NamedSuggester[] = [];
-  if (options.only !== 'llm') {
-    suggesters.push({ label: 'jev', suggester: jevSuggester() });
-  }
-  if (options.only !== 'jev') {
-    suggesters.push({ label: 'llm', suggester: llmSuggester() });
-  }
+  const suggesters: NamedSuggester[] = options.suggesters.map((label) => ({
+    label,
+    suggester: buildSuggester(label),
+  }));
 
   const runs: Run[] = [];
   for (const { label, suggester } of suggesters) {
     runs.push(await runSuggester(label, suggester, samples, categories));
   }
   const summaries = runs.map((run) =>
-    summarize(run.model, samples, run.decisions, priceFor(run.model, prices)),
+    summarize({
+      ...run,
+      samples,
+      price: priceFor(run.model, prices),
+      topLevelByName,
+    }),
   );
 
-  printDecisions(samples, runs);
+  printDecisions(samples, runs, topLevelByName);
   printErrors(runs);
   printSummaries(summaries);
 
@@ -88,13 +97,24 @@ async function loadSamples(path: string): Promise<SampleFile> {
   return parsed.data;
 }
 
-function jevSuggester(): CategorySuggester {
+function buildSuggester(label: Suggester): CategorySuggester {
+  switch (label) {
+    case 'jev':
+      return jevSuggester('flat');
+    case 'jev-two-step':
+      return jevSuggester('two-step');
+    case 'llm':
+      return llmSuggester();
+  }
+}
+
+function jevSuggester(strategy: JevStrategy): CategorySuggester {
   if (!process.env.TYPESAFE_AI_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
     throw new Error(
       'The Jev side needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
     );
   }
-  return new JevCategorySuggester();
+  return new JevCategorySuggester(strategy);
 }
 
 function llmSuggester(): CategorySuggester {
@@ -179,30 +199,46 @@ async function runSuggester(
       break;
     }
   }
-  return { model: suggester.modelName(), decisions };
+  return { label, model: suggester.modelName(), decisions };
 }
 
-function printDecisions(samples: Sample[], runs: Run[]): void {
-  const header = runs.map((run) => run.model).join(' | ');
+function printDecisions(
+  samples: Sample[],
+  runs: Run[],
+  topLevelByName: Map<string, string>,
+): void {
+  const header = runs.map((run) => run.label).join(' | ');
   console.log(`\n| description | expected | ${header} |`);
   console.log(`| --- | --- |${runs.map(() => ' --- |').join('')}`);
   samples.forEach((sample, index) => {
-    const cells = runs.map((run) => mark(sample, run.decisions[index]));
+    const cells = runs.map((run) =>
+      mark(sample, run.decisions[index], topLevelByName),
+    );
     console.log(
       `| ${sample.description} | ${sample.expected[0]} | ${cells.join(' | ')} |`,
     );
   });
 }
 
-function mark(sample: Sample, decision: Decision | undefined): string {
+function mark(
+  sample: Sample,
+  decision: Decision | undefined,
+  topLevelByName: Map<string, string>,
+): string {
   if (!decision) {
     return 'not run';
   }
   if (decision.error !== null) {
     return 'ERROR';
   }
-  const score = scoreDecision(sample, decision);
-  const verdict = score.exact ? '✓' : score.acceptable ? '~' : '✗';
+  const score = scoreDecision(sample, decision, topLevelByName);
+  const verdict = score.exact
+    ? '✓'
+    : score.acceptable
+      ? '~'
+      : score.rightBranch
+        ? '≈'
+        : '✗';
   const answer =
     decision.categoryId === null
       ? `${decision.answer ?? '(none)'}?`
@@ -222,7 +258,7 @@ function printErrors(runs: Run[]): void {
       ),
     );
     if (messages.size > 0) {
-      console.log(`\nErrors from ${run.model}:`);
+      console.log(`\nErrors from ${run.label}:`);
       messages.forEach((message) => console.log(`- ${message}`));
     }
   });
@@ -233,6 +269,7 @@ const SUMMARY_ROWS: [string, (summary: Summary) => string][] = [
   ['answered', (summary) => String(summary.succeeded)],
   ['exact accuracy', (summary) => percent(summary.exactAccuracy)],
   ['acceptable accuracy', (summary) => percent(summary.acceptableAccuracy)],
+  ['right-branch accuracy', (summary) => percent(summary.rightBranchAccuracy)],
   ['latency p50 ms', (summary) => String(summary.p50Ms)],
   ['latency p95 ms', (summary) => String(summary.p95Ms)],
   ['latency mean ms', (summary) => String(summary.meanMs)],
@@ -247,7 +284,7 @@ const SUMMARY_ROWS: [string, (summary: Summary) => string][] = [
 
 function printSummaries(summaries: Summary[]): void {
   console.log(
-    `\n| metric | ${summaries.map((summary) => summary.model).join(' | ')} |`,
+    `\n| metric | ${summaries.map((summary) => `${summary.label} (${summary.model})`).join(' | ')} |`,
   );
   console.log(`| --- |${summaries.map(() => ' --- |').join('')}`);
   SUMMARY_ROWS.forEach(([label, cell]) => {

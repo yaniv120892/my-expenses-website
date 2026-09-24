@@ -9,6 +9,7 @@ import {
   scoreDecision,
   summarize,
   toCategories,
+  topLevelNames,
 } from './categoryBenchmark';
 
 const samples = [
@@ -16,6 +17,13 @@ const samples = [
   { description: 'רב קו', expected: ['Transportation'] },
   { description: 'Lime', expected: ['Bikes & Scooters', 'Transportation'] },
 ];
+
+const topLevelByName = topLevelNames(
+  toCategories([
+    { name: 'Transportation', children: ['Taxi', 'Car', 'Bikes & Scooters'] },
+    'Taxes',
+  ]),
+);
 
 function decision(overrides: Partial<Decision>): Decision {
   return {
@@ -35,7 +43,7 @@ describe('parseBenchmarkArguments', () => {
     expect(parseBenchmarkArguments([])).toEqual({
       samplesPath: 'scripts/data/category-samples.json',
       outPath: null,
-      only: null,
+      suggesters: ['jev', 'jev-two-step', 'llm'],
       repeat: 1,
     });
   });
@@ -45,20 +53,21 @@ describe('parseBenchmarkArguments', () => {
       parseBenchmarkArguments([
         '--samples=a.json',
         '--out=/tmp/a=b.json',
-        '--only=llm',
+        '--suggesters=jev-two-step,jev,jev-two-step',
         '--repeat=3',
       ]),
     ).toEqual({
       samplesPath: 'a.json',
       outPath: '/tmp/a=b.json',
-      only: 'llm',
+      suggesters: ['jev-two-step', 'jev'],
       repeat: 3,
     });
   });
 
   it.each([
     ['--onyl=jev', /Unknown option/],
-    ['--only=x', /--only must be jev or llm/],
+    ['--suggesters=jev,x', /--suggesters must list jev, jev-two-step, llm/],
+    ['--suggesters=', /--suggesters must list/],
     ['--repeat=0', /--repeat must be a whole number/],
     ['--repeat=abc', /--repeat must be a whole number/],
     ['--repeat=1.5', /--repeat must be a whole number/],
@@ -80,10 +89,21 @@ describe('sampleFileSchema', () => {
     ]);
   });
 
-  it('rejects duplicate category names', () => {
+  it('accepts expected names from anywhere in the tree', () => {
     expect(
       sampleFileSchema.safeParse({
-        categories: ['Taxi', 'Taxi'],
+        categories: [{ name: 'Transportation', children: ['Taxi'] }],
+        samples: [
+          { description: 'GETT', expected: ['Taxi', 'Transportation'] },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects duplicate category names, a child repeating a parent included', () => {
+    expect(
+      sampleFileSchema.safeParse({
+        categories: [{ name: 'Taxi', children: ['Taxi'] }],
         samples: [{ description: 'GETT', expected: ['Taxi'] }],
       }).success,
     ).toBe(false);
@@ -97,21 +117,37 @@ describe('scoreDecision', () => {
       answer: 'Transportation',
       categoryId: 'cat-1',
     });
-    expect(scoreDecision(samples[0], taxi)).toEqual({
+    expect(scoreDecision(samples[0], taxi, topLevelByName)).toEqual({
       exact: true,
       acceptable: true,
+      rightBranch: true,
     });
-    expect(scoreDecision(samples[0], transport)).toEqual({
+    expect(scoreDecision(samples[0], transport, topLevelByName)).toEqual({
       exact: false,
       acceptable: true,
+      rightBranch: true,
     });
+  });
+
+  it('credits a sibling of the label with the right branch only', () => {
+    const car = decision({ answer: 'Car', categoryId: 'cat-2' });
+    const taxes = decision({ answer: 'Taxes', categoryId: 'cat-4' });
+    expect(scoreDecision(samples[0], car, topLevelByName)).toEqual({
+      exact: false,
+      acceptable: false,
+      rightBranch: true,
+    });
+    expect(scoreDecision(samples[0], taxes, topLevelByName).rightBranch).toBe(
+      false,
+    );
   });
 
   it('never credits an answer that resolved to no offered category', () => {
     const unoffered = decision({ answer: 'Taxi', categoryId: null });
-    expect(scoreDecision(samples[0], unoffered)).toEqual({
+    expect(scoreDecision(samples[0], unoffered, topLevelByName)).toEqual({
       exact: false,
       acceptable: false,
+      rightBranch: false,
     });
   });
 });
@@ -119,20 +155,26 @@ describe('scoreDecision', () => {
 describe('summarize', () => {
   const decisions = [
     decision({ answer: 'Taxi', categoryId: 'cat-0', durationMs: 100 }),
-    decision({ answer: 'Car', categoryId: 'cat-9', durationMs: 300 }),
+    decision({ answer: 'Taxes', categoryId: 'cat-4', durationMs: 300 }),
     decision({ error: 'timeout', durationMs: 30_000, inputTokens: null }),
   ];
 
   it('measures accuracy, latency and cost over answered decisions only', () => {
-    const summary = summarize('jev-latest', samples, decisions, {
-      input: 0.042,
-      output: 0,
+    const summary = summarize({
+      label: 'jev',
+      model: 'jev-latest',
+      samples,
+      decisions,
+      price: { input: 0.042, output: 0 },
+      topLevelByName,
     });
     expect(summary).toMatchObject({
+      label: 'jev',
       decisions: 3,
       succeeded: 2,
       exactAccuracy: 0.5,
       acceptableAccuracy: 0.5,
+      rightBranchAccuracy: 0.5,
       p50Ms: 100,
       p95Ms: 300,
       meanMs: 200,
@@ -147,7 +189,14 @@ describe('summarize', () => {
 
   it('reports no cost for a model without a price', () => {
     expect(
-      summarize('mystery', samples, decisions, undefined).runCostUsd,
+      summarize({
+        label: 'llm',
+        model: 'mystery',
+        samples,
+        decisions,
+        price: undefined,
+        topLevelByName,
+      }).runCostUsd,
     ).toBeNull();
   });
 });
@@ -181,10 +230,21 @@ describe('prices', () => {
 });
 
 describe('toCategories', () => {
-  it('gives every name a stable id in order', () => {
-    expect(toCategories(['Taxi', 'Car'])).toEqual([
-      { id: 'cat-0', name: 'Taxi' },
-      { id: 'cat-1', name: 'Car' },
+  it('flattens the tree parent-first with stable ids', () => {
+    expect(
+      toCategories([{ name: 'Transportation', children: ['Taxi'] }, 'Taxes']),
+    ).toEqual([
+      { id: 'cat-0', name: 'Transportation', parentId: null },
+      { id: 'cat-1', name: 'Taxi', parentId: 'cat-0' },
+      { id: 'cat-2', name: 'Taxes', parentId: null },
     ]);
+  });
+});
+
+describe('topLevelNames', () => {
+  it('maps a child to its parent and a top-level name to itself', () => {
+    expect(topLevelByName.get('Taxi')).toBe('Transportation');
+    expect(topLevelByName.get('Transportation')).toBe('Transportation');
+    expect(topLevelByName.get('Taxes')).toBe('Taxes');
   });
 });

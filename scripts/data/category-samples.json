@@ -1,48 +1,59 @@
 {
   "categories": [
-    "Food & Drinks",
-    "Eating out",
-    "Bar",
-    "Food/Drinks",
-    "Bills",
-    "Electricity",
-    "Water Bill",
-    "Gas Bill",
-    "Internet & TV",
-    "Phone",
-    "Home",
-    "Rent",
-    "Home Products",
-    "Building Committee",
-    "Mortgage",
-    "Income",
-    "Salary",
-    "Other (Income)",
-    "Odd jobs",
-    "Kids & Babies",
-    "Children",
-    "Family",
-    "Babies",
+    {
+      "name": "Food & Drinks",
+      "children": ["Eating out", "Bar", "Food/Drinks"]
+    },
+    {
+      "name": "Bills",
+      "children": [
+        "Electricity",
+        "Water Bill",
+        "Gas Bill",
+        "Internet & TV",
+        "Phone"
+      ]
+    },
+    {
+      "name": "Home",
+      "children": ["Rent", "Home Products", "Building Committee", "Mortgage"]
+    },
+    {
+      "name": "Income",
+      "children": ["Salary", "Other (Income)", "Odd jobs"]
+    },
+    {
+      "name": "Kids & Babies",
+      "children": ["Children", "Family", "Babies"]
+    },
     "Investments",
     "Technology",
-    "Shopping",
-    "Clothing",
-    "Shoes",
-    "Books/Magazines",
-    "eBay/AliExpress",
-    "Gifts",
-    "Entertainment",
-    "Sport",
-    "XBOX",
-    "Cinema",
-    "Health",
-    "HMO/Health Fund",
-    "Pets",
-    "Food - Pets",
-    "Transportation",
-    "Car",
-    "Taxi",
-    "Bikes & Scooters",
+    {
+      "name": "Shopping",
+      "children": [
+        "Clothing",
+        "Shoes",
+        "Books/Magazines",
+        "eBay/AliExpress",
+        "Gifts"
+      ]
+    },
+    {
+      "name": "Entertainment",
+      "children": ["Sport", "XBOX", "Cinema"]
+    },
+    {
+      "name": "Health",
+      "children": ["HMO/Health Fund"]
+    },
+    {
+      "name": "Pets",
+      "children": ["Food - Pets"]
+    },
+    {
+      "name": "Transportation",
+      "children": ["Car", "Taxi", "Bikes & Scooters"]
+    },
     "Taxes",
     "Donation",
     "Travels",

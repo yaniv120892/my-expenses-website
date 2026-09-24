@@ -17,14 +17,21 @@ describe('AIServiceFactory.getCategorySuggester', () => {
     );
   });
 
-  it('routes the category decision to Jev when the flag says so', () => {
-    vi.stubEnv('AI_PROVIDER', 'gemini');
-    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'JEV');
+  it.each([
+    { flag: 'JEV', strategy: 'flat' },
+    { flag: 'jev-two-step', strategy: 'two-step' },
+  ])(
+    'routes the category decision to $strategy Jev on $flag',
+    ({ flag, strategy }) => {
+      vi.stubEnv('AI_PROVIDER', 'gemini');
+      vi.stubEnv('AI_CATEGORY_SUGGESTER', flag);
 
-    expect(AIServiceFactory.getCategorySuggester()).toBeInstanceOf(
-      JevCategorySuggester,
-    );
-  });
+      const suggester = AIServiceFactory.getCategorySuggester();
+
+      expect(suggester).toBeInstanceOf(JevCategorySuggester);
+      expect(suggester).toMatchObject({ strategy });
+    },
+  );
 
   it('refuses a value it does not know instead of falling back', () => {
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');

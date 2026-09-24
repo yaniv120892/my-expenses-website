@@ -180,4 +180,98 @@ describe('JevCategorySuggester', () => {
       'Jev API error',
     );
   });
+
+  describe('two-step', () => {
+    const tree = [
+      { id: 'cat-food', name: 'Food & Drinks', parentId: null },
+      { id: 'cat-eating-out', name: 'Eating out', parentId: 'cat-food' },
+      { id: 'cat-bar', name: 'Bar', parentId: 'cat-food' },
+      { id: 'cat-taxes', name: 'Taxes', parentId: null },
+    ];
+
+    it('picks the parent among top-level categories, then refines within it', async () => {
+      evaluate
+        .mockResolvedValueOnce(jevAnswer('Food & Drinks', 0.8))
+        .mockResolvedValueOnce(jevAnswer('Eating out', 0.5));
+
+      const evaluation = await new JevCategorySuggester(
+        'two-step',
+      ).evaluateCategory('ארומה תל אביב', tree);
+
+      expect(evaluate.mock.calls[0][0].questions.category.criteria).toEqual({
+        'Food & Drinks': 'Includes Eating out, Bar',
+        Taxes: null,
+      });
+      expect(evaluate.mock.calls[1][0].questions.category.criteria).toEqual({
+        'Food & Drinks': 'Any other Food & Drinks expense',
+        'Eating out': null,
+        Bar: null,
+      });
+      expect(evaluation).toEqual({
+        categoryId: 'cat-eating-out',
+        categoryName: 'Eating out',
+        probability: 0.4,
+        inputTokens: 642,
+        outputTokens: 0,
+      });
+    });
+
+    it('stops after one call when the parent has no children', async () => {
+      evaluate.mockResolvedValue(jevAnswer('Taxes', 0.9));
+
+      const evaluation = await new JevCategorySuggester(
+        'two-step',
+      ).evaluateCategory('מס הכנסה', tree);
+
+      expect(evaluate).toHaveBeenCalledOnce();
+      expect(evaluation.categoryId).toBe('cat-taxes');
+    });
+
+    it('keeps the parent when the second step picks it back', async () => {
+      evaluate
+        .mockResolvedValueOnce(jevAnswer('Food & Drinks', 0.8))
+        .mockResolvedValueOnce(jevAnswer('Food & Drinks', 0.6));
+
+      const evaluation = await new JevCategorySuggester(
+        'two-step',
+      ).evaluateCategory('קיוסק', tree);
+
+      expect(evaluate).toHaveBeenCalledTimes(2);
+      expect(evaluation.categoryId).toBe('cat-food');
+    });
+
+    it('bounds both calls by one timeout', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      evaluate
+        .mockResolvedValueOnce(jevAnswer('Food & Drinks', 0.8))
+        .mockResolvedValueOnce(jevAnswer('Bar', 0.7));
+
+      await new JevCategorySuggester('two-step').evaluateCategory(
+        'פורט 19 בר',
+        tree,
+      );
+
+      expect(timeout).toHaveBeenCalledOnce();
+      const [first, second] = evaluate.mock.calls.map(
+        ([options]) => options.abortSignal,
+      );
+      expect(second).toBe(first);
+    });
+
+    it('makes the same single call as flat when there is no hierarchy', async () => {
+      evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
+
+      await new JevCategorySuggester('two-step').evaluateCategory(
+        'GETT',
+        categories,
+      );
+
+      expect(evaluate).toHaveBeenCalledOnce();
+      expect(evaluate.mock.calls[0][0].questions.category.criteria).toEqual({
+        'Food & Drinks': null,
+        'Eating out': null,
+        Taxi: null,
+      });
+    });
+  });
 });

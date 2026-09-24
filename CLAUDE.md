@@ -23,7 +23,7 @@ npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 npm run statements:import -- <dir> [--dry-run] [--resubmit] [--base-url=<url>]   # bulk import + reconcile
-npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
+npm run categories:compare -- [--samples=<json>] [--out=<json>] [--suggesters=jev,jev-two-step,llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
 ```
 
 Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
@@ -116,10 +116,13 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 - **Only the category decision may leave the `AI_PROVIDER` model.**
   `AIServiceFactory.getCategorySuggester()` is the one place that decides,
   on `AI_CATEGORY_SUGGESTER`; the prose-producing methods have no such flag.
-  Every suggester offers exactly the option list
-  `src/server/services/ai/prompts.ts` builds and ends in its
-  `buildCategoryEvaluation`, so the flag changes the model and never the
-  question or the record.
+  Every suggester chooses among exactly the categories it is given, with
+  options `src/server/services/ai/prompts.ts` builds, and ends in its
+  `buildCategoryEvaluation`, so the flag changes how the model is asked and
+  never which categories can come back or the record. `jev-two-step` walks the
+  tree parent-first and offers each parent back beside its children, so every
+  category a flat list offers stays reachable; its probability is the product
+  of its steps.
 - **Import matching**: an imported row is paired with an existing transaction
   by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
   value tolerance of `max(2, 1%)` (`matchValueTolerance`) — a card dates a row

@@ -16,7 +16,7 @@ const coreEnvSchema = z.object({
   // categorizing while the operator believes Jev is live, so boot fails instead.
   AI_CATEGORY_SUGGESTER: z.preprocess(
     lowercaseString,
-    z.enum(['', 'jev']).optional(),
+    z.enum(['', 'jev', 'jev-two-step']).optional(),
   ),
   TYPESAFE_AI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
@@ -24,11 +24,11 @@ const coreEnvSchema = z.object({
 
 const envSchema = coreEnvSchema.refine(
   (env) =>
-    env.AI_CATEGORY_SUGGESTER !== 'jev' ||
+    !env.AI_CATEGORY_SUGGESTER ||
     Boolean(env.TYPESAFE_AI_API_KEY || env.AI_GATEWAY_API_KEY),
   {
     message:
-      'AI_CATEGORY_SUGGESTER=jev needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
+      'AI_CATEGORY_SUGGESTER needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
     path: ['AI_CATEGORY_SUGGESTER'],
   },
 );

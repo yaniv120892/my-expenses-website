@@ -24,14 +24,16 @@ class AIServiceFactory {
 
     switch (categorySuggester) {
       case 'jev':
-        return new JevCategorySuggester();
+        return new JevCategorySuggester('flat');
+      case 'jev-two-step':
+        return new JevCategorySuggester('two-step');
       case '':
         return AIServiceFactory.getAIService();
       default:
         // Boot validation rejects this in production; outside it, failing here
         // beats silently categorizing with the LLM.
         throw new Error(
-          `Unknown AI_CATEGORY_SUGGESTER "${categorySuggester}"; set it to "jev" or leave it unset`,
+          `Unknown AI_CATEGORY_SUGGESTER "${categorySuggester}"; set it to "jev", "jev-two-step" or leave it unset`,
         );
     }
   }

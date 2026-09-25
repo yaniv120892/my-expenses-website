@@ -35,7 +35,7 @@ pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
 claude-config's `deps-discover` action) or a package and its `@types` counting
 as one. The jobs live in `yaniv120892/claude-config`; this file only repeats the
 `checks` job's commands, so the two lists change together. A bump that fails one
-opens its PR as a draft.
+opens its PR as a draft. The flow only opens PRs; merging stays with a human.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

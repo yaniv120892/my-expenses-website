@@ -31,12 +31,11 @@ runs audit, lint, prettier, typecheck, unit tests and the build, and in a
 parallel job both e2e suites against `npx prisma dev`.
 
 `.github/workflows/deps-upgrade.yml` runs daily and opens one `deps/<slug>-<version>`
-pull request per outdated package, lockstep families (`@mui/*`, `prisma` +
-`@prisma/client`, `next` + `eslint-config-next`, a package and its `@types`)
-counting as one. The jobs live in `yaniv120892/claude-config` — a script picks
-the candidates, a Claude session upgrades each one — and this file only lists
-the `checks` job's commands; a bump that fails one opens its PR as a draft.
-Edit the two lists together.
+pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
+claude-config's `deps-discover` action) or a package and its `@types` counting
+as one. The jobs live in `yaniv120892/claude-config`; this file only repeats the
+`checks` job's commands, so the two lists change together. A bump that fails one
+opens its PR as a draft.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

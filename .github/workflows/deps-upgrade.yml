@@ -1,0 +1,31 @@
+# One small pull request per outdated package, daily. The jobs live in
+# yaniv120892/claude-config; this file only names the checks a bump must pass.
+name: Dependency upgrades
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: deps-upgrade
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    uses: yaniv120892/claude-config/.github/workflows/deps-upgrade.yml@main
+    secrets: inherit
+    with:
+      check_commands: |
+        npm audit --omit=dev --audit-level=critical
+        npm run lint
+        npx prettier --check .
+        npm run typecheck
+        npm test
+        npm run build
+      node_options: --max-old-space-size=4096

@@ -1,4 +1,4 @@
-# Only the checks a bump must pass live here; the called workflow does the rest.
+# Mirrors the checks job's steps in ci.yml — change both together.
 name: Dependency upgrades
 
 on:
@@ -18,7 +18,9 @@ concurrency:
 jobs:
   upgrade:
     uses: yaniv120892/claude-config/.github/workflows/deps-upgrade.yml@main
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       check_commands: |
         npm audit --omit=dev --audit-level=critical

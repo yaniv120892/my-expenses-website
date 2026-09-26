@@ -1,0 +1,32 @@
+# Mirrors the checks job's steps in ci.yml — change both together.
+name: Dependency upgrades
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: deps-upgrade
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    uses: yaniv120892/claude-config/.github/workflows/deps-upgrade.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    with:
+      check_commands: |
+        npm audit --omit=dev --audit-level=critical
+        npm run lint
+        npx prettier --check .
+        npm run typecheck
+        npm test
+        npm run build
+      node_options: --max-old-space-size=4096

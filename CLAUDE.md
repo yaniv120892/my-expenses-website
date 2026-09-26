@@ -30,6 +30,15 @@ Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
 runs audit, lint, prettier, typecheck, unit tests and the build, and in a
 parallel job both e2e suites against `npx prisma dev`.
 
+`.github/workflows/deps-upgrade.yml` runs daily and opens one `deps/<slug>-<version>`
+pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
+claude-config's `deps-discover` action) or a package and its `@types` counting
+as one. The jobs live in `yaniv120892/claude-config`; the caller only repeats the
+`checks` job's commands, so the two lists change together. A check the model
+cannot fix opens the PR as a draft; a failed install, or a peer package outside
+the candidate that must move too, opens none. The flow only opens PRs; merging
+stays with a human.
+
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until
 `/api/health/deep` is green. Its env block mirrors the `env:` block of CI's e2e

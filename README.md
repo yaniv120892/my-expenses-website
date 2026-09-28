@@ -12,7 +12,7 @@ both the web UI and the API.
 
 ## Stack
 
-- **App**: Next.js 15 (App Router) + React 19 + MUI 7 + TanStack Query 5
+- **App**: Next.js 16 (App Router) + React 19 + MUI 7 + TanStack Query 5
 - **API**: Next.js route handlers under `src/app/api`, business logic in
   `src/server`
 - **Database**: PostgreSQL via Prisma (field-level encryption for sensitive

@@ -99,11 +99,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   are the only case today — is observed by polling: `useImportsQuery` sets a
   `refetchInterval` while any import is in flight and `false` otherwise (see
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
-- `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
+- `src/proxy.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`
   (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
-  permissions) and `poweredByHeader: false`; not middleware, whose matcher
+  permissions) and `poweredByHeader: false`; not the proxy, whose matcher
   skips static assets.
 
 ## Key invariants

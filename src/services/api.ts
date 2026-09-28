@@ -17,7 +17,7 @@ async function serverMessage(data: unknown): Promise<string | null> {
 
 let expiringSession: Promise<void> | null = null;
 
-// Middleware checks only the JWT, so a cookie whose server session is gone
+// The proxy checks only the JWT, so a cookie whose server session is gone
 // would bounce /login straight back into the app until it is cleared. Requests
 // that 401 together share the one logout and redirect.
 function expireSession(): Promise<void> {

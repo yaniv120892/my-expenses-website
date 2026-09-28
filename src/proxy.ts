@@ -40,7 +40,7 @@ function isCrossOrigin(req: NextRequest): boolean {
   }
 }
 
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export async function proxy(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   // CSRF defense-in-depth on top of SameSite=Lax cookies.

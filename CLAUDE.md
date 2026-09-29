@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant.
+Single Next.js 16 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant.
 
 One sibling service stays external and is reached over HTTP: `excel-extraction-service` (Express + Gemini, async webhook callbacks). Transaction categories come from a user's own description mapping first, then the AI provider.
 
@@ -99,11 +99,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   are the only case today — is observed by polling: `useImportsQuery` sets a
   `refetchInterval` while any import is in flight and `false` otherwise (see
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
-- `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
+- `src/proxy.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`
   (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
-  permissions) and `poweredByHeader: false`; not middleware, whose matcher
+  permissions) and `poweredByHeader: false`; not the proxy, whose matcher
   skips static assets.
 
 ## Key invariants

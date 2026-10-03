@@ -65,7 +65,7 @@
     "json2csv": "^6.0.0-alpha.2",
     "next": "16.3.6",
     "node-telegram-bot-api": "^2.1.0",
-    "nodemailer": "^10.0.10",
+    "nodemailer": "^10.0.14",
     "openai": "^4.82.0",
     "pg": "^8.16.0",
     "pino": "^10.3.1",

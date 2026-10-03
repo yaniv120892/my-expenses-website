@@ -67,7 +67,7 @@
     "node-telegram-bot-api": "^2.1.0",
     "nodemailer": "^10.0.10",
     "openai": "^4.82.0",
-    "pg": "^8.16.0",
+    "pg": "^8.23.1",
     "pino": "^10.3.1",
     "prisma-field-encryption": "^1.6.0",
     "react": "^19.0.0",

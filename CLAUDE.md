@@ -288,6 +288,16 @@ Functions run in `fra1` (`regions` in `vercel.json`), co-located with Neon and
 Upstash so each query and session read stays a same-region round trip. Moving
 either store's region moves this one with it.
 
+## Replies to the user
+
+Write chat replies in ASD-STE100 Simplified Technical English: short sentences,
+common words, one idea per sentence, active voice, simple tenses. Start with the
+current state and the next step, and name files and commands exactly. The user
+runs several sessions in parallel and comes back to each one cold. Commit
+messages, PR descriptions and this file keep their own style. The canonical rule
+is in `yaniv120892/claude-config`'s `shared-rules.md`, which a cloud session
+does not load.
+
 ## Documentation
 
 This file is the only design document. Per-feature plans, specs, and handover

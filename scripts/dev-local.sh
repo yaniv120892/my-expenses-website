@@ -144,16 +144,13 @@ start_local_database() {
       const fs = require("fs");
       const file = process.argv.slice(1).find((path) => fs.existsSync(path));
       const { exports: state } = require(file);
-      console.log(`${state.database.connectionString}&connection_limit=1`);
       console.log(state.database.connectionString);
     ' "${STATE_CANDIDATES[@]}" 2>/dev/null
   }
   wait_for 90 read_state >/dev/null ||
-    die 'prisma dev never published its connection URLs' "$PRISMA_LOG"
-  {
-    read -r DATABASE_URL
-    read -r DIRECT_URL
-  } < <(read_state)
+    die 'prisma dev never published its connection URL' "$PRISMA_LOG"
+  DIRECT_URL=$(read_state)
+  DATABASE_URL="$DIRECT_URL&connection_limit=1"
   export DATABASE_URL DIRECT_URL
 }
 

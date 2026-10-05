@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { fieldEncryptionExtension } from 'prisma-field-encryption';
 import fieldEncryptionDmmf from '@/generated/field-encryption/dmmf.json';
-
-// CI's test-only key, and a value it encrypted under Prisma 6 (the same pair
-// test/e2e-api/run.ts reads back from a real row).
-const TEST_KEY = 'k1.aesgcm256.oAsfUHjnw25v7kaFzQXGAG24LEhRlt8Ow6cjjc5s3bE=';
-const CIPHERTEXT_FROM_PRISMA_6 =
-  'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
-const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
+import {
+  CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
+  DIGITS_BEHIND_THAT_CIPHERTEXT,
+  TEST_ENCRYPTION_KEY,
+} from '@/test/encryptionFixture';
 
 type QueryParams = {
   model: string;
@@ -44,7 +42,7 @@ describe('field encryption on the generated client', () => {
       operation: 'findUnique',
       args: { where: { id: 'import-id' } },
       query: async () => ({
-        creditCardLastFourDigits: CIPHERTEXT_FROM_PRISMA_6,
+        creditCardLastFourDigits: CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
       }),
     });
 
@@ -73,7 +71,7 @@ describe('field encryption on the generated client', () => {
 // `$extends` exposes the query hook it would install.
 function allOperations(): AllOperations {
   const extension = fieldEncryptionExtension({
-    encryptionKey: TEST_KEY,
+    encryptionKey: TEST_ENCRYPTION_KEY,
     dmmf: fieldEncryptionDmmf,
   });
   let definition: unknown;

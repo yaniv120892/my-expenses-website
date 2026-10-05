@@ -6,6 +6,7 @@ describe('assertCoreEnv', () => {
   const DIRECT = 'ep-dry-flower-a2cf61nu.eu-central-1.aws.neon.tech';
 
   beforeEach(() => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
     vi.stubEnv('DIRECT_URL', `postgresql://user:pass@${DIRECT}/neondb`);
     vi.stubEnv('JWT_SECRET', 'secret');
     vi.stubEnv('REDIS_URL', 'https://redis.example');
@@ -31,13 +32,11 @@ describe('assertCoreEnv', () => {
   });
 
   it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
-    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
     expect(() => assertCoreEnv()).toThrow(/AI_CATEGORY_SUGGESTER/);
   });
 
   it('accepts AI_CATEGORY_SUGGESTER unset or empty, and jev with a key in any case', () => {
-    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
     vi.stubEnv('AI_GATEWAY_API_KEY', 'gateway-key');
     for (const value of [undefined, '', 'jev', 'JEV']) {
       vi.stubEnv('AI_CATEGORY_SUGGESTER', value);
@@ -46,7 +45,6 @@ describe('assertCoreEnv', () => {
   });
 
   it('rejects jev without either key, since the flag would then silently do nothing', () => {
-    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jev');
     vi.stubEnv('AI_GATEWAY_API_KEY', '');
     vi.stubEnv('TYPESAFE_AI_API_KEY', '');

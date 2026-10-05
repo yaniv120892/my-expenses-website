@@ -19,6 +19,10 @@ import {
 import { redisKeyPrefix } from '../../src/server/redis';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import { ImportStatus } from '../../src/shared/types/import';
+import {
+  CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
+  DIGITS_BEHIND_THAT_CIPHERTEXT,
+} from '../../src/test/encryptionFixture';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
@@ -631,13 +635,6 @@ async function waitForImportCompletion(
   }
   return found;
 }
-
-// Written by the field encryption before the client moved to `@prisma/client`.
-// Every other check writes and reads within one client, so only this one fails
-// when the ciphertext format or the key changes under rows already stored.
-const CIPHERTEXT_FROM_AN_EARLIER_CLIENT =
-  'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
-const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
 
 // The raw column read proves the value was encrypted, not stored as plaintext.
 async function importEncryptionFlow(token: string): Promise<void> {

@@ -89,7 +89,7 @@ describe('the app Prisma client', () => {
   });
 
   it('sizes the pool from connection_limit, which node-postgres ignores', async () => {
-    const url = `${POSTGRES_URL}${POSTGRES_URL.includes('?') ? '&' : '?'}connection_limit=1`;
+    const url = `${POSTGRES_URL}&connection_limit=1`;
     vi.stubEnv('DATABASE_URL', url);
     const { default: prisma } = await import('@/server/db/client');
     void prisma.$queryRaw;

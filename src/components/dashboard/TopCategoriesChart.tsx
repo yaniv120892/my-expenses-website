@@ -81,7 +81,12 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
           <Typography variant="h5" sx={{ mb: 2 }}>
             Top Categories
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             No expense data yet
           </Typography>
         </CardContent>
@@ -155,14 +160,16 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
               <Stack
                 key={cat.categoryId}
                 direction="row"
-                alignItems="center"
                 spacing={1}
                 onClick={
                   onSelectCategory
                     ? () => onSelectCategory(cat.categoryId)
                     : undefined
                 }
-                sx={onSelectCategory ? CLICKABLE_ROW_SX : undefined}
+                sx={{
+                  alignItems: 'center',
+                  ...(onSelectCategory ? CLICKABLE_ROW_SX : {}),
+                }}
               >
                 <Box
                   sx={{
@@ -179,7 +186,12 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {formatNumber(cat.amount)}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   ({cat.percentage.toFixed(1)}%)
                 </Typography>
                 <CategoryTrendIcon trend={cat.change.trend} />

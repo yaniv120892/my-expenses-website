@@ -78,21 +78,31 @@ export default function SubscriptionCard({
       >
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="flex-start"
           spacing={1}
-          sx={{ mb: 1 }}
+          sx={{
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: 1,
+          }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" fontWeight={700} noWrap>
+            <Typography
+              variant="subtitle1"
+              noWrap
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {subscription.displayName}
             </Typography>
             <Stack
               direction="row"
               spacing={1}
               useFlexGap
-              flexWrap="wrap"
-              sx={{ mt: 0.5 }}
+              sx={{
+                flexWrap: 'wrap',
+                mt: 0.5,
+              }}
             >
               <Chip
                 label={formatSubscriptionFrequency(subscription.frequency)}
@@ -119,17 +129,33 @@ export default function SubscriptionCard({
             </Stack>
           </Box>
           <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-            <Typography variant="h6" fontWeight={700}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {formatCurrency(subscription.averageAmount)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {formatCurrency(subscription.monthlyCost)}/mo ·{' '}
               {formatCurrency(subscription.annualCost)}/yr
             </Typography>
           </Box>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1,
+          }}
+        >
           Next expected: {nextDate}
         </Typography>
 
@@ -137,8 +163,11 @@ export default function SubscriptionCard({
           <Stack
             direction="row"
             spacing={0.75}
-            alignItems="center"
-            sx={{ mb: 1, color: 'success.main' }}
+            sx={{
+              alignItems: 'center',
+              mb: 1,
+              color: 'success.main',
+            }}
           >
             <EventRepeatIcon fontSize="small" />
             <Typography variant="body2">
@@ -153,13 +182,25 @@ export default function SubscriptionCard({
           <Box sx={{ mb: 1.5 }}>
             <Stack
               direction="row"
-              justifyContent="space-between"
-              sx={{ mb: 0.5 }}
+              sx={{
+                justifyContent: 'space-between',
+                mb: 0.5,
+              }}
             >
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Confidence
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {Math.round(subscription.confidence * 100)}%
               </Typography>
             </Stack>
@@ -175,8 +216,11 @@ export default function SubscriptionCard({
           direction="row"
           spacing={1}
           useFlexGap
-          flexWrap="wrap"
-          sx={{ mt: 'auto', pt: 1 }}
+          sx={{
+            flexWrap: 'wrap',
+            mt: 'auto',
+            pt: 1,
+          }}
         >
           {subscription.status === 'DETECTED' && (
             <>

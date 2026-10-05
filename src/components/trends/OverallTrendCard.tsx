@@ -49,7 +49,13 @@ export const OverallTrendCard = ({
     return (
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              textAlign: 'center',
+            }}
+          >
             No transactions found for selected period and category
           </Typography>
         </CardContent>
@@ -78,7 +84,12 @@ export const OverallTrendCard = ({
           }}
         >
           <Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Total {typeLabel}
             </Typography>
             <Typography variant="h4">
@@ -86,12 +97,20 @@ export const OverallTrendCard = ({
             </Typography>
           </Box>
           <Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Change from Previous Period
             </Typography>
             <Typography
               variant="h4"
-              color={trend.percentageChange > 0 ? 'error.main' : 'success.main'}
+              sx={{
+                color:
+                  trend.percentageChange > 0 ? 'error.main' : 'success.main',
+              }}
             >
               {trend.percentageChange > 0 ? '+' : ''}
               {trend.percentageChange.toFixed(1)}%

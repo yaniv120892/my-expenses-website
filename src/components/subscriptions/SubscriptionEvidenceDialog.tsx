@@ -37,10 +37,20 @@ interface Props {
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={600}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {value}
       </Typography>
     </Box>
@@ -126,7 +136,14 @@ export default function SubscriptionEvidenceDialog({
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Matching descriptions
                 </Typography>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  useFlexGap
+                  sx={{
+                    flexWrap: 'wrap',
+                  }}
+                >
                   {subscription.matchingDescriptions.map((description) => (
                     <Chip key={description} label={description} size="small" />
                   ))}
@@ -170,8 +187,11 @@ export default function SubscriptionEvidenceDialog({
                 {evidence.olderChargeCount > 0 && (
                   <Typography
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 1, display: 'block' }}
+                    sx={{
+                      color: 'text.secondary',
+                      mt: 1,
+                      display: 'block',
+                    }}
                   >
                     {evidence.olderChargeCount} older charge
                     {evidence.olderChargeCount > 1 ? 's' : ''} also matched.

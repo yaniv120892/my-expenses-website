@@ -42,7 +42,6 @@ function ClosableDialog({
     <Dialog
       open={open}
       onClose={busy ? undefined : onClose}
-      disableEscapeKeyDown={busy}
       maxWidth={maxWidth}
       fullWidth
       fullScreen={fullScreen}

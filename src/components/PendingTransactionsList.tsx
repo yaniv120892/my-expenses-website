@@ -115,13 +115,24 @@ export default function PendingTransactionsList({
                     <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
                       {tx.description}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {tx.category?.name}
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                     <AmountText type={tx.type} value={tx.value} />
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {formatTransactionDate(tx.date)}
                     </Typography>
                   </Box>
@@ -209,7 +220,11 @@ export default function PendingTransactionsList({
               {selectedTransaction.description}
             </DialogTitle>
             <DialogContent>
-              <Typography color="text.secondary">
+              <Typography
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Approve or delete this transaction?
               </Typography>
             </DialogContent>

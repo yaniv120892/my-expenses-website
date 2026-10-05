@@ -32,9 +32,9 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { Import, ImportStatus } from '../types/import';
 import { useIsMobile } from '../hooks/useBreakpoints';
@@ -80,7 +80,13 @@ function RowActions({
   isRematching,
 }: RowActionsProps) {
   return (
-    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+    <Stack
+      direction="row"
+      spacing={0.5}
+      sx={{
+        justifyContent: 'flex-end',
+      }}
+    >
       {importItem.status === ImportStatus.COMPLETED &&
         !importItem.isVerified && (
           <IconButton
@@ -106,7 +112,7 @@ function RowActions({
           onDeleteClick(importItem);
         }}
       >
-        <DeleteOutlineIcon fontSize="small" />
+        <DeleteOutlinedIcon fontSize="small" />
       </IconButton>
     </Stack>
   );
@@ -124,7 +130,12 @@ function ExpandedContent({ importItem }: { importItem: Import }) {
         </Typography>
       )}
       {importItem.status === ImportStatus.MERGED && (
-        <Typography color="text.secondary" variant="body2">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           Duplicate of an earlier import for the same card and month. Its new
           rows were moved into {importItem.mergedIntoFileName ?? 'that import'}{' '}
           and are reconciled there.
@@ -248,9 +259,11 @@ export default function ImportList({
       direction="row"
       spacing={1.5}
       useFlexGap
-      flexWrap="wrap"
-      alignItems="center"
-      sx={{ mb: 2 }}
+      sx={{
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        mb: 2,
+      }}
     >
       <FormControl size="small" sx={{ minWidth: 130 }}>
         <InputLabel>Status</InputLabel>
@@ -352,26 +365,37 @@ export default function ImportList({
                 >
                   <Stack
                     direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
                     spacing={1}
+                    sx={{
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
                   >
                     <Box sx={{ minWidth: 0 }}>
                       <Typography
                         variant="body2"
-                        fontWeight={600}
-                        sx={{ wordBreak: 'break-all' }}
+                        sx={{
+                          fontWeight: 600,
+                          wordBreak: 'break-all',
+                        }}
                       >
                         {importItem.originalFileName}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         Card: {importItem.creditCardLastFourDigits || 'N/A'}{' '}
                         &bull; Month: {importItem.paymentMonth || 'N/A'}
                       </Typography>
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        display="block"
+                        sx={{
+                          color: 'text.secondary',
+                          display: 'block',
+                        }}
                       >
                         Created: {formatDate(importItem.createdAt, true)} &bull;
                         Updated: {formatDate(importItem.updatedAt, true)}
@@ -385,9 +409,11 @@ export default function ImportList({
                   </Stack>
                   <Stack
                     direction="row"
-                    alignItems="center"
                     spacing={1}
-                    sx={{ mt: 1 }}
+                    sx={{
+                      alignItems: 'center',
+                      mt: 1,
+                    }}
                   >
                     <Chip
                       label={importItem.status}
@@ -395,7 +421,7 @@ export default function ImportList({
                       size="small"
                     />
                     {importItem.isVerified ? (
-                      <CheckCircleOutlineIcon
+                      <CheckCircleOutlinedIcon
                         color="success"
                         fontSize="small"
                       />
@@ -422,7 +448,13 @@ export default function ImportList({
             );
           })}
           {filteredImports.length === 0 && (
-            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+            <Typography
+              align="center"
+              sx={{
+                color: 'text.secondary',
+                py: 4,
+              }}
+            >
               No imports match the selected filters.
             </Typography>
           )}
@@ -528,7 +560,7 @@ export default function ImportList({
                     </TableCell>
                     <TableCell align="center">
                       {importItem.isVerified ? (
-                        <CheckCircleOutlineIcon
+                        <CheckCircleOutlinedIcon
                           color="success"
                           fontSize="small"
                         />
@@ -566,7 +598,11 @@ export default function ImportList({
             {filteredImports.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
+                  <Typography
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     No imports match the selected filters.
                   </Typography>
                 </TableCell>

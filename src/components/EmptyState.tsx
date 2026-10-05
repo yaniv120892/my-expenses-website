@@ -18,15 +18,24 @@ export default function EmptyState({
   return (
     <Fade in>
       <Stack
-        alignItems="center"
-        justifyContent="center"
         spacing={1.5}
-        sx={{ minHeight: 200, textAlign: 'center', px: 2 }}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 200,
+          textAlign: 'center',
+          px: 2,
+        }}
       >
         {icon || (
           <InfoOutlinedIcon sx={{ fontSize: 44, color: 'text.secondary' }} />
         )}
-        <Typography color="text.secondary" sx={{ fontWeight: 500 }}>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+            fontWeight: 500,
+          }}
+        >
           {message}
         </Typography>
         {actionLabel && onAction && (

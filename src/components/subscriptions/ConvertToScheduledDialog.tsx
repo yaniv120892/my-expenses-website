@@ -62,12 +62,19 @@ export default function ConvertToScheduledDialog({
             <Box sx={{ mb: 2, mt: 1 }}>
               <Typography
                 variant="body2"
-                color="text.secondary"
-                sx={{ mb: 0.5 }}
+                sx={{
+                  color: 'text.secondary',
+                  mb: 0.5,
+                }}
               >
                 Description
               </Typography>
-              <Typography variant="body1" fontWeight={600}>
+              <Typography
+                variant="body1"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {subscription.displayName}
               </Typography>
             </Box>
@@ -75,24 +82,38 @@ export default function ConvertToScheduledDialog({
               <Box>
                 <Typography
                   variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 0.5 }}
+                  sx={{
+                    color: 'text.secondary',
+                    mb: 0.5,
+                  }}
                 >
                   Amount
                 </Typography>
-                <Typography variant="body1" fontWeight={600}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 600,
+                  }}
+                >
                   {formatCurrency(subscription.averageAmount)}
                 </Typography>
               </Box>
               <Box>
                 <Typography
                   variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 0.5 }}
+                  sx={{
+                    color: 'text.secondary',
+                    mb: 0.5,
+                  }}
                 >
                   Frequency
                 </Typography>
-                <Typography variant="body1" fontWeight={600}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 600,
+                  }}
+                >
                   {subscription.frequency}
                 </Typography>
               </Box>

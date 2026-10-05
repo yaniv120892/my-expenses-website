@@ -72,13 +72,21 @@ export default function ScheduledTransactionList({
                   <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
                     {tx.description}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap>
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {getCategoryName(tx.categoryId, categories)}
                   </Typography>
                   <Typography
                     variant="caption"
-                    color="text.secondary"
                     component="div"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
                   >
                     {translateToScheduleSummary(
                       tx.scheduleType,
@@ -90,7 +98,12 @@ export default function ScheduledTransactionList({
                 </Box>
                 <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                   <AmountText type={tx.type} value={tx.value} />
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {tx.nextRunDate
                       ? formatTransactionDate(tx.nextRunDate)
                       : 'N/A'}

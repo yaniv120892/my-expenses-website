@@ -10,7 +10,7 @@ type Props = {
   value: number;
   type: TransactionType;
   variant?: TypographyProps['variant'];
-  fontWeight?: TypographyProps['fontWeight'];
+  fontWeight?: React.CSSProperties['fontWeight'];
   /** 'signed' renders a plain number prefixed with + or - instead of a currency amount. */
   format?: 'currency' | 'signed';
 };

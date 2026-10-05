@@ -31,11 +31,13 @@ export default function ChatEmptyState({ onSelectPrompt }: Props) {
       />
       <Stack
         direction="row"
-        flexWrap="wrap"
         useFlexGap
         spacing={1}
-        justifyContent="center"
-        sx={{ px: 2 }}
+        sx={{
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          px: 2,
+        }}
       >
         {SUGGESTED_PROMPTS.map((prompt) => (
           <Chip

@@ -43,10 +43,12 @@ export const TransactionFiltersDisplay = ({
   return (
     <Stack
       direction="row"
-      alignItems="center"
-      flexWrap="wrap"
       useFlexGap
       spacing={1}
+      sx={{
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
     >
       <Button
         variant="outlined"

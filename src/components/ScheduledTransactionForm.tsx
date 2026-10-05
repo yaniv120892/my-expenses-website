@@ -221,7 +221,6 @@ export default function ScheduledTransactionForm({
         onClose={busy ? undefined : onCloseAction}
         fullWidth
         fullScreen={fullScreen}
-        disableEscapeKeyDown={busy}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
           {initialData

@@ -72,7 +72,12 @@ export const CategoryTrendCard = ({
               sx={{ display: 'flex', gap: { xs: 3, md: 6 }, flexWrap: 'wrap' }}
             >
               <Box>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   Total {typeLabel}
                 </Typography>
                 <Typography variant="h5">
@@ -80,14 +85,22 @@ export const CategoryTrendCard = ({
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   Change from Previous Period
                 </Typography>
                 <Typography
                   variant="h5"
-                  color={
-                    trend.percentageChange > 0 ? 'error.main' : 'success.main'
-                  }
+                  sx={{
+                    color:
+                      trend.percentageChange > 0
+                        ? 'error.main'
+                        : 'success.main',
+                  }}
                 >
                   {trend.percentageChange > 0 ? '+' : ''}
                   {trend.percentageChange.toFixed(1)}%

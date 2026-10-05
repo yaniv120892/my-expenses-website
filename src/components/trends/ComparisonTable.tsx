@@ -59,9 +59,11 @@ export function ComparisonTable({ comparison, measure }: Props) {
           <Paper key={bucket.key} variant="outlined" sx={{ p: 1.5 }}>
             <Stack
               direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ mb: 1 }}
+              sx={{
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 1,
+              }}
             >
               <Typography variant="subtitle2">
                 {formatBucketLabel(bucket, comparison.period)}
@@ -75,8 +77,10 @@ export function ComparisonTable({ comparison, measure }: Props) {
                 <Stack
                   key={series.categoryId}
                   direction="row"
-                  alignItems="center"
                   spacing={1}
+                  sx={{
+                    alignItems: 'center',
+                  }}
                 >
                   <SeriesDot color={seriesColor(index, seriesColors)} />
                   <Typography variant="body2" sx={{ flex: 1 }} noWrap>

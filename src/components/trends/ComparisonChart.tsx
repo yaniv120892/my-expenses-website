@@ -59,7 +59,9 @@ function ChartTooltip({
             key={entry.name}
             direction="row"
             spacing={1}
-            alignItems="center"
+            sx={{
+              alignItems: 'center',
+            }}
           >
             <Box
               sx={{

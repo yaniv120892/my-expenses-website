@@ -31,7 +31,13 @@ function SpendingBar({
 }) {
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: 'space-between',
+          mb: 0.5,
+        }}
+      >
         <Typography variant="body2">{label}</Typography>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {formatNumber(value)}
@@ -77,7 +83,13 @@ export function MonthHighlights({ comparison, categories }: Props) {
           Month Highlights
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1,
+          }}
+        >
           Spending Comparison
         </Typography>
         <Stack spacing={1.5} sx={{ mb: 2.5 }}>
@@ -97,7 +109,12 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestIncrease && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Biggest Increase
             </Typography>
             <Typography
@@ -112,7 +129,12 @@ export function MonthHighlights({ comparison, categories }: Props) {
 
         {biggestDecrease && (
           <Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Biggest Decrease
             </Typography>
             <Typography

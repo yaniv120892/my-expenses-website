@@ -222,8 +222,11 @@ function TransactionsPageContent() {
             {summary && summary.count > 0 && (
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mb: 1 }}
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 1,
+                }}
               >
                 {`Showing ${transactions.length} of ${summary.count}`}
               </Typography>

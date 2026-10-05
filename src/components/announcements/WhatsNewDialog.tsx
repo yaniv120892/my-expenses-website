@@ -54,7 +54,13 @@ function ItemRow({
   const Icon = ICONS[item.icon];
 
   return (
-    <Stack direction="row" spacing={1.75} alignItems="flex-start">
+    <Stack
+      direction="row"
+      spacing={1.75}
+      sx={{
+        alignItems: 'flex-start',
+      }}
+    >
       <Box
         sx={(theme) => ({
           flexShrink: 0,
@@ -74,15 +80,28 @@ function ItemRow({
         <Stack
           direction="row"
           spacing={1}
-          alignItems="center"
-          sx={{ flexWrap: 'wrap' }}
+          sx={{
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
         >
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {item.headline}
           </Typography>
           {item.tag && <Chip label={item.tag} size="small" color="primary" />}
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 0.25,
+          }}
+        >
           {item.body}
         </Typography>
         {item.cta && (
@@ -122,13 +141,12 @@ export default function WhatsNewDialog({
   return (
     <Dialog
       open={open}
-      onClose={(_, reason) => {
-        if (requireAcknowledgement && reason === 'backdropClick') {
+      onClose={() => {
+        if (requireAcknowledgement) {
           return;
         }
         onClose();
       }}
-      disableEscapeKeyDown={requireAcknowledgement}
       maxWidth="sm"
       fullWidth
       fullScreen={fullScreen}
@@ -146,7 +164,12 @@ export default function WhatsNewDialog({
                   {announcement.title}
                 </Typography>
               )}
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {announcement.hook}
               </Typography>
               <Stack spacing={2.5}>

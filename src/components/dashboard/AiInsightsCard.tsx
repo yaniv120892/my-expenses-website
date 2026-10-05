@@ -66,9 +66,11 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
                   </ListItemIcon>
                   <ListItemText
                     primary={insight}
-                    primaryTypographyProps={{
-                      variant: 'body2',
-                      color: 'text.primary',
+                    slotProps={{
+                      primary: {
+                        variant: 'body2',
+                        sx: { color: 'text.primary' },
+                      },
                     }}
                   />
                 </ListItem>
@@ -83,7 +85,12 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
                   bgcolor: 'action.selected',
                 }}
               >
-                <Typography variant="body2" color="text.primary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.primary',
+                  }}
+                >
                   {insights.summary}
                 </Typography>
               </Box>

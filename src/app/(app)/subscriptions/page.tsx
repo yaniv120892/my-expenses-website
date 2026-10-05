@@ -63,7 +63,12 @@ function StatTile({
 }) {
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="h3" sx={{ mt: 0.5, color: valueColor }}>
@@ -180,9 +185,11 @@ export default function SubscriptionsPage() {
           <Stack
             direction={{ xs: 'column', md: 'row' }}
             spacing={2}
-            alignItems={{ md: 'flex-end' }}
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
+            sx={{
+              alignItems: { md: 'flex-end' },
+              justifyContent: 'space-between',
+              mb: 2,
+            }}
           >
             <Tabs
               value={filterTab}

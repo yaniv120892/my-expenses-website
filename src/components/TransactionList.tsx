@@ -44,13 +44,24 @@ function MobileRow({
         <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
           {transaction.description}
         </Typography>
-        <Typography variant="caption" color="text.secondary" noWrap>
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {transaction.category?.name}
         </Typography>
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         <AmountText type={transaction.type} value={transaction.value} />
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {formatTransactionDate(transaction.date)}
         </Typography>
       </Box>

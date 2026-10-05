@@ -100,7 +100,13 @@ export default function AutoApproveRuleManager() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" p={2}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          p: 2,
+        }}
+      >
         <CircularProgress size={24} />
       </Box>
     );
@@ -129,7 +135,13 @@ export default function AutoApproveRuleManager() {
       </Box>
 
       {rules.length === 0 ? (
-        <Typography color="text.secondary" align="center" py={2}>
+        <Typography
+          align="center"
+          sx={{
+            color: 'text.secondary',
+            py: 2,
+          }}
+        >
           No auto-approve rules yet. Create one to automatically approve
           matching imported transactions.
         </Typography>

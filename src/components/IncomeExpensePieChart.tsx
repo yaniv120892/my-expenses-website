@@ -84,7 +84,13 @@ export default function IncomeExpensePieChart({
           {title}
         </Typography>
       )}
-      <Stack direction="row" alignItems="center" spacing={3}>
+      <Stack
+        direction="row"
+        spacing={3}
+        sx={{
+          alignItems: 'center',
+        }}
+      >
         {loading ? (
           <>
             <Skeleton variant="circular" width={130} height={130} />
@@ -95,7 +101,12 @@ export default function IncomeExpensePieChart({
             </Stack>
           </>
         ) : error ? (
-          <Typography color="error.main" variant="body2">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'error.main',
+            }}
+          >
             Failed to load summary
           </Typography>
         ) : (
@@ -145,7 +156,12 @@ export default function IncomeExpensePieChart({
               </ResponsiveContainer>
             </Box>
             <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Income:{' '}
                 <Box
                   component="span"
@@ -154,7 +170,12 @@ export default function IncomeExpensePieChart({
                   {formatCurrency(income)}
                 </Box>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Expenses:{' '}
                 <Box
                   component="span"

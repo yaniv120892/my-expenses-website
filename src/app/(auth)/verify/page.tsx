@@ -32,7 +32,12 @@ function VerifyForm() {
       <Typography variant="h3" component="h2">
         Verify your email
       </Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         Enter the 6-digit code we sent to your email. It expires in 10 minutes.
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}

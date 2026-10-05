@@ -164,9 +164,9 @@ export const TrendFiltersDialog = ({
           isSelectionFull && !comparisonCategoryIds.includes(option.id)
         }
         limitTags={3}
-        renderTags={(value, getTagProps) =>
+        renderValue={(value, getItemProps) =>
           value.map((category, index) => {
-            const { key, ...tagProps } = getTagProps({ index });
+            const { key, ...tagProps } = getItemProps({ index });
             return (
               <Chip
                 {...tagProps}

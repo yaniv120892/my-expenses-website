@@ -143,8 +143,10 @@ export default function EditSubscriptionDialog({
               helperText={
                 amountError ? 'Enter an amount greater than zero' : undefined
               }
-              inputProps={{ min: 0, step: '0.01' }}
               fullWidth
+              slotProps={{
+                htmlInput: { min: 0, step: '0.01' },
+              }}
             />
             <TextField
               select
@@ -171,16 +173,20 @@ export default function EditSubscriptionDialog({
               type="date"
               value={form.lastChargeDate}
               onChange={(e) => set('lastChargeDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
               fullWidth
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
             />
             <TextField
               label="Next expected"
               type="date"
               value={form.nextExpectedDate}
               onChange={(e) => set('nextExpectedDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
               fullWidth
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
             />
           </Stack>
           <CategorySelect
@@ -188,7 +194,12 @@ export default function EditSubscriptionDialog({
             onChange={(value) => set('categoryId', value)}
           />
           {!amountError && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Costs{' '}
               {formatCurrency(toMonthlyAmount(parsedAmount, form.frequency))}
               /month ·{' '}

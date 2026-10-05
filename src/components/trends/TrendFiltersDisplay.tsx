@@ -81,9 +81,11 @@ export const TrendFiltersDisplay = ({
     <Stack
       direction="row"
       spacing={1}
-      flexWrap="wrap"
       useFlexGap
-      sx={{ mb: 2 }}
+      sx={{
+        flexWrap: 'wrap',
+        mb: 2,
+      }}
     >
       {labels.map((label) => (
         <Chip

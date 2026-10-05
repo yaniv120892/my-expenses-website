@@ -259,7 +259,6 @@ export default function TransactionForm({
         onClose={busy ? undefined : onCloseAction}
         fullWidth
         fullScreen={fullScreen}
-        disableEscapeKeyDown={busy}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>{getDialogTitle()}</DialogTitle>
         <DialogContent>

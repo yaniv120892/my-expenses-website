@@ -82,7 +82,13 @@ export default function BatchProgressIndicator({
             <Collapse in={showErrors}>
               <Box sx={{ mt: 1 }}>
                 {result.errors.map((err, i) => (
-                  <Typography key={i} variant="caption" display="block">
+                  <Typography
+                    key={i}
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                    }}
+                  >
                     {err.id}: {err.error}
                   </Typography>
                 ))}

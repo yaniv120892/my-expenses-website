@@ -12,7 +12,7 @@ both the web UI and the API.
 
 ## Stack
 
-- **App**: Next.js 15 (App Router) + React 19 + MUI 7 + TanStack Query 5
+- **App**: Next.js 16 (App Router) + React 19 + MUI 7 + TanStack Query 5
 - **API**: Next.js route handlers under `src/app/api`, business logic in
   `src/server`
 - **Database**: PostgreSQL via Prisma (field-level encryption for sensitive
@@ -177,7 +177,7 @@ Each probe gives up after 5s, so a blackholed dependency still returns the 503
 naming it rather than a bodiless platform timeout.
 
 That 404 only covers typos _after_ the `/api/` prefix. A URL that drops the
-prefix — `/health/deep` — misses the `/api/` branch in `src/middleware.ts`,
+prefix — `/health/deep` — misses the `/api/` branch in `src/proxy.ts`,
 redirects to `/login`, and a redirect-following monitor records that page's 200. **Configure the deep monitor to require the string `checks` in the
 response body**, which no other page returns; that is what makes a
 wrong-URL failure visible regardless of how it is wrong.

@@ -37,6 +37,7 @@ import {
 import type { Transaction } from '@/shared/types/transaction';
 import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
+import { isCardHoldingFee } from '@/shared/cardFees';
 
 // The imported row's update is scoped to PENDING, so a miss on it means a
 // concurrent approve, merge, ignore or delete got there first.
@@ -443,6 +444,7 @@ class ImportService {
     return plan.map((item) => ({
       ...item,
       reviewHint: deriveReviewHint(item, candidates),
+      cardHoldingFee: isCardHoldingFee(item.description),
     }));
   }
 

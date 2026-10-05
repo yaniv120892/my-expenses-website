@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Single Next.js 15 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant.
+Single Next.js 16 (App Router) application serving both the frontend and the backend of an expense management system with AI-powered categorization and a chat assistant.
 
 One sibling service stays external and is reached over HTTP: `excel-extraction-service` (Express + Gemini, async webhook callbacks). Transaction categories come from a user's own description mapping first, then the AI provider.
 
@@ -77,7 +77,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   bound to the import it was submitted for),
   `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
   import would do, writing nothing, each row with a `reviewHint` naming a
-  close call), `/api/imports/[importId]` (GET; one
+  close call and a `cardHoldingFee` flag marking the issuer's monthly charge
+  for holding the card — recognized from the description alone by
+  `src/shared/cardFees.ts`, with no model call and no extra query. It is its
+  own field rather than a hint reason because it never bears on the
+  MERGE/CREATE decision), `/api/imports/[importId]` (GET; one
   import with its pending count and, when merged, the import it merged into),
   `/api/auth/*` (cookie handling), `/api/health` (liveness only — touches no
   dependency, so Neon can scale to zero) and `/api/health/deep` (polled at
@@ -99,11 +103,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   are the only case today — is observed by polling: `useImportsQuery` sets a
   `refetchInterval` while any import is in flight and `false` otherwise (see
   `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
-- `src/middleware.ts` — page-level auth (verifies the `session` cookie JWT,
+- `src/proxy.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`
   (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
-  permissions) and `poweredByHeader: false`; not middleware, whose matcher
+  permissions) and `poweredByHeader: false`; not the proxy, whose matcher
   skips static assets.
 
 ## Key invariants

@@ -68,7 +68,7 @@
     "nodemailer": "^10.0.14",
     "openai": "^4.82.0",
     "pg": "^8.23.1",
-    "pino": "^10.3.1",
+    "pino": "^10.4.0",
     "prisma-field-encryption": "^1.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

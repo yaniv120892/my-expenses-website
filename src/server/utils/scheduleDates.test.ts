@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ScheduleType } from '@prisma/client';
+import { ScheduleType } from '@/generated/prisma/client';
 import { calculateNextRunDate } from '@/server/utils/scheduleDates';
 
 const wedAug12 = new Date(2026, 7, 12, 15, 30, 45);

@@ -9,7 +9,7 @@ import {
 import logger from '@/server/logging/logger';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import categoryRepository from '@/server/repositories/categoryRepository';
-import { TransactionStatus, TransactionType } from '@prisma/client';
+import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
 import { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';

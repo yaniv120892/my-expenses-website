@@ -1,4 +1,4 @@
-import { SubscriptionFrequency } from '@prisma/client';
+import { SubscriptionFrequency } from '@/generated/prisma/client';
 import {
   SubscriptionDetectionEvidence,
   SubscriptionEvidenceCharge,

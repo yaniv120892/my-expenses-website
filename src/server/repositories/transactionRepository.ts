@@ -4,7 +4,7 @@ import {
   Transaction as PrismaTransaction,
   TransactionFile as PrismaTransactionFile,
   Category as PrismaCategory,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   type MatchableCharge,

@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@/generated/prisma/client';
 import { hash } from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
@@ -21,15 +22,11 @@ export interface SeedResult {
 }
 
 // Deliberately carries no encryption extension, so what it writes is whatever
-// it was handed. `pgbouncer=true` disables prepared statements for pooled
-// hosts.
+// it was handed.
 function directClient(): PrismaClient {
-  const base = process.env.DIRECT_URL || '';
-  const url = base.includes('pgbouncer=true')
-    ? base
-    : `${base}${base.includes('?') ? '&' : '?'}pgbouncer=true`;
-
-  return new PrismaClient({ datasources: { db: { url } } });
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL || '' }),
+  });
 }
 
 function mintToken(userId: string, expiresIn = '1h'): Promise<string> {

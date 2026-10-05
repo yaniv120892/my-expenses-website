@@ -5,7 +5,7 @@ import {
   ImportStatus,
   ImportBankSourceType,
   ImportedTransactionStatus,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export type ImportWithPendingCount = Import & {

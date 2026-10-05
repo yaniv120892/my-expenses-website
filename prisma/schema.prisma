@@ -1,11 +1,15 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+generator fieldEncryptionDmmf {
+  provider = "node --import tsx ./prisma/generators/fieldEncryptionDmmf.ts"
+  output   = "../src/generated/field-encryption"
 }
 
 enum TransactionType {

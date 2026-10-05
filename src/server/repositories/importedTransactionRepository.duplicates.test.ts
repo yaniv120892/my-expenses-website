@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TransactionType } from '@prisma/client';
+import { TransactionType } from '@/generated/prisma/client';
 import { selectNonDuplicateRows } from '@/server/repositories/importedTransactionRepository';
 
 const row = (

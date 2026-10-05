@@ -1,5 +1,5 @@
 import { TransactionType, TransactionStatus } from '@/shared/types/transaction';
-import { ScheduleType } from '@prisma/client';
+import { ScheduleType } from '@/generated/prisma/client';
 
 export interface CreateTransactionDbModel {
   description: string;

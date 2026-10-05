@@ -4,7 +4,7 @@ import {
   TransactionType,
   TransactionStatus,
   ImportedTransactionStatus,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import logger from '@/server/logging/logger';
 import { getErrorMessage } from '@/server/utils/errorUtils';
 import {

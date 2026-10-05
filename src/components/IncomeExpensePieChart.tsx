@@ -10,7 +10,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import type { TooltipProps } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { formatCurrency } from '@/utils/format';
 import { TransactionType } from '@/types';
 import { CLICKABLE_SLICE_SX } from '@/components/chartStyles';
@@ -41,7 +41,7 @@ const UNSELECTED_SLICE_OPACITY = 0.3;
 function ChartTooltip({
   active,
   payload,
-}: Pick<TooltipProps<number, string>, 'active' | 'payload'>) {
+}: Pick<TooltipContentProps<number, string>, 'active' | 'payload'>) {
   if (!active || !payload || !payload.length) {
     return null;
   }
@@ -140,7 +140,7 @@ export default function IncomeExpensePieChart({
                       />
                     ))}
                   </Pie>
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={ChartTooltip} />
                 </PieChart>
               </ResponsiveContainer>
             </Box>

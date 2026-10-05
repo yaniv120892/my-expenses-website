@@ -115,8 +115,8 @@ export const OverallTrendCard = ({
                 width={48}
               />
               <Tooltip
-                labelFormatter={(date) => formatTrendDate(date, period)}
-                formatter={(value: number) => [formatCurrency(value), 'Amount']}
+                labelFormatter={(date) => formatTrendDate(String(date), period)}
+                formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
                 contentStyle={{
                   backgroundColor: palette.background.paper,
                   border: `1px solid ${palette.divider}`,

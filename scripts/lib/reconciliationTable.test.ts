@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { ReconciliationPreviewItem } from '../../src/shared/types/import';
-import { describePlanItem, reviewReminder } from './reconciliationTable';
+import {
+  cardFeeNotice,
+  describePlanItem,
+  reviewReminder,
+} from './reconciliationTable';
 
 const counterpart = {
   transactionId: 'tx-1',
@@ -22,6 +26,7 @@ const item = (
   categoryId: null,
   match: null,
   reviewHint: null,
+  cardHoldingFee: false,
   ...over,
 });
 
@@ -128,6 +133,46 @@ describe('reviewReminder', () => {
 
     expect(reviewReminder([flagged, merge(), flagged])).toBe(
       '2 row(s) marked CREATE? or MERGE? above are close calls; review them before confirming.',
+    );
+  });
+});
+
+describe('cardFeeNotice', () => {
+  it('says nothing when the plan holds no fee row', () => {
+    expect(cardFeeNotice([item(), merge()])).toBeNull();
+  });
+
+  it('says nothing for a server that sends no cardHoldingFee', () => {
+    const { cardHoldingFee: _omitted, ...withoutFlag } = item();
+
+    expect(
+      cardFeeNotice([withoutFlag as ReconciliationPreviewItem]),
+    ).toBeNull();
+  });
+
+  it('lists each fee row with its date, amount and description', () => {
+    const fees = [
+      item({
+        description: 'דמי כרטיס /הנפקה',
+        value: 22.9,
+        date: new Date(2026, 5, 2),
+        cardHoldingFee: true,
+      }),
+      item(),
+      merge({
+        description: 'דמי כרטיס',
+        value: 17.9,
+        date: new Date(2026, 5, 5),
+        cardHoldingFee: true,
+      }),
+    ];
+
+    expect(cardFeeNotice(fees)).toBe(
+      [
+        '2 row(s) are charges for holding the card, not spending; they can be cancelled by phoning the issuer:',
+        '  2026-06-02      22.90  דמי כרטיס /הנפקה',
+        '  2026-06-05      17.90  דמי כרטיס',
+      ].join('\n'),
     );
   });
 });

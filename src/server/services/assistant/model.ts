@@ -11,16 +11,13 @@ function modelId(fallback: ModelRouterId): ModelRouterId {
 }
 
 /**
- * Resolves the assistant model from the same AI_PROVIDER switch used by
- * aiServiceFactory. The API key is passed explicitly so the existing
- * GEMINI_API_KEY name keeps working, and stays a raw optional read — not
- * requireEnv — because the e2e harness points ASSISTANT_MODEL_URL at a mock
- * that needs no real key.
+ * The key is passed explicitly so the GEMINI_API_KEY name keeps working, and
+ * read optionally rather than via requireEnv because the e2e mock at
+ * ASSISTANT_MODEL_URL needs no key.
  */
 export function getAssistantModel(): MastraModelConfig {
   const provider = process.env.AI_PROVIDER?.toLowerCase();
 
-  // Optional OpenAI-compatible base URL; the e2e tests point this at a mock.
   const url = process.env.ASSISTANT_MODEL_URL;
   const baseUrl = url ? { url } : {};
 

@@ -50,6 +50,23 @@ class ScheduledTransactionRepository {
     return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
   }
 
+  /**
+   * Advances only if nextRunDate is still the value the caller read, so of two
+   * overlapping runs exactly one claims the occurrence.
+   */
+  public async claimDueRun(
+    id: string,
+    readNextRunDate: Date | null,
+    lastRunDate: Date,
+    nextRunDate: Date,
+  ): Promise<boolean> {
+    const { count } = await prisma.scheduledTransaction.updateMany({
+      where: { id, nextRunDate: readNextRunDate },
+      data: { lastRunDate, nextRunDate },
+    });
+    return count > 0;
+  }
+
   public async updateLastRunAndNextRun(
     id: string,
     lastRunDate: Date | null,

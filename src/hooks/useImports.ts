@@ -1,5 +1,10 @@
 import { useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  QueryClient,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
 import { CreateTransactionInput } from '@/types';
@@ -25,9 +30,8 @@ export const useImportsQuery = () => {
   return useQuery<Import[]>({
     queryKey: importKeys.lists(),
     queryFn: () => importService.getImports(),
-    // Extraction completes on a webhook, so an in-flight import only changes
-    // server-side. staleTime overrides the global 60s so mount and focus
-    // refetches are not served a stale status from cache.
+    // Overrides the global 60s: extraction completes on a webhook, so a cached
+    // status goes stale without the client doing anything.
     staleTime: 0,
     refetchInterval: (query) => {
       if (!hasActiveImports(query.state.data)) {
@@ -57,9 +61,7 @@ export const useApproveImportedTransactionMutation = (importId: string) => {
     mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
       importService.approveImportedTransaction(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -72,9 +74,7 @@ export const useIgnoreImportedTransactionMutation = (importId: string) => {
     mutationFn: (transactionId: string) =>
       importService.ignoreImportedTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
     },
   });
 };
@@ -86,9 +86,7 @@ export const useMergeImportedTransactionMutation = (importId: string) => {
     mutationFn: ({ id, data }: { id: string; data?: CreateTransactionInput }) =>
       importService.mergeImportedTransaction(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -124,9 +122,7 @@ export const useDeleteImportedTransactionMutation = (importId: string) => {
     mutationFn: (transactionId: string) =>
       importService.deleteImportedTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
     },
   });
 };
@@ -137,9 +133,7 @@ export const useBatchActionMutation = (importId: string) => {
     mutationFn: (request: BatchActionRequest) =>
       importService.batchAction(request),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -150,9 +144,7 @@ export const useApplyAutoApproveRulesMutation = (importId: string) => {
   return useMutation({
     mutationFn: () => importService.applyAutoApproveRules(importId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: importKeys.transactions(importId),
-      });
+      invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
     },
   });
@@ -207,3 +199,11 @@ export const useDeleteAutoApproveRuleMutation = () => {
     },
   });
 };
+
+// An import's `isVerified` is derived from its pending rows, so the list goes stale with them.
+function invalidateImportRows(queryClient: QueryClient, importId: string) {
+  queryClient.invalidateQueries({
+    queryKey: importKeys.transactions(importId),
+  });
+  queryClient.invalidateQueries({ queryKey: importKeys.lists() });
+}

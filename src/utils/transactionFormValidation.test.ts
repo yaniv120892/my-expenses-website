@@ -61,8 +61,6 @@ describe('validateTransactionForm', () => {
     );
   });
 
-  // Regression: an edit with a cleared category submitted categoryId:
-  // undefined, which updateTransactionSchema rejects with a 400.
   it('requires a category only when the target endpoint does', () => {
     const cleared = form({ categoryId: '' });
 
@@ -72,9 +70,6 @@ describe('validateTransactionForm', () => {
     );
   });
 
-  // Regression: the rule keyed off "the form has initial data", which is also
-  // true for an imported transaction being approved — so an import the AI had
-  // not matched to a category could not be approved at all.
   it('lets an uncategorized import through the approve schema', () => {
     const cleared = submitPayload(form({ categoryId: '' }));
 

@@ -43,7 +43,6 @@ function check(name: string, ok: boolean, detail = ''): void {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Posts to /api/chat and returns each SSE frame with the time it arrived. */
 function streamChat(
   token: string | null,
   text: string,
@@ -147,7 +146,6 @@ interface ApiResult {
   body: unknown;
 }
 
-/** Plain JSON request against the app; `rawBody` skips serialisation. */
 async function api(
   method: string,
   path: string,
@@ -189,7 +187,6 @@ async function api(
   return { status: res.status, headers: res.headers, body: parsed };
 }
 
-/** Reads a key straight from the upstash shim, bypassing the app. */
 async function redisGet(key: string): Promise<unknown> {
   const res = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
     method: 'POST',
@@ -199,7 +196,6 @@ async function redisGet(key: string): Promise<unknown> {
   return parsed.result;
 }
 
-/** Collapses a multi-line value into a one-line snippet for check details. */
 function preview(text: string, max = 160): string {
   return text.replace(/\n/g, ' | ').slice(0, max);
 }
@@ -211,12 +207,8 @@ function textOf(frames: Frame[]): string {
     .join('');
 }
 
-/**
- * Login → me → logout against a user of its own: logout deletes the session
- * key, so running this against a seeded user would invalidate the token the
- * other checks share. Must run inside the harness — the cookie session is only
- * valid while the upstash shim holds that key.
- */
+// Runs against a user of its own: logout deletes the session key, which would
+// invalidate the token the other checks share.
 async function authLifecycleFlow(): Promise<void> {
   const email = 'login-flow@e2e.test';
   const password = 'e2e-login-password';
@@ -271,7 +263,6 @@ async function authLifecycleFlow(): Promise<void> {
   );
 }
 
-/** Create → list → summary → status transitions → delete, plus the limit cap. */
 async function transactionLifecycleFlow(token: string): Promise<void> {
   const [category] = await query<{ id: string }>(
     `select id from "Category" where name = 'Groceries'`,
@@ -328,9 +319,8 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     `count ${summaryBody?.count}`,
   );
 
-  // The totals sit above a paged list, so a search must narrow both or the
-  // header would describe rows the list never shows.
-  // Upper-cased to prove the search is case-insensitive.
+  // Upper-cased to prove the search is case-insensitive; the totals must narrow
+  // with the paged list or the header describes rows the list never shows.
   const searchQuery =
     'searchTerm=LIFECYCLE&startDate=2026-08-01&endDate=2026-08-03';
   const searchedList = await api(
@@ -383,7 +373,6 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     `status ${deleted.status}`,
   );
 
-  // Regression: the limit schema caps at 100.
   const oversized = await api('GET', '/api/transactions?limit=1000', {
     token,
   });
@@ -403,7 +392,6 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   );
 }
 
-/** Walking every page by cursor visits each row exactly once. */
 async function transactionCursorPagingFlow(
   token: string,
   userId: string,
@@ -445,7 +433,6 @@ async function transactionCursorPagingFlow(
   );
 }
 
-/** A due schedule is claimed first, materialised as PENDING_APPROVAL. */
 async function scheduledCronFlow(userId: string): Promise<void> {
   const [category] = await query<{ id: string }>(
     `select id from "Category" where name = 'Rent'`,
@@ -487,7 +474,6 @@ async function scheduledCronFlow(userId: string): Promise<void> {
       : 'no transaction created',
   );
 
-  // Regression for the claim-first fix: the schedule must not stay due.
   const [after] = await query<{ future: boolean }>(
     `select "nextRunDate" > now() as future from "ScheduledTransaction" where id = $1`,
     [schedule.id],
@@ -495,11 +481,8 @@ async function scheduledCronFlow(userId: string): Promise<void> {
   check('cron: nextRunDate advanced into the future', after?.future === true);
 }
 
-/**
- * The dev server runs without TELEGRAM_WEBHOOK_SECRET, so the route must fail
- * closed for every request. The positive ack path needs the secret set at
- * server start and is intentionally not covered here.
- */
+// The dev server runs without TELEGRAM_WEBHOOK_SECRET, so only the fail-closed
+// path is covered here.
 async function telegramWebhookFlow(): Promise<void> {
   const noHeader = await api('POST', '/api/webhook', {
     body: { update_id: 1 },
@@ -521,7 +504,6 @@ async function telegramWebhookFlow(): Promise<void> {
   );
 }
 
-/** HMAC auth and the malformed-JSON guard on the extraction webhook. */
 async function excelWebhookFlow(userId: string): Promise<void> {
   const payload = {
     requestId: 'e2e-unknown-request',
@@ -538,7 +520,6 @@ async function excelWebhookFlow(userId: string): Promise<void> {
     `status ${missingAuth.status}`,
   );
 
-  // Regression: the JSON guard must answer 400, not crash the handler.
   const badJson = await api('POST', '/api/excel-extraction-agent/webhook', {
     rawBody: '{not json',
   });
@@ -553,8 +534,7 @@ async function excelWebhookFlow(userId: string): Promise<void> {
   const secret = process.env.EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET;
   const timestamp = Date.now();
   if (secret) {
-    // Only meaningful when the dev server was started with the same secret:
-    // a valid HMAC must pass auth and reach processing (404 = unknown request).
+    // A valid HMAC must pass auth and reach processing (404 = unknown request).
     const token = crypto
       .createHmac('sha256', secret)
       .update(`${userId}:${timestamp}`)
@@ -599,8 +579,6 @@ async function excelWebhookFlow(userId: string): Promise<void> {
       `status ${tampered.status}`,
     );
   } else {
-    // Without the secret env on the server, verification cannot run and the
-    // processor must fail closed rather than accept the payload.
     const failClosed = await api(
       'POST',
       `/api/excel-extraction-agent/webhook?token=x&userId=${userId}&timestamp=${timestamp}`,
@@ -654,22 +632,14 @@ async function waitForImportCompletion(
   return found;
 }
 
-/**
- * A value this app's field encryption produced before the client was rebuilt on
- * `@prisma/client`, kept as a literal with the digits it decrypts to. Every
- * other assertion here writes and reads within one client, so all of them stay
- * green on the day the extension's format or the encryption key changes and
- * every row already in the database stops decrypting.
- */
+// Written by the field encryption before the client moved to `@prisma/client`.
+// Every other check writes and reads within one client, so only this one fails
+// when the ciphertext format or the key changes under rows already stored.
 const CIPHERTEXT_FROM_AN_EARLIER_CLIENT =
   'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
 const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
 
-/**
- * The encrypted column, written and read through the app's own client and then
- * inspected raw. Reading the digits back proves the extension decrypts; the raw
- * column proves it encrypted rather than silently storing plaintext.
- */
+// The raw column read proves the value was encrypted, not stored as plaintext.
 async function importEncryptionFlow(token: string): Promise<void> {
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_03_2026.csv`;
@@ -740,11 +710,6 @@ async function importEncryptionFlow(token: string): Promise<void> {
   );
 }
 
-/**
- * The same statement submitted twice: the second import is kept as a MERGED
- * pointer at the first, the first is COMPLETED again only after its rows were
- * matched, and the duplicate row was not carried across.
- */
 async function importMergeFlow(token: string): Promise<void> {
   const bucket = process.env.IMPORTS_S3_BUCKET;
   const region = process.env.IMPORTS_S3_REGION;
@@ -982,7 +947,6 @@ async function main(): Promise<void> {
     `model requests ${callsAtAbort} → ${callsAfter}`,
   );
 
-  // Regression guard: an abrupt disconnect must not take the server down.
   const afterAbort = await streamChat(null, 'still alive?').catch(() => null);
   check(
     'app survives an abrupt client disconnect',

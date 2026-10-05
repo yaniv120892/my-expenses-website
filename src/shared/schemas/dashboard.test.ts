@@ -11,8 +11,6 @@ describe('dashboardInsightsResponseSchema', () => {
     expect(parsed.unusualSpending).toEqual(['Groceries up 40%']);
   });
 
-  // The cast this replaced typed unusualSpending as string[] whatever came
-  // back, so a bare string reached `.map` in AiInsightsCard and crashed it.
   it('rejects unusualSpending sent as a string instead of an array', () => {
     expect(() =>
       dashboardInsightsResponseSchema.parse({

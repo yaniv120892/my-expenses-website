@@ -6,16 +6,13 @@ import {
   deleteValue,
   incrementWithTtl,
 } from '@/server/redis';
-import {
-  invalidateSession,
-  isSessionActive,
-  storeSession,
-} from '@/server/auth/session';
-import { signToken, tokenTtlSeconds, verifyToken } from '@/server/auth/tokens';
+import { invalidateSession, storeSession } from '@/server/auth/session';
+import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
 import { requireSiteUrl } from '@/server/env';
+import { secretsEqual } from '@/server/utils/webhookAuth';
 
 const MAX_CODE_ATTEMPTS = 5;
 const VERIFICATION_CODE_SENT =
@@ -31,21 +28,17 @@ function loginCodeAttemptsKey(email: string): string {
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
-    // Before any write: the verification email cannot be built without an
-    // origin, and throwing after createUser would leave an unverified account
-    // that the retry path below cannot rescue either.
+    // Before any write: throwing after createUser would leave an unverified
+    // account the retry path cannot rescue.
     const websiteUrl = requireSiteUrl();
     const existingUser = await userRepository.findByEmailOrUsername(
       email,
       username,
     );
     if (existingUser) {
-      // Signing up again for an unverified account is a retry, not a conflict —
-      // the only way back after an expired code or exhausted attempts. The reply
-      // is identical either way because this public, unrated endpoint would
-      // otherwise allow unlimited password guessing; the email check is because
-      // the lookup also matches username, where a stranger's pending account is
-      // a real conflict.
+      // A retry of an unverified signup, not a conflict, answered identically
+      // so this public endpoint allows no password guessing. The email check is
+      // because the lookup also matches username.
       if (!existingUser.verified && existingUser.email === email) {
         if (await compare(password, existingUser.password)) {
           return this.issueVerificationCode(existingUser.email, websiteUrl);
@@ -60,7 +53,6 @@ class AuthService {
       username,
       hashedPassword,
     );
-    // Nothing that shipped before this account existed is "new" to it.
     await announcementService.acknowledgeAllForNewUser(user.id);
     return this.issueVerificationCode(email, websiteUrl);
   }
@@ -91,10 +83,9 @@ class AuthService {
   }
 
   public async verifyLoginCode(email: string, code: string) {
-    // A 6-digit code valid for 10 minutes is brute-forceable without an
-    // attempt cap. The cap locks the code for the counter's window rather than
-    // deleting it: /api/auth/verify is public, so burning the code here would
-    // let anyone who knows a pending signup's address strand that account.
+    // The cap locks the code for the counter's window rather than deleting it:
+    // /api/auth/verify is public, so burning the code would let anyone strand a
+    // pending signup.
     const attemptsKey = loginCodeAttemptsKey(email);
     const attempts = await incrementWithTtl(attemptsKey, 600, 'branch');
     if (attempts > MAX_CODE_ATTEMPTS) {
@@ -102,7 +93,7 @@ class AuthService {
     }
 
     const cachedCode = await getValue<string>(loginCodeKey(email), 'branch');
-    if (!cachedCode || !this.safeCodeCompare(String(cachedCode), code)) {
+    if (!cachedCode || !secretsEqual(code, String(cachedCode))) {
       return { error: 'Invalid or expired code' };
     }
     const user = await userRepository.findByEmail(email);
@@ -121,32 +112,8 @@ class AuthService {
     await invalidateSession(userId, token);
   }
 
-  public async validateSession(
-    userId: string,
-    token: string,
-  ): Promise<boolean> {
-    if (!(await isSessionActive(userId, token))) {
-      return false;
-    }
-    try {
-      await verifyToken(token);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   private generateCode() {
     return crypto.randomInt(100000, 999999).toString();
-  }
-
-  private safeCodeCompare(expected: string, provided: string): boolean {
-    const expectedBuffer = Buffer.from(expected);
-    const providedBuffer = Buffer.from(provided);
-    return (
-      expectedBuffer.length === providedBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, providedBuffer)
-    );
   }
 
   private generateVerificationEmailText(
@@ -167,7 +134,7 @@ class AuthService {
       '',
       'If you did not request this code, you can safely ignore this email.',
       '',
-      `To verify your email address, visit: ${websiteUrl}/verify?email=${email}`,
+      `To verify your email address, visit: ${this.verificationUrl(websiteUrl, email)}`,
       '',
       'Best regards,',
       'The My Expenses Team',
@@ -179,6 +146,7 @@ class AuthService {
     email: string,
     websiteUrl: string,
   ) {
+    const verificationUrl = this.verificationUrl(websiteUrl, email);
     return `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 480px; margin: 0 auto;">
         <p>Hello,</p>
@@ -189,10 +157,14 @@ class AuthService {
         <p>You can copy the code above and paste it into the verification page.</p>
         <p>This code will expire in 10 minutes. For your security, do not share this code with anyone.</p>
         <p>If you did not request this code, you can safely ignore this email.</p>
-        <p>To verify your email address, visit: <a href="${websiteUrl}/verify?email=${email}">${websiteUrl}/verify?email=${email}</a></p>
+        <p>To verify your email address, visit: <a href="${verificationUrl}">${verificationUrl}</a></p>
         <p style="margin-top: 32px;">Best regards,<br>The My Expenses Team</p>
       </div>
     `;
+  }
+
+  private verificationUrl(websiteUrl: string, email: string): string {
+    return `${websiteUrl}/verify?email=${encodeURIComponent(email)}`;
   }
 
   private async sendCodeByEmail(

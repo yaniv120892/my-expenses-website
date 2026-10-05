@@ -11,7 +11,7 @@ vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
 vi.mock('@/server/redis', () => ({ getValue }));
 vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
 // `after` throws outside a request scope, which is where this test calls the
-// handler; everything else in the module stays real.
+// handler.
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof import('next/server')>('next/server')),
   after,
@@ -24,8 +24,6 @@ beforeEach(() => {
 });
 
 describe('shallow check', () => {
-  // The 3-minute monitor polls this one; a dependency call here is what would
-  // stop Neon from ever scaling to zero.
   it('returns an uncached ok without touching any dependency', async () => {
     const response = await GET();
 
@@ -36,8 +34,6 @@ describe('shallow check', () => {
     expect(getValue).not.toHaveBeenCalled();
   });
 
-  // Every other route drains the remote log buffer through createHandler, which
-  // this one bypasses.
   it('schedules a remote log flush', async () => {
     await GET();
 

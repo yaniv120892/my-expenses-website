@@ -9,8 +9,8 @@ const { logger, captureException } = vi.hoisted(() => ({
 vi.mock('@/server/logging/logger', () => ({ default: logger }));
 vi.mock('@sentry/nextjs', () => ({ captureException }));
 
-// Calling the handler directly puts us outside a request scope, where the real
-// `after` throws; the log flush it defers is not what these tests are about.
+// `after` throws outside a request scope, which is where these tests call the
+// handler.
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof import('next/server')>('next/server')),
   after: vi.fn(),
@@ -31,8 +31,6 @@ describe('createHandler error reporting', () => {
     vi.clearAllMocks();
   });
 
-  // createHandler turns a thrown error into a response, so Next's
-  // onRequestError never sees it — this is the only path to Sentry.
   it('reports a 500 to Sentry as well as the log', async () => {
     const err = new Error('boom');
     const handler = createHandler({
@@ -62,8 +60,6 @@ describe('createHandler error reporting', () => {
     const response = await handler(get(), routeContext);
 
     expect(response.status).toBe(404);
-    // The body carries the thrown message — repository 404s like
-    // 'Transaction not found' reach the client verbatim.
     expect(await response.json()).toEqual({ message: 'Not found' });
     expect(captureException).not.toHaveBeenCalled();
   });
@@ -124,7 +120,6 @@ describe('createHandler error responses', () => {
 
     expect(response.status).toBe(status);
     expect(await response.json()).toEqual({ message });
-    // Mapped errors are client mistakes, not incidents: no log, Sentry, alert.
     expect(logger.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
   });

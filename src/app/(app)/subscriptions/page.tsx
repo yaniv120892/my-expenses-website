@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import PageHeader from '@/components/shell/PageHeader';
 import EmptyState from '@/components/EmptyState';
+import NotificationSnackbar from '@/components/NotificationSnackbar';
 import SubscriptionCard from '@/components/subscriptions/SubscriptionCard';
 import ConvertToScheduledDialog from '@/components/subscriptions/ConvertToScheduledDialog';
 import EditSubscriptionDialog from '@/components/subscriptions/EditSubscriptionDialog';
@@ -31,6 +32,8 @@ import {
   SubscriptionStatus,
   UpdateSubscriptionPayload,
 } from '@/types/subscription';
+import { describeApiError } from '@/utils/api';
+import { useErrorNotice } from '@/hooks/useErrorNotice';
 import { formatCurrencyRounded } from '@/utils/format';
 import { isOneOf } from '@/utils/oneOf';
 import {
@@ -74,6 +77,7 @@ export default function SubscriptionsPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
+  const { showError, snackbarProps } = useErrorNotice();
 
   const statusParam = filterTab === 'ALL' ? undefined : filterTab;
   const { data, isLoading, error } = useSubscriptionsQuery(statusParam);
@@ -87,8 +91,18 @@ export default function SubscriptionsPage() {
     [data?.subscriptions, sortKey],
   );
 
+  function reportFailure(fallback: string) {
+    return (error: unknown) => showError(describeApiError(error, fallback));
+  }
+
   function handleConvert(id: string, categoryId: string) {
-    convertMutation.mutate({ id, categoryId }, { onSuccess: closeDialog });
+    convertMutation.mutate(
+      { id, categoryId },
+      {
+        onSuccess: closeDialog,
+        onError: reportFailure('Failed to convert subscription'),
+      },
+    );
   }
 
   function handleSave(id: string, payload: UpdateSubscriptionPayload) {
@@ -222,8 +236,16 @@ export default function SubscriptionsPage() {
                 <SubscriptionCard
                   key={sub.id}
                   subscription={sub}
-                  onConfirm={(id) => confirmMutation.mutate(id)}
-                  onDismiss={(id) => dismissMutation.mutate(id)}
+                  onConfirm={(id) =>
+                    confirmMutation.mutate(id, {
+                      onError: reportFailure('Failed to confirm subscription'),
+                    })
+                  }
+                  onDismiss={(id) =>
+                    dismissMutation.mutate(id, {
+                      onError: reportFailure('Failed to dismiss subscription'),
+                    })
+                  }
                   onConvert={(s) =>
                     setDialog({ kind: 'convert', subscription: s })
                   }
@@ -264,6 +286,8 @@ export default function SubscriptionsPage() {
           />
         </>
       )}
+
+      <NotificationSnackbar {...snackbarProps} />
     </>
   );
 }

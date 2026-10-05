@@ -24,9 +24,8 @@ export const USER_ID_CONTEXT_KEY = 'userId';
 const MAX_TRANSACTIONS = 5000;
 
 /**
- * The user id is never part of a tool's inputSchema — it is injected
- * server-side through the request context, so a prompt-injected message
- * cannot read another user's transactions.
+ * The user id comes from the server-side request context, never the
+ * inputSchema, so a prompt-injected message cannot read another user's data.
  */
 function requireUserId(context: {
   requestContext?: { get: (key: string) => unknown };
@@ -96,11 +95,8 @@ const periodSchema = (exampleLabel: string) =>
 type ResolvedCategory = { ids: string[]; name: string };
 
 /**
- * A name that resolves to nothing or to several categories is a tool error
- * rather than a silently dropped or arbitrarily chosen filter; the error text
- * is model-facing so the model can retry with an exact name. A resolved
- * category covers its whole subtree, matching how the transactions list
- * filters.
+ * An unresolved or ambiguous name is a model-facing tool error, so the model
+ * can retry with an exact name. A resolved category covers its whole subtree.
  */
 async function resolveCategory(
   categoryName?: string,
@@ -378,9 +374,8 @@ export function buildAssistantTools() {
     execute: async (input, context) => {
       const userId = requireUserId(context);
       const category = await resolveCategory(input.categoryName);
-      // The subtree's root id: trendService takes one categoryId and filters
-      // it exact-match today — expanding trends to the subtree is a separate
-      // fix, tracked with trendService's own exact-match filter.
+      // trendService filters one categoryId exact-match, so only the subtree's
+      // root is passed; expanding trends to the subtree is a separate fix.
       const categoryId = category?.ids[0];
 
       const request = {

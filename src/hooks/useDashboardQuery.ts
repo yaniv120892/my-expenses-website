@@ -1,13 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
 import {
   fetchDashboard,
   fetchDashboardInsights,
-} from "../services/dashboardService";
+} from '../services/dashboardService';
 
 export const dashboardKeys = {
-  all: ["dashboard"] as const,
-  overview: () => [...dashboardKeys.all, "overview"] as const,
-  insights: () => [...dashboardKeys.all, "insights"] as const,
+  all: ['dashboard'] as const,
+  overview: () => [...dashboardKeys.all, 'overview'] as const,
+  insights: () => [...dashboardKeys.all, 'insights'] as const,
 };
 
 export const useDashboardQuery = () => {

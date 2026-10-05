@@ -2,7 +2,6 @@ import { runWithConcurrency } from '@/utils/asyncPool';
 import { handleApiError } from '@/utils/api';
 import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
 
-/** The slice of the imports API the runner needs, so tests can supply their own. */
 export interface UploadRunnerApi {
   uploadImportFile(
     formData: FormData,
@@ -17,11 +16,6 @@ export interface UploadRunnerApi {
 
 export type UploadDispatch = (action: UploadQueueAction) => void;
 
-/**
- * Uploads one queued file and turns it into an import. An item that already
- * carries a fileUrl is being retried after its upload succeeded, so the bytes
- * are not sent again.
- */
 export async function runUploadItem(
   item: UploadItem,
   api: UploadRunnerApi,
@@ -65,10 +59,6 @@ export async function runUploadItem(
   dispatch({ type: 'ITEM_SUCCEEDED', id: item.id, importId: created.id });
 }
 
-/**
- * Runs a batch of queued items, bounded by `concurrency`. A failing item is
- * reported on its own row and never stops the rest of the batch.
- */
 export async function runUploadBatch(
   batch: UploadItem[],
   api: UploadRunnerApi,

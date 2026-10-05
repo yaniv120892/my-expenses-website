@@ -14,7 +14,6 @@ export const GET = createHandler({
 
     let failed = 0;
     for (const user of users ?? []) {
-      // Guarded per user so one failing backup cannot abort the rest.
       try {
         await backupService.backupTransactionsToCsvAndUpload(user.id);
       } catch (err) {
@@ -27,7 +26,6 @@ export const GET = createHandler({
     }
 
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(`Backup failed for ${failed} user(s)`);
     }
     return { message: 'Backup completed successfully' };

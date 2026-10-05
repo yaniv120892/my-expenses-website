@@ -77,7 +77,6 @@ describe('recordedImport', () => {
     const second = withSubmission(first, LOCAL, 'a.xlsx', 'imp-2', AT);
 
     expect(recordedImport(second, LOCAL, 'a.xlsx')?.importId).toBe('imp-2');
-    // Immutable: the earlier manifest is untouched.
     expect(recordedImport(first, LOCAL, 'a.xlsx')?.importId).toBe('imp-1');
   });
 });

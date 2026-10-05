@@ -28,7 +28,6 @@ export const transactionKeys = {
   list: (filters: TransactionFilters) =>
     [...transactionKeys.lists(), filters] as const,
   categories: () => [...transactionKeys.all, 'categories'] as const,
-  allTransactions: () => [...transactionKeys.all, 'allTransactions'] as const,
   // Prefix without the filters argument, so invalidation matches every
   // filtered summary query.
   summaries: () => [...transactionKeys.all, 'summary'] as const,
@@ -45,9 +44,8 @@ export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
   });
 };
 
-// A mutation rather than a query: the file is an action's result, not state
-// worth caching, and isPending is exactly the button's disabled condition. The
-// blob is saved and dropped inside mutationFn so the cache never retains it.
+// A mutation, not a query: the file is an action's result, not state worth
+// caching, and the blob is saved and dropped inside mutationFn.
 export const useExportTransactionsCsvMutation = () => {
   return useMutation({
     mutationFn: async (filters?: TransactionFilters) => {

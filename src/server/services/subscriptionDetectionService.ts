@@ -120,7 +120,6 @@ class SubscriptionDetectionService {
       'Subscription detection run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Subscription detection failed for ${failed} of ${userIds.length} user(s)`,
       );
@@ -239,6 +238,13 @@ class SubscriptionDetectionService {
       throw new HttpError(404, 'Subscription not found');
     }
 
+    if (subscription.scheduledTransactionId) {
+      throw new HttpError(
+        409,
+        `Subscription is already scheduled as ${subscription.scheduledTransactionId}`,
+      );
+    }
+
     const targetCategoryId = categoryId ?? subscription.categoryId;
     if (!targetCategoryId) {
       throw new HttpError(400, 'A category is required to schedule this');
@@ -314,7 +320,6 @@ class SubscriptionDetectionService {
       'Subscription audit run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Subscription audit failed for ${failed} of ${byUser.size} user(s)`,
       );

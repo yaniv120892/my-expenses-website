@@ -6,6 +6,7 @@ const {
   prismaMock,
   findPotentialMatchesForImport,
   extractWebhookParams,
+  reportSwallowedError,
 } = vi.hoisted(() => ({
   importRepo: {
     findByExtractionRequestId: vi.fn(),
@@ -27,6 +28,7 @@ const {
   },
   findPotentialMatchesForImport: vi.fn(),
   extractWebhookParams: vi.fn(),
+  reportSwallowedError: vi.fn(),
 }));
 
 vi.mock('@/server/utils/webhookAuth', () => ({
@@ -40,6 +42,9 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
+vi.mock('@/server/logging/reportSwallowedError', () => ({
+  reportSwallowedError,
+}));
 vi.mock('@/server/services/importService', () => ({
   importService: {
     findPotentialMatchesForImport: (...a: unknown[]) =>
@@ -277,9 +282,8 @@ describe('completed extraction', () => {
       ['row-1'],
       'imp-old',
     );
-    // Move, remove-the-leftovers, hold the survivor and mark the duplicate go
-    // as one batch, so nothing reads rows reparented under an import that is
-    // not yet marked merged, or a survivor whose moved rows are unmatched.
+    // One batch, so nothing reads rows reparented under an unmerged import or a
+    // survivor with unmatched rows.
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'move', ids: ['row-1'], to: 'imp-old' },
       { op: 'deleteRows', id: 'imp-1' },
@@ -424,7 +428,6 @@ describe('completed extraction', () => {
     expect(res.status).toBe(200);
     const rows = importedTxRepo.createMany.mock.calls[0][0];
     expect(rows[0].date).toEqual(new Date(2026, 7, 5));
-    // Nothing identifies a duplicate without a card and month.
     expect(importRepo.findExisting).not.toHaveBeenCalled();
   });
 
@@ -439,6 +442,23 @@ describe('completed extraction', () => {
       'FAILED',
       expect.any(String),
     );
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      expect.objectContaining({ importId: 'imp-1' }),
+      'Error processing webhook',
+    );
+  });
+
+  it('stores an UNKNOWN bank source as no bank source', async () => {
+    const body = payload([tx()]);
+    body.result.metadata.bankSourceType = 'UNKNOWN';
+
+    const res = await run(body);
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+      data: expect.objectContaining({ bankSourceType: null }),
+    });
   });
 });
 

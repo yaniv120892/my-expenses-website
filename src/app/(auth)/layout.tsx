@@ -1,5 +1,3 @@
-'use client';
-
 import { Box, Paper, Stack, Typography } from '@mui/material';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
 

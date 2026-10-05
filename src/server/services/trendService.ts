@@ -141,7 +141,6 @@ class TrendService {
     return categoryTrends;
   }
 
-  /** Rolls each transaction up into its top-level ancestor's running total. */
   private accumulateCategoryTotals(
     categoryTrends: Map<string, CategoryTrendData>,
     transactions: Transaction[],

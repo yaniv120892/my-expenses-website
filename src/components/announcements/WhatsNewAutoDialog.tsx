@@ -7,10 +7,6 @@ import {
   useAnnouncementsQuery,
 } from '@/hooks/useAnnouncementsQuery';
 
-/**
- * Shows unacknowledged announcements once, app-wide. Rendered in the
- * authenticated layout so it does not depend on which page the user landed on.
- */
 export default function WhatsNewAutoDialog() {
   const { data: announcements } = useAnnouncementsQuery();
   const { mutate: acknowledge } = useAcknowledgeAnnouncementsMutation();

@@ -6,19 +6,47 @@ import { signIn } from './helpers';
  *
  * A non-streaming implementation would still end up showing the same final
  * text, so asserting on the finished message proves nothing. The check that
- * matters is that the bubble grows across samples while the request is open.
+ * matters is that the bubble grows across renders while the request is open.
  */
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
 
+declare global {
+  interface Window {
+    __botReplyLengths?: number[];
+  }
+}
+
 test('assistant reply renders incrementally', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
+  // The first request compiles the chat route, which can take most of a minute.
+  test.setTimeout(120_000);
 
   await signIn(page, TOKEN);
   await page.goto('/dashboard');
 
   await page.getByRole('button', { name: /chat/i }).click();
   await expect(page.getByText('Financial Assistant')).toBeVisible();
+
+  // Recorded inside the page because the mock streams only two chunks 120ms
+  // apart, and polling from the test process misses the first on a slow runner.
+  await page.evaluate(() => {
+    const lengths: number[] = [];
+    window.__botReplyLengths = lengths;
+    new MutationObserver(() => {
+      const bubbles = document.querySelectorAll(
+        '[data-testid="chat-message"][data-sender="bot"]',
+      );
+      const last = bubbles[bubbles.length - 1];
+      if (last) {
+        lengths.push((last.textContent || '').length);
+      }
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
 
   const input = page.getByPlaceholder('Ask about your transactions...');
   await input.fill('Compare my grocery spending in January versus February');
@@ -27,34 +55,20 @@ test('assistant reply renders incrementally', async ({ page }) => {
   // Scoped to the assistant's bubble specifically — "the last bubble" would
   // straddle the user message and the reply as the reply starts rendering.
   const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
+  await expect(reply.last()).toContainText('26.83%', { timeout: 90_000 });
 
-  // Sampled well below the mock's 120ms chunk gap, or consecutive samples
-  // could each land after the stream already finished. The deadline has to
-  // outlast a first-time compile of the chat route, and the sampling stays
-  // fine-grained throughout — an expect() pre-wait cannot stand in for it,
-  // because its polling backs off to intervals wider than the chunk gap and
-  // would only ever observe the finished text.
-  const lengths: number[] = [];
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    const text = (await reply.count()) ? await reply.last().textContent() : '';
-    lengths.push((text || '').length);
-    if (lengths.at(-1)! > 0 && (text || '').includes('26.83%')) {
-      break;
-    }
-    await page.waitForTimeout(40);
-  }
-
-  const distinct = [...new Set(lengths.filter((l) => l > 0))];
+  const lengths = (
+    await page.evaluate(() => window.__botReplyLengths ?? [])
+  ).filter((length) => length > 0);
+  const distinct = [...new Set(lengths)];
   expect(
     distinct.length,
     `bubble length only ever observed as ${distinct.join(',')} — text appeared at once, not progressively`,
   ).toBeGreaterThan(1);
 
-  // Growth must be monotonic: deltas append, never replace.
-  const growing = lengths.filter((l) => l > 0);
-  for (let i = 1; i < growing.length; i++) {
-    expect(growing[i]).toBeGreaterThanOrEqual(growing[i - 1]);
+  // Deltas append, never replace.
+  for (let i = 1; i < lengths.length; i++) {
+    expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
   }
 
   await expect(reply.last()).toContainText('1,100.00');

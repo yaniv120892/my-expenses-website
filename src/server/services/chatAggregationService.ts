@@ -13,10 +13,8 @@ export interface ComparisonPeriodTotals {
 
 class ChatAggregationService {
   /**
-   * Compares two periods from their SQL summaries and returns the difference
-   * and percentage change. Derived figures are computed here rather than left
-   * to the model: answering "how much more did I spend in February?" must not
-   * mean handing the assistant two totals and having it subtract.
+   * Derived figures are computed here so the model never has to subtract two
+   * totals itself.
    */
   public computeComparison(
     periodA: ComparisonPeriodTotals,
@@ -243,7 +241,6 @@ class ChatAggregationService {
     return totals.totalIncome + totals.totalExpense;
   }
 
-  /** Formats a signed percentage the way computeComparison reports one. */
   public formatPercentChange(value: number): string {
     return `${value >= 0 ? '+' : ''}${value}%`;
   }

@@ -44,7 +44,6 @@ export const initialUploadQueueState: UploadQueueState = {
   nextSeq: 0,
 };
 
-/** A row that has settled: nothing further will happen to it on its own. */
 export function isTerminal(status: UploadItemStatus): boolean {
   return status === 'succeeded' || status === 'failed';
 }
@@ -55,10 +54,6 @@ function isSameFile(a: File, b: File): boolean {
   );
 }
 
-/**
- * Which of `files` the queue will take. Shared with the reducer so the caller
- * can tell the user what was turned away instead of watching files vanish.
- */
 export function planAddFiles(
   state: UploadQueueState,
   files: File[],

@@ -24,6 +24,7 @@ import {
   buildPreviewUrl,
   buildDownloadUrl,
   getPresignedUploadUrl,
+  isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
@@ -35,7 +36,6 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
-/** An attachment as returned to clients, with signed URLs resolved. */
 export interface TransactionFileView {
   id: string;
   fileName: string;
@@ -46,7 +46,9 @@ export interface TransactionFileView {
 }
 
 class TransactionService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getCategorySuggester = lazy(() =>
+    AIServiceFactory.getCategorySuggester(),
+  );
   private getTransactionNotifier = lazy(() =>
     TransactionNotifierFactory.getNotifier(),
   );
@@ -78,9 +80,8 @@ class TransactionService {
   }
 
   /**
-   * Categorization and validation without the write, so a caller can run the
-   * AI/network work first and batch the insert into a prisma.$transaction
-   * (via createTransactionOp) with its own writes.
+   * Stops short of the write, so the AI work runs first and the insert can be
+   * batched via createTransactionOp.
    */
   public async prepareCreateTransaction(
     data: CreateTransaction,
@@ -104,8 +105,8 @@ class TransactionService {
   }
 
   /**
-   * Widens a category filter to the whole subtree, so filtering by a parent
-   * covers the transactions filed on its children.
+   * Filtering by a parent category covers the transactions filed on its
+   * children.
    */
   private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
     filters: T,
@@ -119,7 +120,6 @@ class TransactionService {
     };
   }
 
-  /** For callers that have already resolved the filters. */
   private listResolved(
     filters: TransactionListFilters,
   ): Promise<TransactionListPage> {
@@ -136,10 +136,8 @@ class TransactionService {
   }
 
   /**
-   * Every matching row, for the callers that need the whole set (export,
-   * backup, monthly report). Cursor rather than offset paging, which re-scans
-   * every prior row per page; `maxRows` stops one page past the cap, so an
-   * oversized set is refused without walking the whole history.
+   * Walked by cursor; `maxRows` stops one page past the cap so an oversized set
+   * is refused early.
    */
   public async getAllTransactions(
     filters: TransactionSummaryFilters,
@@ -216,7 +214,10 @@ class TransactionService {
         );
         if (existing) {
           await this.learnCategoryMappingSafe(
-            existing,
+            {
+              description: existing.description,
+              categoryId: existing.category.id,
+            },
             data.categoryId,
             userId,
           );
@@ -228,23 +229,16 @@ class TransactionService {
     await transactionRepository.updateTransaction(id, data, userId);
   }
 
-  /**
-   * Remembers a manual recategorization so future imports of the same
-   * description categorize themselves. Non-critical: a failure logs a warning
-   * and never fails the write it accompanies.
-   */
   public async learnCategoryMappingSafe(
-    transaction: Transaction,
+    charge: { description: string; categoryId: string },
     categoryId: string,
     userId: string,
   ): Promise<void> {
-    if (transaction.category.id === categoryId) {
+    if (charge.categoryId === categoryId) {
       return;
     }
     try {
-      const normalizedDescription = transaction.description
-        .toLowerCase()
-        .trim();
+      const normalizedDescription = charge.description.toLowerCase().trim();
       await userCategoryMappingRepository.upsert(
         userId,
         normalizedDescription,
@@ -272,6 +266,13 @@ class TransactionService {
       mimeType: string;
     },
   ): Promise<void> {
+    if (!isAttachmentKeyForTransaction(fileData.fileKey, transactionId)) {
+      throw new HttpError(
+        400,
+        `fileKey was not issued for transaction ${transactionId}`,
+      );
+    }
+
     await this.assertTransactionExists(transactionId, userId);
 
     await transactionFileRepository.create({
@@ -378,7 +379,7 @@ class TransactionService {
   ): Promise<string | null> {
     return (
       (await this.findUserMappedCategoryId(description, userId, categories)) ??
-      this.getAiService().suggestCategory(description, categories)
+      this.getCategorySuggester().suggestCategory(description, categories)
     );
   }
 
@@ -415,6 +416,51 @@ class TransactionService {
     transactionId: string,
     userId: string,
   ) {
+    await this.notifyTransactionsCreatedSafe([transactionId], userId);
+  }
+
+  /**
+   * Notifies each transaction on its own, so one failure cannot silence the
+   * rest.
+   */
+  public async notifyTransactionsCreatedSafe(
+    transactionIds: string[],
+    userId: string,
+  ) {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    let isNotificationEnabled: boolean;
+    try {
+      isNotificationEnabled =
+        await userSettingsService.isCreateTransactionNotificationEnabled(
+          userId,
+        );
+    } catch (error) {
+      logger.error(
+        { err: error, userId },
+        'Failed to read the create-transaction notification preference',
+      );
+      return;
+    }
+
+    if (!isNotificationEnabled) {
+      logger.debug(
+        `skipped ${transactionIds.length} notification(s) - not enabled for user ${userId}`,
+      );
+      return;
+    }
+
+    for (const transactionId of transactionIds) {
+      await this.notifyOneTransactionCreatedSafe(transactionId, userId);
+    }
+  }
+
+  private async notifyOneTransactionCreatedSafe(
+    transactionId: string,
+    userId: string,
+  ) {
     try {
       const transaction = await this.getTransactionItem(transactionId, userId);
       if (!transaction) {
@@ -427,17 +473,6 @@ class TransactionService {
       if (transaction.status !== 'APPROVED') {
         logger.debug(
           `skipped notification for transaction ${transactionId} - transaction not approved`,
-        );
-        return;
-      }
-
-      const isNotificationEnabled =
-        await userSettingsService.isCreateTransactionNotificationEnabled(
-          userId,
-        );
-      if (!isNotificationEnabled) {
-        logger.debug(
-          `skipped notification for transaction ${transactionId} - notification not enabled for user ${userId}`,
         );
         return;
       }

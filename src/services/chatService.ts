@@ -7,11 +7,7 @@ export interface StreamHandlers {
   onError: (message: string) => void;
 }
 
-/**
- * Streams the assistant's reply over SSE. Bypasses the shared axios client
- * because axios buffers the whole response body and cannot surface it
- * incrementally.
- */
+// Bypasses the shared axios client, which buffers the whole response body.
 export const streamMessage = async (
   messages: Message[],
   handlers: StreamHandlers,
@@ -65,8 +61,6 @@ export const streamMessage = async (
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Only complete frames (terminated by a blank line) are consumed; the
-    // remainder stays buffered until the next read.
     const frames = buffer.split('\n\n');
     buffer = frames.pop() ?? '';
     frames.forEach(handleFrame);

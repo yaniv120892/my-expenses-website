@@ -19,13 +19,6 @@ export class AutoApproveRuleRepository {
     });
   }
 
-  public async findById(id: string): Promise<AutoApproveRule | null> {
-    return prisma.autoApproveRule.findUnique({
-      where: { id },
-      include: { category: true },
-    });
-  }
-
   public async update(
     id: string,
     userId: string,

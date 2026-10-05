@@ -2,17 +2,7 @@ import { MOCK_PORT, SHIM_PORT, EXTRACTION_MOCK_PORT } from './ports';
 import { SEED_PASSWORD, SeededUser } from './seed';
 import { startStack, startStackForUser } from './stack';
 
-/**
- * Starts the supporting services and seeds data, then stays up.
- *
- * `run.ts` brings up the same stack and exits when its checks finish; the
- * browser test needs it alive while Playwright drives the website, so this
- * keeps it running and prints the auth token for the test to use.
- *
- * With SESSION_USER_EMAIL set the database is left as it is and the session is
- * minted for that existing account instead — the mode for running the stack
- * over a copy of real data.
- */
+// Unlike run.ts, stays up so Playwright can drive the site against it.
 async function main(): Promise<void> {
   const ports = {
     mock: MOCK_PORT,

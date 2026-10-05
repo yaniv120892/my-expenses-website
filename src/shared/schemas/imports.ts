@@ -30,13 +30,13 @@ export const batchActionSchema = z.object({
 });
 
 export const createAutoApproveRuleSchema = z.object({
-  descriptionPattern: z.string(),
+  descriptionPattern: z.string().trim().min(1),
   categoryId: z.string(),
   type: transactionTypeSchema,
 });
 
 export const updateAutoApproveRuleSchema = z.object({
-  descriptionPattern: z.string().optional(),
+  descriptionPattern: z.string().trim().min(1).optional(),
   categoryId: z.string().optional(),
   type: transactionTypeSchema.optional(),
   isActive: z.boolean().optional(),

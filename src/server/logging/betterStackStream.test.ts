@@ -18,7 +18,6 @@ function writeRecords(count: number, level = 40): void {
   }
 }
 
-// Lets an eager flush's promise settle so the next case starts unguarded.
 function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }

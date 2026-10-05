@@ -11,7 +11,10 @@ import {
   importRepository,
   type ImportWithPendingCount,
 } from '@/server/repositories/importRepository';
-import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
+import {
+  importedTransactionRepository,
+  type ImportedTransactionWithMatch,
+} from '@/server/repositories/importedTransactionRepository';
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
@@ -36,25 +39,21 @@ import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 import { isCardHoldingFee } from '@/shared/cardFees';
 
-// A missing row in the approve/merge batch means a concurrent delete won the
-// race. Map it back to the 404 the non-batched path used to return.
-function throwImportedTransactionNotFoundOnMissingRow(err: unknown): never {
+// The imported row's update is scoped to PENDING, so a miss on it means a
+// concurrent approve, merge, ignore or delete got there first.
+function throwOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    throw new HttpError(404, 'Imported transaction not found');
+    const { modelName } =
+      (err as { meta?: { modelName?: unknown } }).meta ?? {};
+    throw modelName === 'Transaction'
+      ? new HttpError(404, 'Transaction not found')
+      : new HttpError(409, 'Imported transaction is no longer pending');
   }
   throw err;
 }
 
-function throwTransactionNotFoundOnMissingRow(err: unknown): never {
-  if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    throw new HttpError(404, 'Transaction not found');
-  }
-  throw err;
-}
-
-// A requested id a concurrent action already approved, ignored or deleted out
-// from under this batch — reported as a failure rather than silently dropped
-// from the count.
+// A requested id a concurrent action already handled, reported as a failure
+// rather than silently dropped from the count.
 const STALE_TRANSACTION_ID_ERROR =
   'Not found, not pending, or not in this import';
 
@@ -82,8 +81,6 @@ interface MergeImportedTransactionData {
   categoryId?: string;
 }
 
-// What matchSequentially/matchSingleTransaction need from a row to find its
-// counterpart — an imported row and a pending transaction both satisfy it.
 type MatchableTransaction = {
   id: string;
   description: string;
@@ -92,9 +89,10 @@ type MatchableTransaction = {
   type: TransactionType;
 };
 
-type ImportedTransactionRecord = Awaited<
-  ReturnType<typeof importedTransactionRepository.findByUserIdAndImportId>
->[number];
+type PlannedRow = {
+  record: ImportedTransactionWithMatch;
+  item: ReconciliationPlanItem;
+};
 
 // The extraction agent fetches this URL server-side, so accepting an arbitrary
 // URL would let a user point it at internal hosts. Only files the upload
@@ -183,11 +181,8 @@ class ImportService {
         'Extraction request submitted',
       );
 
-      // The import is created PROCESSING, and the callback carries the signed
-      // importId — so it can land, complete the import and even merge it away
-      // before this returns. Writing anything unconditionally here would undo
-      // that, so only the request id is recorded, and only while the import is
-      // still waiting for its callback.
+      // The signed callback may already have completed or merged the import, so
+      // only the request id is recorded, and only while the import still waits.
       await this.recordExtractionRequestId(
         importId,
         extractionResponse.requestId,
@@ -265,40 +260,10 @@ class ImportService {
     userId: string,
     transactionData: ApproveImportedTransactionData,
   ) {
-    const importedTransaction = await importedTransactionRepository.findById(
-      importedTransactionId,
-    );
-
-    if (!importedTransaction || importedTransaction.userId !== userId) {
-      throw new HttpError(404, 'Imported transaction not found');
-    }
-
-    // Categorization may call the AI service, so it runs before the batch:
-    // network work has no place inside a database transaction.
-    const transactionModel = await transactionService.prepareCreateTransaction({
-      description: transactionData.description,
-      value: transactionData.value,
-      date: transactionData.date,
-      type: transactionData.type,
-      userId: importedTransaction.userId,
-      status: TransactionStatus.APPROVED,
-      categoryId: transactionData.categoryId,
-    });
-
-    // One batch, so a failure cannot create the transaction while the imported
-    // row stays PENDING — retrying that state would create it a second time.
-    const [createdTransaction] = await prisma
-      .$transaction([
-        transactionRepository.createTransactionOp(transactionModel),
-        importedTransactionRepository.markApprovedOp(
-          importedTransactionId,
-          userId,
-        ),
-      ])
-      .catch(throwImportedTransactionNotFoundOnMissingRow);
-
+    const record = await this.loadOwnedRow(importedTransactionId, userId);
+    const notifyTransactionId = await this.applyCreate(record, transactionData);
     await transactionService.notifyTransactionCreatedSafe(
-      createdTransaction.id,
+      notifyTransactionId,
       userId,
     );
   }
@@ -308,29 +273,83 @@ class ImportService {
     userId: string,
     transactionData: MergeImportedTransactionData,
   ) {
-    const importedTransaction = await importedTransactionRepository.findById(
+    const record = await this.loadOwnedRow(importedTransactionId, userId);
+    const notifyTransactionId = await this.applyMerge(record, transactionData);
+    if (notifyTransactionId) {
+      await transactionService.notifyTransactionCreatedSafe(
+        notifyTransactionId,
+        userId,
+      );
+    }
+  }
+
+  private async loadOwnedRow(
+    importedTransactionId: string,
+    userId: string,
+  ): Promise<ImportedTransactionWithMatch> {
+    const record = await importedTransactionRepository.findById(
       importedTransactionId,
     );
 
-    if (!importedTransaction || importedTransaction.userId !== userId) {
+    if (!record || record.userId !== userId || record.deleted) {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
-    if (!importedTransaction.matchingTransactionId) {
+    if (record.status !== ImportedTransactionStatus.PENDING) {
+      throw new HttpError(
+        409,
+        `Imported transaction is already ${record.status}`,
+      );
+    }
+
+    return record;
+  }
+
+  private async applyCreate(
+    record: ImportedTransactionWithMatch,
+    transactionData: ApproveImportedTransactionData,
+  ): Promise<string> {
+    // Categorization may call the AI service, so it runs before the batch:
+    // network work has no place inside a database transaction.
+    const transactionModel = await transactionService.prepareCreateTransaction({
+      description: transactionData.description,
+      value: transactionData.value,
+      date: transactionData.date,
+      type: transactionData.type,
+      userId: record.userId,
+      status: TransactionStatus.APPROVED,
+      categoryId: transactionData.categoryId,
+    });
+
+    // One batch, so a failure cannot create the transaction while the imported
+    // row stays PENDING — retrying that state would create it a second time.
+    const [createdTransaction] = await prisma
+      .$transaction([
+        transactionRepository.createTransactionOp(transactionModel),
+        importedTransactionRepository.markApprovedOp(record.id, record.userId),
+      ])
+      .catch(throwOnMissingRow);
+
+    return createdTransaction.id;
+  }
+
+  /** Returns the transaction to notify about only if the merge approved it. */
+  private async applyMerge(
+    record: ImportedTransactionWithMatch,
+    transactionData: MergeImportedTransactionData,
+  ): Promise<string | null> {
+    const { matchingTransaction, matchingTransactionId, userId } = record;
+
+    if (!matchingTransactionId) {
       throw new HttpError(409, 'No matching transaction to merge with');
     }
 
-    const matchingTransaction = await transactionRepository.getTransactionItem(
-      importedTransaction.matchingTransactionId,
-      userId,
-    );
-
-    if (!matchingTransaction) {
+    if (!matchingTransaction || matchingTransaction.userId !== userId) {
       logger.warn(
         {
           userId,
-          importedTransactionId: importedTransaction.id,
-          matchingTransactionId: importedTransaction.matchingTransactionId,
+          importedTransactionId: record.id,
+          matchingTransactionId,
         },
         'Stored matching transaction is missing or not owned by the user',
       );
@@ -353,7 +372,7 @@ class ImportService {
     await prisma
       .$transaction([
         transactionRepository.updateTransactionOp(
-          importedTransaction.matchingTransactionId,
+          matchingTransactionId,
           {
             description: transactionData.description,
             type: transactionData.type,
@@ -365,30 +384,28 @@ class ImportService {
           userId,
         ),
         importedTransactionRepository.updateStatusOp(
-          importedTransactionId,
+          record.id,
           userId,
           ImportedTransactionStatus.MERGED,
         ),
       ])
-      .catch(throwTransactionNotFoundOnMissingRow);
+      .catch(throwOnMissingRow);
 
-    if (approveMatch) {
-      await transactionService.notifyTransactionCreatedSafe(
-        importedTransaction.matchingTransactionId,
-        userId,
-      );
-    }
+    return approveMatch ? matchingTransactionId : null;
   }
 
   public async ignoreImportedTransaction(
     importedTransactionId: string,
     userId: string,
   ) {
-    await importedTransactionRepository.updateStatus(
-      importedTransactionId,
-      userId,
-      ImportedTransactionStatus.IGNORED,
-    );
+    await this.loadOwnedRow(importedTransactionId, userId);
+    await importedTransactionRepository
+      .updateStatus(
+        importedTransactionId,
+        userId,
+        ImportedTransactionStatus.IGNORED,
+      )
+      .catch(throwOnMissingRow);
   }
 
   public async deleteImport(importId: string, userId: string) {
@@ -405,13 +422,7 @@ class ImportService {
     );
   }
 
-  /**
-   * What approving the selection would do, without writing anything.
-   * batchApproveImportedTransactions commits this same plan, so the preview
-   * cannot promise an outcome the commit would not produce. Each item also
-   * carries a review hint and a card-holding-fee flag, both derived after the
-   * action from what is already loaded, and neither feeding it.
-   */
+  /** Writes nothing; batchApproveImportedTransactions commits the same plan. */
   public async buildReconciliationPlan(
     importId: string,
     userId: string,
@@ -447,9 +458,10 @@ class ImportService {
       userId,
       transactionIds,
     );
-    const plan = pending.map((transaction) =>
-      this.toReconciliationPlanItem(transaction),
-    );
+    const plan = pending.map((record) => ({
+      record,
+      item: this.toReconciliationPlanItem(record),
+    }));
 
     return this.runReconciliationPlan(plan, userId, missingIds);
   }
@@ -492,37 +504,36 @@ class ImportService {
       autoApproveRuleRepository.findActiveByUserId(userId),
     ]);
 
-    const plan: ReconciliationPlanItem[] = [];
-    for (const transaction of pendingTransactions) {
-      const matchingRule = rules.find((rule) =>
-        transaction.description
-          .toLowerCase()
-          .includes(rule.descriptionPattern.toLowerCase()),
+    const plan: PlannedRow[] = [];
+    for (const record of pendingTransactions) {
+      const matchingRule = rules.find(
+        (rule) =>
+          rule.type === record.type &&
+          rule.descriptionPattern.trim() !== '' &&
+          record.description
+            .toLowerCase()
+            .includes(rule.descriptionPattern.toLowerCase()),
       );
 
       if (!matchingRule) {
         continue;
       }
 
-      plan.push(
-        this.toReconciliationPlanItem(transaction, matchingRule.categoryId),
-      );
+      plan.push({
+        record,
+        item: this.toReconciliationPlanItem(record, matchingRule.categoryId),
+      });
     }
 
     return this.runReconciliationPlan(plan, userId);
   }
 
-  // Both queries constrain import, owner and status in SQL, so no caller can
-  // widen the selection past the user's own pending rows in this import.
-  // `missingIds` names every requested id the query did not return, so a
-  // caller can report it as a failure instead of letting it silently shrink
-  // the batch.
   private async loadPendingSelection(
     importId: string,
     userId: string,
     transactionIds: string[] | 'all',
   ): Promise<{
-    pending: ImportedTransactionRecord[];
+    pending: ImportedTransactionWithMatch[];
     missingIds: string[];
   }> {
     if (transactionIds === 'all') {
@@ -565,7 +576,7 @@ class ImportService {
   }
 
   private toReconciliationPlanItem(
-    transaction: ImportedTransactionRecord,
+    transaction: ImportedTransactionWithMatch,
     categoryOverride?: string,
   ): ReconciliationPlanItem {
     const match = transaction.matchingTransaction;
@@ -595,12 +606,12 @@ class ImportService {
   }
 
   private async runReconciliationPlan(
-    plan: ReconciliationPlanItem[],
+    plannedRows: PlannedRow[],
     userId: string,
     missingIds: string[] = [],
   ): Promise<BatchResult> {
     const result: BatchResult = {
-      total: plan.length + missingIds.length,
+      total: plannedRows.length + missingIds.length,
       succeeded: 0,
       failed: missingIds.length,
       errors: missingIds.map((id) => ({
@@ -609,26 +620,35 @@ class ImportService {
       })),
     };
 
-    for (const item of plan) {
+    const notifyTransactionIds: string[] = [];
+    for (const entry of plannedRows) {
       try {
-        await this.applyReconciliationPlanItem(item, userId);
+        const notifyTransactionId = await this.applyPlannedRow(entry);
+        if (notifyTransactionId) {
+          notifyTransactionIds.push(notifyTransactionId);
+        }
         result.succeeded++;
       } catch (error) {
         result.failed++;
         result.errors.push({
-          id: item.importedTransactionId,
+          id: entry.record.id,
           error: getErrorMessage(error),
         });
       }
     }
 
+    await transactionService.notifyTransactionsCreatedSafe(
+      notifyTransactionIds,
+      userId,
+    );
+
     return result;
   }
 
-  private async applyReconciliationPlanItem(
-    item: ReconciliationPlanItem,
-    userId: string,
-  ): Promise<void> {
+  private async applyPlannedRow({
+    record,
+    item,
+  }: PlannedRow): Promise<string | null> {
     const payload = {
       description: item.description,
       value: item.value,
@@ -638,22 +658,15 @@ class ImportService {
 
     switch (item.action) {
       case 'MERGE':
-        await this.mergeImportedTransaction(
-          item.importedTransactionId,
-          userId,
-          {
-            ...payload,
-            categoryId: item.categoryId ?? undefined,
-          },
-        );
-        return;
+        return this.applyMerge(record, {
+          ...payload,
+          categoryId: item.categoryId ?? undefined,
+        });
       case 'CREATE':
-        await this.approveImportedTransaction(
-          item.importedTransactionId,
-          userId,
-          { ...payload, categoryId: item.categoryId },
-        );
-        return;
+        return this.applyCreate(record, {
+          ...payload,
+          categoryId: item.categoryId,
+        });
       default:
         throw new Error(`Unknown reconciliation action: ${item.action}`);
     }
@@ -717,15 +730,14 @@ class ImportService {
   }
 
   /**
-   * Clears the pending rows' matches and matches them again, keeping every
-   * transaction already claimed by a non-pending row out of the running so two
-   * rows cannot land on the same one.
+   * Excludes every transaction another row already claims, so two rows cannot
+   * land on the same one.
    */
   private async rematchPendingTransactions(
     importId: string,
     userId: string,
-    allTransactions: ImportedTransactionRecord[],
-    pendingTransactions: ImportedTransactionRecord[],
+    allTransactions: ImportedTransactionWithMatch[],
+    pendingTransactions: ImportedTransactionWithMatch[],
   ): Promise<void> {
     const excludedTransactionIds = new Set(
       allTransactions
@@ -746,6 +758,14 @@ class ImportService {
       data: { matchingTransactionId: null },
     });
 
+    const claimedElsewhere =
+      await importedTransactionRepository.findClaimedMatchingTransactionIds(
+        userId,
+      );
+    for (const transactionId of claimedElsewhere) {
+      excludedTransactionIds.add(transactionId);
+    }
+
     await this.matchSequentially(
       pendingTransactions,
       userId,
@@ -754,11 +774,6 @@ class ImportService {
     );
   }
 
-  /**
-   * Matches rows one at a time against a running exclusion set, so no two rows
-   * can claim the same transaction. A row that throws is logged and skipped
-   * rather than failing the rest.
-   */
   private async matchSequentially(
     transactions: MatchableTransaction[],
     userId: string,
@@ -800,8 +815,6 @@ class ImportService {
         'Processing imported transactions for matches',
       );
 
-      // Seeded from every transaction this user's other pending rows already
-      // claim, so a row here cannot take one out from under them.
       const excludedTransactionIds = new Set(
         await importedTransactionRepository.findClaimedMatchingTransactionIds(
           userId,
@@ -809,9 +822,13 @@ class ImportService {
       );
 
       // Rows merged in from a duplicate import keep the match they already
-      // hold; re-matching them would only find it excluded by itself.
+      // hold, and rows already approved or ignored are decided.
       await this.matchSequentially(
-        importedTransactions.filter((t) => !t.matchingTransactionId),
+        importedTransactions.filter(
+          (t) =>
+            t.status === ImportedTransactionStatus.PENDING &&
+            !t.matchingTransactionId,
+        ),
         userId,
         excludedTransactionIds,
         'Error finding match for transaction',
@@ -847,9 +864,6 @@ class ImportService {
       return null;
     }
 
-    // One unambiguous spelling match needs no model call, which is what keeps a
-    // multi-month backfill affordable. A tie falls through to the model, whose
-    // job is exactly that judgement.
     const exactMatchId = findExactNormalizedMatch(
       transaction.description,
       availableMatches,
@@ -859,9 +873,8 @@ class ImportService {
       return exactMatchId;
     }
 
-    // Providers validate their answer already; re-applying the idempotent
-    // resolver here makes "never an invented id" structural rather than a
-    // contract a future provider could forget.
+    // Re-applied so "never an invented id" is structural rather than a contract
+    // a future provider could forget.
     const matchingTransactionId = resolveMatchedTransactionId(
       await this.getAiProvider().findMatchingTransaction(
         transaction,

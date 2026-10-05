@@ -6,12 +6,8 @@ const TOKEN = process.env.E2E_AUTH_TOKEN || '';
 const BUCKET = process.env.IMPORTS_S3_BUCKET || 'e2e-imports';
 const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
 
-/**
- * The upload endpoint is the only step that talks to S3, so it is fulfilled in
- * the browser and never reaches the server. Everything downstream — creating
- * the imports, submitting extraction to the mock agent, and the webhook that
- * completes them — runs for real.
- */
+// Only the S3 upload is fulfilled in the browser; creating the imports,
+// extraction and the completing webhook all run for real.
 async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
   let uploadCount = 0;
   let shouldFail = failFirst;
@@ -38,12 +34,8 @@ async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
   });
 }
 
-/**
- * The mock agent reads the card digits out of the filename, and an import for
- * a card+month that already exists is merged into it and dropped. Fresh digits
- * per run therefore keep each test asserting on an import it actually created,
- * rather than on a leftover row from an earlier run.
- */
+// The mock agent reads the card digits from the filename and merges a repeated
+// card+month away, so fresh digits keep each test on an import it created.
 function uniqueCardFile(): { name: string; digits: string } {
   const digits = String(1000 + Math.floor(Math.random() * 9000));
   return { name: `card-${digits}_03_2026.csv`, digits };
@@ -66,11 +58,7 @@ async function openUploadDialog(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
-/**
- * The seed truncates once per stack, not per test, so imports accumulate
- * across tests and reruns. Assertions target the row for a given file rather
- * than counting rows globally.
- */
+// The seed truncates once per stack, so imports accumulate across tests.
 function importRow(page: Page, fileName: string) {
   return page.getByRole('row').filter({ hasText: fileName }).first();
 }
@@ -97,14 +85,11 @@ test.describe('multi-file imports', () => {
 
     await page.getByRole('button', { name: 'Upload 2 files' }).click();
 
-    // The dialog closes itself once every file has been accepted.
     await expect(
       page.getByRole('heading', { name: 'Import Files' }),
     ).toBeHidden({ timeout: 30_000 });
 
-    // Two independent imports, each carrying the card digits the mock agent
-    // derived from its own filename — and reaching COMPLETED without a
-    // reload, which only happens if the list is polling.
+    // Reaching COMPLETED without a reload proves the list is polling.
     for (const card of [first, second]) {
       const row = importRow(page, card.name);
       await expect(row).toBeVisible({ timeout: 30_000 });

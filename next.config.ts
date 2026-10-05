@@ -17,6 +17,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The e2e suites and dev:local address the dev server as 127.0.0.1, which
+  // Next 16 otherwise refuses dev assets and the HMR socket to, so nothing hydrates.
+  allowedDevOrigins: ['127.0.0.1'],
+  // next dev otherwise appends its own agent-rules block to CLAUDE.md, which is
+  // this repo's curated design document.
+  agentRules: false,
   turbopack: { root: __dirname },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
@@ -34,9 +40,7 @@ const nextConfig: NextConfig = {
   ],
 };
 
-// The plugin reads org/project/authToken from these vars itself; this only
-// decides whether to generate source maps at all, so a local or CI build
-// without the token skips the work instead of emitting maps it cannot upload.
+// A build without the token skips source maps it could not upload anyway.
 const canUploadSourceMaps = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&
   process.env.SENTRY_ORG &&

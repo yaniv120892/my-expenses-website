@@ -14,8 +14,8 @@ function extractTestTelegramFailureMessage(error: unknown): string {
 export const POST = createHandler({
   auth: 'session',
   bodySchema: testTelegramSchema,
-  // The chatId is caller-supplied by design (testing a not-yet-saved id),
-  // which makes the bot a message relay — the cap is what bounds that.
+  // The chatId is caller-supplied by design (testing a not-yet-saved id), which
+  // makes the bot a message relay; the cap bounds that.
   rateLimit: ({ userId }) => [
     { key: `testTelegram:user:${userId}`, ...RATE_LIMITS.testTelegram },
   ],

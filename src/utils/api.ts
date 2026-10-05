@@ -21,3 +21,20 @@ export function handleApiError(
     return fallback;
   }
 }
+
+function isAxiosGenericMessage(message: string): boolean {
+  return (
+    message === 'Network Error' ||
+    message.startsWith('Request failed with status code') ||
+    message.startsWith('timeout of ')
+  );
+}
+
+/**
+ * Axios's generic messages are not user-facing, so they give way to the
+ * fallback.
+ */
+export function describeApiError(error: unknown, fallback: string): string {
+  const message = handleApiError(error, fallback);
+  return isAxiosGenericMessage(message) ? fallback : message;
+}

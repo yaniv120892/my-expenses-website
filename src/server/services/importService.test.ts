@@ -8,6 +8,13 @@ const {
   findPotentialMatches,
   findPotentialMatchesForCharges,
   findMatchingTransaction,
+  updateStatusOp,
+  markApprovedOp,
+  getTransactionItem,
+  createTransactionOp,
+  updateTransactionOp,
+  txService,
+  autoApproveRuleRepo,
 } = vi.hoisted(() => ({
   importRepo: {
     findById: vi.fn(),
@@ -15,50 +22,86 @@ const {
     create: vi.fn(),
   },
   importedTxRepo: {
+    findById: vi.fn(),
     findByUserIdAndImportId: vi.fn(),
     findByImportId: vi.fn(),
     findPendingByImportId: vi.fn(),
     findPendingByIds: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
     updateStatusBatch: vi.fn(),
+    updateStatus: vi.fn(),
   },
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
     import: { updateMany: vi.fn() },
+    $transaction: vi.fn(),
   },
   agentClient: { submitExtractionRequest: vi.fn() },
   findPotentialMatches: vi.fn(),
   findPotentialMatchesForCharges: vi.fn(),
   findMatchingTransaction: vi.fn(),
+  getTransactionItem: vi.fn(),
+  createTransactionOp: vi.fn(),
+  updateTransactionOp: vi.fn(),
+  txService: {
+    prepareCreateTransaction: vi.fn(),
+    notifyTransactionCreatedSafe: vi.fn(),
+    notifyTransactionsCreatedSafe: vi.fn(),
+    learnCategoryMappingSafe: vi.fn(),
+  },
+  updateStatusOp: vi.fn(),
+  markApprovedOp: vi.fn(),
+  autoApproveRuleRepo: { findActiveByUserId: vi.fn() },
 }));
 
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
 }));
 vi.mock('@/server/repositories/importedTransactionRepository', () => ({
-  importedTransactionRepository: importedTxRepo,
+  importedTransactionRepository: {
+    ...importedTxRepo,
+    updateStatusOp,
+    markApprovedOp,
+  },
+}));
+vi.mock('@/server/repositories/autoApproveRuleRepository', () => ({
+  autoApproveRuleRepository: autoApproveRuleRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/repositories/transactionRepository', () => ({
   default: {
     findPotentialMatches,
     findPotentialMatchesForCharges,
-    getTransactionItem: vi.fn(),
+    getTransactionItem,
+    createTransactionOp,
+    updateTransactionOp,
   },
 }));
+vi.mock('@/server/services/transactionService', () => ({ default: txService }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
 }));
 
 import { importService } from '@/server/services/importService';
 
-// Matching is stubbed here to keep these cases on the orchestration — which
-// rows are re-matched, in what order, and how the import's status moves; the
-// real method is exercised in its own describe below.
+// Matching is stubbed to keep these cases on orchestration; the real method has
+// its own describe below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const service = importService as any;
 
 const matchSingleTransaction = vi.fn();
+
+const pendingRow = (over: Record<string, unknown> = {}) => ({
+  id: 'r1',
+  userId: 'user-1',
+  status: 'PENDING',
+  description: 'Coffee',
+  value: 12.5,
+  date: new Date(2026, 2, 7),
+  type: 'EXPENSE',
+  matchingTransaction: null,
+  ...over,
+});
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'r1',
@@ -85,6 +128,8 @@ beforeEach(() => {
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
   service.matchSingleTransaction = matchSingleTransaction;
+  txService.prepareCreateTransaction.mockResolvedValue({ id: 'model' });
+  prismaMock.$transaction.mockResolvedValue([{ id: 'created-1' }]);
 });
 
 describe('rematchImport', () => {
@@ -153,6 +198,23 @@ describe('rematchImport', () => {
     expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
     const excluded = matchSingleTransaction.mock.calls[0][2] as Set<string>;
     expect([...excluded]).toEqual(['tx-taken']);
+  });
+
+  it("excludes transactions another import's pending rows claim", async () => {
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
+      'tx-other-import',
+    ]);
+
+    await run();
+
+    const excluded = matchSingleTransaction.mock.calls[0][2] as Set<string>;
+    expect([...excluded]).toEqual(['tx-other-import']);
+    expect(
+      prismaMock.importedTransaction.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      importedTxRepo.findClaimedMatchingTransactionIds.mock
+        .invocationCallOrder[0],
+    );
   });
 
   it('a match found mid-run is excluded from later rows', async () => {
@@ -234,8 +296,8 @@ describe('processImport', () => {
         includeRawData: false,
       },
     });
-    // The import is created PROCESSING, so nothing re-states it here — the
-    // callback carries the importId and may already have completed the import.
+    // The callback may already have completed the import, so the status is not
+    // re-stated.
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },
@@ -248,8 +310,6 @@ describe('processImport', () => {
       new Error('agent down'),
     );
     await expect(run()).rejects.toThrow('agent down');
-    // Scoped to an unclaimed import: a callback that already completed (or
-    // merged away) this import must not be overwritten with FAILED.
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },
       data: { status: 'FAILED', error: 'agent down' },
@@ -322,6 +382,19 @@ describe('findPotentialMatchesForImport', () => {
     expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r2' });
   });
 
+  it('leaves an approved or ignored row alone even though it holds no match', async () => {
+    importedTxRepo.findByImportId.mockResolvedValue([
+      row({ id: 'r1', status: 'APPROVED' }),
+      row({ id: 'r2', status: 'IGNORED' }),
+      row({ id: 'r3' }),
+    ]);
+
+    await run();
+
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
+    expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r3' });
+  });
+
   it('keeps matching the remaining rows when one row throws', async () => {
     importedTxRepo.findByImportId.mockResolvedValue([
       row({ id: 'r1' }),
@@ -351,9 +424,7 @@ describe('matchSingleTransaction', () => {
     },
   ];
 
-  // Spelled like neither candidate, so the model is what decides — which is
-  // what the provider cases below are about. A row spelled exactly like one
-  // candidate never reaches the model.
+  // Spelled like neither candidate, so the model decides.
   const ambiguousRow = () => row({ description: 'Coffee Shop' });
 
   const originalGetAiProvider = service.getAiProvider;
@@ -605,7 +676,6 @@ describe('buildReconciliationPlan', () => {
         date: new Date(2026, 2, 5),
       },
     });
-    // The item itself is the "after"; nothing restates it.
     expect(item.description).toBe('Coffee');
     expect(item.value).toBe(12.5);
     expect(item.date).toEqual(new Date(2026, 2, 7));
@@ -657,25 +727,8 @@ describe('buildReconciliationPlan', () => {
 });
 
 describe('batchApproveImportedTransactions', () => {
-  const pendingRow = (over: Record<string, unknown> = {}) => ({
-    id: 'r1',
-    userId: 'user-1',
-    status: 'PENDING',
-    description: 'Coffee',
-    value: 12.5,
-    date: new Date(2026, 2, 7),
-    type: 'EXPENSE',
-    matchingTransaction: null,
-    ...over,
-  });
-
-  // Regression: loadPendingSelection's SQL filter (PENDING/userId/not-deleted)
-  // used to make a stale requested id vanish from the batch silently —
-  // `total` shrank to match, so a caller comparing `total` to what it asked
-  // for never saw a mismatch.
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
-    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
 
     const result = await importService.batchApproveImportedTransactions(
       'imp-1',
@@ -694,12 +747,41 @@ describe('batchApproveImportedTransactions', () => {
     ]);
   });
 
+  it('fails only the row a concurrent action took, and applies the rest', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      pendingRow({ id: 'r1' }),
+      pendingRow({ id: 'r2' }),
+    ]);
+    prismaMock.$transaction.mockRejectedValueOnce({
+      code: 'P2025',
+      meta: { modelName: 'ImportedTransaction' },
+    });
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1', 'r2'],
+    );
+
+    expect(result).toEqual({
+      total: 2,
+      succeeded: 1,
+      failed: 1,
+      errors: [
+        { id: 'r1', error: 'Imported transaction is no longer pending' },
+      ],
+    });
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['created-1'],
+      'user-1',
+    );
+  });
+
   it('reports every id as succeeded when none are stale', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([
       pendingRow({ id: 'r1' }),
       pendingRow({ id: 'r2' }),
     ]);
-    service.applyReconciliationPlanItem = vi.fn().mockResolvedValue(undefined);
 
     const result = await importService.batchApproveImportedTransactions(
       'imp-1',
@@ -763,5 +845,193 @@ describe('batchIgnoreImportedTransactions', () => {
       errors: [],
     });
     expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
+  });
+});
+
+describe('a batch applies the rows it already loaded', () => {
+  const pendingMatch = {
+    id: 'tx-1',
+    userId: 'user-1',
+    description: 'Coffee',
+    categoryId: 'cat-1',
+    status: 'PENDING_APPROVAL',
+  };
+
+  const loadedRow = (over: Record<string, unknown> = {}) => ({
+    ...pendingRow(),
+    matchingTransactionId: null,
+    ...over,
+  });
+
+  it('merges from the joined transaction instead of re-reading it', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({
+        id: 'r1',
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: pendingMatch,
+      }),
+    ]);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1'],
+    );
+
+    expect(result.succeeded).toBe(1);
+    expect(importedTxRepo.findById).not.toHaveBeenCalled();
+    expect(updateTransactionOp).toHaveBeenCalledWith(
+      'tx-1',
+      expect.objectContaining({ status: 'APPROVED' }),
+      'user-1',
+    );
+    expect(updateStatusOp).toHaveBeenCalledWith('r1', 'user-1', 'MERGED');
+    expect(createTransactionOp).not.toHaveBeenCalled();
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['tx-1'],
+      'user-1',
+    );
+  });
+
+  it('creates for an unmatched row and marks it approved', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({ id: 'r1' }),
+    ]);
+
+    const result = await importService.batchApproveImportedTransactions(
+      'imp-1',
+      'user-1',
+      ['r1'],
+    );
+
+    expect(result.succeeded).toBe(1);
+    expect(createTransactionOp).toHaveBeenCalledTimes(1);
+    expect(markApprovedOp).toHaveBeenCalledWith('r1', 'user-1');
+    expect(updateTransactionOp).not.toHaveBeenCalled();
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
+      ['created-1'],
+      'user-1',
+    );
+  });
+
+  it('hands the whole batch to one notification call', async () => {
+    importedTxRepo.findPendingByIds.mockResolvedValue([
+      loadedRow({ id: 'r1' }),
+      loadedRow({ id: 'r2' }),
+      loadedRow({ id: 'r3' }),
+    ]);
+
+    await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'r2',
+      'r3',
+    ]);
+
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledTimes(1);
+    expect(txService.notifyTransactionCreatedSafe).not.toHaveBeenCalled();
+  });
+});
+
+describe('single-row approve, merge and ignore', () => {
+  const approve = () =>
+    importService.approveImportedTransaction('r1', 'user-1', {
+      description: 'Coffee',
+      value: 12.5,
+      date: new Date(2026, 2, 7),
+      type: 'EXPENSE',
+      categoryId: null,
+    });
+
+  const merge = () =>
+    importService.mergeImportedTransaction('r1', 'user-1', {
+      description: 'Coffee',
+      value: 12.5,
+      date: new Date(2026, 2, 7),
+      type: 'EXPENSE',
+    });
+
+  const ignore = () => importService.ignoreImportedTransaction('r1', 'user-1');
+
+  it('409s for a row that is no longer pending, before writing', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({ status: 'APPROVED', deleted: false }),
+    );
+
+    await expect(approve()).rejects.toMatchObject({ status: 409 });
+    await expect(merge()).rejects.toMatchObject({ status: 409 });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('404s for a deleted row', async () => {
+    importedTxRepo.findById.mockResolvedValue(pendingRow({ deleted: true }));
+
+    await expect(approve()).rejects.toMatchObject({ status: 404 });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('409s when a concurrent action takes the row between the read and the write', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({
+        deleted: false,
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+      }),
+    );
+    const lostRace = {
+      code: 'P2025',
+      meta: { modelName: 'ImportedTransaction' },
+    };
+    prismaMock.$transaction.mockRejectedValue(lostRace);
+    importedTxRepo.updateStatus.mockRejectedValueOnce(lostRace);
+
+    await expect(approve()).rejects.toMatchObject({ status: 409 });
+    await expect(merge()).rejects.toMatchObject({ status: 409 });
+    await expect(ignore()).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('404s a merge whose matched transaction vanished inside the batch', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({
+        deleted: false,
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+      }),
+    );
+    prismaMock.$transaction.mockRejectedValue({
+      code: 'P2025',
+      meta: { modelName: 'Transaction' },
+    });
+
+    await expect(merge()).rejects.toMatchObject({
+      status: 404,
+      message: 'Transaction not found',
+    });
+  });
+
+  it('409s ignoring a row that is no longer pending, before writing', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      pendingRow({ status: 'IGNORED', deleted: false }),
+    );
+
+    await expect(ignore()).rejects.toMatchObject({ status: 409 });
+    expect(importedTxRepo.updateStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyAutoApproveRules', () => {
+  it('applies a rule only to rows of its own type', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({ id: 'r1', description: 'Salary ACME', type: 'EXPENSE' }),
+      pendingRow({ id: 'r2', description: 'Salary ACME', type: 'INCOME' }),
+    ]);
+    autoApproveRuleRepo.findActiveByUserId.mockResolvedValue([
+      { descriptionPattern: 'salary', categoryId: 'cat-1', type: 'INCOME' },
+    ]);
+
+    const result = await importService.applyAutoApproveRules('imp-1', 'user-1');
+
+    expect(result.total).toBe(1);
+    expect(markApprovedOp).toHaveBeenCalledTimes(1);
+    expect(markApprovedOp).toHaveBeenCalledWith('r2', 'user-1');
   });
 });

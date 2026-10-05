@@ -2,9 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-// The stream's own filtering is unit-tested in betterStackStream.test.ts; what
-// only the real logger can pin is the multistream level, which decides whether
-// an info record reaches the stream to be judged at all.
+// Pins the multistream level, which decides whether an info record reaches the
+// stream at all.
 const batches: Record<string, unknown>[][] = [];
 let server: Server;
 
@@ -31,7 +30,6 @@ afterAll(async () => {
   });
 });
 
-// The eager flush is fire-and-forget, so give its POST a turn to land.
 function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 50));
 }
@@ -58,7 +56,6 @@ describe('logger remote shipping', () => {
     logger.error({ err: new Error('boom') }, 'Request failed');
     await settle();
 
-    // The error left without waiting for the request's flush.
     expect(batches).toHaveLength(1);
     expect(batches[0].map((record) => record.msg)).toContain('Request failed');
 

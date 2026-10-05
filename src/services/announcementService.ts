@@ -9,11 +9,8 @@ export async function getAnnouncements(): Promise<AnnouncementWithSeen[]> {
   return res.data.announcements;
 }
 
-/**
- * Acknowledges every id, in requests of at most MAX_ACKNOWLEDGE_IDS — the
- * route rejects a larger batch outright, and the caller acknowledges whatever
- * is unseen without knowing how many that is.
- */
+// The route rejects a batch over MAX_ACKNOWLEDGE_IDS, and callers pass whatever
+// is unseen.
 export async function acknowledgeAnnouncements(
   ids: string[],
 ): Promise<string[]> {

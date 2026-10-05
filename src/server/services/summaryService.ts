@@ -17,7 +17,6 @@ class SummaryService {
     const users = await userSettingsService.getUsersRequiredDailySummary();
     let failed = 0;
     for (const userId of users) {
-      // Guarded per user so one failure cannot abort the run for the rest.
       try {
         const message = await this.getTodaySummaryMessage(userId);
         await notifier.sendDailySummary(message, userId);
@@ -32,7 +31,6 @@ class SummaryService {
       'Daily summary run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Daily summary failed for ${failed} of ${users.length} user(s)`,
       );

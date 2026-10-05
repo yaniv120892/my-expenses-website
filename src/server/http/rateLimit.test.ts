@@ -40,8 +40,6 @@ describe('enforceRateLimits', () => {
       status: 429,
       message: 'Too many requests. Try again later.',
     });
-    // warn ships to Better Stack; the attack stays visible past Vercel's
-    // one-hour log retention.
     expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 
@@ -50,6 +48,17 @@ describe('enforceRateLimits', () => {
 
     await expect(enforceRateLimits([LOGIN_RULE])).resolves.toBeUndefined();
     expect(logger.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('trips on the right rule when several are counted at once', async () => {
+    incrementManyWithTtl.mockResolvedValue([99, 1]);
+
+    await expect(
+      enforceRateLimits([
+        LOGIN_RULE,
+        { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 },
+      ]),
+    ).rejects.toMatchObject({ status: 429 });
   });
 
   it('skips Redis entirely for an empty rule list', async () => {

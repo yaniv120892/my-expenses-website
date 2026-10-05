@@ -40,7 +40,7 @@ function isCrossOrigin(req: NextRequest): boolean {
   }
 }
 
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export async function proxy(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   // CSRF defense-in-depth on top of SameSite=Lax cookies.
@@ -68,7 +68,6 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    // Everything except Next internals and static assets.
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

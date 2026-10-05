@@ -1,16 +1,7 @@
 import http from 'http';
 
-/**
- * An OpenAI-compatible /v1/chat/completions endpoint that returns scripted
- * responses, so the agent loop can be exercised without an API key.
- *
- * Mastra's OpenAI-compatible provider posts to `${baseURL}/chat/completions`.
- *
- * The point is not to simulate a model well — it is to make the agent's
- * behaviour observable. Every request is recorded, so a test can assert which
- * tools the agent invoked and with what arguments, and that the figures it
- * reported came from the tool result rather than from the model.
- */
+// A scripted OpenAI-compatible model: every request is recorded, so a check can
+// assert which tools ran and that reported figures came from the tool result.
 
 export interface RecordedToolCall {
   name: string;
@@ -81,29 +72,14 @@ function chunk(delta: unknown, finish: string | null): unknown {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Gap between streamed chunks. Exported so the incremental-delivery check can
- * assert against the mock's actual pacing instead of a magic number that can
- * drift from it. Comfortably above timer jitter, since deltas may be coalesced
- * downstream and the check then sees only a couple of them.
- */
+// Above timer jitter, since deltas may be coalesced downstream and the check
+// then sees only a couple of them.
 export const CHUNK_DELAY_MS = 120;
 
-/**
- * Tool-call ids must be unique across the whole conversation, not just within
- * a turn. Memory replays previous turns into each request, so a repeated id
- * collides with the earlier call and its stale result is reused instead of the
- * tool being executed again.
- */
+// Unique across the whole conversation: memory replays earlier turns, so a
+// reused id makes the stale result stand in for a fresh tool run.
 let toolCallSeq = 0;
 
-/**
- * Decides what the "model" does next.
- *
- * First turn: ask for a tool. Second turn (a tool result is present): answer in
- * words, quoting the tool output verbatim so the test can prove the number the
- * user sees originated in TypeScript.
- */
 async function respond(
   res: http.ServerResponse,
   messages: ChatMessage[],
@@ -177,7 +153,6 @@ async function respond(
   res.end();
 }
 
-/** Maps a question to the tool a competent model should choose. */
 function pickTool(question: string): RecordedToolCall {
   if (
     question.includes('compare') ||

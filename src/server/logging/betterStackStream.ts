@@ -3,11 +3,9 @@ import { optionalEnv } from '@/server/env';
 type LogRecord = Record<string, unknown>;
 
 // Vercel Hobby keeps runtime logs for an hour and log drains are Pro-only, so
-// records worth keeping are batched here and shipped by the request's `after`
-// hook instead.
+// records are batched here and shipped from the request's `after` hook.
 const MAX_BUFFERED_RECORDS = 100;
 const FLUSH_TIMEOUT_MS = 2000;
-// pino's numeric levels.
 const WARN_LEVEL = 40;
 const ERROR_LEVEL = 50;
 
@@ -30,16 +28,14 @@ function levelOf(record: LogRecord): number {
   return typeof record.level === 'number' ? record.level : 0;
 }
 
-// The stream is attached at info so a low-volume line can opt itself in with
-// `ship: true` — a cron's daily summary, where silence is the only other
-// signal. Everything else below warn is dropped here rather than shipped.
+// Below warn, only records marked `ship: true` leave, such as a cron's request
+// line.
 function shouldShip(record: LogRecord): boolean {
   return levelOf(record) >= WARN_LEVEL || record.ship === true;
 }
 
-// An error is both the record most worth keeping and the one most likely to be
-// followed by the request dying, so it goes out now rather than waiting for the
-// `after` hook. Guarded so a burst costs one batch, not one POST per record.
+// An error is often followed by the request dying, so it goes out now; guarded
+// so a burst costs one batch.
 function flushEagerly(): void {
   if (eagerFlush) {
     return;

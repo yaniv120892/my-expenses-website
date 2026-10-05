@@ -1,15 +1,8 @@
 import http from 'http';
 
-/**
- * Minimal stand-in for the Upstash REST API.
- *
- * `@upstash/redis` speaks HTTP/REST rather than the Redis wire protocol, so a
- * local redis-server cannot be used. Only the commands the server issues are
- * implemented (set/get/del/incr/expire); values are stored verbatim, since the
- * client serialises before sending and parses after receiving. TTLs are
- * honoured lazily, so a rate-limit window expires here just as it would in
- * Redis instead of a counter surviving until the shim restarts.
- */
+// `@upstash/redis` speaks REST rather than the Redis wire protocol, so a local
+// redis-server cannot stand in. TTLs expire lazily so rate-limit windows
+// behave.
 const store = new Map<string, { value: string; expiresAt?: number }>();
 
 function liveEntry(key: string): { value: string; expiresAt?: number } | null {
@@ -121,7 +114,6 @@ export function startUpstashShim(port: number): Promise<http.Server> {
   );
 }
 
-/** Lets the seed script write a session key directly. */
 export function seedKey(key: string, value: string): void {
   store.set(key, { value });
 }

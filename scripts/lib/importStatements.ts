@@ -1,14 +1,9 @@
-/**
- * The pure parts of `scripts/import-statements.ts`, kept apart from the script
- * so they can be unit tested: the script runs on import.
- */
 import { basename, extname } from 'path';
 
 export type ImportArguments = {
   directory: string;
   dryRun: boolean;
   baseUrl: string;
-  // Upload every file again even when the manifest records an import for it.
   resubmit: boolean;
 };
 
@@ -63,11 +58,7 @@ export function parseImportArguments(args: string[]): ImportArguments {
   return { directory, dryRun, baseUrl, resubmit };
 }
 
-/**
- * `<issuer>-<last4>-<MM>-<YYYY>.xlsx` carries the payment month the dialog
- * would otherwise ask for per batch, and identifies the import to follow when a
- * duplicate is merged away.
- */
+// `<issuer>-<last4>-<MM>-<YYYY>.xlsx`
 export function parseStatementName(
   fileName: string,
 ): ParsedStatementName | null {
@@ -84,7 +75,6 @@ export function parseStatementName(
 
 export type PlanTotals = { merge: number; create: number };
 
-/** The question asked before a commit, and what answer counts as yes. */
 export type CommitConfirmation = {
   prompt: string;
   accepts: (answer: string) => boolean;
@@ -96,11 +86,8 @@ export function isLocalTarget(baseUrl: string): boolean {
   return LOCAL_HOSTS.includes(new URL(baseUrl).hostname);
 }
 
-/**
- * A local target takes `y`. Anything else is a real site whose rows cannot be
- * un-approved, so the answer has to be its hostname — a typo'd flag several
- * minutes earlier must not be the only thing between a preview and the write.
- */
+// A remote target's rows cannot be un-approved, so the answer has to be its
+// hostname — a typo'd flag minutes earlier must not be the only guard.
 export function commitConfirmation(
   baseUrl: string,
   totals: PlanTotals,

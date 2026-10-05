@@ -88,10 +88,6 @@ class SubscriptionRepository {
     return subscriptions.map(mapToDomain);
   }
 
-  /**
-   * Writes a whole detection run for one user. Reads the rows it may collide
-   * with once, then applies each merchant independently.
-   */
   public async applyDetectionResults(
     userId: string,
     results: DetectionInput[],
@@ -127,10 +123,8 @@ class SubscriptionRepository {
   }
 
   /**
-   * Decides what a detection run is allowed to touch: a merchant the user
-   * dismissed at this frequency stays untouched, a row whose figures the user
-   * edited keeps them along with its own frequency, and anything else is
-   * fully refreshed.
+   * A merchant dismissed at this frequency stays untouched; a row the user
+   * edited keeps its figures and frequency; anything else is fully refreshed.
    */
   private async applyDetection(
     data: DetectionInput,

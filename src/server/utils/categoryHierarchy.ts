@@ -42,9 +42,8 @@ function collectSubtree(
 }
 
 /**
- * Maps every category id to itself plus all of its descendants. The inverse of
- * buildParentMap: callers that must keep sibling categories distinct (rather
- * than rolling them up to a shared ancestor) expand ids through this.
+ * Every category id to itself plus all its descendants, for callers that must
+ * keep sibling categories distinct.
  */
 export function buildDescendantMap(
   categories: CategoryNode[],
@@ -60,11 +59,7 @@ export function buildDescendantMap(
   return descendantMap;
 }
 
-/**
- * The ids a single-category filter covers. Walks from the one root instead of
- * building the whole map, which callers filtering by one category would throw
- * away.
- */
+/** Walks from the one root instead of building the whole map. */
 export async function expandCategoryToSubtree(
   categoryId: string,
 ): Promise<string[]> {
@@ -72,7 +67,6 @@ export async function expandCategoryToSubtree(
   return collectCategorySubtree(categories, categoryId);
 }
 
-/** The same expansion for a caller that already holds the category list. */
 export function collectCategorySubtree(
   categories: CategoryNode[],
   rootId: string,

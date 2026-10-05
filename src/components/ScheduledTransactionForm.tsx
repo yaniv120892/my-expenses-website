@@ -25,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
+import { describeApiError } from '@/utils/api';
 import NotificationSnackbar from './NotificationSnackbar';
 
 interface Props {
@@ -183,8 +184,11 @@ export default function ScheduledTransactionForm({
         'success',
       );
       onCloseAction();
-    } catch {
-      showSnackbar('Failed to save scheduled transaction', 'error');
+    } catch (err) {
+      showSnackbar(
+        describeApiError(err, 'Failed to save scheduled transaction'),
+        'error',
+      );
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -197,8 +201,11 @@ export default function ScheduledTransactionForm({
         await onDeleteAction(initialData.id);
         showSnackbar('Scheduled transaction deleted successfully', 'success');
         onCloseAction();
-      } catch {
-        showSnackbar('Failed to delete scheduled transaction', 'error');
+      } catch (err) {
+        showSnackbar(
+          describeApiError(err, 'Failed to delete scheduled transaction'),
+          'error',
+        );
       } finally {
         setIsLoadingDelete(false);
       }

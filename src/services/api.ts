@@ -1,13 +1,11 @@
 import axios from 'axios';
+import { logout } from './authClient';
 
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
 
-/**
- * The server's reason for a failure, from the `{ message }` every route
- * handler emits. A blob responseType applies to errors too, so for those the
- * JSON arrives as a Blob and has to be read back.
- */
+// A blob responseType applies to errors too, so their JSON can arrive as a
+// Blob.
 async function serverMessage(data: unknown): Promise<string | null> {
   try {
     const body = data instanceof Blob ? JSON.parse(await data.text()) : data;
@@ -15,6 +13,20 @@ async function serverMessage(data: unknown): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+let expiringSession: Promise<void> | null = null;
+
+// The proxy checks only the JWT, so a cookie whose server session is gone
+// would bounce /login straight back into the app until it is cleared. Requests
+// that 401 together share the one logout and redirect.
+function expireSession(): Promise<void> {
+  expiringSession ??= logout()
+    .catch(() => undefined)
+    .then(() => {
+      window.location.href = '/login?reason=session-expired';
+    });
+  return expiringSession;
 }
 
 api.interceptors.response.use(
@@ -25,7 +37,7 @@ api.interceptors.response.use(
       typeof window !== 'undefined' &&
       !window.location.pathname.startsWith('/login')
     ) {
-      window.location.href = '/login?reason=session-expired';
+      await expireSession();
     }
     // Without this every caller reports axios's "Request failed with status
     // code 4xx" instead of the message the server took care to write.

@@ -32,8 +32,6 @@ describe('getTransactionsPage', () => {
     get.mockResolvedValue({ data: { items: [], nextCursor: null } });
   });
 
-  // Regression: the client used to hardcode perPage=1000, which the route's
-  // schema rejects with a 400, so the list rendered its error state.
   it('sends params the route schema accepts', async () => {
     await getTransactionsPage({
       startDate: '2026-08-01',
@@ -121,13 +119,10 @@ describe('exportTransactionsCsv', () => {
   });
 });
 
-// The totals sit above the list and the export sits beside it, so any filter
-// that narrows the rows must narrow all three — including the default endDate
-// the client injects.
+// Totals, list and export must narrow alike, including the default endDate the
+// client injects.
 describe('list, summary and export filters', () => {
-  // The default endDate is now+7d to the millisecond, so freeze the clock: the
-  // claim under test is that all three build the window the same way, not that
-  // three calls land in the same millisecond.
+  // The default endDate is now+7d to the millisecond, so the clock is frozen.
   beforeEach(() => {
     get.mockReset();
     vi.useFakeTimers();

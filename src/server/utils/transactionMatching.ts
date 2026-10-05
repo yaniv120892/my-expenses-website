@@ -1,9 +1,6 @@
 import { TransactionType } from '@prisma/client';
 import { addDays, subDays } from 'date-fns';
 
-// A statement row and a hand-logged transaction rarely agree exactly: the
-// merchant string is spelled differently and the charged amount can drift from
-// the amount that was typed. These are the tolerances that bridge that gap.
 const MINIMUM_VALUE_TOLERANCE = 2;
 const RELATIVE_VALUE_TOLERANCE = 0.01;
 
@@ -20,11 +17,8 @@ type ImportedCharge = {
   type: TransactionType;
 };
 
-// Distinct from normalizeMerchantName in merchantNormalizer.ts, which answers a
-// different question and must keep doing so: it strips corporate suffixes and
-// trailing digits to derive a merchant's identity for subscription detection,
-// which would fold "Cafe 123" and "Cafe 456" together. Matching one statement
-// row to one transaction needs those digits kept and Hebrew niqqud folded away.
+// Not normalizeMerchantName: that strips trailing digits for subscription
+// identity, folding "Cafe 123" into "Cafe 456".
 type NormalizedMatchCandidate = {
   id: string;
   description: string;
@@ -42,9 +36,8 @@ export function normalizeDescription(value: string): string {
 }
 
 /**
- * The id of the one candidate whose description normalizes to the same string,
- * or null. A tie is deliberately null rather than the first hit: choosing
- * between equally-spelled candidates is what the model is for.
+ * A tie is null rather than the first hit: choosing between equally spelled
+ * candidates is the model's job.
  */
 export function findExactNormalizedMatch(
   description: string,
@@ -130,11 +123,9 @@ export function shareNoWord(left: string, right: string): boolean {
   return !leftWords.some((word) => rightWords.has(word));
 }
 
-// The extraction service shortens a merchant by dropping words at an end —
-// usually the trailing branch, mall or city, sometimes a leading "refund" —
-// so a shortened name is a whole word or words from one end of the full one.
-// A bare initial is not a shortened merchant, hence the minimum length; below
-// it the amount and day would be doing all the work.
+// The extraction service shortens a merchant by dropping whole words at an end.
+// Below this length a bare initial would leave the amount and day doing all the
+// work.
 const MINIMUM_SHORTENED_MERCHANT_LENGTH = 3;
 // A cut inside a word is a truncation rather than a shortening, and one that
 // keeps most of the characters is still the same merchant; one that keeps a
@@ -142,10 +133,8 @@ const MINIMUM_SHORTENED_MERCHANT_LENGTH = 3;
 const MINIMUM_TRUNCATION_COVERAGE = 0.5;
 
 /**
- * Whether two rows of one import describe the same charge. Date, value and
- * type must agree exactly; descriptions only have to agree as far as the
- * shorter one runs — to a word boundary, or most of the way into a word —
- * since the extraction service shortens the same merchant differently between
+ * Date, value and type agree exactly; descriptions only as far as the shorter
+ * one runs, since the extraction service shortens merchants differently between
  * runs.
  */
 export function isSameCharge(

@@ -43,7 +43,6 @@ class MonthlyReportService {
 
     let failed = 0;
     for (const userId of userIds) {
-      // Guarded per user so one failure cannot abort the run for the rest.
       try {
         await this.sendMonthlyReportForUser(userId, { referenceDate });
       } catch (err) {
@@ -57,7 +56,6 @@ class MonthlyReportService {
       'Monthly report run finished',
     );
     if (failed > 0) {
-      // Surface partial failure so cron monitoring sees it.
       throw new Error(
         `Monthly report failed for ${failed} of ${userIds.length} user(s)`,
       );
@@ -65,12 +63,8 @@ class MonthlyReportService {
   }
 
   /**
-   * Sends one user their previous-month report.
-   *
-   * `sendWhenEmpty` exists for the Settings "Test" button: the scheduled run
-   * skips a month with no transactions, but someone testing the feature needs
-   * an email to arrive either way, otherwise a working setup is
-   * indistinguishable from a broken one.
+   * `sendWhenEmpty` is for the Settings test button: the scheduled run skips an
+   * empty month, but a test that sends nothing looks like a broken setup.
    */
   public async sendMonthlyReportForUser(
     userId: string,

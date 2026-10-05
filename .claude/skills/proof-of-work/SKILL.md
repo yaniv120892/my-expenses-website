@@ -1,6 +1,6 @@
 ---
 name: proof-of-work
-description: Produce real evidence that a change works — bring the app up locally against a real Postgres, exercise the endpoint or flow, and capture Playwright screenshots for UI changes — then write it up for a PR's Proof of Work section. Use this whenever you finish a change and need to show it works, when writing or filling in a PR's Proof of Work section, when asked to "prove it works", "show it working", "test this manually", "take screenshots", or before claiming any change is done. Passing unit tests alone are not proof of work.
+description: Produce runtime evidence that a change works in this app — the dev:local stack on a real Postgres, real endpoint calls, Playwright screenshots for UI — for a PR's Proof of Work section. Use when finishing a change, filling in Proof of Work, or asked to prove, demo or screenshot a change. Passing unit tests are not proof of work.
 ---
 
 # Proof of work
@@ -9,9 +9,10 @@ A green test suite says the code does what the test expects. Proof of work
 says the _feature_ does what the PR claims, in the running app — a real
 Postgres, a real HTTP request, a real browser.
 
-The reviewer should be able to read this section and believe the change
-without checking out the branch. That means pasted output rather than
-description, and honesty about what was not exercised.
+What _counts_ as proof — the same command run without and with the change,
+output pasted rather than described, a `**Not proven locally:**` line — is the
+writing-pr-description plugin skill's job. This file is how to produce it _in
+this app_.
 
 Decide what to produce from what the change touches:
 
@@ -24,8 +25,8 @@ Decide what to produce from what the change touches:
 | Bug fix                          | The failing case reproduced _before_, and the same case succeeding _after_           |
 | Tooling, docs, a skill           | No runtime surface — apply it to real inputs from this repo and show what came out   |
 
-Every one of them also carries the check results, with real counts. Run them
-as one command: `npm run typecheck && npm run lint && npm test`.
+Run `npm run typecheck && npm run lint && npm test` before claiming anything
+is done — but their results stay out of the PR body; CI already shows them.
 
 ## Bringing the stack up
 
@@ -39,7 +40,7 @@ the mock extraction agent, seeds two users, starts the dev server, and blocks
 until `/api/health/deep` reports both `db` and `redis` healthy. It then prints
 the seeded email and password, and a bearer token, and tails the Next log.
 Ctrl-C stops the app and the mocks; the database stays up for the next run
-(`npx prisma dev stop` ends it).
+(`npx prisma dev stop my-expenses` ends it).
 
 Read `scripts/dev-local.sh` before working around it — every value in it is
 load-bearing, and each one carries the comment saying why. The one constraint
@@ -223,25 +224,6 @@ Mermaid diagram parsed rather than eyeballed, a bundled script passing
 `npm run typecheck` and `npm run lint`, a JSON file validating against its
 schema. "It looks right" is not proof of work.
 
-## The check results
-
-Always, with real numbers observed on this branch:
-
-```markdown
-- `npm test` — <passed>/<total>
-- `npm run typecheck` — clean
-- `npm run lint` — <N> errors (<M> warnings, all pre-existing in `<path>`)
-```
-
-The placeholders are deliberate: fill them from the run you just did.
-
-Add `npm run test:e2e:api` and `npm run test:e2e:ui` with their counts when
-the change touches those paths. Note when new tests fail on the old code and
-pass on the new one — that is the cheapest way to show a test is meaningful
-rather than tautological.
-
-Never write a number you did not see. If a suite was not run, say so.
-
 ## Say what you did not verify
 
 The section's credibility comes from its limits. Real examples worth
@@ -261,7 +243,7 @@ much the evidence is worth.
 
 ## Cleaning up
 
-Stop `serve.ts` and `prisma dev` when done. Nothing from a proof-of-work run
+Ctrl-C the `dev:local` run and `npx prisma dev stop my-expenses` when done. Nothing from a proof-of-work run
 belongs in the PR: not the seed script, not `.env` files, not Playwright traces,
 and not the screenshots — those go to the assets branch. `capture.ts` writes to
 a gitignored directory for exactly this reason, so the only thing to check is

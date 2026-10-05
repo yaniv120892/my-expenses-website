@@ -4,6 +4,7 @@ import {
   generateWebhookToken,
   verifyWebhookToken,
   extractWebhookParams,
+  secretsEqual,
 } from '@/server/utils/webhookAuth';
 
 const SECRET = 'test-webhook-secret';
@@ -189,5 +190,22 @@ describe('extractWebhookParams', () => {
     expect(
       extractWebhookParams({ token: 'abc', userId: 'u1', timestamp: '123abc' }),
     ).toEqual({ token: 'abc', userId: 'u1', timestamp: 123 });
+  });
+});
+
+describe('secretsEqual', () => {
+  it('matches only the identical secret', () => {
+    expect(secretsEqual('s3cret', 's3cret')).toBe(true);
+    expect(secretsEqual('s3creT', 's3cret')).toBe(false);
+  });
+
+  it('returns false rather than throwing on a length mismatch or a missing value', () => {
+    expect(secretsEqual('short', 'much-longer-secret')).toBe(false);
+    expect(secretsEqual('', 's3cret')).toBe(false);
+    expect(secretsEqual(null, 's3cret')).toBe(false);
+  });
+
+  it('never matches an empty expected secret', () => {
+    expect(secretsEqual('', '')).toBe(false);
   });
 });

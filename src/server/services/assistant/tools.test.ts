@@ -27,10 +27,8 @@ type SummaryToolResult = {
   resolvedCategory: string | null;
 };
 
-// Mastra's execute signature wants a full ToolExecutionContext, marks execute
-// optional, and returns a validation union; the tools under test read only
-// requestContext.get and always return the summary shape, so the bridge for
-// all of that lives here, once.
+// Bridges Mastra's full execute signature to the requestContext.get and summary
+// shape these tools actually use.
 async function invoke(
   tool: { execute?: (input: never, context: never) => unknown },
   input: unknown,
@@ -90,7 +88,6 @@ describe('category resolution', () => {
         aggregation: 'total',
       }),
     ).rejects.toThrow(/Unknown category "Utilities".*listCategories/);
-    // The failure must happen before any figures are computed.
     expect(getTransactionsSummary).not.toHaveBeenCalled();
   });
 

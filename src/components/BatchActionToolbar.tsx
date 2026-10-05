@@ -14,15 +14,17 @@ import {
   useApplyAutoApproveRulesMutation,
 } from '../hooks/useImports';
 import { BatchResult } from '../types/import';
+import { describeApiError } from '../utils/api';
 
-interface BatchActionToolbarProps {
+type BatchActionToolbarProps = {
   importId: string;
   selectedIds: string[];
   pendingCount: number;
   onSelectAll: () => void;
   onClearSelection: () => void;
   hasAutoApproveRules: boolean;
-}
+  onErrorAction: (message: string) => void;
+};
 
 export default function BatchActionToolbar({
   importId,
@@ -31,6 +33,7 @@ export default function BatchActionToolbar({
   onSelectAll,
   onClearSelection,
   hasAutoApproveRules,
+  onErrorAction,
 }: BatchActionToolbarProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -54,6 +57,8 @@ export default function BatchActionToolbar({
       });
       setBatchResult(result);
       onClearSelection();
+    } catch (error) {
+      onErrorAction(describeApiError(error, 'Batch action failed'));
     } finally {
       setConfirmDialog((prev) => ({ ...prev, open: false }));
     }
@@ -63,8 +68,10 @@ export default function BatchActionToolbar({
     try {
       const result = await autoApproveMutation.mutateAsync();
       setBatchResult(result);
-    } catch {
-      // error handled by mutation
+    } catch (error) {
+      onErrorAction(
+        describeApiError(error, 'Failed to apply auto-approve rules'),
+      );
     }
   };
 

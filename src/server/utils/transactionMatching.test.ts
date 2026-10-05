@@ -196,10 +196,8 @@ describe('isSameCharge', () => {
     ).toBe(false);
   });
 
-  // Regression: a shared prefix used to be enough on its own, so two
-  // distinct merchants charging the same amount on the same day (a real
-  // coincidence, not a re-imported row) read as duplicates and the second
-  // one silently never imported.
+  // Regression: a shared prefix alone made two merchants charging the same
+  // amount that day read as duplicates.
   it('does not match two different merchants that share an opening inside a word', () => {
     expect(
       isSameCharge(

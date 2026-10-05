@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const pipelineExec = vi.fn();
+
 const commands = {
   set: vi.fn(),
   get: vi.fn(),
   del: vi.fn(),
   incr: vi.fn(),
+  pipeline: () => ({
+    incr: vi.fn(),
+    expire: vi.fn(),
+    exec: pipelineExec,
+  }),
 };
 
 vi.mock('@upstash/redis', () => ({
@@ -38,9 +45,6 @@ describe('redisKeyPrefix', () => {
     expect(redisKeyPrefix('branch')).toBe('');
   });
 
-  // An unconfigured local process pointed at a real REDIS_URL must not be able
-  // to write into production's keyspace, so absence of VERCEL_ENV namespaces
-  // rather than falling through to bare keys.
   it('namespaces local and CI, where VERCEL_ENV is unset', async () => {
     const { redisKeyPrefix } = await import('@/server/redis');
     expect(redisKeyPrefix()).toBe('local:');
@@ -79,9 +83,6 @@ describe('redisKeyPrefix', () => {
   });
 });
 
-// The namespace is only worth anything if every wrapper actually applies it:
-// dropping the call inside one of them would reintroduce cross-environment
-// reads while every prefix test above still passed.
 describe('the wrappers namespace what they send to Redis', () => {
   beforeEach(() => {
     vi.stubEnv('REDIS_URL', 'http://127.0.0.1:1');
@@ -137,5 +138,64 @@ describe('the wrappers namespace what they send to Redis', () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+});
+
+describe('incrementManyWithTtl guarantees one count per increment', () => {
+  beforeEach(() => {
+    vi.stubEnv('REDIS_URL', 'http://127.0.0.1:1');
+    vi.stubEnv('REDIS_TOKEN', 'test');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    commands.del.mockReset().mockResolvedValue(1);
+    pipelineExec.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns the pipeline counts when the result is complete', async () => {
+    const { incrementManyWithTtl } = await import('@/server/redis');
+    pipelineExec.mockResolvedValue([4, 7]);
+
+    await expect(
+      incrementManyWithTtl([
+        { key: 'a', ttlSeconds: 60 },
+        { key: 'b', ttlSeconds: 60 },
+      ]),
+    ).resolves.toEqual([4, 7]);
+  });
+
+  it('throws rather than returning a short result', async () => {
+    const { incrementManyWithTtl } = await import('@/server/redis');
+    pipelineExec.mockResolvedValue([4]);
+
+    await expect(
+      incrementManyWithTtl([
+        { key: 'a', ttlSeconds: 60 },
+        { key: 'b', ttlSeconds: 60 },
+      ]),
+    ).rejects.toThrow('Expected 2 counters from the Redis pipeline, got 1');
+  });
+
+  it('deletes the counters it cannot give a TTL, so none jams open', async () => {
+    const { incrementManyWithTtl } = await import('@/server/redis');
+    pipelineExec.mockResolvedValue([4]);
+
+    await expect(
+      incrementManyWithTtl([
+        { key: 'a', ttlSeconds: 60 },
+        { key: 'b', ttlSeconds: 60 },
+      ]),
+    ).rejects.toThrow();
+    expect(commands.del).toHaveBeenCalledWith('a');
+    expect(commands.del).toHaveBeenCalledWith('b');
+  });
+
+  it('treats an empty increment list as a no-op', async () => {
+    const { incrementManyWithTtl } = await import('@/server/redis');
+
+    await expect(incrementManyWithTtl([])).resolves.toEqual([]);
+    expect(pipelineExec).not.toHaveBeenCalled();
   });
 });

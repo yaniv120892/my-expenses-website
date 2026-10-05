@@ -9,11 +9,8 @@ interface Props {
   onLoadMore: () => void;
 }
 
-/**
- * Requests the next page when the end of the list scrolls into view. The
- * observer is re-armed whenever hasMore/loading change so a fetch in flight
- * cannot queue a second request for the same page.
- */
+// Re-armed whenever hasMore/loading change, so a fetch in flight cannot queue a
+// second request for the same page.
 export default function InfiniteScrollSentinel({
   hasMore,
   loading,

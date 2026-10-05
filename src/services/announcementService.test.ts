@@ -34,9 +34,6 @@ describe('acknowledgeAnnouncements', () => {
     expect(acknowledged).toEqual(ids(3));
   });
 
-  // Regression: every unseen id went out in one request, so a user with more
-  // than MAX_ACKNOWLEDGE_IDS unseen announcements got a 400 and — because the
-  // write is fire-and-forget — saw the dialog again on every load.
   it('splits an oversized set into accepted batches', async () => {
     const all = ids(MAX_ACKNOWLEDGE_IDS * 2 + 7);
 

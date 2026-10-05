@@ -1,25 +1,25 @@
-import api from "./api";
+import api from './api';
 import {
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   UpdateScheduledTransactionInput,
-} from "../types";
+} from '../types';
 
 async function getScheduledTransactions(): Promise<ScheduledTransaction[]> {
-  const res = await api.get("/api/scheduled-transactions");
+  const res = await api.get('/api/scheduled-transactions');
   return res.data;
 }
 
 async function createScheduledTransaction(
-  data: CreateScheduledTransactionInput
+  data: CreateScheduledTransactionInput,
 ): Promise<string> {
-  const res = await api.post("/api/scheduled-transactions", data);
+  const res = await api.post('/api/scheduled-transactions', data);
   return res.data;
 }
 
 async function updateScheduledTransaction(
   id: string,
-  data: UpdateScheduledTransactionInput
+  data: UpdateScheduledTransactionInput,
 ): Promise<string> {
   const res = await api.put(`/api/scheduled-transactions/${id}`, data);
   return res.data;

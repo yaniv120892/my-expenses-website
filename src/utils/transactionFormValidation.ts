@@ -6,13 +6,9 @@ export interface TransactionFormValues {
   date: string;
 }
 
-/**
- * Field errors for the transaction form, keyed by field name.
- *
- * `requireCategory` exists because the API schemas disagree: update and merge
- * require a uuid, while create and import-approve let the server categorize.
- * Which endpoint the submit targets decides the rule.
- */
+// Update and merge require a category uuid while create and import-approve let
+// the server categorize, so the endpoint the submit targets decides
+// `requireCategory`.
 export function validateTransactionForm(
   form: TransactionFormValues,
   requireCategory: boolean,

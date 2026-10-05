@@ -1,15 +1,12 @@
 import { Category } from '@/shared/types/category';
 import { Transaction } from '@/shared/types/transaction';
 import {
-  CategorizerHint,
+  CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatCurrencyPlain } from '@/utils/format';
 import logger from '@/server/logging/logger';
-
-// Prompts live here so both providers send identical instructions; switching
-// AI_PROVIDER must never change product behavior.
 
 export function buildAnalyzeExpensesPrompt(
   expenseSummary: string,
@@ -18,19 +15,71 @@ export function buildAnalyzeExpensesPrompt(
   return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;
 }
 
+export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
+  'You are a financial assistant helping users categorize their expenses.';
+export const SUGGEST_CATEGORY_QUESTION =
+  'Which category does this expense belong to?';
+
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
   categoryOptions: Category[],
-  categorizerHint?: CategorizerHint,
 ): string {
-  let prompt = `Which category does this expense belong to?\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((c) => `- ${c.name}`).join('\n')}`;
+  return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
+}
 
-  if (categorizerHint) {
-    prompt += `\n\nA machine learning model suggested "${categorizerHint.hint}" with ${Math.round(categorizerHint.confidence * 100)}% confidence. Consider this suggestion but use your own judgment.`;
+export function normalizeModelAnswer(
+  rawAnswer: string | null | undefined,
+): string | null {
+  const answer = rawAnswer
+    ?.trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  return answer || null;
+}
+
+export function buildCategoryChoiceCriteria(
+  categoryOptions: Category[],
+): Record<string, null> {
+  return Object.fromEntries(
+    categoryOptions.map((category) => [category.name, null]),
+  );
+}
+
+export function resolveSuggestedCategoryId(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+): string | null {
+  const answer = normalizeModelAnswer(rawAnswer);
+  if (answer === null) {
+    return null;
   }
+  const match = categoryOptions.find((category) => category.name === answer);
+  if (match) {
+    return match.id;
+  }
+  logger.warn(
+    { rawAnswer },
+    'Model answer did not name an offered category; treating as no suggestion',
+  );
+  return null;
+}
 
-  prompt += '\n\nReturn only the category name, nothing else.';
-  return prompt;
+export function buildCategoryEvaluation(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+  measured: {
+    inputTokens: number | null;
+    outputTokens: number | null;
+    probability?: number | null;
+  },
+): CategoryEvaluation {
+  return {
+    categoryId: resolveSuggestedCategoryId(rawAnswer, categoryOptions),
+    categoryName: normalizeModelAnswer(rawAnswer),
+    probability: measured.probability ?? null,
+    inputTokens: measured.inputTokens,
+    outputTokens: measured.outputTokens,
+  };
 }
 
 // Without rule 1 and the single-candidate "none", a lone same-value candidate
@@ -61,24 +110,22 @@ ${potentialMatches.map(describeCandidate).join('\n')}`;
 }
 
 /**
- * Normalizes the model's free-text answer to buildFindMatchingTransactionPrompt:
- * an id is returned only when it names one of the offered matches, so a
- * hallucinated or prompt-injected id can never leave the provider. Idempotent,
- * so callers may re-apply it to enforce the contract structurally.
+ * A hallucinated or prompt-injected id never leaves the provider; idempotent,
+ * so callers may re-apply it.
  */
 export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
 ): string | null {
-  const answer = rawAnswer?.trim().replace(/^["']|["']$/g, '');
-  if (!answer || answer === 'none') {
+  const answer = normalizeModelAnswer(rawAnswer);
+  if (answer === null || answer === 'none') {
     return null;
   }
   if (potentialMatches.some((match) => match.id === answer)) {
     return answer;
   }
-  // warn ships to Better Stack: a match rate silently dropping to zero from
-  // prompt drift or injection must stay diagnosable past Vercel's log window.
+  // At warn so it ships, keeping a match rate silently dropping to zero
+  // diagnosable.
   logger.warn(
     { rawAnswer },
     'Model answer did not name an offered match; treating as no match',

@@ -42,7 +42,6 @@ interface Props {
   onOpenFilters: () => void;
 }
 
-// Above this many periods a grouped bar chart stops being readable.
 const CROWDED_BUCKET_COUNT = 40;
 
 export function CategoryComparisonSection({

@@ -9,13 +9,10 @@ import {
 import logger from '@/server/logging/logger';
 import { HttpError } from '@/server/http/errors';
 
-// Walking every page of a long history takes longer than the default budget.
 export const maxDuration = 60;
 
-// The filters are all optional, so an export can ask for the whole history and
-// hold it in memory. The walk stops one row past this, so an oversized export
-// gets a legible error instead of a maxDuration timeout the client can only
-// report as "failed".
+// The walk stops one row past this, so an oversized export gets a legible error
+// instead of a maxDuration timeout.
 const MAX_EXPORT_ROWS = 50_000;
 
 export const GET = createHandler({

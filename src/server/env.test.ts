@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { assertCoreEnv, requireSiteUrl } from '@/server/env';
+import { assertCoreEnv, optionalEnv, requireSiteUrl } from '@/server/env';
 
 describe('assertCoreEnv', () => {
   const POOLED = 'ep-dry-flower-a2cf61nu-pooler.eu-central-1.aws.neon.tech';
@@ -22,6 +22,32 @@ describe('assertCoreEnv', () => {
       'DATABASE_URL',
       `postgresql://user:pass@${POOLED}/neondb?sslmode=require&pgbouncer=true&connection_limit=1`,
     );
+    expect(() => assertCoreEnv()).not.toThrow();
+  });
+
+  it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
+    expect(() => assertCoreEnv()).toThrow(/AI_CATEGORY_SUGGESTER/);
+  });
+
+  it('accepts AI_CATEGORY_SUGGESTER unset or empty, and jev with a key in any case', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_GATEWAY_API_KEY', 'gateway-key');
+    for (const value of [undefined, '', 'jev', 'JEV']) {
+      vi.stubEnv('AI_CATEGORY_SUGGESTER', value);
+      expect(() => assertCoreEnv()).not.toThrow();
+    }
+  });
+
+  it('rejects jev without either key, since the flag would then silently do nothing', () => {
+    vi.stubEnv('DATABASE_URL', `postgresql://user:pass@${DIRECT}/neondb`);
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jev');
+    vi.stubEnv('AI_GATEWAY_API_KEY', '');
+    vi.stubEnv('TYPESAFE_AI_API_KEY', '');
+    expect(() => assertCoreEnv()).toThrow(/needs TYPESAFE_AI_API_KEY/);
+
+    vi.stubEnv('TYPESAFE_AI_API_KEY', 'direct-key');
     expect(() => assertCoreEnv()).not.toThrow();
   });
 
@@ -48,8 +74,8 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).not.toThrow();
   });
 
-  // Putting the Accelerate URL back is the rollback for the pooled cutover, so
-  // this check must not be what stops it.
+  // Putting the Accelerate URL back is the rollback path, so this check must
+  // not block it.
   it('accepts an Accelerate URL', () => {
     vi.stubEnv(
       'DATABASE_URL',
@@ -92,9 +118,6 @@ describe('requireSiteUrl', () => {
     expect(() => requireSiteUrl()).toThrow('WEBSITE_URL');
   });
 
-  // The git-derived hosts resolve in production too, so without this gate a
-  // production deploy that lost WEBSITE_URL would mail real users a
-  // vercel.app link instead of failing where someone would notice.
   it('refuses to guess an origin in production', () => {
     vi.stubEnv('VERCEL_ENV', 'production');
     vi.stubEnv('VERCEL_BRANCH_URL', 'branch.vercel.app');
@@ -113,5 +136,21 @@ describe('requireSiteUrl', () => {
     vi.stubEnv('VERCEL_ENV', 'preview');
     vi.stubEnv('VERCEL_BRANCH_URL', 'branch.vercel.app');
     expect(requireSiteUrl()).toBe('https://branch.vercel.app');
+  });
+});
+
+describe('optionalEnv', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('treats an empty value as unset', () => {
+    vi.stubEnv('OPTIONAL_ENV_UNDER_TEST', '');
+    expect(optionalEnv('OPTIONAL_ENV_UNDER_TEST', 'fallback')).toBe('fallback');
+  });
+
+  it('returns a set value untouched', () => {
+    vi.stubEnv('OPTIONAL_ENV_UNDER_TEST', 'value');
+    expect(optionalEnv('OPTIONAL_ENV_UNDER_TEST', 'fallback')).toBe('value');
   });
 });

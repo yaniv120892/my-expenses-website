@@ -3,8 +3,8 @@ import { tokenTtlSeconds } from '@/server/auth/tokens';
 
 export const SESSION_COOKIE = 'session';
 
-// Shared by set and clear — a drifting attribute (e.g. path) would make
-// clearing silently fail.
+// Shared by set and clear: a drifting attribute (e.g. path) would make clearing
+// silently fail.
 const SESSION_COOKIE_ATTRS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',

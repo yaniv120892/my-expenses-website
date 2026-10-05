@@ -30,7 +30,7 @@ interface Props {
   income: number;
   expense: number;
   loading?: boolean;
-  error?: string | null;
+  error?: boolean;
   title?: string;
   selectedType?: TransactionType;
   onSelectType?: (type: TransactionType) => void;
@@ -68,7 +68,8 @@ export default function IncomeExpensePieChart({
   onSelectType,
 }: Props) {
   const theme = useTheme();
-  const { charts } = theme.palette;
+  const palette = (theme.vars ?? theme).palette;
+  const { charts } = palette;
   const pieData: PieDatum[] = [
     { name: 'Income', value: income, type: 'INCOME' },
     { name: 'Expense', value: expense, type: 'EXPENSE' },
@@ -117,7 +118,7 @@ export default function IncomeExpensePieChart({
                     cy="50%"
                     outerRadius={62}
                     innerRadius={38}
-                    stroke={theme.palette.background.paper}
+                    stroke={palette.background.paper}
                     strokeWidth={2}
                     startAngle={90}
                     endAngle={-270}

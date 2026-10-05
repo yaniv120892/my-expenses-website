@@ -33,6 +33,7 @@ import {
   useUpdateUserSettingsMutation,
   useUserSettingsQuery,
 } from '@/hooks/useUserSettingsQuery';
+import { describeApiError } from '@/utils/api';
 
 type UserSettingsForm = {
   provider: {
@@ -153,9 +154,6 @@ export default function SettingsPage() {
   const { mutateAsync: testTelegramConnection } = useTestTelegramMutation();
   const { mutateAsync: sendTestMonthlyReport } = useTestMonthlyReportMutation();
 
-  // A {success, message} pair rather than a bare string: the snackbar used to
-  // pick its severity by comparing the message against one exact literal, so
-  // any second test flow would have rendered its success in red.
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
@@ -235,16 +233,24 @@ export default function SettingsPage() {
 
   const onSave = async (data: UserSettingsForm) => {
     setSaveLoading(true);
-    await saveUserSettings({
-      ...data,
-      provider: {
-        enabled: Boolean(data.provider.telegramChatId),
-        telegramChatId: data.provider.telegramChatId,
-      },
-    });
-    reset(data);
-    setSaveLoading(false);
-    setSaveSuccess(true);
+    try {
+      await saveUserSettings({
+        ...data,
+        provider: {
+          enabled: Boolean(data.provider.telegramChatId),
+          telegramChatId: data.provider.telegramChatId,
+        },
+      });
+      reset(data);
+      setSaveSuccess(true);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: describeApiError(error, 'Failed to save settings'),
+      });
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   const header = <PageHeader title="Settings" />;

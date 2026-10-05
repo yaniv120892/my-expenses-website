@@ -26,12 +26,10 @@ vi.mock('@/server/services/announcementService', () => ({
 vi.mock('@/server/auth/session', () => ({
   storeSession: vi.fn(),
   invalidateSession: vi.fn(),
-  isSessionActive: vi.fn(),
 }));
 vi.mock('@/server/auth/tokens', () => ({
   signToken: vi.fn().mockResolvedValue('token'),
   tokenTtlSeconds: () => 60,
-  verifyToken: vi.fn(),
 }));
 
 import authService from '@/server/services/authService';
@@ -41,8 +39,6 @@ const PASSWORD = 'correct horse';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // The verification email links back to the site, so signup cannot run
-  // without an origin to build that link from.
   vi.stubEnv('WEBSITE_URL', 'https://expenses.example');
   redis.incrementWithTtl.mockResolvedValue(1);
   redis.getValue.mockResolvedValue(null);
@@ -53,9 +49,8 @@ afterEach(() => {
 });
 
 describe('signupUser without a configured origin', () => {
-  // Regression: the origin used to be resolved while rendering the email, so
-  // signup created the user and stored the code, then threw — and the retry
-  // path threw at the same point, leaving the address permanently unverifiable.
+  // Regression: the origin was resolved after the user was created, leaving the
+  // address permanently unverifiable.
   it('fails before writing anything', async () => {
     vi.stubEnv('WEBSITE_URL', undefined);
     vi.stubEnv('VERCEL_BRANCH_URL', undefined);
@@ -74,9 +69,8 @@ describe('signupUser without a configured origin', () => {
 });
 
 describe('verifyLoginCode', () => {
-  // Regression: the cap deleted the code, and /api/auth/verify is public with
-  // no resend behind it — so six posts against a known pending signup left
-  // that account permanently unverifiable.
+  // Regression: the cap deleted the code, and with no resend a public endpoint
+  // could strand a pending signup.
   it('locks out past the cap without destroying the code', async () => {
     redis.incrementWithTtl.mockResolvedValue(6);
 
@@ -177,5 +171,19 @@ describe('signupUser', () => {
 
     expect(users.createUser).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('verification email', () => {
+  it('encodes the address in the verification link', async () => {
+    users.findByEmailOrUsername.mockResolvedValue(null);
+    users.createUser.mockResolvedValue({ id: 'user-1' });
+
+    await authService.signupUser('a+tag@example.com', 'someone', PASSWORD);
+
+    const [{ text, html }] = send.mock.calls[0];
+    const link = 'https://expenses.example/verify?email=a%2Btag%40example.com';
+    expect(text).toContain(link);
+    expect(html).toContain(`href="${link}"`);
   });
 });

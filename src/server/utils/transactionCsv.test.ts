@@ -90,8 +90,6 @@ describe('buildTransactionsCsv', () => {
   });
 });
 
-// The archive is the only copy of the data, so it must not round the day off
-// or edit the text the way the spreadsheet-facing file does.
 describe('buildTransactionsBackupCsv', () => {
   it('keeps the full instant rather than the day', () => {
     const lines = buildTransactionsBackupCsv([transaction()]).split('\n');

@@ -10,7 +10,6 @@ function createPrismaClient() {
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __prisma: ExtendedPrismaClient | undefined;
 }
 
@@ -18,9 +17,8 @@ function getClient(): ExtendedPrismaClient {
   return (globalThis.__prisma ??= createPrismaClient());
 }
 
-// A lazy proxy: the client is built on first use, so a missing DATABASE_URL
-// fails the call rather than the import of any module that reaches a
-// repository.
+// Built on first use, so a missing DATABASE_URL fails the call rather than the
+// import.
 const prisma = new Proxy({} as ExtendedPrismaClient, {
   get(_target, prop) {
     const client = getClient();

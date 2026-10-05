@@ -17,8 +17,6 @@ import {
   TransactionFilters,
   CreateTransactionInput,
 } from '@/types';
-// The same shapes the API validates these params with, so a bad link fails
-// here rather than 400-ing every query on the page.
 import { transactionFilterSchema } from '@/shared/schemas/transactions';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
@@ -65,13 +63,12 @@ function TransactionsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
-    description: string;
+    transactionInput: CreateTransactionInput;
     suggestedCategory: { id: string; name: string };
   } | null>(null);
 
-  // Seeded params are consumed, so drop them: left in the address bar they
-  // would restore abandoned filters on a refresh or a shared link. history
-  // rather than router, which would refetch the route and re-render the tree.
+  // Left in the address bar, consumed params would restore abandoned filters on
+  // a refresh. history rather than router, which would refetch the route.
   useEffect(() => {
     if (searchParams.toString()) {
       window.history.replaceState(null, '', '/transactions');
@@ -99,7 +96,7 @@ function TransactionsPageContent() {
   const {
     data: chartSummary,
     isLoading: chartSummaryLoading,
-    error: chartSummaryError,
+    isError: chartSummaryFailed,
   } = useTransactionsSummaryQuery({ ...filters, type: undefined });
 
   const createMutation = useCreateTransactionMutation();
@@ -120,16 +117,14 @@ function TransactionsPageContent() {
     setFormOpen(true);
   };
 
-  // Submit and form-delete errors are surfaced by TransactionForm itself, so
-  // these handlers must let failures propagate — catching here made the form
-  // report success on a failed save.
+  // Must not catch: the form reports the outcome.
   const handleCreate = async (data: CreateTransactionInput) => {
     const result: CreateTransactionResponse =
       await createMutation.mutateAsync(data);
     if (result.suggestedCategory) {
       setCategoryConfirmation({
         transactionId: result.id,
-        description: data.description,
+        transactionInput: data,
         suggestedCategory: result.suggestedCategory,
       });
     }
@@ -142,15 +137,6 @@ function TransactionsPageContent() {
 
   const deleteTransaction = async (id: string) => {
     await deleteMutation.mutateAsync(id);
-  };
-
-  // The list has no error surface of its own, so its deletes are caught here.
-  const handleDeleteFromList = async (id: string) => {
-    try {
-      await deleteTransaction(id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-    }
   };
 
   return (
@@ -193,7 +179,7 @@ function TransactionsPageContent() {
         income={chartSummary?.totalIncome || 0}
         expense={chartSummary?.totalExpense || 0}
         loading={chartSummaryLoading}
-        error={chartSummaryError as string | null}
+        error={chartSummaryFailed}
         selectedType={filters.type}
         onSelectType={(type) =>
           setFilters((prev) => ({
@@ -245,7 +231,6 @@ function TransactionsPageContent() {
             <TransactionList
               transactions={transactions}
               onEditAction={handleEdit}
-              onDeleteAction={handleDeleteFromList}
             />
             <InfiniteScrollSentinel
               hasMore={hasNextPage}
@@ -291,7 +276,7 @@ function TransactionsPageContent() {
         <CategoryConfirmationSnackbar
           open={!!categoryConfirmation}
           transactionId={categoryConfirmation.transactionId}
-          description={categoryConfirmation.description}
+          transactionInput={categoryConfirmation.transactionInput}
           suggestedCategory={categoryConfirmation.suggestedCategory}
           onClose={() => setCategoryConfirmation(null)}
         />

@@ -1,15 +1,6 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
 
 export default tseslint.config(
   {
@@ -18,17 +9,18 @@ export default tseslint.config(
       'node_modules/**',
       'public/**',
       'next-env.d.ts',
-      'docs/proof-of-work/**',
       '.claude/**',
     ],
   },
-  ...compat.extends('next/core-web-vitals'),
+  ...nextCoreWebVitals,
   ...tseslint.configs.recommended,
   prettier,
   {
     rules: {
-      // Mirrors .claude/rules/code.md and typescript.md, so the craft rules are
-      // checked by CI rather than by review.
+      // React Compiler rules that eslint-config-next 16 turned on; the effects
+      // they flag predate them and are rewritten separately.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
       curly: ['error', 'all'],
       '@typescript-eslint/array-type': ['error', { default: 'array' }],
       '@typescript-eslint/explicit-member-accessibility': [

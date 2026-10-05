@@ -20,8 +20,6 @@ describe('selectNonDuplicateRows', () => {
     expect(selectNonDuplicateRows([row(50, 25)], [row(50, 25)])).toEqual([]);
   });
 
-  // The extraction service truncates merchant names differently between runs,
-  // so the same statement re-imported must still be recognised.
   it('drops a row whose description was spelled differently', () => {
     const existing = [row(50, 25, 'שלומי קריבי עיצוב שיער')];
     const incoming = [row(50, 25, 'שלומי קריבי עיצוב שיערגב')];
@@ -55,8 +53,6 @@ describe('selectNonDuplicateRows', () => {
     expect(selectNonDuplicateRows(existing, incoming)).toEqual(incoming);
   });
 
-  // An absent description is no evidence of sameness, so it must not make one
-  // row stand in for a different charge of the same amount that day.
   it('keeps a row when only one side has no usable description', () => {
     const existing = [row(50, 25, '---')];
     const incoming = [row(50, 25, 'רמי לוי')];

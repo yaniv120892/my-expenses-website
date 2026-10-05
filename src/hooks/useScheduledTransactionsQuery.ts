@@ -1,18 +1,18 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getScheduledTransactions,
   createScheduledTransaction,
   updateScheduledTransaction,
   deleteScheduledTransaction,
-} from "../services/scheduledTransactions";
+} from '../services/scheduledTransactions';
 import {
   CreateScheduledTransactionInput,
   UpdateScheduledTransactionInput,
-} from "../types";
+} from '../types';
 
 export const scheduledTransactionKeys = {
-  all: ["scheduledTransactions"] as const,
-  lists: () => [...scheduledTransactionKeys.all, "list"] as const,
+  all: ['scheduledTransactions'] as const,
+  lists: () => [...scheduledTransactionKeys.all, 'list'] as const,
 };
 
 export const useScheduledTransactionsQuery = () => {

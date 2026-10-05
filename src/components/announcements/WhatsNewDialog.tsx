@@ -39,7 +39,6 @@ interface Props {
   open: boolean;
   announcements: AnnouncementWithSeen[];
   // When true the only way out is the action button — no Escape, no backdrop.
-  // Used for the automatic first showing; the drawer launcher opens it false.
   requireAcknowledgement: boolean;
   onAcknowledge: () => void;
   onClose: () => void;

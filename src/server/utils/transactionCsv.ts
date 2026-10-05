@@ -45,9 +45,8 @@ export function buildTransactionsCsvFile(transactions: Transaction[]): string {
 }
 
 /**
- * The nightly archive, which is a different file: it is the only copy of the
- * data, so it keeps the full instant and reproduces the text exactly as
- * stored. Nothing reads it as a spreadsheet.
+ * The nightly archive: the only copy of the data, so it keeps the full instant
+ * and the text exactly as stored.
  */
 export function buildTransactionsBackupCsv(
   transactions: Transaction[],

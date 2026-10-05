@@ -31,11 +31,12 @@ function ComparisonCard({
   invertColors?: boolean;
 }) {
   const theme = useTheme();
-  const { charts } = theme.palette;
+  const palette = (theme.vars ?? theme).palette;
+  const { charts } = palette;
 
   const getChangeColor = () => {
     if (change.trend === 'stable') {
-      return theme.palette.text.secondary;
+      return palette.text.secondary;
     }
     if (invertColors) {
       return change.trend === 'up' ? charts.expense : charts.income;

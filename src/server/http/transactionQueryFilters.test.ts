@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 
 describe('toTransactionFilters', () => {
-  // Regression: the summary route spread `type` straight through, so the
-  // service read an undefined `transactionType` and the totals covered every
-  // type while the list below them was filtered.
   it('renames type to transactionType', () => {
     const filters = toTransactionFilters({ type: 'EXPENSE' }, 'user-1');
 

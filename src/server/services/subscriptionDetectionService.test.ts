@@ -10,7 +10,10 @@ const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(
     },
     prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
     sendDailySummary: vi.fn(),
-    scheduledService: { listScheduledTransactions: vi.fn() },
+    scheduledService: {
+      listScheduledTransactions: vi.fn(),
+      createScheduledTransaction: vi.fn(),
+    },
   }),
 );
 
@@ -43,9 +46,8 @@ const sub = (over: Sub = {}): Sub => ({
   ...over,
 });
 
-// The message header names the month it is sent in, so the clock is pinned
-// rather than recomputed here — otherwise a run crossing midnight on the last
-// of the month would disagree with the service.
+// The header names the send month, so the clock is pinned rather than
+// recomputed here.
 const header = 'Subscription Audit — March 2026';
 
 const enable = (...ids: string[]) =>
@@ -354,5 +356,21 @@ describe('getSubscriptions', () => {
     const result =
       await subscriptionDetectionService.getSubscriptions('user-1');
     expect(result.subscriptions[0].scheduleMatch).toBeUndefined();
+  });
+});
+
+describe('convertToScheduledTransaction', () => {
+  it('409s for a subscription that is already scheduled, creating nothing', async () => {
+    subRepo.getById.mockResolvedValue(
+      sub({ categoryId: 'cat-1', scheduledTransactionId: 'sched-1' }),
+    );
+
+    await expect(
+      subscriptionDetectionService.convertToScheduledTransaction(
+        's1',
+        'user-1',
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(scheduledService.createScheduledTransaction).not.toHaveBeenCalled();
   });
 });

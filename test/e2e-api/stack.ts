@@ -5,13 +5,6 @@ import { startMockModelServer } from './mockModelServer';
 import { startMockExtractionAgent } from './mockExtractionAgent';
 import { seed, sessionForExistingUser, SeededUser, SeedResult } from './seed';
 
-/**
- * Brings up the supporting services and seeds data.
- *
- * Shared by both entry points so the session-key format lives in one place:
- * `run.ts` runs the checks and exits, `serve.ts` stays up while Playwright
- * drives the website.
- */
 type Services = {
   shim: http.Server;
   mock: http.Server;
@@ -21,7 +14,6 @@ type Services = {
 
 export type Stack = Services & { seeded: SeedResult };
 
-/** The same services over a database that keeps its data: no seed, one session. */
 export type UserStack = Services & { user: SeededUser };
 
 export type StackPorts = {
@@ -74,7 +66,6 @@ async function startServices(ports: StackPorts): Promise<Services> {
   };
 }
 
-// authenticateRequest requires both a valid JWT and a live session key.
 function plantSession(user: SeededUser): void {
   seedKey(
     `${redisKeyPrefix('branch')}session:${user.id}:${user.token}`,

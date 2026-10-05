@@ -1,15 +1,6 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
 
 export default tseslint.config(
   {
@@ -21,11 +12,15 @@ export default tseslint.config(
       '.claude/**',
     ],
   },
-  ...compat.extends('next/core-web-vitals'),
+  ...nextCoreWebVitals,
   ...tseslint.configs.recommended,
   prettier,
   {
     rules: {
+      // React Compiler rules that eslint-config-next 16 turned on; the effects
+      // they flag predate them and are rewritten separately.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
       curly: ['error', 'all'],
       '@typescript-eslint/array-type': ['error', { default: 'array' }],
       '@typescript-eslint/explicit-member-accessibility': [

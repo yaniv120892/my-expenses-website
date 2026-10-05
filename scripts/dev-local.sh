@@ -136,9 +136,7 @@ start_local_database() {
     "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
   )
 
-  # prisma dev's proxy URL refuses this Prisma Client version, so the app uses
-  # the plain address. That port multiplexes every client onto one backend
-  # session; connection_limit=1 keeps the app's own queries from interleaving.
+  # The plain address, not the proxy URL, which this Prisma Client refuses.
   read_state() {
     node -e '
       const fs = require("fs");
@@ -150,7 +148,7 @@ start_local_database() {
   wait_for 90 read_state >/dev/null ||
     die 'prisma dev never published its connection URL' "$PRISMA_LOG"
   DIRECT_URL=$(read_state)
-  DATABASE_URL="$DIRECT_URL&connection_limit=1"
+  DATABASE_URL=$DIRECT_URL
   export DATABASE_URL DIRECT_URL
 }
 

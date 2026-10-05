@@ -37,8 +37,7 @@ vi.mock('prisma-field-encryption', () => ({
   fieldEncryptionExtension: () => ({}),
 }));
 
-const POSTGRES_URL =
-  'postgresql://user:pass@ep-x-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+const POSTGRES_URL = 'postgresql://user:pass@host/db';
 
 beforeEach(() => {
   vi.resetModules();
@@ -76,29 +75,17 @@ describe('the app Prisma client', () => {
     expect(() => prisma.$queryRaw).toThrow('DATABASE_URL');
   });
 
-  it('connects a Postgres URL through the pg adapter, naming no statements and bounding the connect wait', async () => {
+  it('connects a Postgres URL through the pg adapter, one connection with a bounded wait', async () => {
     const { default: prisma } = await import('@/server/db/client');
     void prisma.$queryRaw;
 
     expect(constructAdapter).toHaveBeenCalledWith({
       connectionString: POSTGRES_URL,
+      max: 1,
       connectionTimeoutMillis: 10_000,
     });
     expect(constructPrismaClient).toHaveBeenCalledWith(
       expect.objectContaining({ adapter: expect.any(FakePrismaPg) }),
     );
-  });
-
-  it('sizes the pool from connection_limit, which node-postgres ignores', async () => {
-    const url = `${POSTGRES_URL}&connection_limit=1`;
-    vi.stubEnv('DATABASE_URL', url);
-    const { default: prisma } = await import('@/server/db/client');
-    void prisma.$queryRaw;
-
-    expect(constructAdapter).toHaveBeenCalledWith({
-      connectionString: url,
-      connectionTimeoutMillis: 10_000,
-      max: 1,
-    });
   });
 });

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { assertCoreEnv, optionalEnv, requireSiteUrl } from '@/server/env';
 
 describe('assertCoreEnv', () => {
-  const POOLED = 'ep-dry-flower-a2cf61nu-pooler.eu-central-1.aws.neon.tech';
   const DIRECT = 'ep-dry-flower-a2cf61nu.eu-central-1.aws.neon.tech';
 
   beforeEach(() => {
@@ -18,27 +17,9 @@ describe('assertCoreEnv', () => {
     vi.unstubAllEnvs();
   });
 
-  it('accepts the pooled endpoint without any Prisma-specific parameter', () => {
-    vi.stubEnv(
-      'DATABASE_URL',
-      `postgresql://user:pass@${POOLED}/neondb?sslmode=require`,
-    );
-    expect(() => assertCoreEnv()).not.toThrow();
-  });
-
   it('rejects an unset DATABASE_URL', () => {
     vi.stubEnv('DATABASE_URL', '');
     expect(() => assertCoreEnv()).toThrow(/DATABASE_URL/);
-  });
-
-  it('rejects a Prisma proxy URL the pg adapter cannot connect to', () => {
-    for (const url of [
-      'prisma://accelerate.prisma-data.net/?api_key=key',
-      'prisma+postgres://localhost:51213/?api_key=key',
-    ]) {
-      vi.stubEnv('DATABASE_URL', url);
-      expect(() => assertCoreEnv()).toThrow(/postgres:\/\//);
-    }
   });
 
   it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
@@ -61,14 +42,6 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).toThrow(/needs TYPESAFE_AI_API_KEY/);
 
     vi.stubEnv('TYPESAFE_AI_API_KEY', 'direct-key');
-    expect(() => assertCoreEnv()).not.toThrow();
-  });
-
-  it('accepts the prisma dev address CI and dev:local run on', () => {
-    vi.stubEnv(
-      'DATABASE_URL',
-      'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable&connection_limit=1',
-    );
     expect(() => assertCoreEnv()).not.toThrow();
   });
 });

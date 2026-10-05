@@ -208,22 +208,16 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `src/generated/field-encryption/dmmf.json`, which `src/server/db/client.ts`
   passes prisma-field-encryption as `dmmf` since the generated client drops the
   `/// @encrypted` annotations. The app client is that client with
-  field-encryption and nothing else, always connected through
-  `@prisma/adapter-pg` with no `statementNameGenerator`, so every statement is
-  unnamed and safe in a pooler's reused sessions. node-postgres ignores
-  `pgbouncer=true` and `connection_limit`, so the client reads `connection_limit`
-  itself as the pool's `max` (unset: pg's default). On Vercel `DATABASE_URL` is
-  Neon's pooled endpoint with `connection_limit=1`. `DIRECT_URL` is the direct
-  endpoint, used by migrations, the seed, and Mastra's memory store; both are
-  scoped per environment, since `vercel-build` runs `prisma migrate deploy`
-  against `DIRECT_URL`. `DATABASE_URL` must be `postgres(ql)://` —
-  `assertCoreEnv` refuses `prisma://` and `prisma+postgres://`, which the adapter
-  cannot use. CI's e2e job runs on a Postgres service container. `dev:local`
-  runs the app on `prisma dev`'s plain TCP address with `connection_limit=1`:
-  that port multiplexes every client onto one backend session, so a pool of one
-  keeps the app's own unnamed statements from interleaving, though Mastra's pool
-  on the same port still can (`bind message supplies N parameters`), which
-  happens on no real Postgres.
+  field-encryption and nothing else, connected through `@prisma/adapter-pg` with
+  a pool of one and no `statementNameGenerator`, so every statement is unnamed
+  and safe in a pooler's reused sessions. On Vercel `DATABASE_URL` is Neon's
+  pooled endpoint; `DIRECT_URL` is the direct endpoint, used by migrations, the
+  seed, and Mastra's memory store. Both are scoped per environment, since
+  `vercel-build` runs `prisma migrate deploy` against `DIRECT_URL`. CI's e2e job
+  runs on a Postgres service container; `dev:local` runs on `prisma dev`'s plain
+  TCP address, which multiplexes every client onto one backend session, so
+  Mastra's statements can interleave with the app's there
+  (`bind message supplies N parameters`); a real Postgres never does that.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

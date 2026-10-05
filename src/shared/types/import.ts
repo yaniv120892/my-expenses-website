@@ -73,6 +73,9 @@ export type ReconciliationReviewHint =
 
 export type ReconciliationPreviewItem = ReconciliationPlanItem & {
   reviewHint: ReconciliationReviewHint | null;
+  // The issuer's charge for holding the card, read off the description alone
+  // and orthogonal to the merge/create decision the hints qualify.
+  cardHoldingFee: boolean;
 };
 
 // The benign 409 rematchImport throws when another call already re-matched the

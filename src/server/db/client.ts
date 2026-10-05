@@ -31,6 +31,10 @@ const prisma = new Proxy({} as ExtendedPrismaClient, {
   },
 });
 
+// Prisma 6's pool_timeout. pg's default of 0 waits forever, so a stalled connect
+// would outlive the function instead of failing as a reported 5xx.
+const CONNECTION_TIMEOUT_MS = 10_000;
+
 // No statementNameGenerator: the adapter then sends every statement unnamed,
 // which a transaction pooler can route to any backend without collisions.
 // node-postgres ignores `connection_limit`, so it is read here as the pool size.
@@ -40,6 +44,7 @@ function pgAdapter(databaseUrl: string): PrismaPg {
   );
   return new PrismaPg({
     connectionString: databaseUrl,
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
     ...(connectionLimit ? { max: Number(connectionLimit) } : {}),
   });
 }

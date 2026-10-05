@@ -31,6 +31,16 @@ describe('assertCoreEnv', () => {
     expect(() => assertCoreEnv()).toThrow(/DATABASE_URL/);
   });
 
+  it('rejects a Prisma proxy URL the pg adapter cannot connect to', () => {
+    for (const url of [
+      'prisma://accelerate.prisma-data.net/?api_key=key',
+      'prisma+postgres://localhost:51213/?api_key=key',
+    ]) {
+      vi.stubEnv('DATABASE_URL', url);
+      expect(() => assertCoreEnv()).toThrow(/postgres:\/\//);
+    }
+  });
+
   it('rejects an AI_CATEGORY_SUGGESTER value it does not know', () => {
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
     expect(() => assertCoreEnv()).toThrow(/AI_CATEGORY_SUGGESTER/);

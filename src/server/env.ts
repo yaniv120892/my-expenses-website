@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 const coreEnvSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z
+    .string()
+    .regex(
+      /^postgres(ql)?:\/\//,
+      'must be a postgres:// URL; the pg adapter cannot use prisma:// or prisma+postgres://',
+    ),
   DIRECT_URL: z.string().min(1),
   JWT_SECRET: z.string().min(1),
   REDIS_URL: z.string().min(1),

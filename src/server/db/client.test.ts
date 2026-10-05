@@ -76,12 +76,13 @@ describe('the app Prisma client', () => {
     expect(() => prisma.$queryRaw).toThrow('DATABASE_URL');
   });
 
-  it('connects a Postgres URL through the pg adapter, naming no statements', async () => {
+  it('connects a Postgres URL through the pg adapter, naming no statements and bounding the connect wait', async () => {
     const { default: prisma } = await import('@/server/db/client');
     void prisma.$queryRaw;
 
     expect(constructAdapter).toHaveBeenCalledWith({
       connectionString: POSTGRES_URL,
+      connectionTimeoutMillis: 10_000,
     });
     expect(constructPrismaClient).toHaveBeenCalledWith(
       expect.objectContaining({ adapter: expect.any(FakePrismaPg) }),
@@ -96,6 +97,7 @@ describe('the app Prisma client', () => {
 
     expect(constructAdapter).toHaveBeenCalledWith({
       connectionString: url,
+      connectionTimeoutMillis: 10_000,
       max: 1,
     });
   });

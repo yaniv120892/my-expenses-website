@@ -28,7 +28,7 @@ npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm]
 
 Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
 runs audit, lint, prettier, typecheck, unit tests and the build, and in a
-parallel job both e2e suites against `npx prisma dev`.
+parallel job both e2e suites against a Postgres service container.
 
 `.github/workflows/deps-upgrade.yml` runs daily and opens one `deps/<slug>-<version>`
 pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
@@ -216,10 +216,14 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   Neon's pooled endpoint with `connection_limit=1`. `DIRECT_URL` is the direct
   endpoint, used by migrations, the seed, and Mastra's memory store; both are
   scoped per environment, since `vercel-build` runs `prisma migrate deploy`
-  against `DIRECT_URL`. CI and `dev:local` run the app on `prisma dev`'s plain
-  TCP address with `connection_limit=1`: its `prisma+postgres://` proxy refuses
-  this client version, and that port multiplexes every client onto one backend
-  session, where a larger pool interleaves the app's own unnamed statements.
+  against `DIRECT_URL`. `DATABASE_URL` must be `postgres(ql)://` —
+  `assertCoreEnv` refuses `prisma://` and `prisma+postgres://`, which the adapter
+  cannot use. CI's e2e job runs on a Postgres service container. `dev:local`
+  runs the app on `prisma dev`'s plain TCP address with `connection_limit=1`:
+  that port multiplexes every client onto one backend session, so a pool of one
+  keeps the app's own unnamed statements from interleaving, though Mastra's pool
+  on the same port still can (`bind message supplies N parameters`), which
+  happens on no real Postgres.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

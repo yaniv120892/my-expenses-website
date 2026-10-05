@@ -200,20 +200,32 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   and login codes pass `'branch'` (`preview:<branch>:`) to survive pushes.
   Superseded namespaces expire by TTL, except a counter killed between
   INCR and EXPIRE, which has none.
-- **Prisma**: schema + migrations in `prisma/`; the app client is
-  `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
-  be any address that client accepts. On Vercel it is Neon's pooled endpoint
-  with `?pgbouncer=true` (plus `connection_limit=1` on serverless), because that
-  pooler reuses sessions and collides on prepared statements; `assertCoreEnv`
-  refuses a `-pooler` host missing that parameter. `DIRECT_URL` is
-  the direct endpoint, used by migrations, the seed, and Mastra's memory store;
-  both are scoped per environment, since `vercel-build` runs
-  `prisma migrate deploy` against `DIRECT_URL`. CI and `dev:local` keep the app
-  on `prisma dev`'s `prisma+postgres://` address: its plain Postgres port
-  multiplexes every client onto one backend session, so an app client sharing it
-  with the schema engine and Mastra's node-postgres collides on prepared
-  statements either way — named (`s0 already exists`) without `pgbouncer=true`,
-  unnamed (Mastra's memory store fails to init) with it.
+- **Prisma**: schema + migrations in `prisma/`; the schema names no URL —
+  `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself since
+  the CLI no longer does. `prisma generate` writes the client to
+  `src/generated/prisma` (gitignored; server code imports
+  `@/generated/prisma/client`, code a browser can reach only
+  `@/generated/prisma/enums`) and, through `prisma/generators/`, the
+  `src/generated/field-encryption/dmmf.json` that `src/server/db/client.ts`
+  passes prisma-field-encryption as `dmmf`: the generated client's datamodel
+  drops the `/// @encrypted` annotations the extension reads, and without them
+  it throws on construction. `src/types/prisma-runtime-library.d.ts` restores
+  the type path the extension's declarations name, or every query result is
+  untyped. The app client is that client with field-encryption and nothing
+  else, connected by `DATABASE_URL`'s scheme: `prisma://` and
+  `prisma+postgres://` as `accelerateUrl`, anything else through
+  `@prisma/adapter-pg`. On Vercel it is Neon's pooled endpoint, which reuses
+  sessions; the adapter is built without a `statementNameGenerator`, so every
+  statement is unnamed and none collides there. `pgbouncer=true` and
+  `connection_limit` are inert, since node-postgres ignores them and pools with
+  its own default. `DIRECT_URL` is the direct endpoint, used by migrations, the
+  seed (also through the pg adapter), and Mastra's memory store; both are
+  scoped per environment, since `vercel-build` runs `prisma migrate deploy`
+  against `DIRECT_URL`. CI and `dev:local` keep the app on `prisma dev`'s
+  `prisma+postgres://` address: its plain Postgres port multiplexes every
+  client onto one backend session, so an app client sharing it with the schema
+  engine and Mastra's node-postgres collides on prepared statements, named
+  (`s0 already exists`) or unnamed (Mastra's memory store fails to init).
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

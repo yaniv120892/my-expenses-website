@@ -57,7 +57,10 @@ describe('assertCoreEnv', () => {
   });
 
   it('accepts the prisma dev address CI and dev:local run on', () => {
-    vi.stubEnv('DATABASE_URL', 'prisma+postgres://localhost:51213/?api_key=k');
+    vi.stubEnv(
+      'DATABASE_URL',
+      'postgres://postgres:postgres@localhost:51214/template1?sslmode=disable&connection_limit=1',
+    );
     expect(() => assertCoreEnv()).not.toThrow();
   });
 });

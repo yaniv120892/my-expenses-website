@@ -4,15 +4,9 @@ import fieldEncryptionDmmf from '@/generated/field-encryption/dmmf.json';
 import { PrismaClient } from '@/generated/prisma/client';
 import { requireEnv } from '@/server/env';
 
-// These two speak Prisma's HTTP protocol (prisma dev's proxy, Accelerate); any
-// other address is a Postgres connection string for node-postgres.
-const PRISMA_HTTP_PROTOCOLS = ['prisma:', 'prisma+postgres:'];
-
-type ConnectionOptions = { accelerateUrl: string } | { adapter: PrismaPg };
-
 function createPrismaClient() {
   return new PrismaClient({
-    ...connectionOptions(requireEnv('DATABASE_URL')),
+    adapter: pgAdapter(requireEnv('DATABASE_URL')),
     log: ['warn', 'error'],
   }).$extends(fieldEncryptionExtension({ dmmf: fieldEncryptionDmmf }));
 }
@@ -39,11 +33,15 @@ const prisma = new Proxy({} as ExtendedPrismaClient, {
 
 // No statementNameGenerator: the adapter then sends every statement unnamed,
 // which a transaction pooler can route to any backend without collisions.
-function connectionOptions(databaseUrl: string): ConnectionOptions {
-  if (PRISMA_HTTP_PROTOCOLS.includes(new URL(databaseUrl).protocol)) {
-    return { accelerateUrl: databaseUrl };
-  }
-  return { adapter: new PrismaPg({ connectionString: databaseUrl }) };
+// node-postgres ignores `connection_limit`, so it is read here as the pool size.
+function pgAdapter(databaseUrl: string): PrismaPg {
+  const connectionLimit = new URL(databaseUrl).searchParams.get(
+    'connection_limit',
+  );
+  return new PrismaPg({
+    connectionString: databaseUrl,
+    ...(connectionLimit ? { max: Number(connectionLimit) } : {}),
+  });
 }
 
 export default prisma;

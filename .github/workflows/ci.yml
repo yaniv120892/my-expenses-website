@@ -69,21 +69,20 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # DATABASE_URL is prisma dev's proxy URL, not the plain TCP address in
-      # the same state file: that port multiplexes every client onto one backend
-      # session, where the app client collides on prepared statements with the
-      # schema engine and with Mastra. Production runs a plain pooled Postgres
-      # URL through the pg adapter, so no job here exercises that driver path.
-      # DIRECT_URL is the plain address (migrations, seed, Mastra memory).
+      # prisma dev's proxy URL refuses this Prisma Client version, so the app
+      # runs on the plain TCP address through the pg adapter, as production
+      # does. That port multiplexes every client onto one backend session, so
+      # connection_limit=1 keeps the app's own queries from interleaving there.
+      # DIRECT_URL is the same address (migrations, seed, Mastra memory).
       - name: Start local Prisma Postgres
         run: |
           npx prisma dev --detach --port 51213 --db-port 51214 --shadow-db-port 51215
           STATE="$HOME/.local/share/prisma-dev-nodejs/default/server.json"
           for i in $(seq 1 60); do
-            node -e "require('$STATE').exports.ppg.url" 2>/dev/null && break
+            node -e "require('$STATE').exports.database.connectionString" 2>/dev/null && break
             sleep 1
           done
-          echo "DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")&connection_limit=1" >> "$GITHUB_ENV"
           echo "DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")" >> "$GITHUB_ENV"
 
       - run: npx prisma migrate deploy

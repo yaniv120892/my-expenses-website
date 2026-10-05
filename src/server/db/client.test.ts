@@ -88,17 +88,15 @@ describe('the app Prisma client', () => {
     );
   });
 
-  it.each([
-    'prisma+postgres://localhost:51213/?api_key=k',
-    'prisma://accelerate.prisma-data.net/?api_key=key',
-  ])('hands %s to the client as an Accelerate URL', async (url) => {
+  it('sizes the pool from connection_limit, which node-postgres ignores', async () => {
+    const url = `${POSTGRES_URL}${POSTGRES_URL.includes('?') ? '&' : '?'}connection_limit=1`;
     vi.stubEnv('DATABASE_URL', url);
     const { default: prisma } = await import('@/server/db/client');
     void prisma.$queryRaw;
 
-    expect(constructAdapter).not.toHaveBeenCalled();
-    expect(constructPrismaClient).toHaveBeenCalledWith(
-      expect.objectContaining({ accelerateUrl: url }),
-    );
+    expect(constructAdapter).toHaveBeenCalledWith({
+      connectionString: url,
+      max: 1,
+    });
   });
 });

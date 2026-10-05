@@ -136,15 +136,15 @@ start_local_database() {
     "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
   )
 
-  # The proxy URL, not the plain postgres:// one: that port multiplexes every
-  # client onto one backend session, where the app collides on prepared
-  # statements.
+  # prisma dev's proxy URL refuses this Prisma Client version, so the app uses
+  # the plain address. That port multiplexes every client onto one backend
+  # session; connection_limit=1 keeps the app's own queries from interleaving.
   read_state() {
     node -e '
       const fs = require("fs");
       const file = process.argv.slice(1).find((path) => fs.existsSync(path));
       const { exports: state } = require(file);
-      console.log(state.ppg.url);
+      console.log(`${state.database.connectionString}&connection_limit=1`);
       console.log(state.database.connectionString);
     ' "${STATE_CANDIDATES[@]}" 2>/dev/null
   }

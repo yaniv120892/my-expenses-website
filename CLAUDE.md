@@ -212,20 +212,21 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   it throws on construction. `src/types/prisma-runtime-library.d.ts` restores
   the type path the extension's declarations name, or every query result is
   untyped. The app client is that client with field-encryption and nothing
-  else, connected by `DATABASE_URL`'s scheme: `prisma://` and
-  `prisma+postgres://` as `accelerateUrl`, anything else through
-  `@prisma/adapter-pg`. On Vercel it is Neon's pooled endpoint, which reuses
-  sessions; the adapter is built without a `statementNameGenerator`, so every
-  statement is unnamed and none collides there. `pgbouncer=true` and
-  `connection_limit` are inert, since node-postgres ignores them and pools with
-  its own default. `DIRECT_URL` is the direct endpoint, used by migrations, the
-  seed (also through the pg adapter), and Mastra's memory store; both are
-  scoped per environment, since `vercel-build` runs `prisma migrate deploy`
-  against `DIRECT_URL`. CI and `dev:local` keep the app on `prisma dev`'s
-  `prisma+postgres://` address: its plain Postgres port multiplexes every
-  client onto one backend session, so an app client sharing it with the schema
-  engine and Mastra's node-postgres collides on prepared statements, named
-  (`s0 already exists`) or unnamed (Mastra's memory store fails to init).
+  else, always connected through `@prisma/adapter-pg`. node-postgres ignores
+  `pgbouncer=true` and `connection_limit`, so the client reads
+  `connection_limit` itself as the pool's `max`; with no value the pool is pg's
+  default. On Vercel `DATABASE_URL` is Neon's pooled endpoint with
+  `connection_limit=1`; the adapter is built without a `statementNameGenerator`,
+  so every statement is unnamed and none collides in that pooler's reused
+  sessions. `DIRECT_URL` is the direct endpoint, used by migrations, the seed
+  (also through the pg adapter), and Mastra's memory store; both are scoped per
+  environment, since `vercel-build` runs `prisma migrate deploy` against
+  `DIRECT_URL`. CI and `dev:local` run the app on `prisma dev`'s plain TCP
+  address with `connection_limit=1`, because its `prisma+postgres://` proxy
+  refuses this client version. That port multiplexes every client onto one
+  backend session, so a pool of one is what keeps the app's own unnamed
+  statements from interleaving (`bind message supplies N parameters, but
+prepared statement "" requires 0`).
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

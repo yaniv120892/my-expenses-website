@@ -290,13 +290,8 @@ either store's region moves this one with it.
 
 ## Replies to the user
 
-Write chat replies in ASD-STE100 Simplified Technical English: short sentences,
-common words, one idea per sentence, active voice, simple tenses. Start with the
-current state and the next step, and name files and commands exactly. The user
-runs several sessions in parallel and comes back to each one cold. Commit
-messages, PR descriptions and this file keep their own style. The canonical rule
-is in `yaniv120892/claude-config`'s `shared-rules.md`, which a cloud session
-does not load.
+Chat replies use ASD-STE100 Simplified Technical English: sentences of 20 words
+or fewer, one idea each, active voice, current state and next step first.
 
 ## Documentation
 

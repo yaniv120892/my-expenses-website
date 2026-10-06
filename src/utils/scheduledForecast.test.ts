@@ -71,6 +71,7 @@ describe('forecastFixedExpenses', () => {
     );
 
     expect(forecast).toEqual({
+      expenseCount: 0,
       monthlyTotal: 0,
       remainingThisMonth: 0,
       remainingCount: 0,

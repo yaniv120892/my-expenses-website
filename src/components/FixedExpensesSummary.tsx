@@ -20,14 +20,11 @@ export default function FixedExpensesSummary({
   scheduledTransactions,
   today,
 }: FixedExpensesSummaryProps) {
-  const hasFixedExpenses = scheduledTransactions.some(
-    (tx) => tx.type === 'EXPENSE',
-  );
-  if (!hasFixedExpenses) {
+  const forecast = forecastFixedExpenses(scheduledTransactions, today);
+  if (forecast.expenseCount === 0) {
     return null;
   }
 
-  const forecast = forecastFixedExpenses(scheduledTransactions, today);
   const monthName = today.toLocaleString('en-US', { month: 'long' });
 
   return (

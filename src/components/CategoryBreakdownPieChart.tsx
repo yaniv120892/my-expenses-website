@@ -13,7 +13,11 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { CategoryBreakdownItem } from '@/types';
 import { formatCurrency } from '@/utils/format';
-import { CLICKABLE_SLICE_SX } from '@/components/chartStyles';
+import {
+  CLICKABLE_ROW_SX,
+  UNSELECTED_SLICE_OPACITY,
+  CLICKABLE_SLICE_SX,
+} from '@/components/chartStyles';
 
 type Props = {
   title: string;
@@ -24,26 +28,15 @@ type Props = {
   onSelectCategory: (categoryId: string) => void;
 };
 
-const UNSELECTED_SLICE_OPACITY = 0.3;
 const UNSELECTED_ROW_OPACITY = 0.6;
 
-const CLICKABLE_ROW_SX = {
-  cursor: 'pointer',
-  borderRadius: 1,
-  px: 0.5,
-  mx: -0.5,
-  '&:hover': { bgcolor: 'action.hover' },
-};
-
-type ChartTooltipProps = Pick<
-  TooltipContentProps<number, string>,
-  'active' | 'payload'
-> & { items: CategoryBreakdownItem[] };
-
-function ChartTooltip({ active, payload, items }: ChartTooltipProps) {
-  const hovered = active ? payload?.[0]?.name : undefined;
-  const item = items.find((candidate) => candidate.categoryName === hovered);
-  if (!item) {
+function ChartTooltip({
+  active,
+  payload,
+}: Pick<TooltipContentProps<number, string>, 'active' | 'payload'>) {
+  // Recharts hands back the hovered datum untyped; it is one of `items`.
+  const item: CategoryBreakdownItem | undefined = payload?.[0]?.payload;
+  if (!active || !item) {
     return null;
   }
   return (
@@ -147,9 +140,7 @@ export default function CategoryBreakdownPieChart({
                   />
                 ))}
               </Pie>
-              <Tooltip
-                content={(props) => <ChartTooltip {...props} items={items} />}
-              />
+              <Tooltip content={ChartTooltip} />
             </PieChart>
           </ResponsiveContainer>
         </Box>

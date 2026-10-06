@@ -28,6 +28,7 @@ import {
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 import {
+  buildParentMap,
   expandCategoryToSubtree,
   rollUpToTopLevel,
 } from '@/server/utils/categoryHierarchy';
@@ -216,7 +217,17 @@ class TransactionService {
       }),
       categoryRepository.getAllCategories(),
     ]);
-    return rollUpToTopLevel(totals, categories);
+    const nameById = new Map(categories.map((c) => [c.id, c.name]));
+    const slices = rollUpToTopLevel(totals, buildParentMap(categories)).filter(
+      (slice) => slice.amount > 0,
+    );
+    const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
+    return slices.map(({ categoryId, amount }) => ({
+      categoryId,
+      categoryName: nameById.get(categoryId) ?? 'Unknown',
+      amount,
+      percentage: (amount / total) * 100,
+    }));
   }
 
   public async updateTransaction(

@@ -1,7 +1,10 @@
 import prisma from '@/server/db/client';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
-import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
+import {
+  buildCategoryParentMap,
+  rollUpToTopLevel,
+} from '@/server/utils/categoryHierarchy';
 
 class DashboardRepository {
   private monthBounds(year: number, month: number) {
@@ -64,30 +67,23 @@ class DashboardRepository {
       orderBy: { _sum: { value: 'desc' } },
     });
 
-    const parentMap = await buildCategoryParentMap();
-
-    const parentAggregation = new Map<string, number>();
-    for (const group of groups) {
-      if (!group.categoryId) {
-        continue;
-      }
-      const parentId = parentMap.get(group.categoryId) ?? group.categoryId;
-      const current = parentAggregation.get(parentId) ?? 0;
-      parentAggregation.set(parentId, current + (group._sum?.value ?? 0));
-    }
-
-    const sorted = Array.from(parentAggregation.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit);
-
-    const categoryIds = sorted.map(([id]) => id);
+    const totals = groups.flatMap((group) =>
+      group.categoryId
+        ? [{ categoryId: group.categoryId, amount: group._sum?.value ?? 0 }]
+        : [],
+    );
+    const sorted = rollUpToTopLevel(
+      totals,
+      await buildCategoryParentMap(),
+    ).slice(0, limit);
+    const categoryIds = sorted.map((slice) => slice.categoryId);
 
     const categories = await prisma.category.findMany({
       where: { id: { in: categoryIds } },
     });
     const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    return sorted.map(([categoryId, amount]) => ({
+    return sorted.map(({ categoryId, amount }) => ({
       categoryId,
       categoryName: categoryNameMap.get(categoryId) ?? 'Unknown',
       amount,

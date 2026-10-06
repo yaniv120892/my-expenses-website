@@ -17,7 +17,7 @@ function scheduled(
     type: 'EXPENSE',
     categoryId: 'c1',
     scheduleType: 'MONTHLY',
-    nextRunDate: new Date(2026, 9, 10).toISOString(),
+    nextRunDate: '2026-10-10T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -47,12 +47,12 @@ describe('forecastFixedExpenses', () => {
           value: 50,
           scheduleType: 'WEEKLY',
           dayOfWeek: 1,
-          nextRunDate: new Date(2026, 9, 11).toISOString(),
+          nextRunDate: '2026-10-11T00:00:00.000Z',
         }),
         scheduled({
           value: 1200,
           scheduleType: 'YEARLY',
-          nextRunDate: new Date(2027, 2, 1).toISOString(),
+          nextRunDate: '2027-03-01T00:00:00.000Z',
         }),
       ],
       oct6,
@@ -83,9 +83,54 @@ describe('forecastFixedExpenses', () => {
       [
         scheduled({
           dayOfMonth: 5,
-          nextRunDate: new Date(2026, 9, 5).toISOString(),
+          nextRunDate: '2026-10-05T00:00:00.000Z',
         }),
       ],
+      oct6,
+    );
+
+    expect(forecast.remainingCount).toBe(1);
+  });
+
+  it('counts a long-overdue schedule from today, as the cron catches up', () => {
+    const forecast = forecastFixedExpenses(
+      [
+        scheduled({
+          value: 20,
+          scheduleType: 'DAILY',
+          nextRunDate: '2024-01-01T00:00:00.000Z',
+        }),
+      ],
+      oct6,
+    );
+
+    // Oct 6 through Oct 31.
+    expect(forecast.remainingCount).toBe(26);
+    expect(forecast.remainingThisMonth).toBe(520);
+  });
+
+  it('keeps a run on the 1st of next month out of this month', () => {
+    const forecast = forecastFixedExpenses(
+      [scheduled({ dayOfMonth: 1, nextRunDate: '2026-11-01T00:00:00.000Z' })],
+      oct6,
+    );
+
+    expect(forecast.remainingCount).toBe(0);
+  });
+
+  it('skips a schedule with no next run date', () => {
+    const forecast = forecastFixedExpenses(
+      [scheduled({ nextRunDate: undefined })],
+      oct6,
+    );
+
+    expect(forecast.remainingCount).toBe(0);
+    expect(forecast.monthlyTotal).toBe(100);
+  });
+
+  it('counts a schedule that cannot advance once', () => {
+    const forecast = forecastFixedExpenses(
+      [scheduled({ dayOfMonth: 0, nextRunDate: '2026-10-31T00:00:00.000Z' })],
       oct6,
     );
 

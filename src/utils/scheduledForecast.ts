@@ -1,4 +1,4 @@
-import { endOfMonth, isAfter } from 'date-fns';
+import { endOfMonth, isAfter, max, startOfDay } from 'date-fns';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
 import { ScheduledTransaction } from '@/types';
 import { roundToCents, toMonthlyAmount } from './subscriptionMath';
@@ -36,7 +36,15 @@ export function forecastFixedExpenses(
   let remainingCount = 0;
   for (const tx of expenses) {
     monthlyTotal += toMonthlyScheduledAmount(tx);
-    const occurrences = countOccurrencesUntil(tx, monthEnd);
+    if (!tx.nextRunDate) {
+      continue;
+    }
+    const occurrences = countOccurrencesUntil(
+      tx,
+      tx.nextRunDate,
+      today,
+      monthEnd,
+    );
     remainingThisMonth += occurrences * tx.value;
     remainingCount += occurrences;
   }
@@ -48,22 +56,36 @@ export function forecastFixedExpenses(
   };
 }
 
-function countOccurrencesUntil(tx: ScheduledTransaction, until: Date): number {
-  let runDate = new Date(tx.nextRunDate);
+// The cron runs an overdue schedule once, on the day it catches up, so the
+// walk starts no earlier than today.
+function countOccurrencesUntil(
+  tx: ScheduledTransaction,
+  nextRunDate: string,
+  today: Date,
+  until: Date,
+): number {
+  let runDate = max([toLocalDay(nextRunDate), startOfDay(today)]);
   let count = 0;
   while (runDate <= until) {
     count += 1;
-    const nextRunDate = calculateNextRunDate(
+    const followingRunDate = calculateNextRunDate(
       tx.scheduleType,
       tx.interval,
       runDate,
       tx.dayOfWeek,
       tx.dayOfMonth,
     );
-    if (!isAfter(nextRunDate, runDate)) {
+    if (!isAfter(followingRunDate, runDate)) {
       break;
     }
-    runDate = nextRunDate;
+    runDate = followingRunDate;
   }
   return count;
+}
+
+// The server stores a run date as midnight UTC; reading its calendar day keeps
+// a viewer west of UTC from seeing the 1st as the previous month's last day.
+function toLocalDay(isoDate: string): Date {
+  const date = new Date(isoDate);
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }

@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   Box,
+  ButtonBase,
   Paper,
   Skeleton,
   Stack,
@@ -149,15 +150,15 @@ export default function CategoryBreakdownPieChart({
           sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 420 }}
         >
           {items.map((item, idx) => (
-            <Stack
+            <ButtonBase
               key={item.categoryId}
-              direction="row"
-              spacing={1}
-              role="button"
               aria-pressed={selectedCategoryId === item.categoryId}
               onClick={() => onSelectCategory(item.categoryId)}
               sx={{
-                alignItems: 'center',
+                display: 'flex',
+                gap: 1,
+                justifyContent: 'flex-start',
+                textAlign: 'left',
                 opacity: isDimmed(item.categoryId) ? UNSELECTED_ROW_OPACITY : 1,
                 ...CLICKABLE_ROW_SX,
               }}
@@ -183,7 +184,7 @@ export default function CategoryBreakdownPieChart({
               >
                 {formatCurrency(item.amount)}
               </Typography>
-            </Stack>
+            </ButtonBase>
           ))}
         </Stack>
       </Box>

@@ -93,9 +93,9 @@ function TransactionsPageContent() {
   );
   const { data: categories = [] } = useCategoriesQuery();
   const { data: summary } = useTransactionsSummaryQuery(filters);
-  // The charts drive the type and category filters, so each ignores the ones
-  // it drives: filtering a chart by its own selection would zero the slices
-  // the user has to click to go back.
+  // Each chart ignores the filter it drives: filtering a chart by its own
+  // selection would zero the slices the user has to click to go back. While
+  // the breakdown is open the category is its selection, not a dialog filter.
   const {
     data: chartSummary,
     isLoading: chartSummaryLoading,
@@ -103,7 +103,7 @@ function TransactionsPageContent() {
   } = useTransactionsSummaryQuery({
     ...filters,
     type: undefined,
-    categoryId: undefined,
+    categoryId: filters.type ? undefined : filters.categoryId,
   });
   const {
     data: categoryBreakdown = [],

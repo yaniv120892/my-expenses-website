@@ -67,11 +67,10 @@ class DashboardRepository {
       orderBy: { _sum: { value: 'desc' } },
     });
 
-    const totals = groups.flatMap((group) =>
-      group.categoryId
-        ? [{ categoryId: group.categoryId, amount: group._sum?.value ?? 0 }]
-        : [],
-    );
+    const totals = groups.map((group) => ({
+      categoryId: group.categoryId,
+      amount: group._sum?.value ?? 0,
+    }));
     const sorted = rollUpToTopLevel(
       totals,
       await buildCategoryParentMap(),

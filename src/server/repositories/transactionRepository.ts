@@ -123,11 +123,10 @@ class TransactionRepository {
       _sum: { value: true },
       where: this.buildListWhere(filters, startDate, endDate),
     });
-    return groups.flatMap((group) =>
-      group.categoryId
-        ? [{ categoryId: group.categoryId, amount: group._sum.value ?? 0 }]
-        : [],
-    );
+    return groups.map((group) => ({
+      categoryId: group.categoryId,
+      amount: group._sum.value ?? 0,
+    }));
   }
 
   public async createTransaction(

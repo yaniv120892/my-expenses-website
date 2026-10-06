@@ -41,19 +41,21 @@ export default function FixedExpensesSummary({
       <SummaryCard
         title={`Fixed expenses left in ${monthName}`}
         value={forecast.remainingThisMonth}
-        caption={
-          forecast.remainingCount === 1
-            ? '1 scheduled charge to go'
-            : `${forecast.remainingCount} scheduled charges to go`
-        }
+        caption={describeRemainingCharges(forecast.remainingCount)}
       />
       <SummaryCard
         title="Fixed expenses per month"
         value={forecast.monthlyTotal}
-        caption="Average across all scheduled expenses"
+        caption="All scheduled expenses, averaged to one month"
       />
     </Box>
   );
+}
+
+function describeRemainingCharges(count: number): string {
+  return count === 1
+    ? '1 scheduled charge to go'
+    : `${count} scheduled charges to go`;
 }
 
 function SummaryCard({ title, value, caption }: SummaryCardProps) {

@@ -104,18 +104,23 @@ describe('forecastFixedExpenses', () => {
       oct6,
     );
 
-    // Oct 6 through Oct 31.
     expect(forecast.remainingCount).toBe(26);
     expect(forecast.remainingThisMonth).toBe(520);
   });
 
-  it('keeps a run on the 1st of next month out of this month', () => {
-    const forecast = forecastFixedExpenses(
-      [scheduled({ dayOfMonth: 1, nextRunDate: '2026-11-01T00:00:00.000Z' })],
-      oct6,
-    );
+  it('keeps a run on the 1st of next month out of this month west of UTC', () => {
+    const originalTimeZone = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      const forecast = forecastFixedExpenses(
+        [scheduled({ dayOfMonth: 1, nextRunDate: '2026-11-01T00:00:00.000Z' })],
+        new Date(2026, 9, 6, 12),
+      );
 
-    expect(forecast.remainingCount).toBe(0);
+      expect(forecast.remainingCount).toBe(0);
+    } finally {
+      process.env.TZ = originalTimeZone;
+    }
   });
 
   it('skips a schedule with no next run date', () => {

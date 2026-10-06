@@ -16,6 +16,7 @@ import type { z } from 'zod';
 
 export type { Category, TransactionType };
 export type {
+  CategoryBreakdownItem,
   TransactionFileStatus,
   TransactionSummary,
 } from '@/shared/types/transaction';

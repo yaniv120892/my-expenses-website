@@ -1,4 +1,5 @@
 import categoryRepository from '@/server/repositories/categoryRepository';
+import type { CategoryBreakdownItem } from '@/shared/types/transaction';
 
 export interface CategoryNode {
   id: string;
@@ -112,4 +113,39 @@ export async function buildCategoryDescendantMap(): Promise<
 
 export async function buildCategoryParentMap(): Promise<Map<string, string>> {
   return buildParentMap(await categoryRepository.getAllCategories());
+}
+
+export type CategoryTotal = {
+  categoryId: string;
+  amount: number;
+};
+
+export type NamedCategoryNode = CategoryNode & { name: string };
+
+/**
+ * Sums each total into its top-level category, largest first, so a slice
+ * covers exactly the subtree that filtering by its id returns.
+ */
+export function rollUpToTopLevel(
+  totals: CategoryTotal[],
+  categories: NamedCategoryNode[],
+): CategoryBreakdownItem[] {
+  const parentMap = buildParentMap(categories);
+  const nameById = new Map(categories.map((c) => [c.id, c.name]));
+  const amountByRoot = new Map<string, number>();
+  for (const { categoryId, amount } of totals) {
+    const rootId = parentMap.get(categoryId) ?? categoryId;
+    amountByRoot.set(rootId, (amountByRoot.get(rootId) ?? 0) + amount);
+  }
+
+  const total = Array.from(amountByRoot.values()).reduce((a, b) => a + b, 0);
+  return Array.from(amountByRoot.entries())
+    .filter(([, amount]) => amount > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([categoryId, amount]) => ({
+      categoryId,
+      categoryName: nameById.get(categoryId) ?? 'Unknown',
+      amount,
+      percentage: total > 0 ? (amount / total) * 100 : 0,
+    }));
 }

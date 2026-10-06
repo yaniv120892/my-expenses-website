@@ -25,6 +25,7 @@ import { TransactionFiltersDialog } from '@/components/transactions/TransactionF
 import { TransactionFiltersDisplay } from '@/components/transactions/TransactionFiltersDisplay';
 import PendingTransactionsPopup from '@/components/PendingTransactionsPopup';
 import IncomeExpensePieChart from '@/components/IncomeExpensePieChart';
+import CategoryBreakdownPieChart from '@/components/CategoryBreakdownPieChart';
 import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import PageHeader from '@/components/shell/PageHeader';
@@ -37,6 +38,7 @@ import {
   useDeleteTransactionMutation,
   useTransactionsSummaryQuery,
   useExportTransactionsCsvMutation,
+  useCategoryBreakdownQuery,
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
@@ -91,13 +93,26 @@ function TransactionsPageContent() {
   );
   const { data: categories = [] } = useCategoriesQuery();
   const { data: summary } = useTransactionsSummaryQuery(filters);
-  // The chart drives the type filter, so it must ignore it: filtering the chart
-  // by its own selection would zero the slice the user has to click to go back.
+  // The charts drive the type and category filters, so each ignores the ones
+  // it drives: filtering a chart by its own selection would zero the slices
+  // the user has to click to go back.
   const {
     data: chartSummary,
     isLoading: chartSummaryLoading,
     isError: chartSummaryFailed,
-  } = useTransactionsSummaryQuery({ ...filters, type: undefined });
+  } = useTransactionsSummaryQuery({
+    ...filters,
+    type: undefined,
+    categoryId: undefined,
+  });
+  const {
+    data: categoryBreakdown = [],
+    isLoading: categoryBreakdownLoading,
+    isError: categoryBreakdownFailed,
+  } = useCategoryBreakdownQuery(
+    { ...filters, categoryId: undefined },
+    !!filters.type,
+  );
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
@@ -189,6 +204,27 @@ function TransactionsPageContent() {
         }
         title={describeDateRange(filters)}
       />
+
+      {filters.type && (
+        <CategoryBreakdownPieChart
+          title={
+            filters.type === 'EXPENSE'
+              ? 'Expenses by category'
+              : 'Income by category'
+          }
+          items={categoryBreakdown}
+          loading={categoryBreakdownLoading}
+          error={categoryBreakdownFailed}
+          selectedCategoryId={filters.categoryId}
+          onSelectCategory={(categoryId) =>
+            setFilters((prev) => ({
+              ...prev,
+              categoryId:
+                prev.categoryId === categoryId ? undefined : categoryId,
+            }))
+          }
+        />
+      )}
 
       <TransactionFiltersDisplay
         {...filters}

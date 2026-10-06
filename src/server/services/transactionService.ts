@@ -3,6 +3,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
 import {
   CreateTransaction,
+  CategoryBreakdownItem,
   CreateTransactionResult,
   Transaction,
   TransactionListFilters,
@@ -26,7 +27,10 @@ import {
   getPresignedUploadUrl,
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
-import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
+import {
+  expandCategoryToSubtree,
+  rollUpToTopLevel,
+} from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
@@ -199,6 +203,20 @@ class TransactionService {
       ...resolved,
       status: resolved.status || 'APPROVED',
     });
+  }
+
+  public async getCategoryBreakdown(
+    filters: TransactionSummaryFilters,
+  ): Promise<CategoryBreakdownItem[]> {
+    const resolved = await this.resolveCategoryFilter(filters);
+    const [totals, categories] = await Promise.all([
+      transactionRepository.getCategoryTotals({
+        ...resolved,
+        status: resolved.status || 'APPROVED',
+      }),
+      categoryRepository.getAllCategories(),
+    ]);
+    return rollUpToTopLevel(totals, categories);
   }
 
   public async updateTransaction(

@@ -6,6 +6,7 @@ import {
   UpdateTransactionInput,
   TransactionSummary,
   TransactionFilters,
+  CategoryBreakdownItem,
   Category,
 } from '../types';
 
@@ -42,6 +43,15 @@ export async function getTransactionSummary(
   params?: TransactionFilters,
 ): Promise<TransactionSummary> {
   const res = await api.get('/api/transactions/summary', {
+    params: listFilters(params),
+  });
+  return res.data;
+}
+
+export async function getCategoryBreakdown(
+  params?: TransactionFilters,
+): Promise<CategoryBreakdownItem[]> {
+  const res = await api.get('/api/transactions/summary/categories', {
     params: listFilters(params),
   });
   return res.data;

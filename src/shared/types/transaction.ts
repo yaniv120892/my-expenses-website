@@ -82,6 +82,14 @@ export interface TransactionSummary {
   expenseCount: number;
 }
 
+/** One top-level category's share of the filtered rows' total. */
+export type CategoryBreakdownItem = {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  percentage: number;
+};
+
 export interface CreateTransactionResult {
   id: string;
   suggestedCategory?: {

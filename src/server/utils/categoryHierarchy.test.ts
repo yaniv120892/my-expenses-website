@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDescendantMap,
   buildParentMap,
+  rollUpToTopLevel,
   type CategoryNode,
 } from '@/server/utils/categoryHierarchy';
 
@@ -97,5 +98,48 @@ describe('buildDescendantMap', () => {
     ]);
     expect(map.get('A')).toEqual(['A', 'B']);
     expect(map.get('B')).toEqual(['B', 'A']);
+  });
+});
+
+describe('rollUpToTopLevel', () => {
+  const categories = [
+    { id: 'food', name: 'Food', parentId: null },
+    { id: 'groceries', name: 'Groceries', parentId: 'food' },
+    { id: 'rent', name: 'Rent', parentId: null },
+  ];
+
+  it('sums children into their top-level category, largest first', () => {
+    const items = rollUpToTopLevel(
+      [
+        { categoryId: 'groceries', amount: 300 },
+        { categoryId: 'food', amount: 100 },
+        { categoryId: 'rent', amount: 600 },
+      ],
+      categories,
+    );
+    expect(items).toEqual([
+      { categoryId: 'rent', categoryName: 'Rent', amount: 600, percentage: 60 },
+      { categoryId: 'food', categoryName: 'Food', amount: 400, percentage: 40 },
+    ]);
+  });
+
+  it('drops zero totals and returns nothing for no rows', () => {
+    expect(
+      rollUpToTopLevel([{ categoryId: 'rent', amount: 0 }], categories),
+    ).toEqual([]);
+    expect(rollUpToTopLevel([], categories)).toEqual([]);
+  });
+
+  it('keeps an unknown category as its own slice', () => {
+    expect(
+      rollUpToTopLevel([{ categoryId: 'gone', amount: 5 }], categories),
+    ).toEqual([
+      {
+        categoryId: 'gone',
+        categoryName: 'Unknown',
+        amount: 5,
+        percentage: 100,
+      },
+    ]);
   });
 });

@@ -11,7 +11,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import type { TooltipContentProps } from 'recharts';
 import { CategoryBreakdownItem } from '@/types';
 import { formatCurrency } from '@/utils/format';
 import {
@@ -31,11 +30,13 @@ type Props = {
 
 const UNSELECTED_ROW_OPACITY = 0.6;
 
-function ChartTooltip({
-  active,
-  payload,
-}: Pick<TooltipContentProps<number, string>, 'active' | 'payload'>) {
-  const item: CategoryBreakdownItem | undefined = payload?.[0]?.payload;
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: readonly { payload?: CategoryBreakdownItem }[];
+};
+
+function ChartTooltip({ active, payload }: ChartTooltipProps) {
+  const item = payload?.[0]?.payload;
   if (!active || !item) {
     return null;
   }
@@ -130,10 +131,10 @@ export default function CategoryBreakdownPieChart({
                   onSelectCategory(items[index].categoryId)
                 }
               >
-                {items.map((item, idx) => (
+                {items.map((item, index) => (
                   <Cell
                     key={item.categoryId}
-                    fill={seriesColors[idx % seriesColors.length]}
+                    fill={seriesColors[index % seriesColors.length]}
                     fillOpacity={
                       isDimmed(item.categoryId) ? UNSELECTED_SLICE_OPACITY : 1
                     }
@@ -148,7 +149,7 @@ export default function CategoryBreakdownPieChart({
           spacing={0.75}
           sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 420 }}
         >
-          {items.map((item, idx) => (
+          {items.map((item, index) => (
             <ButtonBase
               key={item.categoryId}
               aria-pressed={selectedCategoryId === item.categoryId}
@@ -167,7 +168,7 @@ export default function CategoryBreakdownPieChart({
                   width: 12,
                   height: 12,
                   borderRadius: '50%',
-                  bgcolor: seriesColors[idx % seriesColors.length],
+                  bgcolor: seriesColors[index % seriesColors.length],
                   flexShrink: 0,
                 }}
               />

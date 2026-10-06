@@ -200,6 +200,7 @@ function TransactionsPageContent() {
           setFilters((prev) => ({
             ...prev,
             type: prev.type === type ? undefined : type,
+            categoryId: prev.type ? undefined : prev.categoryId,
           }))
         }
         title={describeDateRange(filters)}

@@ -28,7 +28,7 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
-import type { CategoryTotal } from '@/server/utils/categoryHierarchy';
+import type { CategoryTotal } from '@/server/utils/categoryHierarchy.types';
 
 const MATCHABLE_STATUSES = [
   TransactionStatus.APPROVED,

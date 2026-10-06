@@ -28,9 +28,8 @@ import {
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 import {
-  buildParentMap,
   expandCategoryToSubtree,
-  rollUpToTopLevel,
+  rollUpToNamedTopLevel,
 } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
@@ -217,16 +216,13 @@ class TransactionService {
       }),
       categoryRepository.getAllCategories(),
     ]);
-    const nameById = new Map(categories.map((c) => [c.id, c.name]));
-    const slices = rollUpToTopLevel(totals, buildParentMap(categories)).filter(
+    const slices = rollUpToNamedTopLevel(totals, categories).filter(
       (slice) => slice.amount > 0,
     );
     const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
-    return slices.map(({ categoryId, amount }) => ({
-      categoryId,
-      categoryName: nameById.get(categoryId) ?? 'Unknown',
-      amount,
-      percentage: (amount / total) * 100,
+    return slices.map((slice) => ({
+      ...slice,
+      percentage: (slice.amount / total) * 100,
     }));
   }
 

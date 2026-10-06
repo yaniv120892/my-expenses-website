@@ -1,10 +1,9 @@
 import prisma from '@/server/db/client';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
-import {
-  buildCategoryParentMap,
-  rollUpToTopLevel,
-} from '@/server/utils/categoryHierarchy';
+import categoryRepository from '@/server/repositories/categoryRepository';
+import { rollUpToNamedTopLevel } from '@/server/utils/categoryHierarchy';
+import type { NamedCategoryTotal } from '@/server/utils/categoryHierarchy.types';
 
 class DashboardRepository {
   private monthBounds(year: number, month: number) {
@@ -52,7 +51,7 @@ class DashboardRepository {
     year: number,
     month: number,
     limit: number = 7,
-  ): Promise<{ categoryId: string; categoryName: string; amount: number }[]> {
+  ): Promise<NamedCategoryTotal[]> {
     const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({
@@ -71,22 +70,8 @@ class DashboardRepository {
       categoryId: group.categoryId,
       amount: group._sum?.value ?? 0,
     }));
-    const sorted = rollUpToTopLevel(
-      totals,
-      await buildCategoryParentMap(),
-    ).slice(0, limit);
-    const categoryIds = sorted.map((slice) => slice.categoryId);
-
-    const categories = await prisma.category.findMany({
-      where: { id: { in: categoryIds } },
-    });
-    const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
-
-    return sorted.map(({ categoryId, amount }) => ({
-      categoryId,
-      categoryName: categoryNameMap.get(categoryId) ?? 'Unknown',
-      amount,
-    }));
+    const categories = await categoryRepository.getAllCategories();
+    return rollUpToNamedTopLevel(totals, categories).slice(0, limit);
   }
 
   public async getRecentTransactions(

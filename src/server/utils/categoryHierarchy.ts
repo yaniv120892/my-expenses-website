@@ -1,4 +1,9 @@
 import categoryRepository from '@/server/repositories/categoryRepository';
+import type {
+  CategoryTotal,
+  NamedCategoryNode,
+  NamedCategoryTotal,
+} from '@/server/utils/categoryHierarchy.types';
 
 export interface CategoryNode {
   id: string;
@@ -112,4 +117,33 @@ export async function buildCategoryDescendantMap(): Promise<
 
 export async function buildCategoryParentMap(): Promise<Map<string, string>> {
   return buildParentMap(await categoryRepository.getAllCategories());
+}
+
+/** Per root, so a slice covers exactly the subtree filtering by its id returns. */
+export function rollUpToTopLevel(
+  totals: CategoryTotal[],
+  parentMap: Map<string, string>,
+): CategoryTotal[] {
+  const amountByRoot = new Map<string, number>();
+  for (const { categoryId, amount } of totals) {
+    const rootId = parentMap.get(categoryId) ?? categoryId;
+    amountByRoot.set(rootId, (amountByRoot.get(rootId) ?? 0) + amount);
+  }
+  return Array.from(amountByRoot, ([categoryId, amount]) => ({
+    categoryId,
+    amount,
+  })).sort((a, b) => b.amount - a.amount);
+}
+
+export function rollUpToNamedTopLevel(
+  totals: CategoryTotal[],
+  categories: NamedCategoryNode[],
+): NamedCategoryTotal[] {
+  const nameById = new Map(
+    categories.map((category) => [category.id, category.name]),
+  );
+  return rollUpToTopLevel(totals, buildParentMap(categories)).map((total) => ({
+    ...total,
+    categoryName: nameById.get(total.categoryId) ?? 'Unknown',
+  }));
 }

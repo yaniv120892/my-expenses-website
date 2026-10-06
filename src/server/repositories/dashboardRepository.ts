@@ -1,7 +1,9 @@
 import prisma from '@/server/db/client';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
-import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
+import categoryRepository from '@/server/repositories/categoryRepository';
+import { rollUpToNamedTopLevel } from '@/server/utils/categoryHierarchy';
+import type { NamedCategoryTotal } from '@/server/utils/categoryHierarchy.types';
 
 class DashboardRepository {
   private monthBounds(year: number, month: number) {
@@ -49,7 +51,7 @@ class DashboardRepository {
     year: number,
     month: number,
     limit: number = 7,
-  ): Promise<{ categoryId: string; categoryName: string; amount: number }[]> {
+  ): Promise<NamedCategoryTotal[]> {
     const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({
@@ -64,34 +66,12 @@ class DashboardRepository {
       orderBy: { _sum: { value: 'desc' } },
     });
 
-    const parentMap = await buildCategoryParentMap();
-
-    const parentAggregation = new Map<string, number>();
-    for (const group of groups) {
-      if (!group.categoryId) {
-        continue;
-      }
-      const parentId = parentMap.get(group.categoryId) ?? group.categoryId;
-      const current = parentAggregation.get(parentId) ?? 0;
-      parentAggregation.set(parentId, current + (group._sum?.value ?? 0));
-    }
-
-    const sorted = Array.from(parentAggregation.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit);
-
-    const categoryIds = sorted.map(([id]) => id);
-
-    const categories = await prisma.category.findMany({
-      where: { id: { in: categoryIds } },
-    });
-    const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
-
-    return sorted.map(([categoryId, amount]) => ({
-      categoryId,
-      categoryName: categoryNameMap.get(categoryId) ?? 'Unknown',
-      amount,
+    const totals = groups.map((group) => ({
+      categoryId: group.categoryId,
+      amount: group._sum?.value ?? 0,
     }));
+    const categories = await categoryRepository.getAllCategories();
+    return rollUpToNamedTopLevel(totals, categories).slice(0, limit);
   }
 
   public async getRecentTransactions(

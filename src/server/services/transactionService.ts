@@ -3,6 +3,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
 import {
   CreateTransaction,
+  CategoryBreakdownItem,
   CreateTransactionResult,
   Transaction,
   TransactionListFilters,
@@ -26,7 +27,10 @@ import {
   getPresignedUploadUrl,
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
-import { expandCategoryToSubtree } from '@/server/utils/categoryHierarchy';
+import {
+  expandCategoryToSubtree,
+  rollUpToNamedTopLevel,
+} from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
@@ -199,6 +203,27 @@ class TransactionService {
       ...resolved,
       status: resolved.status || 'APPROVED',
     });
+  }
+
+  public async getCategoryBreakdown(
+    filters: TransactionSummaryFilters,
+  ): Promise<CategoryBreakdownItem[]> {
+    const resolved = await this.resolveCategoryFilter(filters);
+    const [totals, categories] = await Promise.all([
+      transactionRepository.getCategoryTotals({
+        ...resolved,
+        status: resolved.status || 'APPROVED',
+      }),
+      categoryRepository.getAllCategories(),
+    ]);
+    const slices = rollUpToNamedTopLevel(totals, categories).filter(
+      (slice) => slice.amount > 0,
+    );
+    const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
+    return slices.map((slice) => ({
+      ...slice,
+      percentage: (slice.amount / total) * 100,
+    }));
   }
 
   public async updateTransaction(

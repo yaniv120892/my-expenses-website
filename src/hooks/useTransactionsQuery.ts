@@ -11,6 +11,7 @@ import {
   deleteTransaction,
   getCategories,
   getTransactionSummary,
+  getCategoryBreakdown,
   exportTransactionsCsv,
 } from '@/services/transactions';
 import { downloadBlob } from '@/utils/download';
@@ -19,6 +20,7 @@ import {
   CreateTransactionInput,
   UpdateTransactionInput,
   TransactionSummary,
+  CategoryBreakdownItem,
 } from '@/types';
 import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 
@@ -33,6 +35,8 @@ export const transactionKeys = {
   summaries: () => [...transactionKeys.all, 'summary'] as const,
   summary: (filters?: TransactionFilters) =>
     [...transactionKeys.summaries(), filters] as const,
+  categoryBreakdown: (filters?: TransactionFilters) =>
+    [...transactionKeys.summaries(), 'categories', filters] as const,
 };
 
 export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
@@ -95,5 +99,16 @@ export const useTransactionsSummaryQuery = (filters?: TransactionFilters) => {
   return useQuery<TransactionSummary>({
     queryKey: transactionKeys.summary(filters),
     queryFn: () => getTransactionSummary(filters),
+  });
+};
+
+export const useCategoryBreakdownQuery = (
+  filters: TransactionFilters,
+  enabled: boolean,
+) => {
+  return useQuery<CategoryBreakdownItem[]>({
+    queryKey: transactionKeys.categoryBreakdown(filters),
+    queryFn: () => getCategoryBreakdown(filters),
+    enabled,
   });
 };

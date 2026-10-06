@@ -35,7 +35,6 @@ function ChartTooltip({
   active,
   payload,
 }: Pick<TooltipContentProps<number, string>, 'active' | 'payload'>) {
-  // Recharts hands back the hovered datum untyped; it is one of `items`.
   const item: CategoryBreakdownItem | undefined = payload?.[0]?.payload;
   if (!active || !item) {
     return null;

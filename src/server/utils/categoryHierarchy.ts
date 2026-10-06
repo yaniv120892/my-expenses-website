@@ -119,10 +119,7 @@ export type CategoryTotal = {
   amount: number;
 };
 
-/**
- * Sums each total into its top-level category, largest first, so a slice
- * covers exactly the subtree that filtering by its id returns.
- */
+/** Per root, so a slice covers exactly the subtree filtering by its id returns. */
 export function rollUpToTopLevel(
   totals: CategoryTotal[],
   parentMap: Map<string, string>,

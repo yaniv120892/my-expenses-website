@@ -17,11 +17,13 @@ function renderPage() {
   );
 }
 
-const { queryMock, confirmMutateAsync, deleteMutateAsync } = vi.hoisted(() => ({
-  queryMock: vi.fn(),
-  confirmMutateAsync: vi.fn(),
-  deleteMutateAsync: vi.fn(),
-}));
+const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } =
+  vi.hoisted(() => ({
+    queryMock: vi.fn(),
+    scheduledQueryMock: vi.fn(),
+    confirmMutateAsync: vi.fn(),
+    deleteMutateAsync: vi.fn(),
+  }));
 
 vi.mock('@/hooks/usePendingTransactionsQuery', () => ({
   usePendingTransactionsQuery: queryMock,
@@ -29,6 +31,10 @@ vi.mock('@/hooks/usePendingTransactionsQuery', () => ({
   useDeletePendingTransactionMutation: () => ({
     mutateAsync: deleteMutateAsync,
   }),
+}));
+
+vi.mock('@/hooks/useScheduledTransactionsQuery', () => ({
+  useScheduledTransactionsQuery: scheduledQueryMock,
 }));
 
 const PENDING_ROW: Transaction = {
@@ -47,6 +53,7 @@ beforeEach(() => {
     isLoading: false,
     isError: false,
   });
+  scheduledQueryMock.mockReturnValue({ data: [] });
 });
 
 afterEach(cleanup);
@@ -84,4 +91,33 @@ describe('pending page toasts', () => {
       expect(await screen.findByText(message)).toBeTruthy();
     },
   );
+});
+
+describe('pending page fixed expenses summary', () => {
+  it('shows the monthly and remaining fixed expenses', () => {
+    scheduledQueryMock.mockReturnValue({
+      data: [
+        {
+          id: 'rent',
+          description: 'Rent',
+          value: 5000,
+          type: 'EXPENSE',
+          categoryId: 'c1',
+          scheduleType: 'MONTHLY',
+          dayOfMonth: 1,
+          nextRunDate: '2999-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    renderPage();
+
+    expect(screen.getByText('Fixed expenses per month')).toBeTruthy();
+    expect(screen.getByText('0 scheduled charges to go')).toBeTruthy();
+  });
+
+  it('is hidden when there are no scheduled expenses', () => {
+    renderPage();
+
+    expect(screen.queryByText('Fixed expenses per month')).toBeNull();
+  });
 });

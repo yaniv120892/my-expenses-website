@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Alert } from '@mui/material';
+import FixedExpensesSummary from '@/components/FixedExpensesSummary';
 import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
@@ -12,6 +13,7 @@ import {
   useConfirmTransactionMutation,
   useDeletePendingTransactionMutation,
 } from '@/hooks/usePendingTransactionsQuery';
+import { useScheduledTransactionsQuery } from '@/hooks/useScheduledTransactionsQuery';
 
 type Notice = { message: string; severity: 'success' | 'error' };
 
@@ -32,6 +34,7 @@ export default function PendingPage() {
     isLoading,
     isError: loadFailed,
   } = usePendingTransactionsQuery();
+  const { data: scheduledTransactions = [] } = useScheduledTransactionsQuery();
   const confirmMutation = useConfirmTransactionMutation();
   const deleteMutation = useDeletePendingTransactionMutation();
 
@@ -70,6 +73,10 @@ export default function PendingPage() {
       <PageHeader
         title="Pending"
         subtitle="Transactions waiting for your approval"
+      />
+      <FixedExpensesSummary
+        scheduledTransactions={scheduledTransactions}
+        today={new Date()}
       />
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />

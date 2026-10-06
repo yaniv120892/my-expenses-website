@@ -204,13 +204,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
   `prisma generate` writes the client to `src/generated/prisma` (gitignored;
   server code imports `@/generated/prisma/client`, code a browser can reach only
-  `@/generated/prisma/enums`) and, through `prisma/generators/`,
-  `src/generated/field-encryption/dmmf.json`, which `src/server/db/client.ts`
-  passes prisma-field-encryption as `dmmf` since the generated client drops the
-  `/// @encrypted` annotations. The app client is that client with
-  field-encryption and nothing else, connected through `@prisma/adapter-pg` with
-  a pool of one and no `statementNameGenerator`, so every statement is unnamed
-  and safe in a pooler's reused sessions. On Vercel `DATABASE_URL` is Neon's
+  `@/generated/prisma/enums`). The app client is that client with one
+  extension, `src/server/db/cardDigitsEncryption.ts`, connected through
+  `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
+  every statement is unnamed and safe in a pooler's reused sessions. On Vercel `DATABASE_URL` is Neon's
   pooled endpoint; `DIRECT_URL` is the direct endpoint, used by migrations, the
   seed, and Mastra's memory store. Both are scoped per environment, since
   `vercel-build` runs `prisma migrate deploy` against `DIRECT_URL`. CI's e2e job
@@ -218,6 +215,14 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   TCP address, which multiplexes every client onto one backend session, so
   Mastra's statements can interleave with the app's there
   (`bind message supplies N parameters`); a real Postgres never does that.
+- **Encryption at rest**: `Import.creditCardLastFourDigits` is the one
+  encrypted column. `cardDigitsEncryption` encrypts it with
+  `PRISMA_FIELD_ENCRYPTION_KEY` (cloak's `v1.aesgcm256` format) on every Import
+  write that takes data, refusing anything but a plain string, and decrypts it
+  as a computed result field, so every Import a query returns carries the
+  digits. Each write gets a random IV, so the column cannot be filtered on —
+  `importRepository.findExisting` matches it in memory. A new encrypted column
+  goes through the same extension.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

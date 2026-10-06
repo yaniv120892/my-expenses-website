@@ -1,7 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { fieldEncryptionExtension } from 'prisma-field-encryption';
-import fieldEncryptionDmmf from '@/generated/field-encryption/dmmf.json';
 import { PrismaClient } from '@/generated/prisma/client';
+import { cardDigitsEncryption } from '@/server/db/cardDigitsEncryption';
 import { requireEnv } from '@/server/env';
 
 function createPrismaClient() {
@@ -15,7 +14,7 @@ function createPrismaClient() {
       connectionTimeoutMillis: 10_000,
     }),
     log: ['warn', 'error'],
-  }).$extends(fieldEncryptionExtension({ dmmf: fieldEncryptionDmmf }));
+  }).$extends(cardDigitsEncryption(requireEnv('PRISMA_FIELD_ENCRYPTION_KEY')));
 }
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;

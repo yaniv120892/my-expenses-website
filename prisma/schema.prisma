@@ -7,11 +7,6 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-generator fieldEncryptionDmmf {
-  provider = "node --import tsx ./prisma/generators/fieldEncryptionDmmf.ts"
-  output   = "../src/generated/field-encryption"
-}
-
 enum TransactionType {
   INCOME
   EXPENSE
@@ -161,7 +156,7 @@ model Import {
   completedAt   DateTime?
   transactions  ImportedTransaction[]
   
-  creditCardLastFourDigits String? /// @encrypted
+  creditCardLastFourDigits String? /// encrypted by src/server/db/cardDigitsEncryption.ts
   paymentMonth             String? // Format: MM/YYYY
   deleted                  Boolean @default(false)
   excelExtractionRequestId String?   @unique

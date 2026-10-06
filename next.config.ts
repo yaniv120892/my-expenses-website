@@ -30,7 +30,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     '@prisma/client',
     '@prisma/adapter-pg',
-    'prisma-field-encryption',
     '@mastra/core',
     '@mastra/memory',
     '@mastra/pg',

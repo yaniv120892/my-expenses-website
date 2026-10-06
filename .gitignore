@@ -41,7 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma generate output (the client and the field-encryption DMMF)
+# prisma generate output
 /src/generated/
 test-results/
 playwright-report/

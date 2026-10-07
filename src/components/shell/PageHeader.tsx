@@ -17,10 +17,12 @@ export default function PageHeader({
   return (
     <Stack
       direction="row"
-      alignItems="flex-start"
-      justifyContent="space-between"
       spacing={2}
-      sx={{ mb: { xs: 2, md: 3 } }}
+      sx={{
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        mb: { xs: 2, md: 3 },
+      }}
     >
       <Box>
         <Typography
@@ -31,7 +33,13 @@ export default function PageHeader({
           {title}
         </Typography>
         {subtitle && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: 0.5,
+            }}
+          >
             {subtitle}
           </Typography>
         )}

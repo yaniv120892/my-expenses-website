@@ -42,12 +42,22 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <RepeatIcon color="primary" />
-          <Typography variant="h6" fontWeight={700}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+            }}
+          >
             Subscriptions
           </Typography>
           {detectedCount > 0 && (
             <Badge badgeContent={detectedCount} color="error" sx={{ ml: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 new
               </Typography>
             </Badge>
@@ -63,26 +73,56 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
           }}
         >
           <Box sx={{ minWidth: 80 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Active
             </Typography>
-            <Typography variant="h5" fontWeight={700}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {activeCount}
             </Typography>
           </Box>
           <Box sx={{ minWidth: 80 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Monthly
             </Typography>
-            <Typography variant="h5" fontWeight={700}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {formatCurrencyRounded(totalMonthlyEstimate)}
             </Typography>
           </Box>
           <Box sx={{ minWidth: 80 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Annual
             </Typography>
-            <Typography variant="h5" fontWeight={700}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {formatCurrencyRounded(totalAnnualEstimate)}
             </Typography>
           </Box>

@@ -73,19 +73,32 @@ export default function UploadQueueList({
           <Stack
             direction="row"
             spacing={1}
-            alignItems="center"
-            justifyContent="space-between"
+            sx={{
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
           >
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="body2" noWrap title={item.file.name}>
                 {item.file.name}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {formatSize(item.file.size)}
               </Typography>
             </Box>
 
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               {item.status === 'succeeded' ? (
                 <CheckCircleOutlineRoundedIcon
                   fontSize="small"
@@ -155,8 +168,10 @@ export default function UploadQueueList({
             <Typography
               variant="caption"
               color="error"
-              sx={{ mt: 1 }}
-              display="block"
+              sx={{
+                display: 'block',
+                mt: 1,
+              }}
             >
               {item.error}
             </Typography>

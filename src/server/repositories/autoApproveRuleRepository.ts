@@ -1,4 +1,4 @@
-import { AutoApproveRule, TransactionType } from '@prisma/client';
+import { AutoApproveRule, TransactionType } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export class AutoApproveRuleRepository {

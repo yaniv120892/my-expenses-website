@@ -16,6 +16,7 @@ import type { z } from 'zod';
 
 export type { Category, TransactionType };
 export type {
+  CategoryBreakdownItem,
   TransactionFileStatus,
   TransactionSummary,
 } from '@/shared/types/transaction';
@@ -74,7 +75,7 @@ export type ScheduledTransaction = Omit<
   'userId' | 'lastRunDate' | 'nextRunDate'
 > & {
   lastRunDate?: string;
-  nextRunDate: string;
+  nextRunDate?: string;
 };
 
 export class ApiResponse<T> {

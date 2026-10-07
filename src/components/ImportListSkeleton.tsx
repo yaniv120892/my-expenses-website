@@ -11,9 +11,12 @@ export default function ImportListSkeleton({ rows = 5 }: { rows?: number }) {
           <Stack
             key={idx}
             direction="row"
-            alignItems="center"
             spacing={2}
-            sx={{ px: 2, py: 1.5 }}
+            sx={{
+              alignItems: 'center',
+              px: 2,
+              py: 1.5,
+            }}
           >
             <Box sx={{ flex: 1 }}>
               <Skeleton width="45%" />

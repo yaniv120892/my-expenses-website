@@ -4,10 +4,12 @@ const {
   findByUserAndDescription,
   getTransactionsList,
   getTransactionsSummary,
+  getCategoryTotals,
   getAllCategories,
   reportSwallowedError,
   createTransactionFile,
 } = vi.hoisted(() => ({
+  getCategoryTotals: vi.fn(),
   findByUserAndDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
@@ -21,7 +23,7 @@ vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
 }));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({
-  default: { getTransactionsList, getTransactionsSummary },
+  default: { getTransactionsList, getTransactionsSummary, getCategoryTotals },
 }));
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
@@ -179,6 +181,48 @@ describe('category subtree resolution', () => {
 
     expect(getAllCategories).toHaveBeenCalledTimes(1);
     expect(listArgs(1).categoryIds).toEqual(listArgs(0).categoryIds);
+  });
+});
+
+describe('getCategoryBreakdown', () => {
+  it('names top-level slices, drops empty ones and gives each its share', async () => {
+    getAllCategories.mockResolvedValue([
+      { id: 'food', name: 'Food', parentId: null },
+      { id: 'groceries', name: 'Groceries', parentId: 'food' },
+      { id: 'rent', name: 'Rent', parentId: null },
+      { id: 'fun', name: 'Fun', parentId: null },
+    ]);
+    getCategoryTotals.mockResolvedValue([
+      { categoryId: 'groceries', amount: 300 },
+      { categoryId: 'food', amount: 100 },
+      { categoryId: 'rent', amount: 600 },
+      { categoryId: 'fun', amount: 0 },
+      { categoryId: 'gone', amount: 0 },
+    ]);
+
+    const items = await transactionService.getCategoryBreakdown({
+      userId: 'user-1',
+      transactionType: 'EXPENSE',
+    });
+
+    expect(items).toEqual([
+      { categoryId: 'rent', categoryName: 'Rent', amount: 600, percentage: 60 },
+      { categoryId: 'food', categoryName: 'Food', amount: 400, percentage: 40 },
+    ]);
+    expect(getCategoryTotals).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'APPROVED',
+        transactionType: 'EXPENSE',
+      }),
+    );
+  });
+
+  it('returns no slices when nothing matched', async () => {
+    getAllCategories.mockResolvedValue([]);
+    getCategoryTotals.mockResolvedValue([]);
+    await expect(
+      transactionService.getCategoryBreakdown({ userId: 'user-1' }),
+    ).resolves.toEqual([]);
   });
 });
 

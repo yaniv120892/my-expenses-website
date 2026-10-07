@@ -1,4 +1,4 @@
-import { TransactionType } from '@prisma/client';
+import { TransactionType } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
 
 const MINIMUM_VALUE_TOLERANCE = 2;

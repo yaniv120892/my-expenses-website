@@ -330,7 +330,9 @@ export default function SettingsPage() {
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1.5}
-              alignItems={{ xs: 'stretch', sm: 'center' }}
+              sx={{
+                alignItems: { xs: 'stretch', sm: 'center' },
+              }}
             >
               <Box
                 sx={{
@@ -393,9 +395,11 @@ export default function SettingsPage() {
               <Stack
                 key={name}
                 direction="row"
-                alignItems="center"
                 spacing={1.5}
-                sx={{ flexWrap: 'wrap' }}
+                sx={{
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                }}
               >
                 <Controller
                   name={name}
@@ -435,8 +439,11 @@ export default function SettingsPage() {
           </Stack>
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 1 }}
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              mt: 1,
+            }}
           >
             &quot;Send now&quot; emails you last month&apos;s report
             immediately, so you can check it works without waiting for the 1st.

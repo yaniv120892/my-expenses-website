@@ -78,7 +78,12 @@ function TransactionDetails({
   return (
     <Box>
       <Typography variant="body2">{transaction.description}</Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {formatCurrency(transaction.value)} on {formatDate(transaction.date)}{' '}
         {transaction.type}
       </Typography>
@@ -93,14 +98,25 @@ function MatchingDetails({
 }) {
   if (!transaction.matchingTransaction) {
     return (
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         No match found
       </Typography>
     );
   }
   return (
     <Box>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          alignItems: 'center',
+        }}
+      >
         <Typography variant="body2">
           {transaction.matchingTransaction.description}
         </Typography>
@@ -111,7 +127,12 @@ function MatchingDetails({
           </Tooltip>
         )}
       </Stack>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {formatCurrency(transaction.matchingTransaction.value)} on{' '}
         {formatDate(transaction.matchingTransaction.date)}{' '}
         {transaction.matchingTransaction.type}
@@ -435,7 +456,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" p={2}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          p: 2,
+        }}
+      >
         <CircularProgress size={24} />
       </Box>
     );
@@ -443,7 +470,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
 
   if (!activeTransactions.length) {
     return (
-      <Typography color="text.secondary" align="center" py={2}>
+      <Typography
+        align="center"
+        sx={{
+          color: 'text.secondary',
+          py: 2,
+        }}
+      >
         No transactions found
       </Typography>
     );
@@ -516,7 +549,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
       </Box>
 
       {noMatches && (
-        <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
+        <Typography
+          align="center"
+          sx={{
+            color: 'text.secondary',
+            py: 3,
+          }}
+        >
           No transactions match the selected filter.
         </Typography>
       )}
@@ -543,7 +582,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         : 'background.paper',
                     }}
                   >
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{
+                        alignItems: 'flex-start',
+                      }}
+                    >
                       {transaction.status ===
                         ImportedTransactionStatus.PENDING && (
                         <Checkbox
@@ -558,9 +603,11 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         <Box sx={{ mt: 0.75 }}>
                           <Typography
                             variant="caption"
-                            color="text.secondary"
-                            fontWeight={600}
-                            display="block"
+                            sx={{
+                              color: 'text.secondary',
+                              fontWeight: 600,
+                              display: 'block',
+                            }}
                           >
                             Match
                           </Typography>
@@ -575,8 +622,10 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                     </Stack>
                     <Stack
                       direction="row"
-                      justifyContent="flex-end"
-                      sx={{ mt: 1 }}
+                      sx={{
+                        justifyContent: 'flex-end',
+                        mt: 1,
+                      }}
                     >
                       <RowActions
                         transaction={transaction}

@@ -200,7 +200,7 @@ export default function TransactionAttachments({
             <CloudUploadIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
             <Typography
               variant="body2"
-              color={isDragActive ? 'primary.main' : 'text.primary'}
+              sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}
             >
               {isDragActive
                 ? 'Drop the file here'
@@ -213,7 +213,12 @@ export default function TransactionAttachments({
                 {isFilesLoading ? (
                   <Typography variant="body2">Loading files...</Typography>
                 ) : files.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     No attachments yet.
                   </Typography>
                 ) : (
@@ -223,9 +228,9 @@ export default function TransactionAttachments({
                       <Stack
                         key={file.id}
                         direction="row"
-                        alignItems="center"
                         spacing={2}
                         sx={{
+                          alignItems: 'center',
                           borderBottom: 1,
                           borderColor: 'divider',
                           pb: 1,
@@ -288,7 +293,12 @@ export default function TransactionAttachments({
                 <Typography variant="subtitle2" color="primary">
                   Pending Attachments
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   <HourglassEmptyIcon
                     fontSize="inherit"
                     sx={{ mr: 0.5, verticalAlign: 'middle' }}
@@ -300,9 +310,9 @@ export default function TransactionAttachments({
                   <Stack
                     key={file.name + file.size + idx}
                     direction="row"
-                    alignItems="center"
                     spacing={2}
                     sx={{
+                      alignItems: 'center',
                       border: '1px dashed',
                       borderColor: 'primary.light',
                       bgcolor: 'action.hover',

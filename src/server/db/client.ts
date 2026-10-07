@@ -1,10 +1,20 @@
-import { PrismaClient } from '@prisma/client';
-import { fieldEncryptionExtension } from 'prisma-field-encryption';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@/generated/prisma/client';
+import { cardDigitsEncryption } from '@/server/db/cardDigitsEncryption';
+import { requireEnv } from '@/server/env';
 
 function createPrismaClient() {
-  return new PrismaClient({ log: ['warn', 'error'] }).$extends(
-    fieldEncryptionExtension(),
-  );
+  return new PrismaClient({
+    // No statementNameGenerator, so every statement is unnamed and safe in a
+    // pooler's reused sessions. One connection per serverless instance, and a
+    // bounded wait: pg's default waits forever, past the function's timeout.
+    adapter: new PrismaPg({
+      connectionString: requireEnv('DATABASE_URL'),
+      max: 1,
+      connectionTimeoutMillis: 10_000,
+    }),
+    log: ['warn', 'error'],
+  }).$extends(cardDigitsEncryption(requireEnv('PRISMA_FIELD_ENCRYPTION_KEY')));
 }
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;

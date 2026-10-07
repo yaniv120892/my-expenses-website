@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDescendantMap,
   buildParentMap,
+  rollUpToNamedTopLevel,
+  rollUpToTopLevel,
   type CategoryNode,
 } from '@/server/utils/categoryHierarchy';
 
@@ -97,5 +99,55 @@ describe('buildDescendantMap', () => {
     ]);
     expect(map.get('A')).toEqual(['A', 'B']);
     expect(map.get('B')).toEqual(['B', 'A']);
+  });
+});
+
+describe('rollUpToTopLevel', () => {
+  const parentMap = buildParentMap([
+    { id: 'food', parentId: null },
+    { id: 'groceries', parentId: 'food' },
+    { id: 'rent', parentId: null },
+  ]);
+
+  it('sums children into their top-level category, largest first', () => {
+    expect(
+      rollUpToTopLevel(
+        [
+          { categoryId: 'groceries', amount: 300 },
+          { categoryId: 'food', amount: 100 },
+          { categoryId: 'rent', amount: 600 },
+        ],
+        parentMap,
+      ),
+    ).toEqual([
+      { categoryId: 'rent', amount: 600 },
+      { categoryId: 'food', amount: 400 },
+    ]);
+  });
+
+  it('keeps an unknown category as its own root', () => {
+    expect(
+      rollUpToTopLevel([{ categoryId: 'gone', amount: 5 }], parentMap),
+    ).toEqual([{ categoryId: 'gone', amount: 5 }]);
+  });
+});
+
+describe('rollUpToNamedTopLevel', () => {
+  it('names each root, and an id missing from the list as Unknown', () => {
+    expect(
+      rollUpToNamedTopLevel(
+        [
+          { categoryId: 'groceries', amount: 300 },
+          { categoryId: 'gone', amount: 5 },
+        ],
+        [
+          { id: 'food', name: 'Food', parentId: null },
+          { id: 'groceries', name: 'Groceries', parentId: 'food' },
+        ],
+      ),
+    ).toEqual([
+      { categoryId: 'food', categoryName: 'Food', amount: 300 },
+      { categoryId: 'gone', categoryName: 'Unknown', amount: 5 },
+    ]);
   });
 });

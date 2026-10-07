@@ -7,7 +7,11 @@ import {
 } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
-import { Import, ImportStatus, ImportBankSourceType } from '@prisma/client';
+import {
+  Import,
+  ImportStatus,
+  ImportBankSourceType,
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
 

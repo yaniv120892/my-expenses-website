@@ -1,6 +1,4 @@
-// Type-only so pulling MAX_COMPARISON_SERIES into a client component cannot
-// drag @prisma/client along with it.
-import type { TransactionType } from '@prisma/client';
+import type { TransactionType } from '@/generated/prisma/enums';
 
 // One distinct color per series: theme.palette.charts.series.length.
 export const MAX_COMPARISON_SERIES = 8;

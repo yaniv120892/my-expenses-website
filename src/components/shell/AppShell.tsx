@@ -122,8 +122,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 primary={label}
                 slotProps={{
                   primary: {
-                    fontSize: '0.9rem',
-                    fontWeight: selected ? 600 : 500,
+                    sx: {
+                      fontSize: '0.9rem',
+                      fontWeight: selected ? 600 : 500,
+                    },
                   },
                 }}
               />
@@ -148,9 +150,12 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
     <Stack sx={{ height: '100%' }}>
       <Stack
         direction="row"
-        alignItems="center"
         spacing={1}
-        sx={{ px: 2.5, py: 2.5 }}
+        sx={{
+          alignItems: 'center',
+          px: 2.5,
+          py: 2.5,
+        }}
       >
         <AccountBalanceWalletRoundedIcon color="primary" />
         <Typography variant="h5" component="span">
@@ -161,16 +166,21 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
       <Divider />
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 2, py: 1.5 }}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1.5,
+        }}
       >
         <Typography
           variant="body2"
-          color="text.secondary"
           noWrap
-          sx={{ maxWidth: 140 }}
           title={session?.email ?? undefined}
+          sx={{
+            color: 'text.secondary',
+            maxWidth: 140,
+          }}
         >
           {session?.email ?? ''}
         </Typography>
@@ -258,7 +268,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <MenuRoundedIcon />
             </IconButton>
-            <Typography variant="h5" component="h1" color="text.primary">
+            <Typography
+              variant="h5"
+              component="h1"
+              sx={{
+                color: 'text.primary',
+              }}
+            >
               {currentPage ?? 'My Expenses'}
             </Typography>
           </Toolbar>

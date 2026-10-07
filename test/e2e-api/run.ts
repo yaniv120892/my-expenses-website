@@ -19,6 +19,10 @@ import {
 import { redisKeyPrefix } from '../../src/server/redis';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import { ImportStatus } from '../../src/shared/types/import';
+import {
+  CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
+  DIGITS_BEHIND_THAT_CIPHERTEXT,
+} from '../../src/test/encryptionFixture';
 import { startStack } from './stack';
 
 const execFileAsync = promisify(execFile);
@@ -392,6 +396,105 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   );
 }
 
+async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
+  const categoryIds = await query<{ id: string; name: string }>(
+    `select id, name from "Category" where name in ('Groceries', 'Rent')`,
+  );
+  const idOf = (name: string) =>
+    categoryIds.find((category) => category.name === name)?.id;
+  // A window no seeded row or other flow writes into, so the shares are exact.
+  const rows = [
+    {
+      description: 'E2E breakdown rent',
+      value: 300,
+      category: 'Rent',
+      type: 'EXPENSE',
+    },
+    {
+      description: 'E2E breakdown market',
+      value: 100,
+      category: 'Groceries',
+      type: 'EXPENSE',
+    },
+    {
+      description: 'E2E breakdown refund',
+      value: 1000,
+      category: 'Groceries',
+      type: 'INCOME',
+    },
+  ];
+  const createdIds: string[] = [];
+  for (const row of rows) {
+    const created = await api('POST', '/api/transactions', {
+      token,
+      body: {
+        description: row.description,
+        value: row.value,
+        type: row.type,
+        categoryId: idOf(row.category),
+        date: '2026-08-11T12:00:00.000Z',
+      },
+    });
+    createdIds.push((created.body as { id?: string } | null)?.id ?? '');
+  }
+
+  const window = 'startDate=2026-08-10&endDate=2026-08-12';
+  type Slice = { categoryName: string; amount: number; percentage: number };
+  const slicesOf = (res: ApiResult) =>
+    ((res.body as Slice[] | null) ?? []).map(
+      ({ categoryName, amount, percentage }) =>
+        `${categoryName}:${amount}:${percentage}`,
+    );
+
+  const expenses = await api(
+    'GET',
+    `/api/transactions/summary/categories?type=EXPENSE&${window}`,
+    { token },
+  );
+  check(
+    'breakdown: expense slices are per category, largest first, with shares',
+    expenses.status === 200 &&
+      slicesOf(expenses).join() === 'Rent:300:75,Groceries:100:25',
+    `status ${expenses.status} ${slicesOf(expenses).join()}`,
+  );
+
+  const searched = await api(
+    'GET',
+    `/api/transactions/summary/categories?type=EXPENSE&searchTerm=MARKET&${window}`,
+    { token },
+  );
+  check(
+    'breakdown: search narrows the slices like it narrows the list',
+    slicesOf(searched).join() === 'Groceries:100:100',
+    slicesOf(searched).join(),
+  );
+
+  const income = await api(
+    'GET',
+    `/api/transactions/summary/categories?type=INCOME&${window}`,
+    { token },
+  );
+  check(
+    'breakdown: the income split excludes expenses',
+    slicesOf(income).join() === 'Groceries:1000:100',
+    slicesOf(income).join(),
+  );
+
+  const anonymous = await api(
+    'GET',
+    `/api/transactions/summary/categories?type=EXPENSE&${window}`,
+  );
+  check(
+    'breakdown: no session is 401',
+    anonymous.status === 401,
+    `status ${anonymous.status}`,
+  );
+
+  for (const id of createdIds.filter(Boolean)) {
+    await api('DELETE', `/api/transactions/${id}`, { token });
+  }
+}
+
 async function transactionCursorPagingFlow(
   token: string,
   userId: string,
@@ -631,13 +734,6 @@ async function waitForImportCompletion(
   }
   return found;
 }
-
-// Written by the field encryption before the client moved to `@prisma/client`.
-// Every other check writes and reads within one client, so only this one fails
-// when the ciphertext format or the key changes under rows already stored.
-const CIPHERTEXT_FROM_AN_EARLIER_CLIENT =
-  'v1.aesgcm256.1afd1481.47kmaZqf2lRXEpoN.C-7BS5kwYYLa1Ybv5a8j4DGS7iY=';
-const DIGITS_BEHIND_THAT_CIPHERTEXT = '9322';
 
 // The raw column read proves the value was encrypted, not stored as plaintext.
 async function importEncryptionFlow(token: string): Promise<void> {
@@ -956,6 +1052,7 @@ async function main(): Promise<void> {
 
   await authLifecycleFlow();
   await transactionLifecycleFlow(seeded.userA.token);
+  await transactionCategoryBreakdownFlow(seeded.userA.token);
   await transactionCursorPagingFlow(seeded.userA.token, seeded.userA.id);
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();

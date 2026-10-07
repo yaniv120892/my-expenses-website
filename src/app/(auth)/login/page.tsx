@@ -75,7 +75,13 @@ function LoginForm() {
       >
         {submitting ? 'Logging in…' : 'Log in'}
       </Button>
-      <Typography variant="body2" color="text.secondary" textAlign="center">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          textAlign: 'center',
+        }}
+      >
         Don&apos;t have an account?{' '}
         <MuiLink component={Link} href="/signup">
           Sign up

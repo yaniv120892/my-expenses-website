@@ -69,7 +69,13 @@ export default function SignupPage() {
       >
         {submitting ? 'Creating account…' : 'Sign up'}
       </Button>
-      <Typography variant="body2" color="text.secondary" textAlign="center">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          textAlign: 'center',
+        }}
+      >
         Already have an account?{' '}
         <MuiLink component={Link} href="/login">
           Log in

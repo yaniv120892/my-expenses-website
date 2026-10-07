@@ -4,7 +4,7 @@ import {
   Transaction as PrismaTransaction,
   TransactionFile as PrismaTransactionFile,
   Category as PrismaCategory,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   type MatchableCharge,
@@ -28,6 +28,7 @@ import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
+import type { CategoryTotal } from '@/server/utils/categoryHierarchy.types';
 
 const MATCHABLE_STATUSES = [
   TransactionStatus.APPROVED,
@@ -108,6 +109,24 @@ class TransactionRepository {
       incomeCount,
       expenseCount,
     };
+  }
+
+  public async getCategoryTotals(
+    filters: TransactionSummaryFilters,
+  ): Promise<CategoryTotal[]> {
+    const { startDate, endDate } = normalizeDateRange(
+      filters.startDate,
+      filters.endDate,
+    );
+    const groups = await prisma.transaction.groupBy({
+      by: ['categoryId'],
+      _sum: { value: true },
+      where: this.buildListWhere(filters, startDate, endDate),
+    });
+    return groups.map((group) => ({
+      categoryId: group.categoryId,
+      amount: group._sum.value ?? 0,
+    }));
   }
 
   public async createTransaction(

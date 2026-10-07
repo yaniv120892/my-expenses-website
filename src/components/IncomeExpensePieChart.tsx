@@ -13,7 +13,10 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { formatCurrency } from '@/utils/format';
 import { TransactionType } from '@/types';
-import { CLICKABLE_SLICE_SX } from '@/components/chartStyles';
+import {
+  UNSELECTED_SLICE_OPACITY,
+  CLICKABLE_SLICE_SX,
+} from '@/components/chartStyles';
 
 interface PieTooltipPayload {
   name: string;
@@ -35,8 +38,6 @@ interface Props {
   selectedType?: TransactionType;
   onSelectType?: (type: TransactionType) => void;
 }
-
-const UNSELECTED_SLICE_OPACITY = 0.3;
 
 function ChartTooltip({
   active,
@@ -84,7 +85,13 @@ export default function IncomeExpensePieChart({
           {title}
         </Typography>
       )}
-      <Stack direction="row" alignItems="center" spacing={3}>
+      <Stack
+        direction="row"
+        spacing={3}
+        sx={{
+          alignItems: 'center',
+        }}
+      >
         {loading ? (
           <>
             <Skeleton variant="circular" width={130} height={130} />
@@ -95,7 +102,12 @@ export default function IncomeExpensePieChart({
             </Stack>
           </>
         ) : error ? (
-          <Typography color="error.main" variant="body2">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'error.main',
+            }}
+          >
             Failed to load summary
           </Typography>
         ) : (
@@ -145,7 +157,12 @@ export default function IncomeExpensePieChart({
               </ResponsiveContainer>
             </Box>
             <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Income:{' '}
                 <Box
                   component="span"
@@ -154,7 +171,12 @@ export default function IncomeExpensePieChart({
                   {formatCurrency(income)}
                 </Box>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 Expenses:{' '}
                 <Box
                   component="span"

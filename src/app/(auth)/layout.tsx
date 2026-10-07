@@ -16,7 +16,14 @@ export default function AuthLayout({
         bgcolor: 'background.default',
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
         <AccountBalanceWalletRoundedIcon color="primary" fontSize="large" />
         <Typography variant="h2" component="h1">
           My Expenses

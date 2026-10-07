@@ -86,7 +86,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <Box sx={{ pt: 1 }}>
-      <Stack direction="row" spacing={1} alignItems="flex-start">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'flex-start',
+        }}
+      >
         <TextField
           fullWidth
           label="Default Payment Month (MM/YYYY)"
@@ -125,7 +131,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
         }}
       >
         <input {...getInputProps()} />
-        <Stack spacing={1.5} alignItems="center">
+        <Stack
+          spacing={1.5}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <UploadFileOutlinedIcon
             sx={{
               fontSize: 44,
@@ -134,13 +145,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
           />
           <Typography
             align="center"
-            color={isDragActive ? 'primary.main' : 'text.primary'}
+            sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}
           >
             {isDragActive
               ? 'Drop the files here'
               : 'Drag and drop files here, or click to select'}
           </Typography>
-          <Typography variant="caption" color="text.secondary" align="center">
+          <Typography
+            variant="caption"
+            align="center"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             Supported formats: XLSX, XLS, CSV. Each file becomes its own import.
           </Typography>
           {!isRunning && (

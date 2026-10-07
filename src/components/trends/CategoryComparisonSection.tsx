@@ -62,7 +62,13 @@ export function CategoryComparisonSection({
           <Typography variant="h5" sx={{ mb: 1 }}>
             Compare categories
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mb: 2,
+            }}
+          >
             Pick up to 8 categories to see them side by side as a table and a
             chart, then export the result.
           </Typography>
@@ -106,15 +112,19 @@ export function CategoryComparisonSection({
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
-          sx={{ mb: 2 }}
+          sx={{
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', md: 'center' },
+            mb: 2,
+          }}
         >
           <Typography variant="h5">Compare categories</Typography>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={1}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
+            sx={{
+              alignItems: { xs: 'stretch', sm: 'center' },
+            }}
           >
             <ToggleButtonGroup
               value={measure}

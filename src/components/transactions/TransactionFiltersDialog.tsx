@@ -85,7 +85,13 @@ export const TransactionFiltersDialog = ({
       fullScreen={fullScreen}
     >
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <FilterListIcon />
           <span>Filter Transactions</span>
         </Stack>
@@ -93,10 +99,22 @@ export const TransactionFiltersDialog = ({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack spacing={1}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Date range
             </Typography>
-            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+            <Stack
+              direction="row"
+              useFlexGap
+              spacing={1}
+              sx={{
+                flexWrap: 'wrap',
+              }}
+            >
               {DATE_RANGE_PRESETS.map((preset) => (
                 <Chip
                   key={preset.id}
@@ -121,7 +139,9 @@ export const TransactionFiltersDialog = ({
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
             />
             <TextField
               label="End Date"
@@ -129,12 +149,19 @@ export const TransactionFiltersDialog = ({
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
             />
           </Stack>
 
           <Stack spacing={1}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Type
             </Typography>
             <ToggleButtonGroup

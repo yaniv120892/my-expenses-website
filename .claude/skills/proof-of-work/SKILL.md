@@ -62,8 +62,10 @@ script against `DIRECT_URL` rather than clicking it in by hand — a script is
 repeatable and can go in the PR if a reviewer wants to reproduce. The seeded
 transactions sit in January and February, so anything about recent months needs
 its own rows. Write the script **inside the repo**, not a scratch directory:
-`tsx` resolves `@prisma/client` and the `@/` alias from the nearest
-`node_modules` and `tsconfig.json`.
+`tsx` resolves `@/generated/prisma/client` through the `@/` alias in the nearest
+`tsconfig.json`. That client needs an adapter:
+`new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) })`,
+with `PrismaPg` from `@prisma/adapter-pg`.
 
 ## Backend proof
 

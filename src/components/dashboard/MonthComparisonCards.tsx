@@ -55,18 +55,36 @@ function ComparisonCard({
   return (
     <Card>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography
+          variant="body2"
+          gutterBottom
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {title}
         </Typography>
         <Typography variant="h3" component="p">
           {formatNumber(value)}
         </Typography>
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: 'center',
+            mt: 1,
+          }}
+        >
           <TrendGlyph fontSize="small" sx={{ color }} />
           <Typography variant="body2" sx={{ color, fontWeight: 600 }}>
             {Math.abs(change.percentage).toFixed(1)}%
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             vs last month
           </Typography>
         </Stack>

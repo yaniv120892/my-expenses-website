@@ -209,7 +209,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
   every statement is unnamed and safe in a pooler's reused sessions. Every URL
   handed to `pg` goes through `withVerifyFullSslMode` (`src/server/db/sslMode.ts`),
-  which pins `sslmode=require` to `verify-full`; the env vars stay as the Prisma
+  which pins `sslmode=require` (and `prefer`, `verify-ca`) to `verify-full`, as
+  pg 8 already treats them, unless `uselibpqcompat=true`; the env vars stay as the Prisma
   CLI reads them. On Vercel `DATABASE_URL` is Neon's
   pooled endpoint; `DIRECT_URL` is the direct endpoint, used by migrations, the
   seed, and Mastra's memory store. Both are scoped per environment, since

@@ -17,6 +17,7 @@ import {
   EXTRACTION_MOCK_PORT,
 } from './ports';
 import { redisKeyPrefix } from '../../src/server/redis';
+import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import { ImportStatus } from '../../src/shared/types/import';
 import {
@@ -134,7 +135,9 @@ async function query<T = Record<string, unknown>>(
   sql: string,
   params: unknown[] = [],
 ): Promise<T[]> {
-  const client = new Client({ connectionString: process.env.DIRECT_URL });
+  const client = new Client({
+    connectionString: withVerifyFullSslMode(process.env.DIRECT_URL ?? ''),
+  });
   await client.connect();
   try {
     const res = await client.query(sql, params);

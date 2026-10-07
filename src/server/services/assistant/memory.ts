@@ -1,6 +1,7 @@
 import { Memory } from '@mastra/memory';
 import { PostgresStore } from '@mastra/pg';
 import logger from '@/server/logging/logger';
+import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
 // Mastra creates and migrates its own `mastra` schema, so it wants the direct
 // endpoint rather than DATABASE_URL's pooled one.
@@ -32,7 +33,7 @@ export function getAssistantMemory(): Memory | undefined {
   memory ??= new Memory({
     storage: new PostgresStore({
       id: 'assistant-memory',
-      connectionString: url,
+      connectionString: withVerifyFullSslMode(url),
       // Keeps Mastra's self-managed tables out of `public` so they never
       // collide with the Prisma schema or show up as migration drift.
       schemaName: MASTRA_SCHEMA,

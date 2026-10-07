@@ -2,6 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/generated/prisma/client';
 import { cardDigitsEncryption } from '@/server/db/cardDigitsEncryption';
 import { requireEnv } from '@/server/env';
+import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -9,7 +10,7 @@ function createPrismaClient() {
     // pooler's reused sessions. One connection per serverless instance, and a
     // bounded wait: pg's default waits forever, past the function's timeout.
     adapter: new PrismaPg({
-      connectionString: requireEnv('DATABASE_URL'),
+      connectionString: withVerifyFullSslMode(requireEnv('DATABASE_URL')),
       max: 1,
       connectionTimeoutMillis: 10_000,
     }),

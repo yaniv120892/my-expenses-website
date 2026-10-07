@@ -4,6 +4,7 @@ import { hash } from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 import { requireEnv } from '@/server/env';
+import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
 // User A's figures make the comparison exact (Jan ₪4,100 → Feb ₪5,200: +₪1,100,
 // +26.83%); user B exists so a check can assert A's answers never contain B's.
@@ -26,7 +27,9 @@ export interface SeedResult {
 // it was handed.
 function directClient(): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: requireEnv('DIRECT_URL') }),
+    adapter: new PrismaPg({
+      connectionString: withVerifyFullSslMode(requireEnv('DIRECT_URL')),
+    }),
   });
 }
 

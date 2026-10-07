@@ -17,6 +17,9 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettier,
   {
+    // eslint-plugin-react detects the version through context.getFilename,
+    // which ESLint 10 removed; naming it skips the detection.
+    settings: { react: { version: '19' } },
     rules: {
       // React Compiler rules that eslint-config-next 16 turned on; the effects
       // they flag predate them and are rewritten separately.

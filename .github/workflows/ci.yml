@@ -41,7 +41,24 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # A real Postgres rather than prisma dev: that server runs every client on
+    # one backend session, where the app's and Mastra's unnamed statements
+    # interleave. Here each connection has its own session, as on Neon.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
       JWT_SECRET: e2e-test-secret
       REDIS_URL: http://127.0.0.1:51230
       REDIS_TOKEN: e2e
@@ -68,23 +85,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-
-      # DATABASE_URL is prisma dev's proxy URL, not the plain TCP address in
-      # the same state file: that port multiplexes every client onto one backend
-      # session, where the app client collides on prepared statements with the
-      # schema engine and with Mastra. Production runs a plain pooled Postgres
-      # URL, so no job here exercises that engine path. DIRECT_URL is the plain
-      # address (migrations, seed, Mastra memory).
-      - name: Start local Prisma Postgres
-        run: |
-          npx prisma dev --detach --port 51213 --db-port 51214 --shadow-db-port 51215
-          STATE="$HOME/.local/share/prisma-dev-nodejs/default/server.json"
-          for i in $(seq 1 60); do
-            node -e "require('$STATE').exports.ppg.url" 2>/dev/null && break
-            sleep 1
-          done
-          echo "DATABASE_URL=$(node -e "console.log(require('$STATE').exports.ppg.url)")" >> "$GITHUB_ENV"
-          echo "DIRECT_URL=$(node -e "console.log(require('$STATE').exports.database.connectionString)")" >> "$GITHUB_ENV"
 
       - run: npx prisma migrate deploy
 

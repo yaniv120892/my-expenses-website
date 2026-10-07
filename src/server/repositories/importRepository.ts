@@ -5,7 +5,7 @@ import {
   ImportStatus,
   ImportBankSourceType,
   ImportedTransactionStatus,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export type ImportWithPendingCount = Import & {
@@ -102,8 +102,8 @@ export class ImportRepository {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
 
-    // creditCardLastFourDigits is encrypted at rest; prisma-field-encryption
-    // decrypts on read, so matching must happen in memory, not in the query.
+    // creditCardLastFourDigits is encrypted at rest with a random IV and
+    // decrypted on read, so matching must happen in memory, not in the query.
     for (const imp of imports) {
       if (imp.creditCardLastFourDigits === creditCardLastFourDigits) {
         return imp;

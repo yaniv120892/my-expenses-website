@@ -1,4 +1,7 @@
-import { TransactionFile, TransactionFileStatus } from '@prisma/client';
+import {
+  TransactionFile,
+  TransactionFileStatus,
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export class TransactionFileRepository {

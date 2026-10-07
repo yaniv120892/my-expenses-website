@@ -8,7 +8,7 @@ import {
   isAfter,
   startOfDay,
 } from 'date-fns';
-import type { ScheduleType } from '@prisma/client';
+import type { ScheduleType } from '@/generated/prisma/enums';
 
 export function calculateNextRunDate(
   scheduleType: ScheduleType,

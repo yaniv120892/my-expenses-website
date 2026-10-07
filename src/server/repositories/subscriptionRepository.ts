@@ -4,7 +4,7 @@ import {
   DetectedSubscription,
   Category,
   Prisma,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   DetectedSubscriptionDomain,

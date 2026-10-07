@@ -1,4 +1,4 @@
-import { ScheduledTransaction } from '@prisma/client';
+import { ScheduledTransaction } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   CreateScheduledTransaction,

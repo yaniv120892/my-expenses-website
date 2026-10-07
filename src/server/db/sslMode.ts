@@ -10,7 +10,9 @@ export function withVerifyFullSslMode(connectionString: string): string {
   const sslMode = url.searchParams.get('sslmode');
   const pgFollowsLibpqSemantics =
     url.searchParams.get('uselibpqcompat') === 'true';
-  if (!MODES_PG_VERIFIES_FULLY.has(sslMode ?? '') || pgFollowsLibpqSemantics) {
+  const shouldPinVerifyFull =
+    MODES_PG_VERIFIES_FULLY.has(sslMode ?? '') && !pgFollowsLibpqSemantics;
+  if (!shouldPinVerifyFull) {
     return connectionString;
   }
   url.searchParams.set('sslmode', 'verify-full');

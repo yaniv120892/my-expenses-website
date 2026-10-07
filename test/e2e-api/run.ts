@@ -18,6 +18,7 @@ import {
 } from './ports';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
+import { requireEnv } from '../../src/server/env';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import { ImportStatus } from '../../src/shared/types/import';
 import {
@@ -136,7 +137,7 @@ async function query<T = Record<string, unknown>>(
   params: unknown[] = [],
 ): Promise<T[]> {
   const client = new Client({
-    connectionString: withVerifyFullSslMode(process.env.DIRECT_URL ?? ''),
+    connectionString: withVerifyFullSslMode(requireEnv('DIRECT_URL')),
   });
   await client.connect();
   try {

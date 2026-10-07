@@ -1,5 +1,5 @@
 import { TransactionType } from './transaction';
-import { ScheduleType } from '@prisma/client';
+import { ScheduleType } from '@/generated/prisma/enums';
 
 export interface CreateScheduledTransaction {
   description: string;

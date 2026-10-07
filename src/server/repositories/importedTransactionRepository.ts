@@ -3,7 +3,7 @@ import {
   ImportedTransaction,
   TransactionType,
   ImportedTransactionStatus,
-} from '@prisma/client';
+} from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 

@@ -9,6 +9,7 @@ export default tseslint.config(
       'node_modules/**',
       'public/**',
       'next-env.d.ts',
+      'src/generated/**',
       '.claude/**',
     ],
   },

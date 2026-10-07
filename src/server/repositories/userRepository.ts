@@ -1,4 +1,4 @@
-import { NotificationProvider, User } from '@prisma/client';
+import { NotificationProvider, User } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { UserQuery } from '@/server/repositories/types';
 

@@ -3,7 +3,7 @@ import { PostgresStore } from '@mastra/pg';
 import logger from '@/server/logging/logger';
 
 // Mastra creates and migrates its own `mastra` schema, so it wants the direct
-// endpoint rather than DATABASE_URL's pooled one and its Prisma-only params.
+// endpoint rather than DATABASE_URL's pooled one.
 function connectionString(): string {
   return process.env.MASTRA_DB_URL || process.env.DIRECT_URL || '';
 }

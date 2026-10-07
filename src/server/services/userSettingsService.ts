@@ -1,4 +1,4 @@
-import { JsonValue } from '@prisma/client/runtime/library';
+import type { Prisma } from '@/generated/prisma/client';
 import userRepository from '@/server/repositories/userRepository';
 
 class UserSettingsService {
@@ -70,7 +70,7 @@ class UserSettingsService {
     );
   }
 
-  private extractChatId(providerData: JsonValue): string | null {
+  private extractChatId(providerData: Prisma.JsonValue): string | null {
     if (
       providerData &&
       typeof providerData === 'object' &&

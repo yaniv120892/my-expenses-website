@@ -136,24 +136,19 @@ start_local_database() {
     "${XDG_DATA_HOME:-$HOME/.local/share}/prisma-dev-nodejs/$PRISMA_SERVER/server.json"
   )
 
-  # The proxy URL, not the plain postgres:// one: that port multiplexes every
-  # client onto one backend session, where the app collides on prepared
-  # statements.
+  # The plain address, not the proxy URL, which this Prisma Client refuses.
   read_state() {
     node -e '
       const fs = require("fs");
       const file = process.argv.slice(1).find((path) => fs.existsSync(path));
       const { exports: state } = require(file);
-      console.log(state.ppg.url);
       console.log(state.database.connectionString);
     ' "${STATE_CANDIDATES[@]}" 2>/dev/null
   }
   wait_for 90 read_state >/dev/null ||
-    die 'prisma dev never published its connection URLs' "$PRISMA_LOG"
-  {
-    read -r DATABASE_URL
-    read -r DIRECT_URL
-  } < <(read_state)
+    die 'prisma dev never published its connection URL' "$PRISMA_LOG"
+  DIRECT_URL=$(read_state)
+  DATABASE_URL=$DIRECT_URL
   export DATABASE_URL DIRECT_URL
 }
 

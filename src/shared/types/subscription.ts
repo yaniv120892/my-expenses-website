@@ -2,7 +2,7 @@ import {
   ScheduleType,
   SubscriptionFrequency,
   SubscriptionStatus,
-} from '@prisma/client';
+} from '@/generated/prisma/enums';
 
 export type SubscriptionEvidenceCharge = {
   date: string;

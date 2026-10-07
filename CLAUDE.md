@@ -28,7 +28,7 @@ npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm]
 
 Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
 runs audit, lint, prettier, typecheck, unit tests and the build, and in a
-parallel job both e2e suites against `npx prisma dev`.
+parallel job both e2e suites against a Postgres service container.
 
 `.github/workflows/deps-upgrade.yml` runs daily and opens one `deps/<slug>-<version>`
 pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
@@ -200,20 +200,29 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   and login codes pass `'branch'` (`preview:<branch>:`) to survive pushes.
   Superseded namespaces expire by TTL, except a counter killed between
   INCR and EXPIRE, which has none.
-- **Prisma**: schema + migrations in `prisma/`; the app client is
-  `@prisma/client` with field-encryption and nothing else, so `DATABASE_URL` can
-  be any address that client accepts. On Vercel it is Neon's pooled endpoint
-  with `?pgbouncer=true` (plus `connection_limit=1` on serverless), because that
-  pooler reuses sessions and collides on prepared statements; `assertCoreEnv`
-  refuses a `-pooler` host missing that parameter. `DIRECT_URL` is
-  the direct endpoint, used by migrations, the seed, and Mastra's memory store;
-  both are scoped per environment, since `vercel-build` runs
-  `prisma migrate deploy` against `DIRECT_URL`. CI and `dev:local` keep the app
-  on `prisma dev`'s `prisma+postgres://` address: its plain Postgres port
-  multiplexes every client onto one backend session, so an app client sharing it
-  with the schema engine and Mastra's node-postgres collides on prepared
-  statements either way — named (`s0 already exists`) without `pgbouncer=true`,
-  unnamed (Mastra's memory store fails to init) with it.
+- **Prisma**: schema + migrations in `prisma/`; the schema names no URL —
+  `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
+  `prisma generate` writes the client to `src/generated/prisma` (gitignored;
+  server code imports `@/generated/prisma/client`, code a browser can reach only
+  `@/generated/prisma/enums`). The app client is that client with one
+  extension, `src/server/db/cardDigitsEncryption.ts`, connected through
+  `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
+  every statement is unnamed and safe in a pooler's reused sessions. On Vercel `DATABASE_URL` is Neon's
+  pooled endpoint; `DIRECT_URL` is the direct endpoint, used by migrations, the
+  seed, and Mastra's memory store. Both are scoped per environment, since
+  `vercel-build` runs `prisma migrate deploy` against `DIRECT_URL`. CI's e2e job
+  runs on a Postgres service container; `dev:local` runs on `prisma dev`'s plain
+  TCP address, which multiplexes every client onto one backend session, so
+  Mastra's statements can interleave with the app's there
+  (`bind message supplies N parameters`); a real Postgres never does that.
+- **Encryption at rest**: `Import.creditCardLastFourDigits` is the one
+  encrypted column. `cardDigitsEncryption` encrypts it with
+  `PRISMA_FIELD_ENCRYPTION_KEY` (cloak's `v1.aesgcm256` format) on every Import
+  write that takes data, refusing anything but a plain string, and decrypts it
+  as a computed result field, so every Import a query returns carries the
+  digits. Each write gets a random IV, so the column cannot be filtered on —
+  `importRepository.findExisting` matches it in memory. A new encrypted column
+  goes through the same extension.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).

@@ -77,28 +77,17 @@ describe('the app Prisma client', () => {
   });
 
   it('connects a Postgres URL through the pg adapter, one connection with a bounded wait', async () => {
+    vi.stubEnv('DATABASE_URL', `${POSTGRES_URL}?sslmode=require`);
     const { default: prisma } = await import('@/server/db/client');
     void prisma.$queryRaw;
 
     expect(constructAdapter).toHaveBeenCalledWith({
-      connectionString: POSTGRES_URL,
+      connectionString: `${POSTGRES_URL}?sslmode=verify-full`,
       max: 1,
       connectionTimeoutMillis: 10_000,
     });
     expect(constructPrismaClient).toHaveBeenCalledWith(
       expect.objectContaining({ adapter: expect.any(FakePrismaPg) }),
-    );
-  });
-
-  it('hands pg sslmode=verify-full where the URL says require', async () => {
-    vi.stubEnv('DATABASE_URL', `${POSTGRES_URL}?sslmode=require`);
-    const { default: prisma } = await import('@/server/db/client');
-    void prisma.$queryRaw;
-
-    expect(constructAdapter).toHaveBeenCalledWith(
-      expect.objectContaining({
-        connectionString: `${POSTGRES_URL}?sslmode=verify-full`,
-      }),
     );
   });
 });

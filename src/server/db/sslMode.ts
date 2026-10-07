@@ -8,7 +8,7 @@ export function withVerifyFullSslMode(connectionString: string): string {
   }
   const url = new URL(connectionString);
   const sslMode = url.searchParams.get('sslmode');
-  if (!sslMode || !MODES_PG_VERIFIES_FULLY.includes(sslMode)) {
+  if (!MODES_PG_VERIFIES_FULLY.includes(sslMode ?? '')) {
     return connectionString;
   }
   url.searchParams.set('sslmode', 'verify-full');

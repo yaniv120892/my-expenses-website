@@ -75,7 +75,7 @@ export type ScheduledTransaction = Omit<
   'userId' | 'lastRunDate' | 'nextRunDate'
 > & {
   lastRunDate?: string;
-  nextRunDate: string;
+  nextRunDate?: string;
 };
 
 export class ApiResponse<T> {

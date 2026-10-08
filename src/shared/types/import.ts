@@ -1,4 +1,22 @@
-import type { TransactionStatus, TransactionType } from './transaction';
+import type {
+  ExchangeRateSource,
+  TransactionStatus,
+  TransactionType,
+} from './transaction';
+
+/**
+ * An imported row's amount. `value` (ILS) is null until it is known — a
+ * foreign charge the statement did not bill and no rate covers, or a row whose
+ * currency the statement does not tell (`currency` null).
+ */
+export type ImportedAmount = {
+  value: number | null;
+  currency: string | null;
+  originalAmount: number;
+  exchangeRate: number | null;
+  exchangeRateDate: Date | null;
+  exchangeRateSource: ExchangeRateSource | null;
+};
 
 export enum ImportFileType {
   VISA_CREDIT = 'VISA_CREDIT',
@@ -32,6 +50,8 @@ export type ReconciliationAction = 'MERGE' | 'CREATE';
 export type ReconciliationBefore = {
   description: string;
   value: number;
+  currency: string;
+  originalAmount: number;
   date: Date;
 };
 
@@ -47,7 +67,9 @@ export type ReconciliationPlanItem = {
   importedTransactionId: string;
   action: ReconciliationAction;
   description: string;
-  value: number;
+  value: number | null;
+  currency: string | null;
+  originalAmount: number;
   date: Date;
   type: TransactionType;
   categoryId: string | null;
@@ -58,6 +80,8 @@ export type ReconciliationCounterpart = {
   transactionId: string;
   description: string;
   value: number;
+  currency: string;
+  originalAmount: number;
   date: Date;
   status: TransactionStatus;
 };

@@ -4,7 +4,10 @@ import {
   ImportStatus,
   ImportedTransactionStatus,
 } from '@/shared/types/import';
-import type { TransactionType } from '@/shared/types/transaction';
+import type {
+  ExchangeRateSource,
+  TransactionType,
+} from '@/shared/types/transaction';
 
 export {
   ImportBankSourceType,
@@ -42,6 +45,8 @@ export interface MatchingTransaction {
   id: string;
   description: string;
   value: number;
+  currency: string;
+  originalAmount: number;
   date: string;
   categoryId: string;
   type: TransactionType;
@@ -54,7 +59,12 @@ export interface ImportedTransaction {
   id: string;
   importId: string;
   description: string;
-  value: number;
+  /** ILS; null until known, and the row cannot be approved without one. */
+  value: number | null;
+  currency: string | null;
+  originalAmount: number;
+  exchangeRate: number | null;
+  exchangeRateSource: ExchangeRateSource | null;
   date: string;
   type: string;
   status: ImportedTransactionStatus;

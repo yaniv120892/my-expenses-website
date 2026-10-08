@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
+import { isForeignCurrency } from '@/shared/currency';
 import { TypographyProps } from '@mui/material/Typography';
 import { TransactionType } from '../types';
-import { formatCurrency, formatNumber } from '../utils/format';
+import { formatCurrency, formatMoney, formatNumber } from '../utils/format';
 
 type Props = {
   value: number;
@@ -13,6 +14,8 @@ type Props = {
   fontWeight?: React.CSSProperties['fontWeight'];
   /** 'signed' renders a plain number prefixed with + or - instead of a currency amount. */
   format?: 'currency' | 'signed';
+  /** Shown under the ILS amount when the charge was in another currency. */
+  original?: { currency: string; originalAmount: number };
 };
 
 export default function AmountText({
@@ -21,11 +24,12 @@ export default function AmountText({
   variant = 'body2',
   fontWeight = 600,
   format = 'currency',
+  original,
 }: Props) {
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
 
-  return (
+  const amount = (
     <Typography
       variant={variant}
       sx={{
@@ -39,5 +43,19 @@ export default function AmountText({
         ? formatCurrency(value)
         : `${type === 'INCOME' ? '+' : '-'}${formatNumber(value)}`}
     </Typography>
+  );
+  if (!original || !isForeignCurrency(original.currency)) {
+    return amount;
+  }
+  return (
+    <Box sx={{ textAlign: 'right' }}>
+      {amount}
+      <Typography
+        variant="caption"
+        sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}
+      >
+        {formatMoney(original.originalAmount, original.currency)}
+      </Typography>
+    </Box>
   );
 }

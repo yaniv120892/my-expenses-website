@@ -7,7 +7,14 @@ const row = (
   day: number,
   description = 'merchant',
   type: TransactionType = TransactionType.EXPENSE,
-) => ({ value, date: new Date(2026, 6, day), description, type });
+) => ({
+  value,
+  currency: 'ILS',
+  originalAmount: value,
+  date: new Date(2026, 6, day),
+  description,
+  type,
+});
 
 describe('selectNonDuplicateRows', () => {
   it('brings every row across when the import holds nothing', () => {

@@ -13,7 +13,8 @@ import {
   TransactionStatus,
   TransactionFile,
 } from '@/shared/types/transaction';
-import { CreateTransactionRequest } from '@/shared/schemas/transactions';
+import { UpdateTransactionRequest } from '@/shared/schemas/transactions';
+import currencyConversionService from '@/server/services/currencyConversionService';
 import { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import logger from '@/server/logging/logger';
@@ -90,6 +91,10 @@ class TransactionService {
   public async prepareCreateTransaction(
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
+    const date = data.date || new Date();
+    const amount =
+      data.resolvedAmount ??
+      (await currencyConversionService.resolveAmount(data, date));
     const resolved = await this.updateCategory(data);
     await this.validateCreateTransaction(resolved);
     if (!resolved.categoryId) {
@@ -99,8 +104,8 @@ class TransactionService {
     }
     return {
       description: resolved.description,
-      value: resolved.value,
-      date: resolved.date || new Date(),
+      ...amount,
+      date,
       categoryId: resolved.categoryId,
       type: resolved.type,
       status: resolved.status || 'APPROVED',
@@ -228,30 +233,37 @@ class TransactionService {
 
   public async updateTransaction(
     id: string,
-    data: CreateTransactionRequest,
+    data: UpdateTransactionRequest,
     userId: string,
   ): Promise<void> {
-    if (data.categoryId) {
-      try {
-        const existing = await transactionRepository.getTransactionItem(
-          id,
-          userId,
-        );
-        if (existing) {
-          await this.learnCategoryMappingSafe(
-            {
-              description: existing.description,
-              categoryId: existing.category.id,
-            },
-            data.categoryId,
-            userId,
-          );
-        }
-      } catch (err) {
-        logger.warn({ err }, 'Failed to save category mapping on update');
-      }
+    const existing = await transactionRepository.getTransactionItem(id, userId);
+    if (!existing) {
+      throw new HttpError(404, 'Transaction not found');
     }
-    await transactionRepository.updateTransaction(id, data, userId);
+    const amount = await currencyConversionService.resolveAmount(
+      data,
+      data.date,
+      existing,
+    );
+    await this.learnCategoryMappingSafe(
+      {
+        description: existing.description,
+        categoryId: existing.category.id,
+      },
+      data.categoryId,
+      userId,
+    );
+    await transactionRepository.updateTransaction(
+      id,
+      {
+        description: data.description,
+        amount,
+        categoryId: data.categoryId,
+        type: data.type,
+        date: data.date,
+      },
+      userId,
+    );
   }
 
   public async learnCategoryMappingSafe(

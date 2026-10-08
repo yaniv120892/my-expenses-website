@@ -241,3 +241,99 @@ describe('TransactionForm attachment failure reporting', () => {
     expect(onSubmitAction).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TransactionForm currency', () => {
+  const USD_ROW = {
+    ...EDIT_ROW,
+    categoryId: 'c1',
+    value: 92.35,
+    currency: 'USD',
+    originalAmount: 25,
+    exchangeRate: 3.694,
+    exchangeRateSource: 'STATEMENT' as const,
+  };
+
+  it('edits a foreign transaction in its own currency and leaves the ILS amount to the server', async () => {
+    const onSubmitAction = vi.fn().mockResolvedValue(undefined);
+    renderWithClient(
+      <TransactionForm
+        open
+        onCloseAction={() => {}}
+        onSubmitAction={onSubmitAction}
+        initialData={USD_ROW}
+      />,
+    );
+
+    expect((valueInput() as HTMLInputElement).value).toBe('25');
+    expect(
+      screen.getByText(
+        /Original \$25\.00 = 92\.35 ₪ at 3\.694 \(card statement\)/,
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+    await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
+
+    const submitted = onSubmitAction.mock.calls[0][0];
+    expect(submitted).toMatchObject({ currency: 'USD', originalAmount: 25 });
+    expect(submitted).not.toHaveProperty('value');
+  });
+
+  it('sends the ILS amount the user enters beside a foreign amount', async () => {
+    const onSubmitAction = vi.fn().mockResolvedValue(undefined);
+    renderWithClient(
+      <TransactionForm
+        open
+        onCloseAction={() => {}}
+        onSubmitAction={onSubmitAction}
+        initialData={USD_ROW}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: /amount charged in ils/i }),
+      { target: { value: '93.10' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+    await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
+
+    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+      currency: 'USD',
+      originalAmount: 25,
+      value: 93.1,
+    });
+  });
+
+  it('asks for the ILS amount when approving an imported row that has none', async () => {
+    const onSubmitAction = vi.fn().mockResolvedValue(undefined);
+    renderWithClient(
+      <TransactionForm
+        open
+        mode="approve"
+        onCloseAction={() => {}}
+        onSubmitAction={onSubmitAction}
+        initialData={{
+          ...USD_ROW,
+          value: null,
+          exchangeRate: null,
+          exchangeRateSource: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/No exchange rate was available/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(
+      await screen.findByText('Value must be greater than 0'),
+    ).toBeTruthy();
+    expect(onSubmitAction).not.toHaveBeenCalled();
+
+    fireEvent.change(valueInput(), { target: { value: '90' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
+    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+      value: 90,
+      currency: 'ILS',
+    });
+  });
+});

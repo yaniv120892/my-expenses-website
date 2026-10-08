@@ -126,7 +126,7 @@ export default function PendingTransactionsList({
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                    <AmountText type={tx.type} value={tx.value} />
+                    <AmountText type={tx.type} value={tx.value} original={tx} />
                     <Typography
                       variant="caption"
                       sx={{
@@ -171,7 +171,7 @@ export default function PendingTransactionsList({
                     {formatTransactionDate(tx.date)}
                   </TableCell>
                   <TableCell align="right">
-                    <AmountText type={tx.type} value={tx.value} />
+                    <AmountText type={tx.type} value={tx.value} original={tx} />
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <Tooltip title="Approve">

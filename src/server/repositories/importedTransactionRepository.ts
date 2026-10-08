@@ -6,6 +6,7 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
+import type { ImportedAmountColumns } from '@/server/repositories/amountColumns';
 
 export type ImportedTransactionWithMatch =
   Prisma.ImportedTransactionGetPayload<{
@@ -14,7 +15,9 @@ export type ImportedTransactionWithMatch =
 
 type DuplicateComparable = {
   description: string;
-  value: number;
+  value: number | null;
+  currency: string | null;
+  originalAmount: { toString(): string };
   date: Date;
   type: TransactionType;
 };
@@ -37,6 +40,16 @@ export function selectNonDuplicateRows<T extends DuplicateComparable>(
   });
 }
 
+type ImportedTransactionCreateRow = ImportedAmountColumns & {
+  importId: string;
+  description: string;
+  date: Date;
+  type: TransactionType;
+  matchingTransactionId: string | null;
+  rawData: Prisma.InputJsonValue;
+  userId: string;
+};
+
 const PENDING_ROW = {
   status: ImportedTransactionStatus.PENDING,
   deleted: false,
@@ -44,16 +57,7 @@ const PENDING_ROW = {
 
 export class ImportedTransactionRepository {
   public async createMany(
-    transactions: {
-      importId: string;
-      description: string;
-      value: number;
-      date: Date;
-      type: TransactionType;
-      matchingTransactionId: string | null;
-      rawData: Prisma.InputJsonValue;
-      userId: string;
-    }[],
+    transactions: ImportedTransactionCreateRow[],
   ): Promise<number> {
     const result = await prisma.importedTransaction.createMany({
       data: transactions,
@@ -226,14 +230,10 @@ export class ImportedTransactionRepository {
     return claimed.map((row) => row.matchingTransactionId!);
   }
 
-  public async filterDuplicates<
-    T extends {
-      description: string;
-      value: number;
-      date: Date;
-      type: TransactionType;
-    },
-  >(importId: string, transactions: T[]): Promise<T[]> {
+  public async filterDuplicates<T extends DuplicateComparable>(
+    importId: string,
+    transactions: T[],
+  ): Promise<T[]> {
     if (transactions.length === 0) {
       return [];
     }

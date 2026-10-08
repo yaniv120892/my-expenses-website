@@ -14,6 +14,9 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
+import importedAmountService from '@/server/services/importedAmountService';
+import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
+import { currencyCodeSchema } from '@/shared/currency';
 
 export interface WebhookResult {
   status: number;
@@ -42,6 +45,11 @@ const extractionResultSchema = z.object({
       rawData: z
         .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
         .optional(),
+      originalAmount: z.number().nonnegative().optional(),
+      originalCurrency: currencyCodeSchema.optional().catch(undefined),
+      chargedAmount: z.number().nonnegative().optional(),
+      chargedCurrency: currencyCodeSchema.optional().catch(undefined),
+      currencyAmbiguous: z.boolean().optional(),
     }),
   ),
   metadata: z.object({
@@ -237,7 +245,7 @@ async function handleCompletedExtraction(
     'Processing completed extraction',
   );
 
-  const transactions = toImportedTransactionRows(result, importId);
+  const transactions = await toImportedTransactionRows(result, importId);
   const metadata = reconcileMetadata(importRecord, result.metadata);
 
   await writeExtractionMetadata(importId, metadata);
@@ -272,21 +280,29 @@ async function handleCompletedExtraction(
   );
 }
 
-function toImportedTransactionRows(result: ExtractionResult, importId: string) {
-  return result.transactions.map((transaction) => {
+async function toImportedTransactionRows(
+  result: ExtractionResult,
+  importId: string,
+) {
+  const rows = result.transactions.map((transaction) => {
     // Extraction dates arrive as DD/MM/YYYY.
     const [day, month, year] = transaction.date.split('/').map(Number);
-
-    return {
-      description: transaction.description,
-      value: transaction.value,
-      date: new Date(year, month - 1, day),
-      type: transaction.type,
-      rawData: transaction.rawData || {},
-      matchingTransactionId: null,
-      importId,
-    };
+    return { ...transaction, date: new Date(year, month - 1, day) };
   });
+  const amounts = await importedAmountService.resolveExtractedAmounts(rows);
+
+  return rows.map((row, index) => ({
+    description: row.description,
+    ...toImportedAmountColumns(amounts[index]),
+    date: row.date,
+    type: row.type,
+    rawData: {
+      ...row.rawData,
+      ...(row.currencyAmbiguous ? { currencyAmbiguous: true } : {}),
+    },
+    matchingTransactionId: null,
+    importId,
+  }));
 }
 
 /**

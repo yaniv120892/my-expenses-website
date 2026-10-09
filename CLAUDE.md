@@ -195,9 +195,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   An **import token** (`mxi_…`, created and revoked in Settings, one year,
   only its SHA-256 stored in `ImportToken`) is a bearer for the statements
   script: `createHandler` admits it only on `auth: 'session'` routes that
-  declare `acceptsImportToken` — every `/api/imports/**` route except the
-  auto-approve-rule management — and answers `IMPORT_TOKEN_NOT_ACCEPTED`
-  anywhere else, `/api/import-tokens` included, so a token cannot mint another.
+  declare `acceptsImportToken` — the set pinned in
+  `src/app/api/importTokenScope.test.ts` — and answers
+  `IMPORT_TOKEN_NOT_ACCEPTED` anywhere else, `/api/import-tokens` included, so
+  a token cannot mint another. A session cookie on the same request wins.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
   by `redisKeyPrefix(scope)`, because previews share production's one Upstash
   database. Only production is bare; everything else, an unconfigured local

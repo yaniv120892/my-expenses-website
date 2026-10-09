@@ -196,7 +196,7 @@ async function main(): Promise<void> {
   await saveManifest(manifestPath, manifest);
 }
 
-// Never an argument: the token is a live session and would land in shell
+// Never an argument: the token is a live credential and would land in shell
 // history.
 async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.IMPORT_API_TOKEN;

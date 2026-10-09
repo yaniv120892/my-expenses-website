@@ -4,6 +4,7 @@ import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
+import { SESSION_COOKIE } from '@/server/auth/cookies';
 import {
   authenticateImportToken,
   bearerImportToken,
@@ -96,7 +97,10 @@ async function resolveAuth(
 ): Promise<string> {
   switch (mode) {
     case 'session': {
-      const importToken = bearerImportToken(req);
+      // A session cookie wins over any bearer, as it does in requireUser.
+      const importToken = req.cookies.has(SESSION_COOKIE)
+        ? null
+        : bearerImportToken(req);
       if (!importToken) {
         return requireUser(req);
       }

@@ -5,7 +5,13 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   Stack,
   Table,
@@ -24,8 +30,15 @@ import {
   useImportTokensQuery,
   useRevokeImportTokenMutation,
 } from '@/hooks/useImportTokensQuery';
+import type { ImportTokenSummary } from '@/types/importToken';
 import { describeApiError } from '@/utils/api';
 import { formatDay } from '@/utils/dateUtils';
+
+const COPY_LABELS = {
+  idle: 'Copy',
+  copied: 'Copied',
+  failed: 'Copy failed — select the text instead',
+} as const;
 
 export default function ImportTokenManager() {
   const { data: tokens, isLoading, error } = useImportTokensQuery();
@@ -33,21 +46,41 @@ export default function ImportTokenManager() {
   const revokeMutation = useRevokeImportTokenMutation();
   const [name, setName] = useState('');
   const [createdToken, setCreatedToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>(
+    'idle',
+  );
+  const [pendingRevoke, setPendingRevoke] = useState<ImportTokenSummary | null>(
+    null,
+  );
 
-  const handleCreate = async () => {
-    const created = await createMutation.mutateAsync(name.trim());
-    setCreatedToken(created.token);
-    setCopied(false);
-    setName('');
+  const handleCreate = () => {
+    createMutation.mutate(name.trim(), {
+      onSuccess: (created) => {
+        setCreatedToken(created.token);
+        setCopyState('idle');
+        setName('');
+      },
+    });
   };
 
   const handleCopy = async (token: string) => {
-    await navigator.clipboard.writeText(token);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  };
+
+  const handleConfirmRevoke = () => {
+    if (pendingRevoke) {
+      revokeMutation.mutate(pendingRevoke.id);
+    }
+    setPendingRevoke(null);
   };
 
   const mutationError = createMutation.error ?? revokeMutation.error;
+  const now = new Date();
 
   return (
     <Stack spacing={2}>
@@ -87,7 +120,7 @@ export default function ImportTokenManager() {
             >
               {createdToken}
             </Typography>
-            <Tooltip title={copied ? 'Copied' : 'Copy'}>
+            <Tooltip title={COPY_LABELS[copyState]}>
               <IconButton
                 size="small"
                 onClick={() => handleCopy(createdToken)}
@@ -124,31 +157,59 @@ export default function ImportTokenManager() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {tokens.map((token) => (
-              <TableRow key={token.id}>
-                <TableCell>{token.name}</TableCell>
-                <TableCell>{formatDay(token.createdAt)}</TableCell>
-                <TableCell>
-                  {token.lastUsedAt ? formatDay(token.lastUsedAt) : 'Never'}
-                </TableCell>
-                <TableCell>{formatDay(token.expiresAt)}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title="Revoke">
-                    <IconButton
-                      size="small"
-                      aria-label={`Revoke ${token.name}`}
-                      onClick={() => revokeMutation.mutate(token.id)}
-                      disabled={revokeMutation.isPending}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
+            {tokens.map((token) => {
+              const isExpired = new Date(token.expiresAt) <= now;
+              const isRevoking =
+                revokeMutation.isPending &&
+                revokeMutation.variables === token.id;
+              return (
+                <TableRow key={token.id}>
+                  <TableCell>{token.name}</TableCell>
+                  <TableCell>{formatDay(token.createdAt)}</TableCell>
+                  <TableCell>
+                    {token.lastUsedAt ? formatDay(token.lastUsedAt) : 'Never'}
+                  </TableCell>
+                  <TableCell>
+                    {isExpired ? (
+                      <Chip size="small" color="error" label="Expired" />
+                    ) : (
+                      formatDay(token.expiresAt)
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Revoke">
+                      <IconButton
+                        size="small"
+                        aria-label={`Revoke ${token.name}`}
+                        onClick={() => setPendingRevoke(token)}
+                        disabled={isRevoking}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={!!pendingRevoke} onClose={() => setPendingRevoke(null)}>
+        <DialogTitle>Revoke “{pendingRevoke?.name}”?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Any script using this token stops working immediately. This cannot
+            be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingRevoke(null)}>Cancel</Button>
+          <Button color="error" onClick={handleConfirmRevoke}>
+            Revoke
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

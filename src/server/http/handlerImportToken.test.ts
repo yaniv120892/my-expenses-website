@@ -35,9 +35,9 @@ import { createHandler } from '@/server/http/handler';
 const ROUTE_CONTEXT = { params: Promise.resolve({}) };
 const TOKEN_OWNER = '22222222-2222-4222-8222-222222222222';
 
-function request(authorization: string): NextRequest {
+function request(authorization: string, cookie?: string): NextRequest {
   return new NextRequest('http://localhost/api/imports', {
-    headers: { authorization },
+    headers: { authorization, ...(cookie && { cookie }) },
   });
 }
 
@@ -78,6 +78,19 @@ describe('createHandler import token auth', () => {
     expect(await response.json()).toMatchObject({
       code: 'IMPORT_TOKEN_NOT_ACCEPTED',
     });
+    expect(authenticateImportToken).not.toHaveBeenCalled();
+  });
+
+  it('lets a session cookie win over an import token bearer', async () => {
+    requireUser.mockResolvedValue('session-user');
+
+    const response = await echoUserRoute(false)(
+      request('Bearer mxi_secret', 'session=browser-jwt'),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ userId: 'session-user' });
     expect(authenticateImportToken).not.toHaveBeenCalled();
   });
 

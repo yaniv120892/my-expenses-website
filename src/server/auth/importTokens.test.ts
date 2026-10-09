@@ -3,13 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const { repository, loggerMock } = vi.hoisted(() => ({
-  repository: {
-    create: vi.fn(),
-    findByUserId: vi.fn(),
-    findByHash: vi.fn(),
-    markUsed: vi.fn(),
-    delete: vi.fn(),
-  },
+  repository: { findByHash: vi.fn(), markUsed: vi.fn() },
   loggerMock: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -19,28 +13,22 @@ vi.mock('@/server/repositories/importTokenRepository', () => ({
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
 
 import {
-  IMPORT_TOKEN_PREFIX,
+  authenticateImportToken,
   bearerImportToken,
-  importTokenService,
 } from '@/server/auth/importTokens';
 import { AuthError } from '@/server/auth/session';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
-function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function storedToken(overrides: { expiresAt?: Date } = {}) {
+function storedToken(
+  overrides: { expiresAt?: Date; lastUsedAt?: Date | null } = {},
+) {
   return {
     id: 'token-id',
     userId: USER_ID,
-    name: 'script',
-    tokenHash: 'hash',
-    expiresAt: overrides.expiresAt ?? new Date(Date.now() + DAY_MS),
-    lastUsedAt: null,
-    createdAt: new Date(),
+    expiresAt: overrides.expiresAt ?? new Date(Date.now() + 24 * HOUR_MS),
+    lastUsedAt: overrides.lastUsedAt ?? null,
   };
 }
 
@@ -56,54 +44,46 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('importTokenService.create', () => {
-  it('returns a prefixed token and stores only its hash', async () => {
-    repository.create.mockImplementation(async (data) => ({
-      id: 'token-id',
-      name: data.name,
-      createdAt: new Date(),
-      expiresAt: data.expiresAt,
-      lastUsedAt: null,
-    }));
-
-    const created = await importTokenService.create(USER_ID, 'script');
-
-    expect(created.token.startsWith(IMPORT_TOKEN_PREFIX)).toBe(true);
-    const stored = repository.create.mock.calls[0][0];
-    expect(stored.tokenHash).toBe(sha256(created.token));
-    expect(JSON.stringify(stored)).not.toContain(created.token);
-  });
-
-  it('expires the token a year out', async () => {
-    repository.create.mockImplementation(async (data) => ({ ...data }));
-    const before = Date.now();
-
-    await importTokenService.create(USER_ID, 'script');
-
-    const { expiresAt } = repository.create.mock.calls[0][0];
-    expect(expiresAt.getTime() - before).toBeGreaterThanOrEqual(365 * DAY_MS);
-    expect(expiresAt.getTime() - before).toBeLessThan(366 * DAY_MS);
-  });
-});
-
-describe('importTokenService.authenticate', () => {
-  it('looks the token up by hash and returns its owner', async () => {
+describe('authenticateImportToken', () => {
+  it('looks the token up by its SHA-256 and returns its owner', async () => {
     repository.findByHash.mockResolvedValue(storedToken());
 
-    const userId = await importTokenService.authenticate('mxi_secret');
+    const userId = await authenticateImportToken('mxi_secret');
 
     expect(userId).toBe(USER_ID);
-    expect(repository.findByHash).toHaveBeenCalledWith(sha256('mxi_secret'));
+    expect(repository.findByHash).toHaveBeenCalledWith(
+      createHash('sha256').update('mxi_secret').digest('hex'),
+    );
     expect(repository.markUsed).toHaveBeenCalledWith(
       'token-id',
       expect.any(Date),
     );
   });
 
+  it('skips the last-used write when the token was used within the hour', async () => {
+    repository.findByHash.mockResolvedValue(
+      storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS / 2) }),
+    );
+
+    await authenticateImportToken('mxi_secret');
+
+    expect(repository.markUsed).not.toHaveBeenCalled();
+  });
+
+  it('rewrites last use once it is an hour old', async () => {
+    repository.findByHash.mockResolvedValue(
+      storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS) }),
+    );
+
+    await authenticateImportToken('mxi_secret');
+
+    expect(repository.markUsed).toHaveBeenCalled();
+  });
+
   it('rejects an unknown token', async () => {
     repository.findByHash.mockResolvedValue(null);
 
-    const error = await authError(importTokenService.authenticate('mxi_nope'));
+    const error = await authError(authenticateImportToken('mxi_nope'));
 
     expect(error.code).toBe('INVALID_IMPORT_TOKEN');
   });
@@ -113,7 +93,7 @@ describe('importTokenService.authenticate', () => {
       storedToken({ expiresAt: new Date(Date.now() - 1) }),
     );
 
-    const error = await authError(importTokenService.authenticate('mxi_old'));
+    const error = await authError(authenticateImportToken('mxi_old'));
 
     expect(error.code).toBe('IMPORT_TOKEN_EXPIRED');
     expect(repository.markUsed).not.toHaveBeenCalled();
@@ -123,9 +103,7 @@ describe('importTokenService.authenticate', () => {
     repository.findByHash.mockResolvedValue(storedToken());
     repository.markUsed.mockRejectedValue(new Error('db down'));
 
-    await expect(importTokenService.authenticate('mxi_secret')).resolves.toBe(
-      USER_ID,
-    );
+    await expect(authenticateImportToken('mxi_secret')).resolves.toBe(USER_ID);
     expect(loggerMock.warn).toHaveBeenCalled();
   });
 });

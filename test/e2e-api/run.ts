@@ -195,6 +195,10 @@ async function api(
   return { status: res.status, headers: res.headers, body: parsed };
 }
 
+function errorCode(result: ApiResult): string | undefined {
+  return (result.body as { code?: string } | null)?.code;
+}
+
 async function redisGet(key: string): Promise<unknown> {
   const res = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
     method: 'POST',
@@ -739,7 +743,6 @@ async function waitForImportCompletion(
   return found;
 }
 
-// The raw column read proves the value was encrypted, not stored as plaintext.
 async function importTokenFlow(
   sessionToken: string,
   otherUserSessionToken: string,
@@ -782,8 +785,7 @@ async function importTokenFlow(
   check(
     'import tokens: refused outside the import routes',
     outsideImports.status === 401 &&
-      (outsideImports.body as { code?: string } | null)?.code ===
-        'IMPORT_TOKEN_NOT_ACCEPTED',
+      errorCode(outsideImports) === 'IMPORT_TOKEN_NOT_ACCEPTED',
     `status ${outsideImports.status}`,
   );
 
@@ -838,12 +840,12 @@ async function importTokenRevocationFlow(
     'import tokens: a revoked token stops working',
     revoked.status === 200 &&
       afterRevoke.status === 401 &&
-      (afterRevoke.body as { code?: string } | null)?.code ===
-        'INVALID_IMPORT_TOKEN',
+      errorCode(afterRevoke) === 'INVALID_IMPORT_TOKEN',
     `revoke ${revoked.status}, then ${afterRevoke.status}`,
   );
 }
 
+// The raw column read proves the value was encrypted, not stored as plaintext.
 async function importEncryptionFlow(token: string): Promise<void> {
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_03_2026.csv`;

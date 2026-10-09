@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { authenticate, requireUser } = vi.hoisted(() => ({
-  authenticate: vi.fn(),
+const { authenticateImportToken, requireUser } = vi.hoisted(() => ({
+  authenticateImportToken: vi.fn(),
   requireUser: vi.fn(),
 }));
 
@@ -10,7 +10,7 @@ vi.mock('@/server/auth/importTokens', async () => ({
   ...(await vi.importActual<typeof import('@/server/auth/importTokens')>(
     '@/server/auth/importTokens',
   )),
-  importTokenService: { authenticate },
+  authenticateImportToken,
 }));
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof import('@/server/auth/session')>(
@@ -55,7 +55,7 @@ beforeEach(() => {
 
 describe('createHandler import token auth', () => {
   it('admits an import token on a route that accepts one', async () => {
-    authenticate.mockResolvedValue(TOKEN_OWNER);
+    authenticateImportToken.mockResolvedValue(TOKEN_OWNER);
 
     const response = await echoUserRoute(true)(
       request('Bearer mxi_secret'),
@@ -64,7 +64,7 @@ describe('createHandler import token auth', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ userId: TOKEN_OWNER });
-    expect(authenticate).toHaveBeenCalledWith('mxi_secret');
+    expect(authenticateImportToken).toHaveBeenCalledWith('mxi_secret');
     expect(requireUser).not.toHaveBeenCalled();
   });
 
@@ -78,7 +78,7 @@ describe('createHandler import token auth', () => {
     expect(await response.json()).toMatchObject({
       code: 'IMPORT_TOKEN_NOT_ACCEPTED',
     });
-    expect(authenticate).not.toHaveBeenCalled();
+    expect(authenticateImportToken).not.toHaveBeenCalled();
   });
 
   it('still takes a session bearer on a route that accepts import tokens', async () => {
@@ -90,6 +90,6 @@ describe('createHandler import token auth', () => {
     );
 
     expect(await response.json()).toEqual({ userId: 'session-user' });
-    expect(authenticate).not.toHaveBeenCalled();
+    expect(authenticateImportToken).not.toHaveBeenCalled();
   });
 });

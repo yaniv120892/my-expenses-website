@@ -1,5 +1,3 @@
--- A long-lived bearer accepted only by the import routes. The token itself is
--- shown once at creation; only its SHA-256 is stored.
 CREATE TABLE "ImportToken" (
     "id" UUID NOT NULL,
     "userId" UUID NOT NULL,

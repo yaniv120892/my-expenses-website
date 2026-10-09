@@ -1,5 +1,5 @@
 import { createHandler } from '@/server/http/handler';
-import { importTokenService } from '@/server/auth/importTokens';
+import { importTokenService } from '@/server/services/importTokenService';
 
 export const DELETE = createHandler({
   auth: 'session',

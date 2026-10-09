@@ -1,6 +1,12 @@
-import { ImportToken } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { ImportTokenSummary } from '@/shared/types/importToken';
+
+type ImportTokenCredential = {
+  id: string;
+  userId: string;
+  expiresAt: Date;
+  lastUsedAt: Date | null;
+};
 
 const SUMMARY_SELECT = {
   id: true,
@@ -28,8 +34,13 @@ export class ImportTokenRepository {
     });
   }
 
-  public async findByHash(tokenHash: string): Promise<ImportToken | null> {
-    return prisma.importToken.findUnique({ where: { tokenHash } });
+  public async findByHash(
+    tokenHash: string,
+  ): Promise<ImportTokenCredential | null> {
+    return prisma.importToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, userId: true, expiresAt: true, lastUsedAt: true },
+    });
   }
 
   public async markUsed(id: string, usedAt: Date): Promise<void> {

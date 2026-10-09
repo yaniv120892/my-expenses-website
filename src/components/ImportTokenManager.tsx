@@ -19,18 +19,13 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { format, parseISO } from 'date-fns';
-import { DAY_FORMAT } from '@/shared/dates';
 import {
   useCreateImportTokenMutation,
   useImportTokensQuery,
   useRevokeImportTokenMutation,
 } from '@/hooks/useImportTokensQuery';
 import { describeApiError } from '@/utils/api';
-
-function formatDay(isoDate: string | null): string {
-  return isoDate ? format(parseISO(isoDate), DAY_FORMAT) : 'Never';
-}
+import { formatDay } from '@/utils/dateUtils';
 
 export default function ImportTokenManager() {
   const { data: tokens, isLoading, error } = useImportTokensQuery();
@@ -47,11 +42,8 @@ export default function ImportTokenManager() {
     setName('');
   };
 
-  const handleCopy = async () => {
-    if (!createdToken) {
-      return;
-    }
-    await navigator.clipboard.writeText(createdToken);
+  const handleCopy = async (token: string) => {
+    await navigator.clipboard.writeText(token);
     setCopied(true);
   };
 
@@ -98,7 +90,7 @@ export default function ImportTokenManager() {
             <Tooltip title={copied ? 'Copied' : 'Copy'}>
               <IconButton
                 size="small"
-                onClick={handleCopy}
+                onClick={() => handleCopy(createdToken)}
                 aria-label="Copy token"
               >
                 <ContentCopyIcon fontSize="small" />
@@ -136,7 +128,9 @@ export default function ImportTokenManager() {
               <TableRow key={token.id}>
                 <TableCell>{token.name}</TableCell>
                 <TableCell>{formatDay(token.createdAt)}</TableCell>
-                <TableCell>{formatDay(token.lastUsedAt)}</TableCell>
+                <TableCell>
+                  {token.lastUsedAt ? formatDay(token.lastUsedAt) : 'Never'}
+                </TableCell>
                 <TableCell>{formatDay(token.expiresAt)}</TableCell>
                 <TableCell align="right">
                   <Tooltip title="Revoke">

@@ -200,8 +200,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   token along with every session. A request made with a token logs its
   `apiTokenId`. A route opts in by declaring the one scope it
   needs, `apiTokenScope: 'IMPORTS'` on an `auth: 'session'` route; a token
-  without that scope gets 403, and every route that declares none answers
-  401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot
+  without that scope gets 403, and every `auth: 'session'` route that declares
+  none answers 401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot
   mint another. Which handler needs which scope is pinned in
   `src/app/api/apiTokenScope.test.ts`; a new scope is a new enum value plus
   the routes it opens. A scope names a whole capability, not a read/write

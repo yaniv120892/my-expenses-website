@@ -106,7 +106,7 @@ async function resolveAuth(
       const credential = extractCredential(req);
       const isApiTokenBearer =
         credential?.source === 'bearer' && isApiToken(credential.token);
-      if (!credential || !isApiTokenBearer) {
+      if (!isApiTokenBearer) {
         return { userId: await requireUser(req) };
       }
       if (!apiTokenScope) {

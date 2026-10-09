@@ -1198,8 +1198,8 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
-  // The import flows run on an Imports-scoped API token rather than the session, so they
-  // prove the routes the statements script drives accept one.
+  // The import flows run on an Imports-scoped API token rather than the
+  // session, so they prove the routes the statements script drives accept one.
   const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
   await importEncryptionFlow(apiToken);
   await importMergeFlow(apiToken);

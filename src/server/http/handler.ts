@@ -92,8 +92,6 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
   );
 }
 
-// apiTokenId marks a request made with an API token, so token activity is
-// told apart from the owner's own session in the logs.
 type AuthResult = { userId: string; apiTokenId?: string };
 
 async function resolveAuth(

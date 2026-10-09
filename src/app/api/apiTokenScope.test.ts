@@ -45,8 +45,6 @@ function declaredScopes(path: string): string[] {
 const SOURCE_DIR = join(process.cwd(), 'src');
 const LITERAL_DECLARATION = /^\s*apiTokenScope: '[A-Z_]+',$/;
 
-// Files that name apiTokenScope without granting one: its definition, and the
-// type test that checks which handler arms may declare it.
 const NON_GRANTING_FILES = ['server/http/handler.ts'];
 
 function sourceFiles(directory: string): string[] {

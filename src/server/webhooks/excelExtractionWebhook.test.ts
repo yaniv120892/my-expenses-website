@@ -189,7 +189,7 @@ describe('completed extraction with currencies', () => {
     });
   });
 
-  it('marks an ambiguous row in rawData and leaves its ILS amount unknown', async () => {
+  it('leaves the currency and ILS amount of an ambiguous row unknown', async () => {
     await run(
       payload([
         {
@@ -205,7 +205,6 @@ describe('completed extraction with currencies', () => {
     expect(row).toMatchObject({
       value: null,
       currency: null,
-      rawData: { currencyAmbiguous: true },
     });
   });
 
@@ -214,6 +213,25 @@ describe('completed extraction with currencies', () => {
 
     const [row] = importedTxRepo.createMany.mock.calls[0][0];
     expect(row).toMatchObject({ value: 92.35, currency: null });
+  });
+
+  it('leaves the ILS amount unknown, not the foreign one, for an unrecognised code', async () => {
+    await run(
+      payload([
+        foreignRow({
+          originalCurrency: 'ZZZ',
+          chargedAmount: undefined,
+          chargedCurrency: undefined,
+        }),
+      ]),
+    );
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({
+      value: null,
+      currency: null,
+      originalAmount: '25.00',
+    });
   });
 });
 

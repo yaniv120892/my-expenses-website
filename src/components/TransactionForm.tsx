@@ -34,18 +34,15 @@ import {
   isForeignCurrency,
   SELECTABLE_CURRENCIES,
 } from '@/shared/currency';
-import type { ExchangeRateSource } from '@/shared/types/transaction';
+import type {
+  ExchangeRateSource,
+  TransactionAmountInput,
+} from '@/shared/types/transaction';
 import {
   EXCHANGE_RATE_SOURCE_LABELS,
   formatCurrencyPlain,
   formatMoney,
 } from '@/utils/format';
-
-type AmountInput = {
-  value?: number;
-  currency?: string;
-  originalAmount?: number;
-};
 
 // An edited transaction may be in a currency outside the usual list.
 function currencyOptions(current: string): readonly string[] {
@@ -72,17 +69,15 @@ type TransactionFormType = {
 
 // The amount field is in `currency`; `baseValue` is the ILS charged, asked
 // for only beside a foreign amount, where leaving it empty means "convert".
-type FormValues = Omit<
-  TransactionFormType,
-  | 'value'
-  | 'currency'
-  | 'originalAmount'
-  | 'exchangeRate'
-  | 'exchangeRateSource'
-> & {
+type FormValues = {
+  id: string;
+  description: string;
   value: number | string;
   currency: string;
   baseValue: number | string;
+  categoryId: string;
+  type: 'EXPENSE' | 'INCOME';
+  date: string;
 };
 
 type SnackbarSeverity = 'success' | 'error' | 'warning';
@@ -120,17 +115,19 @@ function toFormValues(
   initialData: TransactionFormType,
   confirmsImportedRow: boolean,
 ): FormValues {
-  const editsForeignAmount =
-    !confirmsImportedRow && isForeignCurrency(initialData.currency ?? null);
+  const foreignCurrency =
+    !confirmsImportedRow &&
+    initialData.currency &&
+    isForeignCurrency(initialData.currency)
+      ? initialData.currency
+      : null;
   return {
     id: initialData.id,
     description: initialData.description,
-    value: editsForeignAmount
+    value: foreignCurrency
       ? (initialData.originalAmount ?? '')
       : (initialData.value ?? ''),
-    currency: editsForeignAmount
-      ? (initialData.currency ?? BASE_CURRENCY)
-      : BASE_CURRENCY,
+    currency: foreignCurrency ?? BASE_CURRENCY,
     baseValue: '',
     categoryId: initialData.categoryId || '',
     type: initialData.type,
@@ -138,7 +135,7 @@ function toFormValues(
   };
 }
 
-function toAmountInput(form: FormValues): AmountInput {
+function toAmountInput(form: FormValues): TransactionAmountInput {
   if (!isForeignCurrency(form.currency)) {
     return { value: Number(form.value), currency: BASE_CURRENCY };
   }
@@ -177,6 +174,7 @@ export default function TransactionForm({
 }: Props) {
   const fullScreen = useIsCompact();
   const confirmsImportedRow = mode !== undefined;
+  const conversionNote = initialData ? describeConversion(initialData) : null;
   const [form, setForm] = useState<FormValues>(() =>
     initialData
       ? toFormValues(initialData, confirmsImportedRow)
@@ -422,12 +420,12 @@ export default function TransactionForm({
                 fullWidth
               />
             )}
-            {initialData && describeConversion(initialData) && (
+            {conversionNote && (
               <Typography
                 variant="caption"
                 sx={{ color: 'text.secondary', mt: -1 }}
               >
-                {describeConversion(initialData)}
+                {conversionNote}
               </Typography>
             )}
             <CategorySelect

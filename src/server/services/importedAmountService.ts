@@ -2,12 +2,13 @@ import { HttpError } from '@/server/http/errors';
 import exchangeRateService, {
   type ExchangeRateQuote,
 } from '@/server/services/exchangeRateService';
+import { isSameMoney, toMoneyNumber } from '@/server/utils/money';
 import {
-  convertAmount,
-  impliedRate,
-  isSameMoney,
-  toMoneyNumber,
-} from '@/server/utils/money';
+  amountOf,
+  baseAmount,
+  knownValueAmount,
+  publishedRateAmount,
+} from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import { toDayString } from '@/shared/dates';
 import type { ImportedAmount } from '@/shared/types/import';
@@ -53,38 +54,13 @@ class ImportedAmountService {
    */
   public resolveApprovedAmount(
     row: ImportedAmount & { date: Date },
-    requestedValue: number | null,
+    requestedValue?: number,
     mergeTarget?: TransactionAmount,
   ): TransactionAmount {
-    const keepsRowValue =
-      row.value !== null &&
-      (requestedValue === null || isSameMoney(requestedValue, row.value));
-    if (keepsRowValue && row.value !== null) {
-      return row.currency !== null && isForeignCurrency(row.currency)
-        ? {
-            value: row.value,
-            currency: row.currency,
-            originalAmount: row.originalAmount,
-            exchangeRate: row.exchangeRate,
-            exchangeRateDate: row.exchangeRateDate,
-            exchangeRateSource: row.exchangeRateSource,
-          }
-        : baseAmount(row.value);
-    }
-
-    if (requestedValue !== null) {
-      return row.currency !== null && isForeignCurrency(row.currency)
-        ? {
-            value: toMoneyNumber(requestedValue),
-            currency: row.currency,
-            originalAmount: row.originalAmount,
-            exchangeRate: Number(
-              impliedRate(requestedValue, row.originalAmount),
-            ),
-            exchangeRateDate: row.date,
-            exchangeRateSource: 'MANUAL',
-          }
-        : baseAmount(requestedValue);
+    const value =
+      requestedValue ?? (row.value === null ? undefined : row.value);
+    if (value !== undefined) {
+      return this.approvedAmount(row, value);
     }
 
     const mergeTargetHasSameCharge =
@@ -98,6 +74,29 @@ class ImportedAmountService {
     throw new HttpError(
       422,
       `The ${BASE_CURRENCY} amount of this charge (${formatAmountWithOriginal(row)}) is not known. Enter it before approving.`,
+    );
+  }
+
+  // The row's own conversion survives unless the user typed a different ILS
+  // amount, which then becomes a hand-entered rate.
+  private approvedAmount(
+    row: ImportedAmount & { date: Date },
+    value: number,
+  ): TransactionAmount {
+    if (row.currency === null || !isForeignCurrency(row.currency)) {
+      return baseAmount(value);
+    }
+    const keepsRowConversion =
+      row.value !== null && isSameMoney(value, row.value);
+    if (keepsRowConversion) {
+      return amountOf({ ...row, value, currency: row.currency });
+    }
+    return knownValueAmount(
+      value,
+      row.originalAmount,
+      row.currency,
+      row.date,
+      'MANUAL',
     );
   }
 
@@ -158,14 +157,13 @@ class ImportedAmountService {
     row: ExtractedAmount,
   ): ImportedAmount {
     if (originalCurrency !== null && isForeignCurrency(originalCurrency)) {
-      return {
-        value: toMoneyNumber(chargedAmount),
-        currency: originalCurrency,
-        originalAmount: toMoneyNumber(originalAmount),
-        exchangeRate: Number(impliedRate(chargedAmount, originalAmount)),
-        exchangeRateDate: row.date,
-        exchangeRateSource: 'STATEMENT',
-      };
+      return knownValueAmount(
+        chargedAmount,
+        originalAmount,
+        originalCurrency,
+        row.date,
+        'STATEMENT',
+      );
     }
     const originalIsTheBilledAmount =
       !row.currencyAmbiguous && isSameMoney(originalAmount, chargedAmount);
@@ -189,14 +187,7 @@ class ImportedAmountService {
     if (!quote) {
       return unknownAmount(originalAmount, currency);
     }
-    return {
-      value: convertAmount(originalAmount, quote.rate),
-      currency,
-      originalAmount: toMoneyNumber(originalAmount),
-      exchangeRate: Number(quote.rate),
-      exchangeRateDate: new Date(`${quote.rateDate}T00:00:00Z`),
-      exchangeRateSource: 'BANK_OF_ISRAEL',
-    };
+    return publishedRateAmount(originalAmount, currency, quote);
   }
 
   // A statement repeats a currency and day across rows; one lookup serves them.
@@ -212,17 +203,6 @@ class ImportedAmountService {
       return lookup;
     };
   }
-}
-
-function baseAmount(value: number): TransactionAmount {
-  return {
-    value: toMoneyNumber(value),
-    currency: BASE_CURRENCY,
-    originalAmount: toMoneyNumber(value),
-    exchangeRate: null,
-    exchangeRateDate: null,
-    exchangeRateSource: null,
-  };
 }
 
 function unknownAmount(

@@ -92,10 +92,12 @@ class TransactionService {
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
     const date = data.date || new Date();
-    const amount =
+    // Independent, and either may wait on the network: a rate or a category.
+    const [amount, resolved] = await Promise.all([
       data.resolvedAmount ??
-      (await currencyConversionService.resolveAmount(data, date));
-    const resolved = await this.updateCategory(data);
+        currencyConversionService.resolveAmount(data, date),
+      this.updateCategory(data),
+    ]);
     await this.validateCreateTransaction(resolved);
     if (!resolved.categoryId) {
       throw new CustomValidationError(

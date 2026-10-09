@@ -2,13 +2,14 @@ import { isSameDay } from 'date-fns';
 import { HttpError } from '@/server/http/errors';
 import { CustomValidationError } from '@/server/errors/validationError';
 import exchangeRateService from '@/server/services/exchangeRateService';
+import { isSameMoney } from '@/server/utils/money';
 import {
-  convertAmount,
-  impliedRate,
-  isSameMoney,
-  toMoneyNumber,
-  toRateString,
-} from '@/server/utils/money';
+  amountOf,
+  baseAmount,
+  givenRateAmount,
+  knownValueAmount,
+  publishedRateAmount,
+} from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY } from '@/shared/currency';
 import { toDayString } from '@/shared/dates';
 import type {
@@ -33,7 +34,7 @@ class CurrencyConversionService {
   ): Promise<TransactionAmount> {
     const currency = input.currency ?? existing?.currency ?? BASE_CURRENCY;
     if (currency === BASE_CURRENCY) {
-      return this.baseCurrencyAmount(input);
+      return baseAmount(this.baseCurrencyValue(input));
     }
 
     const originalAmount = this.foreignOriginalAmount(
@@ -43,14 +44,12 @@ class CurrencyConversionService {
     );
 
     if (input.exchangeRate !== undefined) {
-      return {
-        value: convertAmount(originalAmount, input.exchangeRate),
+      return givenRateAmount(
+        originalAmount,
         currency,
-        originalAmount: toMoneyNumber(originalAmount),
-        exchangeRate: Number(toRateString(input.exchangeRate)),
-        exchangeRateDate: date,
-        exchangeRateSource: 'MANUAL',
-      };
+        input.exchangeRate,
+        date,
+      );
     }
 
     if (
@@ -63,18 +62,17 @@ class CurrencyConversionService {
         existing,
       )
     ) {
-      return this.pickAmount(existing);
+      return amountOf(existing);
     }
 
     if (input.value !== undefined) {
-      return {
-        value: toMoneyNumber(input.value),
+      return knownValueAmount(
+        input.value,
+        originalAmount,
         currency,
-        originalAmount: toMoneyNumber(originalAmount),
-        exchangeRate: Number(impliedRate(input.value, originalAmount)),
-        exchangeRateDate: date,
-        exchangeRateSource: 'MANUAL',
-      };
+        date,
+        'MANUAL',
+      );
     }
 
     const quote = await exchangeRateService.getRateToBase(currency, date);
@@ -84,29 +82,15 @@ class CurrencyConversionService {
         `No exchange rate is available for ${currency} on ${toDayString(date)}. Enter the amount charged in ${BASE_CURRENCY}, or an exchange rate.`,
       );
     }
-    return {
-      value: convertAmount(originalAmount, quote.rate),
-      currency,
-      originalAmount: toMoneyNumber(originalAmount),
-      exchangeRate: Number(quote.rate),
-      exchangeRateDate: new Date(`${quote.rateDate}T00:00:00Z`),
-      exchangeRateSource: 'BANK_OF_ISRAEL',
-    };
+    return publishedRateAmount(originalAmount, currency, quote);
   }
 
-  private baseCurrencyAmount(input: TransactionAmountInput): TransactionAmount {
+  private baseCurrencyValue(input: TransactionAmountInput): number {
     const amount = input.originalAmount ?? input.value;
     if (amount === undefined) {
       throw new CustomValidationError('An amount is required');
     }
-    return {
-      value: toMoneyNumber(amount),
-      currency: BASE_CURRENCY,
-      originalAmount: toMoneyNumber(amount),
-      exchangeRate: null,
-      exchangeRateDate: null,
-      exchangeRateSource: null,
-    };
+    return amount;
   }
 
   private foreignOriginalAmount(
@@ -139,17 +123,6 @@ class CurrencyConversionService {
     const valueUnchanged =
       input.value === undefined || isSameMoney(input.value, existing.value);
     return sameCharge && valueUnchanged;
-  }
-
-  private pickAmount(amount: TransactionAmount): TransactionAmount {
-    return {
-      value: amount.value,
-      currency: amount.currency,
-      originalAmount: amount.originalAmount,
-      exchangeRate: amount.exchangeRate,
-      exchangeRateDate: amount.exchangeRateDate,
-      exchangeRateSource: amount.exchangeRateSource,
-    };
   }
 }
 

@@ -176,7 +176,7 @@ describe('importedAmountService.resolveApprovedAmount', () => {
 
   it('refuses to approve a row whose ILS amount is unknown', () => {
     expect(() =>
-      importedAmountService.resolveApprovedAmount(unknownRow, null),
+      importedAmountService.resolveApprovedAmount(unknownRow),
     ).toThrow(/is not known\. Enter it before approving/);
   });
 
@@ -190,7 +190,11 @@ describe('importedAmountService.resolveApprovedAmount', () => {
       exchangeRateSource: 'BANK_OF_ISRAEL' as const,
     };
     expect(
-      importedAmountService.resolveApprovedAmount(unknownRow, null, target),
+      importedAmountService.resolveApprovedAmount(
+        unknownRow,
+        undefined,
+        target,
+      ),
     ).toBe(target);
   });
 

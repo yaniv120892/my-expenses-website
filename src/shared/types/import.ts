@@ -1,5 +1,5 @@
 import type {
-  ExchangeRateSource,
+  TransactionAmount,
   TransactionStatus,
   TransactionType,
 } from './transaction';
@@ -9,13 +9,9 @@ import type {
  * foreign charge the statement did not bill and no rate covers, or a row whose
  * currency the statement does not tell (`currency` null).
  */
-export type ImportedAmount = {
+export type ImportedAmount = Omit<TransactionAmount, 'value' | 'currency'> & {
   value: number | null;
   currency: string | null;
-  originalAmount: number;
-  exchangeRate: number | null;
-  exchangeRateDate: Date | null;
-  exchangeRateSource: ExchangeRateSource | null;
 };
 
 export enum ImportFileType {

@@ -56,6 +56,7 @@ describe('exchangeRateService.getRateToBase', () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     vi.stubGlobal('fetch', fetchMock);
     getValue.mockResolvedValue(null);
@@ -86,6 +87,22 @@ describe('exchangeRateService.getRateToBase', () => {
       'fx:boi:USD:2026-10-03',
       quote,
       86400,
+    );
+  });
+
+  it("caches today's fallback to an earlier day only briefly", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 5, 10));
+    fetchMock.mockResolvedValue(
+      new Response([HEADER, row('USD', 0, '2026-10-02', '3.06')].join('\n')),
+    );
+
+    await exchangeRateService.getRateToBase('USD', new Date(2026, 9, 5));
+
+    expect(setValue).toHaveBeenCalledWith(
+      'fx:boi:USD:2026-10-05',
+      { rate: '3.06000000', rateDate: '2026-10-02' },
+      3600,
     );
   });
 

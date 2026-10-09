@@ -75,10 +75,10 @@ interface BatchResult {
   errors: { id: string; error: string }[];
 }
 
-// `value` is the ILS amount the user confirmed; null leaves the row's own.
+// `value` is an ILS amount the user typed; absent, the row's own stands.
 interface ApproveImportedTransactionData {
   description: string;
-  value: number | null;
+  value?: number;
   date: Date;
   type: TransactionType;
   categoryId: string | null;
@@ -86,7 +86,7 @@ interface ApproveImportedTransactionData {
 
 interface MergeImportedTransactionData {
   description: string;
-  value: number | null;
+  value?: number;
   date: Date;
   type: TransactionType;
   // Absent means keep the matched transaction's existing category.
@@ -681,7 +681,6 @@ class ImportService {
   }: PlannedRow): Promise<string | null> {
     const payload = {
       description: item.description,
-      value: item.value,
       date: item.date,
       type: item.type,
     };

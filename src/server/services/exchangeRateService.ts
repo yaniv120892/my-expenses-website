@@ -13,6 +13,9 @@ const REQUEST_TIMEOUT_MS = 5000;
 // takes the last rate published before it.
 const LOOKBACK_DAYS = 7;
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
+// Today's rate comes out in the afternoon, so until then today takes an earlier
+// day's, which is cached only briefly lest it outlive the publication.
+const UNPUBLISHED_DAY_CACHE_TTL_SECONDS = 60 * 60;
 
 export type ExchangeRateQuote = {
   /** ILS per one unit of the currency, to eight places. */
@@ -43,7 +46,15 @@ class ExchangeRateService {
 
     const quote = await this.fetchQuoteSafe(currency, date);
     if (quote) {
-      await this.writeCacheSafe(cacheKey, quote);
+      const mayStillBePublished =
+        quote.rateDate !== day && day >= toDayString(new Date());
+      await this.writeCacheSafe(
+        cacheKey,
+        quote,
+        mayStillBePublished
+          ? UNPUBLISHED_DAY_CACHE_TTL_SECONDS
+          : CACHE_TTL_SECONDS,
+      );
     }
     return quote;
   }
@@ -113,9 +124,10 @@ class ExchangeRateService {
   private async writeCacheSafe(
     cacheKey: string,
     quote: ExchangeRateQuote,
+    ttlSeconds: number,
   ): Promise<void> {
     try {
-      await setValue(cacheKey, quote, CACHE_TTL_SECONDS);
+      await setValue(cacheKey, quote, ttlSeconds);
     } catch (err) {
       logger.warn({ err, cacheKey }, 'Exchange rate cache write failed');
     }

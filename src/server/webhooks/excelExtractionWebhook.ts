@@ -33,24 +33,58 @@ const webhookEnvelopeSchema = z.object({
   error: z.string().optional(),
 });
 
+type ReportedCurrencies = {
+  originalCurrency?: string;
+  chargedAmount?: number;
+  chargedCurrency?: string;
+  currencyAmbiguous?: boolean;
+};
+
+// A code that is not ISO 4217 leaves the row's currency unknown, which is
+// ambiguous, not ILS: read as ILS, the foreign amount would be stored as shekels.
+function recogniseCurrencies<T extends ReportedCurrencies>(row: T): T {
+  const originalCurrency = currencyCodeSchema
+    .optional()
+    .safeParse(row.originalCurrency);
+  const chargedCurrency = currencyCodeSchema
+    .optional()
+    .safeParse(row.chargedCurrency);
+  if (originalCurrency.success && chargedCurrency.success) {
+    return {
+      ...row,
+      originalCurrency: originalCurrency.data,
+      chargedCurrency: chargedCurrency.data,
+    };
+  }
+  return {
+    ...row,
+    originalCurrency: originalCurrency.data,
+    chargedAmount: chargedCurrency.success ? row.chargedAmount : undefined,
+    chargedCurrency: chargedCurrency.data,
+    currencyAmbiguous: true,
+  };
+}
+
 // Validates only what the handlers consume, and tolerantly: a day written
 // 5/8/2026 or no card digits is still worth importing.
 const extractionResultSchema = z.object({
   transactions: z.array(
-    z.object({
-      date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
-      description: z.string(),
-      value: z.number(),
-      type: z.enum(['EXPENSE', 'INCOME']),
-      rawData: z
-        .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
-        .optional(),
-      originalAmount: z.number().nonnegative().optional(),
-      originalCurrency: currencyCodeSchema.optional().catch(undefined),
-      chargedAmount: z.number().nonnegative().optional(),
-      chargedCurrency: currencyCodeSchema.optional().catch(undefined),
-      currencyAmbiguous: z.boolean().optional(),
-    }),
+    z
+      .object({
+        date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
+        description: z.string(),
+        value: z.number(),
+        type: z.enum(['EXPENSE', 'INCOME']),
+        rawData: z
+          .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+          .optional(),
+        originalAmount: z.number().nonnegative().optional(),
+        originalCurrency: z.string().optional(),
+        chargedAmount: z.number().nonnegative().optional(),
+        chargedCurrency: z.string().optional(),
+        currencyAmbiguous: z.boolean().optional(),
+      })
+      .transform(recogniseCurrencies),
   ),
   metadata: z.object({
     creditCardLastFour: z.string().nullish(),
@@ -296,10 +330,7 @@ async function toImportedTransactionRows(
     ...toImportedAmountColumns(amounts[index]),
     date: row.date,
     type: row.type,
-    rawData: {
-      ...row.rawData,
-      ...(row.currencyAmbiguous ? { currencyAmbiguous: true } : {}),
-    },
+    rawData: row.rawData ?? {},
     matchingTransactionId: null,
     importId,
   }));

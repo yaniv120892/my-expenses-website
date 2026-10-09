@@ -178,7 +178,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `currencyConversionService.resolveAmount` decides a create or edit: a rate
   the caller gives, else an ILS amount the caller gives (`MANUAL`), else the
   Bank of Israel representative rate for the transaction date
-  (`exchangeRateService`, 5s timeout, cached in Redis for a day), else a 422 —
+  (`exchangeRateService`, 5s timeout, cached in Redis for a day — an hour when
+  today's rate is not out yet and an earlier day's stands in), else a 422 —
   never 1:1. An edit that leaves currency, original amount and day alone keeps
   its conversion. A payload with only `value` is ILS, as before currencies.
   Rows predating the feature were backfilled as ILS by migration
@@ -189,7 +190,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `importedAmountService.resolveExtractedAmounts` stores a billed ILS amount as
   the conversion (`STATEMENT`) without converting it again; only an unbilled
   foreign amount is converted, one rate lookup per currency and day. With no
-  rate, or a row the service marks `currencyAmbiguous`,
+  rate, or a row the service marks `currencyAmbiguous` (as is one whose
+  currency code is not ISO 4217 — never read as ILS),
   `ImportedTransaction.value` is null (and `currency` null when unknown); the
   UI flags it and approve, merge and batch fail that row with a 422 until an
   ILS amount is entered. Matching and duplicate detection compare currency and

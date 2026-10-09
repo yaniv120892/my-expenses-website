@@ -68,8 +68,6 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
-        // Admits an import token (`Authorization: Bearer mxi_…`) in place of a
-        // session.
         acceptsImportToken?: boolean;
       }
     | {

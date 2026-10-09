@@ -1,10 +1,10 @@
 import { createHandler } from '@/server/http/handler';
-import { importTokenService } from '@/server/services/importTokenService';
+import { apiTokenService } from '@/server/services/apiTokenService';
 
 export const DELETE = createHandler({
   auth: 'session',
   handler: async ({ userId, params }) => {
-    await importTokenService.revoke(params.tokenId, userId);
+    await apiTokenService.revoke(params.tokenId, userId);
     return { success: true };
   },
 });

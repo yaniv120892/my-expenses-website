@@ -4,7 +4,7 @@ import { importService } from '@/server/services/importService';
 
 export const POST = createHandler({
   auth: 'session',
-  acceptsImportToken: true,
+  apiTokenScope: 'IMPORTS',
   bodySchema: processImportSchema,
   handler: async ({ userId, body }) =>
     importService.processImport(

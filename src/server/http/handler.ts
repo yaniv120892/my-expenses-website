@@ -5,10 +5,8 @@ import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
-import {
-  authenticateImportToken,
-  bearerImportToken,
-} from '@/server/auth/importTokens';
+import { authenticateApiToken, bearerApiToken } from '@/server/auth/apiTokens';
+import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
@@ -57,25 +55,25 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         auth: 'cron';
         heartbeatEnvVar?: string;
         rateLimit?: never;
-        acceptsImportToken?: never;
+        apiTokenScope?: never;
       }
     | {
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
-        acceptsImportToken?: never;
+        apiTokenScope?: never;
       }
     | {
         auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
-        acceptsImportToken?: boolean;
+        apiTokenScope?: ApiTokenScope;
       }
     | {
         auth: 'telegram';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
-        acceptsImportToken?: never;
+        apiTokenScope?: never;
       }
   );
 
@@ -93,24 +91,24 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
 async function resolveAuth(
   req: NextRequest,
   mode: AuthMode,
-  acceptsImportToken: boolean,
+  apiTokenScope: ApiTokenScope | undefined,
 ): Promise<string> {
   switch (mode) {
     case 'session': {
       // A session cookie wins over any bearer, as it does in requireUser.
-      const importToken = req.cookies.get(SESSION_COOKIE)?.value
+      const apiToken = req.cookies.get(SESSION_COOKIE)?.value
         ? null
-        : bearerImportToken(req);
-      if (!importToken) {
+        : bearerApiToken(req);
+      if (!apiToken) {
         return requireUser(req);
       }
-      if (!acceptsImportToken) {
+      if (!apiTokenScope) {
         throw new AuthError(
-          'IMPORT_TOKEN_NOT_ACCEPTED',
-          'This route does not accept an import token',
+          'API_TOKEN_NOT_ACCEPTED',
+          'This route does not accept an API token',
         );
       }
-      return authenticateImportToken(importToken);
+      return authenticateApiToken(apiToken, apiTokenScope);
     }
     case 'cron': {
       const authHeader = req.headers.get('authorization');
@@ -183,11 +181,7 @@ export function createHandler<
     let params: Record<string, string> = {};
 
     try {
-      userId = await resolveAuth(
-        req,
-        options.auth,
-        options.acceptsImportToken === true,
-      );
+      userId = await resolveAuth(req, options.auth, options.apiTokenScope);
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = options.paramsSchema
         ? options.paramsSchema.parse(params)

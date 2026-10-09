@@ -6,11 +6,11 @@ const { repository } = vi.hoisted(() => ({
   repository: { create: vi.fn() },
 }));
 
-vi.mock('@/server/repositories/importTokenRepository', () => ({
-  importTokenRepository: repository,
+vi.mock('@/server/repositories/apiTokenRepository', () => ({
+  apiTokenRepository: repository,
 }));
 
-import { importTokenService } from '@/server/services/importTokenService';
+import { apiTokenService } from '@/server/services/apiTokenService';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -19,17 +19,20 @@ beforeEach(() => {
   repository.create.mockImplementation(async (data) => ({
     id: 'token-id',
     name: data.name,
+    scopes: data.scopes,
     createdAt: new Date(),
     expiresAt: data.expiresAt,
     lastUsedAt: null,
   }));
 });
 
-describe('importTokenService.create', () => {
+describe('apiTokenService.create', () => {
   it('returns a prefixed token and stores only its hash', async () => {
-    const created = await importTokenService.create(USER_ID, 'script');
+    const created = await apiTokenService.create(USER_ID, 'script', [
+      'IMPORTS',
+    ]);
 
-    expect(created.token.startsWith('mxi_')).toBe(true);
+    expect(created.token.startsWith('mxk_')).toBe(true);
     const stored = repository.create.mock.calls[0][0];
     expect(stored.tokenHash).toBe(
       createHash('sha256').update(created.token).digest('hex'),
@@ -37,10 +40,16 @@ describe('importTokenService.create', () => {
     expect(JSON.stringify(stored)).not.toContain(created.token);
   });
 
+  it('stores each requested scope once', async () => {
+    await apiTokenService.create(USER_ID, 'script', ['IMPORTS', 'IMPORTS']);
+
+    expect(repository.create.mock.calls[0][0].scopes).toEqual(['IMPORTS']);
+  });
+
   it('expires the token a year out', async () => {
     const before = new Date();
 
-    await importTokenService.create(USER_ID, 'script');
+    await apiTokenService.create(USER_ID, 'script', ['IMPORTS']);
 
     const { expiresAt } = repository.create.mock.calls[0][0];
     expect(expiresAt.getTime()).toBeGreaterThanOrEqual(

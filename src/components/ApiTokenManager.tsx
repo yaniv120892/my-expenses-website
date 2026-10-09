@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -12,6 +13,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   Stack,
   Table,
@@ -26,11 +29,12 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
-  useCreateImportTokenMutation,
-  useImportTokensQuery,
-  useRevokeImportTokenMutation,
-} from '@/hooks/useImportTokensQuery';
-import type { ImportTokenSummary } from '@/types/importToken';
+  useApiTokensQuery,
+  useCreateApiTokenMutation,
+  useRevokeApiTokenMutation,
+} from '@/hooks/useApiTokensQuery';
+import { API_TOKEN_SCOPES } from '@/shared/types/apiToken';
+import type { ApiTokenScope, ApiTokenSummary } from '@/types/apiToken';
 import { describeApiError } from '@/utils/api';
 import { formatDay } from '@/utils/dateUtils';
 
@@ -40,27 +44,47 @@ const COPY_LABELS = {
   failed: 'Copy failed — select the text instead',
 } as const;
 
-export default function ImportTokenManager() {
-  const { data: tokens, isLoading, error } = useImportTokensQuery();
-  const createMutation = useCreateImportTokenMutation();
-  const revokeMutation = useRevokeImportTokenMutation();
+const SCOPE_DETAILS = {
+  IMPORTS: {
+    label: 'Imports',
+    description: 'Upload statements, preview and approve imports',
+  },
+} satisfies Record<ApiTokenScope, { label: string; description: string }>;
+
+export default function ApiTokenManager() {
+  const { data: tokens, isLoading, error } = useApiTokensQuery();
+  const createMutation = useCreateApiTokenMutation();
+  const revokeMutation = useRevokeApiTokenMutation();
   const [name, setName] = useState('');
+  const [scopes, setScopes] = useState<ApiTokenScope[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>(
     'idle',
   );
-  const [pendingRevoke, setPendingRevoke] = useState<ImportTokenSummary | null>(
+  const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
     null,
   );
 
+  const toggleScope = (scope: ApiTokenScope) => {
+    setScopes((current) =>
+      current.includes(scope)
+        ? current.filter((existing) => existing !== scope)
+        : [...current, scope],
+    );
+  };
+
   const handleCreate = () => {
-    createMutation.mutate(name.trim(), {
-      onSuccess: (created) => {
-        setCreatedToken(created.token);
-        setCopyState('idle');
-        setName('');
+    createMutation.mutate(
+      { name: name.trim(), scopes },
+      {
+        onSuccess: (created) => {
+          setCreatedToken(created.token);
+          setCopyState('idle');
+          setName('');
+          setScopes([]);
+        },
       },
-    });
+    );
   };
 
   const handleCopy = async (token: string) => {
@@ -85,9 +109,9 @@ export default function ImportTokenManager() {
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        A token lets <code>npm run statements:import</code> drive the import
-        routes without a browser session. It works on imports only, lasts a
-        year, and can be revoked here at any time.
+        A token lets a script such as <code>npm run statements:import</code>{' '}
+        call the API without a browser session. It can do only what its scopes
+        allow, lasts a year, and can be revoked here at any time.
       </Typography>
 
       <Stack direction="row" spacing={1}>
@@ -102,11 +126,28 @@ export default function ImportTokenManager() {
         <Button
           variant="contained"
           onClick={handleCreate}
-          disabled={!name.trim() || createMutation.isPending}
+          disabled={
+            !name.trim() || scopes.length === 0 || createMutation.isPending
+          }
         >
           {createMutation.isPending ? <CircularProgress size={20} /> : 'Create'}
         </Button>
       </Stack>
+      <FormGroup>
+        {API_TOKEN_SCOPES.map((scope) => (
+          <FormControlLabel
+            key={scope}
+            control={
+              <Checkbox
+                size="small"
+                checked={scopes.includes(scope)}
+                onChange={() => toggleScope(scope)}
+              />
+            }
+            label={`${SCOPE_DETAILS[scope].label} — ${SCOPE_DETAILS[scope].description}`}
+          />
+        ))}
+      </FormGroup>
 
       {createdToken && (
         <Alert severity="warning" onClose={() => setCreatedToken(null)}>
@@ -135,14 +176,14 @@ export default function ImportTokenManager() {
 
       {mutationError && (
         <Alert severity="error">
-          {describeApiError(mutationError, 'Import token request failed')}
+          {describeApiError(mutationError, 'API token request failed')}
         </Alert>
       )}
 
       {isLoading && <CircularProgress size={24} />}
       {error && (
         <Alert severity="error">
-          {describeApiError(error, 'Failed to load import tokens')}
+          {describeApiError(error, 'Failed to load API tokens')}
         </Alert>
       )}
       {tokens && tokens.length > 0 && (
@@ -150,6 +191,7 @@ export default function ImportTokenManager() {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
+              <TableCell>Scopes</TableCell>
               <TableCell>Created</TableCell>
               <TableCell>Last used</TableCell>
               <TableCell>Expires</TableCell>
@@ -165,6 +207,17 @@ export default function ImportTokenManager() {
               return (
                 <TableRow key={token.id}>
                   <TableCell>{token.name}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5}>
+                      {token.scopes.map((scope) => (
+                        <Chip
+                          key={scope}
+                          size="small"
+                          label={SCOPE_DETAILS[scope].label}
+                        />
+                      ))}
+                    </Stack>
+                  </TableCell>
                   <TableCell>{formatDay(token.createdAt)}</TableCell>
                   <TableCell>
                     {token.lastUsedAt ? formatDay(token.lastUsedAt) : 'Never'}

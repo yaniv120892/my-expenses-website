@@ -4,7 +4,7 @@ import { importService } from '@/server/services/importService';
 
 export const POST = createHandler({
   auth: 'session',
-  acceptsImportToken: true,
+  apiTokenScope: 'IMPORTS',
   bodySchema: approveImportedTransactionSchema,
   handler: async ({ userId, body, params }) => {
     await importService.approveImportedTransaction(

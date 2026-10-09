@@ -743,18 +743,28 @@ async function waitForImportCompletion(
   return found;
 }
 
-async function importTokenFlow(
+async function apiTokenFlow(
   sessionToken: string,
   otherUserSessionToken: string,
 ): Promise<string> {
-  const created = await api('POST', '/api/import-tokens', {
+  const unscoped = await api('POST', '/api/api-tokens', {
     token: sessionToken,
-    body: { name: 'e2e statements script' },
+    body: { name: 'no scopes', scopes: [] },
+  });
+  check(
+    'API tokens: a token needs at least one scope',
+    unscoped.status === 400,
+    `status ${unscoped.status}`,
+  );
+
+  const created = await api('POST', '/api/api-tokens', {
+    token: sessionToken,
+    body: { name: 'e2e statements script', scopes: ['IMPORTS'] },
   });
   const { id, token } = (created.body ?? {}) as { id?: string; token?: string };
   check(
-    'import tokens: a session creates one and sees its plaintext once',
-    created.status === 201 && Boolean(token?.startsWith('mxi_')),
+    'API tokens: a session creates one and sees its plaintext once',
+    created.status === 201 && Boolean(token?.startsWith('mxk_')),
     `status ${created.status}`,
   );
   if (!id || !token) {
@@ -762,30 +772,30 @@ async function importTokenFlow(
   }
 
   const [stored] = await query<{ tokenHash: string }>(
-    'select "tokenHash" from "ImportToken" where id = $1',
+    'select "tokenHash" from "ApiToken" where id = $1',
     [id],
   );
   check(
-    'import tokens: only a hash is stored',
+    'API tokens: only a hash is stored',
     Boolean(stored) &&
       stored.tokenHash !== token &&
       !stored.tokenHash.includes(token),
   );
 
-  const listed = await api('GET', '/api/import-tokens', {
+  const listed = await api('GET', '/api/api-tokens', {
     token: sessionToken,
   });
   check(
-    'import tokens: the list never carries the token',
+    'API tokens: the list never carries the token',
     listed.status === 200 && !JSON.stringify(listed.body).includes(token),
     `status ${listed.status}`,
   );
 
   const outsideImports = await api('GET', '/api/transactions', { token });
   check(
-    'import tokens: refused outside the import routes',
+    'API tokens: refused outside the import routes',
     outsideImports.status === 401 &&
-      errorCode(outsideImports) === 'IMPORT_TOKEN_NOT_ACCEPTED',
+      errorCode(outsideImports) === 'API_TOKEN_NOT_ACCEPTED',
     `status ${outsideImports.status}`,
   );
 
@@ -795,27 +805,27 @@ async function importTokenFlow(
     { token },
   );
   check(
-    'import tokens: refused on an import route the script does not drive',
+    'API tokens: refused on an import route the script does not drive',
     deletesImport.status === 401 &&
-      errorCode(deletesImport) === 'IMPORT_TOKEN_NOT_ACCEPTED',
+      errorCode(deletesImport) === 'API_TOKEN_NOT_ACCEPTED',
     `status ${deletesImport.status}`,
   );
 
-  const mintsAnother = await api('POST', '/api/import-tokens', {
+  const mintsAnother = await api('POST', '/api/api-tokens', {
     token,
     body: { name: 'minted by a token' },
   });
   check(
-    'import tokens: a token cannot mint another',
+    'API tokens: a token cannot mint another',
     mintsAnother.status === 401,
     `status ${mintsAnother.status}`,
   );
 
-  const otherUserRevoke = await api('DELETE', `/api/import-tokens/${id}`, {
+  const otherUserRevoke = await api('DELETE', `/api/api-tokens/${id}`, {
     token: otherUserSessionToken,
   });
   check(
-    "import tokens: another user cannot revoke one's token",
+    "API tokens: another user cannot revoke one's token",
     otherUserRevoke.status === 404,
     `status ${otherUserRevoke.status}`,
   );
@@ -823,11 +833,11 @@ async function importTokenFlow(
   return token;
 }
 
-async function importTokenRevocationFlow(
+async function apiTokenRevocationFlow(
   sessionToken: string,
-  importToken: string,
+  apiToken: string,
 ): Promise<void> {
-  const listed = await api('GET', '/api/import-tokens', {
+  const listed = await api('GET', '/api/api-tokens', {
     token: sessionToken,
   });
   const tokens = (listed.body ?? []) as {
@@ -836,7 +846,7 @@ async function importTokenRevocationFlow(
   }[];
   const [used] = tokens;
   check(
-    'import tokens: use is recorded',
+    'API tokens: use is recorded',
     tokens.length === 1 && used.lastUsedAt !== null,
     `${tokens.length} tokens, lastUsedAt ${used?.lastUsedAt}`,
   );
@@ -844,15 +854,15 @@ async function importTokenRevocationFlow(
     return;
   }
 
-  const revoked = await api('DELETE', `/api/import-tokens/${used.id}`, {
+  const revoked = await api('DELETE', `/api/api-tokens/${used.id}`, {
     token: sessionToken,
   });
-  const afterRevoke = await api('GET', '/api/imports', { token: importToken });
+  const afterRevoke = await api('GET', '/api/imports', { token: apiToken });
   check(
-    'import tokens: a revoked token stops working',
+    'API tokens: a revoked token stops working',
     revoked.status === 200 &&
       afterRevoke.status === 401 &&
-      errorCode(afterRevoke) === 'INVALID_IMPORT_TOKEN',
+      errorCode(afterRevoke) === 'INVALID_API_TOKEN',
     `revoke ${revoked.status}, then ${afterRevoke.status}`,
   );
 }
@@ -1179,15 +1189,12 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
-  // The import flows run on an import token rather than the session, so they
+  // The import flows run on an Imports-scoped API token rather than the session, so they
   // prove the routes the statements script drives accept one.
-  const importToken = await importTokenFlow(
-    seeded.userA.token,
-    seeded.userB.token,
-  );
-  await importEncryptionFlow(importToken);
-  await importMergeFlow(importToken);
-  await importTokenRevocationFlow(seeded.userA.token, importToken);
+  const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
+  await importEncryptionFlow(apiToken);
+  await importMergeFlow(apiToken);
+  await apiTokenRevocationFlow(seeded.userA.token, apiToken);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

@@ -7,33 +7,46 @@ const { repository, loggerMock } = vi.hoisted(() => ({
   loggerMock: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/server/repositories/importTokenRepository', () => ({
-  importTokenRepository: repository,
+vi.mock('@/server/repositories/apiTokenRepository', () => ({
+  apiTokenRepository: repository,
 }));
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
 
-import {
-  authenticateImportToken,
-  bearerImportToken,
-} from '@/server/auth/importTokens';
+import { authenticateApiToken, bearerApiToken } from '@/server/auth/apiTokens';
 import { AuthError } from '@/server/auth/session';
+import { HttpError } from '@/server/http/errors';
+import type { ApiTokenScope } from '@/shared/types/apiToken';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const HOUR_MS = 60 * 60 * 1000;
 
 function storedToken(
-  overrides: { expiresAt?: Date; lastUsedAt?: Date | null } = {},
+  overrides: {
+    expiresAt?: Date;
+    lastUsedAt?: Date | null;
+    scopes?: ApiTokenScope[];
+  } = {},
 ) {
   return {
     id: 'token-id',
     userId: USER_ID,
+    scopes: overrides.scopes ?? ['IMPORTS'],
     expiresAt: overrides.expiresAt ?? new Date(Date.now() + 24 * HOUR_MS),
     lastUsedAt: overrides.lastUsedAt ?? null,
   };
 }
 
+async function rejection(promise: Promise<unknown>): Promise<unknown> {
+  return promise.then(
+    () => {
+      throw new Error('Expected a rejection');
+    },
+    (err: unknown) => err,
+  );
+}
+
 async function authError(promise: Promise<unknown>): Promise<AuthError> {
-  const error = await promise.catch((err: unknown) => err);
+  const error = await rejection(promise);
   if (!(error instanceof AuthError)) {
     throw new Error(`Expected an AuthError, got ${String(error)}`);
   }
@@ -44,15 +57,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('authenticateImportToken', () => {
+describe('authenticateApiToken', () => {
   it('looks the token up by its SHA-256 and returns its owner', async () => {
     repository.findByHash.mockResolvedValue(storedToken());
 
-    const userId = await authenticateImportToken('mxi_secret');
+    const userId = await authenticateApiToken('mxk_secret', 'IMPORTS');
 
     expect(userId).toBe(USER_ID);
     expect(repository.findByHash).toHaveBeenCalledWith(
-      createHash('sha256').update('mxi_secret').digest('hex'),
+      createHash('sha256').update('mxk_secret').digest('hex'),
     );
     expect(repository.markUsed).toHaveBeenCalledWith(
       'token-id',
@@ -60,12 +73,24 @@ describe('authenticateImportToken', () => {
     );
   });
 
+  it('refuses a token without the route scope, with a 403', async () => {
+    repository.findByHash.mockResolvedValue(storedToken({ scopes: [] }));
+
+    const error = await rejection(
+      authenticateApiToken('mxk_secret', 'IMPORTS'),
+    );
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error).toMatchObject({ status: 403 });
+    expect(repository.markUsed).not.toHaveBeenCalled();
+  });
+
   it('skips the last-used write when the token was used within the hour', async () => {
     repository.findByHash.mockResolvedValue(
       storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS / 2) }),
     );
 
-    await authenticateImportToken('mxi_secret');
+    await authenticateApiToken('mxk_secret', 'IMPORTS');
 
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
@@ -75,7 +100,7 @@ describe('authenticateImportToken', () => {
       storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS) }),
     );
 
-    await authenticateImportToken('mxi_secret');
+    await authenticateApiToken('mxk_secret', 'IMPORTS');
 
     expect(repository.markUsed).toHaveBeenCalled();
   });
@@ -83,9 +108,9 @@ describe('authenticateImportToken', () => {
   it('rejects an unknown token', async () => {
     repository.findByHash.mockResolvedValue(null);
 
-    const error = await authError(authenticateImportToken('mxi_nope'));
+    const error = await authError(authenticateApiToken('mxk_nope', 'IMPORTS'));
 
-    expect(error.code).toBe('INVALID_IMPORT_TOKEN');
+    expect(error.code).toBe('INVALID_API_TOKEN');
   });
 
   it('rejects an expired token without recording a use', async () => {
@@ -93,9 +118,9 @@ describe('authenticateImportToken', () => {
       storedToken({ expiresAt: new Date(Date.now() - 1) }),
     );
 
-    const error = await authError(authenticateImportToken('mxi_old'));
+    const error = await authError(authenticateApiToken('mxk_old', 'IMPORTS'));
 
-    expect(error.code).toBe('IMPORT_TOKEN_EXPIRED');
+    expect(error.code).toBe('API_TOKEN_EXPIRED');
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
 
@@ -103,12 +128,14 @@ describe('authenticateImportToken', () => {
     repository.findByHash.mockResolvedValue(storedToken());
     repository.markUsed.mockRejectedValue(new Error('db down'));
 
-    await expect(authenticateImportToken('mxi_secret')).resolves.toBe(USER_ID);
+    await expect(authenticateApiToken('mxk_secret', 'IMPORTS')).resolves.toBe(
+      USER_ID,
+    );
     expect(loggerMock.warn).toHaveBeenCalled();
   });
 });
 
-describe('bearerImportToken', () => {
+describe('bearerApiToken', () => {
   function request(authorization?: string): NextRequest {
     return new NextRequest('http://localhost/api/imports', {
       headers: authorization ? { authorization } : {},
@@ -116,11 +143,11 @@ describe('bearerImportToken', () => {
   }
 
   it('returns a prefixed bearer', () => {
-    expect(bearerImportToken(request('Bearer mxi_abc'))).toBe('mxi_abc');
+    expect(bearerApiToken(request('Bearer mxk_abc'))).toBe('mxk_abc');
   });
 
   it('ignores a session JWT bearer and a missing header', () => {
-    expect(bearerImportToken(request('Bearer eyJhbGciOi'))).toBeNull();
-    expect(bearerImportToken(request())).toBeNull();
+    expect(bearerApiToken(request('Bearer eyJhbGciOi'))).toBeNull();
+    expect(bearerApiToken(request())).toBeNull();
   });
 });

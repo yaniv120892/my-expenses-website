@@ -90,7 +90,7 @@ model User {
   categoryMappings          UserCategoryMapping[]
   detectedSubscriptions     DetectedSubscription[]
   announcementAcks          AnnouncementAck[]
-  importTokens              ImportToken[]
+  apiTokens                 ApiToken[]
 }
 
 // Which in-app announcements a user has acknowledged. announcementId is a
@@ -262,15 +262,20 @@ model UserCategoryMapping {
   @@index([userId])
 }
 
-model ImportToken {
-  id         String    @id @default(uuid()) @db.Uuid
-  userId     String    @db.Uuid
+enum ApiTokenScope {
+  IMPORTS
+}
+
+model ApiToken {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @db.Uuid
   name       String
-  tokenHash  String    @unique
+  tokenHash  String          @unique
+  scopes     ApiTokenScope[]
   expiresAt  DateTime
   lastUsedAt DateTime?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

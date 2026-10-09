@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import type { ApiTokenScope } from '@/shared/types/apiToken';
 
-const { authenticateImportToken, requireUser } = vi.hoisted(() => ({
-  authenticateImportToken: vi.fn(),
+const { authenticateApiToken, requireUser } = vi.hoisted(() => ({
+  authenticateApiToken: vi.fn(),
   requireUser: vi.fn(),
 }));
 
-vi.mock('@/server/auth/importTokens', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/importTokens')>(
-    '@/server/auth/importTokens',
+vi.mock('@/server/auth/apiTokens', async () => ({
+  ...(await vi.importActual<typeof import('@/server/auth/apiTokens')>(
+    '@/server/auth/apiTokens',
   )),
-  authenticateImportToken,
+  authenticateApiToken,
 }));
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof import('@/server/auth/session')>(
@@ -41,10 +42,10 @@ function request(authorization: string, cookie?: string): NextRequest {
   });
 }
 
-function echoUserRoute(acceptsImportToken: boolean) {
+function echoUserRoute(apiTokenScope?: ApiTokenScope) {
   return createHandler({
     auth: 'session',
-    acceptsImportToken,
+    apiTokenScope,
     handler: async ({ userId }) => ({ userId }),
   });
 }
@@ -53,52 +54,52 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('createHandler import token auth', () => {
-  it('admits an import token on a route that accepts one', async () => {
-    authenticateImportToken.mockResolvedValue(TOKEN_OWNER);
+describe('createHandler API token auth', () => {
+  it("checks an API token against the route's scope", async () => {
+    authenticateApiToken.mockResolvedValue(TOKEN_OWNER);
 
-    const response = await echoUserRoute(true)(
-      request('Bearer mxi_secret'),
+    const response = await echoUserRoute('IMPORTS')(
+      request('Bearer mxk_secret'),
       ROUTE_CONTEXT,
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ userId: TOKEN_OWNER });
-    expect(authenticateImportToken).toHaveBeenCalledWith('mxi_secret');
+    expect(authenticateApiToken).toHaveBeenCalledWith('mxk_secret', 'IMPORTS');
     expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it('refuses an import token on every other session route', async () => {
-    const response = await echoUserRoute(false)(
-      request('Bearer mxi_secret'),
+  it('refuses an API token on a route that declares no scope', async () => {
+    const response = await echoUserRoute()(
+      request('Bearer mxk_secret'),
       ROUTE_CONTEXT,
     );
 
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({
-      code: 'IMPORT_TOKEN_NOT_ACCEPTED',
+      code: 'API_TOKEN_NOT_ACCEPTED',
     });
-    expect(authenticateImportToken).not.toHaveBeenCalled();
+    expect(authenticateApiToken).not.toHaveBeenCalled();
   });
 
-  it('lets a session cookie win over an import token bearer', async () => {
+  it('lets a session cookie win over an API token bearer', async () => {
     requireUser.mockResolvedValue('session-user');
 
-    const response = await echoUserRoute(false)(
-      request('Bearer mxi_secret', 'session=browser-jwt'),
+    const response = await echoUserRoute()(
+      request('Bearer mxk_secret', 'session=browser-jwt'),
       ROUTE_CONTEXT,
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ userId: 'session-user' });
-    expect(authenticateImportToken).not.toHaveBeenCalled();
+    expect(authenticateApiToken).not.toHaveBeenCalled();
   });
 
   it('treats an empty session cookie as absent, as requireUser does', async () => {
-    authenticateImportToken.mockResolvedValue(TOKEN_OWNER);
+    authenticateApiToken.mockResolvedValue(TOKEN_OWNER);
 
-    const response = await echoUserRoute(true)(
-      request('Bearer mxi_secret', 'session='),
+    const response = await echoUserRoute('IMPORTS')(
+      request('Bearer mxk_secret', 'session='),
       ROUTE_CONTEXT,
     );
 
@@ -106,15 +107,15 @@ describe('createHandler import token auth', () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it('still takes a session bearer on a route that accepts import tokens', async () => {
+  it('still takes a session bearer on a route that declares a scope', async () => {
     requireUser.mockResolvedValue('session-user');
 
-    const response = await echoUserRoute(true)(
+    const response = await echoUserRoute('IMPORTS')(
       request('Bearer eyJhbGciOi.session.jwt'),
       ROUTE_CONTEXT,
     );
 
     expect(await response.json()).toEqual({ userId: 'session-user' });
-    expect(authenticateImportToken).not.toHaveBeenCalled();
+    expect(authenticateApiToken).not.toHaveBeenCalled();
   });
 });

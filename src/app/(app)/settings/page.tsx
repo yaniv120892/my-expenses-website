@@ -27,7 +27,7 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
 import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '@/components/shell/PageHeader';
-import ImportTokenManager from '@/components/ImportTokenManager';
+import ApiTokenManager from '@/components/ApiTokenManager';
 import {
   useTestMonthlyReportMutation,
   useTestTelegramMutation,
@@ -451,8 +451,8 @@ export default function SettingsPage() {
           </Typography>
         </SettingsSection>
 
-        <SettingsSection title="Import tokens">
-          <ImportTokenManager />
+        <SettingsSection title="API tokens">
+          <ApiTokenManager />
         </SettingsSection>
       </Stack>
 

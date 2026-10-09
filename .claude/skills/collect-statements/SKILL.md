@@ -107,9 +107,10 @@ recorded imports and only tells you nothing is left to reconcile.
 
 ## Running against production
 
-The bearer is an **import token**: Settings → Import tokens → Create, shown
-once. It lasts a year, works only on the import routes, and is revoked from the
-same table, which also shows when it was last used. Keep it in a file, out of
+The bearer is an **API token with the Imports scope**: Settings → API tokens,
+tick Imports, Create; it is shown once. It lasts a year, works only on the
+routes its scopes open, and is revoked from the same table, which also shows
+when it was last used. Keep it in a file, out of
 transcripts and shell history; the human pastes it there, since the page shows
 it only to them.
 
@@ -317,8 +318,8 @@ Search the account's whole transaction history over the imported span, not only
 the rows just added: the fee recurs monthly and its wording moves (`דמי כרטיס`
 one month, `דמי כרטיס הנפקה` the next).
 
-The import token cannot read transactions — it is scoped to the import routes
-on purpose. Read them from a tab where the human is logged in to the site,
+An Imports-scoped token cannot read transactions; no scope opens
+`/api/transactions` yet. Read them from a tab where the human is logged in to the site,
 through Claude in Chrome's JavaScript tool; the session cookie travels with a
 same-origin request:
 

@@ -1,7 +1,6 @@
 import type {
   ApiTokenScope,
   ApiTokenSummary as SharedApiTokenSummary,
-  CreatedApiToken as SharedCreatedApiToken,
 } from '@/shared/types/apiToken';
 
 export type { ApiTokenScope };
@@ -15,5 +14,4 @@ export type ApiTokenSummary = Omit<
   lastUsedAt: string | null;
 };
 
-export type CreatedApiToken = ApiTokenSummary &
-  Pick<SharedCreatedApiToken, 'token'>;
+export type CreatedApiToken = ApiTokenSummary & { token: string };

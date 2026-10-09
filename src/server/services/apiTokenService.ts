@@ -1,6 +1,5 @@
-import { randomBytes } from 'node:crypto';
 import { addYears } from 'date-fns';
-import { API_TOKEN_PREFIX, hashApiToken } from '@/server/auth/apiTokenFormat';
+import { hashApiToken, mintApiToken } from '@/server/auth/apiTokenFormat';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import type {
   ApiTokenScope,
@@ -14,7 +13,7 @@ export class ApiTokenService {
     name: string,
     scopes: ApiTokenScope[],
   ): Promise<CreatedApiToken> {
-    const token = `${API_TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
+    const token = mintApiToken();
     const summary = await apiTokenRepository.create({
       userId,
       name,

@@ -12,6 +12,7 @@ vi.mock('@/server/repositories/apiTokenRepository', () => ({
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
 
 import { authenticateApiToken } from '@/server/auth/apiTokens';
+import { mintApiToken } from '@/server/auth/apiTokenFormat';
 import { HttpError } from '@/server/http/errors';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
@@ -34,19 +35,23 @@ function storedToken(
   };
 }
 
+let token: string;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.JWT_SECRET = 'test-secret';
+  token = mintApiToken();
 });
 
 describe('authenticateApiToken', () => {
   it('looks the token up by its SHA-256 and returns its owner', async () => {
     repository.findByHash.mockResolvedValue(storedToken());
 
-    const userId = await authenticateApiToken('mxk_secret', 'IMPORTS');
+    const identity = await authenticateApiToken(token, 'IMPORTS');
 
-    expect(userId).toBe(USER_ID);
+    expect(identity).toEqual({ userId: USER_ID, apiTokenId: 'token-id' });
     expect(repository.findByHash).toHaveBeenCalledWith(
-      createHash('sha256').update('mxk_secret').digest('hex'),
+      createHash('sha256').update(token).digest('hex'),
     );
     expect(repository.markUsed).toHaveBeenCalledWith(
       'token-id',
@@ -54,10 +59,22 @@ describe('authenticateApiToken', () => {
     );
   });
 
+  it('refuses a forged token without a database lookup', async () => {
+    const forged = `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`;
+
+    await expect(authenticateApiToken(forged, 'IMPORTS')).rejects.toMatchObject(
+      { code: 'INVALID_API_TOKEN' },
+    );
+    await expect(
+      authenticateApiToken('mxk_garbage', 'IMPORTS'),
+    ).rejects.toMatchObject({ code: 'INVALID_API_TOKEN' });
+    expect(repository.findByHash).not.toHaveBeenCalled();
+  });
+
   it('refuses a token without the route scope, with a 403', async () => {
     repository.findByHash.mockResolvedValue(storedToken({ scopes: [] }));
 
-    const authentication = authenticateApiToken('mxk_secret', 'IMPORTS');
+    const authentication = authenticateApiToken(token, 'IMPORTS');
 
     await expect(authentication).rejects.toBeInstanceOf(HttpError);
     await expect(authentication).rejects.toMatchObject({ status: 403 });
@@ -69,7 +86,7 @@ describe('authenticateApiToken', () => {
       storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS / 2) }),
     );
 
-    await authenticateApiToken('mxk_secret', 'IMPORTS');
+    await authenticateApiToken(token, 'IMPORTS');
 
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
@@ -79,7 +96,7 @@ describe('authenticateApiToken', () => {
       storedToken({ lastUsedAt: new Date(Date.now() - HOUR_MS) }),
     );
 
-    await authenticateApiToken('mxk_secret', 'IMPORTS');
+    await authenticateApiToken(token, 'IMPORTS');
 
     expect(repository.markUsed).toHaveBeenCalled();
   });
@@ -87,9 +104,9 @@ describe('authenticateApiToken', () => {
   it('rejects an unknown token', async () => {
     repository.findByHash.mockResolvedValue(null);
 
-    await expect(
-      authenticateApiToken('mxk_nope', 'IMPORTS'),
-    ).rejects.toMatchObject({ code: 'INVALID_API_TOKEN' });
+    await expect(authenticateApiToken(token, 'IMPORTS')).rejects.toMatchObject({
+      code: 'INVALID_API_TOKEN',
+    });
   });
 
   it('rejects an expired token without recording a use', async () => {
@@ -97,9 +114,9 @@ describe('authenticateApiToken', () => {
       storedToken({ expiresAt: new Date(Date.now() - 1) }),
     );
 
-    await expect(
-      authenticateApiToken('mxk_old', 'IMPORTS'),
-    ).rejects.toMatchObject({ code: 'API_TOKEN_EXPIRED' });
+    await expect(authenticateApiToken(token, 'IMPORTS')).rejects.toMatchObject({
+      code: 'API_TOKEN_EXPIRED',
+    });
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
 
@@ -107,9 +124,10 @@ describe('authenticateApiToken', () => {
     repository.findByHash.mockResolvedValue(storedToken());
     repository.markUsed.mockRejectedValue(new Error('db down'));
 
-    await expect(authenticateApiToken('mxk_secret', 'IMPORTS')).resolves.toBe(
-      USER_ID,
-    );
+    await expect(authenticateApiToken(token, 'IMPORTS')).resolves.toEqual({
+      userId: USER_ID,
+      apiTokenId: 'token-id',
+    });
     expect(loggerMock.warn).toHaveBeenCalled();
   });
 });

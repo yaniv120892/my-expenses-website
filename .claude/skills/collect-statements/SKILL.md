@@ -115,7 +115,7 @@ transcripts and shell history; the human pastes it there, since the page shows
 it only to them.
 
 ```bash
-pbpaste > ~/.config/my-expenses/production-token && chmod 600 ~/.config/my-expenses/production-token
+(umask 077; pbpaste > ~/.config/my-expenses/production-token)
 IMPORT_API_TOKEN_FILE=~/.config/my-expenses/production-token \
   npm run statements:import -- <dir> --base-url=https://<site> --dry-run
 ```
@@ -296,7 +296,7 @@ Before the commit, approve each such row on its own. The row then becomes a
 new transaction and leaves the pending bill alone:
 
 ```bash
-curl -X POST -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+curl -X POST -H "Authorization: Bearer $(cat ~/.config/my-expenses/production-token)" -H 'Content-Type: application/json' \
   -d '{"description":"<row description>","value":<row value>,"date":"<row date>","type":"EXPENSE"}' \
   <base-url>/api/imports/transactions/<imported-row-id>/approve
 ```

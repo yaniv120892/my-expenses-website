@@ -56,7 +56,10 @@ beforeEach(() => {
 
 describe('createHandler API token auth', () => {
   it("checks an API token against the route's scope", async () => {
-    authenticateApiToken.mockResolvedValue(TOKEN_OWNER);
+    authenticateApiToken.mockResolvedValue({
+      userId: TOKEN_OWNER,
+      apiTokenId: 'token-id',
+    });
 
     const response = await echoUserRoute('IMPORTS')(
       request('Bearer mxk_secret'),
@@ -96,7 +99,10 @@ describe('createHandler API token auth', () => {
   });
 
   it('treats an empty session cookie as absent, as requireUser does', async () => {
-    authenticateApiToken.mockResolvedValue(TOKEN_OWNER);
+    authenticateApiToken.mockResolvedValue({
+      userId: TOKEN_OWNER,
+      apiTokenId: 'token-id',
+    });
 
     const response = await echoUserRoute('IMPORTS')(
       request('Bearer mxk_secret', 'session='),
@@ -105,6 +111,21 @@ describe('createHandler API token auth', () => {
 
     expect(await response.json()).toEqual({ userId: TOKEN_OWNER });
     expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it('never reads an API token from the session cookie', async () => {
+    requireUser.mockResolvedValue('session-user');
+
+    const response = await echoUserRoute('IMPORTS')(
+      new NextRequest('http://localhost/api/imports', {
+        headers: { cookie: 'session=mxk_planted' },
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(await response.json()).toEqual({ userId: 'session-user' });
+    expect(requireUser).toHaveBeenCalled();
+    expect(authenticateApiToken).not.toHaveBeenCalled();
   });
 
   it('still takes a session bearer on a route that declares a scope', async () => {

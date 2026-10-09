@@ -1,5 +1,8 @@
 import { AuthError } from '@/server/auth/session';
-import { hashApiToken } from '@/server/auth/apiTokenFormat';
+import {
+  hashApiToken,
+  isAuthenticApiToken,
+} from '@/server/auth/apiTokenFormat';
 import { HttpError } from '@/server/http/errors';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import logger from '@/server/logging/logger';
@@ -9,10 +12,15 @@ import type { ApiTokenScope } from '@/shared/types/apiToken';
 // writes it once rather than on every request.
 const LAST_USED_RESOLUTION_MS = 60 * 60 * 1000;
 
+export type ApiTokenIdentity = { userId: string; apiTokenId: string };
+
 export async function authenticateApiToken(
   token: string,
   requiredScope: ApiTokenScope,
-): Promise<string> {
+): Promise<ApiTokenIdentity> {
+  if (!isAuthenticApiToken(token)) {
+    throw new AuthError('INVALID_API_TOKEN', 'Invalid API token');
+  }
   const record = await apiTokenRepository.findByHash(hashApiToken(token));
   if (!record) {
     throw new AuthError('INVALID_API_TOKEN', 'Invalid API token');
@@ -33,7 +41,7 @@ export async function authenticateApiToken(
   if (isUseStale) {
     await recordUse(record.id, now);
   }
-  return record.userId;
+  return { userId: record.userId, apiTokenId: record.id };
 }
 
 async function recordUse(id: string, usedAt: Date): Promise<void> {

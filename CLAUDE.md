@@ -194,7 +194,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
   An **API token** (`mxk_…`, created and revoked in Settings, one year, only
   its SHA-256 stored in `ApiToken`) is a bearer for scripts, carrying a list of
-  scopes (`ApiTokenScope`). A route opts in by declaring the one scope it
+  scopes (`ApiTokenScope`). It is read from the `Authorization` header only,
+  never the cookie, and ends in an HMAC keyed by `JWT_SECRET`, so a forged one
+  is refused before any database lookup — rotating that secret revokes every
+  token along with every session. A request made with a token logs its
+  `apiTokenId`. A route opts in by declaring the one scope it
   needs, `apiTokenScope: 'IMPORTS'` on an `auth: 'session'` route; a token
   without that scope gets 403, and every route that declares none answers
   401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot

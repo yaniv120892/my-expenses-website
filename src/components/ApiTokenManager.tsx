@@ -101,7 +101,6 @@ export default function ApiTokenManager() {
     setPendingRevoke(null);
   };
 
-  const mutationError = createMutation.error ?? revokeMutation.error;
   const now = new Date();
 
   return (
@@ -172,9 +171,14 @@ export default function ApiTokenManager() {
         </Alert>
       )}
 
-      {mutationError && (
+      {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(mutationError, 'API token request failed')}
+          {describeApiError(createMutation.error, 'Failed to create the token')}
+        </Alert>
+      )}
+      {revokeMutation.error && (
+        <Alert severity="error">
+          {describeApiError(revokeMutation.error, 'Failed to revoke the token')}
         </Alert>
       )}
 

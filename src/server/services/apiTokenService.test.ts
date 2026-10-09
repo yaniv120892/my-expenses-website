@@ -16,6 +16,7 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.JWT_SECRET = 'test-secret';
   repository.create.mockImplementation(async (data) => ({
     id: 'token-id',
     name: data.name,

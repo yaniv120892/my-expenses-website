@@ -42,10 +42,48 @@ function declaredScopes(path: string): string[] {
     });
 }
 
+const SOURCE_DIR = join(process.cwd(), 'src');
+const LITERAL_DECLARATION = /^\s*apiTokenScope: '[A-Z_]+',$/;
+
+// Files that name apiTokenScope without granting one: its definition, and the
+// type test that checks which handler arms may declare it.
+const NON_GRANTING_FILES = ['server/http/handler.ts'];
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return entry.name === 'generated' ? [] : sourceFiles(path);
+    }
+    const isSource = /\.tsx?$/.test(entry.name);
+    const isTest = /\.test(-d)?\.tsx?$/.test(entry.name);
+    return isSource && !isTest ? [path] : [];
+  });
+}
+
 describe('API token scopes', () => {
   it('are declared on exactly the listed handlers', () => {
     const declared = routeFiles(API_DIR).flatMap(declaredScopes).sort();
 
     expect(declared).toEqual([...HANDLER_SCOPES].sort());
+  });
+
+  it('are granted only by a literal declaration in a route file', () => {
+    const grantsOutsideTheLedger = sourceFiles(SOURCE_DIR).flatMap((path) => {
+      const file = relative(SOURCE_DIR, path);
+      if (NON_GRANTING_FILES.includes(file)) {
+        return [];
+      }
+      return readFileSync(path, 'utf8')
+        .split('\n')
+        .filter((line) => line.includes('apiTokenScope'))
+        .filter(
+          (line) =>
+            !file.endsWith('/route.ts') || !LITERAL_DECLARATION.test(line),
+        )
+        .map((line) => `${file}: ${line.trim()}`);
+    });
+
+    expect(grantsOutsideTheLedger).toEqual([]);
   });
 });

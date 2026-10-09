@@ -791,6 +791,15 @@ async function apiTokenFlow(
     `status ${listed.status}`,
   );
 
+  const forged = await api('GET', '/api/imports', {
+    token: `mxk_${'A'.repeat(43)}${'B'.repeat(16)}`,
+  });
+  check(
+    'API tokens: a forged token is refused',
+    forged.status === 401 && errorCode(forged) === 'INVALID_API_TOKEN',
+    `status ${forged.status}`,
+  );
+
   const outsideImports = await api('GET', '/api/transactions', { token });
   check(
     'API tokens: refused outside the import routes',

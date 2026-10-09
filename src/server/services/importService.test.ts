@@ -97,6 +97,11 @@ const pendingRow = (over: Record<string, unknown> = {}) => ({
   status: 'PENDING',
   description: 'Coffee',
   value: 12.5,
+  currency: 'ILS',
+  originalAmount: 12.5,
+  exchangeRate: null,
+  exchangeRateDate: null,
+  exchangeRateSource: null,
   date: new Date(2026, 2, 7),
   type: 'EXPENSE',
   matchingTransaction: null,
@@ -110,6 +115,8 @@ const row = (over: Record<string, unknown> = {}) => ({
   description: 'Coffee',
   date: new Date(2026, 2, 7),
   value: 10,
+  currency: 'ILS',
+  originalAmount: 10,
   ...over,
 });
 
@@ -495,9 +502,11 @@ describe('matchSingleTransaction', () => {
 
     expect(findPotentialMatches).toHaveBeenCalledWith(
       'user-1',
-      new Date(2026, 2, 7),
-      10,
-      'EXPENSE',
+      expect.objectContaining({
+        date: new Date(2026, 2, 7),
+        value: 10,
+        type: 'EXPENSE',
+      }),
     );
   });
 
@@ -531,6 +540,11 @@ describe('buildReconciliationPlan', () => {
     id: 'tx-1',
     description: 'Coffee at the corner',
     value: 11,
+    currency: 'ILS',
+    originalAmount: 11,
+    exchangeRate: null,
+    exchangeRateDate: null,
+    exchangeRateSource: null,
     date: new Date(2026, 2, 5),
     status: 'PENDING_APPROVAL',
     categoryId: 'category-1',
@@ -542,6 +556,8 @@ describe('buildReconciliationPlan', () => {
     status: 'PENDING',
     description: 'Coffee',
     value: 12.5,
+    currency: 'ILS',
+    originalAmount: over.value ?? 12.5,
     date: new Date(2026, 2, 7),
     type: 'EXPENSE',
     matchingTransaction: null,
@@ -574,6 +590,8 @@ describe('buildReconciliationPlan', () => {
         action: 'CREATE',
         description: 'Coffee',
         value: 12.5,
+        currency: 'ILS',
+        originalAmount: 12.5,
         date: new Date(2026, 2, 7),
         type: 'EXPENSE',
         categoryId: null,
@@ -673,6 +691,8 @@ describe('buildReconciliationPlan', () => {
       before: {
         description: 'Coffee at the corner',
         value: 11,
+        currency: 'ILS',
+        originalAmount: 11,
         date: new Date(2026, 2, 5),
       },
     });
@@ -855,6 +875,12 @@ describe('a batch applies the rows it already loaded', () => {
     description: 'Coffee',
     categoryId: 'cat-1',
     status: 'PENDING_APPROVAL',
+    value: 12.5,
+    currency: 'ILS',
+    originalAmount: 12.5,
+    exchangeRate: null,
+    exchangeRateDate: null,
+    exchangeRateSource: null,
   };
 
   const loadedRow = (over: Record<string, unknown> = {}) => ({
@@ -974,7 +1000,16 @@ describe('single-row approve, merge and ignore', () => {
       pendingRow({
         deleted: false,
         matchingTransactionId: 'tx-1',
-        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+        matchingTransaction: {
+          id: 'tx-1',
+          userId: 'user-1',
+          value: 12.5,
+          currency: 'ILS',
+          originalAmount: 12.5,
+          exchangeRate: null,
+          exchangeRateDate: null,
+          exchangeRateSource: null,
+        },
       }),
     );
     const lostRace = {
@@ -994,7 +1029,16 @@ describe('single-row approve, merge and ignore', () => {
       pendingRow({
         deleted: false,
         matchingTransactionId: 'tx-1',
-        matchingTransaction: { id: 'tx-1', userId: 'user-1' },
+        matchingTransaction: {
+          id: 'tx-1',
+          userId: 'user-1',
+          value: 12.5,
+          currency: 'ILS',
+          originalAmount: 12.5,
+          exchangeRate: null,
+          exchangeRateDate: null,
+          exchangeRateSource: null,
+        },
       }),
     );
     prismaMock.$transaction.mockRejectedValue({

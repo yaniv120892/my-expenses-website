@@ -1,5 +1,6 @@
 import {
   Import,
+  ImportedTransaction,
   ImportStatus,
   TransactionType,
   TransactionStatus,
@@ -30,12 +31,22 @@ import {
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
 import {
+  DatedImportedAmount,
   ReconciliationPlanItem,
   ReconciliationPreviewItem,
   NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
 import type { Transaction } from '@/shared/types/transaction';
-import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
+import {
+  findExactNormalizedMatch,
+  type MatchableCharge,
+} from '@/server/utils/transactionMatching';
+import importedAmountService from '@/server/services/importedAmountService';
+import {
+  fromAmountColumns,
+  fromImportedAmountColumns,
+} from '@/server/repositories/amountColumns';
+import { toMoneyNumber } from '@/server/utils/money';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 import { isCardHoldingFee } from '@/shared/cardFees';
 
@@ -64,9 +75,10 @@ interface BatchResult {
   errors: { id: string; error: string }[];
 }
 
+// `value` is an ILS amount the user typed; absent, the row's own stands.
 interface ApproveImportedTransactionData {
   description: string;
-  value: number;
+  value?: number;
   date: Date;
   type: TransactionType;
   categoryId: string | null;
@@ -74,19 +86,16 @@ interface ApproveImportedTransactionData {
 
 interface MergeImportedTransactionData {
   description: string;
-  value: number;
+  value?: number;
   date: Date;
   type: TransactionType;
   // Absent means keep the matched transaction's existing category.
   categoryId?: string;
 }
 
-type MatchableTransaction = {
+type MatchableTransaction = MatchableCharge & {
   id: string;
   description: string;
-  date: Date;
-  value: number;
-  type: TransactionType;
 };
 
 type PlannedRow = {
@@ -249,10 +258,19 @@ class ImportService {
   }
 
   public async getImportedTransactions(importId: string, userId: string) {
-    return importedTransactionRepository.findByUserIdAndImportId(
+    const rows = await importedTransactionRepository.findByUserIdAndImportId(
       userId,
       importId,
     );
+    // Decimal columns would serialize as strings; the client reads numbers.
+    return rows.map((row) => ({
+      ...row,
+      ...fromImportedAmountColumns(row),
+      matchingTransaction: row.matchingTransaction && {
+        ...row.matchingTransaction,
+        ...fromAmountColumns(row.matchingTransaction),
+      },
+    }));
   }
 
   public async approveImportedTransaction(
@@ -313,7 +331,10 @@ class ImportService {
     // network work has no place inside a database transaction.
     const transactionModel = await transactionService.prepareCreateTransaction({
       description: transactionData.description,
-      value: transactionData.value,
+      resolvedAmount: importedAmountService.resolveApprovedAmount(
+        this.toImportedAmountAt(record),
+        transactionData.value,
+      ),
       date: transactionData.date,
       type: transactionData.type,
       userId: record.userId,
@@ -366,6 +387,11 @@ class ImportService {
 
     const approveMatch =
       matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
+    const amount = importedAmountService.resolveApprovedAmount(
+      this.toImportedAmountAt(record),
+      transactionData.value,
+      fromAmountColumns(matchingTransaction),
+    );
 
     // One batch, so the matched transaction cannot end up updated while the
     // imported row stays PENDING and re-mergeable.
@@ -376,7 +402,7 @@ class ImportService {
           {
             description: transactionData.description,
             type: transactionData.type,
-            value: transactionData.value,
+            amount,
             date: transactionData.date,
             categoryId: transactionData.categoryId,
             ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
@@ -586,6 +612,8 @@ class ImportService {
       action: match ? 'MERGE' : 'CREATE',
       description: transaction.description,
       value: transaction.value,
+      currency: transaction.currency,
+      originalAmount: toMoneyNumber(transaction.originalAmount),
       date: transaction.date,
       type: transaction.type,
       // Never fall back to the transaction id — it is not a category id.
@@ -598,6 +626,8 @@ class ImportService {
             before: {
               description: match.description,
               value: match.value,
+              currency: match.currency,
+              originalAmount: toMoneyNumber(match.originalAmount),
               date: match.date,
             },
           }
@@ -651,7 +681,6 @@ class ImportService {
   }: PlannedRow): Promise<string | null> {
     const payload = {
       description: item.description,
-      value: item.value,
       date: item.date,
       type: item.type,
     };
@@ -767,7 +796,7 @@ class ImportService {
     }
 
     await this.matchSequentially(
-      pendingTransactions,
+      pendingTransactions.map((row) => this.toMatchable(row)),
       userId,
       excludedTransactionIds,
       'Error re-matching transaction',
@@ -824,11 +853,13 @@ class ImportService {
       // Rows merged in from a duplicate import keep the match they already
       // hold, and rows already approved or ignored are decided.
       await this.matchSequentially(
-        importedTransactions.filter(
-          (t) =>
-            t.status === ImportedTransactionStatus.PENDING &&
-            !t.matchingTransactionId,
-        ),
+        importedTransactions
+          .filter(
+            (t) =>
+              t.status === ImportedTransactionStatus.PENDING &&
+              !t.matchingTransactionId,
+          )
+          .map((row) => this.toMatchable(row)),
         userId,
         excludedTransactionIds,
         'Error finding match for transaction',
@@ -851,9 +882,7 @@ class ImportService {
   ): Promise<string | null> {
     const matches = await transactionRepository.findPotentialMatches(
       userId,
-      transaction.date,
-      transaction.value,
-      transaction.type,
+      transaction,
     );
 
     const availableMatches = excludedIds
@@ -888,6 +917,22 @@ class ImportService {
     }
 
     return matchingTransactionId;
+  }
+
+  private toMatchable(row: ImportedTransaction): MatchableTransaction {
+    return {
+      id: row.id,
+      description: row.description,
+      date: row.date,
+      type: row.type,
+      value: row.value,
+      currency: row.currency,
+      originalAmount: toMoneyNumber(row.originalAmount),
+    };
+  }
+
+  private toImportedAmountAt(row: ImportedTransaction): DatedImportedAmount {
+    return { ...fromImportedAmountColumns(row), date: row.date };
   }
 
   private async claimMatch(

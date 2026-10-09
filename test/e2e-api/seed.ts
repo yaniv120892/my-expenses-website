@@ -143,6 +143,7 @@ export async function seed(): Promise<SeedResult> {
     ) => ({
       userId,
       value,
+      originalAmount: value,
       date: new Date(date),
       categoryId,
       description,

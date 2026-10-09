@@ -1,6 +1,8 @@
 import { ScheduleType, Transaction } from '../types';
+import type { ExchangeRateSource } from '@/shared/types/transaction';
 import { SubscriptionFrequency } from '../types/subscription';
 import { toDayString } from '@/shared/dates';
+import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 
 export function formatTransactionDate(date: string) {
   return toDayString(new Date(date));
@@ -61,6 +63,53 @@ const ilsRoundedFormatter = new Intl.NumberFormat('he-IL', {
 
 export function formatCurrencyRounded(value: number) {
   return ilsRoundedFormatter.format(value);
+}
+
+export const EXCHANGE_RATE_SOURCE_LABELS: Record<ExchangeRateSource, string> = {
+  STATEMENT: 'card statement',
+  BANK_OF_ISRAEL: 'Bank of Israel rate',
+  MANUAL: 'entered by hand',
+};
+
+const moneyFormatters = new Map<string, Intl.NumberFormat>();
+
+export function formatMoney(amount: number, currency: string) {
+  let formatter = moneyFormatters.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(
+      currency === BASE_CURRENCY ? 'he-IL' : 'en-US',
+      { style: 'currency', currency },
+    );
+    moneyFormatters.set(currency, formatter);
+  }
+  return formatter.format(amount);
+}
+
+type DisplayedAmount = {
+  value: number | null;
+  currency: string | null;
+  originalAmount: number;
+};
+
+/**
+ * The ILS amount, preceded by the original when the charge was in another
+ * currency: "$25.00 · ₪92.35". An unknown ILS amount says so instead of
+ * showing a number.
+ */
+export function formatAmountWithOriginal(amount: DisplayedAmount) {
+  const baseText =
+    amount.value === null
+      ? `${BASE_CURRENCY} amount missing`
+      : formatCurrencyPlain(amount.value);
+  if (amount.currency === null) {
+    return amount.value === null
+      ? `${formatNumber(amount.originalAmount)} (currency unknown) · ${baseText}`
+      : baseText;
+  }
+  if (!isForeignCurrency(amount.currency)) {
+    return baseText;
+  }
+  return `${formatMoney(amount.originalAmount, amount.currency)} · ${baseText}`;
 }
 
 export function translateToScheduleSummary(

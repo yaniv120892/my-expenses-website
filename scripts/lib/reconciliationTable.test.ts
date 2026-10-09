@@ -10,6 +10,8 @@ const counterpart = {
   transactionId: 'tx-1',
   description: 'אוכל לברונו',
   value: 470,
+  currency: 'ILS',
+  originalAmount: 470,
   date: new Date(2026, 5, 17),
   status: 'APPROVED' as const,
 };
@@ -21,6 +23,8 @@ const item = (
   action: 'CREATE',
   description: 'אנימל שופ חנות חיות',
   value: 470,
+  currency: 'ILS',
+  originalAmount: 470,
   date: new Date(2026, 5, 16),
   type: 'EXPENSE',
   categoryId: null,
@@ -43,6 +47,8 @@ const merge = (
       before: {
         description: 'Netflix',
         value: 470,
+        currency: 'ILS',
+        originalAmount: 470,
         date: new Date(2026, 5, 16),
       },
     },

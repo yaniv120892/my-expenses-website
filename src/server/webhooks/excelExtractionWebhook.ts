@@ -14,6 +14,9 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
+import importedAmountService from '@/server/services/importedAmountService';
+import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
+import { currencyCodeSchema } from '@/shared/currency';
 
 export interface WebhookResult {
   status: number;
@@ -30,19 +33,58 @@ const webhookEnvelopeSchema = z.object({
   error: z.string().optional(),
 });
 
+type ReportedCurrencies = {
+  originalCurrency?: string;
+  chargedAmount?: number;
+  chargedCurrency?: string;
+  currencyAmbiguous?: boolean;
+};
+
+// A code that is not ISO 4217 leaves the row's currency unknown, which is
+// ambiguous, not ILS: read as ILS, the foreign amount would be stored as shekels.
+function recogniseCurrencies<T extends ReportedCurrencies>(row: T): T {
+  const originalCurrency = currencyCodeSchema
+    .optional()
+    .safeParse(row.originalCurrency);
+  const chargedCurrency = currencyCodeSchema
+    .optional()
+    .safeParse(row.chargedCurrency);
+  if (originalCurrency.success && chargedCurrency.success) {
+    return {
+      ...row,
+      originalCurrency: originalCurrency.data,
+      chargedCurrency: chargedCurrency.data,
+    };
+  }
+  return {
+    ...row,
+    originalCurrency: originalCurrency.data,
+    chargedAmount: chargedCurrency.success ? row.chargedAmount : undefined,
+    chargedCurrency: chargedCurrency.data,
+    currencyAmbiguous: true,
+  };
+}
+
 // Validates only what the handlers consume, and tolerantly: a day written
 // 5/8/2026 or no card digits is still worth importing.
 const extractionResultSchema = z.object({
   transactions: z.array(
-    z.object({
-      date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
-      description: z.string(),
-      value: z.number(),
-      type: z.enum(['EXPENSE', 'INCOME']),
-      rawData: z
-        .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
-        .optional(),
-    }),
+    z
+      .object({
+        date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
+        description: z.string(),
+        value: z.number(),
+        type: z.enum(['EXPENSE', 'INCOME']),
+        rawData: z
+          .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+          .optional(),
+        originalAmount: z.number().nonnegative().optional(),
+        originalCurrency: z.string().optional(),
+        chargedAmount: z.number().nonnegative().optional(),
+        chargedCurrency: z.string().optional(),
+        currencyAmbiguous: z.boolean().optional(),
+      })
+      .transform(recogniseCurrencies),
   ),
   metadata: z.object({
     creditCardLastFour: z.string().nullish(),
@@ -237,7 +279,7 @@ async function handleCompletedExtraction(
     'Processing completed extraction',
   );
 
-  const transactions = toImportedTransactionRows(result, importId);
+  const transactions = await toImportedTransactionRows(result, importId);
   const metadata = reconcileMetadata(importRecord, result.metadata);
 
   await writeExtractionMetadata(importId, metadata);
@@ -272,21 +314,26 @@ async function handleCompletedExtraction(
   );
 }
 
-function toImportedTransactionRows(result: ExtractionResult, importId: string) {
-  return result.transactions.map((transaction) => {
+async function toImportedTransactionRows(
+  result: ExtractionResult,
+  importId: string,
+) {
+  const rows = result.transactions.map((transaction) => {
     // Extraction dates arrive as DD/MM/YYYY.
     const [day, month, year] = transaction.date.split('/').map(Number);
-
-    return {
-      description: transaction.description,
-      value: transaction.value,
-      date: new Date(year, month - 1, day),
-      type: transaction.type,
-      rawData: transaction.rawData || {},
-      matchingTransactionId: null,
-      importId,
-    };
+    return { ...transaction, date: new Date(year, month - 1, day) };
   });
+  const amounts = await importedAmountService.resolveExtractedAmounts(rows);
+
+  return rows.map((row, index) => ({
+    description: row.description,
+    ...toImportedAmountColumns(amounts[index]),
+    date: row.date,
+    type: row.type,
+    rawData: row.rawData ?? {},
+    matchingTransactionId: null,
+    importId,
+  }));
 }
 
 /**

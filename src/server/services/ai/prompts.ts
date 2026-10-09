@@ -5,7 +5,7 @@ import {
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
-import { formatCurrencyPlain } from '@/utils/format';
+import { formatAmountWithOriginal } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
 export function buildAnalyzeExpensesPrompt(
@@ -101,7 +101,7 @@ export function buildFindMatchingTransactionPrompt(
 ): string {
   return `Imported row:
 - description: ${JSON.stringify(importedCharge.description)}
-- amount: ${formatCurrencyPlain(importedCharge.value)}
+- amount: ${formatAmountWithOriginal(importedCharge)}
 - date: ${toDayString(importedCharge.date)}
 - type: ${importedCharge.type}
 
@@ -134,5 +134,5 @@ export function resolveMatchedTransactionId(
 }
 
 function describeCandidate(transaction: Transaction): string {
-  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatCurrencyPlain(transaction.value)} | date: ${toDayString(transaction.date)} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
+  return `- ID: ${transaction.id} | description: ${JSON.stringify(transaction.description)} | amount: ${formatAmountWithOriginal(transaction)} | date: ${toDayString(transaction.date)} | category: ${JSON.stringify(transaction.category.name)} | status: ${transaction.status}`;
 }

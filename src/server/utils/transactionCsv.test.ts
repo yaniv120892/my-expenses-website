@@ -12,6 +12,11 @@ const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
   id: 'id-1',
   description: 'Coffee',
   value: 12.5,
+  currency: 'ILS',
+  originalAmount: 12.5,
+  exchangeRate: null,
+  exchangeRateDate: null,
+  exchangeRateSource: null,
   date: new Date('2026-08-14T09:30:00.000Z'),
   type: 'EXPENSE',
   status: 'APPROVED',
@@ -20,13 +25,15 @@ const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
 });
 
 describe('buildTransactionsCsv', () => {
-  it('emits the five-column header and one row per transaction', () => {
+  it('emits the header and one row per transaction', () => {
     const lines = buildTransactionsCsv([
       transaction(),
       transaction({ id: 'id-2', description: 'Salary', type: 'INCOME' }),
     ]).split('\n');
 
-    expect(lines[0]).toBe('"date","description","value","type","categoryName"');
+    expect(lines[0]).toBe(
+      '"date","description","value","type","categoryName","currency","originalAmount","exchangeRate","exchangeRateDate","exchangeRateSource"',
+    );
     expect(lines).toHaveLength(3);
   });
 
@@ -55,9 +62,28 @@ describe('buildTransactionsCsv', () => {
     expect(lines[1]).toContain('"Coffee, ""large"""');
   });
 
+  it('keeps value in ILS and adds the original currency and conversion', () => {
+    const lines = buildTransactionsCsv([
+      transaction(),
+      transaction({
+        value: 92.35,
+        currency: 'USD',
+        originalAmount: 25,
+        exchangeRate: 3.694,
+        exchangeRateDate: new Date('2026-08-14T00:00:00.000Z'),
+        exchangeRateSource: 'STATEMENT',
+      }),
+    ]).split('\n');
+
+    expect(lines[1]).toContain('12.5,"EXPENSE","Food","ILS",12.5,"","",""');
+    expect(lines[2]).toContain(
+      '92.35,"EXPENSE","Food","USD",25,3.694,"2026-08-14","STATEMENT"',
+    );
+  });
+
   it('returns a header-only file for no transactions', () => {
     expect(buildTransactionsCsv([])).toBe(
-      '"date","description","value","type","categoryName"',
+      '"date","description","value","type","categoryName","currency","originalAmount","exchangeRate","exchangeRateDate","exchangeRateSource"',
     );
   });
 

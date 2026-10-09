@@ -55,7 +55,11 @@ function MobileRow({
         </Typography>
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-        <AmountText type={transaction.type} value={transaction.value} />
+        <AmountText
+          type={transaction.type}
+          value={transaction.value}
+          original={transaction}
+        />
         <Typography
           variant="caption"
           sx={{
@@ -130,7 +134,7 @@ export default function TransactionList({
                 {formatTransactionDate(tx.date)}
               </TableCell>
               <TableCell align="right">
-                <AmountText type={tx.type} value={tx.value} />
+                <AmountText type={tx.type} value={tx.value} original={tx} />
               </TableCell>
             </TableRow>
           ))}

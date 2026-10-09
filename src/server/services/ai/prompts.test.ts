@@ -15,6 +15,11 @@ const match = (id: string): Transaction => ({
   id,
   description: 'Coffee',
   value: 10,
+  currency: 'ILS',
+  originalAmount: 10,
+  exchangeRate: null,
+  exchangeRateDate: null,
+  exchangeRateSource: null,
   date: new Date('2026-03-07T00:00:00Z'),
   type: 'EXPENSE',
   status: 'APPROVED',
@@ -54,6 +59,11 @@ describe('buildFindMatchingTransactionPrompt', () => {
     id: 'tx-019',
     description: '019',
     value: 22,
+    currency: 'ILS',
+    originalAmount: 22,
+    exchangeRate: null,
+    exchangeRateDate: null,
+    exchangeRateSource: null,
     date: new Date(2026, 7, 21),
     type: 'EXPENSE',
     status: 'PENDING_APPROVAL',
@@ -63,6 +73,8 @@ describe('buildFindMatchingTransactionPrompt', () => {
   const cardFee: ImportedChargeToMatch = {
     description: 'דמי כרטיס הנפקה',
     value: 22.9,
+    currency: 'ILS',
+    originalAmount: 22.9,
     date: new Date(2026, 7, 23),
     type: 'EXPENSE',
   };
@@ -70,6 +82,8 @@ describe('buildFindMatchingTransactionPrompt', () => {
   const pharmacy: ImportedChargeToMatch = {
     description: 'סופר פארם בן גוריון',
     value: 21.9,
+    currency: 'ILS',
+    originalAmount: 21.9,
     date: new Date(2026, 7, 24),
     type: 'EXPENSE',
   };
@@ -85,7 +99,7 @@ describe('buildFindMatchingTransactionPrompt', () => {
       ]);
 
       expect(prompt).toContain(
-        `- description: ${JSON.stringify(importedCharge.description)}\n- amount: ${formatCurrencyPlain(importedCharge.value)}\n- date: ${dayText}\n- type: EXPENSE`,
+        `- description: ${JSON.stringify(importedCharge.description)}\n- amount: ${formatCurrencyPlain(importedCharge.value ?? 0)}\n- date: ${dayText}\n- type: EXPENSE`,
       );
       expect(prompt).toContain(
         `- ID: tx-019 | description: "019" | amount: ${formatCurrencyPlain(22)} | date: 2026-08-21 | category: "Phone" | status: PENDING_APPROVAL`,

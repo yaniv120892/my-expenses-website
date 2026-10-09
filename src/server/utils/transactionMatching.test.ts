@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TransactionType } from '@/generated/prisma/client';
 import {
+  canMatch,
   findExactNormalizedMatch,
   isSameCharge,
   isWithinMatchWindow,
@@ -118,8 +119,16 @@ describe('matchValueTolerance', () => {
 });
 
 describe('isSameCharge', () => {
-  const base: { value: number; date: Date; type: TransactionType } = {
+  const base: {
+    value: number | null;
+    currency: string | null;
+    originalAmount: number;
+    date: Date;
+    type: TransactionType;
+  } = {
     value: 45,
+    currency: 'ILS',
+    originalAmount: 45,
     date: new Date('2026-03-05'),
     type: TransactionType.EXPENSE,
   };
@@ -268,10 +277,52 @@ describe('isSameCharge', () => {
   });
 });
 
+describe('isSameCharge across currencies', () => {
+  const charge = (overrides: {
+    value: number | null;
+    currency: string | null;
+    originalAmount: number | string;
+  }) => ({
+    description: 'Amazon',
+    date: new Date('2026-03-05'),
+    type: TransactionType.EXPENSE,
+    ...overrides,
+  });
+
+  it('is the same foreign charge when currency and original amount agree', () => {
+    expect(
+      isSameCharge(
+        charge({ value: 92.35, currency: 'USD', originalAmount: 25 }),
+        charge({ value: 92.35, currency: 'USD', originalAmount: '25.00' }),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps two charges of the same number in different currencies apart', () => {
+    expect(
+      isSameCharge(
+        charge({ value: null, currency: 'USD', originalAmount: 25 }),
+        charge({ value: null, currency: 'EUR', originalAmount: 25 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps an ILS charge apart from a foreign one of the same ILS value', () => {
+    expect(
+      isSameCharge(
+        charge({ value: 92.35, currency: 'ILS', originalAmount: 92.35 }),
+        charge({ value: 92.35, currency: 'USD', originalAmount: 25 }),
+      ),
+    ).toBe(false);
+  });
+});
+
 describe('isWithinMatchWindow', () => {
   const expense = (date: Date, value: number) => ({
     date,
     value,
+    currency: 'ILS',
+    originalAmount: value,
     type: TransactionType.EXPENSE,
   });
   const window = matchWindow(expense(new Date(2026, 5, 16), 470));
@@ -301,6 +352,43 @@ describe('isWithinMatchWindow', () => {
         type: TransactionType.INCOME,
       }),
     ).toBe(false);
+  });
+});
+
+describe('isWithinMatchWindow for a foreign charge', () => {
+  const foreign = (
+    value: number | null,
+    currency: string,
+    originalAmount: number,
+  ) => ({
+    date: new Date(2026, 5, 16),
+    type: TransactionType.EXPENSE,
+    value,
+    currency,
+    originalAmount,
+  });
+
+  it('matches a hand-logged entry converted at another rate by its original amount', () => {
+    const window = matchWindow(foreign(92.35, 'USD', 25));
+    expect(isWithinMatchWindow(window, foreign(76.75, 'USD', 25))).toBe(true);
+  });
+
+  it('matches by original amount while the ILS amount is still unknown', () => {
+    const window = matchWindow(foreign(null, 'USD', 25));
+    expect(canMatch(window)).toBe(true);
+    expect(isWithinMatchWindow(window, foreign(76.75, 'USD', 25))).toBe(true);
+    expect(isWithinMatchWindow(window, foreign(76.75, 'EUR', 25))).toBe(false);
+  });
+
+  it('cannot match a row with neither an ILS amount nor a known currency', () => {
+    const window = matchWindow({
+      date: new Date(2026, 5, 16),
+      type: TransactionType.EXPENSE,
+      value: null,
+      currency: null,
+      originalAmount: 25,
+    });
+    expect(canMatch(window)).toBe(false);
   });
 });
 

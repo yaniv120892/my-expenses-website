@@ -1,9 +1,12 @@
-import { TransactionType, TransactionStatus } from '@/shared/types/transaction';
+import {
+  TransactionAmount,
+  TransactionType,
+  TransactionStatus,
+} from '@/shared/types/transaction';
 import { ScheduleType } from '@/generated/prisma/client';
 
-export interface CreateTransactionDbModel {
+export interface CreateTransactionDbModel extends TransactionAmount {
   description: string;
-  value: number;
   categoryId: string;
   type: TransactionType;
   date: Date;
@@ -13,7 +16,8 @@ export interface CreateTransactionDbModel {
 
 export interface UpdateTransactionDbModel {
   description?: string;
-  value?: number;
+  /** Replaces every amount field together, so a conversion never half-changes. */
+  amount?: TransactionAmount;
   categoryId?: string;
   type?: TransactionType;
   date?: Date;

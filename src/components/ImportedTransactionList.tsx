@@ -39,7 +39,7 @@ import {
   useAutoApproveRulesQuery,
 } from '../hooks/useImports';
 import { formatDate } from '../utils/dateUtils';
-import { formatCurrency } from '../utils/format';
+import { formatAmountWithOriginal } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   ImportedTransactionStatus,
@@ -84,10 +84,30 @@ function TransactionDetails({
           color: 'text.secondary',
         }}
       >
-        {formatCurrency(transaction.value)} on {formatDate(transaction.date)}{' '}
-        {transaction.type}
+        {formatAmountWithOriginal(transaction)} on{' '}
+        {formatDate(transaction.date)} {transaction.type}
       </Typography>
+      <AmountWarning transaction={transaction} />
     </Box>
+  );
+}
+
+function AmountWarning({ transaction }: { transaction: ImportedTransaction }) {
+  if (transaction.value !== null && transaction.currency !== null) {
+    return null;
+  }
+  return (
+    <Chip
+      size="small"
+      color="warning"
+      variant="outlined"
+      sx={{ mt: 0.5 }}
+      label={
+        transaction.value === null
+          ? 'Enter the ILS amount to approve'
+          : 'Original currency not recognised'
+      }
+    />
   );
 }
 
@@ -133,7 +153,7 @@ function MatchingDetails({
           color: 'text.secondary',
         }}
       >
-        {formatCurrency(transaction.matchingTransaction.value)} on{' '}
+        {formatAmountWithOriginal(transaction.matchingTransaction)} on{' '}
         {formatDate(transaction.matchingTransaction.date)}{' '}
         {transaction.matchingTransaction.type}
       </Typography>
@@ -740,6 +760,10 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                   id: selectedTransaction.id,
                   description: selectedTransaction.description,
                   value: selectedTransaction.value,
+                  currency: selectedTransaction.currency,
+                  originalAmount: selectedTransaction.originalAmount,
+                  exchangeRate: selectedTransaction.exchangeRate,
+                  exchangeRateSource: selectedTransaction.exchangeRateSource,
                   date: selectedTransaction.date,
                   type: selectedTransaction.type as 'EXPENSE' | 'INCOME',
                   categoryId:

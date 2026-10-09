@@ -273,7 +273,7 @@ export function buildAssistantTools() {
   const listTransactions = createTool({
     id: 'listTransactions',
     description:
-      'Lists individual transactions matching the given filters. Use this when the user wants to see specific transactions rather than a total.',
+      'Lists individual transactions matching the given filters. Use this when the user wants to see specific transactions rather than a total. Amounts are in ILS; a charge made in another currency shows its original amount first, e.g. "$25.00 · 92.35 ₪".',
     inputSchema: dateFilterSchema,
     outputSchema: summaryOutputSchema,
     execute: async (input, context) =>
@@ -283,7 +283,7 @@ export function buildAssistantTools() {
   const summarizeTransactions = createTool({
     id: 'summarizeTransactions',
     description:
-      'Computes a figure over the transactions matching the filters — a total, average, count, category breakdown, monthly breakdown, or highest/lowest. All arithmetic is done server-side; use the returned numbers exactly as given.',
+      'Computes a figure over the transactions matching the filters — a total, average, count, category breakdown, monthly breakdown, or highest/lowest. All arithmetic is done server-side; use the returned numbers exactly as given. Every figure is in ILS: a charge made in another currency counts at the ILS amount it was converted to, so never add original foreign amounts yourself.',
     inputSchema: dateFilterSchema.extend({
       aggregation: z
         .enum([

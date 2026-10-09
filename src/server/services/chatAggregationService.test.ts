@@ -14,6 +14,11 @@ const tx = (
   id: `t-${value}-${categoryName}`,
   description: 'Groceries',
   value,
+  currency: 'ILS',
+  originalAmount: value,
+  exchangeRate: null,
+  exchangeRateDate: null,
+  exchangeRateSource: null,
   date: new Date('2024-03-15T12:00:00Z'),
   type,
   status: 'APPROVED',
@@ -143,5 +148,48 @@ describe('aggregate', () => {
     );
 
     expect(summary).not.toMatch(/[\u200e\u200f\u00a0]/);
+  });
+});
+
+describe('aggregate over mixed currencies', () => {
+  const usdCharge: Transaction = {
+    ...tx(92.35, 'EXPENSE', 'Shopping'),
+    id: 't-usd',
+    description: 'Amazon',
+    currency: 'USD',
+    originalAmount: 25,
+    exchangeRate: 3.694,
+    exchangeRateDate: new Date('2024-03-15T00:00:00Z'),
+    exchangeRateSource: 'STATEMENT',
+  };
+  const eurRefund: Transaction = {
+    ...tx(40.1, 'INCOME', 'Shopping'),
+    id: 't-eur',
+    description: 'Hotel refund',
+    currency: 'EUR',
+    originalAmount: 10,
+    exchangeRate: 4.01,
+    exchangeRateDate: new Date('2024-03-15T00:00:00Z'),
+    exchangeRateSource: 'BANK_OF_ISRAEL',
+  };
+
+  it('sums the ILS amounts, never the original foreign ones', () => {
+    const { summary } = chatAggregationService.aggregate(
+      [tx(100, 'EXPENSE', 'Food'), usdCharge],
+      'breakdown_by_category',
+    );
+
+    expect(summary).toContain('Shopping: 92.35 ₪');
+    expect(summary).toContain('Total: 192.35 ₪');
+  });
+
+  it('lists a foreign charge with its original amount beside the ILS one', () => {
+    const { summary } = chatAggregationService.aggregate(
+      [usdCharge, eurRefund],
+      'list',
+    );
+
+    expect(summary).toContain('Amazon | $25.00 · 92.35 ₪');
+    expect(summary).toContain('Hotel refund | €10.00 · 40.10 ₪');
   });
 });

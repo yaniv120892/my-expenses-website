@@ -37,6 +37,11 @@ export const currencyCodeSchema = z
     message: 'Must be an ISO 4217 currency code, such as ILS or USD',
   });
 
-export function isForeignCurrency(currency: string | null): boolean {
-  return currency !== null && currency !== BASE_CURRENCY;
+// A payload from a server that predates currencies has no `currency` at all,
+// and its amounts are ILS.
+export function isForeignCurrency(
+  currency: string | null | undefined,
+): boolean {
+  const isKnown = currency !== null && currency !== undefined;
+  return isKnown && currency !== BASE_CURRENCY;
 }

@@ -1,13 +1,18 @@
+import type { Prisma } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { ApiTokenScope, ApiTokenSummary } from '@/shared/types/apiToken';
 
-type ApiTokenCredential = {
-  id: string;
-  userId: string;
-  scopes: ApiTokenScope[];
-  expiresAt: Date;
-  lastUsedAt: Date | null;
-};
+const CREDENTIAL_SELECT = {
+  id: true,
+  userId: true,
+  scopes: true,
+  expiresAt: true,
+  lastUsedAt: true,
+} as const;
+
+type ApiTokenCredential = Prisma.ApiTokenGetPayload<{
+  select: typeof CREDENTIAL_SELECT;
+}>;
 
 const SUMMARY_SELECT = {
   id: true,
@@ -42,13 +47,7 @@ export class ApiTokenRepository {
   ): Promise<ApiTokenCredential | null> {
     return prisma.apiToken.findUnique({
       where: { tokenHash },
-      select: {
-        id: true,
-        userId: true,
-        scopes: true,
-        expiresAt: true,
-        lastUsedAt: true,
-      },
+      select: CREDENTIAL_SELECT,
     });
   }
 

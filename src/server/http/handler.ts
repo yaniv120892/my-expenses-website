@@ -3,9 +3,8 @@ import * as Sentry from '@sentry/nextjs';
 import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
-import { AuthError, requireUser } from '@/server/auth/session';
-import { SESSION_COOKIE } from '@/server/auth/cookies';
-import { authenticateApiToken, bearerApiToken } from '@/server/auth/apiTokens';
+import { AuthError, extractToken, requireUser } from '@/server/auth/session';
+import { isApiToken } from '@/server/auth/apiTokenFormat';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
@@ -95,11 +94,8 @@ async function resolveAuth(
 ): Promise<string> {
   switch (mode) {
     case 'session': {
-      // A session cookie wins over any bearer, as it does in requireUser.
-      const apiToken = req.cookies.get(SESSION_COOKIE)?.value
-        ? null
-        : bearerApiToken(req);
-      if (!apiToken) {
+      const credential = extractToken(req);
+      if (!credential || !isApiToken(credential)) {
         return requireUser(req);
       }
       if (!apiTokenScope) {
@@ -108,7 +104,10 @@ async function resolveAuth(
           'This route does not accept an API token',
         );
       }
-      return authenticateApiToken(apiToken, apiTokenScope);
+      // Loaded on demand so routes reached without a token never load the
+      // database client just to authenticate.
+      const { authenticateApiToken } = await import('@/server/auth/apiTokens');
+      return authenticateApiToken(credential, apiTokenScope);
     }
     case 'cron': {
       const authHeader = req.headers.get('authorization');

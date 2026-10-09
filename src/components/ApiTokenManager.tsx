@@ -58,9 +58,7 @@ export default function ApiTokenManager() {
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<ApiTokenScope[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>(
-    'idle',
-  );
+  const [copyState, setCopyState] = useState<keyof typeof COPY_LABELS>('idle');
   const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
     null,
   );

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { addYears } from 'date-fns';
-import { API_TOKEN_PREFIX, hashApiToken } from '@/server/auth/apiTokens';
+import { API_TOKEN_PREFIX, hashApiToken } from '@/server/auth/apiTokenFormat';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import type {
   ApiTokenScope,

@@ -200,7 +200,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot
   mint another. Which handler needs which scope is pinned in
   `src/app/api/apiTokenScope.test.ts`; a new scope is a new enum value plus
-  the routes it opens. A session cookie on the same request wins.
+  the routes it opens. A scope names a whole capability, not a read/write
+  half: `IMPORTS` drives the import workflow end to end (list, upload,
+  preview, approve). A session cookie on the same request wins.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
   by `redisKeyPrefix(scope)`, because previews share production's one Upstash
   database. Only production is bare; everything else, an unconfigured local

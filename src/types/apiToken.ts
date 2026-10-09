@@ -1,14 +1,19 @@
-import type { ApiTokenScope } from '@/shared/types/apiToken';
+import type {
+  ApiTokenScope,
+  ApiTokenSummary as SharedApiTokenSummary,
+  CreatedApiToken as SharedCreatedApiToken,
+} from '@/shared/types/apiToken';
 
 export type { ApiTokenScope };
 
-export type ApiTokenSummary = {
-  id: string;
-  name: string;
-  scopes: ApiTokenScope[];
+export type ApiTokenSummary = Omit<
+  SharedApiTokenSummary,
+  'createdAt' | 'expiresAt' | 'lastUsedAt'
+> & {
   createdAt: string;
   expiresAt: string;
   lastUsedAt: string | null;
 };
 
-export type CreatedApiToken = ApiTokenSummary & { token: string };
+export type CreatedApiToken = ApiTokenSummary &
+  Pick<SharedCreatedApiToken, 'token'>;

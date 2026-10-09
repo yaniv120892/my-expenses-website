@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NextRequest } from 'next/server';
 
 const { repository, loggerMock } = vi.hoisted(() => ({
   repository: { findByHash: vi.fn(), markUsed: vi.fn() },
@@ -12,8 +11,7 @@ vi.mock('@/server/repositories/apiTokenRepository', () => ({
 }));
 vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
 
-import { authenticateApiToken, bearerApiToken } from '@/server/auth/apiTokens';
-import { AuthError } from '@/server/auth/session';
+import { authenticateApiToken } from '@/server/auth/apiTokens';
 import { HttpError } from '@/server/http/errors';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
@@ -34,23 +32,6 @@ function storedToken(
     expiresAt: overrides.expiresAt ?? new Date(Date.now() + 24 * HOUR_MS),
     lastUsedAt: overrides.lastUsedAt ?? null,
   };
-}
-
-async function rejection(promise: Promise<unknown>): Promise<unknown> {
-  return promise.then(
-    () => {
-      throw new Error('Expected a rejection');
-    },
-    (err: unknown) => err,
-  );
-}
-
-async function authError(promise: Promise<unknown>): Promise<AuthError> {
-  const error = await rejection(promise);
-  if (!(error instanceof AuthError)) {
-    throw new Error(`Expected an AuthError, got ${String(error)}`);
-  }
-  return error;
 }
 
 beforeEach(() => {
@@ -76,12 +57,10 @@ describe('authenticateApiToken', () => {
   it('refuses a token without the route scope, with a 403', async () => {
     repository.findByHash.mockResolvedValue(storedToken({ scopes: [] }));
 
-    const error = await rejection(
-      authenticateApiToken('mxk_secret', 'IMPORTS'),
-    );
+    const authentication = authenticateApiToken('mxk_secret', 'IMPORTS');
 
-    expect(error).toBeInstanceOf(HttpError);
-    expect(error).toMatchObject({ status: 403 });
+    await expect(authentication).rejects.toBeInstanceOf(HttpError);
+    await expect(authentication).rejects.toMatchObject({ status: 403 });
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
 
@@ -108,9 +87,9 @@ describe('authenticateApiToken', () => {
   it('rejects an unknown token', async () => {
     repository.findByHash.mockResolvedValue(null);
 
-    const error = await authError(authenticateApiToken('mxk_nope', 'IMPORTS'));
-
-    expect(error.code).toBe('INVALID_API_TOKEN');
+    await expect(
+      authenticateApiToken('mxk_nope', 'IMPORTS'),
+    ).rejects.toMatchObject({ code: 'INVALID_API_TOKEN' });
   });
 
   it('rejects an expired token without recording a use', async () => {
@@ -118,9 +97,9 @@ describe('authenticateApiToken', () => {
       storedToken({ expiresAt: new Date(Date.now() - 1) }),
     );
 
-    const error = await authError(authenticateApiToken('mxk_old', 'IMPORTS'));
-
-    expect(error.code).toBe('API_TOKEN_EXPIRED');
+    await expect(
+      authenticateApiToken('mxk_old', 'IMPORTS'),
+    ).rejects.toMatchObject({ code: 'API_TOKEN_EXPIRED' });
     expect(repository.markUsed).not.toHaveBeenCalled();
   });
 
@@ -132,22 +111,5 @@ describe('authenticateApiToken', () => {
       USER_ID,
     );
     expect(loggerMock.warn).toHaveBeenCalled();
-  });
-});
-
-describe('bearerApiToken', () => {
-  function request(authorization?: string): NextRequest {
-    return new NextRequest('http://localhost/api/imports', {
-      headers: authorization ? { authorization } : {},
-    });
-  }
-
-  it('returns a prefixed bearer', () => {
-    expect(bearerApiToken(request('Bearer mxk_abc'))).toBe('mxk_abc');
-  });
-
-  it('ignores a session JWT bearer and a missing header', () => {
-    expect(bearerApiToken(request('Bearer eyJhbGciOi'))).toBeNull();
-    expect(bearerApiToken(request())).toBeNull();
   });
 });

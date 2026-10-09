@@ -4,7 +4,6 @@ import {
   getApiTokens,
   revokeApiToken,
 } from '@/services/apiTokenService';
-import type { ApiTokenScope } from '@/types/apiToken';
 
 export const apiTokenKeys = {
   all: ['apiTokens'] as const,
@@ -20,8 +19,7 @@ export const useApiTokensQuery = () =>
 export const useCreateApiTokenMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; scopes: ApiTokenScope[] }) =>
-      createApiToken(input),
+    mutationFn: createApiToken,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiTokenKeys.list() });
     },
@@ -31,7 +29,7 @@ export const useCreateApiTokenMutation = () => {
 export const useRevokeApiTokenMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (tokenId: string) => revokeApiToken(tokenId),
+    mutationFn: revokeApiToken,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiTokenKeys.list() });
     },

@@ -47,10 +47,6 @@ export function extractToken(req: NextRequest): string | null {
   if (cookieToken) {
     return cookieToken;
   }
-  return extractBearerToken(req);
-}
-
-export function extractBearerToken(req: NextRequest): string | null {
   const authHeader = req.headers.get('authorization');
   if (!authHeader) {
     return null;

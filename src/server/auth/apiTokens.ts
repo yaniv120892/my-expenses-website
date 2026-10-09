@@ -1,27 +1,13 @@
-import { createHash } from 'node:crypto';
-import { NextRequest } from 'next/server';
-import { AuthError, extractBearerToken } from '@/server/auth/session';
+import { AuthError } from '@/server/auth/session';
+import { hashApiToken } from '@/server/auth/apiTokenFormat';
 import { HttpError } from '@/server/http/errors';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import logger from '@/server/logging/logger';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
-// The prefix tells an API token from a session JWT before any lookup, and
-// makes a leaked one recognisable to secret scanners.
-export const API_TOKEN_PREFIX = 'mxk_';
-
 // Settings shows last use by the day, so a script polling every few seconds
 // writes it once rather than on every request.
 const LAST_USED_RESOLUTION_MS = 60 * 60 * 1000;
-
-export function hashApiToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-export function bearerApiToken(req: NextRequest): string | null {
-  const bearer = extractBearerToken(req);
-  return bearer?.startsWith(API_TOKEN_PREFIX) ? bearer : null;
-}
 
 export async function authenticateApiToken(
   token: string,

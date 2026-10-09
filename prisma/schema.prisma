@@ -135,8 +135,7 @@ model Transaction {
   // The amount in the reporting currency (ILS) that every total sums.
   value                Float
   // What was actually charged, in its own ISO 4217 currency; for an ILS row
-  // the same amount as value. Rows predating currency support were backfilled
-  // as ILS by migration 20261008000000_transaction_currency.
+  // the same amount as value.
   currency             String               @default("ILS") @db.Char(3)
   originalAmount       Decimal              @db.Decimal(14, 2)
   // How a foreign amount became value; all three are set exactly when

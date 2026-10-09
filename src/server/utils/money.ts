@@ -28,7 +28,6 @@ export function convertAmount(
   return toMoneyNumber(toDecimal(originalAmount).times(toDecimal(rate)));
 }
 
-/** The rate that turns originalAmount into convertedAmount. */
 export function impliedRate(
   convertedAmount: DecimalInput,
   originalAmount: DecimalInput,

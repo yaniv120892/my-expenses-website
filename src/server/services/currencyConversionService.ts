@@ -4,10 +4,10 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import exchangeRateService from '@/server/services/exchangeRateService';
 import { isSameMoney } from '@/server/utils/money';
 import {
-  amountOf,
+  pickAmountFields,
   baseAmount,
   givenRateAmount,
-  knownValueAmount,
+  impliedRateAmount,
   publishedRateAmount,
 } from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY } from '@/shared/currency';
@@ -20,13 +20,7 @@ import type {
 type ExistingAmount = TransactionAmount & { date: Date };
 
 class CurrencyConversionService {
-  /**
-   * Decides the stored amount from what the caller stated. A rate the caller
-   * gives wins, then an ILS amount the caller gives, then the published rate
-   * for the transaction date; with none of these the request fails rather than
-   * converting 1:1. An edit that leaves currency, original amount and day
-   * alone keeps the conversion it already has.
-   */
+  /** Fails, rather than converting 1:1, when no rate can be had. */
   public async resolveAmount(
     input: TransactionAmountInput,
     date: Date,
@@ -62,11 +56,11 @@ class CurrencyConversionService {
         existing,
       )
     ) {
-      return amountOf(existing);
+      return pickAmountFields(existing);
     }
 
     if (input.value !== undefined) {
-      return knownValueAmount(
+      return impliedRateAmount(
         input.value,
         originalAmount,
         currency,

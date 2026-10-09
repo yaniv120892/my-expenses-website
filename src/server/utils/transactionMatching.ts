@@ -113,7 +113,6 @@ export function matchWindow(charge: MatchableCharge): MatchWindow {
   };
 }
 
-/** A row with neither an ILS amount nor a known foreign currency matches nothing. */
 export function canMatch(window: MatchWindow): boolean {
   return window.valueRange !== null || window.originalAmountRange !== null;
 }

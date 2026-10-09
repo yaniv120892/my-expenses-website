@@ -27,11 +27,7 @@ export type ExchangeRateQuote = {
 type PublishedRate = { day: string; rate: string };
 
 class ExchangeRateService {
-  /**
-   * The Bank of Israel representative rate for the currency on `date`, or the
-   * last one published before it. Null when none can be had, so a caller has
-   * to say so rather than convert 1:1.
-   */
+  /** Falls back to the last rate published before `date`; null, never 1:1, when none. */
   public async getRateToBase(
     currency: string,
     date: Date,

@@ -73,7 +73,6 @@ export const EXCHANGE_RATE_SOURCE_LABELS: Record<ExchangeRateSource, string> = {
 
 const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
-/** An amount in its own currency, such as "$25.00" or "‏25.00 ₪". */
 export function formatMoney(amount: number, currency: string) {
   let formatter = moneyFormatters.get(currency);
   if (!formatter) {

@@ -92,7 +92,6 @@ class TransactionService {
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
     const date = data.date || new Date();
-    // Independent, and either may wait on the network: a rate or a category.
     const [amount, resolved] = await Promise.all([
       data.resolvedAmount ??
         currencyConversionService.resolveAmount(data, date),

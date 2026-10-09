@@ -12,8 +12,7 @@ import type {
   TransactionAmount,
 } from '@/shared/types/transaction';
 
-/** Just the amount fields, off a row that carries more. */
-export function amountOf(row: TransactionAmount): TransactionAmount {
+export function pickAmountFields(row: TransactionAmount): TransactionAmount {
   return {
     value: row.value,
     currency: row.currency,
@@ -35,8 +34,7 @@ export function baseAmount(value: DecimalInput): TransactionAmount {
   };
 }
 
-/** A foreign amount whose ILS value is known, with the rate it implies. */
-export function knownValueAmount(
+export function impliedRateAmount(
   value: DecimalInput,
   originalAmount: DecimalInput,
   currency: string,

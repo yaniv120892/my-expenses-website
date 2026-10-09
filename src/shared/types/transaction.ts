@@ -31,7 +31,6 @@ export type TransactionAmount = {
   exchangeRateSource: ExchangeRateSource | null;
 };
 
-/** What a caller states about an amount; the server works out the rest. */
 export type TransactionAmountInput = {
   value?: number;
   currency?: string;

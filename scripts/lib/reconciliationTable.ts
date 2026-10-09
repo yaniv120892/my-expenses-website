@@ -96,7 +96,6 @@ function describeMergeChanges(
     .join('; ');
 }
 
-// An unknown ILS amount fails the row on commit, so it is printed, not hidden.
 function formatValue(value: number | null): string {
   return (value === null ? 'ILS ?' : value.toFixed(2)).padStart(9);
 }

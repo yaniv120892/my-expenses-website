@@ -4,9 +4,9 @@ import exchangeRateService, {
 } from '@/server/services/exchangeRateService';
 import { isSameMoney, toMoneyNumber } from '@/server/utils/money';
 import {
-  amountOf,
+  pickAmountFields,
   baseAmount,
-  knownValueAmount,
+  impliedRateAmount,
   publishedRateAmount,
 } from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
@@ -15,7 +15,6 @@ import type { ImportedAmount } from '@/shared/types/import';
 import type { TransactionAmount } from '@/shared/types/transaction';
 import { formatAmountWithOriginal } from '@/utils/format';
 
-/** What the extraction service reports about one row's amount. */
 export type ExtractedAmount = {
   value: number;
   date: Date;
@@ -32,12 +31,7 @@ type RateLookup = (
 ) => Promise<ExchangeRateQuote | null>;
 
 class ImportedAmountService {
-  /**
-   * A billed ILS amount on the statement is the conversion and is never
-   * converted again. Only a foreign amount the statement did not bill is
-   * converted, at the published rate for its date; without one, or when the
-   * row's currency cannot be told, the ILS amount stays unknown.
-   */
+  /** A billed ILS amount on the statement is the conversion and is never converted again. */
   public async resolveExtractedAmounts(
     rows: ExtractedAmount[],
   ): Promise<ImportedAmount[]> {
@@ -89,9 +83,9 @@ class ImportedAmountService {
     const keepsRowConversion =
       row.value !== null && isSameMoney(value, row.value);
     if (keepsRowConversion) {
-      return amountOf({ ...row, value, currency: row.currency });
+      return pickAmountFields({ ...row, value, currency: row.currency });
     }
-    return knownValueAmount(
+    return impliedRateAmount(
       value,
       row.originalAmount,
       row.currency,
@@ -157,7 +151,7 @@ class ImportedAmountService {
     row: ExtractedAmount,
   ): ImportedAmount {
     if (originalCurrency !== null && isForeignCurrency(originalCurrency)) {
-      return knownValueAmount(
+      return impliedRateAmount(
         chargedAmount,
         originalAmount,
         originalCurrency,
@@ -190,7 +184,6 @@ class ImportedAmountService {
     return publishedRateAmount(originalAmount, currency, quote);
   }
 
-  // A statement repeats a currency and day across rows; one lookup serves them.
   private memoizedRateLookup(): RateLookup {
     const lookups = new Map<string, Promise<ExchangeRateQuote | null>>();
     return (currency, date) => {

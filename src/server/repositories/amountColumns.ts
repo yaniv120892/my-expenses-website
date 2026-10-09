@@ -9,7 +9,6 @@ import type { ImportedAmount } from '@/shared/types/import';
 
 type DecimalColumn = { toString(): string };
 
-/** The amount columns Transaction and ImportedTransaction share, as read. */
 export type AmountColumnsRow = {
   value: number;
   currency: string;
@@ -40,7 +39,6 @@ type ImportedAmountColumnsRow = Omit<AmountColumnsRow, 'value' | 'currency'> & {
   currency: string | null;
 };
 
-/** An imported row's amount as the database stores it. */
 export type ImportedAmountColumns = ReturnType<typeof toImportedAmountColumns>;
 
 /** Decimals go to the database as strings, so no float rounds them on the way. */

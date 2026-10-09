@@ -92,7 +92,6 @@ function TransactionDetails({
   );
 }
 
-// An unknown ILS amount blocks approval, so it is called out, not just shown.
 function AmountWarning({ transaction }: { transaction: ImportedTransaction }) {
   if (transaction.value !== null && transaction.currency !== null) {
     return null;

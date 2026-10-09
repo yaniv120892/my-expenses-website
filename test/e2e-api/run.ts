@@ -789,6 +789,18 @@ async function importTokenFlow(
     `status ${outsideImports.status}`,
   );
 
+  const deletesImport = await api(
+    'DELETE',
+    `/api/imports/${crypto.randomUUID()}`,
+    { token },
+  );
+  check(
+    'import tokens: refused on an import route the script does not drive',
+    deletesImport.status === 401 &&
+      errorCode(deletesImport) === 'IMPORT_TOKEN_NOT_ACCEPTED',
+    `status ${deletesImport.status}`,
+  );
+
   const mintsAnother = await api('POST', '/api/import-tokens', {
     token,
     body: { name: 'minted by a token' },

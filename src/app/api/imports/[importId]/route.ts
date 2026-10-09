@@ -10,7 +10,6 @@ export const GET = createHandler({
 
 export const DELETE = createHandler({
   auth: 'session',
-  acceptsImportToken: true,
   handler: async ({ userId, params }) => {
     await importService.deleteImport(params.importId, userId);
     return { success: true };

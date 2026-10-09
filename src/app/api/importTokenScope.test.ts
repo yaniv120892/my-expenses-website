@@ -4,22 +4,18 @@ import { describe, expect, it } from 'vitest';
 
 const API_DIR = join(process.cwd(), 'src/app/api');
 
-// The whole grant of a one-year bearer: widening it is a decision, so it has
-// to be made here as well as in the route.
-const ROUTES_ACCEPTING_IMPORT_TOKENS = [
-  'imports/[importId]/apply-auto-approve-rules/route.ts',
-  'imports/[importId]/reconciliation-preview/route.ts',
-  'imports/[importId]/rematch/route.ts',
-  'imports/[importId]/route.ts',
-  'imports/[importId]/transactions/route.ts',
-  'imports/batch-action/route.ts',
-  'imports/process/route.ts',
-  'imports/route.ts',
-  'imports/transactions/[importedTransactionId]/approve/route.ts',
-  'imports/transactions/[importedTransactionId]/ignore/route.ts',
-  'imports/transactions/[importedTransactionId]/merge/route.ts',
-  'imports/transactions/[importedTransactionId]/route.ts',
-  'imports/upload/route.ts',
+// The whole grant of a one-year bearer: what scripts/import-statements.ts
+// calls, the per-row approve the collect-statements skill falls back to, and
+// the read-only list. Widening it is a decision made here as well as in the
+// route.
+const HANDLERS_ACCEPTING_IMPORT_TOKENS = [
+  'GET imports/[importId]/reconciliation-preview/route.ts',
+  'GET imports/[importId]/route.ts',
+  'GET imports/route.ts',
+  'POST imports/batch-action/route.ts',
+  'POST imports/process/route.ts',
+  'POST imports/transactions/[importedTransactionId]/approve/route.ts',
+  'POST imports/upload/route.ts',
 ];
 
 function routeFiles(directory: string): string[] {
@@ -32,15 +28,21 @@ function routeFiles(directory: string): string[] {
   });
 }
 
+function handlersAcceptingImportTokens(path: string): string[] {
+  const route = relative(API_DIR, path);
+  return readFileSync(path, 'utf8')
+    .split(/^export const /m)
+    .slice(1)
+    .filter((handler) => handler.includes('acceptsImportToken: true'))
+    .map((handler) => `${handler.slice(0, handler.indexOf(' '))} ${route}`);
+}
+
 describe('import token scope', () => {
-  it('is granted on exactly the listed routes', () => {
+  it('is granted on exactly the listed handlers', () => {
     const granted = routeFiles(API_DIR)
-      .filter((path) =>
-        readFileSync(path, 'utf8').includes('acceptsImportToken: true'),
-      )
-      .map((path) => relative(API_DIR, path))
+      .flatMap(handlersAcceptingImportTokens)
       .sort();
 
-    expect(granted).toEqual([...ROUTES_ACCEPTING_IMPORT_TOKENS].sort());
+    expect(granted).toEqual([...HANDLERS_ACCEPTING_IMPORT_TOKENS].sort());
   });
 });

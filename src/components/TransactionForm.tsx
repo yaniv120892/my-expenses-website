@@ -146,6 +146,12 @@ function toAmountInput(form: FormValues): TransactionAmountInput {
   };
 }
 
+function baseValueHelperText(editsSameCurrency: boolean): string {
+  return editsSameCurrency
+    ? 'Leave empty to convert at the Bank of Israel rate for the date, or keep the current conversion if amount and date are unchanged.'
+    : 'Leave empty to convert at the Bank of Israel rate for the date.';
+}
+
 function describeConversion(initialData: TransactionFormType): string | null {
   const { currency } = initialData;
   if (currency === undefined || currency === BASE_CURRENCY) {
@@ -411,11 +417,7 @@ export default function TransactionForm({
                 error={!!errors.baseValue}
                 helperText={
                   errors.baseValue ??
-                  `Leave empty to convert at the Bank of Israel rate for the date${
-                    initialData && initialData.currency === form.currency
-                      ? ', or keep the current conversion if amount and date are unchanged'
-                      : ''
-                  }.`
+                  baseValueHelperText(initialData?.currency === form.currency)
                 }
                 fullWidth
               />

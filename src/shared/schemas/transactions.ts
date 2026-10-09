@@ -16,7 +16,9 @@ function requireAnAmount(
   amount: { value?: number; originalAmount?: number },
   context: z.RefinementCtx,
 ) {
-  if (amount.value === undefined && amount.originalAmount === undefined) {
+  const hasNoAmount =
+    amount.value === undefined && amount.originalAmount === undefined;
+  if (hasNoAmount) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['value'],

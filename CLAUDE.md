@@ -189,14 +189,17 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `chargedAmount`/`chargedCurrency` (additive to `value`), and
   `importedAmountService.resolveExtractedAmounts` stores a billed ILS amount as
   the conversion (`STATEMENT`) without converting it again; only an unbilled
-  foreign amount is converted, one rate lookup per currency and day. With no
-  rate, or a row the service marks `currencyAmbiguous` (as is one whose
-  currency code is not ISO 4217 — never read as ILS),
-  `ImportedTransaction.value` is null (and `currency` null when unknown); the
-  UI flags it and approve, merge and batch fail that row with a 422 until an
-  ILS amount is entered. Matching and duplicate detection compare currency and
-  original amount as well as `value`, so a foreign charge matches a hand-logged
-  entry converted at another rate.
+  foreign amount is converted, one rate lookup per currency and day. An amount
+  with no currency named is the statement's own (ILS), as an instalment's full
+  price beside its payment is. With no rate, or a row the service marks
+  `currencyAmbiguous` (as is one whose currency code is not ISO 4217 — never
+  read as ILS), `ImportedTransaction.value` is null (and `currency` null when
+  unknown); the UI flags it and approve and batch fail that row with a 422
+  until an ILS amount is entered. A merge into a transaction holding the same
+  currency and original amount takes that transaction's conversion instead.
+  Matching and duplicate detection compare currency and original amount as
+  well as `value`, so a foreign charge matches a hand-logged entry converted
+  at another rate.
 - **Duplicate import rows are matched up to a shortened merchant name.**
   `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires equal date,
   value, currency, original amount and type, and the shorter normalized

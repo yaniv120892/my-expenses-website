@@ -14,6 +14,9 @@ export type ImportedAmount = Omit<TransactionAmount, 'value' | 'currency'> & {
   currency: string | null;
 };
 
+/** An imported row's amount with the day it was charged, which a hand-entered rate is dated by. */
+export type DatedImportedAmount = ImportedAmount & { date: Date };
+
 export enum ImportFileType {
   VISA_CREDIT = 'VISA_CREDIT',
   MASTERCARD_CREDIT = 'MASTERCARD_CREDIT',

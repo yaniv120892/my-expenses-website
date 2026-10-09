@@ -6,7 +6,7 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
-import type { ImportedAmountColumns } from '@/server/repositories/amountColumns';
+import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';
 
 export type ImportedTransactionWithMatch =
   Prisma.ImportedTransactionGetPayload<{

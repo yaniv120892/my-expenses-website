@@ -6,16 +6,22 @@ import {
 } from '@/server/utils/money';
 import type { TransactionAmount } from '@/shared/types/transaction';
 import type { ImportedAmount } from '@/shared/types/import';
+import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';
 
 type DecimalColumn = { toString(): string };
 
-export type AmountColumnsRow = {
+type AmountColumnsRow = {
   value: number;
   currency: string;
   originalAmount: DecimalColumn;
   exchangeRate: DecimalColumn | null;
   exchangeRateDate: Date | null;
   exchangeRateSource: ExchangeRateSource | null;
+};
+
+type ImportedAmountColumnsRow = Omit<AmountColumnsRow, 'value' | 'currency'> & {
+  value: number | null;
+  currency: string | null;
 };
 
 export function toAmountColumns(amount: TransactionAmount) {
@@ -34,15 +40,10 @@ export function fromAmountColumns(row: AmountColumnsRow): TransactionAmount {
   };
 }
 
-type ImportedAmountColumnsRow = Omit<AmountColumnsRow, 'value' | 'currency'> & {
-  value: number | null;
-  currency: string | null;
-};
-
-export type ImportedAmountColumns = ReturnType<typeof toImportedAmountColumns>;
-
 /** Decimals go to the database as strings, so no float rounds them on the way. */
-export function toImportedAmountColumns(amount: ImportedAmount) {
+export function toImportedAmountColumns(
+  amount: ImportedAmount,
+): ImportedAmountColumns {
   return {
     value: amount.value,
     currency: amount.currency,

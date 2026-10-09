@@ -1,4 +1,4 @@
-import type { ExchangeRateQuote } from '@/server/services/exchangeRateService';
+import type { ExchangeRateQuote } from '@/server/services/exchangeRateService.types';
 import {
   convertAmount,
   type DecimalInput,

@@ -31,7 +31,7 @@ import {
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
 import {
-  ImportedAmount,
+  DatedImportedAmount,
   ReconciliationPlanItem,
   ReconciliationPreviewItem,
   NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
@@ -931,9 +931,7 @@ class ImportService {
     };
   }
 
-  private toImportedAmountAt(
-    row: ImportedTransaction,
-  ): ImportedAmount & { date: Date } {
+  private toImportedAmountAt(row: ImportedTransaction): DatedImportedAmount {
     return { ...fromImportedAmountColumns(row), date: row.date };
   }
 

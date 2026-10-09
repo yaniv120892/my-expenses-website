@@ -44,7 +44,8 @@ export default function AmountText({
         : `${type === 'INCOME' ? '+' : '-'}${formatNumber(value)}`}
     </Typography>
   );
-  if (!original || !isForeignCurrency(original.currency)) {
+  const showsOriginal = original && isForeignCurrency(original.currency);
+  if (!showsOriginal) {
     return amount;
   }
   return (

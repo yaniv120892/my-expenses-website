@@ -6,7 +6,7 @@ vi.mock('@/server/services/exchangeRateService', () => ({
 }));
 
 import importedAmountService from './importedAmountService';
-import type { ImportedAmount } from '@/shared/types/import';
+import type { DatedImportedAmount } from '@/shared/types/import';
 
 const DAY = new Date(2026, 7, 8);
 
@@ -99,6 +99,22 @@ describe('importedAmountService.resolveExtractedAmounts', () => {
     expect(getRateToBase).not.toHaveBeenCalled();
   });
 
+  it('reads an unlabelled instalment, whose full price differs from the payment, as ILS', async () => {
+    expect(
+      await resolveOne({
+        value: 400,
+        date: DAY,
+        originalAmount: 1200,
+        chargedAmount: 400,
+      }),
+    ).toMatchObject({
+      value: 400,
+      currency: 'ILS',
+      originalAmount: 400,
+      exchangeRate: null,
+    });
+  });
+
   it('keeps a billed ILS amount whose original currency is not recognised', async () => {
     expect(
       await resolveOne({
@@ -139,7 +155,7 @@ describe('importedAmountService.resolveExtractedAmounts', () => {
 });
 
 describe('importedAmountService.resolveApprovedAmount', () => {
-  const statementRow: ImportedAmount & { date: Date } = {
+  const statementRow: DatedImportedAmount = {
     value: 92.35,
     currency: 'USD',
     originalAmount: 25,
@@ -148,7 +164,7 @@ describe('importedAmountService.resolveApprovedAmount', () => {
     exchangeRateSource: 'STATEMENT',
     date: DAY,
   };
-  const unknownRow: ImportedAmount & { date: Date } = {
+  const unknownRow: DatedImportedAmount = {
     ...statementRow,
     value: null,
     exchangeRate: null,
@@ -195,6 +211,20 @@ describe('importedAmountService.resolveApprovedAmount', () => {
         undefined,
         target,
       ),
+    ).toBe(target);
+  });
+
+  it('keeps a merge target’s conversion when the merge form sends its ILS amount back', () => {
+    const target = {
+      value: 76.75,
+      currency: 'USD',
+      originalAmount: 25,
+      exchangeRate: 3.07,
+      exchangeRateDate: DAY,
+      exchangeRateSource: 'BANK_OF_ISRAEL' as const,
+    };
+    expect(
+      importedAmountService.resolveApprovedAmount(statementRow, 76.75, target),
     ).toBe(target);
   });
 

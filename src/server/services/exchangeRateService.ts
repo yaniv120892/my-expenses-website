@@ -1,10 +1,12 @@
 import { subDays } from 'date-fns';
+import { parse } from 'csv-parse/sync';
 import Decimal from 'decimal.js';
 import logger from '@/server/logging/logger';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import { getValue, setValue } from '@/server/redis';
 import { toDayString } from '@/shared/dates';
 import { toRateString } from '@/server/utils/money';
+import type { ExchangeRateQuote } from '@/server/services/exchangeRateService.types';
 
 const BANK_OF_ISRAEL_RATES_URL =
   'https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0';
@@ -16,13 +18,6 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60;
 // Today's rate comes out in the afternoon, so until then today takes an earlier
 // day's, which is cached only briefly lest it outlive the publication.
 const UNPUBLISHED_DAY_CACHE_TTL_SECONDS = 60 * 60;
-
-export type ExchangeRateQuote = {
-  /** ILS per one unit of the currency, to eight places. */
-  rate: string;
-  /** The business day the rate was published for. */
-  rateDate: string;
-};
 
 type PublishedRate = { day: string; rate: string };
 
@@ -135,36 +130,35 @@ class ExchangeRateService {
  * units (JPY is per 100 yen), so it is scaled back to one unit.
  */
 export function parsePublishedRates(csv: string): PublishedRate[] {
-  const [headerLine, ...lines] = csv.trim().split(/\r?\n/);
-  if (!headerLine) {
-    return [];
-  }
-  const header = headerLine.split(',');
-  const dayColumn = header.indexOf('TIME_PERIOD');
-  const valueColumn = header.indexOf('OBS_VALUE');
-  const unitMultiplierColumn = header.indexOf('UNIT_MULT');
-  if (dayColumn === -1 || valueColumn === -1) {
-    throw new Error(
-      `Unexpected exchange rate CSV header: ${headerLine.slice(0, 200)}`,
-    );
-  }
+  const records: Record<string, string>[] = parse(csv, {
+    columns: requirePublishedRateColumns,
+    skip_empty_lines: true,
+    trim: true,
+  });
 
-  return lines
-    .map((line) => line.split(','))
-    .filter((cells) => cells[valueColumn] && Number(cells[valueColumn]) > 0)
-    .map((cells) => {
-      const unitMultiplier = Number(cells[unitMultiplierColumn] ?? 0) || 0;
-      return {
-        day: cells[dayColumn],
-        rate: toRateString(
-          new Decimal(cells[valueColumn]).dividedBy(
-            new Decimal(10).pow(unitMultiplier),
-          ),
+  return records
+    .filter((record) => Number(record.OBS_VALUE) > 0)
+    .map((record) => ({
+      day: record.TIME_PERIOD,
+      rate: toRateString(
+        new Decimal(record.OBS_VALUE).dividedBy(
+          new Decimal(10).pow(Number(record.UNIT_MULT) || 0),
         ),
-      };
-    })
+      ),
+    }))
     .sort((left, right) => left.day.localeCompare(right.day));
 }
 
 const exchangeRateService = new ExchangeRateService();
 export default exchangeRateService;
+
+function requirePublishedRateColumns(header: string[]): string[] {
+  const hasRateColumns =
+    header.includes('TIME_PERIOD') && header.includes('OBS_VALUE');
+  if (!hasRateColumns) {
+    throw new Error(
+      `Unexpected exchange rate CSV header: ${header.join(',').slice(0, 200)}`,
+    );
+  }
+  return header;
+}

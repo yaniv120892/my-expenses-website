@@ -1,7 +1,6 @@
 import { HttpError } from '@/server/http/errors';
-import exchangeRateService, {
-  type ExchangeRateQuote,
-} from '@/server/services/exchangeRateService';
+import exchangeRateService from '@/server/services/exchangeRateService';
+import type { ExchangeRateQuote } from '@/server/services/exchangeRateService.types';
 import { isSameMoney, toMoneyNumber } from '@/server/utils/money';
 import {
   pickAmountFields,
@@ -11,11 +10,14 @@ import {
 } from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import { toDayString } from '@/shared/dates';
-import type { ImportedAmount } from '@/shared/types/import';
+import type {
+  DatedImportedAmount,
+  ImportedAmount,
+} from '@/shared/types/import';
 import type { TransactionAmount } from '@/shared/types/transaction';
 import { formatAmountWithOriginal } from '@/utils/format';
 
-export type ExtractedAmount = {
+type ExtractedAmount = {
   value: number;
   date: Date;
   originalAmount?: number;
@@ -44,23 +46,32 @@ class ImportedAmountService {
   /**
    * The amount a transaction created or merged from an imported row gets. An
    * ILS amount the user enters (or changes) wins; otherwise the row's own, or
-   * failing that a merge target's conversion of the same foreign charge.
+   * failing that a merge target's conversion of the same foreign charge. The
+   * merge form starts from the target's ILS amount, so that amount sent back
+   * unchanged keeps the target's conversion rather than reading as typed.
    */
   public resolveApprovedAmount(
-    row: ImportedAmount & { date: Date },
+    row: DatedImportedAmount,
     requestedValue?: number,
     mergeTarget?: TransactionAmount,
   ): TransactionAmount {
+    const mergeTargetHasSameCharge =
+      mergeTarget !== undefined &&
+      mergeTarget.currency === row.currency &&
+      isSameMoney(mergeTarget.originalAmount, row.originalAmount);
+    const echoesMergeTarget =
+      mergeTargetHasSameCharge &&
+      requestedValue !== undefined &&
+      isSameMoney(mergeTarget.value, requestedValue);
+    if (echoesMergeTarget) {
+      return mergeTarget;
+    }
+
     const value =
       requestedValue ?? (row.value === null ? undefined : row.value);
     if (value !== undefined) {
       return this.approvedAmount(row, value);
     }
-
-    const mergeTargetHasSameCharge =
-      mergeTarget !== undefined &&
-      mergeTarget.currency === row.currency &&
-      isSameMoney(mergeTarget.originalAmount, row.originalAmount);
     if (mergeTargetHasSameCharge) {
       return mergeTarget;
     }
@@ -74,7 +85,7 @@ class ImportedAmountService {
   // The row's own conversion survives unless the user typed a different ILS
   // amount, which then becomes a hand-entered rate.
   private approvedAmount(
-    row: ImportedAmount & { date: Date },
+    row: DatedImportedAmount,
     value: number,
   ): TransactionAmount {
     if (row.currency === null || !isForeignCurrency(row.currency)) {
@@ -159,9 +170,9 @@ class ImportedAmountService {
         'STATEMENT',
       );
     }
-    const originalIsTheBilledAmount =
-      !row.currencyAmbiguous && isSameMoney(originalAmount, chargedAmount);
-    if (originalCurrency === BASE_CURRENCY || originalIsTheBilledAmount) {
+    // An unlabelled original is the statement's own currency, as an
+    // instalment's full price beside this month's payment is.
+    if (!row.currencyAmbiguous) {
       return baseAmount(chargedAmount);
     }
     // The ILS billed is certain; which currency the original was in is not.

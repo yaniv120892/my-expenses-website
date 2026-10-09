@@ -3,6 +3,7 @@ import { importService } from '@/server/services/importService';
 
 export const GET = createHandler({
   auth: 'session',
+  apiTokenScope: 'IMPORTS',
   handler: async ({ userId, params }) =>
     importService.getImport(params.importId, userId),
 });

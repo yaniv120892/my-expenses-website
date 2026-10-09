@@ -3,7 +3,14 @@ import * as Sentry from '@sentry/nextjs';
 import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
-import { AuthError, requireUser } from '@/server/auth/session';
+import {
+  AuthError,
+  extractCredential,
+  requireUser,
+} from '@/server/auth/session';
+import { isApiToken } from '@/server/auth/apiTokenFormat';
+import { authenticateApiToken } from '@/server/auth/apiTokens';
+import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
@@ -52,16 +59,25 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         auth: 'cron';
         heartbeatEnvVar?: string;
         rateLimit?: never;
+        apiTokenScope?: never;
       }
     | {
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
+        apiTokenScope?: never;
       }
     | {
-        auth: 'session' | 'telegram';
+        auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
+        apiTokenScope?: ApiTokenScope;
+      }
+    | {
+        auth: 'telegram';
+        rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
+        heartbeatEnvVar?: never;
+        apiTokenScope?: never;
       }
   );
 
@@ -76,16 +92,37 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
   );
 }
 
-async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
+type AuthResult = { userId: string; apiTokenId?: string };
+
+async function resolveAuth(
+  req: NextRequest,
+  mode: AuthMode,
+  apiTokenScope: ApiTokenScope | undefined,
+): Promise<AuthResult> {
   switch (mode) {
-    case 'session':
-      return requireUser(req);
+    case 'session': {
+      // Only the Authorization header carries an API token: one in the
+      // cookie would be a credential the browser attaches on its own.
+      const credential = extractCredential(req);
+      const isApiTokenBearer =
+        credential?.source === 'bearer' && isApiToken(credential.token);
+      if (!isApiTokenBearer) {
+        return { userId: await requireUser(req) };
+      }
+      if (!apiTokenScope) {
+        throw new AuthError(
+          'API_TOKEN_NOT_ACCEPTED',
+          'This route does not accept an API token',
+        );
+      }
+      return authenticateApiToken(credential.token, apiTokenScope);
+    }
     case 'cron': {
       const authHeader = req.headers.get('authorization');
       if (!secretsEqual(authHeader, `Bearer ${requireEnv('CRON_SECRET')}`)) {
         throw new AuthError('CRON_AUTH_FAILED', 'Authentication required');
       }
-      return '';
+      return { userId: '' };
     }
     case 'telegram': {
       const secret = optionalEnv('TELEGRAM_WEBHOOK_SECRET');
@@ -93,10 +130,10 @@ async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
       if (!secret || !secretsEqual(header, secret)) {
         throw new AuthError('TELEGRAM_AUTH_FAILED', 'Authentication required');
       }
-      return '';
+      return { userId: '' };
     }
     case 'public':
-      return '';
+      return { userId: '' };
   }
 }
 
@@ -148,10 +185,15 @@ export function createHandler<
     const path = req.nextUrl.pathname;
     let response: Response;
     let userId = '';
+    let apiTokenId: string | undefined;
     let params: Record<string, string> = {};
 
     try {
-      userId = await resolveAuth(req, options.auth);
+      ({ userId, apiTokenId } = await resolveAuth(
+        req,
+        options.auth,
+        options.apiTokenScope,
+      ));
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = options.paramsSchema
         ? options.paramsSchema.parse(params)
@@ -192,13 +234,19 @@ export function createHandler<
       response = errorResponse(err, options.auth);
       if (response.status >= 500) {
         logger.error(
-          { requestId, path, err, ...(userId && { userId }) },
+          {
+            requestId,
+            path,
+            err,
+            ...(userId && { userId }),
+            ...(apiTokenId && { apiTokenId }),
+          },
           'Request failed',
         );
         // The error becomes a response here, so Next's onRequestError never
         // sees it.
         Sentry.captureException(err, {
-          tags: { path, requestId },
+          tags: { path, requestId, ...(apiTokenId && { apiTokenId }) },
           ...(userId && { user: { id: userId } }),
         });
         // Raw params, not parsed: the replace must match the exact path text.
@@ -225,6 +273,7 @@ export function createHandler<
         status: response.status,
         durationMs: Date.now() - started,
         ...(userId && { userId }),
+        ...(apiTokenId && { apiTokenId }),
         // A cron's request line ships even though info normally does not: its
         // only other signal is a heartbeat that cannot say why it went silent.
         ...(options.auth === 'cron' && { ship: true }),

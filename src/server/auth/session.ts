@@ -42,16 +42,19 @@ async function isSessionActive(
   return (await getValue(sessionKey(userId, token), 'branch')) !== null;
 }
 
-export function extractToken(req: NextRequest): string | null {
+export type Credential = { source: 'cookie' | 'bearer'; token: string };
+
+export function extractCredential(req: NextRequest): Credential | null {
   const cookieToken = req.cookies.get(SESSION_COOKIE)?.value;
   if (cookieToken) {
-    return cookieToken;
+    return { source: 'cookie', token: cookieToken };
   }
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) {
-    return null;
-  }
-  return authHeader.split(' ')[1] ?? null;
+  const bearerToken = req.headers.get('authorization')?.split(' ')[1];
+  return bearerToken ? { source: 'bearer', token: bearerToken } : null;
+}
+
+export function extractToken(req: NextRequest): string | null {
+  return extractCredential(req)?.token ?? null;
 }
 
 export async function requireUser(req: NextRequest): Promise<string> {

@@ -1,5 +1,7 @@
 // IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
 //
+// The bearer is an API token with the Imports scope (`mxk_…`, from Settings) or a session JWT.
+//
 // Each file is uploaded once per target and recorded in
 // `.import-statements.json`: the extractor does not spell every merchant the
 // same way on a second pass.
@@ -194,7 +196,7 @@ async function main(): Promise<void> {
   await saveManifest(manifestPath, manifest);
 }
 
-// Never an argument: the token is a live session and would land in shell
+// Never an argument: the token is a live credential and would land in shell
 // history.
 async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.IMPORT_API_TOKEN;

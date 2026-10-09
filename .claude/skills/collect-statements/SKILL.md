@@ -27,6 +27,12 @@ One login covers every card on that portal and every month, so the cost is one
 login per portal per sitting — not one per card or per month. Do all months for
 a portal in a single session.
 
+The human need not be at the desk. With the Mac awake and the Chrome extension
+connected, they follow the session from their phone and do step 2 over Chrome
+Remote Desktop; the ID number and code they send in chat are still theirs to
+type. Ask for "in" once they are through, then carry on. Isracard and Amex IL
+log out after about ten idle minutes, so open one portal at a time.
+
 ## Before the first run
 
 Turn off Chrome's **"Ask where to save each file"** at
@@ -101,13 +107,15 @@ recorded imports and only tells you nothing is left to reconcile.
 
 ## Running against production
 
-The bearer is the `session` cookie from a logged-in browser tab (DevTools →
-Application → Cookies → the site). It is a live seven-day credential: keep it
-out of transcripts and shell history — put it in a file and point the script
-at that, or paste it from the clipboard.
+The bearer is an **API token with the Imports scope**: Settings → API tokens,
+tick Imports, Create; it is shown once. It lasts a year, works only on the
+routes its scopes open, and is revoked from the same table, which also shows
+when it was last used. Keep it in a file, out of
+transcripts and shell history; the human pastes it there, since the page shows
+it only to them.
 
 ```bash
-chmod 600 ~/.config/my-expenses/production-token   # the cookie value, one line
+(umask 077; pbpaste > ~/.config/my-expenses/production-token)
 IMPORT_API_TOKEN_FILE=~/.config/my-expenses/production-token \
   npm run statements:import -- <dir> --base-url=https://<site> --dry-run
 ```
@@ -288,7 +296,7 @@ Before the commit, approve each such row on its own. The row then becomes a
 new transaction and leaves the pending bill alone:
 
 ```bash
-curl -X POST -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+curl -X POST -H "Authorization: Bearer $(cat ~/.config/my-expenses/production-token)" -H 'Content-Type: application/json' \
   -d '{"description":"<row description>","value":<row value>,"date":"<row date>","type":"EXPENSE"}' \
   <base-url>/api/imports/transactions/<imported-row-id>/approve
 ```
@@ -310,12 +318,22 @@ Search the account's whole transaction history over the imported span, not only
 the rows just added: the fee recurs monthly and its wording moves (`דמי כרטיס`
 one month, `דמי כרטיס הנפקה` the next).
 
-```bash
-curl -s -H "Authorization: Bearer <token>" \
-  '<base-url>/api/transactions?startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>&limit=100'
+An Imports-scoped token cannot read transactions; no scope opens
+`/api/transactions` yet. Read them from a tab where the human is logged in to the site,
+through Claude in Chrome's JavaScript tool; the session cookie travels with a
+same-origin request:
+
+```js
+await (
+  await fetch(
+    '/api/transactions?startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>&limit=100',
+  )
+).json();
 ```
 
 Page on `nextCursor`; the rows come back under `items`, not `transactions`.
+Return only the fee rows from the script, not the whole page, so the rest of
+the history stays out of the transcript.
 
 Report per card: the monthly amount, the annual cost, and the months it was
 seen. As of 2026-09-18 that is Amex 4730 at ₪22.90 a month and Isracard 0329 at

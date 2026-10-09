@@ -53,6 +53,33 @@ test('cron routes may not declare a rate limit', () => {
   }>().not.toExtend<Options>();
 });
 
+test('only a session route may declare an API token scope', () => {
+  expectTypeOf<{
+    auth: 'session';
+    apiTokenScope: 'IMPORTS';
+    handler: Handler;
+  }>().toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'cron';
+    apiTokenScope: 'IMPORTS';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'public';
+    rateLimit: 'none';
+    apiTokenScope: 'IMPORTS';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'telegram';
+    apiTokenScope: 'IMPORTS';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+});
+
 test('body and query inference survives the union', () => {
   createHandler({
     auth: 'session',

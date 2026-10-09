@@ -195,6 +195,10 @@ async function api(
   return { status: res.status, headers: res.headers, body: parsed };
 }
 
+function errorCode(result: ApiResult): string | undefined {
+  return (result.body as { code?: string } | null)?.code;
+}
+
 async function redisGet(key: string): Promise<unknown> {
   const res = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
     method: 'POST',
@@ -739,6 +743,139 @@ async function waitForImportCompletion(
   return found;
 }
 
+async function apiTokenFlow(
+  sessionToken: string,
+  otherUserSessionToken: string,
+): Promise<string> {
+  const unscoped = await api('POST', '/api/api-tokens', {
+    token: sessionToken,
+    body: { name: 'no scopes', scopes: [] },
+  });
+  check(
+    'API tokens: a token needs at least one scope',
+    unscoped.status === 400,
+    `status ${unscoped.status}`,
+  );
+
+  const created = await api('POST', '/api/api-tokens', {
+    token: sessionToken,
+    body: { name: 'e2e statements script', scopes: ['IMPORTS'] },
+  });
+  const { id, token } = (created.body ?? {}) as { id?: string; token?: string };
+  check(
+    'API tokens: a session creates one and sees its plaintext once',
+    created.status === 201 && Boolean(token?.startsWith('mxk_')),
+    `status ${created.status}`,
+  );
+  if (!id || !token) {
+    return '';
+  }
+
+  const [stored] = await query<{ tokenHash: string }>(
+    'select "tokenHash" from "ApiToken" where id = $1',
+    [id],
+  );
+  check(
+    'API tokens: only a hash is stored',
+    Boolean(stored) &&
+      stored.tokenHash !== token &&
+      !stored.tokenHash.includes(token),
+  );
+
+  const listed = await api('GET', '/api/api-tokens', {
+    token: sessionToken,
+  });
+  check(
+    'API tokens: the list never carries the token',
+    listed.status === 200 && !JSON.stringify(listed.body).includes(token),
+    `status ${listed.status}`,
+  );
+
+  const forged = await api('GET', '/api/imports', {
+    token: `mxk_${'A'.repeat(43)}${'B'.repeat(16)}`,
+  });
+  check(
+    'API tokens: a forged token is refused',
+    forged.status === 401 && errorCode(forged) === 'INVALID_API_TOKEN',
+    `status ${forged.status}`,
+  );
+
+  const outsideImports = await api('GET', '/api/transactions', { token });
+  check(
+    'API tokens: refused outside the import routes',
+    outsideImports.status === 401 &&
+      errorCode(outsideImports) === 'API_TOKEN_NOT_ACCEPTED',
+    `status ${outsideImports.status}`,
+  );
+
+  const deletesImport = await api(
+    'DELETE',
+    `/api/imports/${crypto.randomUUID()}`,
+    { token },
+  );
+  check(
+    'API tokens: refused on an import route the script does not drive',
+    deletesImport.status === 401 &&
+      errorCode(deletesImport) === 'API_TOKEN_NOT_ACCEPTED',
+    `status ${deletesImport.status}`,
+  );
+
+  const mintsAnother = await api('POST', '/api/api-tokens', {
+    token,
+    body: { name: 'minted by a token' },
+  });
+  check(
+    'API tokens: a token cannot mint another',
+    mintsAnother.status === 401,
+    `status ${mintsAnother.status}`,
+  );
+
+  const otherUserRevoke = await api('DELETE', `/api/api-tokens/${id}`, {
+    token: otherUserSessionToken,
+  });
+  check(
+    "API tokens: another user cannot revoke one's token",
+    otherUserRevoke.status === 404,
+    `status ${otherUserRevoke.status}`,
+  );
+
+  return token;
+}
+
+async function apiTokenRevocationFlow(
+  sessionToken: string,
+  apiToken: string,
+): Promise<void> {
+  const listed = await api('GET', '/api/api-tokens', {
+    token: sessionToken,
+  });
+  const tokens = (listed.body ?? []) as {
+    id: string;
+    lastUsedAt: string | null;
+  }[];
+  const [used] = tokens;
+  check(
+    'API tokens: use is recorded',
+    tokens.length === 1 && used.lastUsedAt !== null,
+    `${tokens.length} tokens, lastUsedAt ${used?.lastUsedAt}`,
+  );
+  if (!used) {
+    return;
+  }
+
+  const revoked = await api('DELETE', `/api/api-tokens/${used.id}`, {
+    token: sessionToken,
+  });
+  const afterRevoke = await api('GET', '/api/imports', { token: apiToken });
+  check(
+    'API tokens: a revoked token stops working',
+    revoked.status === 200 &&
+      afterRevoke.status === 401 &&
+      errorCode(afterRevoke) === 'INVALID_API_TOKEN',
+    `revoke ${revoked.status}, then ${afterRevoke.status}`,
+  );
+}
+
 // The raw column read proves the value was encrypted, not stored as plaintext.
 async function importEncryptionFlow(token: string): Promise<void> {
   const digits = randomCardDigits();
@@ -1061,8 +1198,12 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
-  await importEncryptionFlow(seeded.userA.token);
-  await importMergeFlow(seeded.userA.token);
+  // The import flows run on an Imports-scoped API token rather than the
+  // session, so they prove the routes the statements script drives accept one.
+  const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
+  await importEncryptionFlow(apiToken);
+  await importMergeFlow(apiToken);
+  await apiTokenRevocationFlow(seeded.userA.token, apiToken);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

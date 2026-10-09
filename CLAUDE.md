@@ -192,6 +192,21 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
+  An **API token** (`mxk_…`, created and revoked in Settings, one year, only
+  its SHA-256 stored in `ApiToken`) is a bearer for scripts, carrying a list of
+  scopes (`ApiTokenScope`). It is read from the `Authorization` header only,
+  never the cookie, and ends in an HMAC keyed by `JWT_SECRET`, so a forged one
+  is refused before any database lookup — rotating that secret revokes every
+  token along with every session. A request made with a token logs its
+  `apiTokenId`. A route opts in by declaring the one scope it
+  needs, `apiTokenScope: 'IMPORTS'` on an `auth: 'session'` route; a token
+  without that scope gets 403, and every `auth: 'session'` route that declares
+  none answers 401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot
+  mint another. Which handler needs which scope is pinned in
+  `src/app/api/apiTokenScope.test.ts`; a new scope is a new enum value plus
+  the routes it opens. A scope names a whole capability, not a read/write
+  half: `IMPORTS` drives the import workflow end to end (list, upload,
+  preview, approve). A session cookie on the same request wins.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
   by `redisKeyPrefix(scope)`, because previews share production's one Upstash
   database. Only production is bare; everything else, an unconfigured local
@@ -265,7 +280,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 Models: User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
 AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
-AnnouncementAck.
+AnnouncementAck, ApiToken.
 Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
 ## Crons (vercel.json)

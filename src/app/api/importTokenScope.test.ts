@@ -33,7 +33,7 @@ function handlersAcceptingImportTokens(path: string): string[] {
   return readFileSync(path, 'utf8')
     .split(/^export const /m)
     .slice(1)
-    .filter((handler) => handler.includes('acceptsImportToken: true'))
+    .filter((handler) => /\bacceptsImportToken\b/.test(handler))
     .map((handler) => `${handler.slice(0, handler.indexOf(' '))} ${route}`);
 }
 

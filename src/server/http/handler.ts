@@ -98,7 +98,7 @@ async function resolveAuth(
   switch (mode) {
     case 'session': {
       // A session cookie wins over any bearer, as it does in requireUser.
-      const importToken = req.cookies.has(SESSION_COOKIE)
+      const importToken = req.cookies.get(SESSION_COOKIE)?.value
         ? null
         : bearerImportToken(req);
       if (!importToken) {

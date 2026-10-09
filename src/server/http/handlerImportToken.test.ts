@@ -94,6 +94,18 @@ describe('createHandler import token auth', () => {
     expect(authenticateImportToken).not.toHaveBeenCalled();
   });
 
+  it('treats an empty session cookie as absent, as requireUser does', async () => {
+    authenticateImportToken.mockResolvedValue(TOKEN_OWNER);
+
+    const response = await echoUserRoute(true)(
+      request('Bearer mxi_secret', 'session='),
+      ROUTE_CONTEXT,
+    );
+
+    expect(await response.json()).toEqual({ userId: TOKEN_OWNER });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
   it('still takes a session bearer on a route that accepts import tokens', async () => {
     requireUser.mockResolvedValue('session-user');
 

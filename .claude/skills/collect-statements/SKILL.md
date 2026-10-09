@@ -317,12 +317,22 @@ Search the account's whole transaction history over the imported span, not only
 the rows just added: the fee recurs monthly and its wording moves (`דמי כרטיס`
 one month, `דמי כרטיס הנפקה` the next).
 
-```bash
-curl -s -H "Authorization: Bearer <token>" \
-  '<base-url>/api/transactions?startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>&limit=100'
+The import token cannot read transactions — it is scoped to the import routes
+on purpose. Read them from a tab where the human is logged in to the site,
+through Claude in Chrome's JavaScript tool; the session cookie travels with a
+same-origin request:
+
+```js
+await (
+  await fetch(
+    '/api/transactions?startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>&limit=100',
+  )
+).json();
 ```
 
 Page on `nextCursor`; the rows come back under `items`, not `transactions`.
+Return only the fee rows from the script, not the whole page, so the rest of
+the history stays out of the transcript.
 
 Report per card: the monthly amount, the annual cost, and the months it was
 seen. As of 2026-09-18 that is Amex 4730 at ₪22.90 a month and Isracard 0329 at

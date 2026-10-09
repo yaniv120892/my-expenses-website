@@ -27,6 +27,12 @@ One login covers every card on that portal and every month, so the cost is one
 login per portal per sitting — not one per card or per month. Do all months for
 a portal in a single session.
 
+The human need not be at the desk. With the Mac awake and the Chrome extension
+connected, they follow the session from their phone and do step 2 over Chrome
+Remote Desktop; the ID number and code they send in chat are still theirs to
+type. Ask for "in" once they are through, then carry on. Isracard and Amex IL
+log out after about ten idle minutes, so open one portal at a time.
+
 ## Before the first run
 
 Turn off Chrome's **"Ask where to save each file"** at
@@ -101,13 +107,14 @@ recorded imports and only tells you nothing is left to reconcile.
 
 ## Running against production
 
-The bearer is the `session` cookie from a logged-in browser tab (DevTools →
-Application → Cookies → the site). It is a live seven-day credential: keep it
-out of transcripts and shell history — put it in a file and point the script
-at that, or paste it from the clipboard.
+The bearer is an **import token**: Settings → Import tokens → Create, shown
+once. It lasts a year, works only on the import routes, and is revoked from the
+same table, which also shows when it was last used. Keep it in a file, out of
+transcripts and shell history; the human pastes it there, since the page shows
+it only to them.
 
 ```bash
-chmod 600 ~/.config/my-expenses/production-token   # the cookie value, one line
+pbpaste > ~/.config/my-expenses/production-token && chmod 600 ~/.config/my-expenses/production-token
 IMPORT_API_TOKEN_FILE=~/.config/my-expenses/production-token \
   npm run statements:import -- <dir> --base-url=https://<site> --dry-run
 ```

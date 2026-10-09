@@ -1,5 +1,7 @@
 // IMPORT_API_TOKEN=<bearer> npx tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]
 //
+// The bearer is an import token from Settings (`mxi_…`) or a session JWT.
+//
 // Each file is uploaded once per target and recorded in
 // `.import-statements.json`: the extractor does not spell every merchant the
 // same way on a second pass.

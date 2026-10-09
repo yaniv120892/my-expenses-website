@@ -21,6 +21,7 @@ const getS3Client = lazy(
 
 export const POST = createHandler({
   auth: 'session',
+  acceptsImportToken: true,
   handler: async ({ req }) => {
     const formData = await req.formData();
     const file = formData.get('file');

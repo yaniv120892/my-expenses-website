@@ -4,6 +4,7 @@ import { importService } from '@/server/services/importService';
 
 export const POST = createHandler({
   auth: 'session',
+  acceptsImportToken: true,
   bodySchema: mergeImportedTransactionSchema,
   handler: async ({ userId, body, params }) => {
     await importService.mergeImportedTransaction(

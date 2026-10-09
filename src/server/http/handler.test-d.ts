@@ -53,6 +53,33 @@ test('cron routes may not declare a rate limit', () => {
   }>().not.toExtend<Options>();
 });
 
+test('only a session route may accept an import token', () => {
+  expectTypeOf<{
+    auth: 'session';
+    acceptsImportToken: true;
+    handler: Handler;
+  }>().toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'cron';
+    acceptsImportToken: true;
+    handler: Handler;
+  }>().not.toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'public';
+    rateLimit: 'none';
+    acceptsImportToken: true;
+    handler: Handler;
+  }>().not.toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'telegram';
+    acceptsImportToken: true;
+    handler: Handler;
+  }>().not.toExtend<Options>();
+});
+
 test('body and query inference survives the union', () => {
   createHandler({
     auth: 'session',

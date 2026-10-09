@@ -90,6 +90,7 @@ model User {
   categoryMappings          UserCategoryMapping[]
   detectedSubscriptions     DetectedSubscription[]
   announcementAcks          AnnouncementAck[]
+  importTokens              ImportToken[]
 }
 
 // Which in-app announcements a user has acknowledged. announcementId is a
@@ -258,6 +259,21 @@ model UserCategoryMapping {
   category           Category @relation(fields: [categoryId], references: [id])
 
   @@unique([userId, descriptionPattern])
+  @@index([userId])
+}
+
+// A long-lived bearer for scripts driving the import routes, so a run does not
+// depend on a seven-day browser session. Only the token's SHA-256 is stored.
+model ImportToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  name       String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 

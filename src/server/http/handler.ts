@@ -4,6 +4,10 @@ import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import { AuthError, requireUser } from '@/server/auth/session';
+import {
+  bearerImportToken,
+  importTokenService,
+} from '@/server/auth/importTokens';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
@@ -52,16 +56,27 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         auth: 'cron';
         heartbeatEnvVar?: string;
         rateLimit?: never;
+        acceptsImportToken?: never;
       }
     | {
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
+        acceptsImportToken?: never;
       }
     | {
-        auth: 'session' | 'telegram';
+        auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
+        // Admits an import token (`Authorization: Bearer mxi_…`) in place of a
+        // session. Only the import routes a statement run drives declare it.
+        acceptsImportToken?: boolean;
+      }
+    | {
+        auth: 'telegram';
+        rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
+        heartbeatEnvVar?: never;
+        acceptsImportToken?: never;
       }
   );
 
@@ -76,10 +91,25 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
   );
 }
 
-async function resolveAuth(req: NextRequest, mode: AuthMode): Promise<string> {
+async function resolveAuth(
+  req: NextRequest,
+  mode: AuthMode,
+  acceptsImportToken: boolean,
+): Promise<string> {
   switch (mode) {
-    case 'session':
-      return requireUser(req);
+    case 'session': {
+      const importToken = bearerImportToken(req);
+      if (!importToken) {
+        return requireUser(req);
+      }
+      if (!acceptsImportToken) {
+        throw new AuthError(
+          'IMPORT_TOKEN_NOT_ACCEPTED',
+          'This route does not accept an import token',
+        );
+      }
+      return importTokenService.authenticate(importToken);
+    }
     case 'cron': {
       const authHeader = req.headers.get('authorization');
       if (!secretsEqual(authHeader, `Bearer ${requireEnv('CRON_SECRET')}`)) {
@@ -151,7 +181,11 @@ export function createHandler<
     let params: Record<string, string> = {};
 
     try {
-      userId = await resolveAuth(req, options.auth);
+      userId = await resolveAuth(
+        req,
+        options.auth,
+        options.auth === 'session' && options.acceptsImportToken === true,
+      );
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = options.paramsSchema
         ? options.paramsSchema.parse(params)

@@ -27,6 +27,7 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
 import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '@/components/shell/PageHeader';
+import ImportTokenManager from '@/components/ImportTokenManager';
 import {
   useTestMonthlyReportMutation,
   useTestTelegramMutation,
@@ -448,6 +449,10 @@ export default function SettingsPage() {
             &quot;Send now&quot; emails you last month&apos;s report
             immediately, so you can check it works without waiting for the 1st.
           </Typography>
+        </SettingsSection>
+
+        <SettingsSection title="Import tokens">
+          <ImportTokenManager />
         </SettingsSection>
       </Stack>
 

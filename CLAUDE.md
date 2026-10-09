@@ -192,6 +192,12 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
+  An **import token** (`mxi_…`, created and revoked in Settings, one year,
+  only its SHA-256 stored in `ImportToken`) is a bearer for the statements
+  script: `createHandler` admits it only on `auth: 'session'` routes that
+  declare `acceptsImportToken` — every `/api/imports/**` route except the
+  auto-approve-rule management — and answers `IMPORT_TOKEN_NOT_ACCEPTED`
+  anywhere else, `/api/import-tokens` included, so a token cannot mint another.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
   by `redisKeyPrefix(scope)`, because previews share production's one Upstash
   database. Only production is bare; everything else, an unconfigured local
@@ -265,7 +271,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 Models: User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
 AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
-AnnouncementAck.
+AnnouncementAck, ImportToken.
 Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
 ## Crons (vercel.json)

@@ -740,6 +740,110 @@ async function waitForImportCompletion(
 }
 
 // The raw column read proves the value was encrypted, not stored as plaintext.
+async function importTokenFlow(
+  sessionToken: string,
+  otherUserSessionToken: string,
+): Promise<string> {
+  const created = await api('POST', '/api/import-tokens', {
+    token: sessionToken,
+    body: { name: 'e2e statements script' },
+  });
+  const { id, token } = (created.body ?? {}) as { id?: string; token?: string };
+  check(
+    'import tokens: a session creates one and sees its plaintext once',
+    created.status === 201 && Boolean(token?.startsWith('mxi_')),
+    `status ${created.status}`,
+  );
+  if (!id || !token) {
+    return '';
+  }
+
+  const [stored] = await query<{ tokenHash: string }>(
+    'select "tokenHash" from "ImportToken" where id = $1',
+    [id],
+  );
+  check(
+    'import tokens: only a hash is stored',
+    Boolean(stored) &&
+      stored.tokenHash !== token &&
+      !stored.tokenHash.includes(token),
+  );
+
+  const listed = await api('GET', '/api/import-tokens', {
+    token: sessionToken,
+  });
+  check(
+    'import tokens: the list never carries the token',
+    listed.status === 200 && !JSON.stringify(listed.body).includes(token),
+    `status ${listed.status}`,
+  );
+
+  const outsideImports = await api('GET', '/api/transactions', { token });
+  check(
+    'import tokens: refused outside the import routes',
+    outsideImports.status === 401 &&
+      (outsideImports.body as { code?: string } | null)?.code ===
+        'IMPORT_TOKEN_NOT_ACCEPTED',
+    `status ${outsideImports.status}`,
+  );
+
+  const mintsAnother = await api('POST', '/api/import-tokens', {
+    token,
+    body: { name: 'minted by a token' },
+  });
+  check(
+    'import tokens: a token cannot mint another',
+    mintsAnother.status === 401,
+    `status ${mintsAnother.status}`,
+  );
+
+  const otherUserRevoke = await api('DELETE', `/api/import-tokens/${id}`, {
+    token: otherUserSessionToken,
+  });
+  check(
+    "import tokens: another user cannot revoke one's token",
+    otherUserRevoke.status === 404,
+    `status ${otherUserRevoke.status}`,
+  );
+
+  return token;
+}
+
+async function importTokenRevocationFlow(
+  sessionToken: string,
+  importToken: string,
+): Promise<void> {
+  const listed = await api('GET', '/api/import-tokens', {
+    token: sessionToken,
+  });
+  const tokens = (listed.body ?? []) as {
+    id: string;
+    lastUsedAt: string | null;
+  }[];
+  const [used] = tokens;
+  check(
+    'import tokens: use is recorded',
+    tokens.length === 1 && used.lastUsedAt !== null,
+    `${tokens.length} tokens, lastUsedAt ${used?.lastUsedAt}`,
+  );
+  if (!used) {
+    return;
+  }
+
+  const revoked = await api('DELETE', `/api/import-tokens/${used.id}`, {
+    token: sessionToken,
+  });
+  const afterRevoke = await api('GET', '/api/imports', { token: importToken });
+  check(
+    'import tokens: a revoked token stops working',
+    revoked.status === 200 &&
+      afterRevoke.status === 401 &&
+      (afterRevoke.body as { code?: string } | null)?.code ===
+        'INVALID_IMPORT_TOKEN',
+    `revoke ${revoked.status}, then ${afterRevoke.status}`,
+  );
+}
+
 async function importEncryptionFlow(token: string): Promise<void> {
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_03_2026.csv`;
@@ -1061,8 +1165,15 @@ async function main(): Promise<void> {
   await scheduledCronFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
-  await importEncryptionFlow(seeded.userA.token);
-  await importMergeFlow(seeded.userA.token);
+  // The import flows run on an import token rather than the session, so they
+  // prove the routes the statements script drives accept one.
+  const importToken = await importTokenFlow(
+    seeded.userA.token,
+    seeded.userB.token,
+  );
+  await importEncryptionFlow(importToken);
+  await importMergeFlow(importToken);
+  await importTokenRevocationFlow(seeded.userA.token, importToken);
 
   const failed = results.filter((r) => !r.ok);
   console.log(

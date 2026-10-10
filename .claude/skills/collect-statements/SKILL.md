@@ -5,8 +5,9 @@ description: Download monthly credit-card statements from the Israeli card porta
 
 # Collecting card statements
 
-The monthly ritual: pull each portal's statement, drop the files in one folder,
-and let `npm run statements:import` reconcile them against pending transactions.
+The monthly ritual: ask `npm run statements:due` which statements have closed,
+pull exactly those from each portal, drop the files in one folder, and let
+`npm run statements:import` reconcile them against pending transactions.
 
 **Announce at start:** "I'm using the collect-statements skill."
 
@@ -23,15 +24,68 @@ So the shape of every portal is the same:
 2. The human logs in and clears the OTP, then says so.
 3. Claude selects card and month, exports, and repeats per card.
 
-One login covers every card on that portal and every month, so the cost is one
-login per portal per sitting — not one per card or per month. Do all months for
-a portal in a single session.
+One login covers every month of every card it reaches, so the cost is one
+login per `login` group in the due list — not one per card or per month. A
+portal can need more than one login: a card issued under another login does
+not show in the first one's carousel. Do all of a login's months in a single
+session.
 
 The human need not be at the desk. With the Mac awake and the Chrome extension
 connected, they follow the session from their phone and do step 2 over Chrome
 Remote Desktop; the ID number and code they send in chat are still theirs to
 type. Ask for "in" once they are through, then carry on. Isracard and Amex IL
 log out after about ten idle minutes, so open one portal at a time.
+
+## Which statements are due
+
+The household's cards live in `~/.config/my-expenses/statement-sources.json`,
+outside the repository: it is the card list, and every worktree reaches it
+there. Start every run by asking production what is missing:
+
+```bash
+IMPORT_API_TOKEN_FILE=~/.config/my-expenses/production-token \
+  npm run statements:due -- --base-url=https://<site>
+```
+
+It prints each due statement under the login that reaches it, already named
+as the import expects, then the next billing date of every card. A month is due
+once its billing day has passed and no import of it was made on or after that
+day. `re-collect` marks a month imported before it closed: what landed was a
+partial statement. Collect it into a fresh directory, so the import is a new
+upload that merges into the partial one. When nothing is due, the
+`Next to close` list says when to come back.
+
+The file's shape:
+
+```json
+{
+  "startMonth": "01/2026",
+  "cards": [
+    {
+      "issuer": "cal",
+      "last4": "1234",
+      "holder": "you",
+      "login": "Cal — you",
+      "billingDay": 10,
+      "firstMonth": "07/2026",
+      "skipMonths": { "02/2026": "only the card fee, waived to ₪0" }
+    }
+  ],
+  "closedCards": [{ "issuer": "cal", "last4": "5678", "holder": "you" }]
+}
+```
+
+`issuer` is the file-name prefix (`cal`, `isracard`, `amex`). `login` groups the
+cards one portal login reaches. `billingDay` is the day the card's statement
+closes, the `חיוב ב` date the portal and the file's title rows show.
+`firstMonth` holds off a card issued after `startMonth`. `skipMonths` records a
+month deliberately left out, with the reason. A card you no longer use moves
+to `closedCards`, so nobody backfills it.
+
+Keep the file current as you go. Add a new card the run turns up. Move a card
+the human calls closed, and correct a billing day a title row contradicts. The
+file holds no credentials. The ID number and the login itself stay the
+human's.
 
 ## Before the first run
 

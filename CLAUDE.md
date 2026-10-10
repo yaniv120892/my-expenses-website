@@ -23,6 +23,7 @@ npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
 npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
 npm run test:e2e:ui      # Playwright specs in e2e/
 npm run statements:import -- <dir> [--dry-run] [--resubmit] [--base-url=<url>]   # bulk import + reconcile
+npm run statements:due -- [--sources=<json>] [--base-url=<url>]   # closed statements not yet imported, per card login
 npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
 ```
 

@@ -23,7 +23,8 @@
     "test:e2e:ui": "playwright test",
     "postinstall": "prisma generate",
     "prepare": "husky",
-    "categories:compare": "LOG_LEVEL=error tsx scripts/compare-category-suggesters.ts"
+    "categories:compare": "LOG_LEVEL=error tsx scripts/compare-category-suggesters.ts",
+    "statements:due": "tsx scripts/statements-due.ts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

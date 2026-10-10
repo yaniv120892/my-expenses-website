@@ -1025,25 +1025,27 @@ async function variableAmountPlaceholderFlow(
     `select id from "Category" where name = 'Rent'`,
   );
 
+  // Created without a prefix and given one after the cron has run, so the
+  // check proves an edit reaches a pending transaction already projected.
+  const schedule = {
+    description,
+    value: 40,
+    type: 'EXPENSE',
+    categoryId: category.id,
+    scheduleType: 'DAILY',
+  };
   const created = await api('POST', '/api/scheduled-transactions', {
     token: sessionToken,
-    body: {
-      description,
-      value: 40,
-      type: 'EXPENSE',
-      categoryId: category.id,
-      scheduleType: 'DAILY',
-      bankDescriptionPrefix: `coffee ${digits}`,
-    },
+    body: schedule,
   });
-  check(
-    'variable amount: a schedule saves with a bank description prefix',
-    created.status === 201,
-    `status ${created.status}`,
-  );
+  const scheduleId = created.body as string | null;
+  if (created.status !== 201 || !scheduleId) {
+    check('variable amount: the schedule was created', false, '');
+    return;
+  }
   await query(
-    `update "ScheduledTransaction" set "nextRunDate" = now() - interval '1 day' where description = $1`,
-    [description],
+    `update "ScheduledTransaction" set "nextRunDate" = now() - interval '1 day' where id = $1`,
+    [scheduleId],
   );
   await api('GET', '/api/scheduled-transactions/process', {
     token: process.env.CRON_SECRET || 'e2e',
@@ -1051,19 +1053,33 @@ async function variableAmountPlaceholderFlow(
 
   const [placeholder] = await query<{
     id: string;
-    bankDescriptionPrefix: string | null;
+    scheduledTransactionId: string | null;
   }>(
-    `select id, "bankDescriptionPrefix" from "Transaction" where "userId" = $1 and description = $2`,
+    `select id, "scheduledTransactionId" from "Transaction" where "userId" = $1 and description = $2`,
     [userId, description],
   );
   check(
-    'variable amount: the cron copies the prefix onto the pending transaction',
-    placeholder?.bankDescriptionPrefix === `coffee ${digits}`,
-    `prefix ${placeholder?.bankDescriptionPrefix ?? 'no transaction'}`,
+    'variable amount: the cron links the pending transaction to its schedule',
+    placeholder?.scheduledTransactionId === scheduleId,
+    `linked to ${placeholder?.scheduledTransactionId ?? 'no transaction'}`,
   );
   if (!placeholder) {
     return;
   }
+
+  const updated = await api(
+    'PUT',
+    `/api/scheduled-transactions/${scheduleId}`,
+    {
+      token: sessionToken,
+      body: { ...schedule, bankDescriptionPrefix: `coffee ${digits}` },
+    },
+  );
+  check(
+    'variable amount: a schedule saves with a bank description prefix',
+    updated.status === 200,
+    `status ${updated.status}`,
+  );
   await query(`update "Transaction" set date = '2026-03-08' where id = $1`, [
     placeholder.id,
   ]);

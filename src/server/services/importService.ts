@@ -40,7 +40,7 @@ import type { MatchCandidateTransaction } from '@/server/repositories/types';
 import {
   closestInDate,
   findExactNormalizedMatch,
-  isMatchCandidate,
+  matchCandidateFilter,
   isVariableAmountPlaceholder,
   type MatchableCharge,
 } from '@/server/utils/transactionMatching';
@@ -888,9 +888,9 @@ class ImportService {
       transaction,
     );
 
+    const isCandidate = matchCandidateFilter(transaction);
     const availableMatches = matches.filter(
-      (match) =>
-        !excludedIds?.has(match.id) && isMatchCandidate(transaction, match),
+      (match) => !excludedIds?.has(match.id) && isCandidate(match),
     );
 
     if (availableMatches.length === 0) {

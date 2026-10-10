@@ -39,28 +39,37 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
           },
         ],
       }),
-      expect.objectContaining({ bankDescriptionPrefix: { not: null } }),
+      expect.objectContaining({
+        scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+      }),
     ]);
   });
 
-  it('also queries pending variable-amount placeholders in the date window, at any value', async () => {
+  it('queries variable-amount placeholders once per direction, across every window, at any value', async () => {
+    const charge = (date: Date) => ({
+      date,
+      type: TransactionType.EXPENSE,
+      value: 101.98,
+      currency: 'ILS',
+      originalAmount: 101.98,
+    });
+
     await transactionRepository.findPotentialMatchesForCharges('user-1', [
-      {
-        date: DAY,
-        type: TransactionType.EXPENSE,
-        value: 101.98,
-        currency: 'ILS',
-        originalAmount: 101.98,
-      },
+      charge(new Date(2026, 5, 10)),
+      charge(new Date(2026, 5, 20)),
     ]);
 
-    const placeholderClause = windowsQueried()[1];
-    expect(placeholderClause).toEqual({
-      type: TransactionType.EXPENSE,
-      date: expect.any(Object),
-      status: 'PENDING_APPROVAL',
-      bankDescriptionPrefix: { not: null },
-    });
+    const placeholderClauses = windowsQueried().filter(
+      (clause: Record<string, unknown>) => 'scheduledTransaction' in clause,
+    );
+    expect(placeholderClauses).toEqual([
+      {
+        type: TransactionType.EXPENSE,
+        date: { gte: new Date(2026, 5, 5), lte: new Date(2026, 5, 25) },
+        status: 'PENDING_APPROVAL',
+        scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+      },
+    ]);
   });
 
   it('queries a billed foreign charge by its ILS value or its original amount', async () => {

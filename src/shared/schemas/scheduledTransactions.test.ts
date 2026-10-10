@@ -37,4 +37,13 @@ describe('createScheduledTransactionSchema bankDescriptionPrefix', () => {
       }),
     ).toThrow();
   });
+
+  it('counts the prefix the way the matcher reads it, so punctuation does not pad it', () => {
+    expect(() =>
+      createScheduledTransactionSchema.parse({
+        ...monthly,
+        bankDescriptionPrefix: '**ab',
+      }),
+    ).toThrow();
+  });
 });

@@ -12,7 +12,7 @@ export interface CreateTransactionDbModel extends TransactionAmount {
   type: TransactionType;
   date: Date;
   status?: TransactionStatus;
-  bankDescriptionPrefix?: string | null;
+  scheduledTransactionId?: string;
   userId: string;
 }
 

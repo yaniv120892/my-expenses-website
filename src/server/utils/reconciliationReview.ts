@@ -4,7 +4,8 @@ import type {
 } from '@/shared/types/import';
 import type { Transaction } from '@/shared/types/transaction';
 import {
-  isMatchCandidate,
+  dateDistance,
+  matchCandidateFilter,
   shareNoWord,
 } from '@/server/utils/transactionMatching';
 
@@ -51,9 +52,7 @@ function unmatchedCandidateHint(
   item: ReconciliationPlanItem,
   candidates: CandidateTransaction[],
 ): ReconciliationReviewHint | null {
-  const inWindow = candidates.filter((candidate) =>
-    isMatchCandidate(item, candidate),
-  );
+  const inWindow = candidates.filter(matchCandidateFilter(item));
   if (inWindow.length === 0) {
     return null;
   }
@@ -91,9 +90,5 @@ function isCloser(
     return valueGap < 0;
   }
 
-  const time = item.date.getTime();
-  return (
-    Math.abs(candidate.date.getTime() - time) <
-    Math.abs(best.date.getTime() - time)
-  );
+  return dateDistance(item, candidate) < dateDistance(item, best);
 }

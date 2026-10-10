@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { scheduleTypeSchema, transactionTypeSchema } from './common';
+import {
+  isUsableBankDescriptionPrefix,
+  MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+} from '@/shared/descriptions';
 
 const scheduledCombinationMessage =
   'Invalid combination of scheduleType, dayOfWeek, and dayOfMonth';
@@ -32,7 +36,14 @@ const scheduledTransactionBaseSchema = z.object({
   bankDescriptionPrefix: z.preprocess(
     (value) =>
       typeof value === 'string' && value.trim() === '' ? undefined : value,
-    z.string().trim().min(3).max(100).optional(),
+    z
+      .string()
+      .trim()
+      .max(100)
+      .refine(isUsableBankDescriptionPrefix, {
+        message: `Needs at least ${MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH} letters or digits`,
+      })
+      .optional(),
   ),
 });
 

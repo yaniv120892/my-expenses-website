@@ -141,11 +141,13 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `src/server/utils/transactionMatching.ts`) and never reaches the model; a tie
   or no exact hit does. That short-circuit keeps a multi-month backfill
   affordable. A recurring charge whose amount drifts is declared on its
-  schedule as a `bankDescriptionPrefix`, which the cron copies onto each
-  pending transaction it projects. While that transaction is pending it is a
-  candidate at any value — date window and direction still apply — but only for
-  a row whose normalized description starts with the prefix, and it is claimed
-  without a model call (nearest in date if several fit). `isMatchCandidate`
+  schedule as a `bankDescriptionPrefix`; each pending transaction the cron
+  projects links back to its schedule (`scheduledTransactionId`), so the
+  prefix is read through that link and an edit reaches rows already projected.
+  While such a transaction is pending it is a candidate at any value — date
+  window and direction still apply — but only for a row whose normalized
+  description starts with the prefix, and it is claimed without a model call
+  (nearest in date if several fit). `matchCandidateFilter`
   (`src/server/utils/transactionMatching.ts`) is the one predicate the matcher
   and the preview hints share.
 - **One function decides merge-vs-create.**

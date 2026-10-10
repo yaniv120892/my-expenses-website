@@ -110,7 +110,7 @@ class TransactionService {
       categoryId: resolved.categoryId,
       type: resolved.type,
       status: resolved.status || 'APPROVED',
-      bankDescriptionPrefix: resolved.bankDescriptionPrefix,
+      scheduledTransactionId: resolved.scheduledTransactionId,
       userId: resolved.userId,
     };
   }

@@ -2,6 +2,10 @@ import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
 import { type DecimalInput, isSameMoney } from '@/server/utils/money';
 import { isForeignCurrency } from '@/shared/currency';
+import {
+  isUsableBankDescriptionPrefix,
+  normalizeDescription,
+} from '@/shared/descriptions';
 
 const MINIMUM_VALUE_TOLERANCE = 2;
 const RELATIVE_VALUE_TOLERANCE = 0.01;
@@ -27,17 +31,6 @@ type NormalizedMatchCandidate = {
   id: string;
   description: string;
 };
-
-/** Folds away case, spacing, punctuation, Latin diacritics and Hebrew niqqud. */
-export function normalizeDescription(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[\p{P}\p{S}]/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
-}
 
 /**
  * A tie is null rather than the first hit: choosing between equally spelled
@@ -134,26 +127,30 @@ export type MatchCandidate = MatchableCharge & {
 };
 
 /**
+ * Whether a candidate may be paired with `charge`, built once per charge so the
+ * window and the normalized description are not rebuilt for every candidate.
  * A pending transaction projected from a variable-amount schedule is paired by
  * the bank's description instead of by value, since no fixed value would
  * survive the value window.
  */
-export function isMatchCandidate(
+export function matchCandidateFilter(
   charge: MatchableCharge & { description: string },
-  candidate: MatchCandidate,
-): boolean {
+): (candidate: MatchCandidate) => boolean {
   const window = matchWindow(charge);
-  if (isVariableAmountPlaceholder(candidate)) {
-    return (
-      isWithinDateWindow(window, candidate) &&
-      startsWithBankDescriptionPrefix(
-        charge.description,
-        candidate.bankDescriptionPrefix,
-      )
-    );
-  }
+  const normalizedDescription = normalizeDescription(charge.description);
+  return (candidate) => {
+    if (isVariableAmountPlaceholder(candidate)) {
+      return (
+        isWithinDateWindow(window, candidate) &&
+        startsWithNormalizedPrefix(
+          normalizedDescription,
+          candidate.bankDescriptionPrefix,
+        )
+      );
+    }
 
-  return isWithinMatchWindow(window, candidate);
+    return isWithinMatchWindow(window, candidate);
+  };
 }
 
 export function isVariableAmountPlaceholder(
@@ -169,12 +166,14 @@ export function startsWithBankDescriptionPrefix(
   description: string,
   prefix: string,
 ): boolean {
-  const normalizedPrefix = normalizeDescription(prefix);
-  if (normalizedPrefix.length < MINIMUM_SHORTENED_MERCHANT_LENGTH) {
-    return false;
-  }
+  return startsWithNormalizedPrefix(normalizeDescription(description), prefix);
+}
 
-  return normalizeDescription(description).startsWith(normalizedPrefix);
+export function dateDistance(
+  charge: MatchableCharge,
+  candidate: MatchableCharge,
+): number {
+  return Math.abs(candidate.date.getTime() - charge.date.getTime());
 }
 
 /** `candidates` must not be empty. */
@@ -182,12 +181,20 @@ export function closestInDate<T extends MatchableCharge>(
   charge: MatchableCharge,
   candidates: T[],
 ): T {
-  const time = charge.date.getTime();
   return candidates.reduce((best, candidate) =>
-    Math.abs(candidate.date.getTime() - time) <
-    Math.abs(best.date.getTime() - time)
+    dateDistance(charge, candidate) < dateDistance(charge, best)
       ? candidate
       : best,
+  );
+}
+
+function startsWithNormalizedPrefix(
+  normalizedDescription: string,
+  prefix: string,
+): boolean {
+  return (
+    isUsableBankDescriptionPrefix(prefix) &&
+    normalizedDescription.startsWith(normalizeDescription(prefix))
   );
 }
 

@@ -4,16 +4,16 @@ import {
   canMatch,
   closestInDate,
   findExactNormalizedMatch,
-  isMatchCandidate,
+  matchCandidateFilter,
   isSameCharge,
   isWithinMatchWindow,
   matchValueTolerance,
   matchWindow,
-  normalizeDescription,
   shareNoWord,
   startsWithBankDescriptionPrefix,
   type MatchCandidate,
 } from '@/server/utils/transactionMatching';
+import { normalizeDescription } from '@/shared/descriptions';
 
 describe('normalizeDescription', () => {
   it('lowercases and collapses whitespace', () => {
@@ -411,7 +411,7 @@ describe('shareNoWord', () => {
   });
 });
 
-describe('isMatchCandidate', () => {
+describe('matchCandidateFilter', () => {
   const charge = {
     description: 'GOOGLE CLOUD EMEA LIMIT G',
     value: 101.98,
@@ -420,6 +420,10 @@ describe('isMatchCandidate', () => {
     date: new Date(2026, 8, 1),
     type: TransactionType.EXPENSE,
   };
+  const isMatchCandidate = (
+    matched: typeof charge,
+    candidate: MatchCandidate,
+  ) => matchCandidateFilter(matched)(candidate);
   const candidate = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
     description: 'גוגל אחסון',
     value: 8,

@@ -153,7 +153,7 @@ class TransactionRepository {
         categoryId: data.categoryId,
         type: data.type,
         status: data.status || TransactionStatus.APPROVED,
-        bankDescriptionPrefix: data.bankDescriptionPrefix ?? null,
+        scheduledTransactionId: data.scheduledTransactionId ?? null,
         userId: data.userId,
       },
     });
@@ -367,7 +367,7 @@ class TransactionRepository {
 
   // Which charge each returned transaction belongs to is left to the caller,
   // and so is the description test a variable-amount placeholder must pass:
-  // isMatchCandidate holds both.
+  // matchCandidateFilter holds both.
   public async findPotentialMatchesForCharges(
     userId: string,
     charges: MatchableCharge[],
@@ -381,23 +381,26 @@ class TransactionRepository {
       where: {
         userId,
         status: { in: MATCHABLE_STATUSES },
-        OR: windows.flatMap((window) => this.buildMatchWindowWheres(window)),
+        OR: [
+          ...windows.map((window) => this.buildAmountWindowWhere(window)),
+          ...this.buildPlaceholderWheres(windows),
+        ],
       },
       orderBy: { status: 'desc' },
-      include: { category: true },
+      include: {
+        category: true,
+        scheduledTransaction: { select: { bankDescriptionPrefix: true } },
+      },
     });
 
     return potentialTransactions.map((transaction) => ({
       ...this.mapToDomain(transaction),
-      bankDescriptionPrefix: transaction.bankDescriptionPrefix,
+      bankDescriptionPrefix:
+        transaction.scheduledTransaction?.bankDescriptionPrefix ?? null,
     }));
   }
 
-  private buildMatchWindowWheres(window: MatchWindow) {
-    const sameDirectionAndDays = {
-      type: window.type,
-      date: { gte: window.earliestDate, lte: window.latestDate },
-    };
+  private buildAmountWindowWhere(window: MatchWindow) {
     const amountConditions = [
       ...(window.valueRange
         ? [
@@ -421,14 +424,34 @@ class TransactionRepository {
           ]
         : []),
     ];
-    return [
-      { ...sameDirectionAndDays, OR: amountConditions },
-      {
-        ...sameDirectionAndDays,
-        status: TransactionStatus.PENDING_APPROVAL,
-        bankDescriptionPrefix: { not: null },
-      },
-    ];
+    return {
+      type: window.type,
+      date: { gte: window.earliestDate, lte: window.latestDate },
+      OR: amountConditions,
+    };
+  }
+
+  // One clause per direction spanning every window, not one per charge: a
+  // placeholder's own window and prefix are checked in memory anyway.
+  private buildPlaceholderWheres(windows: MatchWindow[]) {
+    const spanByType = new Map<TransactionType, { gte: Date; lte: Date }>();
+    for (const window of windows) {
+      const span = spanByType.get(window.type);
+      spanByType.set(window.type, {
+        gte:
+          span && span.gte < window.earliestDate
+            ? span.gte
+            : window.earliestDate,
+        lte:
+          span && span.lte > window.latestDate ? span.lte : window.latestDate,
+      });
+    }
+    return [...spanByType].map(([type, date]) => ({
+      type,
+      date,
+      status: TransactionStatus.PENDING_APPROVAL,
+      scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+    }));
   }
 
   /**

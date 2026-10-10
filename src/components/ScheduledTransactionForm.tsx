@@ -27,6 +27,10 @@ import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import { describeApiError } from '@/utils/api';
 import NotificationSnackbar from './NotificationSnackbar';
+import {
+  isUsableBankDescriptionPrefix,
+  MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+} from '@/shared/descriptions';
 
 interface Props {
   open: boolean;
@@ -43,8 +47,6 @@ const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   type: 'EXPENSE',
   scheduleType: 'MONTHLY',
 };
-
-const MINIMUM_PREFIX_LENGTH = 3;
 
 const scheduleTypes: ScheduleType[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
 const transactionTypes: TransactionType[] = ['EXPENSE', 'INCOME'];
@@ -115,8 +117,8 @@ export default function ScheduledTransactionForm({
       errs.scheduleType = 'Schedule type is required';
     }
     const prefix = form.bankDescriptionPrefix?.trim() ?? '';
-    if (prefix.length > 0 && prefix.length < MINIMUM_PREFIX_LENGTH) {
-      errs.bankDescriptionPrefix = `Use at least ${MINIMUM_PREFIX_LENGTH} characters`;
+    if (prefix.length > 0 && !isUsableBankDescriptionPrefix(prefix)) {
+      errs.bankDescriptionPrefix = `Use at least ${MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH} letters or digits`;
     }
     if (form.scheduleType === 'WEEKLY' && !form.dayOfWeek) {
       errs.dayOfWeek = 'Day of week is required';

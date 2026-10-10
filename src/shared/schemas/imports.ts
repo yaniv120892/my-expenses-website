@@ -1,10 +1,27 @@
 import { z } from 'zod';
 import { transactionTypeSchema } from './common';
+import { normalizePaymentMonth } from '../paymentMonth';
 
 export const processImportSchema = z.object({
   fileUrl: z.string().url(),
   originalFileName: z.string(),
-  paymentMonth: z.string().optional(),
+  paymentMonth: z
+    .string()
+    .optional()
+    .transform((raw, context) => {
+      if (!raw?.trim()) {
+        return undefined;
+      }
+      const paymentMonth = normalizePaymentMonth(raw);
+      if (!paymentMonth) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `paymentMonth must be MM/YYYY (got "${raw}")`,
+        });
+        return z.NEVER;
+      }
+      return paymentMonth;
+    }),
 });
 
 export const approveImportedTransactionSchema = z.object({

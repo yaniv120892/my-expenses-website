@@ -19,6 +19,7 @@ import {
   UploadItem,
   UploadItemStatus,
 } from '@/utils/importUploadQueue';
+import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
 // 'succeeded' is absent by design: that row renders a tick, never a chip.
 const STATUS_CHIPS: Record<
@@ -150,6 +151,12 @@ export default function UploadQueueList({
               onChange={(e) => onPaymentMonthChange(item.id, e.target.value)}
               disabled={item.status !== 'queued'}
               placeholder="Optional"
+              error={isUnreadablePaymentMonth(item.paymentMonth)}
+              helperText={
+                isUnreadablePaymentMonth(item.paymentMonth)
+                  ? 'Use MM/YYYY, e.g. 03/2026'
+                  : undefined
+              }
               sx={{ mt: 1.5 }}
             />
           )}

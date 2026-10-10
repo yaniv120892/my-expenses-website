@@ -17,6 +17,7 @@ import { importService } from '@/server/services/importService';
 import importedAmountService from '@/server/services/importedAmountService';
 import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
+import { normalizePaymentMonth } from '@/shared/paymentMonth';
 
 export interface WebhookResult {
   status: number;
@@ -345,10 +346,20 @@ function reconcileMetadata(
   importRecord: Import,
   extracted: ExtractionMetadata,
 ): ExtractionMetadata {
-  const submittedMonth = importRecord.paymentMonth;
-  const extractedMonth = extracted.paymentMonth ?? null;
+  // A month stored before writes were normalized is read the same way, so it
+  // still keys the same duplicate; one that names no month gives way.
+  const submittedMonth = readPaymentMonth(
+    importRecord.id,
+    'submitted',
+    importRecord.paymentMonth,
+  );
+  const extractedMonth = readPaymentMonth(
+    importRecord.id,
+    'extracted',
+    extracted.paymentMonth,
+  );
   if (!submittedMonth) {
-    return extracted;
+    return { ...extracted, paymentMonth: extractedMonth };
   }
 
   if (extractedMonth && extractedMonth !== submittedMonth) {
@@ -359,6 +370,24 @@ function reconcileMetadata(
   }
 
   return { ...extracted, paymentMonth: submittedMonth };
+}
+
+function readPaymentMonth(
+  importId: string,
+  source: 'submitted' | 'extracted',
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) {
+    return null;
+  }
+  const paymentMonth = normalizePaymentMonth(raw);
+  if (!paymentMonth) {
+    logger.warn(
+      { importId, source, paymentMonth: raw },
+      'Payment month is not MM/YYYY; ignoring it',
+    );
+  }
+  return paymentMonth;
 }
 
 async function writeExtractionMetadata(

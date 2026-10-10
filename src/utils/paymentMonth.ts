@@ -1,4 +1,4 @@
-const PAYMENT_MONTH = /^(\d{1,2})\/(\d{4})$/;
+import { parsePaymentMonth } from '@/shared/paymentMonth';
 
 export function comparePaymentMonths(
   a: string | null | undefined,
@@ -7,9 +7,13 @@ export function comparePaymentMonths(
   return chronologicalKey(a).localeCompare(chronologicalKey(b));
 }
 
-// The month is free text on upload, so anything unparseable sorts with the
-// missing months rather than as raw text among the YYYY-MM keys.
+export function isUnreadablePaymentMonth(raw: string): boolean {
+  return raw.trim() !== '' && parsePaymentMonth(raw) === null;
+}
+
+// Rows stored before months were normalized on write may still hold any text;
+// those sort with the missing months rather than among the YYYY-MM keys.
 function chronologicalKey(paymentMonth: string | null | undefined): string {
-  const match = PAYMENT_MONTH.exec(paymentMonth?.trim() ?? '');
-  return match ? `${match[2]}-${match[1].padStart(2, '0')}` : '';
+  const parts = parsePaymentMonth(paymentMonth ?? '');
+  return parts ? `${parts.year}-${parts.month}` : '';
 }

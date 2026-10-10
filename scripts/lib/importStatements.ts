@@ -19,7 +19,7 @@ const USAGE =
 const DRY_RUN_FLAG = '--dry-run';
 const RESUBMIT_FLAG = '--resubmit';
 const BASE_URL_FLAG = '--base-url=';
-const STATEMENT_NAME_PATTERN = /^(.+)-(\d{4})-(\d{2})-(\d{4})$/;
+const STATEMENT_NAME_PATTERN = /^(.+)-(\d{4})-(0[1-9]|1[0-2])-(\d{4})$/;
 
 export function parseImportArguments(args: string[]): ImportArguments {
   let directory: string | undefined;

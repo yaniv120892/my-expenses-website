@@ -18,7 +18,7 @@ const USAGE =
   'Usage: tsx scripts/import-statements.ts <dir> [--dry-run] [--resubmit] [--base-url=<url>]';
 const DRY_RUN_FLAG = '--dry-run';
 const RESUBMIT_FLAG = '--resubmit';
-const BASE_URL_FLAG = '--base-url=';
+export const BASE_URL_FLAG = '--base-url=';
 const STATEMENT_NAME_PATTERN = /^(.+)-(\d{4})-(0[1-9]|1[0-2])-(\d{4})$/;
 
 export function parseImportArguments(args: string[]): ImportArguments {
@@ -37,7 +37,7 @@ export function parseImportArguments(args: string[]): ImportArguments {
       continue;
     }
     if (arg.startsWith(BASE_URL_FLAG)) {
-      baseUrl = parseBaseUrl(arg.slice(BASE_URL_FLAG.length));
+      baseUrl = parseBaseUrl(arg.slice(BASE_URL_FLAG.length), USAGE);
       continue;
     }
     if (arg.startsWith('--')) {
@@ -111,16 +111,16 @@ const WEB_PROTOCOLS = ['http:', 'https:'];
 
 // `localhost:3000` parses as a URL whose scheme is `localhost:`, so being
 // parseable is not enough — the scheme has to be one fetch can reach.
-function parseBaseUrl(value: string): string {
+export function parseBaseUrl(value: string, usage: string): string {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new Error(`--base-url is not a URL: "${value}"\n${USAGE}`);
+    throw new Error(`--base-url is not a URL: "${value}"\n${usage}`);
   }
   if (!WEB_PROTOCOLS.includes(url.protocol)) {
     throw new Error(
-      `--base-url is not a URL: "${value}" (expected http:// or https://)\n${USAGE}`,
+      `--base-url is not a URL: "${value}" (expected http:// or https://)\n${usage}`,
     );
   }
   return url.origin;

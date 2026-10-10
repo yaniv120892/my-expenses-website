@@ -8,6 +8,7 @@
 import { readdir, readFile, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { createInterface } from 'readline/promises';
+import { resolveToken } from './lib/apiToken';
 import {
   type ImportManifest,
   MANIFEST_FILE_NAME,
@@ -194,29 +195,6 @@ async function main(): Promise<void> {
     baseUrl,
   );
   await saveManifest(manifestPath, manifest);
-}
-
-// Never an argument: the token is a live credential and would land in shell
-// history.
-async function resolveToken(): Promise<string> {
-  const fromEnvironment = process.env.IMPORT_API_TOKEN;
-  if (fromEnvironment) {
-    return fromEnvironment;
-  }
-
-  const tokenFile = process.env.IMPORT_API_TOKEN_FILE;
-  if (tokenFile) {
-    const contents = await readFile(tokenFile, 'utf8');
-    const token = contents.trim();
-    if (!token) {
-      throw new Error(`IMPORT_API_TOKEN_FILE is empty: ${tokenFile}`);
-    }
-    return token;
-  }
-
-  throw new Error(
-    'Set IMPORT_API_TOKEN (dev:local prints one as "Bearer" on startup) or IMPORT_API_TOKEN_FILE',
-  );
 }
 
 async function loadManifest(path: string): Promise<ImportManifest> {

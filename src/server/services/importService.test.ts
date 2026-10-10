@@ -110,6 +110,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   description: 'Coffee',
   date: new Date(2026, 2, 7),
   value: 10,
+  type: 'EXPENSE',
   ...over,
 });
 
@@ -415,12 +416,18 @@ describe('matchSingleTransaction', () => {
       description: 'Coffee',
       date: new Date(2026, 2, 7),
       value: 10,
+      type: 'EXPENSE',
+      status: 'APPROVED',
+      bankDescriptionPrefix: null,
     },
     {
       id: 'tx-b',
       description: 'Bakery',
       date: new Date(2026, 2, 7),
       value: 10,
+      type: 'EXPENSE',
+      status: 'APPROVED',
+      bankDescriptionPrefix: null,
     },
   ];
 
@@ -509,6 +516,73 @@ describe('matchSingleTransaction', () => {
     expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
       where: { id: 'r1' },
       data: { matchingTransactionId: 'tx-a' },
+    });
+  });
+
+  describe('a variable-amount placeholder', () => {
+    const placeholder = (over: Record<string, unknown> = {}) => ({
+      id: 'tx-google',
+      description: 'גוגל אחסון',
+      date: new Date(2026, 2, 2),
+      value: 8,
+      type: 'EXPENSE',
+      status: 'PENDING_APPROVAL',
+      bankDescriptionPrefix: 'google',
+      ...over,
+    });
+
+    it('claims it at any amount when the prefix fits, without the provider', async () => {
+      findPotentialMatches.mockResolvedValue([placeholder()]);
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+        'user-1',
+      );
+
+      expect(matched).toBe('tx-google');
+      expect(findMatchingTransaction).not.toHaveBeenCalled();
+      expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { matchingTransactionId: 'tx-google' },
+      });
+    });
+
+    it('takes the one nearest in date when several fit', async () => {
+      findPotentialMatches.mockResolvedValue([
+        placeholder({ id: 'far', date: new Date(2026, 2, 11) }),
+        placeholder({ id: 'near', date: new Date(2026, 2, 6) }),
+      ]);
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE', value: 3 }),
+        'user-1',
+      );
+
+      expect(matched).toBe('near');
+    });
+
+    it('is never a candidate for a charge the prefix does not start', async () => {
+      findPotentialMatches.mockResolvedValue([
+        placeholder({ value: 10, bankDescriptionPrefix: 'google' }),
+      ]);
+
+      const matched = await service.matchSingleTransaction(row(), 'user-1');
+
+      expect(matched).toBeNull();
+      expect(findMatchingTransaction).not.toHaveBeenCalled();
+    });
+
+    it('matches by value again once approved', async () => {
+      findPotentialMatches.mockResolvedValue([
+        placeholder({ status: 'APPROVED' }),
+      ]);
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+        'user-1',
+      );
+
+      expect(matched).toBeNull();
     });
   });
 

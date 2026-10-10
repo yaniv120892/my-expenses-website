@@ -55,6 +55,21 @@ describe('processDueScheduledTransactions', () => {
     expect(createTransaction).toHaveBeenCalledTimes(2);
   });
 
+  it('carries a variable-amount prefix onto the pending transaction', async () => {
+    scheduledRepo.getDueScheduledTransactions.mockResolvedValue([
+      { ...schedule('s1'), bankDescriptionPrefix: 'GOOGLE' },
+    ]);
+
+    await scheduledTransactionService.processDueScheduledTransactions(RUN_DATE);
+
+    expect(createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'PENDING_APPROVAL',
+        bankDescriptionPrefix: 'GOOGLE',
+      }),
+    );
+  });
+
   it('skips an occurrence an overlapping run already claimed', async () => {
     scheduledRepo.claimDueRun.mockResolvedValueOnce(false);
 

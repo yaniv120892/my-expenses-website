@@ -133,6 +133,8 @@ model Transaction {
   category             Category             @relation(fields: [categoryId], references: [id])
   type                 TransactionType
   status               TransactionStatus    @default(APPROVED)
+  // Copied from the ScheduledTransaction that projected this pending row.
+  bankDescriptionPrefix String?
   userId               String               @db.Uuid
   user                 User                 @relation(fields: [userId], references: [id])
   importedTransactions ImportedTransaction[]
@@ -220,6 +222,9 @@ model ScheduledTransaction {
   dayOfWeek     Int?
   dayOfMonth    Int?
   monthOfYear   Int?
+  // Set when the amount varies: an imported row matches the pending
+  // transaction by this description prefix instead of by value.
+  bankDescriptionPrefix String?
   lastRunDate   DateTime?
   nextRunDate   DateTime?
   userId        String          @db.Uuid

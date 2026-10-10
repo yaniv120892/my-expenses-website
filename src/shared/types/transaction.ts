@@ -22,6 +22,7 @@ export interface CreateTransaction {
   type: TransactionType;
   date: Date | null;
   status?: TransactionStatus;
+  bankDescriptionPrefix?: string;
   userId: string;
 }
 

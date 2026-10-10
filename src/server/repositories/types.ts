@@ -1,4 +1,8 @@
-import { TransactionType, TransactionStatus } from '@/shared/types/transaction';
+import {
+  Transaction,
+  TransactionType,
+  TransactionStatus,
+} from '@/shared/types/transaction';
 import { ScheduleType } from '@/generated/prisma/client';
 
 export interface CreateTransactionDbModel {
@@ -8,8 +12,13 @@ export interface CreateTransactionDbModel {
   type: TransactionType;
   date: Date;
   status?: TransactionStatus;
+  bankDescriptionPrefix?: string | null;
   userId: string;
 }
+
+export type MatchCandidateTransaction = Transaction & {
+  bankDescriptionPrefix: string | null;
+};
 
 export interface UpdateTransactionDbModel {
   description?: string;

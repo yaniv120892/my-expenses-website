@@ -20,6 +20,7 @@ import {
 } from '@/shared/types/transaction';
 import {
   CreateTransactionDbModel,
+  MatchCandidateTransaction,
   UpdateTransactionDbModel,
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
@@ -146,6 +147,7 @@ class TransactionRepository {
         categoryId: data.categoryId,
         type: data.type,
         status: data.status || TransactionStatus.APPROVED,
+        bankDescriptionPrefix: data.bankDescriptionPrefix ?? null,
         userId: data.userId,
       },
     });
@@ -355,15 +357,17 @@ class TransactionRepository {
     date: Date,
     value: number,
     type: TransactionType,
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     return this.findPotentialMatchesForCharges(userId, [{ date, value, type }]);
   }
 
-  // Which charge each returned transaction belongs to is left to the caller.
+  // Which charge each returned transaction belongs to is left to the caller,
+  // and so is the description test a variable-amount placeholder must pass:
+  // isMatchCandidate holds both.
   public async findPotentialMatchesForCharges(
     userId: string,
     charges: MatchableCharge[],
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     if (charges.length === 0) {
       return [];
     }
@@ -372,22 +376,35 @@ class TransactionRepository {
       where: {
         userId,
         status: { in: MATCHABLE_STATUSES },
-        OR: charges.map((charge) => this.buildMatchWindowWhere(charge)),
+        OR: charges.flatMap((charge) => this.buildMatchWindowWheres(charge)),
       },
       orderBy: { status: 'desc' },
       include: { category: true },
     });
 
-    return potentialTransactions.map(this.mapToDomain);
+    return potentialTransactions.map((transaction) => ({
+      ...this.mapToDomain(transaction),
+      bankDescriptionPrefix: transaction.bankDescriptionPrefix,
+    }));
   }
 
-  private buildMatchWindowWhere(charge: MatchableCharge) {
+  private buildMatchWindowWheres(charge: MatchableCharge) {
     const window = matchWindow(charge);
-    return {
+    const sameDirectionAndDays = {
       type: window.type,
       date: { gte: window.earliestDate, lte: window.latestDate },
-      value: { gte: window.minimumValue, lte: window.maximumValue },
     };
+    return [
+      {
+        ...sameDirectionAndDays,
+        value: { gte: window.minimumValue, lte: window.maximumValue },
+      },
+      {
+        ...sameDirectionAndDays,
+        status: TransactionStatus.PENDING_APPROVAL,
+        bankDescriptionPrefix: { not: null },
+      },
+    ];
   }
 
   /**

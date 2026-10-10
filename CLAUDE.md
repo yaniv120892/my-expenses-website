@@ -140,7 +140,14 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   description wins outright (`findExactNormalizedMatch`,
   `src/server/utils/transactionMatching.ts`) and never reaches the model; a tie
   or no exact hit does. That short-circuit keeps a multi-month backfill
-  affordable.
+  affordable. A recurring charge whose amount drifts is declared on its
+  schedule as a `bankDescriptionPrefix`, which the cron copies onto each
+  pending transaction it projects. While that transaction is pending it is a
+  candidate at any value — date window and direction still apply — but only for
+  a row whose normalized description starts with the prefix, and it is claimed
+  without a model call (nearest in date if several fit). `isMatchCandidate`
+  (`src/server/utils/transactionMatching.ts`) is the one predicate the matcher
+  and the preview hints share.
 - **One function decides merge-vs-create.**
   `importService.toReconciliationPlanItem` derives every server path's
   MERGE/CREATE (preview, `batchApproveImportedTransactions`,

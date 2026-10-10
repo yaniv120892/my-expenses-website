@@ -34,8 +34,13 @@ import {
   ReconciliationPreviewItem,
   NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
-import type { Transaction } from '@/shared/types/transaction';
-import { findExactNormalizedMatch } from '@/server/utils/transactionMatching';
+import type { MatchCandidateTransaction } from '@/server/repositories/types';
+import {
+  closestInDate,
+  findExactNormalizedMatch,
+  isMatchCandidate,
+  isVariableAmountPlaceholder,
+} from '@/server/utils/transactionMatching';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 import { isCardHoldingFee } from '@/shared/cardFees';
 
@@ -560,7 +565,7 @@ class ImportService {
   private async findUnclaimedCandidatesForCreates(
     plan: ReconciliationPlanItem[],
     userId: string,
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     const creates = plan.filter((item) => item.action === 'CREATE');
     if (creates.length === 0) {
       return [];
@@ -856,9 +861,10 @@ class ImportService {
       transaction.type,
     );
 
-    const availableMatches = excludedIds
-      ? matches.filter((m) => !excludedIds.has(m.id))
-      : matches;
+    const availableMatches = matches.filter(
+      (match) =>
+        !excludedIds?.has(match.id) && isMatchCandidate(transaction, match),
+    );
 
     if (availableMatches.length === 0) {
       return null;
@@ -871,6 +877,15 @@ class ImportService {
     if (exactMatchId) {
       await this.claimMatch(transaction.id, exactMatchId);
       return exactMatchId;
+    }
+
+    // The user named this charge's description, so a placeholder needs no
+    // model; its projected value says nothing a model could weigh.
+    const placeholders = availableMatches.filter(isVariableAmountPlaceholder);
+    if (placeholders.length > 0) {
+      const placeholderId = closestInDate(transaction, placeholders).id;
+      await this.claimMatch(transaction.id, placeholderId);
+      return placeholderId;
     }
 
     // Re-applied so "never an invented id" is structural rather than a contract

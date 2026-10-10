@@ -44,6 +44,8 @@ const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   scheduleType: 'MONTHLY',
 };
 
+const MINIMUM_PREFIX_LENGTH = 3;
+
 const scheduleTypes: ScheduleType[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
 const transactionTypes: TransactionType[] = ['EXPENSE', 'INCOME'];
 
@@ -78,6 +80,7 @@ export default function ScheduledTransactionForm({
         interval: initialData.interval,
         dayOfWeek: initialData.dayOfWeek,
         dayOfMonth: initialData.dayOfMonth,
+        bankDescriptionPrefix: initialData.bankDescriptionPrefix,
       });
     } else {
       setForm({ ...defaultForm });
@@ -110,6 +113,10 @@ export default function ScheduledTransactionForm({
     }
     if (!form.scheduleType) {
       errs.scheduleType = 'Schedule type is required';
+    }
+    const prefix = form.bankDescriptionPrefix?.trim() ?? '';
+    if (prefix.length > 0 && prefix.length < MINIMUM_PREFIX_LENGTH) {
+      errs.bankDescriptionPrefix = `Use at least ${MINIMUM_PREFIX_LENGTH} characters`;
     }
     if (form.scheduleType === 'WEEKLY' && !form.dayOfWeek) {
       errs.dayOfWeek = 'Day of week is required';
@@ -249,6 +256,18 @@ export default function ScheduledTransactionForm({
               onChange={handleNumberChange}
               error={!!errors.value}
               helperText={errors.value}
+              fullWidth
+            />
+            <TextField
+              label="Amount varies — bank description starts with"
+              name="bankDescriptionPrefix"
+              value={form.bankDescriptionPrefix ?? ''}
+              onChange={handleChange}
+              error={!!errors.bankDescriptionPrefix}
+              helperText={
+                errors.bankDescriptionPrefix ??
+                'Optional. Imported charges whose description starts with this are matched at any amount, e.g. GOOGLE'
+              }
               fullWidth
             />
             <CategorySelect

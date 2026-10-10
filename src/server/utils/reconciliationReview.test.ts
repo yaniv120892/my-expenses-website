@@ -22,7 +22,8 @@ const transaction = (over: Record<string, unknown> = {}) => ({
   value: 470,
   date: new Date(2026, 5, 17),
   type: 'EXPENSE' as const,
-  status: 'APPROVED' as const,
+  status: 'APPROVED' as 'APPROVED' | 'PENDING_APPROVAL',
+  bankDescriptionPrefix: null as string | null,
   ...over,
 });
 
@@ -75,6 +76,26 @@ describe('deriveReviewHint for a CREATE', () => {
       counterpart: { transactionId: 'near-day' },
       candidateCount: 3,
     });
+  });
+
+  it('flags a variable-amount placeholder at any value when the prefix fits', () => {
+    const placeholder = transaction({
+      id: 'google',
+      description: 'גוגל אחסון',
+      value: 8,
+      status: 'PENDING_APPROVAL',
+      bankDescriptionPrefix: 'GOOGLE',
+    });
+
+    expect(
+      deriveReviewHint(createItem({ description: 'GOOGLE CLOUD EMEA' }), [
+        placeholder,
+      ]),
+    ).toMatchObject({
+      reason: 'unmatched-candidate',
+      counterpart: { transactionId: 'google' },
+    });
+    expect(deriveReviewHint(createItem(), [placeholder])).toBeNull();
   });
 });
 

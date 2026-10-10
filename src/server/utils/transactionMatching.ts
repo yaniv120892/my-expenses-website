@@ -1,4 +1,4 @@
-import { TransactionType } from '@/generated/prisma/client';
+import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
 
 const MINIMUM_VALUE_TOLERANCE = 2;
@@ -101,13 +101,86 @@ export function isWithinMatchWindow(
   window: MatchWindow,
   candidate: MatchableCharge,
 ): boolean {
+  return (
+    isWithinDateWindow(window, candidate) &&
+    candidate.value >= window.minimumValue &&
+    candidate.value <= window.maximumValue
+  );
+}
+
+export type MatchCandidate = MatchableCharge & {
+  description: string;
+  status: TransactionStatus;
+  bankDescriptionPrefix: string | null;
+};
+
+/**
+ * A pending transaction projected from a variable-amount schedule is paired by
+ * the bank's description instead of by value, since no fixed value would
+ * survive the value window.
+ */
+export function isMatchCandidate(
+  charge: ImportedCharge,
+  candidate: MatchCandidate,
+): boolean {
+  const window = matchWindow(charge);
+  if (isVariableAmountPlaceholder(candidate)) {
+    return (
+      isWithinDateWindow(window, candidate) &&
+      startsWithBankDescriptionPrefix(
+        charge.description,
+        candidate.bankDescriptionPrefix,
+      )
+    );
+  }
+
+  return isWithinMatchWindow(window, candidate);
+}
+
+export function isVariableAmountPlaceholder(
+  candidate: MatchCandidate,
+): candidate is MatchCandidate & { bankDescriptionPrefix: string } {
+  return (
+    candidate.status === TransactionStatus.PENDING_APPROVAL &&
+    candidate.bankDescriptionPrefix !== null
+  );
+}
+
+export function startsWithBankDescriptionPrefix(
+  description: string,
+  prefix: string,
+): boolean {
+  const normalizedPrefix = normalizeDescription(prefix);
+  if (normalizedPrefix.length < MINIMUM_SHORTENED_MERCHANT_LENGTH) {
+    return false;
+  }
+
+  return normalizeDescription(description).startsWith(normalizedPrefix);
+}
+
+/** `candidates` must not be empty. */
+export function closestInDate<T extends MatchableCharge>(
+  charge: MatchableCharge,
+  candidates: T[],
+): T {
+  const time = charge.date.getTime();
+  return candidates.reduce((best, candidate) =>
+    Math.abs(candidate.date.getTime() - time) <
+    Math.abs(best.date.getTime() - time)
+      ? candidate
+      : best,
+  );
+}
+
+function isWithinDateWindow(
+  window: MatchWindow,
+  candidate: MatchableCharge,
+): boolean {
   const time = candidate.date.getTime();
   return (
     candidate.type === window.type &&
     time >= window.earliestDate.getTime() &&
-    time <= window.latestDate.getTime() &&
-    candidate.value >= window.minimumValue &&
-    candidate.value <= window.maximumValue
+    time <= window.latestDate.getTime()
   );
 }
 

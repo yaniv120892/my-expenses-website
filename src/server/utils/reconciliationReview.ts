@@ -2,17 +2,13 @@ import type {
   ReconciliationPlanItem,
   ReconciliationReviewHint,
 } from '@/shared/types/import';
-import type { Transaction } from '@/shared/types/transaction';
 import {
-  isWithinMatchWindow,
-  matchWindow,
+  isMatchCandidate,
+  type MatchCandidate,
   shareNoWord,
 } from '@/server/utils/transactionMatching';
 
-type CandidateTransaction = Pick<
-  Transaction,
-  'id' | 'description' | 'value' | 'date' | 'type' | 'status'
->;
+type CandidateTransaction = MatchCandidate & { id: string };
 
 // `candidates` may span many rows' match windows; this narrows them to the item's own.
 export function deriveReviewHint(
@@ -45,9 +41,8 @@ function unmatchedCandidateHint(
   item: ReconciliationPlanItem,
   candidates: CandidateTransaction[],
 ): ReconciliationReviewHint | null {
-  const window = matchWindow(item);
   const inWindow = candidates.filter((candidate) =>
-    isWithinMatchWindow(window, candidate),
+    isMatchCandidate(item, candidate),
   );
   if (inWindow.length === 0) {
     return null;

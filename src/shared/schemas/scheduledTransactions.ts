@@ -28,6 +28,12 @@ const scheduledTransactionBaseSchema = z.object({
   dayOfWeek: z.coerce.number().optional(),
   dayOfMonth: z.coerce.number().optional(),
   monthOfYear: z.coerce.number().optional(),
+  // A blank field clears the prefix, so the form can send what it shows.
+  bankDescriptionPrefix: z.preprocess(
+    (value) =>
+      typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().trim().min(3).max(100).optional(),
+  ),
 });
 
 export const createScheduledTransactionSchema =

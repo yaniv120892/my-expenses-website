@@ -44,6 +44,7 @@ class ScheduledTransactionService {
             type: scheduled.type,
             date,
             status: 'PENDING_APPROVAL',
+            bankDescriptionPrefix: scheduled.bankDescriptionPrefix,
             userId: scheduled.userId,
           });
         } catch (err) {

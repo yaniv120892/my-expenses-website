@@ -20,9 +20,9 @@ function sources(
   );
 }
 
-const cal2923 = {
+const calCard = {
   issuer: 'cal',
-  last4: '2923',
+  last4: '1111',
   holder: 'self',
   login: 'Cal (self)',
   billingDay: 15,
@@ -34,7 +34,7 @@ function imported(
   status = ImportStatus.COMPLETED,
 ): ImportSummary {
   return {
-    creditCardLastFourDigits: '2923',
+    creditCardLastFourDigits: '1111',
     paymentMonth,
     status,
     createdAt,
@@ -53,11 +53,11 @@ function dueFiles(
 
 describe('findDueStatements', () => {
   it('lists every closed month with no import, named for the import script', () => {
-    const report = findDueStatements(sources([cal2923]), [], '2026-10-20');
+    const report = findDueStatements(sources([calCard]), [], '2026-10-20');
     expect(report.due.map((statement) => statement.fileName)).toEqual([
-      'cal-2923-08-2026.xlsx',
-      'cal-2923-09-2026.xlsx',
-      'cal-2923-10-2026.xlsx',
+      'cal-1111-08-2026.xlsx',
+      'cal-1111-09-2026.xlsx',
+      'cal-1111-10-2026.xlsx',
     ]);
     expect(report.upcoming).toEqual([
       expect.objectContaining({
@@ -68,7 +68,7 @@ describe('findDueStatements', () => {
   });
 
   it('holds back a month until its billing day', () => {
-    const report = findDueStatements(sources([cal2923]), [], '2026-10-14');
+    const report = findDueStatements(sources([calCard]), [], '2026-10-14');
     expect(report.due.map((statement) => statement.paymentMonth)).toEqual([
       '08/2026',
       '09/2026',
@@ -86,13 +86,13 @@ describe('findDueStatements', () => {
       imported('08/2026', '2026-08-15T06:00:00Z'),
       imported('09/2026', '2026-09-20T06:00:00Z'),
     ];
-    expect(dueFiles(sources([cal2923]), imports, '2026-09-30')).toEqual([]);
+    expect(dueFiles(sources([calCard]), imports, '2026-09-30')).toEqual([]);
   });
 
   it('re-lists a month imported before it closed, naming when', () => {
     const imports = [imported('10/2026', '2026-10-10T06:00:00Z')];
     const report = findDueStatements(
-      sources([cal2923], '10/2026'),
+      sources([calCard], '10/2026'),
       imports,
       '2026-10-16',
     );
@@ -108,40 +108,40 @@ describe('findDueStatements', () => {
     // 22:30 UTC on the 14th is already the 15th in Israel.
     const imports = [imported('10/2026', '2026-10-14T22:30:00Z')];
     expect(
-      dueFiles(sources([cal2923], '10/2026'), imports, '2026-10-16'),
+      dueFiles(sources([calCard], '10/2026'), imports, '2026-10-16'),
     ).toEqual([]);
   });
 
   it('ignores a failed import but counts a merged one', () => {
     const report = (status: ImportStatus) =>
       dueFiles(
-        sources([cal2923], '09/2026'),
+        sources([calCard], '09/2026'),
         [imported('09/2026', '2026-09-20T06:00:00Z', status)],
         '2026-09-30',
       );
-    expect(report(ImportStatus.FAILED)).toEqual(['cal-2923-09-2026.xlsx']);
+    expect(report(ImportStatus.FAILED)).toEqual(['cal-1111-09-2026.xlsx']);
     expect(report(ImportStatus.MERGED)).toEqual([]);
   });
 
   it('skips months before a card existed, and skipped months', () => {
     const sourceList = sources([
-      { ...cal2923, firstMonth: '09/2026' },
+      { ...calCard, firstMonth: '09/2026' },
       {
-        ...cal2923,
-        last4: '0329',
+        ...calCard,
+        last4: '3333',
         issuer: 'isracard',
         skipMonths: { '08/2026': 'fee only, waived' },
       },
     ]);
     expect(dueFiles(sourceList, [], '2026-09-20')).toEqual([
-      'cal-2923-09-2026.xlsx',
-      'isracard-0329-09-2026.xlsx',
+      'cal-1111-09-2026.xlsx',
+      'isracard-3333-09-2026.xlsx',
     ]);
   });
 
   it('bills a day past the month end on its last day', () => {
     const report = findDueStatements(
-      sources([{ ...cal2923, billingDay: 31 }], '09/2026'),
+      sources([{ ...calCard, billingDay: 31 }], '09/2026'),
       [],
       '2026-09-30',
     );
@@ -151,21 +151,21 @@ describe('findDueStatements', () => {
 
 describe('parseStatementSources', () => {
   it('rejects a card listed twice', () => {
-    expect(() => sources([cal2923, cal2923])).toThrow(
-      'card 2923 is listed twice',
+    expect(() => sources([calCard, calCard])).toThrow(
+      'card 1111 is listed twice',
     );
   });
 
   it('rejects an active card that is also listed as closed', () => {
     expect(() =>
-      sources([cal2923], '08/2026', [
-        { issuer: 'cal', last4: '2923', holder: 'self' },
+      sources([calCard], '08/2026', [
+        { issuer: 'cal', last4: '1111', holder: 'self' },
       ]),
-    ).toThrow('card 2923 is listed twice');
+    ).toThrow('card 1111 is listed twice');
   });
 
   it('names the offending field', () => {
-    expect(() => sources([{ ...cal2923, billingDay: 40 }])).toThrow(
+    expect(() => sources([{ ...calCard, billingDay: 40 }])).toThrow(
       'cards.0.billingDay',
     );
   });

@@ -1,5 +1,7 @@
 import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
+import { type DecimalInput, isSameMoney } from '@/server/utils/money';
+import { isForeignCurrency } from '@/shared/currency';
 
 const MINIMUM_VALUE_TOLERANCE = 2;
 const RELATIVE_VALUE_TOLERANCE = 0.01;
@@ -12,7 +14,9 @@ export const CHARGE_DATE_DAY_RANGE = 5;
 
 type ImportedCharge = {
   description: string;
-  value: number;
+  value: number | null;
+  currency: string | null;
+  originalAmount: DecimalInput;
   date: Date;
   type: TransactionType;
 };
@@ -67,11 +71,20 @@ export function matchValueTolerance(value: number): number {
   );
 }
 
+/**
+ * `value` is the ILS amount, null while it is unknown. A foreign charge also
+ * matches on its original amount, because the ILS a hand-logged entry was
+ * converted at rarely equals what the card billed.
+ */
 export type MatchableCharge = {
   date: Date;
-  value: number;
+  value: number | null;
   type: TransactionType;
+  currency: string | null;
+  originalAmount: number;
 };
+
+type AmountRange = { minimum: number; maximum: number };
 
 export type MatchWindow = {
   // value is a positive magnitude with the direction in `type`, so without it
@@ -80,20 +93,28 @@ export type MatchWindow = {
   type: TransactionType;
   earliestDate: Date;
   latestDate: Date;
-  minimumValue: number;
-  maximumValue: number;
+  valueRange: AmountRange | null;
+  originalAmountRange: (AmountRange & { currency: string }) | null;
 };
 
 export function matchWindow(charge: MatchableCharge): MatchWindow {
-  const valueTolerance = matchValueTolerance(charge.value);
-
   return {
     type: charge.type,
     earliestDate: subDays(charge.date, CHARGE_DATE_DAY_RANGE),
     latestDate: addDays(charge.date, CHARGE_DATE_DAY_RANGE),
-    minimumValue: charge.value - valueTolerance,
-    maximumValue: charge.value + valueTolerance,
+    valueRange: charge.value === null ? null : toleranceRange(charge.value),
+    originalAmountRange:
+      charge.currency !== null && isForeignCurrency(charge.currency)
+        ? {
+            currency: charge.currency,
+            ...toleranceRange(charge.originalAmount),
+          }
+        : null,
   };
+}
+
+export function canMatch(window: MatchWindow): boolean {
+  return window.valueRange !== null || window.originalAmountRange !== null;
 }
 
 /** The in-memory form of the bounds the candidate query applies in SQL. */
@@ -102,9 +123,7 @@ export function isWithinMatchWindow(
   candidate: MatchableCharge,
 ): boolean {
   return (
-    isWithinDateWindow(window, candidate) &&
-    candidate.value >= window.minimumValue &&
-    candidate.value <= window.maximumValue
+    isWithinDateWindow(window, candidate) && isAmountInWindow(window, candidate)
   );
 }
 
@@ -120,7 +139,7 @@ export type MatchCandidate = MatchableCharge & {
  * survive the value window.
  */
 export function isMatchCandidate(
-  charge: ImportedCharge,
+  charge: MatchableCharge & { description: string },
   candidate: MatchCandidate,
 ): boolean {
   const window = matchWindow(charge);
@@ -184,6 +203,30 @@ function isWithinDateWindow(
   );
 }
 
+function isAmountInWindow(
+  window: MatchWindow,
+  candidate: MatchableCharge,
+): boolean {
+  const valueFits =
+    window.valueRange !== null &&
+    candidate.value !== null &&
+    isInRange(candidate.value, window.valueRange);
+  const originalAmountFits =
+    window.originalAmountRange !== null &&
+    candidate.currency === window.originalAmountRange.currency &&
+    isInRange(candidate.originalAmount, window.originalAmountRange);
+  return valueFits || originalAmountFits;
+}
+
+function toleranceRange(amount: number): AmountRange {
+  const tolerance = matchValueTolerance(amount);
+  return { minimum: amount - tolerance, maximum: amount + tolerance };
+}
+
+function isInRange(amount: number, range: AmountRange): boolean {
+  return amount >= range.minimum && amount <= range.maximum;
+}
+
 // A blank side says nothing about the charge, so it is never read as unrelated.
 export function shareNoWord(left: string, right: string): boolean {
   const leftWords = toWords(left);
@@ -206,9 +249,9 @@ const MINIMUM_SHORTENED_MERCHANT_LENGTH = 3;
 const MINIMUM_TRUNCATION_COVERAGE = 0.5;
 
 /**
- * Date, value and type agree exactly; descriptions only as far as the shorter
- * one runs, since the extraction service shortens merchants differently between
- * runs.
+ * Date, amount, currency and type agree exactly; descriptions only as far as
+ * the shorter one runs, since the extraction service shortens merchants
+ * differently between runs.
  */
 export function isSameCharge(
   left: ImportedCharge,
@@ -216,6 +259,8 @@ export function isSameCharge(
 ): boolean {
   const sameAmountAndMoment =
     left.value === right.value &&
+    left.currency === right.currency &&
+    isSameMoney(left.originalAmount, right.originalAmount) &&
     left.date.getTime() === right.date.getTime() &&
     left.type === right.type;
   if (!sameAmountAndMoment) {

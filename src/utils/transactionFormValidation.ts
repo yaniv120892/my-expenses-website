@@ -1,6 +1,7 @@
 export interface TransactionFormValues {
   description: string;
   value: number | string;
+  baseValue?: number | string;
   categoryId: string;
   type: string;
   date: string;
@@ -22,6 +23,11 @@ export function validateTransactionForm(
     errors.value = 'Value must be a number';
   } else if (Number(form.value) <= 0) {
     errors.value = 'Value must be greater than 0';
+  }
+  const baseValueEntered =
+    form.baseValue !== undefined && form.baseValue !== '';
+  if (baseValueEntered && !(Number(form.baseValue) > 0)) {
+    errors.baseValue = 'Amount charged must be a number greater than 0';
   }
   if (!form.type) {
     errors.type = 'Type is required';

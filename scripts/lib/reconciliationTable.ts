@@ -1,4 +1,5 @@
 import { toDayString } from '../../src/shared/dates';
+import { BASE_CURRENCY } from '../../src/shared/currency';
 import type {
   ReconciliationMatch,
   ReconciliationPreviewItem,
@@ -11,7 +12,7 @@ const CONTINUATION_INDENT = '\n            ';
 export function describePlanItem(item: ReconciliationPreviewItem): string {
   const date = formatDate(item.date);
   const label = `${item.action}${item.reviewHint ? '?' : ''}`;
-  const summary = `${label.padEnd(ACTION_COLUMN_WIDTH)}${date}  ${item.value.toFixed(2).padStart(9)}  ${item.description}`;
+  const summary = `${label.padEnd(ACTION_COLUMN_WIDTH)}${date}  ${formatValue(item.value)}  ${item.description}${describeOriginal(item)}`;
   const approves = item.match?.approvesPendingTransaction
     ? ' (approves pending)'
     : '';
@@ -49,7 +50,7 @@ export function cardFeeNotice(
 
   const rows = fees.map(
     (item) =>
-      `  ${formatDate(item.date)}  ${item.value.toFixed(2).padStart(9)}  ${item.description}`,
+      `  ${formatDate(item.date)}  ${formatValue(item.value)}  ${item.description}`,
   );
   return [
     `${fees.length} row(s) are charges for holding the card, not spending; they can be cancelled by phoning the issuer:`,
@@ -86,13 +87,27 @@ function describeMergeChanges(
     before.description === item.description
       ? null
       : `description "${before.description}" -> "${item.description}"`,
-    before.value === item.value
+    item.value === null || before.value === item.value
       ? null
       : `value ${before.value.toFixed(2)} -> ${item.value.toFixed(2)}`,
     beforeDate === date ? null : `date ${beforeDate} -> ${date}`,
   ]
     .filter((change) => change !== null)
     .join('; ');
+}
+
+function formatValue(value: number | null): string {
+  return (value === null ? 'ILS ?' : value.toFixed(2)).padStart(9);
+}
+
+function describeOriginal(item: ReconciliationPreviewItem): string {
+  // A server deployed before currencies existed omits the field.
+  if (!item.currency) {
+    return item.value === null ? ' [currency unknown]' : '';
+  }
+  return item.currency === BASE_CURRENCY
+    ? ''
+    : ` [${item.currency} ${item.originalAmount.toFixed(2)}]`;
 }
 
 /** Dates arrive as JSON strings even though the plan type names them Date. */

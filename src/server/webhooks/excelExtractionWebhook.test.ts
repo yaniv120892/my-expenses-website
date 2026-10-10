@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  getRateToBase,
   importRepo,
   importedTxRepo,
   prismaMock,
@@ -8,6 +9,7 @@ const {
   extractWebhookParams,
   reportSwallowedError,
 } = vi.hoisted(() => ({
+  getRateToBase: vi.fn(),
   importRepo: {
     findByExtractionRequestId: vi.fn(),
     findById: vi.fn(),
@@ -42,6 +44,9 @@ vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
+vi.mock('@/server/services/exchangeRateService', () => ({
+  default: { getRateToBase },
+}));
 vi.mock('@/server/logging/reportSwallowedError', () => ({
   reportSwallowedError,
 }));
@@ -136,6 +141,100 @@ beforeEach(() => {
   findPotentialMatchesForImport.mockResolvedValue(undefined);
 });
 
+describe('completed extraction with currencies', () => {
+  const foreignRow = (over: Record<string, unknown>) => ({
+    ...tx('Amazon'),
+    value: 92.35,
+    originalAmount: 25,
+    originalCurrency: 'USD',
+    chargedAmount: 92.35,
+    chargedCurrency: 'ILS',
+    ...over,
+  });
+
+  it('stores the statement conversion of a billed foreign charge', async () => {
+    await run(payload([foreignRow({})]));
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({
+      value: 92.35,
+      currency: 'USD',
+      originalAmount: '25.00',
+      exchangeRate: '3.69400000',
+      exchangeRateSource: 'STATEMENT',
+    });
+    expect(getRateToBase).not.toHaveBeenCalled();
+  });
+
+  it('stores an unknown ILS amount, not the foreign one, when no rate exists', async () => {
+    getRateToBase.mockResolvedValue(null);
+
+    await run(
+      payload([
+        foreignRow({
+          value: 10,
+          originalAmount: 10,
+          originalCurrency: 'EUR',
+          chargedAmount: undefined,
+          chargedCurrency: undefined,
+        }),
+      ]),
+    );
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({
+      value: null,
+      currency: 'EUR',
+      originalAmount: '10.00',
+    });
+  });
+
+  it('leaves the currency and ILS amount of an ambiguous row unknown', async () => {
+    await run(
+      payload([
+        {
+          ...tx('Refund'),
+          value: 10,
+          originalAmount: 10,
+          currencyAmbiguous: true,
+        },
+      ]),
+    );
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({
+      value: null,
+      currency: null,
+    });
+  });
+
+  it('ignores a currency code it does not recognise rather than failing the import', async () => {
+    await run(payload([foreignRow({ originalCurrency: 'ZZZ' })]));
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({ value: 92.35, currency: null });
+  });
+
+  it('leaves the ILS amount unknown, not the foreign one, for an unrecognised code', async () => {
+    await run(
+      payload([
+        foreignRow({
+          originalCurrency: 'ZZZ',
+          chargedAmount: undefined,
+          chargedCurrency: undefined,
+        }),
+      ]),
+    );
+
+    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    expect(row).toMatchObject({
+      value: null,
+      currency: null,
+      originalAmount: '25.00',
+    });
+  });
+});
+
 describe('completed extraction', () => {
   it('no duplicate: inserts rows, matches, marks COMPLETED', async () => {
     const res = await run(payload([tx()]));
@@ -146,6 +245,11 @@ describe('completed extraction', () => {
       {
         description: 'Coffee',
         value: 12.5,
+        currency: 'ILS',
+        originalAmount: '12.50',
+        exchangeRate: null,
+        exchangeRateDate: null,
+        exchangeRateSource: null,
         date: new Date(2026, 2, 7),
         type: 'EXPENSE',
         rawData: {},

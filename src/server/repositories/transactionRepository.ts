@@ -7,7 +7,9 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
+  canMatch,
   type MatchableCharge,
+  type MatchWindow,
   matchWindow,
 } from '@/server/utils/transactionMatching';
 import {
@@ -30,6 +32,10 @@ import {
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
 import type { CategoryTotal } from '@/server/utils/categoryHierarchy.types';
+import {
+  fromAmountColumns,
+  toAmountColumns,
+} from '@/server/repositories/amountColumns';
 
 const MATCHABLE_STATUSES = [
   TransactionStatus.APPROVED,
@@ -142,7 +148,7 @@ class TransactionRepository {
     return prisma.transaction.create({
       data: {
         description: data.description,
-        value: data.value,
+        ...toAmountColumns(data),
         date: data.date,
         categoryId: data.categoryId,
         type: data.type,
@@ -248,7 +254,7 @@ class TransactionRepository {
     return {
       id: transaction.id,
       description: transaction.description,
-      value: transaction.value,
+      ...fromAmountColumns(transaction),
       date: transaction.date,
       type: transaction.type,
       status: transaction.status,
@@ -292,7 +298,7 @@ class TransactionRepository {
       where: { id, userId },
       data: {
         description: data.description,
-        value: data.value,
+        ...(data.amount ? toAmountColumns(data.amount) : {}),
         date: data.date,
         categoryId: data.categoryId,
         type: data.type,
@@ -354,11 +360,9 @@ class TransactionRepository {
 
   public async findPotentialMatches(
     userId: string,
-    date: Date,
-    value: number,
-    type: TransactionType,
+    charge: MatchableCharge,
   ): Promise<MatchCandidateTransaction[]> {
-    return this.findPotentialMatchesForCharges(userId, [{ date, value, type }]);
+    return this.findPotentialMatchesForCharges(userId, [charge]);
   }
 
   // Which charge each returned transaction belongs to is left to the caller,
@@ -368,7 +372,8 @@ class TransactionRepository {
     userId: string,
     charges: MatchableCharge[],
   ): Promise<MatchCandidateTransaction[]> {
-    if (charges.length === 0) {
+    const windows = charges.map(matchWindow).filter(canMatch);
+    if (windows.length === 0) {
       return [];
     }
 
@@ -376,7 +381,7 @@ class TransactionRepository {
       where: {
         userId,
         status: { in: MATCHABLE_STATUSES },
-        OR: charges.flatMap((charge) => this.buildMatchWindowWheres(charge)),
+        OR: windows.flatMap((window) => this.buildMatchWindowWheres(window)),
       },
       orderBy: { status: 'desc' },
       include: { category: true },
@@ -388,17 +393,36 @@ class TransactionRepository {
     }));
   }
 
-  private buildMatchWindowWheres(charge: MatchableCharge) {
-    const window = matchWindow(charge);
+  private buildMatchWindowWheres(window: MatchWindow) {
     const sameDirectionAndDays = {
       type: window.type,
       date: { gte: window.earliestDate, lte: window.latestDate },
     };
+    const amountConditions = [
+      ...(window.valueRange
+        ? [
+            {
+              value: {
+                gte: window.valueRange.minimum,
+                lte: window.valueRange.maximum,
+              },
+            },
+          ]
+        : []),
+      ...(window.originalAmountRange
+        ? [
+            {
+              currency: window.originalAmountRange.currency,
+              originalAmount: {
+                gte: window.originalAmountRange.minimum,
+                lte: window.originalAmountRange.maximum,
+              },
+            },
+          ]
+        : []),
+    ];
     return [
-      {
-        ...sameDirectionAndDays,
-        value: { gte: window.minimumValue, lte: window.maximumValue },
-      },
+      { ...sameDirectionAndDays, OR: amountConditions },
       {
         ...sameDirectionAndDays,
         status: TransactionStatus.PENDING_APPROVAL,

@@ -9,6 +9,8 @@ const createItem = (
   action: 'CREATE',
   description: 'אנימל שופ חנות חיות',
   value: 470,
+  currency: 'ILS',
+  originalAmount: 470,
   date: new Date(2026, 5, 16),
   type: 'EXPENSE',
   categoryId: null,
@@ -20,6 +22,8 @@ const transaction = (over: Record<string, unknown> = {}) => ({
   id: 'tx-1',
   description: 'אוכל לברונו',
   value: 470,
+  currency: 'ILS',
+  originalAmount: 470,
   date: new Date(2026, 5, 17),
   type: 'EXPENSE' as const,
   status: 'APPROVED' as 'APPROVED' | 'PENDING_APPROVAL',
@@ -37,6 +41,8 @@ describe('deriveReviewHint for a CREATE', () => {
         transactionId: 'tx-1',
         description: 'אוכל לברונו',
         value: 470,
+        currency: 'ILS',
+        originalAmount: 470,
         date: new Date(2026, 5, 17),
         status: 'APPROVED',
       },
@@ -110,6 +116,8 @@ describe('deriveReviewHint for a MERGE', () => {
         before: {
           description: 'אוכל לברונו',
           value: 470,
+          currency: 'ILS',
+          originalAmount: 470,
           date: new Date(2026, 5, 17),
         },
       },
@@ -131,5 +139,23 @@ describe('deriveReviewHint for a MERGE', () => {
         transaction({ id: 'tx-2', description: 'something else' }),
       ]),
     ).toBeNull();
+  });
+});
+
+describe('deriveReviewHint for a foreign CREATE', () => {
+  it('flags a hand-logged entry of the same foreign amount at another ILS value', () => {
+    const hint = deriveReviewHint(
+      createItem({ value: 92.35, currency: 'USD', originalAmount: 25 }),
+      [transaction({ value: 76.75, currency: 'USD', originalAmount: 25 })],
+    );
+    expect(hint?.reason).toBe('unmatched-candidate');
+  });
+
+  it('flags a candidate while the ILS amount is still unknown', () => {
+    const hint = deriveReviewHint(
+      createItem({ value: null, currency: 'USD', originalAmount: 25 }),
+      [transaction({ value: 76.75, currency: 'USD', originalAmount: 25 })],
+    );
+    expect(hint?.reason).toBe('unmatched-candidate');
   });
 });

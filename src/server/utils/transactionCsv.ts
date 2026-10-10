@@ -3,7 +3,20 @@ import { CSV_BOM } from '@/shared/csv';
 import { Transaction } from '@/shared/types/transaction';
 import { toDayString } from '@/shared/dates';
 
-const FIELDS = ['date', 'description', 'value', 'type', 'categoryName'];
+// `value` stays the ILS amount, so a sheet summing that column still sums one
+// currency; the columns after it say what was charged and how it converted.
+const FIELDS = [
+  'date',
+  'description',
+  'value',
+  'type',
+  'categoryName',
+  'currency',
+  'originalAmount',
+  'exchangeRate',
+  'exchangeRateDate',
+  'exchangeRateSource',
+];
 
 // Excel and Sheets execute a cell whose text starts with one of these, and
 // descriptions arrive from parsed bank statements rather than from us. A
@@ -27,6 +40,13 @@ function buildCsv(
     value: transaction.value,
     type: transaction.type,
     categoryName: renderText(transaction.category?.name || ''),
+    currency: transaction.currency,
+    originalAmount: transaction.originalAmount,
+    exchangeRate: transaction.exchangeRate ?? '',
+    // A DATE column arrives as UTC midnight, which a local format can shift.
+    exchangeRateDate:
+      transaction.exchangeRateDate?.toISOString().slice(0, 10) ?? '',
+    exchangeRateSource: transaction.exchangeRateSource ?? '',
   }));
 
   return parse(rows, { fields: FIELDS });

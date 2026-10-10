@@ -4,7 +4,7 @@ import {
   RowAggregationType,
   TotalsAggregationType,
 } from '@/shared/types/chat';
-import { formatCurrencyPlain } from '@/utils/format';
+import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 
 export interface ComparisonPeriodTotals {
   label: string;
@@ -214,7 +214,7 @@ class ChatAggregationService {
 
     const lines = top.map(
       (t) =>
-        `  - ${this.formatDate(t.date)} | ${t.description} | ${formatCurrencyPlain(t.value)} | ${t.category.name} (${t.type})`,
+        `  - ${this.formatDate(t.date)} | ${t.description} | ${formatAmountWithOriginal(t)} | ${t.category.name} (${t.type})`,
     );
 
     const summaryParts = [

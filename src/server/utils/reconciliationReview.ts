@@ -2,13 +2,23 @@ import type {
   ReconciliationPlanItem,
   ReconciliationReviewHint,
 } from '@/shared/types/import';
+import type { Transaction } from '@/shared/types/transaction';
 import {
   isMatchCandidate,
-  type MatchCandidate,
   shareNoWord,
 } from '@/server/utils/transactionMatching';
 
-type CandidateTransaction = MatchCandidate & { id: string };
+type CandidateTransaction = Pick<
+  Transaction,
+  | 'id'
+  | 'description'
+  | 'value'
+  | 'currency'
+  | 'originalAmount'
+  | 'date'
+  | 'type'
+  | 'status'
+> & { bankDescriptionPrefix: string | null };
 
 // `candidates` may span many rows' match windows; this narrows them to the item's own.
 export function deriveReviewHint(
@@ -57,6 +67,8 @@ function unmatchedCandidateHint(
       transactionId: closest.id,
       description: closest.description,
       value: closest.value,
+      currency: closest.currency,
+      originalAmount: closest.originalAmount,
       date: closest.date,
       status: closest.status,
     },
@@ -70,7 +82,11 @@ function isCloser(
   best: CandidateTransaction,
 ): boolean {
   const valueGap =
-    Math.abs(candidate.value - item.value) - Math.abs(best.value - item.value);
+    item.value === null
+      ? Math.abs(candidate.originalAmount - item.originalAmount) -
+        Math.abs(best.originalAmount - item.originalAmount)
+      : Math.abs(candidate.value - item.value) -
+        Math.abs(best.value - item.value);
   if (valueGap !== 0) {
     return valueGap < 0;
   }

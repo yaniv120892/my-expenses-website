@@ -15,9 +15,33 @@ export interface TransactionFile {
   updatedAt: Date;
 }
 
-export interface CreateTransaction {
-  description: string;
+export type ExchangeRateSource = 'STATEMENT' | 'BANK_OF_ISRAEL' | 'MANUAL';
+
+/**
+ * `value` is in the reporting currency (ILS) and is what totals sum;
+ * `originalAmount` is what was charged, in `currency`. The rate fields say how
+ * one became the other and are null for an ILS amount.
+ */
+export type TransactionAmount = {
   value: number;
+  currency: string;
+  originalAmount: number;
+  exchangeRate: number | null;
+  exchangeRateDate: Date | null;
+  exchangeRateSource: ExchangeRateSource | null;
+};
+
+export type TransactionAmountInput = {
+  value?: number;
+  currency?: string;
+  originalAmount?: number;
+  exchangeRate?: number;
+};
+
+export interface CreateTransaction extends TransactionAmountInput {
+  description: string;
+  /** Set by a caller that already decided the conversion, such as an import. */
+  resolvedAmount?: TransactionAmount;
   categoryId: string | null;
   type: TransactionType;
   date: Date | null;
@@ -61,10 +85,9 @@ export interface TransactionItem {
   id: string;
 }
 
-export interface Transaction {
+export interface Transaction extends TransactionAmount {
   id: string;
   description: string;
-  value: number;
   date: Date;
   type: TransactionType;
   status: TransactionStatus;

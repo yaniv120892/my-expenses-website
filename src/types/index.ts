@@ -33,17 +33,23 @@ export type TransactionFile = Omit<
 
 export type Transaction = Omit<
   SharedTransaction,
-  'date' | 'status' | 'category' | 'files'
+  'date' | 'status' | 'category' | 'files' | 'exchangeRateDate'
 > & {
   date: string;
+  exchangeRateDate: string | null;
   category: Category;
   files?: TransactionFile[];
 };
 
-// Dates travel as strings and are coerced by createTransactionSchema.
+// Dates travel as strings and are coerced by createTransactionSchema. A
+// foreign amount is `originalAmount` + `currency`; `value` is then the ILS
+// charged, sent only when the user knows it.
 export interface CreateTransactionInput {
   description: string;
-  value: number;
+  value?: number;
+  currency?: string;
+  originalAmount?: number;
+  exchangeRate?: number;
   categoryId: string | undefined;
   type: TransactionType;
   date: string;

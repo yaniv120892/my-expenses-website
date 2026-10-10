@@ -29,11 +29,52 @@ import {
 } from '@/hooks/useTransactionFilesQuery';
 import { validateTransactionForm } from '@/utils/transactionFormValidation';
 import { DAY_TIME_FORMAT, toDayString } from '@/shared/dates';
+import {
+  BASE_CURRENCY,
+  isForeignCurrency,
+  SELECTABLE_CURRENCIES,
+} from '@/shared/currency';
+import type {
+  ExchangeRateSource,
+  TransactionAmountInput,
+} from '@/shared/types/transaction';
+import {
+  EXCHANGE_RATE_SOURCE_LABELS,
+  formatCurrencyPlain,
+  formatMoney,
+} from '@/utils/format';
 
+// An edited transaction may be in a currency outside the usual list.
+function currencyOptions(current: string): readonly string[] {
+  return SELECTABLE_CURRENCIES.includes(current)
+    ? SELECTABLE_CURRENCIES
+    : [...SELECTABLE_CURRENCIES, current];
+}
+
+// `value` is ILS. A foreign amount also carries `currency` and
+// `originalAmount`; `currency` null is an imported row whose currency the
+// statement did not tell, and `value` null one whose ILS amount is unknown.
 type TransactionFormType = {
   id: string;
   description: string;
+  value: number | string | null;
+  currency?: string | null;
+  originalAmount?: number;
+  exchangeRate?: number | null;
+  exchangeRateSource?: ExchangeRateSource | null;
+  categoryId: string;
+  type: 'EXPENSE' | 'INCOME';
+  date: string;
+};
+
+// The amount field is in `currency`; `baseValue` is the ILS charged, asked
+// for only beside a foreign amount, where leaving it empty means "convert".
+type FormValues = {
+  id: string;
+  description: string;
   value: number | string;
+  currency: string;
+  baseValue: number | string;
   categoryId: string;
   type: 'EXPENSE' | 'INCOME';
   date: string;
@@ -50,28 +91,83 @@ type Props = {
   mode?: 'approve' | 'merge';
 };
 
-const defaultForm: Omit<TransactionFormType, 'date'> = {
+const defaultForm: Omit<FormValues, 'date'> = {
   id: '',
   description: '',
   value: '',
+  currency: BASE_CURRENCY,
+  baseValue: '',
   categoryId: '',
   type: 'EXPENSE',
 };
 
 // Built per call so the default date is today's, not the module-load day.
-function freshDefaultForm(): TransactionFormType {
+function freshDefaultForm(): FormValues {
   return { ...defaultForm, date: toDayString(new Date()) };
 }
 
-function toFormValues(initialData: TransactionFormType): TransactionFormType {
+/**
+ * Approving or merging an imported row confirms its ILS amount, so the amount
+ * field is ILS there; elsewhere it is in the transaction's own currency, and
+ * the ILS field starts empty so an untouched edit keeps its conversion.
+ */
+function toFormValues(
+  initialData: TransactionFormType,
+  confirmsImportedRow: boolean,
+): FormValues {
+  const foreignCurrency =
+    !confirmsImportedRow &&
+    initialData.currency &&
+    isForeignCurrency(initialData.currency)
+      ? initialData.currency
+      : null;
   return {
     id: initialData.id,
     description: initialData.description,
-    value: initialData.value,
+    value: foreignCurrency
+      ? (initialData.originalAmount ?? '')
+      : (initialData.value ?? ''),
+    currency: foreignCurrency ?? BASE_CURRENCY,
+    baseValue: '',
     categoryId: initialData.categoryId || '',
     type: initialData.type,
     date: toDayString(new Date(initialData.date)),
   };
+}
+
+function toAmountInput(form: FormValues): TransactionAmountInput {
+  if (!isForeignCurrency(form.currency)) {
+    return { value: Number(form.value), currency: BASE_CURRENCY };
+  }
+  return {
+    currency: form.currency,
+    originalAmount: Number(form.value),
+    ...(form.baseValue === '' ? {} : { value: Number(form.baseValue) }),
+  };
+}
+
+function baseValueHelperText(editsSameCurrency: boolean): string {
+  return editsSameCurrency
+    ? 'Leave empty to convert at the Bank of Israel rate for the date, or keep the current conversion if amount and date are unchanged.'
+    : 'Leave empty to convert at the Bank of Israel rate for the date.';
+}
+
+function describeConversion(initialData: TransactionFormType): string | null {
+  const { currency } = initialData;
+  if (currency === undefined || currency === BASE_CURRENCY) {
+    return null;
+  }
+  if (currency === null) {
+    return `Original amount ${initialData.originalAmount}; the statement does not say which currency it is in.`;
+  }
+  const original = formatMoney(initialData.originalAmount ?? 0, currency);
+  if (initialData.value === null || initialData.value === '') {
+    return `Original ${original}. No exchange rate was available: enter the ${BASE_CURRENCY} amount charged.`;
+  }
+  const source = initialData.exchangeRateSource
+    ? EXCHANGE_RATE_SOURCE_LABELS[initialData.exchangeRateSource]
+    : 'unknown source';
+  return `Original ${original} = ${formatCurrencyPlain(Number(initialData.value))} at ${initialData.exchangeRate ?? '?'} (${source}).`;
 }
 
 export default function TransactionForm({
@@ -83,8 +179,12 @@ export default function TransactionForm({
   mode,
 }: Props) {
   const fullScreen = useIsCompact();
-  const [form, setForm] = useState<TransactionFormType>(() =>
-    initialData ? toFormValues(initialData) : freshDefaultForm(),
+  const confirmsImportedRow = mode !== undefined;
+  const conversionNote = initialData ? describeConversion(initialData) : null;
+  const [form, setForm] = useState<FormValues>(() =>
+    initialData
+      ? toFormValues(initialData, confirmsImportedRow)
+      : freshDefaultForm(),
   );
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
@@ -105,7 +205,11 @@ export default function TransactionForm({
   const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
   if (appliedResetKey !== resetKey) {
     setAppliedResetKey(resetKey);
-    setForm(initialData ? toFormValues(initialData) : freshDefaultForm());
+    setForm(
+      initialData
+        ? toFormValues(initialData, confirmsImportedRow)
+        : freshDefaultForm(),
+    );
     setErrors({});
     setPendingFiles([]);
     setFilesToRemove([]);
@@ -154,9 +258,10 @@ export default function TransactionForm({
           dateToUse = getCurrentDateTimeString();
         }
       }
-      const submitData = {
-        ...form,
-        value: Number(form.value),
+      const submitData: CreateTransactionInput = {
+        description: form.description,
+        type: form.type,
+        ...toAmountInput(form),
         categoryId: form.categoryId === '' ? undefined : form.categoryId,
         date: dateToUse,
       };
@@ -272,16 +377,59 @@ export default function TransactionForm({
               helperText={errors.description}
               fullWidth
             />
-            <TextField
-              label="Value"
-              name="value"
-              type="number"
-              value={form.value}
-              onChange={handleChange}
-              error={!!errors.value}
-              helperText={errors.value}
-              fullWidth
-            />
+            <Stack direction="row" spacing={1.5}>
+              <TextField
+                label={
+                  confirmsImportedRow ? `Value (${BASE_CURRENCY})` : 'Value'
+                }
+                name="value"
+                type="number"
+                value={form.value}
+                onChange={handleChange}
+                error={!!errors.value}
+                helperText={errors.value}
+                fullWidth
+              />
+              {!confirmsImportedRow && (
+                <TextField
+                  select
+                  label="Currency"
+                  name="currency"
+                  value={form.currency}
+                  onChange={handleChange}
+                  sx={{ minWidth: 110 }}
+                >
+                  {currencyOptions(form.currency).map((currency) => (
+                    <MenuItem key={currency} value={currency}>
+                      {currency}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Stack>
+            {!confirmsImportedRow && isForeignCurrency(form.currency) && (
+              <TextField
+                label={`Amount charged in ${BASE_CURRENCY} (optional)`}
+                name="baseValue"
+                type="number"
+                value={form.baseValue}
+                onChange={handleChange}
+                error={!!errors.baseValue}
+                helperText={
+                  errors.baseValue ??
+                  baseValueHelperText(initialData?.currency === form.currency)
+                }
+                fullWidth
+              />
+            )}
+            {conversionNote && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', mt: -1 }}
+              >
+                {conversionNote}
+              </Typography>
+            )}
             <CategorySelect
               value={form.categoryId}
               onChange={(value) => setForm({ ...form, categoryId: value })}

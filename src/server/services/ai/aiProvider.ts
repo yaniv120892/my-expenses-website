@@ -3,7 +3,9 @@ import { Transaction, TransactionType } from '@/shared/types/transaction';
 
 export interface ImportedChargeToMatch {
   description: string;
-  value: number;
+  value: number | null;
+  currency: string | null;
+  originalAmount: number;
   date: Date;
   type: TransactionType;
 }

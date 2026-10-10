@@ -68,6 +68,12 @@ enum ImportedTransactionStatus {
   IGNORED
 }
 
+enum ExchangeRateSource {
+  STATEMENT
+  BANK_OF_ISRAEL
+  MANUAL
+}
+
 enum TransactionFileStatus {
   ACTIVE
   MARKED_FOR_DELETION
@@ -127,7 +133,17 @@ model UserNotificationProvider {
 model Transaction {
   id                    String               @id @default(uuid()) @db.Uuid
   description           String
+  // The amount in the reporting currency (ILS) that every total sums.
   value                Float
+  // What was actually charged, in its own ISO 4217 currency; for an ILS row
+  // the same amount as value.
+  currency             String               @default("ILS") @db.Char(3)
+  originalAmount       Decimal              @db.Decimal(14, 2)
+  // How a foreign amount became value; all three are set exactly when
+  // currency is not ILS (enforced by a CHECK constraint in the migration).
+  exchangeRate         Decimal?             @db.Decimal(18, 8)
+  exchangeRateDate     DateTime?            @db.Date
+  exchangeRateSource   ExchangeRateSource?
   date                 DateTime
   categoryId           String               @db.Uuid
   category             Category             @relation(fields: [categoryId], references: [id])
@@ -180,7 +196,16 @@ model ImportedTransaction {
   id                    String                   @id @default(uuid()) @db.Uuid
   importId             String                   @db.Uuid
   description          String
-  value                Float
+  // Null when the ILS amount is not known yet: a foreign charge the statement
+  // did not bill and no rate covers, or a row whose currency is ambiguous.
+  // Such a row cannot be approved until one is entered.
+  value                Float?
+  // Null when the statement does not tell which currency the row is in.
+  currency             String?                  @db.Char(3)
+  originalAmount       Decimal                  @db.Decimal(14, 2)
+  exchangeRate         Decimal?                 @db.Decimal(18, 8)
+  exchangeRateDate     DateTime?                @db.Date
+  exchangeRateSource   ExchangeRateSource?
   date                 DateTime
   type                 TransactionType
   status               ImportedTransactionStatus @default(PENDING)

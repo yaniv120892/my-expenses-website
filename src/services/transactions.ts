@@ -69,9 +69,10 @@ export async function getCategoryBreakdown(
 // Every row the filters match, not just the pages fetched so far.
 export async function exportTransactionsCsv(
   params?: TransactionFilters,
+  sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): Promise<{ blob: Blob; fileName: string }> {
   const res = await api.get('/api/transactions/export', {
-    params: listFilters(params),
+    params: { ...listFilters(params), ...sort },
     responseType: 'blob',
   });
   return {

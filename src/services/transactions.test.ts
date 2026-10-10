@@ -64,6 +64,16 @@ describe('getTransactionsPage', () => {
     expect(sentParams()).toMatchObject({ sortBy: 'amount', sortOrder: 'asc' });
   });
 
+  it('exports in the chosen sort', async () => {
+    get.mockResolvedValue({ data: new Blob(['csv']), headers: {} });
+    await exportTransactionsCsv({}, { sortBy: 'category', sortOrder: 'desc' });
+
+    expect(sentParams()).toMatchObject({
+      sortBy: 'category',
+      sortOrder: 'desc',
+    });
+  });
+
   it('keeps a caller endDate over the default', async () => {
     await getTransactionsPage({ endDate: '2026-08-31' });
 
@@ -157,14 +167,13 @@ describe('list, summary and export filters', () => {
     await exportTransactionsCsv({ searchTerm: 'taxi', categoryId: 'cat-1' });
     const exportParams = sentParams();
 
+    const { cursor: _cursor, limit: _limit, ...exportedFilters } = listParams;
     const {
-      cursor: _cursor,
-      limit: _limit,
       sortBy: _sortBy,
       sortOrder: _sortOrder,
-      ...listFilters
-    } = listParams;
-    expect(summaryParams).toEqual(listFilters);
-    expect(exportParams).toEqual(listFilters);
+      ...summaryFilters
+    } = exportedFilters;
+    expect(summaryParams).toEqual(summaryFilters);
+    expect(exportParams).toEqual(exportedFilters);
   });
 });

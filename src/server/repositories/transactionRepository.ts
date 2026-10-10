@@ -63,17 +63,6 @@ type TransactionRow = PrismaTransaction & {
   files?: PrismaTransactionFile[];
 };
 
-/**
- * startDate floors to the day's start and endDate widens to its end; callers
- * such as the daily summary rely on this.
- */
-export function normalizeDateRange(startDate?: Date, endDate?: Date) {
-  return {
-    startDate: startDate ? startOfDay(new Date(startDate)) : undefined,
-    endDate: endDate ? endOfDay(new Date(endDate)) : undefined,
-  };
-}
-
 type Comparison = 'lt' | 'gt' | 'equals';
 
 type SortColumn = {
@@ -84,6 +73,19 @@ type SortColumn = {
     cursorValue: string,
   ): Prisma.TransactionWhereInput;
 };
+
+type OrderedColumn = [SortColumn, SortOrder];
+
+/**
+ * startDate floors to the day's start and endDate widens to its end; callers
+ * such as the daily summary rely on this.
+ */
+export function normalizeDateRange(startDate?: Date, endDate?: Date) {
+  return {
+    startDate: startDate ? startOfDay(new Date(startDate)) : undefined,
+    endDate: endDate ? endOfDay(new Date(endDate)) : undefined,
+  };
+}
 
 function invalidCursor(): never {
   throw new HttpError(400, 'Invalid cursor');
@@ -101,15 +103,21 @@ const DATE_COLUMN: SortColumn = {
   },
 };
 
+const amountCursorSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .pipe(z.coerce.number().finite());
+
 const AMOUNT_COLUMN: SortColumn = {
   orderBy: (direction) => ({ value: direction }),
   toCursor: (row) => String(row.value),
   where: (comparison, cursorValue) => {
-    const value = Number(cursorValue);
-    if (cursorValue === '' || !Number.isFinite(value)) {
+    const value = amountCursorSchema.safeParse(cursorValue);
+    if (!value.success) {
       invalidCursor();
     }
-    return { value: { [comparison]: value } };
+    return { value: { [comparison]: value.data } };
   },
 };
 
@@ -133,8 +141,6 @@ const ID_COLUMN: SortColumn = {
     return { id: { [comparison]: cursorValue } };
   },
 };
-
-type OrderedColumn = [SortColumn, SortOrder];
 
 const PRIMARY_COLUMNS: Record<TransactionSort['sortBy'], SortColumn> = {
   date: DATE_COLUMN,
@@ -175,29 +181,6 @@ function decodeCursor(cursor: string, columnCount: number): string[] {
     invalidCursor();
   }
   return values.data;
-}
-
-// Rows strictly after the cursor: equal on every earlier column, past it on this one.
-function buildCursorWhere(
-  ordering: OrderedColumn[],
-  cursor: string | undefined,
-): Prisma.TransactionWhereInput {
-  if (!cursor) {
-    return {};
-  }
-  const values = decodeCursor(cursor, ordering.length);
-  return {
-    OR: ordering.map(([column, direction], index) => ({
-      AND: [
-        ...ordering
-          .slice(0, index)
-          .map(([earlier], earlierIndex) =>
-            earlier.where('equals', values[earlierIndex]),
-          ),
-        column.where(direction === 'desc' ? 'lt' : 'gt', values[index]),
-      ],
-    })),
-  };
 }
 
 class TransactionRepository {
@@ -308,7 +291,7 @@ class TransactionRepository {
     const transactions = await prisma.transaction.findMany({
       where: {
         ...this.buildListWhere(filters, startDate, endDate),
-        ...buildCursorWhere(ordering, filters.cursor),
+        ...this.buildCursorWhere(ordering, filters.cursor),
       },
       include: { category: true },
       orderBy: ordering.map(([column, direction]) => column.orderBy(direction)),
@@ -615,6 +598,29 @@ class TransactionRepository {
       return { categoryId: { in: filters.categoryIds } };
     }
     return filters.categoryId ? { categoryId: filters.categoryId } : {};
+  }
+
+  // Rows strictly after the cursor: equal on every earlier column, past it on this one.
+  private buildCursorWhere(
+    ordering: OrderedColumn[],
+    cursor: string | undefined,
+  ): Prisma.TransactionWhereInput {
+    if (!cursor) {
+      return {};
+    }
+    const values = decodeCursor(cursor, ordering.length);
+    return {
+      OR: ordering.map(([column, direction], index) => ({
+        AND: [
+          ...ordering
+            .slice(0, index)
+            .map(([earlier], earlierIndex) =>
+              earlier.where('equals', values[earlierIndex]),
+            ),
+          column.where(direction === 'desc' ? 'lt' : 'gt', values[index]),
+        ],
+      })),
+    };
   }
 }
 

@@ -528,14 +528,18 @@ const SORT_ORDERS = [
   },
 ];
 
+const MAX_PAGE_REQUESTS = 50;
+
+type PageWalk = { ids: string[] } | { failure: string };
+
 async function walkTransactionPages(
   token: string,
   sortParams: string,
-): Promise<string[] | null> {
+): Promise<PageWalk> {
   const seen: string[] = [];
   let cursor: string | undefined;
 
-  for (let request = 0; request < 50; request++) {
+  for (let request = 0; request < MAX_PAGE_REQUESTS; request++) {
     const path = `/api/transactions?limit=3&${sortParams}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
     const res: ApiResult = await api('GET', path, { token });
     const body = res.body as {
@@ -543,15 +547,17 @@ async function walkTransactionPages(
       nextCursor: string | null;
     } | null;
     if (res.status !== 200 || !body) {
-      return null;
+      return { failure: `page ${request + 1} returned status ${res.status}` };
     }
     seen.push(...body.items.map((item) => item.id));
     if (!body.nextCursor) {
-      return seen;
+      return { ids: seen };
     }
     cursor = body.nextCursor;
   }
-  return seen;
+  return {
+    failure: `still paging after ${MAX_PAGE_REQUESTS} requests; raise MAX_PAGE_REQUESTS`,
+  };
 }
 
 // Small pages force many cursor hops, so a keyset that skips or repeats a
@@ -575,33 +581,37 @@ async function transactionCursorPagingFlow(
     [tiedDescription, userId],
   );
 
-  for (const { sortBy, sortOrder, orderSql } of SORT_ORDERS) {
-    const seen = await walkTransactionPages(
-      token,
-      `sortBy=${sortBy}&sortOrder=${sortOrder}`,
-    );
-    const expected = await query<{ id: string }>(
-      `select t.id from "Transaction" t join "Category" c on c.id = t."categoryId"
-       where t.status = 'APPROVED' and t."userId" = $1
-       order by ${orderSql}`,
-      [userId],
-    );
-    const expectedIds = expected.map((row) => row.id);
-    check(
-      `transactions: cursor paging by ${sortBy} ${sortOrder} returns every row once, in order`,
-      seen !== null &&
-        seen.length === expectedIds.length &&
-        seen.every((id, index) => id === expectedIds[index]),
-      seen === null
-        ? 'a page request failed'
-        : `walked ${seen.length}, unique ${new Set(seen).size}, expected ${expectedIds.length}`,
+  try {
+    for (const { sortBy, sortOrder, orderSql } of SORT_ORDERS) {
+      const walk = await walkTransactionPages(
+        token,
+        `sortBy=${sortBy}&sortOrder=${sortOrder}`,
+      );
+      const expected = await query<{ id: string }>(
+        `select t.id from "Transaction" t join "Category" c on c.id = t."categoryId"
+         where t.status = 'APPROVED' and t."userId" = $1
+         order by ${orderSql}`,
+        [userId],
+      );
+      const expectedIds = expected.map((row) => row.id);
+      const label = `transactions: cursor paging by ${sortBy} ${sortOrder} returns every row once, in order`;
+      if ('failure' in walk) {
+        check(label, false, walk.failure);
+        continue;
+      }
+      check(
+        label,
+        walk.ids.length === expectedIds.length &&
+          walk.ids.every((id, index) => id === expectedIds[index]),
+        `walked ${walk.ids.length}, unique ${new Set(walk.ids).size}, expected ${expectedIds.length}`,
+      );
+    }
+  } finally {
+    await query(
+      `delete from "Transaction" where description = $1 and "userId" = $2`,
+      [tiedDescription, userId],
     );
   }
-
-  await query(
-    `delete from "Transaction" where description = $1 and "userId" = $2`,
-    [tiedDescription, userId],
-  );
 
   const badSort = await api('GET', '/api/transactions?sortBy=description', {
     token,

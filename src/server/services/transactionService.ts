@@ -13,7 +13,10 @@ import {
   TransactionStatus,
   TransactionFile,
 } from '@/shared/types/transaction';
-import { UpdateTransactionRequest } from '@/shared/schemas/transactions';
+import type {
+  TransactionSort,
+  UpdateTransactionRequest,
+} from '@/shared/schemas/transactions';
 import currencyConversionService from '@/server/services/currencyConversionService';
 import { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
@@ -151,7 +154,7 @@ class TransactionService {
    * is refused early.
    */
   public async getAllTransactions(
-    filters: TransactionSummaryFilters,
+    filters: TransactionSummaryFilters & Partial<TransactionSort>,
     { maxRows }: { maxRows?: number } = {},
   ): Promise<Transaction[]> {
     const transactions: Transaction[] = [];

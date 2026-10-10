@@ -56,8 +56,14 @@ export const useTransactionsInfiniteQuery = (
 // caching, and the blob is saved and dropped inside mutationFn.
 export const useExportTransactionsCsvMutation = () => {
   return useMutation({
-    mutationFn: async (filters?: TransactionFilters) => {
-      const { blob, fileName } = await exportTransactionsCsv(filters);
+    mutationFn: async ({
+      filters,
+      sort,
+    }: {
+      filters: TransactionFilters;
+      sort: TransactionSort;
+    }) => {
+      const { blob, fileName } = await exportTransactionsCsv(filters, sort);
       downloadBlob(fileName, blob);
       return fileName;
     },

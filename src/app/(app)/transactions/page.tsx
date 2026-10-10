@@ -126,12 +126,15 @@ function TransactionsPageContent() {
   const exportMutation = useExportTransactionsCsvMutation();
 
   const handleExport = () =>
-    exportMutation.mutate(filters, {
-      onError: (e) =>
-        setError(
-          e instanceof Error ? e.message : 'Failed to export transactions',
-        ),
-    });
+    exportMutation.mutate(
+      { filters, sort },
+      {
+        onError: (e) =>
+          setError(
+            e instanceof Error ? e.message : 'Failed to export transactions',
+          ),
+      },
+    );
 
   const handleEdit = (tx: Transaction) => {
     setEditTx(tx);

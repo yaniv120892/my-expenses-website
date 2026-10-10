@@ -73,11 +73,11 @@ export interface TransactionFilters extends TransactionSummaryFilters {
 }
 
 // The cursor is opaque; only the repository that issued it may decode it.
-export interface TransactionListFilters
-  extends TransactionSummaryFilters, Partial<TransactionSort> {
-  cursor?: string;
-  limit: number;
-}
+export type TransactionListFilters = TransactionSummaryFilters &
+  Partial<TransactionSort> & {
+    cursor?: string;
+    limit: number;
+  };
 
 export interface TransactionListPage {
   items: Transaction[];

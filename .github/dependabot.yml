@@ -11,12 +11,39 @@ updates:
     # The limits across both ecosystems add up to the routine PR cap (3).
     open-pull-requests-limit: 2
     cooldown:
+      default-days: 3
       semver-major-days: 7
-      semver-minor-days: 3
-      semver-patch-days: 3
+    # A dependency joins the first group it matches. Packages released in
+    # lockstep share one major PR, since each fails CI when bumped alone.
     groups:
+      prisma-major:
+        patterns: [prisma, '@prisma/*']
+        update-types: [major]
+      mastra-major:
+        patterns: ['@mastra/*']
+        update-types: [major]
+      mui-major:
+        patterns: ['@mui/*']
+        update-types: [major]
+      emotion-major:
+        patterns: ['@emotion/*']
+        update-types: [major]
+      next-major:
+        patterns: [next, eslint-config-next]
+        update-types: [major]
+      react-major:
+        patterns: [react, react-dom, '@types/react', '@types/react-dom']
+        update-types: [major]
+      eslint-major:
+        patterns: [eslint, '@eslint/*']
+        update-types: [major]
+      aws-sdk-major:
+        patterns: ['@aws-sdk/*']
+        update-types: [major]
+      ai-sdk-major:
+        patterns: [ai, '@ai-sdk/*']
+        update-types: [major]
       npm-minor-and-patch:
-        applies-to: version-updates
         update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
@@ -25,10 +52,8 @@ updates:
       day: monday
     open-pull-requests-limit: 1
     cooldown:
+      default-days: 3
       semver-major-days: 7
-      semver-minor-days: 3
-      semver-patch-days: 3
     groups:
       actions-minor-and-patch:
-        applies-to: version-updates
         update-types: [minor, patch]

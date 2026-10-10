@@ -1,6 +1,6 @@
 // Run by .github/workflows/dependabot-auto-merge.yml from the base branch's
 // checkout, never the pull request's, so a PR cannot rewrite its own verdict.
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import type {
   AutoMergeDecision,
@@ -8,7 +8,7 @@ import type {
   UpdatedDependency,
 } from './autoMergePolicy.types';
 
-export const REQUIRED_CHECKS = ['checks', 'e2e'];
+const REQUIRED_CHECKS = ['checks', 'e2e'];
 
 const AUTO_MERGE_UPDATE_TYPES = new Set([
   'version-update:semver-patch',
@@ -29,11 +29,14 @@ export function decideAutoMerge(
     (dependency) => !AUTO_MERGE_UPDATE_TYPES.has(dependency.updateType ?? ''),
   );
   if (blocked.length > 0) {
-    const names = blocked.map(
+    const blockedLabels = blocked.map(
       (dependency) =>
         `${dependency.dependencyName} (${dependency.updateType ?? 'unknown'})`,
     );
-    return { merge: false, reason: `needs manual review: ${names.join(', ')}` };
+    return {
+      merge: false,
+      reason: `needs manual review: ${blockedLabels.join(', ')}`,
+    };
   }
   // With no required check, GitHub's auto-merge would merge before CI finishes.
   const requiredChecks = new Set(
@@ -60,7 +63,7 @@ function main(): void {
     process.env.UPDATED_DEPENDENCIES || '[]',
   );
   const branchRules: BranchRule[] = JSON.parse(
-    readFileSync(process.env.BRANCH_RULES_FILE ?? '', 'utf8'),
+    process.env.BRANCH_RULES || '[]',
   );
   const decision = decideAutoMerge(dependencies, branchRules);
   process.stdout.write(`auto-merge: ${decision.merge} — ${decision.reason}\n`);

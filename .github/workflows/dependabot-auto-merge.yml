@@ -43,16 +43,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Read the base branch's rules
+      - id: policy
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-        run: gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE_REF" > "$RUNNER_TEMP/branch-rules.json"
-      - id: policy
-        env:
           UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
-          BRANCH_RULES_FILE: ${{ runner.temp }}/branch-rules.json
-        run: node scripts/dependabot/autoMergePolicy.ts
+        run: |
+          BRANCH_RULES="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE_REF")" \
+            node scripts/dependabot/autoMergePolicy.ts
 
   enable-auto-merge:
     needs: decide

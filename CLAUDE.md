@@ -32,7 +32,7 @@ parallel job both e2e suites against a Postgres service container.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
-major on its own, behind a release-age cooldown and an open-PR cap. Security
+major on its own — a lockstep family's majors together — behind a release-age cooldown and an open-PR cap. Security
 updates come from Dependabot alerts as soon as an advisory lands, outside that
 schedule, cooldown and cap. `.github/workflows/dependabot-auto-merge.yml` queues a squash
 auto-merge on a Dependabot PR whose every dependency is a patch or minor

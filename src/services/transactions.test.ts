@@ -55,6 +55,15 @@ describe('getTransactionsPage', () => {
     expect(sentParams().cursor).toBe('cursor-token');
   });
 
+  it('sends the chosen sort', async () => {
+    await getTransactionsPage({}, undefined, {
+      sortBy: 'amount',
+      sortOrder: 'asc',
+    });
+
+    expect(sentParams()).toMatchObject({ sortBy: 'amount', sortOrder: 'asc' });
+  });
+
   it('keeps a caller endDate over the default', async () => {
     await getTransactionsPage({ endDate: '2026-08-31' });
 
@@ -148,7 +157,13 @@ describe('list, summary and export filters', () => {
     await exportTransactionsCsv({ searchTerm: 'taxi', categoryId: 'cat-1' });
     const exportParams = sentParams();
 
-    const { cursor: _cursor, limit: _limit, ...listFilters } = listParams;
+    const {
+      cursor: _cursor,
+      limit: _limit,
+      sortBy: _sortBy,
+      sortOrder: _sortOrder,
+      ...listFilters
+    } = listParams;
     expect(summaryParams).toEqual(listFilters);
     expect(exportParams).toEqual(listFilters);
   });

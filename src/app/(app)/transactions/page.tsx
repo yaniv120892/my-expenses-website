@@ -17,12 +17,17 @@ import {
   TransactionFilters,
   CreateTransactionInput,
 } from '@/types';
-import { transactionFilterSchema } from '@/shared/schemas/transactions';
+import {
+  DEFAULT_TRANSACTION_SORT,
+  transactionFilterSchema,
+  type TransactionSort,
+} from '@/shared/schemas/transactions';
 import TransactionList from '@/components/TransactionList';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionListSkeleton from '@/components/TransactionListSkeleton';
 import { TransactionFiltersDialog } from '@/components/transactions/TransactionFiltersDialog';
 import { TransactionFiltersDisplay } from '@/components/transactions/TransactionFiltersDisplay';
+import { TransactionSortSelect } from '@/components/transactions/TransactionSortSelect';
 import PendingTransactionsPopup from '@/components/PendingTransactionsPopup';
 import IncomeExpensePieChart from '@/components/IncomeExpensePieChart';
 import CategoryBreakdownPieChart from '@/components/CategoryBreakdownPieChart';
@@ -62,6 +67,7 @@ function TransactionsPageContent() {
     type: filterShape.type.safeParse(searchParams.get('type') ?? undefined)
       .data,
   }));
+  const [sort, setSort] = useState<TransactionSort>(DEFAULT_TRANSACTION_SORT);
   const [error, setError] = useState<string | null>(null);
   const [categoryConfirmation, setCategoryConfirmation] = useState<{
     transactionId: string;
@@ -86,7 +92,7 @@ function TransactionsPageContent() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useTransactionsInfiniteQuery(filters);
+  } = useTransactionsInfiniteQuery(filters, sort);
   const transactions = useMemo(
     () => data?.pages.flatMap((page) => page.items) ?? [],
     [data],
@@ -227,25 +233,34 @@ function TransactionsPageContent() {
         />
       )}
 
-      <TransactionFiltersDisplay
-        {...filters}
-        onOpenFilters={() => setFiltersDialogOpen(true)}
-        categories={categories}
-        onResetSearch={() =>
-          setFilters((prev) => ({ ...prev, searchTerm: undefined }))
-        }
-        onResetCategory={() =>
-          setFilters((prev) => ({ ...prev, categoryId: undefined }))
-        }
-        onResetType={() => setFilters((prev) => ({ ...prev, type: undefined }))}
-        onResetDateRange={() =>
-          setFilters((prev) => ({
-            ...prev,
-            startDate: undefined,
-            endDate: undefined,
-          }))
-        }
-      />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
+      >
+        <TransactionFiltersDisplay
+          {...filters}
+          onOpenFilters={() => setFiltersDialogOpen(true)}
+          categories={categories}
+          onResetSearch={() =>
+            setFilters((prev) => ({ ...prev, searchTerm: undefined }))
+          }
+          onResetCategory={() =>
+            setFilters((prev) => ({ ...prev, categoryId: undefined }))
+          }
+          onResetType={() =>
+            setFilters((prev) => ({ ...prev, type: undefined }))
+          }
+          onResetDateRange={() =>
+            setFilters((prev) => ({
+              ...prev,
+              startDate: undefined,
+              endDate: undefined,
+            }))
+          }
+        />
+        <TransactionSortSelect value={sort} onChange={setSort} />
+      </Stack>
 
       <Box sx={{ mt: 2 }}>
         {loading ? (

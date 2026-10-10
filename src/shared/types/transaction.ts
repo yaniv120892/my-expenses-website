@@ -1,3 +1,5 @@
+import type { TransactionSort } from '@/shared/schemas/transactions';
+
 export type TransactionStatus = 'APPROVED' | 'PENDING_APPROVAL';
 
 export type TransactionFileStatus =
@@ -74,6 +76,7 @@ export interface TransactionFilters extends TransactionSummaryFilters {
 export interface TransactionListFilters extends TransactionSummaryFilters {
   cursor?: string;
   limit: number;
+  sort?: TransactionSort;
 }
 
 export interface TransactionListPage {

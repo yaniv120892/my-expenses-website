@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import {
+  Prisma,
   TransactionType,
   TransactionStatus,
   Transaction as PrismaTransaction,
@@ -36,6 +38,11 @@ import {
   fromAmountColumns,
   toAmountColumns,
 } from '@/server/repositories/amountColumns';
+import {
+  DEFAULT_TRANSACTION_SORT,
+  type SortOrder,
+  type TransactionSort,
+} from '@/shared/schemas/transactions';
 
 const MATCHABLE_STATUSES = [
   TransactionStatus.APPROVED,
@@ -56,14 +63,6 @@ type TransactionRow = PrismaTransaction & {
   files?: PrismaTransactionFile[];
 };
 
-// The list orders by date then id; id breaks ties so a cursor always lands on
-// exactly one row, which day-precision dates alone cannot guarantee.
-const CURSOR_SEPARATOR = '_';
-
-function encodeCursor(transaction: { date: Date; id: string }): string {
-  return `${transaction.date.toISOString()}${CURSOR_SEPARATOR}${transaction.id}`;
-}
-
 /**
  * startDate floors to the day's start and endDate widens to its end; callers
  * such as the daily summary rely on this.
@@ -75,14 +74,130 @@ export function normalizeDateRange(startDate?: Date, endDate?: Date) {
   };
 }
 
-function decodeCursor(cursor: string): { date: Date; id: string } {
-  const separatorIndex = cursor.indexOf(CURSOR_SEPARATOR);
-  const date = new Date(cursor.slice(0, separatorIndex));
-  const id = cursor.slice(separatorIndex + 1);
-  if (separatorIndex === -1 || Number.isNaN(date.getTime()) || !id) {
-    throw new HttpError(400, 'Invalid cursor');
+type Comparison = 'lt' | 'gt' | 'equals';
+
+type SortColumn = {
+  orderBy(direction: SortOrder): Prisma.TransactionOrderByWithRelationInput;
+  toCursor(row: TransactionRow): string;
+  where(
+    comparison: Comparison,
+    cursorValue: string,
+  ): Prisma.TransactionWhereInput;
+};
+
+function invalidCursor(): never {
+  throw new HttpError(400, 'Invalid cursor');
+}
+
+const DATE_COLUMN: SortColumn = {
+  orderBy: (direction) => ({ date: direction }),
+  toCursor: (row) => row.date.toISOString(),
+  where: (comparison, cursorValue) => {
+    const date = new Date(cursorValue);
+    if (Number.isNaN(date.getTime())) {
+      invalidCursor();
+    }
+    return { date: { [comparison]: date } };
+  },
+};
+
+const AMOUNT_COLUMN: SortColumn = {
+  orderBy: (direction) => ({ value: direction }),
+  toCursor: (row) => String(row.value),
+  where: (comparison, cursorValue) => {
+    const value = Number(cursorValue);
+    if (cursorValue === '' || !Number.isFinite(value)) {
+      invalidCursor();
+    }
+    return { value: { [comparison]: value } };
+  },
+};
+
+const CATEGORY_COLUMN: SortColumn = {
+  orderBy: (direction) => ({ category: { name: direction } }),
+  toCursor: (row) => row.category.name,
+  where: (comparison, cursorValue) => ({
+    category: { name: { [comparison]: cursorValue } },
+  }),
+};
+
+const ID_COLUMN: SortColumn = {
+  orderBy: (direction) => ({ id: direction }),
+  toCursor: (row) => row.id,
+  where: (comparison, cursorValue) => {
+    if (!z.string().uuid().safeParse(cursorValue).success) {
+      invalidCursor();
+    }
+    return { id: { [comparison]: cursorValue } };
+  },
+};
+
+type OrderedColumn = [SortColumn, SortOrder];
+
+// id is always last, so a cursor lands on exactly one row; ties on amount or
+// category fall back to newest first.
+function listOrdering({ sortBy, sortOrder }: TransactionSort): OrderedColumn[] {
+  switch (sortBy) {
+    case 'date':
+      return [
+        [DATE_COLUMN, sortOrder],
+        [ID_COLUMN, sortOrder],
+      ];
+    case 'amount':
+      return [
+        [AMOUNT_COLUMN, sortOrder],
+        [DATE_COLUMN, 'desc'],
+        [ID_COLUMN, 'desc'],
+      ];
+    case 'category':
+      return [
+        [CATEGORY_COLUMN, sortOrder],
+        [DATE_COLUMN, 'desc'],
+        [ID_COLUMN, 'desc'],
+      ];
   }
-  return { date, id };
+}
+
+function encodeCursor(ordering: OrderedColumn[], row: TransactionRow): string {
+  const values = ordering.map(([column]) => column.toCursor(row));
+  return Buffer.from(JSON.stringify(values)).toString('base64url');
+}
+
+function decodeCursor(cursor: string, columnCount: number): string[] {
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString());
+  } catch {
+    invalidCursor();
+  }
+  const values = z.array(z.string()).length(columnCount).safeParse(decoded);
+  if (!values.success) {
+    invalidCursor();
+  }
+  return values.data;
+}
+
+// Rows strictly after the cursor: equal on every earlier column, past it on this one.
+function buildCursorWhere(
+  ordering: OrderedColumn[],
+  cursor: string | undefined,
+): Prisma.TransactionWhereInput {
+  if (!cursor) {
+    return {};
+  }
+  const values = decodeCursor(cursor, ordering.length);
+  return {
+    OR: ordering.map(([column, direction], index) => ({
+      AND: [
+        ...ordering
+          .slice(0, index)
+          .map(([earlier], earlierIndex) =>
+            earlier.where('equals', values[earlierIndex]),
+          ),
+        column.where(direction === 'desc' ? 'lt' : 'gt', values[index]),
+      ],
+    })),
+  };
 }
 
 class TransactionRepository {
@@ -189,13 +304,14 @@ class TransactionRepository {
       filters.endDate,
     );
 
+    const ordering = listOrdering(filters.sort ?? DEFAULT_TRANSACTION_SORT);
     const transactions = await prisma.transaction.findMany({
       where: {
         ...this.buildListWhere(filters, startDate, endDate),
-        ...this.buildCursorWhere(filters.cursor),
+        ...buildCursorWhere(ordering, filters.cursor),
       },
       include: { category: true },
-      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+      orderBy: ordering.map(([column, direction]) => column.orderBy(direction)),
       // One extra row answers "is there another page?" without a count query.
       take: filters.limit + 1,
     });
@@ -205,7 +321,9 @@ class TransactionRepository {
 
     return {
       items: items.map(this.mapToDomain),
-      nextCursor: hasMore ? encodeCursor(items[items.length - 1]) : null,
+      nextCursor: hasMore
+        ? encodeCursor(ordering, items[items.length - 1])
+        : null,
     };
   }
 
@@ -497,17 +615,6 @@ class TransactionRepository {
       return { categoryId: { in: filters.categoryIds } };
     }
     return filters.categoryId ? { categoryId: filters.categoryId } : {};
-  }
-
-  // Rows strictly after the cursor in (date desc, id desc) order.
-  private buildCursorWhere(cursor: string | undefined) {
-    if (!cursor) {
-      return {};
-    }
-    const { date, id } = decodeCursor(cursor);
-    return {
-      OR: [{ date: { lt: date } }, { date, id: { lt: id } }],
-    };
   }
 }
 

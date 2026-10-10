@@ -9,6 +9,10 @@ import {
   CategoryBreakdownItem,
   Category,
 } from '../types';
+import {
+  DEFAULT_TRANSACTION_SORT,
+  type TransactionSort,
+} from '@/shared/schemas/transactions';
 
 export const TRANSACTIONS_PAGE_SIZE = 50;
 
@@ -31,10 +35,15 @@ export interface TransactionsPage {
 export async function getTransactionsPage(
   params?: TransactionFilters,
   cursor?: string,
-  limit: number = TRANSACTIONS_PAGE_SIZE,
+  sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): Promise<TransactionsPage> {
   const res = await api.get('/api/transactions', {
-    params: { ...listFilters(params), cursor, limit },
+    params: {
+      ...listFilters(params),
+      ...sort,
+      cursor,
+      limit: TRANSACTIONS_PAGE_SIZE,
+    },
   });
   return res.data;
 }

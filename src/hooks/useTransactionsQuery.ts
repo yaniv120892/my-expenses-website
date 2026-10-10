@@ -23,12 +23,13 @@ import {
   CategoryBreakdownItem,
 } from '@/types';
 import { invalidateTransactionData } from '@/hooks/queryInvalidation';
+import type { TransactionSort } from '@/shared/schemas/transactions';
 
 export const transactionKeys = {
   all: ['transactions'] as const,
   lists: () => [...transactionKeys.all, 'list'] as const,
-  list: (filters: TransactionFilters) =>
-    [...transactionKeys.lists(), filters] as const,
+  list: (filters: TransactionFilters, sort: TransactionSort) =>
+    [...transactionKeys.lists(), filters, sort] as const,
   categories: () => [...transactionKeys.all, 'categories'] as const,
   // Prefix without the filters argument, so invalidation matches every
   // filtered summary query.
@@ -39,10 +40,13 @@ export const transactionKeys = {
     [...transactionKeys.summaries(), 'categories', filters] as const,
 };
 
-export const useTransactionsInfiniteQuery = (filters?: TransactionFilters) => {
+export const useTransactionsInfiniteQuery = (
+  filters: TransactionFilters,
+  sort: TransactionSort,
+) => {
   return useInfiniteQuery({
-    queryKey: transactionKeys.list(filters || {}),
-    queryFn: ({ pageParam }) => getTransactionsPage(filters, pageParam),
+    queryKey: transactionKeys.list(filters, sort),
+    queryFn: ({ pageParam }) => getTransactionsPage(filters, pageParam, sort),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });

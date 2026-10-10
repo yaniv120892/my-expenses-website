@@ -65,9 +65,22 @@ export const transactionFilterSchema = z.object({
 
 export const getTransactionsSummarySchema = transactionFilterSchema;
 
-export const exportTransactionsSchema = transactionFilterSchema;
+// Ordering only — kept off transactionFilterSchema so the summary never varies
+// with it.
+export const transactionSortSchema = z.object({
+  sortBy: z.enum(['date', 'amount', 'category']).default('date'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+export type TransactionSort = z.infer<typeof transactionSortSchema>;
+export type SortOrder = TransactionSort['sortOrder'];
+export const DEFAULT_TRANSACTION_SORT = transactionSortSchema.parse({});
+
+export const exportTransactionsSchema = transactionFilterSchema.extend(
+  transactionSortSchema.shape,
+);
 
 export const getTransactionsSchema = transactionFilterSchema.extend({
+  ...transactionSortSchema.shape,
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

@@ -503,44 +503,123 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
   }
 }
 
-async function transactionCursorPagingFlow(
+const SORT_ORDERS = [
+  { sortBy: 'date', sortOrder: 'desc', orderSql: 't.date desc, t.id desc' },
+  { sortBy: 'date', sortOrder: 'asc', orderSql: 't.date asc, t.id asc' },
+  {
+    sortBy: 'amount',
+    sortOrder: 'desc',
+    orderSql: 't.value desc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'amount',
+    sortOrder: 'asc',
+    orderSql: 't.value asc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'category',
+    sortOrder: 'asc',
+    orderSql: 'c.name asc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'category',
+    sortOrder: 'desc',
+    orderSql: 'c.name desc, t.date desc, t.id desc',
+  },
+];
+
+const MAX_PAGE_REQUESTS = 50;
+
+type PageWalk = { ids: string[] } | { failure: string };
+
+async function walkTransactionPages(
   token: string,
-  userId: string,
-): Promise<void> {
+  sortParams: string,
+): Promise<PageWalk> {
   const seen: string[] = [];
   let cursor: string | undefined;
 
-  for (let request = 0; request < 20; request++) {
-    const path = `/api/transactions?limit=3${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+  for (let request = 0; request < MAX_PAGE_REQUESTS; request++) {
+    const path = `/api/transactions?limit=3&${sortParams}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
     const res: ApiResult = await api('GET', path, { token });
     const body = res.body as {
       items: { id: string }[];
       nextCursor: string | null;
     } | null;
     if (res.status !== 200 || !body) {
-      check(
-        'transactions: cursor paging walks the list',
-        false,
-        `status ${res.status}`,
-      );
-      return;
+      return { failure: `page ${request + 1} returned status ${res.status}` };
     }
     seen.push(...body.items.map((item) => item.id));
     if (!body.nextCursor) {
-      break;
+      return { ids: seen };
     }
     cursor = body.nextCursor;
   }
+  return {
+    failure: `still paging after ${MAX_PAGE_REQUESTS} requests; raise MAX_PAGE_REQUESTS`,
+  };
+}
 
-  const total = await query<{ count: string }>(
-    `select count(*) as count from "Transaction" where status = 'APPROVED' and "userId" = $1`,
-    [userId],
+// Small pages force many cursor hops, so a keyset that skips or repeats a
+// row on a tie (same amount, same category) shows up as a wrong sequence.
+async function transactionCursorPagingFlow(
+  token: string,
+  userId: string,
+): Promise<void> {
+  const tiedDescription = 'E2E sort tie';
+  await query(
+    `insert into "Transaction"
+       (id, description, value, "originalAmount", type, "categoryId", "userId", date)
+     select gen_random_uuid(), $1, tie.value, tie.value, 'EXPENSE', c.id, $2, tie.date
+     from (values
+       (50, 'Rent', timestamp '2026-03-01'), (50, 'Rent', timestamp '2026-03-01'),
+       (50, 'Groceries', timestamp '2026-03-01'), (20, 'Groceries', timestamp '2026-03-02'),
+       (20, 'Groceries', timestamp '2026-03-02'), (50, 'Rent', timestamp '2026-03-03'),
+       (80, 'Groceries', timestamp '2026-03-01')
+     ) as tie(value, category, date)
+     join "Category" c on c.name = tie.category`,
+    [tiedDescription, userId],
   );
-  const expected = Number(total[0].count);
+
+  try {
+    for (const { sortBy, sortOrder, orderSql } of SORT_ORDERS) {
+      const walk = await walkTransactionPages(
+        token,
+        `sortBy=${sortBy}&sortOrder=${sortOrder}`,
+      );
+      const expected = await query<{ id: string }>(
+        `select t.id from "Transaction" t join "Category" c on c.id = t."categoryId"
+         where t.status = 'APPROVED' and t."userId" = $1
+         order by ${orderSql}`,
+        [userId],
+      );
+      const expectedIds = expected.map((row) => row.id);
+      const label = `transactions: cursor paging by ${sortBy} ${sortOrder} returns every row once, in order`;
+      if ('failure' in walk) {
+        check(label, false, walk.failure);
+        continue;
+      }
+      check(
+        label,
+        walk.ids.length === expectedIds.length &&
+          walk.ids.every((id, index) => id === expectedIds[index]),
+        `walked ${walk.ids.length}, unique ${new Set(walk.ids).size}, expected ${expectedIds.length}`,
+      );
+    }
+  } finally {
+    await query(
+      `delete from "Transaction" where description = $1 and "userId" = $2`,
+      [tiedDescription, userId],
+    );
+  }
+
+  const badSort = await api('GET', '/api/transactions?sortBy=description', {
+    token,
+  });
   check(
-    'transactions: cursor paging returns every row exactly once',
-    seen.length === expected && new Set(seen).size === seen.length,
-    `walked ${seen.length}, unique ${new Set(seen).size}, expected ${expected}`,
+    'transactions: an unknown sort field is rejected',
+    badSort.status === 400,
+    `status ${badSort.status}`,
   );
 }
 

@@ -236,7 +236,11 @@ function TransactionsPageContent() {
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
+        sx={{
+          mt: 2,
+          justifyContent: 'space-between',
+          alignItems: { sm: 'center' },
+        }}
       >
         <TransactionFiltersDisplay
           {...filters}

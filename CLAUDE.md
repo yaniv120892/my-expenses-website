@@ -146,10 +146,13 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   prefix is read through that link and an edit reaches rows already projected.
   While such a transaction is pending it is a candidate at any value — date
   window and direction still apply — but only for a row whose normalized
-  description starts with the prefix, and it is claimed without a model call
-  (nearest in date if several fit). `matchCandidateFilter`
-  (`src/server/utils/transactionMatching.ts`) is the one predicate the matcher
-  and the preview hints share.
+  description starts with the prefix. The model judges the row's other
+  candidates first and never sees a placeholder, whose projected value means
+  nothing; the placeholder takes the row only when none of them does (the
+  longest prefix, then the nearest date), so a charge already logged by hand is
+  not doubled. Such a merge is not flagged `unrelated-merge`.
+  `matchCandidateFilter` (`src/server/utils/transactionMatching.ts`) is the one
+  predicate the matcher and the preview hints share.
 - **One function decides merge-vs-create.**
   `importService.toReconciliationPlanItem` derives every server path's
   MERGE/CREATE (preview, `batchApproveImportedTransactions`,

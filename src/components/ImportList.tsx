@@ -45,6 +45,7 @@ import {
 } from '../hooks/useImports';
 import ImportedTransactionList from './ImportedTransactionList';
 import { formatDate } from '../utils/dateUtils';
+import { comparePaymentMonths } from '../utils/paymentMonth';
 import EmptyState from './EmptyState';
 import ImportListSkeleton from './ImportListSkeleton';
 
@@ -174,7 +175,7 @@ export default function ImportList({
   const filterOptions = useMemo(() => {
     const paymentMonths = Array.from(
       new Set(imports.map((i) => i.paymentMonth).filter(Boolean)),
-    ).sort() as string[];
+    ).sort(comparePaymentMonths) as string[];
     const cards = Array.from(
       new Set(imports.map((i) => i.creditCardLastFourDigits).filter(Boolean)),
     ).sort() as string[];
@@ -212,7 +213,7 @@ export default function ImportList({
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'paymentMonth':
-          cmp = (a.paymentMonth || '').localeCompare(b.paymentMonth || '');
+          cmp = comparePaymentMonths(a.paymentMonth, b.paymentMonth);
           break;
         case 'status':
           cmp = a.status.localeCompare(b.status);

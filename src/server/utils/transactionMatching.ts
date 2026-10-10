@@ -127,11 +127,9 @@ export type MatchCandidate = MatchableCharge & {
 };
 
 /**
- * Whether a candidate may be paired with `charge`, built once per charge so the
- * window and the normalized description are not rebuilt for every candidate.
- * A pending transaction projected from a variable-amount schedule is paired by
- * the bank's description instead of by value, since no fixed value would
- * survive the value window.
+ * A pending row projected from a variable-amount schedule is paired by the
+ * bank's description instead of by value, since no fixed value would survive
+ * the value window.
  */
 export function matchCandidateFilter(
   charge: MatchableCharge & { description: string },

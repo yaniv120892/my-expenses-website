@@ -149,7 +149,6 @@ model Transaction {
   category             Category             @relation(fields: [categoryId], references: [id])
   type                 TransactionType
   status               TransactionStatus    @default(APPROVED)
-  // The schedule that projected this row; null for everything else.
   scheduledTransactionId String?               @db.Uuid
   scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id], onDelete: SetNull)
   userId               String               @db.Uuid
@@ -249,9 +248,8 @@ model ScheduledTransaction {
   dayOfWeek     Int?
   dayOfMonth    Int?
   monthOfYear   Int?
-  // Set when the amount varies: an imported row matches a pending
-  // transaction this schedule projected by this description prefix instead of
-  // by value.
+  // Set when the amount varies: imports match this schedule's pending rows by
+  // this description prefix instead of by value.
   bankDescriptionPrefix String?
   lastRunDate   DateTime?
   nextRunDate   DateTime?

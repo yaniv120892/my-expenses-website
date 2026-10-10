@@ -22,6 +22,7 @@ import {
 } from '@/shared/types/transaction';
 import {
   CreateTransactionDbModel,
+  MatchCandidateTransaction,
   UpdateTransactionDbModel,
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
@@ -152,6 +153,7 @@ class TransactionRepository {
         categoryId: data.categoryId,
         type: data.type,
         status: data.status || TransactionStatus.APPROVED,
+        scheduledTransactionId: data.scheduledTransactionId ?? null,
         userId: data.userId,
       },
     });
@@ -359,15 +361,17 @@ class TransactionRepository {
   public async findPotentialMatches(
     userId: string,
     charge: MatchableCharge,
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     return this.findPotentialMatchesForCharges(userId, [charge]);
   }
 
-  // Which charge each returned transaction belongs to is left to the caller.
+  // Which charge each returned transaction belongs to is left to the caller,
+  // and so is the description test a variable-amount placeholder must pass:
+  // matchCandidateFilter holds both.
   public async findPotentialMatchesForCharges(
     userId: string,
     charges: MatchableCharge[],
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     const windows = charges.map(matchWindow).filter(canMatch);
     if (windows.length === 0) {
       return [];
@@ -377,16 +381,26 @@ class TransactionRepository {
       where: {
         userId,
         status: { in: MATCHABLE_STATUSES },
-        OR: windows.map((window) => this.buildMatchWindowWhere(window)),
+        OR: [
+          ...windows.map((window) => this.buildAmountWindowWhere(window)),
+          ...this.buildPlaceholderWheres(windows),
+        ],
       },
       orderBy: { status: 'desc' },
-      include: { category: true },
+      include: {
+        category: true,
+        scheduledTransaction: { select: { bankDescriptionPrefix: true } },
+      },
     });
 
-    return potentialTransactions.map(this.mapToDomain);
+    return potentialTransactions.map((transaction) => ({
+      ...this.mapToDomain(transaction),
+      bankDescriptionPrefix:
+        transaction.scheduledTransaction?.bankDescriptionPrefix ?? null,
+    }));
   }
 
-  private buildMatchWindowWhere(window: MatchWindow) {
+  private buildAmountWindowWhere(window: MatchWindow) {
     const amountConditions = [
       ...(window.valueRange
         ? [
@@ -415,6 +429,29 @@ class TransactionRepository {
       date: { gte: window.earliestDate, lte: window.latestDate },
       OR: amountConditions,
     };
+  }
+
+  // One clause per direction spanning every window, not one per charge: a
+  // placeholder's own window and prefix are checked in memory anyway.
+  private buildPlaceholderWheres(windows: MatchWindow[]) {
+    const spanByType = new Map<TransactionType, { gte: Date; lte: Date }>();
+    for (const window of windows) {
+      const span = spanByType.get(window.type);
+      spanByType.set(window.type, {
+        gte:
+          span && span.gte < window.earliestDate
+            ? span.gte
+            : window.earliestDate,
+        lte:
+          span && span.lte > window.latestDate ? span.lte : window.latestDate,
+      });
+    }
+    return [...spanByType].map(([type, date]) => ({
+      type,
+      date,
+      status: TransactionStatus.PENDING_APPROVAL,
+      scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+    }));
   }
 
   /**

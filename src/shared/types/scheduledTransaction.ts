@@ -11,6 +11,7 @@ export interface CreateScheduledTransaction {
   dayOfWeek?: number;
   dayOfMonth?: number;
   monthOfYear?: number;
+  bankDescriptionPrefix?: string;
   userId: string;
 }
 
@@ -24,6 +25,7 @@ export interface UpdateScheduledTransaction {
   dayOfWeek?: number;
   dayOfMonth?: number;
   monthOfYear?: number;
+  bankDescriptionPrefix?: string;
 }
 
 export interface ScheduledTransactionDomain {
@@ -37,6 +39,7 @@ export interface ScheduledTransactionDomain {
   dayOfWeek?: number;
   dayOfMonth?: number;
   monthOfYear?: number;
+  bankDescriptionPrefix?: string;
   lastRunDate?: Date;
   nextRunDate?: Date;
   userId: string;

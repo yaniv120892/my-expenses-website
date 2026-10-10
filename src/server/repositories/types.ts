@@ -1,4 +1,5 @@
 import {
+  Transaction,
   TransactionAmount,
   TransactionType,
   TransactionStatus,
@@ -11,8 +12,13 @@ export interface CreateTransactionDbModel extends TransactionAmount {
   type: TransactionType;
   date: Date;
   status?: TransactionStatus;
+  scheduledTransactionId?: string;
   userId: string;
 }
+
+export type MatchCandidateTransaction = Transaction & {
+  bankDescriptionPrefix: string | null;
+};
 
 export interface UpdateTransactionDbModel {
   description?: string;

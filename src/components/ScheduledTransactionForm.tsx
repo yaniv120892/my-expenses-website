@@ -27,6 +27,10 @@ import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import { describeApiError } from '@/utils/api';
 import NotificationSnackbar from './NotificationSnackbar';
+import {
+  isUsableBankDescriptionPrefix,
+  MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+} from '@/shared/descriptions';
 
 interface Props {
   open: boolean;
@@ -78,6 +82,7 @@ export default function ScheduledTransactionForm({
         interval: initialData.interval,
         dayOfWeek: initialData.dayOfWeek,
         dayOfMonth: initialData.dayOfMonth,
+        bankDescriptionPrefix: initialData.bankDescriptionPrefix,
       });
     } else {
       setForm({ ...defaultForm });
@@ -110,6 +115,10 @@ export default function ScheduledTransactionForm({
     }
     if (!form.scheduleType) {
       errs.scheduleType = 'Schedule type is required';
+    }
+    const prefix = form.bankDescriptionPrefix?.trim() ?? '';
+    if (prefix.length > 0 && !isUsableBankDescriptionPrefix(prefix)) {
+      errs.bankDescriptionPrefix = `Use at least ${MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH} letters or digits`;
     }
     if (form.scheduleType === 'WEEKLY' && !form.dayOfWeek) {
       errs.dayOfWeek = 'Day of week is required';
@@ -249,6 +258,18 @@ export default function ScheduledTransactionForm({
               onChange={handleNumberChange}
               error={!!errors.value}
               helperText={errors.value}
+              fullWidth
+            />
+            <TextField
+              label="Amount varies — bank description starts with"
+              name="bankDescriptionPrefix"
+              value={form.bankDescriptionPrefix ?? ''}
+              onChange={handleChange}
+              error={!!errors.bankDescriptionPrefix}
+              helperText={
+                errors.bankDescriptionPrefix ??
+                'Optional. Imported charges whose description starts with this are matched at any amount, e.g. GOOGLE'
+              }
               fullWidth
             />
             <CategorySelect

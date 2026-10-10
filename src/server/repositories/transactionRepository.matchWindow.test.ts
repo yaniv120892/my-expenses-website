@@ -39,6 +39,36 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
           },
         ],
       }),
+      expect.objectContaining({
+        scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+      }),
+    ]);
+  });
+
+  it('queries variable-amount placeholders once per direction, across every window, at any value', async () => {
+    const charge = (date: Date) => ({
+      date,
+      type: TransactionType.EXPENSE,
+      value: 101.98,
+      currency: 'ILS',
+      originalAmount: 101.98,
+    });
+
+    await transactionRepository.findPotentialMatchesForCharges('user-1', [
+      charge(new Date(2026, 5, 10)),
+      charge(new Date(2026, 5, 20)),
+    ]);
+
+    const placeholderClauses = windowsQueried().filter(
+      (clause: Record<string, unknown>) => 'scheduledTransaction' in clause,
+    );
+    expect(placeholderClauses).toEqual([
+      {
+        type: TransactionType.EXPENSE,
+        date: { gte: new Date(2026, 5, 5), lte: new Date(2026, 5, 25) },
+        status: 'PENDING_APPROVAL',
+        scheduledTransaction: { bankDescriptionPrefix: { not: null } },
+      },
     ]);
   });
 

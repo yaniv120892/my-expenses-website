@@ -1,7 +1,11 @@
-import { TransactionType } from '@/generated/prisma/client';
+import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
 import { type DecimalInput, isSameMoney } from '@/server/utils/money';
 import { isForeignCurrency } from '@/shared/currency';
+import {
+  MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+  normalizeDescription,
+} from '@/shared/descriptions';
 
 const MINIMUM_VALUE_TOLERANCE = 2;
 const RELATIVE_VALUE_TOLERANCE = 0.01;
@@ -27,17 +31,6 @@ type NormalizedMatchCandidate = {
   id: string;
   description: string;
 };
-
-/** Folds away case, spacing, punctuation, Latin diacritics and Hebrew niqqud. */
-export function normalizeDescription(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[\p{P}\p{S}]/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
-}
 
 /**
  * A tie is null rather than the first hit: choosing between equally spelled
@@ -122,11 +115,121 @@ export function isWithinMatchWindow(
   window: MatchWindow,
   candidate: MatchableCharge,
 ): boolean {
+  return (
+    isWithinDateWindow(window, candidate) && isAmountInWindow(window, candidate)
+  );
+}
+
+export type MatchCandidate = MatchableCharge & {
+  description: string;
+  status: TransactionStatus;
+  bankDescriptionPrefix: string | null;
+};
+
+/**
+ * A pending row projected from a variable-amount schedule is paired by the
+ * bank's description instead of by value, since no fixed value would survive
+ * the value window.
+ */
+export function matchCandidateFilter(
+  charge: MatchableCharge & { description: string },
+): (candidate: MatchCandidate) => boolean {
+  const window = matchWindow(charge);
+  const normalizedDescription = normalizeDescription(charge.description);
+  return (candidate) => {
+    if (isVariableAmountPlaceholder(candidate)) {
+      return (
+        isWithinDateWindow(window, candidate) &&
+        startsWithNormalizedPrefix(
+          normalizedDescription,
+          candidate.bankDescriptionPrefix,
+        )
+      );
+    }
+
+    return isWithinMatchWindow(window, candidate);
+  };
+}
+
+export function isVariableAmountPlaceholder<T extends MatchCandidate>(
+  candidate: T,
+): candidate is T & { bankDescriptionPrefix: string } {
+  return (
+    candidate.status === TransactionStatus.PENDING_APPROVAL &&
+    candidate.bankDescriptionPrefix !== null
+  );
+}
+
+export function startsWithBankDescriptionPrefix(
+  description: string,
+  prefix: string,
+): boolean {
+  return startsWithNormalizedPrefix(normalizeDescription(description), prefix);
+}
+
+export function dateDistance(
+  charge: MatchableCharge,
+  candidate: MatchableCharge,
+): number {
+  return Math.abs(candidate.date.getTime() - charge.date.getTime());
+}
+
+/**
+ * The most specific schedule wins when several prefixes fit (`google cloud`
+ * over `google`), then the one nearest in date. `placeholders` must not be
+ * empty.
+ */
+export function pickPlaceholder<
+  T extends MatchCandidate & { bankDescriptionPrefix: string },
+>(charge: MatchableCharge, placeholders: T[]): T {
+  const prefixLength = (placeholder: T) =>
+    normalizeDescription(placeholder.bankDescriptionPrefix).length;
+  const longest = Math.max(...placeholders.map(prefixLength));
+  return closestInDate(
+    charge,
+    placeholders.filter((placeholder) => prefixLength(placeholder) === longest),
+  );
+}
+
+/** `candidates` must not be empty. */
+export function closestInDate<T extends MatchableCharge>(
+  charge: MatchableCharge,
+  candidates: T[],
+): T {
+  return candidates.reduce((best, candidate) =>
+    dateDistance(charge, candidate) < dateDistance(charge, best)
+      ? candidate
+      : best,
+  );
+}
+
+function startsWithNormalizedPrefix(
+  normalizedDescription: string,
+  prefix: string,
+): boolean {
+  const normalizedPrefix = normalizeDescription(prefix);
+  return (
+    normalizedPrefix.length >= MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH &&
+    normalizedDescription.startsWith(normalizedPrefix)
+  );
+}
+
+function isWithinDateWindow(
+  window: MatchWindow,
+  candidate: MatchableCharge,
+): boolean {
   const time = candidate.date.getTime();
-  const inDateAndDirection =
+  return (
     candidate.type === window.type &&
     time >= window.earliestDate.getTime() &&
-    time <= window.latestDate.getTime();
+    time <= window.latestDate.getTime()
+  );
+}
+
+function isAmountInWindow(
+  window: MatchWindow,
+  candidate: MatchableCharge,
+): boolean {
   const valueFits =
     window.valueRange !== null &&
     candidate.value !== null &&
@@ -135,7 +238,7 @@ export function isWithinMatchWindow(
     window.originalAmountRange !== null &&
     candidate.currency === window.originalAmountRange.currency &&
     isInRange(candidate.originalAmount, window.originalAmountRange);
-  return inDateAndDirection && (valueFits || originalAmountFits);
+  return valueFits || originalAmountFits;
 }
 
 function toleranceRange(amount: number): AmountRange {

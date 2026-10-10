@@ -55,6 +55,17 @@ describe('processDueScheduledTransactions', () => {
     expect(createTransaction).toHaveBeenCalledTimes(2);
   });
 
+  it('links each pending transaction to the schedule that projected it', async () => {
+    await scheduledTransactionService.processDueScheduledTransactions(RUN_DATE);
+
+    expect(createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'PENDING_APPROVAL',
+        scheduledTransactionId: 's1',
+      }),
+    );
+  });
+
   it('skips an occurrence an overlapping run already claimed', async () => {
     scheduledRepo.claimDueRun.mockResolvedValueOnce(false);
 

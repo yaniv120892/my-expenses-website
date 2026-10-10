@@ -18,6 +18,7 @@ class ScheduledTransactionRepository {
         dayOfWeek: data.dayOfWeek === undefined ? null : data.dayOfWeek,
         dayOfMonth: data.dayOfMonth === undefined ? null : data.dayOfMonth,
         monthOfYear: data.monthOfYear === undefined ? null : data.monthOfYear,
+        bankDescriptionPrefix: data.bankDescriptionPrefix ?? null,
         nextRunDate,
         userId: data.userId,
       },
@@ -92,6 +93,7 @@ class ScheduledTransactionRepository {
         dayOfWeek: data.dayOfWeek === undefined ? null : data.dayOfWeek,
         dayOfMonth: data.dayOfMonth === undefined ? null : data.dayOfMonth,
         monthOfYear: data.monthOfYear === undefined ? null : data.monthOfYear,
+        bankDescriptionPrefix: data.bankDescriptionPrefix ?? null,
         nextRunDate,
       },
     });
@@ -133,6 +135,7 @@ class ScheduledTransactionRepository {
       dayOfWeek: db.dayOfWeek === null ? undefined : db.dayOfWeek,
       dayOfMonth: db.dayOfMonth === null ? undefined : db.dayOfMonth,
       monthOfYear: db.monthOfYear === null ? undefined : db.monthOfYear,
+      bankDescriptionPrefix: db.bankDescriptionPrefix ?? undefined,
       lastRunDate: db.lastRunDate === null ? undefined : db.lastRunDate,
       nextRunDate: db.nextRunDate === null ? undefined : db.nextRunDate,
       userId: db.userId,

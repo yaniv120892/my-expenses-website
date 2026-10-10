@@ -1,6 +1,8 @@
 # Queues GitHub auto-merge on a Dependabot PR that only moves patch/minor
 # versions. Auto-merge then waits for the base branch's required checks, so a
 # red CI run never merges. Only the base branch is checked out, never the PR.
+# A merge made with GITHUB_TOKEN starts no workflow, so ci.yml's push run on
+# main does not follow it; the PR's own run is the gate.
 name: Dependabot auto-merge
 
 on:

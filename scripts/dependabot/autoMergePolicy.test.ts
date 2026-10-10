@@ -15,8 +15,9 @@ const requiresCi: BranchRule[] = [
 function dependency(
   dependencyName: string,
   updateType: string | null,
+  prevVersion: string | null = '1.2.3',
 ): UpdatedDependency {
-  return { dependencyName, updateType };
+  return { dependencyName, updateType, prevVersion };
 }
 
 describe('decideAutoMerge', () => {
@@ -83,6 +84,32 @@ describe('decideAutoMerge', () => {
     };
 
     expect(decideAutoMerge([preOne], requiresCi).merge).toBe(false);
+  });
+
+  it('leaves a 0.0.x patch for review, since a caret range treats it as breaking', () => {
+    const preOnePatch = dependency(
+      'tiny-lib',
+      'version-update:semver-patch',
+      '0.0.4',
+    );
+
+    expect(decideAutoMerge([preOnePatch], requiresCi).merge).toBe(false);
+  });
+
+  it('leaves an update with no previous version for review, since its range cannot be judged', () => {
+    const unknownBase = dependency('next', 'version-update:semver-minor', null);
+
+    expect(decideAutoMerge([unknownBase], requiresCi).merge).toBe(false);
+  });
+
+  it('merges a v-prefixed action minor above 1.0', () => {
+    const action = dependency(
+      'actions/checkout',
+      'version-update:semver-minor',
+      'v7.0.0',
+    );
+
+    expect(decideAutoMerge([action], requiresCi).merge).toBe(true);
   });
 
   it('refuses when fetch-metadata found no verified Dependabot dependencies', () => {

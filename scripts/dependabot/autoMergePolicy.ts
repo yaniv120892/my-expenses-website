@@ -60,16 +60,31 @@ export function decideAutoMerge(
   return { merge: true, reason: `patch/minor only: ${names.join(', ')}` };
 }
 
-// Below 1.0 a minor is the breaking release, so it is reviewed like a major.
 function isAutoMergeable(dependency: UpdatedDependency): boolean {
   const { updateType, prevVersion } = dependency;
-  if (!isKnownUpdateType(updateType)) {
+  if (!isKnownUpdateType(updateType) || !prevVersion) {
     return false;
   }
-  const isPreOneMinor =
-    updateType === 'version-update:semver-minor' &&
-    (prevVersion ?? '').startsWith('0.');
-  return AUTO_MERGE_BY_UPDATE_TYPE[updateType] && !isPreOneMinor;
+  return (
+    AUTO_MERGE_BY_UPDATE_TYPE[updateType] &&
+    !isPreOneBreakingBump(updateType, prevVersion)
+  );
+}
+
+// Below 1.0 a caret range treats a 0.x minor, and a 0.0.x patch, as breaking.
+function isPreOneBreakingBump(
+  updateType: UpdateType,
+  prevVersion: string,
+): boolean {
+  const version = prevVersion.replace(/^v/, '');
+  switch (updateType) {
+    case 'version-update:semver-minor':
+      return version.startsWith('0.');
+    case 'version-update:semver-patch':
+      return version.startsWith('0.0.');
+    default:
+      return false;
+  }
 }
 
 function isKnownUpdateType(

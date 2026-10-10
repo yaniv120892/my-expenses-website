@@ -30,14 +30,18 @@ Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
 runs audit, lint, prettier, typecheck, unit tests and the build, and in a
 parallel job both e2e suites against a Postgres service container.
 
-`.github/workflows/deps-upgrade.yml` runs daily and opens one `deps/<slug>-<version>`
-pull request per outdated package, a lockstep family (`LOCKSTEP_FAMILIES` in
-claude-config's `deps-discover` action) or a package and its `@types` counting
-as one. The jobs live in `yaniv120892/claude-config`; the caller only repeats the
-`checks` job's commands, so the two lists change together. A check the model
-cannot fix opens the PR as a draft; a failed install, or a peer package outside
-the candidate that must move too, opens none. The flow only opens PRs; merging
-stays with a human.
+Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
+version updates are weekly, minors and patches grouped per ecosystem and each
+major on its own — a lockstep family's majors together — behind a release-age
+cooldown and an open-PR cap. Security updates come from Dependabot alerts as
+soon as an advisory lands, outside that schedule, cooldown and cap.
+`.github/workflows/dependabot-auto-merge.yml` queues a squash auto-merge on a
+Dependabot PR whose every dependency is a patch or minor
+(`scripts/dependabot/autoMergePolicy.ts`, read from the base branch), and only
+while the base branch's ruleset requires the `checks` and `e2e` jobs; a major, a
+0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
+PR waits for a human, and a later push that fails the policy withdraws a queued
+auto-merge.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

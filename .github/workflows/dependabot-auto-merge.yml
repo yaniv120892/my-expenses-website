@@ -1,0 +1,95 @@
+# Queues GitHub auto-merge on a Dependabot PR that only moves patch/minor
+# versions. Auto-merge then waits for the base branch's required checks, so a
+# red CI run never merges. Only the base branch is checked out, never the PR.
+# A merge made with GITHUB_TOKEN starts no workflow, so ci.yml's push run on
+# main does not follow it; the PR's own run is the gate.
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    # A Dependabot-authored branch in this repository, pushed by Dependabot —
+    # not a fork, and not a human push onto Dependabot's branch.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      merge: ${{ steps.policy.outputs.merge }}
+    steps:
+      # Verifies the PR and every commit on it are Dependabot's; on any
+      # mismatch it emits no metadata and the policy refuses.
+      - id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/dependabot
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        # A separate assignment, so a failed API call fails the step under
+        # bash -e instead of reaching the policy as an empty rule list.
+        run: |
+          BRANCH_RULES="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE_REF")"
+          export BRANCH_RULES
+          node scripts/dependabot/autoMergePolicy.ts
+
+  enable-auto-merge:
+    needs: decide
+    if: needs.decide.outputs.merge == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Pinned to the evaluated commit: a later push re-runs the decision.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
+
+  # Auto-merge queued on an earlier head survives later pushes, including ones
+  # the decide job skips (a human push) or refuses.
+  disable-auto-merge:
+    needs: decide
+    if: >-
+      !cancelled() &&
+      needs.decide.outputs.merge != 'true' &&
+      github.event.pull_request.auto_merge != null &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --disable-auto

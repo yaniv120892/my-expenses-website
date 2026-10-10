@@ -121,11 +121,13 @@ const CATEGORY_COLUMN: SortColumn = {
   }),
 };
 
+const uuidSchema = z.string().uuid();
+
 const ID_COLUMN: SortColumn = {
   orderBy: (direction) => ({ id: direction }),
   toCursor: (row) => row.id,
   where: (comparison, cursorValue) => {
-    if (!z.string().uuid().safeParse(cursorValue).success) {
+    if (!uuidSchema.safeParse(cursorValue).success) {
       invalidCursor();
     }
     return { id: { [comparison]: cursorValue } };
@@ -134,28 +136,26 @@ const ID_COLUMN: SortColumn = {
 
 type OrderedColumn = [SortColumn, SortOrder];
 
+const PRIMARY_COLUMNS: Record<TransactionSort['sortBy'], SortColumn> = {
+  date: DATE_COLUMN,
+  amount: AMOUNT_COLUMN,
+  category: CATEGORY_COLUMN,
+};
+
 // id is always last, so a cursor lands on exactly one row; ties on amount or
 // category fall back to newest first.
-function listOrdering({ sortBy, sortOrder }: TransactionSort): OrderedColumn[] {
-  switch (sortBy) {
-    case 'date':
-      return [
-        [DATE_COLUMN, sortOrder],
-        [ID_COLUMN, sortOrder],
-      ];
-    case 'amount':
-      return [
-        [AMOUNT_COLUMN, sortOrder],
-        [DATE_COLUMN, 'desc'],
-        [ID_COLUMN, 'desc'],
-      ];
-    case 'category':
-      return [
-        [CATEGORY_COLUMN, sortOrder],
-        [DATE_COLUMN, 'desc'],
-        [ID_COLUMN, 'desc'],
-      ];
-  }
+function listOrdering({
+  sortBy = DEFAULT_TRANSACTION_SORT.sortBy,
+  sortOrder = DEFAULT_TRANSACTION_SORT.sortOrder,
+}: Partial<TransactionSort>): OrderedColumn[] {
+  const tieBreakers: OrderedColumn[] =
+    sortBy === 'date'
+      ? [[ID_COLUMN, sortOrder]]
+      : [
+          [DATE_COLUMN, 'desc'],
+          [ID_COLUMN, 'desc'],
+        ];
+  return [[PRIMARY_COLUMNS[sortBy], sortOrder], ...tieBreakers];
 }
 
 function encodeCursor(ordering: OrderedColumn[], row: TransactionRow): string {
@@ -304,7 +304,7 @@ class TransactionRepository {
       filters.endDate,
     );
 
-    const ordering = listOrdering(filters.sort ?? DEFAULT_TRANSACTION_SORT);
+    const ordering = listOrdering(filters);
     const transactions = await prisma.transaction.findMany({
       where: {
         ...this.buildListWhere(filters, startDate, endDate),

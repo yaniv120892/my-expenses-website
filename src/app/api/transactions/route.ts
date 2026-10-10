@@ -9,11 +9,8 @@ import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSchema,
-  handler: async ({ userId, query: { sortBy, sortOrder, ...query } }) =>
-    transactionService.getTransactionsList({
-      ...toTransactionFilters(query, userId),
-      sort: { sortBy, sortOrder },
-    }),
+  handler: async ({ userId, query }) =>
+    transactionService.getTransactionsList(toTransactionFilters(query, userId)),
 });
 
 export const POST = createHandler({

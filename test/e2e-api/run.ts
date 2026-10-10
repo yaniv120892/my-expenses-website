@@ -503,14 +503,30 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
   }
 }
 
-const SORT_ORDER_SQL: Record<string, string> = {
-  'date-desc': 't.date desc, t.id desc',
-  'date-asc': 't.date asc, t.id asc',
-  'amount-desc': 't.value desc, t.date desc, t.id desc',
-  'amount-asc': 't.value asc, t.date desc, t.id desc',
-  'category-asc': 'c.name asc, t.date desc, t.id desc',
-  'category-desc': 'c.name desc, t.date desc, t.id desc',
-};
+const SORT_ORDERS = [
+  { sortBy: 'date', sortOrder: 'desc', orderSql: 't.date desc, t.id desc' },
+  { sortBy: 'date', sortOrder: 'asc', orderSql: 't.date asc, t.id asc' },
+  {
+    sortBy: 'amount',
+    sortOrder: 'desc',
+    orderSql: 't.value desc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'amount',
+    sortOrder: 'asc',
+    orderSql: 't.value asc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'category',
+    sortOrder: 'asc',
+    orderSql: 'c.name asc, t.date desc, t.id desc',
+  },
+  {
+    sortBy: 'category',
+    sortOrder: 'desc',
+    orderSql: 'c.name desc, t.date desc, t.id desc',
+  },
+];
 
 async function walkTransactionPages(
   token: string,
@@ -559,8 +575,7 @@ async function transactionCursorPagingFlow(
     [tiedDescription, userId],
   );
 
-  for (const [sortKey, orderSql] of Object.entries(SORT_ORDER_SQL)) {
-    const [sortBy, sortOrder] = sortKey.split('-');
+  for (const { sortBy, sortOrder, orderSql } of SORT_ORDERS) {
     const seen = await walkTransactionPages(
       token,
       `sortBy=${sortBy}&sortOrder=${sortOrder}`,
@@ -573,7 +588,7 @@ async function transactionCursorPagingFlow(
     );
     const expectedIds = expected.map((row) => row.id);
     check(
-      `transactions: cursor paging by ${sortKey} returns every row once, in order`,
+      `transactions: cursor paging by ${sortBy} ${sortOrder} returns every row once, in order`,
       seen !== null &&
         seen.length === expectedIds.length &&
         seen.every((id, index) => id === expectedIds[index]),

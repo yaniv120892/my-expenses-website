@@ -13,6 +13,10 @@ updates:
     cooldown:
       default-days: 3
       semver-major-days: 7
+    # Tracks the runtime pinned in package.json engines, not the newest Node.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     # A dependency joins the first group it matches. Packages released in
     # lockstep share one major PR, since each fails CI when bumped alone.
     groups:
@@ -42,6 +46,9 @@ updates:
         update-types: [major]
       ai-sdk-major:
         patterns: [ai, '@ai-sdk/*']
+        update-types: [major]
+      tanstack-query-major:
+        patterns: ['@tanstack/react-query', '@tanstack/react-query-devtools']
         update-types: [major]
       npm-minor-and-patch:
         update-types: [minor, patch]

@@ -32,13 +32,15 @@ parallel job both e2e suites against a Postgres service container.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
-major on its own — a lockstep family's majors together — behind a release-age cooldown and an open-PR cap. Security
-updates come from Dependabot alerts as soon as an advisory lands, outside that
-schedule, cooldown and cap. `.github/workflows/dependabot-auto-merge.yml` queues a squash
-auto-merge on a Dependabot PR whose every dependency is a patch or minor
+major on its own — a lockstep family's majors together — behind a release-age
+cooldown and an open-PR cap. Security updates come from Dependabot alerts as
+soon as an advisory lands, outside that schedule, cooldown and cap.
+`.github/workflows/dependabot-auto-merge.yml` queues a squash auto-merge on a
+Dependabot PR whose every dependency is a patch or minor
 (`scripts/dependabot/autoMergePolicy.ts`, read from the base branch), and only
-while the base branch's ruleset requires the `checks` and `e2e` jobs; a major, an
-unknown update type, or a mixed PR waits for a human.
+while the base branch's ruleset requires the `checks` and `e2e` jobs; a major,
+a 0.x minor, an unknown update type, or a mixed PR waits for a human, and a later push that
+fails the policy withdraws a queued auto-merge.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

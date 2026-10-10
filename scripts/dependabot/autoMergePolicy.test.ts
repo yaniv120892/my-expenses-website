@@ -66,6 +66,25 @@ describe('decideAutoMerge', () => {
     });
   });
 
+  it('leaves an unrecognised update type for review, even one naming an object key', () => {
+    const decision = decideAutoMerge(
+      [dependency('left-pad', 'toString')],
+      requiresCi,
+    );
+
+    expect(decision.merge).toBe(false);
+  });
+
+  it('leaves a 0.x minor for review, since below 1.0 a minor may break', () => {
+    const preOne = {
+      dependencyName: '@google/generative-ai',
+      updateType: 'version-update:semver-minor',
+      prevVersion: '0.24.1',
+    };
+
+    expect(decideAutoMerge([preOne], requiresCi).merge).toBe(false);
+  });
+
   it('refuses when fetch-metadata found no verified Dependabot dependencies', () => {
     expect(decideAutoMerge([], requiresCi).merge).toBe(false);
   });

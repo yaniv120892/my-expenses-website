@@ -6,14 +6,16 @@ import type {
   AutoMergeDecision,
   BranchRule,
   UpdatedDependency,
+  UpdateType,
 } from './autoMergePolicy.types';
 
 const REQUIRED_CHECKS = ['checks', 'e2e'];
 
-const AUTO_MERGE_UPDATE_TYPES = new Set([
-  'version-update:semver-patch',
-  'version-update:semver-minor',
-]);
+const AUTO_MERGE_BY_UPDATE_TYPE = {
+  'version-update:semver-major': false,
+  'version-update:semver-minor': true,
+  'version-update:semver-patch': true,
+} satisfies Record<UpdateType, boolean>;
 
 export function decideAutoMerge(
   dependencies: UpdatedDependency[],
@@ -26,7 +28,7 @@ export function decideAutoMerge(
     };
   }
   const blocked = dependencies.filter(
-    (dependency) => !AUTO_MERGE_UPDATE_TYPES.has(dependency.updateType ?? ''),
+    (dependency) => !isAutoMergeable(dependency),
   );
   if (blocked.length > 0) {
     const blockedLabels = blocked.map(
@@ -56,6 +58,26 @@ export function decideAutoMerge(
   }
   const names = dependencies.map((dependency) => dependency.dependencyName);
   return { merge: true, reason: `patch/minor only: ${names.join(', ')}` };
+}
+
+// Below 1.0 a minor is the breaking release, so it is reviewed like a major.
+function isAutoMergeable(dependency: UpdatedDependency): boolean {
+  const { updateType, prevVersion } = dependency;
+  if (!isKnownUpdateType(updateType)) {
+    return false;
+  }
+  const isPreOneMinor =
+    updateType === 'version-update:semver-minor' &&
+    (prevVersion ?? '').startsWith('0.');
+  return AUTO_MERGE_BY_UPDATE_TYPE[updateType] && !isPreOneMinor;
+}
+
+function isKnownUpdateType(
+  updateType: string | null,
+): updateType is UpdateType {
+  return (
+    updateType !== null && Object.hasOwn(AUTO_MERGE_BY_UPDATE_TYPE, updateType)
+  );
 }
 
 function main(): void {

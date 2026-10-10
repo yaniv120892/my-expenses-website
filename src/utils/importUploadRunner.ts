@@ -1,6 +1,8 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
 import { handleApiError } from '@/utils/api';
 import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
+import { normalizePaymentMonth } from '@/shared/paymentMonth';
+import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
 export interface UploadRunnerApi {
   uploadImportFile(
@@ -21,6 +23,7 @@ export async function runUploadItem(
   api: UploadRunnerApi,
   dispatch: UploadDispatch,
 ): Promise<void> {
+  const paymentMonth = readPaymentMonth(item.paymentMonth);
   let fileUrl = item.fileUrl;
 
   if (!fileUrl) {
@@ -53,10 +56,19 @@ export async function runUploadItem(
   const created = await api.processImport(
     fileUrl,
     item.file.name,
-    item.paymentMonth || undefined,
+    paymentMonth,
   );
 
   dispatch({ type: 'ITEM_SUCCEEDED', id: item.id, importId: created.id });
+}
+
+// Checked before the upload, which the server's 400 on this month would
+// otherwise only follow.
+function readPaymentMonth(raw: string): string | undefined {
+  if (isUnreadablePaymentMonth(raw)) {
+    throw new Error(`Payment month must be MM/YYYY (got "${raw}")`);
+  }
+  return normalizePaymentMonth(raw) ?? undefined;
 }
 
 export async function runUploadBatch(

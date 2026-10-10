@@ -89,6 +89,35 @@ describe('runUploadItem', () => {
     );
   });
 
+  it('sends the payment month as MM/YYYY', async () => {
+    const api = buildApi();
+
+    await runUploadItem(
+      item({ paymentMonth: ' 3/2026 ' }),
+      api,
+      recorder().dispatch,
+    );
+
+    expect(api.processImport).toHaveBeenCalledWith(
+      'https://s3/a.csv',
+      'card-1234.csv',
+      '03/2026',
+    );
+  });
+
+  it('rejects an unreadable payment month before uploading anything', async () => {
+    const api = buildApi();
+
+    await expect(
+      runUploadItem(
+        item({ paymentMonth: '2026-03' }),
+        api,
+        recorder().dispatch,
+      ),
+    ).rejects.toThrow('Payment month must be MM/YYYY (got "2026-03")');
+    expect(api.uploadImportFile).not.toHaveBeenCalled();
+  });
+
   it('forwards upload progress', async () => {
     const api = buildApi({
       uploadImportFile: vi.fn(async (_formData, onProgress) => {

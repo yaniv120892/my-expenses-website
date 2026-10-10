@@ -16,6 +16,7 @@ import BatchProgressIndicator from '@/components/BatchProgressIndicator';
 import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
+import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -100,7 +101,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
           onChange={(e) => setPaymentMonth(e.target.value)}
           disabled={isRunning}
           placeholder="e.g., 01/2024 (Optional)"
-          helperText="Applied to files as you add them. Leave blank if the month is in the filename (e.g., XXXX_01_2024.csv)."
+          error={isUnreadablePaymentMonth(paymentMonth)}
+          helperText={
+            isUnreadablePaymentMonth(paymentMonth)
+              ? 'Use MM/YYYY, e.g. 03/2026'
+              : 'Applied to files as you add them. Leave blank if the month is in the filename (e.g., XXXX_01_2024.csv).'
+          }
         />
         <Button
           variant="outlined"

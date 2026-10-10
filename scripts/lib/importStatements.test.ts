@@ -126,4 +126,8 @@ describe('parseStatementName', () => {
   it('is null for a portal-named file', () => {
     expect(parseStatementName('transactions 12.09.2026.xlsx')).toBeNull();
   });
+
+  it('is null for a name whose month is not 01-12', () => {
+    expect(parseStatementName('cal-6125-13-2026.xlsx')).toBeNull();
+  });
 });

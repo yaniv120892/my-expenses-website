@@ -240,7 +240,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   reports, since card + month is the duplicate key. That key is compared as
   stored, so every write stores the month as `MM/YYYY` through
   `normalizePaymentMonth` (`src/shared/paymentMonth.ts`): an upload with any other
-  month is a 400, and an unreadable extracted month is stored as none. A FAILED import keeps its
+  month is a 400 (the upload form checks first, before any bytes move), and the
+  webhook reads both the submitted and the extracted month through it, ignoring
+  one that names no month. A FAILED import keeps its
   extraction claim, since a redelivery after a partial write would insert every
   row again, so recovery is delete and re-import.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key

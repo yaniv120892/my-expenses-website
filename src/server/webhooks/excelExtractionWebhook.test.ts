@@ -381,6 +381,40 @@ describe('completed extraction', () => {
     expect(importRepo.findExisting).not.toHaveBeenCalled();
   });
 
+  it('pads a submitted month stored before writes were normalized', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      createdAt: CREATED_AT,
+      paymentMonth: '3/2026',
+    });
+
+    await run(payload([tx()]));
+
+    expect(importRepo.findExisting).toHaveBeenCalledWith(
+      'user-1',
+      '03/2026',
+      '4242',
+      'imp-1',
+    );
+  });
+
+  it('uses the extracted month when the submitted one names no month', async () => {
+    importRepo.findByExtractionRequestId.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      createdAt: CREATED_AT,
+      paymentMonth: '2026-03',
+    });
+
+    await run(payload([tx()]));
+
+    expect(prismaMock.import.update).toHaveBeenCalledWith({
+      where: { id: 'imp-1' },
+      data: expect.objectContaining({ paymentMonth: '03/2026' }),
+    });
+  });
+
   it('inserts its own rows before looking for a duplicate', async () => {
     await run(payload([tx()]));
 

@@ -346,9 +346,16 @@ function reconcileMetadata(
   importRecord: Import,
   extracted: ExtractionMetadata,
 ): ExtractionMetadata {
-  const submittedMonth = importRecord.paymentMonth;
-  const extractedMonth = readExtractedPaymentMonth(
+  // A month stored before writes were normalized is read the same way, so it
+  // still keys the same duplicate; one that names no month gives way.
+  const submittedMonth = readPaymentMonth(
     importRecord.id,
+    'submitted',
+    importRecord.paymentMonth,
+  );
+  const extractedMonth = readPaymentMonth(
+    importRecord.id,
+    'extracted',
     extracted.paymentMonth,
   );
   if (!submittedMonth) {
@@ -365,10 +372,9 @@ function reconcileMetadata(
   return { ...extracted, paymentMonth: submittedMonth };
 }
 
-// An unreadable month is dropped rather than failing the import: it would only
-// be stored as a key no duplicate could ever match.
-function readExtractedPaymentMonth(
+function readPaymentMonth(
   importId: string,
+  source: 'submitted' | 'extracted',
   raw: string | null | undefined,
 ): string | null {
   if (!raw) {
@@ -377,8 +383,8 @@ function readExtractedPaymentMonth(
   const paymentMonth = normalizePaymentMonth(raw);
   if (!paymentMonth) {
     logger.warn(
-      { importId, extractedMonth: raw },
-      'Extraction reported a payment month that is not MM/YYYY; storing none',
+      { importId, source, paymentMonth: raw },
+      'Payment month is not MM/YYYY; ignoring it',
     );
   }
   return paymentMonth;

@@ -5,6 +5,7 @@ import type {
 import type { Transaction } from '@/shared/types/transaction';
 import {
   dateDistance,
+  isVariableAmountPlaceholder,
   matchCandidateFilter,
   shareNoWord,
 } from '@/server/utils/transactionMatching';
@@ -43,6 +44,7 @@ function unrelatedMergeHint(
 ): ReconciliationReviewHint | null {
   const isUnrelated =
     item.match !== null &&
+    !item.match.matchedByBankDescriptionPrefix &&
     shareNoWord(item.description, item.match.before.description);
 
   return isUnrelated ? { reason: 'unrelated-merge' } : null;
@@ -80,6 +82,15 @@ function isCloser(
   candidate: CandidateTransaction,
   best: CandidateTransaction,
 ): boolean {
+  // A placeholder fits by the prefix the user declared; its projected value is
+  // no measure of how close it is.
+  const placeholderFirst =
+    Number(isVariableAmountPlaceholder(best)) -
+    Number(isVariableAmountPlaceholder(candidate));
+  if (placeholderFirst !== 0) {
+    return placeholderFirst < 0;
+  }
+
   const valueGap =
     item.value === null
       ? Math.abs(candidate.originalAmount - item.originalAmount) -

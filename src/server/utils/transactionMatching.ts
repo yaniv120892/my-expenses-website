@@ -3,7 +3,7 @@ import { addDays, subDays } from 'date-fns';
 import { type DecimalInput, isSameMoney } from '@/server/utils/money';
 import { isForeignCurrency } from '@/shared/currency';
 import {
-  isUsableBankDescriptionPrefix,
+  MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
   normalizeDescription,
 } from '@/shared/descriptions';
 
@@ -151,9 +151,9 @@ export function matchCandidateFilter(
   };
 }
 
-export function isVariableAmountPlaceholder(
-  candidate: MatchCandidate,
-): candidate is MatchCandidate & { bankDescriptionPrefix: string } {
+export function isVariableAmountPlaceholder<T extends MatchCandidate>(
+  candidate: T,
+): candidate is T & { bankDescriptionPrefix: string } {
   return (
     candidate.status === TransactionStatus.PENDING_APPROVAL &&
     candidate.bankDescriptionPrefix !== null
@@ -174,6 +174,23 @@ export function dateDistance(
   return Math.abs(candidate.date.getTime() - charge.date.getTime());
 }
 
+/**
+ * The most specific schedule wins when several prefixes fit (`google cloud`
+ * over `google`), then the one nearest in date. `placeholders` must not be
+ * empty.
+ */
+export function pickPlaceholder<
+  T extends MatchCandidate & { bankDescriptionPrefix: string },
+>(charge: MatchableCharge, placeholders: T[]): T {
+  const prefixLength = (placeholder: T) =>
+    normalizeDescription(placeholder.bankDescriptionPrefix).length;
+  const longest = Math.max(...placeholders.map(prefixLength));
+  return closestInDate(
+    charge,
+    placeholders.filter((placeholder) => prefixLength(placeholder) === longest),
+  );
+}
+
 /** `candidates` must not be empty. */
 export function closestInDate<T extends MatchableCharge>(
   charge: MatchableCharge,
@@ -190,9 +207,10 @@ function startsWithNormalizedPrefix(
   normalizedDescription: string,
   prefix: string,
 ): boolean {
+  const normalizedPrefix = normalizeDescription(prefix);
   return (
-    isUsableBankDescriptionPrefix(prefix) &&
-    normalizedDescription.startsWith(normalizeDescription(prefix))
+    normalizedPrefix.length >= MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH &&
+    normalizedDescription.startsWith(normalizedPrefix)
   );
 }
 

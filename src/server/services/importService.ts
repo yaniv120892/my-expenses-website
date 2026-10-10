@@ -38,9 +38,10 @@ import {
 } from '@/shared/types/import';
 import type { MatchCandidateTransaction } from '@/server/repositories/types';
 import {
-  closestInDate,
   findExactNormalizedMatch,
   matchCandidateFilter,
+  pickPlaceholder,
+  startsWithBankDescriptionPrefix,
   isVariableAmountPlaceholder,
   type MatchableCharge,
 } from '@/server/utils/transactionMatching';
@@ -626,6 +627,8 @@ class ImportService {
             transactionId: match.id,
             approvesPendingTransaction:
               match.status === TransactionStatus.PENDING_APPROVAL,
+            matchedByBankDescriptionPrefix:
+              this.isMatchedByBankDescriptionPrefix(transaction),
             before: {
               description: match.description,
               value: match.value,
@@ -636,6 +639,19 @@ class ImportService {
           }
         : null,
     };
+  }
+
+  private isMatchedByBankDescriptionPrefix(
+    transaction: ImportedTransactionWithMatch,
+  ): boolean {
+    const match = transaction.matchingTransaction;
+    const prefix = match?.scheduledTransaction?.bankDescriptionPrefix;
+    return (
+      match?.status === TransactionStatus.PENDING_APPROVAL &&
+      prefix !== null &&
+      prefix !== undefined &&
+      startsWithBankDescriptionPrefix(transaction.description, prefix)
+    );
   }
 
   private async runReconciliationPlan(
@@ -906,30 +922,43 @@ class ImportService {
       return exactMatchId;
     }
 
-    // The user named this charge's description, so a placeholder needs no
-    // model; its projected value says nothing a model could weigh.
+    // A placeholder's projected value says nothing a model could weigh, so the
+    // model judges only the other candidates; a placeholder takes the row when
+    // none of them does, so a charge already logged by hand is not doubled.
     const placeholders = availableMatches.filter(isVariableAmountPlaceholder);
-    if (placeholders.length > 0) {
-      const placeholderId = closestInDate(transaction, placeholders).id;
-      await this.claimMatch(transaction.id, placeholderId);
-      return placeholderId;
-    }
-
-    // Re-applied so "never an invented id" is structural rather than a contract
-    // a future provider could forget.
-    const matchingTransactionId = resolveMatchedTransactionId(
-      await this.getAiProvider().findMatchingTransaction(
-        transaction,
-        availableMatches,
-      ),
-      availableMatches,
+    const otherCandidates = availableMatches.filter(
+      (match) => !isVariableAmountPlaceholder(match),
     );
+    const matchingTransactionId =
+      (await this.findModelMatch(transaction, otherCandidates)) ??
+      (placeholders.length > 0
+        ? pickPlaceholder(transaction, placeholders).id
+        : null);
 
     if (matchingTransactionId) {
       await this.claimMatch(transaction.id, matchingTransactionId);
     }
 
     return matchingTransactionId;
+  }
+
+  private async findModelMatch(
+    transaction: MatchableTransaction,
+    candidates: MatchCandidateTransaction[],
+  ): Promise<string | null> {
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    // Re-applied so "never an invented id" is structural rather than a contract
+    // a future provider could forget.
+    return resolveMatchedTransactionId(
+      await this.getAiProvider().findMatchingTransaction(
+        transaction,
+        candidates,
+      ),
+      candidates,
+    );
   }
 
   private toMatchable(row: ImportedTransaction): MatchableTransaction {

@@ -570,6 +570,60 @@ describe('matchSingleTransaction', () => {
       expect(matched).toBe('near');
     });
 
+    it('leaves the row to the model when another candidate also fits, so a hand-logged charge is not doubled', async () => {
+      const handLogged = {
+        ...candidates[0],
+        id: 'tx-hand',
+        description: 'Google storage',
+        value: 101.98,
+      };
+      findPotentialMatches.mockResolvedValue([placeholder(), handLogged]);
+      findMatchingTransaction.mockResolvedValue('tx-hand');
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+        'user-1',
+      );
+
+      expect(matched).toBe('tx-hand');
+      expect(findMatchingTransaction).toHaveBeenCalledWith(expect.anything(), [
+        handLogged,
+      ]);
+    });
+
+    it('falls back to the placeholder when the model takes none of the others', async () => {
+      findPotentialMatches.mockResolvedValue([
+        placeholder(),
+        { ...candidates[0], id: 'tx-other', value: 101.98 },
+      ]);
+      findMatchingTransaction.mockResolvedValue(null);
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+        'user-1',
+      );
+
+      expect(matched).toBe('tx-google');
+    });
+
+    it('prefers the most specific prefix over a nearer, broader one', async () => {
+      findPotentialMatches.mockResolvedValue([
+        placeholder({ id: 'broad', date: new Date(2026, 2, 7) }),
+        placeholder({
+          id: 'specific',
+          date: new Date(2026, 2, 10),
+          bankDescriptionPrefix: 'google cloud',
+        }),
+      ]);
+
+      const matched = await service.matchSingleTransaction(
+        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+        'user-1',
+      );
+
+      expect(matched).toBe('specific');
+    });
+
     it('is never a candidate for a charge the prefix does not start', async () => {
       findPotentialMatches.mockResolvedValue([
         placeholder({ value: 10, bankDescriptionPrefix: 'google' }),
@@ -762,6 +816,7 @@ describe('buildReconciliationPlan', () => {
     expect(item.match).toEqual({
       transactionId: 'tx-1',
       approvesPendingTransaction: true,
+      matchedByBankDescriptionPrefix: false,
       before: {
         description: 'Coffee at the corner',
         value: 11,
@@ -773,6 +828,27 @@ describe('buildReconciliationPlan', () => {
     expect(item.description).toBe('Coffee');
     expect(item.value).toBe(12.5);
     expect(item.date).toEqual(new Date(2026, 2, 7));
+  });
+
+  it('marks a merge its schedule declared by prefix, so the preview does not call it unrelated', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([
+      pendingRow({
+        description: 'GOOGLE CLOUD EMEA',
+        matchingTransaction: {
+          ...matchedTransaction,
+          description: 'גוגל אחסון',
+          scheduledTransaction: { bankDescriptionPrefix: 'google' },
+        },
+      }),
+    ]);
+
+    const [item] = await importService.buildReconciliationPlan(
+      'imp-1',
+      'user-1',
+    );
+
+    expect(item.match?.matchedByBankDescriptionPrefix).toBe(true);
+    expect(item.reviewHint).toBeNull();
   });
 
   it('marks a merge onto an already approved transaction as no approval', async () => {

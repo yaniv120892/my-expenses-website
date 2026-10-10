@@ -174,11 +174,19 @@ export default function ImportList({
 
   const filterOptions = useMemo(() => {
     const paymentMonths = Array.from(
-      new Set(imports.map((i) => i.paymentMonth).filter(Boolean)),
-    ).sort(comparePaymentMonths) as string[];
+      new Set(
+        imports
+          .map((i) => i.paymentMonth)
+          .filter((month): month is string => Boolean(month)),
+      ),
+    ).sort(comparePaymentMonths);
     const cards = Array.from(
-      new Set(imports.map((i) => i.creditCardLastFourDigits).filter(Boolean)),
-    ).sort() as string[];
+      new Set(
+        imports
+          .map((i) => i.creditCardLastFourDigits)
+          .filter((card): card is string => Boolean(card)),
+      ),
+    ).sort();
     return { paymentMonths, cards };
   }, [imports]);
 

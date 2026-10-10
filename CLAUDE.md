@@ -237,7 +237,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   instead of reconstructing the survivor from the filename. A `MERGED` import
   holds no rows and never becomes a merge target (`findExisting` requires
   `COMPLETED`). The submitted payment month wins over the one extraction
-  reports, since card + month is the duplicate key. A FAILED import keeps its
+  reports, since card + month is the duplicate key. That key is compared as
+  stored, so every write stores the month as `MM/YYYY` through
+  `normalizePaymentMonth` (`src/shared/paymentMonth.ts`): an upload with any other
+  month is a 400, and an unreadable extracted month is stored as none. A FAILED import keeps its
   extraction claim, since a redelivery after a partial write would insert every
   row again, so recovery is delete and re-import.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key

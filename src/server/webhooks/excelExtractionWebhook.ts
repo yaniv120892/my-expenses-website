@@ -17,6 +17,7 @@ import { importService } from '@/server/services/importService';
 import importedAmountService from '@/server/services/importedAmountService';
 import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
+import { normalizePaymentMonth } from '@/shared/paymentMonth';
 
 export interface WebhookResult {
   status: number;
@@ -346,9 +347,12 @@ function reconcileMetadata(
   extracted: ExtractionMetadata,
 ): ExtractionMetadata {
   const submittedMonth = importRecord.paymentMonth;
-  const extractedMonth = extracted.paymentMonth ?? null;
+  const extractedMonth = readExtractedPaymentMonth(
+    importRecord.id,
+    extracted.paymentMonth,
+  );
   if (!submittedMonth) {
-    return extracted;
+    return { ...extracted, paymentMonth: extractedMonth };
   }
 
   if (extractedMonth && extractedMonth !== submittedMonth) {
@@ -359,6 +363,25 @@ function reconcileMetadata(
   }
 
   return { ...extracted, paymentMonth: submittedMonth };
+}
+
+// An unreadable month is dropped rather than failing the import: it would only
+// be stored as a key no duplicate could ever match.
+function readExtractedPaymentMonth(
+  importId: string,
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) {
+    return null;
+  }
+  const paymentMonth = normalizePaymentMonth(raw);
+  if (!paymentMonth) {
+    logger.warn(
+      { importId, extractedMonth: raw },
+      'Extraction reported a payment month that is not MM/YYYY; storing none',
+    );
+  }
+  return paymentMonth;
 }
 
 async function writeExtractionMetadata(

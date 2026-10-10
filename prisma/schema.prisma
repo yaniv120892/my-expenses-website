@@ -149,6 +149,8 @@ model Transaction {
   category             Category             @relation(fields: [categoryId], references: [id])
   type                 TransactionType
   status               TransactionStatus    @default(APPROVED)
+  scheduledTransactionId String?               @db.Uuid
+  scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id], onDelete: SetNull)
   userId               String               @db.Uuid
   user                 User                 @relation(fields: [userId], references: [id])
   importedTransactions ImportedTransaction[]
@@ -157,6 +159,7 @@ model Transaction {
   @@index([userId])
   @@index([categoryId])
   @@index([userId, status, date])
+  @@index([scheduledTransactionId])
 }
 
 model Import {
@@ -245,10 +248,14 @@ model ScheduledTransaction {
   dayOfWeek     Int?
   dayOfMonth    Int?
   monthOfYear   Int?
+  // Set when the amount varies: imports match this schedule's pending rows by
+  // this description prefix instead of by value.
+  bankDescriptionPrefix String?
   lastRunDate   DateTime?
   nextRunDate   DateTime?
   userId        String          @db.Uuid
   user          User            @relation(fields: [userId], references: [id])
+  transactions  Transaction[]
 
   // The cron scans nextRunDate across all users, so it cannot use the
   // userId-prefixed index.

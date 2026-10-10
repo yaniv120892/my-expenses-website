@@ -8,10 +8,16 @@ import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';
 
+const WITH_MATCH = {
+  matchingTransaction: {
+    include: {
+      scheduledTransaction: { select: { bankDescriptionPrefix: true } },
+    },
+  },
+} satisfies Prisma.ImportedTransactionInclude;
+
 export type ImportedTransactionWithMatch =
-  Prisma.ImportedTransactionGetPayload<{
-    include: { matchingTransaction: true };
-  }>;
+  Prisma.ImportedTransactionGetPayload<{ include: typeof WITH_MATCH }>;
 
 type DuplicateComparable = {
   description: string;
@@ -75,9 +81,7 @@ export class ImportedTransactionRepository {
         importId,
         deleted: false,
       },
-      include: {
-        matchingTransaction: true,
-      },
+      include: WITH_MATCH,
       orderBy: { date: 'desc' },
     });
   }
@@ -99,9 +103,7 @@ export class ImportedTransactionRepository {
   ): Promise<ImportedTransactionWithMatch | null> {
     return prisma.importedTransaction.findUnique({
       where: { id },
-      include: {
-        matchingTransaction: true,
-      },
+      include: WITH_MATCH,
     });
   }
 
@@ -171,9 +173,7 @@ export class ImportedTransactionRepository {
         status: ImportedTransactionStatus.PENDING,
         deleted: false,
       },
-      include: {
-        matchingTransaction: true,
-      },
+      include: WITH_MATCH,
       orderBy: { date: 'desc' },
     });
   }
@@ -189,9 +189,7 @@ export class ImportedTransactionRepository {
         status: ImportedTransactionStatus.PENDING,
         deleted: false,
       },
-      include: {
-        matchingTransaction: true,
-      },
+      include: WITH_MATCH,
       orderBy: { date: 'desc' },
     });
   }

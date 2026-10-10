@@ -59,6 +59,9 @@ export type ReconciliationMatch = {
   // Merging onto a pending transaction is what approves it; onto an already
   // approved one the merge is only an edit.
   approvesPendingTransaction: boolean;
+  // The user declared this pairing on the schedule, so differing descriptions
+  // are expected rather than a sign of a wrong merge.
+  matchedByBankDescriptionPrefix: boolean;
   before: ReconciliationBefore;
 };
 

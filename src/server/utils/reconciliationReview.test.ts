@@ -18,15 +18,18 @@ const createItem = (
   ...over,
 });
 
-const transaction = (over: Record<string, unknown> = {}) => ({
+type Candidate = Parameters<typeof deriveReviewHint>[1][number];
+
+const transaction = (over: Partial<Candidate> = {}): Candidate => ({
   id: 'tx-1',
   description: 'אוכל לברונו',
   value: 470,
   currency: 'ILS',
   originalAmount: 470,
   date: new Date(2026, 5, 17),
-  type: 'EXPENSE' as const,
-  status: 'APPROVED' as const,
+  type: 'EXPENSE',
+  status: 'APPROVED',
+  bankDescriptionPrefix: null,
   ...over,
 });
 
@@ -82,6 +85,43 @@ describe('deriveReviewHint for a CREATE', () => {
       candidateCount: 3,
     });
   });
+
+  it('flags a variable-amount placeholder at any value when the prefix fits', () => {
+    const placeholder = transaction({
+      id: 'google',
+      description: 'גוגל אחסון',
+      value: 8,
+      status: 'PENDING_APPROVAL',
+      bankDescriptionPrefix: 'GOOGLE',
+    });
+
+    expect(
+      deriveReviewHint(createItem({ description: 'GOOGLE CLOUD EMEA' }), [
+        placeholder,
+      ]),
+    ).toMatchObject({
+      reason: 'unmatched-candidate',
+      counterpart: { transactionId: 'google' },
+    });
+    expect(deriveReviewHint(createItem(), [placeholder])).toBeNull();
+  });
+
+  it('names a fitting placeholder ahead of a candidate closer in value', () => {
+    const hint = deriveReviewHint(
+      createItem({ description: 'GOOGLE CLOUD EMEA', value: 40 }),
+      [
+        transaction({ id: 'grocery', value: 39.5 }),
+        transaction({
+          id: 'google',
+          value: 8,
+          status: 'PENDING_APPROVAL',
+          bankDescriptionPrefix: 'GOOGLE',
+        }),
+      ],
+    );
+
+    expect(hint).toMatchObject({ counterpart: { transactionId: 'google' } });
+  });
 });
 
 describe('deriveReviewHint for a MERGE', () => {
@@ -92,6 +132,7 @@ describe('deriveReviewHint for a MERGE', () => {
       match: {
         transactionId: 'tx-1',
         approvesPendingTransaction: false,
+        matchedByBankDescriptionPrefix: false,
         before: {
           description: 'אוכל לברונו',
           value: 470,
@@ -110,6 +151,22 @@ describe('deriveReviewHint for a MERGE', () => {
 
   it('is null when a normalized word is shared', () => {
     expect(deriveReviewHint(mergeItem('אוכל, לכלב'), [])).toBeNull();
+  });
+
+  it('trusts a merge its schedule declared by prefix, whatever the names', () => {
+    const declared = mergeItem('אנימל שופ');
+    expect(
+      deriveReviewHint(
+        {
+          ...declared,
+          match: declared.match && {
+            ...declared.match,
+            matchedByBankDescriptionPrefix: true,
+          },
+        },
+        [],
+      ),
+    ).toBeNull();
   });
 
   it('never reads an in-window candidate as unmatched on a MERGE', () => {

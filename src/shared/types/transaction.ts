@@ -46,6 +46,7 @@ export interface CreateTransaction extends TransactionAmountInput {
   type: TransactionType;
   date: Date | null;
   status?: TransactionStatus;
+  scheduledTransactionId?: string;
   userId: string;
 }
 

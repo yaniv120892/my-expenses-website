@@ -44,6 +44,7 @@ const merge = (
     match: {
       transactionId: 'tx-1',
       approvesPendingTransaction,
+      matchedByBankDescriptionPrefix: false,
       before: {
         description: 'Netflix',
         value: 470,

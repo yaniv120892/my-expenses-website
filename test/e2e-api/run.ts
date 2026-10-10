@@ -1007,6 +1007,122 @@ async function importMergeFlow(token: string): Promise<void> {
   );
 }
 
+// The mock extractor returns one `Coffee <digits>` row for 12.50 on 7 Mar 2026,
+// so a placeholder of 40 is far outside the value window.
+async function variableAmountPlaceholderFlow(
+  sessionToken: string,
+  apiToken: string,
+  userId: string,
+): Promise<void> {
+  const bucket = process.env.IMPORTS_S3_BUCKET;
+  const region = process.env.IMPORTS_S3_REGION;
+  if (!bucket || !region) {
+    return;
+  }
+  const digits = randomCardDigits();
+  const description = `E2E variable ${digits}`;
+  const [category] = await query<{ id: string }>(
+    `select id from "Category" where name = 'Rent'`,
+  );
+
+  // Created without a prefix and given one after the cron has run, so the
+  // check proves an edit reaches a pending transaction already projected.
+  const schedule = {
+    description,
+    value: 40,
+    type: 'EXPENSE',
+    categoryId: category.id,
+    scheduleType: 'DAILY',
+  };
+  const created = await api('POST', '/api/scheduled-transactions', {
+    token: sessionToken,
+    body: schedule,
+  });
+  const scheduleId = created.body as string | null;
+  if (created.status !== 201 || !scheduleId) {
+    check('variable amount: the schedule was created', false, '');
+    return;
+  }
+  await query(
+    `update "ScheduledTransaction" set "nextRunDate" = now() - interval '1 day' where id = $1`,
+    [scheduleId],
+  );
+  await api('GET', '/api/scheduled-transactions/process', {
+    token: process.env.CRON_SECRET || 'e2e',
+  });
+
+  const [placeholder] = await query<{
+    id: string;
+    scheduledTransactionId: string | null;
+  }>(
+    `select id, "scheduledTransactionId" from "Transaction" where "userId" = $1 and description = $2`,
+    [userId, description],
+  );
+  check(
+    'variable amount: the cron links the pending transaction to its schedule',
+    placeholder?.scheduledTransactionId === scheduleId,
+    `linked to ${placeholder?.scheduledTransactionId ?? 'no transaction'}`,
+  );
+  if (!placeholder) {
+    return;
+  }
+
+  const updated = await api(
+    'PUT',
+    `/api/scheduled-transactions/${scheduleId}`,
+    {
+      token: sessionToken,
+      body: { ...schedule, bankDescriptionPrefix: `coffee ${digits}` },
+    },
+  );
+  check(
+    'variable amount: a schedule saves with a bank description prefix',
+    updated.status === 200,
+    `status ${updated.status}`,
+  );
+  await query(`update "Transaction" set date = '2026-03-08' where id = $1`, [
+    placeholder.id,
+  ]);
+
+  const originalFileName = `card-${digits}_05_2026.csv`;
+  const submitted = await api('POST', '/api/imports/process', {
+    token: apiToken,
+    body: {
+      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
+      originalFileName,
+    },
+  });
+  const importId = (submitted.body as { id?: string } | null)?.id;
+  if (!importId) {
+    check('variable amount: the import was submitted', false, '');
+    return;
+  }
+  await waitForImportCompletion(apiToken, importId);
+
+  const preview = await api(
+    'GET',
+    `/api/imports/${importId}/reconciliation-preview`,
+    { token: apiToken },
+  );
+  const [item] = Array.isArray(preview.body)
+    ? (preview.body as {
+        action: string;
+        value: number;
+        match: {
+          transactionId: string;
+          approvesPendingTransaction: boolean;
+        } | null;
+      }[])
+    : [];
+  check(
+    'variable amount: a 12.50 charge merges into the 40 placeholder its prefix names',
+    item?.action === 'MERGE' &&
+      item.match?.transactionId === placeholder.id &&
+      item.match.approvesPendingTransaction,
+    `action ${item?.action ?? 'none'}, merges into ${item?.match?.transactionId ?? 'nothing'}`,
+  );
+}
+
 async function main(): Promise<void> {
   const { seeded, stop: shutdown } = await startStack({
     mock: MOCK_PORT,
@@ -1203,6 +1319,11 @@ async function main(): Promise<void> {
   const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
   await importEncryptionFlow(apiToken);
   await importMergeFlow(apiToken);
+  await variableAmountPlaceholderFlow(
+    seeded.userA.token,
+    apiToken,
+    seeded.userA.id,
+  );
   await apiTokenRevocationFlow(seeded.userA.token, apiToken);
 
   const failed = results.filter((r) => !r.ok);

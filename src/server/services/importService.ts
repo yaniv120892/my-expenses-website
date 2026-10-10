@@ -36,9 +36,13 @@ import {
   ReconciliationPreviewItem,
   NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
-import type { Transaction } from '@/shared/types/transaction';
+import type { MatchCandidateTransaction } from '@/server/repositories/types';
 import {
   findExactNormalizedMatch,
+  matchCandidateFilter,
+  pickPlaceholder,
+  startsWithBankDescriptionPrefix,
+  isVariableAmountPlaceholder,
   type MatchableCharge,
 } from '@/server/utils/transactionMatching';
 import importedAmountService from '@/server/services/importedAmountService';
@@ -586,7 +590,7 @@ class ImportService {
   private async findUnclaimedCandidatesForCreates(
     plan: ReconciliationPlanItem[],
     userId: string,
-  ): Promise<Transaction[]> {
+  ): Promise<MatchCandidateTransaction[]> {
     const creates = plan.filter((item) => item.action === 'CREATE');
     if (creates.length === 0) {
       return [];
@@ -623,6 +627,8 @@ class ImportService {
             transactionId: match.id,
             approvesPendingTransaction:
               match.status === TransactionStatus.PENDING_APPROVAL,
+            matchedByBankDescriptionPrefix:
+              this.isMatchedByBankDescriptionPrefix(transaction),
             before: {
               description: match.description,
               value: match.value,
@@ -633,6 +639,19 @@ class ImportService {
           }
         : null,
     };
+  }
+
+  private isMatchedByBankDescriptionPrefix(
+    transaction: ImportedTransactionWithMatch,
+  ): boolean {
+    const match = transaction.matchingTransaction;
+    const prefix = match?.scheduledTransaction?.bankDescriptionPrefix;
+    return (
+      match?.status === TransactionStatus.PENDING_APPROVAL &&
+      prefix !== null &&
+      prefix !== undefined &&
+      startsWithBankDescriptionPrefix(transaction.description, prefix)
+    );
   }
 
   private async runReconciliationPlan(
@@ -885,9 +904,10 @@ class ImportService {
       transaction,
     );
 
-    const availableMatches = excludedIds
-      ? matches.filter((m) => !excludedIds.has(m.id))
-      : matches;
+    const isCandidate = matchCandidateFilter(transaction);
+    const availableMatches = matches.filter(
+      (match) => !excludedIds?.has(match.id) && isCandidate(match),
+    );
 
     if (availableMatches.length === 0) {
       return null;
@@ -902,21 +922,43 @@ class ImportService {
       return exactMatchId;
     }
 
-    // Re-applied so "never an invented id" is structural rather than a contract
-    // a future provider could forget.
-    const matchingTransactionId = resolveMatchedTransactionId(
-      await this.getAiProvider().findMatchingTransaction(
-        transaction,
-        availableMatches,
-      ),
-      availableMatches,
+    // A placeholder's projected value says nothing a model could weigh, so the
+    // model judges only the other candidates; a placeholder takes the row when
+    // none of them does, so a charge already logged by hand is not doubled.
+    const placeholders = availableMatches.filter(isVariableAmountPlaceholder);
+    const otherCandidates = availableMatches.filter(
+      (match) => !isVariableAmountPlaceholder(match),
     );
+    const matchingTransactionId =
+      (await this.findModelMatch(transaction, otherCandidates)) ??
+      (placeholders.length > 0
+        ? pickPlaceholder(transaction, placeholders).id
+        : null);
 
     if (matchingTransactionId) {
       await this.claimMatch(transaction.id, matchingTransactionId);
     }
 
     return matchingTransactionId;
+  }
+
+  private async findModelMatch(
+    transaction: MatchableTransaction,
+    candidates: MatchCandidateTransaction[],
+  ): Promise<string | null> {
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    // Re-applied so "never an invented id" is structural rather than a contract
+    // a future provider could forget.
+    return resolveMatchedTransactionId(
+      await this.getAiProvider().findMatchingTransaction(
+        transaction,
+        candidates,
+      ),
+      candidates,
+    );
   }
 
   private toMatchable(row: ImportedTransaction): MatchableTransaction {

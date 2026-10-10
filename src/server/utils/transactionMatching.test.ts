@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { TransactionType } from '@/generated/prisma/client';
+import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import {
   canMatch,
+  closestInDate,
   findExactNormalizedMatch,
+  matchCandidateFilter,
   isSameCharge,
   isWithinMatchWindow,
   matchValueTolerance,
   matchWindow,
-  normalizeDescription,
   shareNoWord,
+  startsWithBankDescriptionPrefix,
+  type MatchCandidate,
 } from '@/server/utils/transactionMatching';
+import { normalizeDescription } from '@/shared/descriptions';
 
 describe('normalizeDescription', () => {
   it('lowercases and collapses whitespace', () => {
@@ -404,5 +408,110 @@ describe('shareNoWord', () => {
   it('never reads a blank side as unrelated', () => {
     expect(shareNoWord('', 'Netflix')).toBe(false);
     expect(shareNoWord('!!!', 'Netflix')).toBe(false);
+  });
+});
+
+describe('matchCandidateFilter', () => {
+  const charge = {
+    description: 'GOOGLE CLOUD EMEA LIMIT G',
+    value: 101.98,
+    currency: 'ILS',
+    originalAmount: 101.98,
+    date: new Date(2026, 8, 1),
+    type: TransactionType.EXPENSE,
+  };
+  const isMatchCandidate = (
+    matched: typeof charge,
+    candidate: MatchCandidate,
+  ) => matchCandidateFilter(matched)(candidate);
+  const candidate = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
+    description: 'גוגל אחסון',
+    value: 8,
+    currency: 'ILS',
+    originalAmount: 8,
+    date: new Date(2026, 8, 2),
+    type: TransactionType.EXPENSE,
+    status: TransactionStatus.PENDING_APPROVAL,
+    bankDescriptionPrefix: 'Google',
+    ...over,
+  });
+
+  it('accepts a pending placeholder at any value when the prefix starts the description', () => {
+    expect(isMatchCandidate(charge, candidate())).toBe(true);
+  });
+
+  it('still requires the date window and the direction', () => {
+    expect(
+      isMatchCandidate(charge, candidate({ date: new Date(2026, 8, 7) })),
+    ).toBe(false);
+    expect(
+      isMatchCandidate(charge, candidate({ type: TransactionType.INCOME })),
+    ).toBe(false);
+  });
+
+  it('rejects a placeholder whose prefix does not start the description', () => {
+    expect(
+      isMatchCandidate(
+        charge,
+        candidate({ bankDescriptionPrefix: 'CLOUD', value: 101.98 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('falls back to the value window for anything that is not a pending placeholder', () => {
+    expect(
+      isMatchCandidate(charge, candidate({ bankDescriptionPrefix: null })),
+    ).toBe(false);
+    expect(
+      isMatchCandidate(
+        charge,
+        candidate({ status: TransactionStatus.APPROVED }),
+      ),
+    ).toBe(false);
+    expect(
+      isMatchCandidate(
+        charge,
+        candidate({ bankDescriptionPrefix: null, value: 101 }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('startsWithBankDescriptionPrefix', () => {
+  it('compares normalized text, so case and punctuation do not matter', () => {
+    expect(
+      startsWithBankDescriptionPrefix(
+        'מנורה מבטחים-חיים/בריאות',
+        'מנורה מבטחים',
+      ),
+    ).toBe(true);
+    expect(startsWithBankDescriptionPrefix('GOOGLE*CLOUD', 'google')).toBe(
+      true,
+    );
+  });
+
+  it('never matches on a prefix shorter than three characters', () => {
+    expect(startsWithBankDescriptionPrefix('GOOGLE', 'go')).toBe(false);
+    expect(startsWithBankDescriptionPrefix('GOOGLE', ' - ')).toBe(false);
+  });
+});
+
+describe('closestInDate', () => {
+  it('picks the candidate nearest the charge in either direction', () => {
+    const charge = {
+      value: 1,
+      date: new Date(2026, 8, 10),
+      type: TransactionType.EXPENSE,
+      currency: 'ILS',
+      originalAmount: 1,
+    };
+    const onDay = (day: number) => ({
+      ...charge,
+      date: new Date(2026, 8, day),
+    });
+
+    expect(closestInDate(charge, [onDay(6), onDay(12), onDay(15)])).toEqual(
+      onDay(12),
+    );
   });
 });

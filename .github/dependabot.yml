@@ -1,14 +1,66 @@
+# Version updates only. Security updates are raised from Dependabot alerts as
+# soon as an advisory is published, outside this schedule, the cooldown and the
+# PR limits (repository setting: Dependabot security updates).
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+    # The limits across both ecosystems add up to the routine PR cap (3).
+    open-pull-requests-limit: 2
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    # Tracks the runtime pinned in package.json engines, not the newest Node.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+    # A dependency joins the first group it matches. Packages released in
+    # lockstep share one major PR, since each fails CI when bumped alone.
     groups:
-      minor-and-patch:
+      prisma-major:
+        patterns: [prisma, '@prisma/*']
+        update-types: [major]
+      mastra-major:
+        patterns: ['@mastra/*']
+        update-types: [major]
+      mui-major:
+        patterns: ['@mui/*']
+        update-types: [major]
+      emotion-major:
+        patterns: ['@emotion/*']
+        update-types: [major]
+      next-major:
+        patterns: [next, eslint-config-next]
+        update-types: [major]
+      react-major:
+        patterns: [react, react-dom, '@types/react', '@types/react-dom']
+        update-types: [major]
+      eslint-major:
+        patterns: [eslint, '@eslint/*']
+        update-types: [major]
+      aws-sdk-major:
+        patterns: ['@aws-sdk/*']
+        update-types: [major]
+      ai-sdk-major:
+        patterns: [ai, '@ai-sdk/*']
+        update-types: [major]
+      tanstack-query-major:
+        patterns: ['@tanstack/react-query', '@tanstack/react-query-devtools']
+        update-types: [major]
+      npm-minor-and-patch:
         update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]

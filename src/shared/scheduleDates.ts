@@ -30,11 +30,10 @@ export function calculateNextRunDate(
       const thisWeek = setDay(fromDate, zeroBasedDayOfWeek, {
         weekStartsOn: 0,
       });
-      return startOfDay(
-        isAfter(thisWeek, fromDate)
-          ? thisWeek
-          : addWeeks(thisWeek, intervalValue),
-      );
+      if (isAfter(thisWeek, fromDate)) {
+        return startOfDay(thisWeek);
+      }
+      return startOfDay(addWeeks(thisWeek, intervalValue));
     }
     case 'MONTHLY': {
       if (dayOfMonth === undefined) {

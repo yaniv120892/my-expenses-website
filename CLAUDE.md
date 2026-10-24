@@ -276,8 +276,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
   or `{error}` body, so an MCP client can read it. The server is stateless
   (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
-  `createMcpServer({ userId })`, answers one message and closes; GET and DELETE
-  are 405. The user id is captured in every tool's closure, so no tool takes
+  `createMcpServer({ userId })`, answers one message and closes; a JSON-RPC
+  batch is a 400 (`-32600`), since the rate limit counts requests; GET and
+  DELETE are 405. The user id is captured in every tool's closure, so no tool takes
   one. Tools are adapters over existing services — reads through
   `financeQueryService` (the same code the Mastra tools call) and the
   transaction/schedule services, writes through `transactionService`, whose

@@ -4,6 +4,7 @@ import {
   isUsableBankDescriptionPrefix,
   MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
 } from '@/shared/descriptions';
+import { positiveAmountSchema } from './amount';
 
 const scheduledCombinationMessage =
   'Invalid combination of scheduleType, dayOfWeek, and dayOfMonth';
@@ -24,7 +25,7 @@ const hasValidScheduledCombination = (data: {
 
 const scheduledTransactionBaseSchema = z.object({
   description: z.string(),
-  value: z.coerce.number(),
+  value: positiveAmountSchema,
   type: transactionTypeSchema,
   categoryId: z.string().uuid(),
   scheduleType: scheduleTypeSchema,

@@ -1,3 +1,5 @@
+import { isPositiveAmount } from '@/shared/schemas/amount';
+
 export interface TransactionFormValues {
   description: string;
   value: number | string;
@@ -21,12 +23,12 @@ export function validateTransactionForm(
   }
   if (isNaN(Number(form.value))) {
     errors.value = 'Value must be a number';
-  } else if (Number(form.value) <= 0) {
+  } else if (!isPositiveAmount(form.value)) {
     errors.value = 'Value must be greater than 0';
   }
   const baseValueEntered =
     form.baseValue !== undefined && form.baseValue !== '';
-  if (baseValueEntered && !(Number(form.baseValue) > 0)) {
+  if (baseValueEntered && !isPositiveAmount(form.baseValue)) {
     errors.baseValue = 'Amount charged must be a number greater than 0';
   }
   if (!form.type) {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { transactionTypeSchema } from './common';
 import { normalizePaymentMonth } from '../paymentMonth';
+import { strictPositiveAmountSchema } from './amount';
 
 export const processImportSchema = z.object({
   fileUrl: z.string().url(),
@@ -26,7 +27,7 @@ export const processImportSchema = z.object({
 
 export const approveImportedTransactionSchema = z.object({
   description: z.string(),
-  value: z.number(),
+  value: strictPositiveAmountSchema,
   date: z.coerce.date(),
   type: transactionTypeSchema,
   categoryId: z.string().optional(),
@@ -34,7 +35,7 @@ export const approveImportedTransactionSchema = z.object({
 
 export const mergeImportedTransactionSchema = z.object({
   description: z.string(),
-  value: z.number(),
+  value: strictPositiveAmountSchema,
   date: z.coerce.date(),
   type: transactionTypeSchema,
   categoryId: z.string(),

@@ -254,6 +254,14 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   row again, so recovery is delete and re-import. Deleting an import deletes
   its rows with it, so none can still be approved or hold a match a re-import
   needs.
+- **An attachment's S3 object goes with its row.** Removing an attachment
+  (which marks its `TransactionFile` `MARKED_FOR_DELETION`) and deleting a
+  transaction (whose cascade drops its files, so their keys are read first) both
+  go through `transactionService`, which deletes the objects only after the
+  database write succeeds. Storage is best effort: a failed object delete is
+  reported via `reportSwallowedError` with its key and never fails the request.
+  A new path that deletes a transaction goes through
+  `transactionService.deleteTransaction`.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

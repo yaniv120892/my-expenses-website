@@ -1,5 +1,6 @@
 import {
   S3Client,
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
@@ -64,6 +65,15 @@ export async function getPresignedUploadUrl(
     expiresIn: expiresInSeconds,
   });
   return { uploadUrl, fileKey };
+}
+
+export async function deleteAttachmentObject(key: string): Promise<void> {
+  await getS3Client().send(
+    new DeleteObjectCommand({
+      Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
+      Key: key,
+    }),
+  );
 }
 
 /**

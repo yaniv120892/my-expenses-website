@@ -42,6 +42,11 @@ function runCommand(command: unknown[]): unknown {
       return liveEntry(key)?.value ?? null;
     case 'del':
       return store.delete(key) ? 1 : 0;
+    case 'getdel': {
+      const taken = liveEntry(key)?.value ?? null;
+      store.delete(key);
+      return taken;
+    }
     case 'incr': {
       const entry = liveEntry(key);
       const next = Number(entry?.value ?? '0') + 1;

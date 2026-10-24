@@ -41,6 +41,14 @@ export async function getValue<T = unknown>(
   return getClient().get<T>(namespacedKey(key, scope));
 }
 
+// GETDEL, so of two readers racing for a single-use value only one gets it.
+export async function takeValue<T = unknown>(
+  key: string,
+  scope: KeyScope = 'build',
+): Promise<T | null> {
+  return getClient().getdel<T>(namespacedKey(key, scope));
+}
+
 export async function deleteValue(
   key: string,
   scope: KeyScope = 'build',

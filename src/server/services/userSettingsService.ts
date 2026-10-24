@@ -1,5 +1,9 @@
 import type { Prisma } from '@/generated/prisma/client';
 import userRepository from '@/server/repositories/userRepository';
+import type {
+  UpdateUserSettings,
+  UserSettingsView,
+} from '@/shared/types/userSettings';
 
 class UserSettingsService {
   public getUsersRequiredDailySummary() {
@@ -14,7 +18,9 @@ class UserSettingsService {
     return userRepository.isCreateTransactionNotificationEnabled(userId);
   }
 
-  public async getUserSettings(userId: string) {
+  public async getUserSettings(
+    userId: string,
+  ): Promise<UserSettingsView | null> {
     const userSettings = await userRepository.getUserSettings(userId);
     if (!userSettings) {
       return null;
@@ -32,41 +38,25 @@ class UserSettingsService {
       },
       provider: {
         enabled: userSettings.providers[0]?.enabled ?? false,
-        telegramChatId:
-          this.extractChatId(userSettings.providers[0]?.data) ?? null,
+        telegramLinked:
+          this.extractChatId(userSettings.providers[0]?.data) !== null,
       },
     };
   }
 
+  public async getLinkedTelegramChatId(userId: string): Promise<string | null> {
+    const userSettings = await userRepository.getUserSettings(userId);
+    const provider = userSettings?.providers[0];
+    return provider?.enabled ? this.extractChatId(provider.data) : null;
+  }
+
   public async updateUserSettings(
     userId: string,
-    settings: {
-      info: { email: string };
-      notifications: {
-        createTransaction: boolean;
-        dailySummary: boolean;
-        subscriptionAudit: boolean;
-        monthlyReport: boolean;
-      };
-      provider: {
-        enabled: boolean;
-        chatId: string | null;
-      };
-    },
+    settings: UpdateUserSettings,
   ) {
-    const providers = [
-      {
-        provider: 'TELEGRAM' as const,
-        enabled: settings.provider.enabled,
-        data: settings.provider.chatId
-          ? { chatId: settings.provider.chatId }
-          : {},
-      },
-    ];
-    await userRepository.updateUserSettings(
+    await userRepository.updateNotificationPreferences(
       userId,
       settings.notifications,
-      providers,
     );
   }
 

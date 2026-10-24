@@ -3,13 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Box,
   Button,
   Card,
   CardContent,
   CircularProgress,
   FormControlLabel,
-  IconButton,
   Skeleton,
   Snackbar,
   Stack,
@@ -17,11 +15,9 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
   useColorScheme,
 } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
@@ -29,18 +25,15 @@ import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '@/components/shell/PageHeader';
 import ApiTokenManager from '@/components/ApiTokenManager';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
+import TelegramLinkSettings from '@/components/TelegramLinkSettings';
 import {
   useTestMonthlyReportMutation,
-  useTestTelegramMutation,
   useUpdateUserSettingsMutation,
   useUserSettingsQuery,
 } from '@/hooks/useUserSettingsQuery';
 import { describeApiError } from '@/utils/api';
 
 type UserSettingsForm = {
-  provider: {
-    telegramChatId: string;
-  };
   notifications: {
     createTransaction: boolean;
     dailySummary: boolean;
@@ -153,21 +146,18 @@ function SettingsSkeleton() {
 export default function SettingsPage() {
   const { data: settings, isLoading: loading, error } = useUserSettingsQuery();
   const { mutateAsync: saveUserSettings } = useUpdateUserSettingsMutation();
-  const { mutateAsync: testTelegramConnection } = useTestTelegramMutation();
   const { mutateAsync: sendTestMonthlyReport } = useTestMonthlyReportMutation();
 
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
-  const [testLoading, setTestLoading] = useState(false);
   const [reportTestLoading, setReportTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { control, handleSubmit, reset, watch, formState } = useForm({
     defaultValues: {
-      provider: { telegramChatId: '' },
       notifications: {
         createTransaction: false,
         dailySummary: false,
@@ -182,10 +172,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       reset({
-        provider: {
-          ...settings.provider,
-          telegramChatId: settings.provider.telegramChatId || '',
-        },
         notifications: { ...settings.notifications },
         info: { ...settings.info },
       });
@@ -194,29 +180,6 @@ export default function SettingsPage() {
 
   const watchedValues = watch();
   const isDirty = formState.isDirty;
-
-  const handleTestTelegram = async () => {
-    setTestResult(null);
-    setTestLoading(true);
-    try {
-      const result = await testTelegramConnection(
-        watchedValues.provider.telegramChatId,
-      );
-      setTestResult({
-        success: result.success,
-        message: result.success
-          ? 'Test message sent successfully'
-          : result.message,
-      });
-    } catch {
-      setTestResult({
-        success: false,
-        message: 'Failed to send test message',
-      });
-    } finally {
-      setTestLoading(false);
-    }
-  };
 
   const handleTestMonthlyReport = async () => {
     setTestResult(null);
@@ -236,13 +199,7 @@ export default function SettingsPage() {
   const onSave = async (data: UserSettingsForm) => {
     setSaveLoading(true);
     try {
-      await saveUserSettings({
-        ...data,
-        provider: {
-          enabled: Boolean(data.provider.telegramChatId),
-          telegramChatId: data.provider.telegramChatId,
-        },
-      });
+      await saveUserSettings(data);
       reset(data);
       setSaveSuccess(true);
     } catch (error) {
@@ -294,11 +251,7 @@ export default function SettingsPage() {
           <Button
             variant="contained"
             onClick={handleSubmit(onSave)}
-            disabled={
-              !isDirty ||
-              saveLoading ||
-              !!formState.errors.provider?.telegramChatId
-            }
+            disabled={!isDirty || saveLoading}
             startIcon={
               saveLoading ? (
                 <CircularProgress size={16} color="inherit" />
@@ -329,66 +282,14 @@ export default function SettingsPage() {
                 />
               )}
             />
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              sx={{
-                alignItems: { xs: 'stretch', sm: 'center' },
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  flex: 1,
-                }}
-              >
-                <Controller
-                  name="provider.telegramChatId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Telegram chat id"
-                      error={!!formState.errors.provider?.telegramChatId}
-                      helperText={
-                        formState.errors.provider?.telegramChatId?.message || ''
-                      }
-                      sx={{ maxWidth: 360, flex: 1 }}
-                    />
-                  )}
-                />
-                <Tooltip
-                  title="Used to send notifications to your Telegram account. Instructions on finding this id are coming soon - meanwhile you can ask ChatGPT."
-                  placement="top"
-                  enterTouchDelay={0}
-                >
-                  <IconButton size="small" aria-label="Telegram chat id info">
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleTestTelegram}
-                disabled={
-                  testLoading ||
-                  !watchedValues.provider.telegramChatId ||
-                  !!formState.errors.provider?.telegramChatId
-                }
-                startIcon={
-                  testLoading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : null
-                }
-                sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
-              >
-                Test
-              </Button>
-            </Stack>
           </Stack>
+        </SettingsSection>
+
+        <SettingsSection title="Telegram">
+          <TelegramLinkSettings
+            linked={settings.provider.telegramLinked}
+            onResult={setTestResult}
+          />
         </SettingsSection>
 
         <SettingsSection title="Notifications">

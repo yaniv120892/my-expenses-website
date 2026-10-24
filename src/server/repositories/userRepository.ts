@@ -97,7 +97,7 @@ class UserRepository {
     };
   }
 
-  public async updateUserSettings(
+  public async updateNotificationPreferences(
     userId: string,
     notifications: {
       createTransaction: boolean;
@@ -105,11 +105,6 @@ class UserRepository {
       subscriptionAudit: boolean;
       monthlyReport: boolean;
     },
-    providers: {
-      provider: NotificationProvider;
-      enabled: boolean;
-      data: object;
-    }[],
   ) {
     await prisma.userNotificationPreference.upsert({
       where: { userId: userId },
@@ -127,22 +122,20 @@ class UserRepository {
         monthlyReport: notifications.monthlyReport,
       },
     });
+  }
 
-    for (const provider of providers) {
-      await prisma.userNotificationProvider.upsert({
-        where: { userId_provider: { userId, provider: provider.provider } },
-        update: {
-          enabled: provider.enabled,
-          data: provider.data,
-        },
-        create: {
-          userId: userId,
-          provider: provider.provider,
-          enabled: provider.enabled,
-          data: provider.data,
-        },
-      });
-    }
+  public async setTelegramChat(userId: string, chatId: string | null) {
+    const provider = {
+      enabled: chatId !== null,
+      data: chatId === null ? {} : { chatId },
+    };
+    await prisma.userNotificationProvider.upsert({
+      where: {
+        userId_provider: { userId, provider: NotificationProvider.TELEGRAM },
+      },
+      update: provider,
+      create: { userId, provider: NotificationProvider.TELEGRAM, ...provider },
+    });
   }
 
   public async list(query: UserQuery) {

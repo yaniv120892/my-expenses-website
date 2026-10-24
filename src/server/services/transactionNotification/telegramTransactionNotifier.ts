@@ -67,9 +67,6 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
   }
 
   private async getChatId(userId: string) {
-    const userChatId = await userSettingsService.getUserSettings(userId);
-    return userChatId?.provider?.enabled
-      ? userChatId.provider.telegramChatId
-      : null;
+    return userSettingsService.getLinkedTelegramChatId(userId);
   }
 }

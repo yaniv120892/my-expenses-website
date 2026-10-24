@@ -33,6 +33,7 @@ vi.mock('next/server', async () => ({
 }));
 
 import { POST } from '@/app/api/imports/upload/route';
+import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 
@@ -63,5 +64,37 @@ describe('POST /api/imports/upload', () => {
     const { fileUrl } = await response.json();
     const storedKey = send.mock.calls[0][0].input.Key;
     expect(new URL(fileUrl).pathname).toBe(`/${storedKey}`);
+  });
+
+  function uploadOfSize(sizeInBytes: number) {
+    const form = new FormData();
+    form.append(
+      'file',
+      new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'),
+    );
+    return POST(
+      new NextRequest('http://localhost/api/imports/upload', {
+        method: 'POST',
+        body: form,
+      }),
+      ROUTE_CONTEXT,
+    );
+  }
+
+  it('accepts a file of exactly 4 MB', async () => {
+    const response = await uploadOfSize(MAX_UPLOAD_BYTES);
+
+    expect(response.status).toBe(200);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('413s a file one byte over 4 MB, naming its size and the limit, without storing it', async () => {
+    const response = await uploadOfSize(MAX_UPLOAD_BYTES + 1);
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      message: 'statement.xlsx is 4.1 MB, over the 4 MB upload limit.',
+    });
+    expect(send).not.toHaveBeenCalled();
   });
 });

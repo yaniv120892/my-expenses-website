@@ -14,6 +14,7 @@ vi.mock('@/services/importService', () => ({
 
 import FileUpload from '@/components/FileUpload';
 import { renderWithClient } from '@/test/renderWithClient';
+import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 
 const csv = (name: string) =>
   new File(['date,amount'], name, { lastModified: 1, type: 'text/csv' });
@@ -176,5 +177,23 @@ describe('FileUpload', () => {
     await userEvent.upload(fileInput(), [duplicate]);
 
     expect(screen.getAllByText('a.csv')).toHaveLength(1);
+  });
+
+  it('refuses a file over 4 MB before any bytes move, naming its size and the limit', async () => {
+    renderWithClient(<FileUpload />);
+    const oversized = new File(
+      [new Uint8Array(MAX_UPLOAD_BYTES + 1)],
+      'big.csv',
+      { type: 'text/csv' },
+    );
+
+    await userEvent.upload(fileInput(), [oversized, csv('small.csv')]);
+
+    expect(
+      await screen.findByText('big.csv is 4.1 MB, over the 4 MB upload limit.'),
+    ).toBeTruthy();
+    expect(screen.getByText('small.csv')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Upload 1 file' })).toBeTruthy();
+    expect(uploadImportFile).not.toHaveBeenCalled();
   });
 });

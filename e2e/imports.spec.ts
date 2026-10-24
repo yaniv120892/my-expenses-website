@@ -8,6 +8,9 @@ const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
 
 // Only the S3 upload is fulfilled in the browser; creating the imports,
 // extraction and the completing webhook all run for real.
+const STUBBED_UPLOAD_FAILURE =
+  'statement.csv is 4.2 MB, over the 4 MB upload limit.';
+
 async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
   let uploadCount = 0;
   let shouldFail = failFirst;
@@ -16,9 +19,9 @@ async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
     if (shouldFail) {
       shouldFail = false;
       await route.fulfill({
-        status: 400,
+        status: 413,
         contentType: 'text/plain',
-        body: 'File is too large. Maximum size is 10MB',
+        body: STUBBED_UPLOAD_FAILURE,
       });
       return;
     }
@@ -119,7 +122,7 @@ test.describe('multi-file imports', () => {
     // Exact, so this is the row's own error rather than the batch summary's
     // "<filename>: <error>" line.
     await expect(
-      page.getByText('File is too large. Maximum size is 10MB', {
+      page.getByText(STUBBED_UPLOAD_FAILURE, {
         exact: true,
       }),
     ).toBeVisible({ timeout: 30_000 });

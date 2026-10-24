@@ -37,6 +37,7 @@ import {
 } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
+import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { lazy } from '@/server/lib/lazy';
 import { toAppWallClock } from '@/shared/dates';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
@@ -305,6 +306,10 @@ class TransactionService {
       mimeType: string;
     },
   ): Promise<void> {
+    assertWithinUploadLimit({
+      fileName: fileData.fileName,
+      sizeInBytes: fileData.fileSize,
+    });
     if (!isAttachmentKeyForTransaction(fileData.fileKey, transactionId)) {
       throw new HttpError(
         400,
@@ -367,11 +372,14 @@ class TransactionService {
   public async getPresignedUploadUrl(
     transactionId: string,
     userId: string,
-    fileName: string,
-    mimeType: string,
+    file: { fileName: string; mimeType: string; fileSize: number },
   ) {
+    assertWithinUploadLimit({
+      fileName: file.fileName,
+      sizeInBytes: file.fileSize,
+    });
     await this.assertTransactionExists(transactionId, userId);
-    return getPresignedUploadUrl(transactionId, fileName, mimeType);
+    return getPresignedUploadUrl({ transactionId, ...file });
   }
 
   private async validateCreateTransaction(

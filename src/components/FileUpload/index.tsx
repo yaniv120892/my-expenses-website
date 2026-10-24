@@ -17,6 +17,11 @@ import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
+import {
+  MAX_UPLOAD_LABEL,
+  exceedsUploadLimit,
+  uploadTooLargeMessage,
+} from '@/shared/uploadLimits';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -51,12 +56,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
   }, [isRunning, onRunningChange]);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], rejections: FileRejection[]) => {
+    (droppedFiles: File[], rejections: FileRejection[]) => {
       if (rejections.length > 0) {
         setError(
           `${rejections.length} file(s) were rejected. Supported formats: XLSX, XLS, CSV (max ${MAX_FILES_PER_BATCH} per batch).`,
         );
       }
+      const oversized = droppedFiles.filter((file) =>
+        exceedsUploadLimit(file.size),
+      );
+      if (oversized.length > 0) {
+        setError(
+          oversized
+            .map((file) =>
+              uploadTooLargeMessage({
+                fileName: file.name,
+                sizeInBytes: file.size,
+              }),
+            )
+            .join(' '),
+        );
+      }
+      const acceptedFiles = droppedFiles.filter(
+        (file) => !exceedsUploadLimit(file.size),
+      );
       if (acceptedFiles.length === 0) {
         return;
       }
@@ -164,7 +187,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
               color: 'text.secondary',
             }}
           >
-            Supported formats: XLSX, XLS, CSV. Each file becomes its own import.
+            Supported formats: XLSX, XLS, CSV, up to {MAX_UPLOAD_LABEL} each.
+            Each file becomes its own import.
           </Typography>
           {!isRunning && (
             <Button variant="contained" size="small">

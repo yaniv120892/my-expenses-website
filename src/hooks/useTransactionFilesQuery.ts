@@ -75,11 +75,11 @@ export function useDirectS3UploadForAttachment() {
     setError(null);
     try {
       const { uploadUrl, fileKey } =
-        await TransactionFileService.getPresignedUploadUrl(
-          transactionId,
-          file.name,
-          file.type,
-        );
+        await TransactionFileService.getPresignedUploadUrl(transactionId, {
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+        });
 
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',

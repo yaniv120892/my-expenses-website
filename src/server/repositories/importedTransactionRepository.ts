@@ -61,8 +61,8 @@ const PENDING_ROW = {
   deleted: false,
 } as const;
 
-// Imports deleted before deleteImport also flagged their rows left those rows
-// live, so a read of rows to act on checks the import as well.
+// An import deleted before deleteImport began flagging its rows left them
+// live, so reads of rows to act on also check the import.
 const PENDING_ROW_OF_LIVE_IMPORT = {
   ...PENDING_ROW,
   import: { deleted: false },

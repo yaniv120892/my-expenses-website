@@ -43,13 +43,13 @@ export const POST = createHandler({
 
     const bucket = requireEnv('IMPORTS_S3_BUCKET');
     const region = requireEnv('IMPORTS_S3_REGION');
-    const fileName = buildImportObjectKey(file.name, crypto.randomUUID());
+    const objectKey = buildImportObjectKey(file.name, crypto.randomUUID());
 
     try {
       await getS3Client().send(
         new PutObjectCommand({
           Bucket: bucket,
-          Key: fileName,
+          Key: objectKey,
           Body: Buffer.from(await file.arrayBuffer()),
           ContentType: file.type,
         }),
@@ -60,7 +60,7 @@ export const POST = createHandler({
     }
 
     return {
-      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${fileName}`,
+      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${objectKey}`,
     };
   },
 });

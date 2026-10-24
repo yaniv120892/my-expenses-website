@@ -31,7 +31,8 @@ export async function handleMcpRequest({
   request: Request;
   userId: string;
 }): Promise<Response> {
-  if (Array.isArray(await readBody(request))) {
+  const message = await readBody(request);
+  if (Array.isArray(message)) {
     logger.warn({ userId }, 'Refused a JSON-RPC batch on the MCP endpoint');
     return jsonRpcErrorResponse({
       status: 400,
@@ -47,7 +48,7 @@ export async function handleMcpRequest({
     enableJsonResponse: true,
   });
 
-  const methods = await readRequestMethods(request);
+  const methods = readRequestMethods(message);
   await server.connect(transport);
   try {
     const response = await transport.handleRequest(request);
@@ -87,15 +88,11 @@ async function warnOnProtocolErrors({
   }
 }
 
-async function readRequestMethods(
-  request: Request,
-): Promise<Map<string | number, string>> {
+function readRequestMethods(message: unknown): Map<string | number, string> {
   const methods = new Map<string | number, string>();
-  for (const message of await readMessages(request)) {
-    const parsed = jsonRpcRequest.safeParse(message);
-    if (parsed.success) {
-      methods.set(parsed.data.id, parsed.data.method);
-    }
+  const parsed = jsonRpcRequest.safeParse(message);
+  if (parsed.success) {
+    methods.set(parsed.data.id, parsed.data.method);
   }
   return methods;
 }

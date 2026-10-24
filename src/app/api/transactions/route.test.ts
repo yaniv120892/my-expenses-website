@@ -64,4 +64,28 @@ describe('POST /api/transactions', () => {
       suggestedCategory: CATEGORY,
     });
   });
+
+  it('leaves an undated create undated, so the service stamps it with the app wall-clock time', async () => {
+    transactionService.createTransaction.mockResolvedValue({
+      id: 'tx-2',
+      transaction: { id: 'tx-2' },
+    });
+
+    await POST(
+      new NextRequest('http://localhost/api/transactions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Coffee',
+          value: 18,
+          type: 'EXPENSE',
+        }),
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ date: null }),
+    );
+  });
 });

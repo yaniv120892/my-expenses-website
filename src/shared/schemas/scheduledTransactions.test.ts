@@ -47,3 +47,46 @@ describe('createScheduledTransactionSchema bankDescriptionPrefix', () => {
     ).toThrow();
   });
 });
+
+describe('createScheduledTransactionSchema schedule bounds', () => {
+  it.each([0, 32, 2.5])(
+    'refuses dayOfMonth %s, which date arithmetic would overflow',
+    (dayOfMonth) => {
+      expect(
+        createScheduledTransactionSchema.safeParse({ ...monthly, dayOfMonth })
+          .success,
+      ).toBe(false);
+    },
+  );
+
+  it.each([0, 8])(
+    'refuses dayOfWeek %s outside Sunday (1) to Saturday (7)',
+    (dayOfWeek) => {
+      expect(
+        createScheduledTransactionSchema.safeParse({
+          ...monthly,
+          scheduleType: 'WEEKLY',
+          dayOfMonth: undefined,
+          dayOfWeek,
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each([0, -1])('refuses interval %s', (interval) => {
+    expect(
+      createScheduledTransactionSchema.safeParse({ ...monthly, interval })
+        .success,
+    ).toBe(false);
+  });
+
+  it('accepts the edges of each range', () => {
+    expect(
+      createScheduledTransactionSchema.safeParse({
+        ...monthly,
+        dayOfMonth: 31,
+        interval: 1,
+      }).success,
+    ).toBe(true);
+  });
+});

@@ -40,24 +40,20 @@ describe('calculateNextRunDate', () => {
       );
     });
 
-    it('lands on the requested day within the next week (1-based dayOfWeek)', () => {
+    it('lands on the requested day later this week (1-based dayOfWeek)', () => {
       expect(
         calculateNextRunDate(ScheduleType.WEEKLY, undefined, wedAug12, 6),
-      ).toEqual(new Date(2026, 7, 21));
+      ).toEqual(new Date(2026, 7, 14));
     });
 
-    it('can land earlier in the next week than fromDate weekday', () => {
+    it('moves interval weeks on when the requested day is not after fromDate', () => {
       const satAug15 = new Date(2026, 7, 15, 12);
       expect(
         calculateNextRunDate(ScheduleType.WEEKLY, undefined, satAug15, 1),
       ).toEqual(new Date(2026, 7, 16));
-    });
-
-    it('rolls over one more week when the target day is not after fromDate', () => {
-      const satAug15 = new Date(2026, 7, 15);
-      expect(
-        calculateNextRunDate(ScheduleType.WEEKLY, undefined, satAug15, 0),
-      ).toEqual(new Date(2026, 7, 22));
+      expect(calculateNextRunDate(ScheduleType.WEEKLY, 2, wedAug12, 4)).toEqual(
+        new Date(2026, 7, 26),
+      );
     });
   });
 
@@ -95,7 +91,7 @@ describe('calculateNextRunDate', () => {
       ).toEqual(new Date(2026, 8, 12));
     });
 
-    it('overflows into the next month when dayOfMonth 31 is set from a 30-day month', () => {
+    it('falls on the last day of a month shorter than dayOfMonth', () => {
       const aprilFrom = new Date(2026, 3, 15, 8);
       expect(
         calculateNextRunDate(
@@ -105,11 +101,11 @@ describe('calculateNextRunDate', () => {
           undefined,
           31,
         ),
-      ).toEqual(new Date(2026, 4, 1));
+      ).toEqual(new Date(2026, 3, 30));
     });
 
-    it('overflows past February when dayOfMonth 31 is applied to the clamped next month', () => {
-      const jan31 = new Date(2026, 0, 31);
+    it('runs on February 28th after January 31st, instead of skipping to March', () => {
+      const jan31 = new Date(2026, 0, 31, 7);
       expect(
         calculateNextRunDate(
           ScheduleType.MONTHLY,
@@ -118,7 +114,20 @@ describe('calculateNextRunDate', () => {
           undefined,
           31,
         ),
-      ).toEqual(new Date(2026, 2, 3));
+      ).toEqual(new Date(2026, 1, 28));
+    });
+
+    it('returns to dayOfMonth after a short month', () => {
+      const feb28 = new Date(2026, 1, 28, 7);
+      expect(
+        calculateNextRunDate(
+          ScheduleType.MONTHLY,
+          undefined,
+          feb28,
+          undefined,
+          31,
+        ),
+      ).toEqual(new Date(2026, 2, 31));
     });
 
     it('adds interval months when no dayOfMonth is given, clamping month ends', () => {

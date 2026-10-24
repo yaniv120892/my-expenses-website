@@ -246,6 +246,29 @@ describe('POST /api/mcp with an AGENT token', () => {
 });
 
 describe('protocol errors', () => {
+  it('refuses a JSON-RPC batch, which would let one rate-limited request carry many tool calls', async () => {
+    const call = (id: number) => ({
+      jsonrpc: '2.0',
+      id,
+      method: 'tools/list',
+      params: {},
+    });
+    const response = await POST(
+      mcpRequest({
+        authorization: `Bearer ${token}`,
+        body: [call(1), call(2)],
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32600 },
+    });
+  });
+
   it('logs a JSON-RPC error the SDK answers, with the method it answered', async () => {
     const response = await POST(
       mcpRequest({

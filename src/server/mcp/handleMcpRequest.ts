@@ -2,6 +2,10 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod/v4';
 import logger from '@/server/logging/logger';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
+import {
+  JSON_RPC_ERROR_CODES,
+  jsonRpcErrorResponse,
+} from '@/server/http/jsonRpc';
 
 const jsonRpcRequest = z.object({
   id: z.union([z.string(), z.number()]),
@@ -17,6 +21,8 @@ const jsonRpcError = z.object({
  * Stateless: a serverless function has no instance to pin an MCP session to,
  * so every request builds a server bound to the token's user, answers one
  * JSON-RPC message as plain JSON and closes. Nothing is kept between calls.
+ * A batch is refused: the rate limit counts requests, so one carrying many
+ * tool calls would multiply it.
  */
 export async function handleMcpRequest({
   request,
@@ -25,13 +31,24 @@ export async function handleMcpRequest({
   request: Request;
   userId: string;
 }): Promise<Response> {
+  const message = await readBody(request);
+  if (Array.isArray(message)) {
+    logger.warn({ userId }, 'Refused a JSON-RPC batch on the MCP endpoint');
+    return jsonRpcErrorResponse({
+      status: 400,
+      code: JSON_RPC_ERROR_CODES.INVALID_REQUEST,
+      message:
+        'Batched JSON-RPC requests are not supported; send one message per request.',
+    });
+  }
+
   const server = createMcpServer({ userId });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
 
-  const methods = await readRequestMethods(request);
+  const methods = readRequestMethods(message);
   await server.connect(transport);
   try {
     const response = await transport.handleRequest(request);
@@ -71,29 +88,32 @@ async function warnOnProtocolErrors({
   }
 }
 
-async function readRequestMethods(
-  request: Request,
-): Promise<Map<string | number, string>> {
+function readRequestMethods(message: unknown): Map<string | number, string> {
   const methods = new Map<string | number, string>();
-  for (const message of await readMessages(request)) {
-    const parsed = jsonRpcRequest.safeParse(message);
-    if (parsed.success) {
-      methods.set(parsed.data.id, parsed.data.method);
-    }
+  const parsed = jsonRpcRequest.safeParse(message);
+  if (parsed.success) {
+    methods.set(parsed.data.id, parsed.data.method);
   }
   return methods;
 }
 
-// Reads a clone, so the body stays unread for the SDK or the client.
 async function readMessages(body: Request | Response): Promise<unknown[]> {
-  const isJson = body.headers.get('content-type')?.includes('application/json');
-  if (!isJson) {
+  const parsed = await readBody(body);
+  if (parsed === undefined) {
     return [];
   }
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+// Reads a clone, so the body stays unread for the SDK or the client.
+async function readBody(body: Request | Response): Promise<unknown> {
+  const isJson = body.headers.get('content-type')?.includes('application/json');
+  if (!isJson) {
+    return undefined;
+  }
   try {
-    const parsed: unknown = await body.clone().json();
-    return Array.isArray(parsed) ? parsed : [parsed];
+    return await body.clone().json();
   } catch {
-    return [];
+    return undefined;
   }
 }

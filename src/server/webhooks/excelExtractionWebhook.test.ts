@@ -493,51 +493,32 @@ describe('completed extraction', () => {
     );
   });
 
-  it('a newer import is not a merge target, so neither side deletes the other', async () => {
+  it('merges into a newer import that completed first, so a slow older upload still dedupes', async () => {
     importRepo.findExisting.mockResolvedValue({
       id: 'imp-new',
       createdAt: NEWER,
     });
-
-    await run(payload([tx()]));
-
-    expect(importedTxRepo.moveToImportOps).not.toHaveBeenCalled();
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-    expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
-  });
-
-  it('breaks a createdAt tie on id so only one side merges', async () => {
-    importRepo.findExisting.mockResolvedValue({
-      id: 'imp-0',
-      createdAt: CREATED_AT,
-    });
     importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
-    importedTxRepo.filterDuplicates.mockImplementation(
-      async (_id, rows) => rows,
-    );
+    importedTxRepo.filterDuplicates.mockImplementation(async () => []);
 
     await run(payload([tx()]));
 
+    expect(importedTxRepo.filterDuplicates.mock.calls[0][0]).toBe('imp-new');
     expect(prismaMock.import.update).toHaveBeenCalledWith({
       where: { id: 'imp-1' },
       data: expect.objectContaining({
         status: 'MERGED',
-        mergedIntoImportId: 'imp-0',
+        mergedIntoImportId: 'imp-new',
       }),
     });
-  });
-
-  it('findExisting returning this same import is not a duplicate', async () => {
-    importRepo.findExisting.mockResolvedValue({
-      id: 'imp-1',
-      createdAt: CREATED_AT,
-    });
-
-    await run(payload([tx()]));
-
-    expect(importedTxRepo.filterDuplicates).not.toHaveBeenCalled();
-    expect(prismaMock.import.delete).not.toHaveBeenCalled();
-    expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
+    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+      'imp-new',
+      'COMPLETED',
+    );
+    expect(importRepo.updateStatus).not.toHaveBeenCalledWith(
+      'imp-1',
+      'COMPLETED',
+    );
   });
 
   it('a failing match is swallowed and the import still finalizes', async () => {

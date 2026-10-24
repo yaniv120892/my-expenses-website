@@ -1,5 +1,7 @@
-// -32000 to -32099 is the range JSON-RPC 2.0 reserves for server-defined errors.
+// -32600 is JSON-RPC 2.0's own; -32000 to -32099 is the range it reserves for
+// server-defined errors.
 export const JSON_RPC_ERROR_CODES = {
+  INVALID_REQUEST: -32600,
   SERVER_ERROR: -32000,
   UNAUTHORIZED: -32001,
 } as const;

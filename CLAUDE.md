@@ -231,8 +231,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   matches. `selectNonDuplicateRows` claims each existing row at most once, so a
   genuinely repeated charge still imports.
 - **A duplicate import is kept as a pointer, and its survivor is held until
-  the moved rows are matched.** When the extraction webhook finds an older
-  COMPLETED import for the same card and month, one transaction moves the
+  the moved rows are matched.** When the extraction webhook finds a COMPLETED
+  import for the same card and month — the oldest, whichever upload came
+  first, since the one being processed is not yet COMPLETED and two callbacks
+  therefore never merge into each other — one transaction moves the
   non-duplicate rows there, puts the survivor in `REMATCHING`, and marks the
   duplicate `MERGED` with `mergedIntoImportId`; the survivor returns to
   `COMPLETED` only after `findPotentialMatchesForImport` has run over it. So
@@ -249,7 +251,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   webhook reads both the submitted and the extracted month through it, ignoring
   one that names no month. A FAILED import keeps its
   extraction claim, since a redelivery after a partial write would insert every
-  row again, so recovery is delete and re-import.
+  row again, so recovery is delete and re-import. Deleting an import deletes
+  its rows with it, so none can still be approved or hold a match a re-import
+  needs.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -276,8 +280,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
   or `{error}` body, so an MCP client can read it. The server is stateless
   (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
-  `createMcpServer({ userId })`, answers one message and closes; GET and DELETE
-  are 405. The user id is captured in every tool's closure, so no tool takes
+  `createMcpServer({ userId })`, answers one message and closes; a JSON-RPC
+  batch is a 400 (`-32600`), since the rate limit counts requests; GET and
+  DELETE are 405. The user id is captured in every tool's closure, so no tool takes
   one. Tools are adapters over existing services — reads through
   `financeQueryService` (the same code the Mastra tools call) and the
   transaction/schedule services, writes through `transactionService`, whose
@@ -288,8 +293,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `reportSwallowedError` and returned neutrally, and each call logs one
   `MCP tool call` line with its outcome (and, on a write, the transaction id).
   Every date an agent sends must be a real calendar day; an undated
-  `add_transaction` takes the current Israel wall-clock time, stored as the
-  form stores it (`toAppWallClock`, `src/shared/dates.ts`). A day either
+  `add_transaction` — like any undated create
+  (`transactionService.prepareCreateTransaction`) — takes the current Israel
+  wall-clock time, stored as the form stores it (`toAppWallClock`,
+  `src/shared/dates.ts`). A day either
   assistant prints from a stored transaction date reads its UTC fields
   (`toUtcDayString`), so it is right on a host off UTC; a schedule's
   `nextRunDate` is local midnight and stays on `toDayString`. The settings briefing names the tools from

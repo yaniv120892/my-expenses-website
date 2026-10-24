@@ -57,6 +57,18 @@ beforeEach(() => {
 });
 
 describe('getCategorySpendingTrends', () => {
+  it('scopes both periods to the requested categories, as the single-series trend does', async () => {
+    await trendService.getCategorySpendingTrends(
+      { ...request, categoryIds: ['top-food', 'child-food'] },
+      'user-1',
+    );
+
+    expect(txRepo.getTransactions).toHaveBeenCalledTimes(2);
+    for (const [query] of txRepo.getTransactions.mock.calls) {
+      expect(query.categoryIds).toEqual(['top-food', 'child-food']);
+    }
+  });
+
   it('only returns categories something rolled up into', async () => {
     periods([tx()]);
     const result = await run();

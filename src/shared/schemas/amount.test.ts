@@ -90,7 +90,11 @@ describe.each(amountFields)('$name', ({ schema, payload }) => {
     expect(schema.safeParse(payload(12.5)).success).toBe(true);
   });
 
-  it.each([0, -5, '', '   ', null])(
+  it('accepts the smallest storable amount', () => {
+    expect(schema.safeParse(payload(0.01)).success).toBe(true);
+  });
+
+  it.each([0, -5, '', '   ', null, 0.004, 1e13, '1e3', true, [5]])(
     'refuses %j with the amount message',
     (amount) => {
       const result = schema.safeParse(payload(amount));
@@ -101,4 +105,27 @@ describe.each(amountFields)('$name', ({ schema, payload }) => {
       );
     },
   );
+});
+
+describe('a form field sent as text', () => {
+  const create = (fields: Record<string, unknown>) =>
+    createTransactionSchema.safeParse({
+      description: 'Coffee',
+      type: 'EXPENSE',
+      ...fields,
+    });
+
+  it('reads plain decimal text as the amount', () => {
+    expect(create({ value: ' 12.50 ' }).data?.value).toBe(12.5);
+  });
+
+  it('keeps a rate under a cent, and refuses a blank or infinite one', () => {
+    const foreign = { currency: 'JPY', originalAmount: 1000 };
+
+    expect(create({ ...foreign, exchangeRate: '0.0254' }).success).toBe(true);
+    expect(create({ ...foreign, exchangeRate: '' }).success).toBe(false);
+    expect(create({ ...foreign, exchangeRate: 'Infinity' }).success).toBe(
+      false,
+    );
+  });
 });

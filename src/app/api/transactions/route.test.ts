@@ -111,7 +111,7 @@ describe('POST /api/transactions', () => {
 
       expect(response.status).toBe(400);
       expect(JSON.stringify(await response.json())).toContain(
-        'Amount must be a number greater than 0',
+        'Amount must be a number from 0.01 to 10000000',
       );
       expect(transactionService.createTransaction).not.toHaveBeenCalled();
     },

@@ -6,7 +6,7 @@ export type UpdateUserSettings = z.infer<typeof updateUserSettingsSchema>;
 // The chat id itself never leaves the server; the client only needs to know
 // whether one is bound.
 export type UserSettingsView = UpdateUserSettings & {
-  provider: { enabled: boolean; telegramLinked: boolean };
+  provider: { telegramLinked: boolean };
 };
 
 export type TelegramLinkCode = {

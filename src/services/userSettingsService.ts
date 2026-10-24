@@ -6,28 +6,28 @@ import type {
 } from '../types';
 
 export async function getUserSettings(): Promise<UserSettings> {
-  const res = await api.get('/api/user/settings');
-  return res.data;
+  const response = await api.get('/api/user/settings');
+  return response.data;
 }
 
 export async function updateUserSettings(
   settings: UpdateUserSettings,
 ): Promise<UserSettings> {
-  const res = await api.put('/api/user/settings', settings);
-  return res.data;
+  const response = await api.put('/api/user/settings', settings);
+  return response.data;
 }
 
 export async function testTelegram(): Promise<{
   success: boolean;
   message: string;
 }> {
-  const res = await api.post('/api/user/settings/test-telegram');
-  return res.data;
+  const response = await api.post('/api/user/settings/test-telegram');
+  return response.data;
 }
 
 export async function createTelegramLinkCode(): Promise<TelegramLinkCode> {
-  const res = await api.post('/api/user/settings/telegram-link');
-  return res.data;
+  const response = await api.post('/api/user/settings/telegram-link');
+  return response.data;
 }
 
 export async function unlinkTelegram(): Promise<void> {
@@ -38,6 +38,6 @@ export async function testMonthlyReport(): Promise<{
   success: boolean;
   message: string;
 }> {
-  const res = await api.post('/api/user/settings/test-monthly-report');
-  return res.data;
+  const response = await api.post('/api/user/settings/test-monthly-report');
+  return response.data;
 }

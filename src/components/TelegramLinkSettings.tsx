@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -26,7 +26,10 @@ const COPY_LABELS = {
   failed: 'Copy failed — select the text and copy it by hand',
 };
 
-type IssuedCode = TelegramLinkCode & { issuedWhileLinked: boolean };
+type IssuedCode = TelegramLinkCode & {
+  issuedWhileLinked: boolean;
+  expired: boolean;
+};
 
 type ActionResult = { success: boolean; message: string };
 
@@ -48,14 +51,31 @@ export default function TelegramLinkSettings({
   const linkedByThisCode =
     issuedCode !== null && !issuedCode.issuedWhileLinked && linked;
   const awaitingLink =
-    issuedCode !== null && !issuedCode.issuedWhileLinked && !linked;
+    issuedCode !== null &&
+    !issuedCode.issuedWhileLinked &&
+    !issuedCode.expired &&
+    !linked;
   useUserSettingsQuery({ awaitingTelegramLink: awaitingLink });
   const visibleCode = linkedByThisCode ? null : issuedCode;
+
+  const issuedCodeLifetimeMs = issuedCode
+    ? issuedCode.expiresInSeconds * 1000
+    : null;
+  useEffect(() => {
+    if (issuedCodeLifetimeMs === null) {
+      return;
+    }
+    const timer = setTimeout(
+      () => setIssuedCode((code) => code && { ...code, expired: true }),
+      issuedCodeLifetimeMs,
+    );
+    return () => clearTimeout(timer);
+  }, [issuedCode?.code, issuedCodeLifetimeMs]);
 
   const handleCreateCode = () => {
     createCodeMutation.mutate(undefined, {
       onSuccess: (code) =>
-        setIssuedCode({ ...code, issuedWhileLinked: linked }),
+        setIssuedCode({ ...code, issuedWhileLinked: linked, expired: false }),
       onError: (error) =>
         onResult({
           success: false,
@@ -153,35 +173,41 @@ export default function TelegramLinkSettings({
             </Button>
           }
         >
-          <Stack spacing={1}>
+          {visibleCode.expired ? (
             <Typography variant="body2">
-              Send this message to the My Expenses bot from the chat that should
-              receive notifications. The code works once and expires in{' '}
-              {Math.round(visibleCode.expiresInSeconds / 60)} minutes.
+              This code has expired. Create a new one to link a chat.
             </Typography>
-            <CopyableText
-              label="Telegram link command"
-              value={visibleCode.command}
-              copyLabels={COPY_LABELS}
-            />
-            {visibleCode.deepLink && (
-              <Button
-                variant="outlined"
-                size="small"
-                href={visibleCode.deepLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                Open in Telegram
-              </Button>
-            )}
-            {awaitingLink && (
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Waiting for the bot to receive it…
+          ) : (
+            <Stack spacing={1}>
+              <Typography variant="body2">
+                Send this message to the My Expenses bot from the chat that
+                should receive notifications. The code works once and expires in{' '}
+                {Math.round(visibleCode.expiresInSeconds / 60)} minutes.
               </Typography>
-            )}
-          </Stack>
+              <CopyableText
+                label="Telegram link command"
+                value={visibleCode.command}
+                copyLabels={COPY_LABELS}
+              />
+              {visibleCode.deepLink && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  href={visibleCode.deepLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Open in Telegram
+                </Button>
+              )}
+              {awaitingLink && (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Waiting for the bot to receive it…
+                </Typography>
+              )}
+            </Stack>
+          )}
         </Alert>
       )}
     </Stack>

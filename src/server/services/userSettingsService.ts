@@ -1,4 +1,8 @@
-import type { Prisma } from '@/generated/prisma/client';
+import {
+  NotificationProvider,
+  type Prisma,
+  type UserNotificationProvider,
+} from '@/generated/prisma/client';
 import userRepository from '@/server/repositories/userRepository';
 import type {
   UpdateUserSettings,
@@ -37,27 +41,34 @@ class UserSettingsService {
         monthlyReport: userSettings.notifications.monthlyReport,
       },
       provider: {
-        enabled: userSettings.providers[0]?.enabled ?? false,
         telegramLinked:
-          this.extractChatId(userSettings.providers[0]?.data) !== null,
+          this.linkedChatId(
+            userSettings.providers.find(
+              (provider) => provider.provider === NotificationProvider.TELEGRAM,
+            ),
+          ) !== null,
       },
     };
   }
 
   public async getLinkedTelegramChatId(userId: string): Promise<string | null> {
-    const userSettings = await userRepository.getUserSettings(userId);
-    const provider = userSettings?.providers[0];
-    return provider?.enabled ? this.extractChatId(provider.data) : null;
+    return this.linkedChatId(await userRepository.findTelegramProvider(userId));
   }
 
   public async updateUserSettings(
     userId: string,
     settings: UpdateUserSettings,
   ) {
-    await userRepository.updateNotificationPreferences(
+    await userRepository.updateNotificationPreferences({
       userId,
-      settings.notifications,
-    );
+      notifications: settings.notifications,
+    });
+  }
+
+  private linkedChatId(
+    provider: UserNotificationProvider | null | undefined,
+  ): string | null {
+    return provider?.enabled ? this.extractChatId(provider.data) : null;
   }
 
   private extractChatId(providerData: Prisma.JsonValue): string | null {

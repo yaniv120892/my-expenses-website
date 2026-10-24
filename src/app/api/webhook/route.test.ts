@@ -20,6 +20,9 @@ vi.mock('@/server/redis', () => ({
   setValue: vi.fn(async (key: string, value: unknown, ttlSeconds: number) => {
     redisStore.set(key, { value, ttlSeconds });
   }),
+  deleteValue: vi.fn(async (key: string) => {
+    redisStore.delete(key);
+  }),
   takeValue: vi.fn(async (key: string) => {
     const entry = redisStore.get(key);
     redisStore.delete(key);
@@ -44,7 +47,10 @@ vi.mock('next/server', async () => ({
 }));
 
 import { POST as telegramWebhook } from '@/app/api/webhook/route';
-import { POST as issueLinkCode } from '@/app/api/user/settings/telegram-link/route';
+import {
+  POST as issueLinkCode,
+  DELETE as unlinkTelegram,
+} from '@/app/api/user/settings/telegram-link/route';
 
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 const WEBHOOK_SECRET = 'telegram-secret';
@@ -115,10 +121,10 @@ describe('linking a Telegram chat with a one-time /start code', () => {
     const response = await sendToBot(`/start ${code}`);
 
     expect(response.status).toBe(200);
-    expect(userRepository.setTelegramChat).toHaveBeenCalledExactlyOnceWith(
-      USER_ID,
-      String(CHAT_ID),
-    );
+    expect(userRepository.setTelegramChat).toHaveBeenCalledExactlyOnceWith({
+      userId: USER_ID,
+      chatId: String(CHAT_ID),
+    });
     expect(telegramService.sendPlainMessage).toHaveBeenCalledWith(
       String(CHAT_ID),
       expect.stringContaining('now linked'),
@@ -174,6 +180,45 @@ describe('linking a Telegram chat with a one-time /start code', () => {
 
     expect(response.status).toBe(200);
     expect(userRepository.setTelegramChat).toHaveBeenCalledOnce();
+  });
+
+  it('puts the code back when the write fails, so the redelivery links the chat', async () => {
+    const { code } = await requestLinkCode();
+    userRepository.setTelegramChat.mockRejectedValueOnce(new Error('db down'));
+
+    const failed = await sendToBot(`/start ${code}`);
+    const redelivered = await sendToBot(`/start ${code}`);
+
+    expect(failed.status).toBe(500);
+    expect(redelivered.status).toBe(200);
+    expect(userRepository.setTelegramChat).toHaveBeenLastCalledWith({
+      userId: USER_ID,
+      chatId: String(CHAT_ID),
+    });
+  });
+
+  it('revokes the earlier code when a new one is issued', async () => {
+    const first = await requestLinkCode();
+    await requestLinkCode();
+
+    await sendToBot(`/start ${first.code}`);
+
+    expect(userRepository.setTelegramChat).not.toHaveBeenCalled();
+  });
+
+  it('revokes the outstanding code on unlink, so it cannot bind afterwards', async () => {
+    const { code } = await requestLinkCode();
+    await unlinkTelegram(
+      new NextRequest('http://localhost/api/user/settings/telegram-link', {
+        method: 'DELETE',
+      }),
+      ROUTE_CONTEXT,
+    );
+    userRepository.setTelegramChat.mockClear();
+
+    await sendToBot(`/start ${code}`);
+
+    expect(userRepository.setTelegramChat).not.toHaveBeenCalled();
   });
 
   it('rejects an update without the webhook secret', async () => {

@@ -5,6 +5,7 @@ const { requireUser, userRepository, telegramService } = vi.hoisted(() => ({
   requireUser: vi.fn(),
   userRepository: {
     getUserSettings: vi.fn(),
+    findTelegramProvider: vi.fn(),
     updateNotificationPreferences: vi.fn(),
     setTelegramChat: vi.fn(),
   },
@@ -48,12 +49,16 @@ const NOTIFICATIONS = {
   monthlyReport: true,
 };
 
-function storedSettings(provider: { enabled: boolean; data: object } | null) {
-  return {
+type StoredProvider = { enabled: boolean; data: object };
+
+function useStoredProvider(provider: StoredProvider | null) {
+  const row = provider && { provider: 'TELEGRAM', ...provider };
+  userRepository.getUserSettings.mockResolvedValue({
     info: { email: 'a@example.com' },
     notifications: NOTIFICATIONS,
-    providers: provider ? [{ provider: 'TELEGRAM', ...provider }] : [],
-  };
+    providers: row ? [row] : [],
+  });
+  userRepository.findTelegramProvider.mockResolvedValue(row);
 }
 
 function jsonRequest(path: string, method: string, body: unknown) {
@@ -67,9 +72,7 @@ function jsonRequest(path: string, method: string, body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   requireUser.mockResolvedValue('user-1');
-  userRepository.getUserSettings.mockResolvedValue(
-    storedSettings({ enabled: true, data: { chatId: LINKED_CHAT_ID } }),
-  );
+  useStoredProvider({ enabled: true, data: { chatId: LINKED_CHAT_ID } });
 });
 
 describe('PUT /api/user/settings', () => {
@@ -86,12 +89,15 @@ describe('PUT /api/user/settings', () => {
     expect(response.status).toBe(200);
     expect(
       userRepository.updateNotificationPreferences,
-    ).toHaveBeenCalledExactlyOnceWith('user-1', NOTIFICATIONS);
+    ).toHaveBeenCalledExactlyOnceWith({
+      userId: 'user-1',
+      notifications: NOTIFICATIONS,
+    });
     expect(userRepository.setTelegramChat).not.toHaveBeenCalled();
     expect(await response.json()).toEqual({
       info: { email: 'a@example.com' },
       notifications: NOTIFICATIONS,
-      provider: { enabled: true, telegramLinked: true },
+      provider: { telegramLinked: true },
     });
   });
 });
@@ -104,12 +110,12 @@ describe('GET /api/user/settings', () => {
     );
 
     const body = await response.json();
-    expect(body.provider).toEqual({ enabled: true, telegramLinked: true });
+    expect(body.provider).toEqual({ telegramLinked: true });
     expect(JSON.stringify(body)).not.toContain(LINKED_CHAT_ID);
   });
 
   it('reports no link when no chat is bound', async () => {
-    userRepository.getUserSettings.mockResolvedValue(storedSettings(null));
+    useStoredProvider(null);
 
     const response = await GET(
       new NextRequest('http://localhost/api/user/settings'),
@@ -117,7 +123,19 @@ describe('GET /api/user/settings', () => {
     );
 
     expect((await response.json()).provider).toEqual({
-      enabled: false,
+      telegramLinked: false,
+    });
+  });
+
+  it('reports a disabled row as unlinked, matching what the senders use', async () => {
+    useStoredProvider({ enabled: false, data: { chatId: LINKED_CHAT_ID } });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/user/settings'),
+      ROUTE_CONTEXT,
+    );
+
+    expect((await response.json()).provider).toEqual({
       telegramLinked: false,
     });
   });
@@ -140,7 +158,7 @@ describe('POST /api/user/settings/test-telegram', () => {
   });
 
   it('sends nothing when no chat is linked', async () => {
-    userRepository.getUserSettings.mockResolvedValue(storedSettings(null));
+    useStoredProvider(null);
 
     const response = await testTelegram(
       jsonRequest('/api/user/settings/test-telegram', 'POST', {

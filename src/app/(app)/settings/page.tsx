@@ -171,10 +171,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings) {
-      reset({
-        notifications: { ...settings.notifications },
-        info: { ...settings.info },
-      });
+      reset(
+        {
+          notifications: { ...settings.notifications },
+          info: { ...settings.info },
+        },
+        // A refetch the user did not ask for (the Telegram link poll) must
+        // not discard toggles they have not saved yet.
+        { keepDirtyValues: true },
+      );
     }
   }, [settings, reset]);
 
@@ -223,7 +228,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (error) {
+  if (error && !settings) {
     return (
       <>
         {header}

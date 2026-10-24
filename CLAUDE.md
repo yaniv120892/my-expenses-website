@@ -255,13 +255,15 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   its rows with it, so none can still be approved or hold a match a re-import
   needs.
 - **An attachment's S3 object goes with its row.** Removing an attachment
-  (which marks its `TransactionFile` `MARKED_FOR_DELETION`) and deleting a
-  transaction (whose cascade drops its files, so their keys are read first) both
-  go through `transactionService`, which deletes the objects only after the
-  database write succeeds. Storage is best effort: a failed object delete is
-  reported via `reportSwallowedError` with its key and never fails the request.
-  A new path that deletes a transaction goes through
-  `transactionService.deleteTransaction`.
+  marks its `TransactionFile` `MARKED_FOR_DELETION`, then `DELETED` once the
+  object is gone; deleting a transaction returns the keys its cascade dropped,
+  read by the delete itself. `transactionService` deletes each object only after
+  the database write, keeps one another `ACTIVE` row still names, and bounds the
+  call at 5s. Storage is best effort: a failure is reported via
+  `reportSwallowedError` with its key, never fails the request, and leaves a
+  removed row `MARKED_FOR_DELETION`. A database cascade the service does not
+  drive (the `User` relation's) orphans its objects, so a path that deletes
+  transactions or files goes through `transactionService`.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

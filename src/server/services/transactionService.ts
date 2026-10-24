@@ -293,11 +293,12 @@ class TransactionService {
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {
-    // Read before the delete, whose cascade takes the file rows with it.
-    const fileKeys =
-      await transactionFileRepository.findKeysByTransactionId(id);
-    await transactionRepository.deleteTransaction(id, userId);
-    await this.deleteAttachmentObjectsSafe({ fileKeys, transactionId: id });
+    const fileKeys = await transactionRepository.deleteTransaction(id, userId);
+    await Promise.all(
+      fileKeys.map((fileKey) =>
+        this.deleteAttachmentObjectSafe({ fileKey, transactionId: id }),
+      ),
+    );
   }
 
   public async attachFile(
@@ -367,8 +368,8 @@ class TransactionService {
     logger.debug(
       `File ${fileId} marked for deletion from transaction ${transactionId}`,
     );
-    await this.deleteAttachmentObjectsSafe({
-      fileKeys: [file.fileKey],
+    await this.deleteAttachmentObjectSafe({
+      fileKey: file.fileKey,
       transactionId,
       fileId,
     });
@@ -549,27 +550,35 @@ class TransactionService {
     return transaction;
   }
 
-  /** Runs after the row is gone, so a storage failure leaves an orphaned object, never a failed delete. */
-  private async deleteAttachmentObjectsSafe({
-    fileKeys,
-    ...context
+  /**
+   * Runs after the database write, so a storage failure leaves an orphaned
+   * object, never a failed delete. A key another active row still names is kept.
+   */
+  private async deleteAttachmentObjectSafe({
+    fileKey,
+    transactionId,
+    fileId,
   }: {
-    fileKeys: string[];
+    fileKey: string;
     transactionId: string;
     fileId?: string;
   }): Promise<void> {
-    await Promise.all(
-      fileKeys.map(async (fileKey) => {
-        try {
-          await deleteAttachmentObject(fileKey);
-        } catch (err) {
-          reportSwallowedError(
-            { err, fileKey, ...context },
-            'Failed to delete attachment object from storage',
-          );
-        }
-      }),
-    );
+    try {
+      const isStillAttached =
+        await transactionFileRepository.hasActiveFileWithKey(fileKey);
+      if (isStillAttached) {
+        return;
+      }
+      await deleteAttachmentObject(fileKey);
+      if (fileId) {
+        await transactionFileRepository.markDeleted(fileId);
+      }
+    } catch (err) {
+      reportSwallowedError(
+        { err, fileKey, transactionId, fileId },
+        'Failed to delete attachment object from storage',
+      );
+    }
   }
 
   private async assertTransactionFileExists(

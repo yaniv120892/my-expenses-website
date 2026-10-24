@@ -5,15 +5,17 @@ const {
   deleteTransaction,
   getTransactionItem,
   findById,
-  findKeysByTransactionId,
   markForDeletion,
+  markDeleted,
+  hasActiveFileWithKey,
   reportSwallowedError,
 } = vi.hoisted(() => ({
   deleteTransaction: vi.fn(),
   getTransactionItem: vi.fn(),
   findById: vi.fn(),
-  findKeysByTransactionId: vi.fn(),
   markForDeletion: vi.fn(),
+  markDeleted: vi.fn(),
+  hasActiveFileWithKey: vi.fn(),
   reportSwallowedError: vi.fn(),
 }));
 
@@ -22,7 +24,7 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 }));
 
 vi.mock('@/server/repositories/transactionFileRepository', () => ({
-  default: { findById, findKeysByTransactionId, markForDeletion },
+  default: { findById, markForDeletion, markDeleted, hasActiveFileWithKey },
 }));
 
 vi.mock('@/server/logging/reportSwallowedError', () => ({
@@ -59,8 +61,9 @@ beforeEach(() => {
     fileKey: FILE_KEY,
   });
   markForDeletion.mockResolvedValue({});
-  findKeysByTransactionId.mockResolvedValue([FILE_KEY, OTHER_KEY]);
-  deleteTransaction.mockResolvedValue(undefined);
+  markDeleted.mockResolvedValue({});
+  hasActiveFileWithKey.mockResolvedValue(false);
+  deleteTransaction.mockResolvedValue([FILE_KEY, OTHER_KEY]);
 });
 
 afterEach(() => {
@@ -68,17 +71,24 @@ afterEach(() => {
 });
 
 describe('removeFile', () => {
-  it('deletes the attachment object after marking the row', async () => {
+  it('deletes the attachment object after marking the row, then marks it deleted', async () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
-    expect(markForDeletion).toHaveBeenCalledWith(FILE_ID);
     expect(deletedKeys()).toEqual([{ Bucket: 'bucket', Key: FILE_KEY }]);
     expect(markForDeletion.mock.invocationCallOrder[0]).toBeLessThan(
       send.mock.invocationCallOrder[0],
     );
+    expect(markDeleted).toHaveBeenCalledWith(FILE_ID);
   });
 
-  it('still succeeds when storage refuses the delete, and reports it', async () => {
+  it('bounds the storage call with an abort signal', async () => {
+    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+
+    const [, options] = send.mock.calls[0];
+    expect(options).toEqual({ abortSignal: expect.any(AbortSignal) });
+  });
+
+  it('still succeeds when storage refuses the delete, reports it, and leaves the row marked', async () => {
     const storageError = new Error('AccessDenied');
     send.mockRejectedValue(storageError);
 
@@ -87,6 +97,7 @@ describe('removeFile', () => {
     ).resolves.toBeUndefined();
 
     expect(markForDeletion).toHaveBeenCalledWith(FILE_ID);
+    expect(markDeleted).not.toHaveBeenCalled();
     expect(reportSwallowedError).toHaveBeenCalledWith(
       expect.objectContaining({
         err: storageError,
@@ -96,6 +107,15 @@ describe('removeFile', () => {
       }),
       expect.any(String),
     );
+  });
+
+  it('keeps an object another active attachment still names', async () => {
+    hasActiveFileWithKey.mockResolvedValue(true);
+
+    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+
+    expect(hasActiveFileWithKey).toHaveBeenCalledWith(FILE_KEY);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('touches no object when the file is not on this transaction', async () => {
@@ -113,7 +133,7 @@ describe('removeFile', () => {
 });
 
 describe('deleteTransaction', () => {
-  it('deletes every attachment object of the transaction after the row', async () => {
+  it('deletes every attachment object the transaction delete dropped', async () => {
     await transactionService.deleteTransaction(TRANSACTION_ID, 'user-1');
 
     expect(deleteTransaction).toHaveBeenCalledWith(TRANSACTION_ID, 'user-1');

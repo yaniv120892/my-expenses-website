@@ -38,17 +38,6 @@ export class TransactionFileRepository {
     });
   }
 
-  /** Every status: a key marked for deletion before its object was removed still names one. */
-  public async findKeysByTransactionId(
-    transactionId: string,
-  ): Promise<string[]> {
-    const files = await prisma.transactionFile.findMany({
-      where: { transactionId },
-      select: { fileKey: true },
-    });
-    return files.map((file) => file.fileKey);
-  }
-
   public async updateStatus(
     id: string,
     status: TransactionFileStatus,
@@ -61,6 +50,17 @@ export class TransactionFileRepository {
 
   public async markForDeletion(id: string): Promise<TransactionFile> {
     return this.updateStatus(id, TransactionFileStatus.MARKED_FOR_DELETION);
+  }
+
+  public async markDeleted(id: string): Promise<TransactionFile> {
+    return this.updateStatus(id, TransactionFileStatus.DELETED);
+  }
+
+  public async hasActiveFileWithKey(fileKey: string): Promise<boolean> {
+    const count = await prisma.transactionFile.count({
+      where: { fileKey, status: TransactionFileStatus.ACTIVE },
+    });
+    return count > 0;
   }
 }
 

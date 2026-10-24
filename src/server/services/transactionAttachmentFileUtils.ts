@@ -67,12 +67,16 @@ export async function getPresignedUploadUrl(
   return { uploadUrl, fileKey };
 }
 
+/** Bounded because it runs after the delete has committed, inside the request. */
+const DELETE_OBJECT_TIMEOUT_MS = 5000;
+
 export async function deleteAttachmentObject(key: string): Promise<void> {
   await getS3Client().send(
     new DeleteObjectCommand({
       Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
       Key: key,
     }),
+    { abortSignal: AbortSignal.timeout(DELETE_OBJECT_TIMEOUT_MS) },
   );
 }
 

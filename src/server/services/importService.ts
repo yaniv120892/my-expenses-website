@@ -26,6 +26,7 @@ import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
+import { WEBHOOK_TOKEN_EXPIRY_MS } from '@/server/utils/webhookAuth';
 import {
   getPrismaErrorCode,
   PRISMA_ERROR_CODES,
@@ -71,6 +72,8 @@ function throwOnMissingRow(err: unknown): never {
 // rather than silently dropped from the count.
 const STALE_TRANSACTION_ID_ERROR =
   'Not found, not pending, or not in this import';
+
+const STUCK_IMPORT_ERROR = `Extraction did not report back within ${WEBHOOK_TOKEN_EXPIRY_MS / (60 * 60 * 1000)} hours. Delete this import and upload the statement again.`;
 
 interface BatchResult {
   total: number;
@@ -234,6 +237,28 @@ class ImportService {
       where: { id: importId, extractionCompletedAt: null },
       data: { status: ImportStatus.FAILED, error },
     });
+  }
+
+  /**
+   * An import still PROCESSING once its callback token has expired can never
+   * be completed by that callback, so it is failed rather than left polling.
+   */
+  public async failStuckImports(now: Date = new Date()) {
+    const createdBefore = new Date(now.getTime() - WEBHOOK_TOKEN_EXPIRY_MS);
+    const { importIds, failedCount } =
+      await importRepository.failStuckProcessing(
+        createdBefore,
+        STUCK_IMPORT_ERROR,
+      );
+    if (failedCount > 0) {
+      logger.warn(
+        { importIds, failedCount, createdBefore },
+        'Failed imports stuck in PROCESSING past the webhook token expiry',
+      );
+    } else {
+      logger.info({ createdBefore }, 'No imports stuck in PROCESSING');
+    }
+    return { failedImportCount: failedCount };
   }
 
   public async getImports(userId: string) {

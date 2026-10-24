@@ -251,7 +251,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   webhook reads both the submitted and the extracted month through it, ignoring
   one that names no month. A FAILED import keeps its
   extraction claim, since a redelivery after a partial write would insert every
-  row again, so recovery is delete and re-import. Deleting an import deletes
+  row again, so recovery is delete and re-import. An extraction callback's
+  token lives `WEBHOOK_TOKEN_EXPIRY_MS` (6 hours, `src/server/utils/webhookAuth.ts`),
+  so an import still `PROCESSING` that long after it was created can never
+  complete; the `/api/imports/fail-stuck` cron fails it, claiming the
+  extraction as it does, and the user deletes and re-imports. Deleting an import deletes
   its rows with it, so none can still be approved or hold a match a re-import
   needs.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
@@ -388,6 +392,7 @@ Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed)
 | /api/subscriptions/detect           | 04:00 Mondays    |
 | /api/subscriptions/audit-notify     | 08:00 Mondays    |
 | /api/reports/monthly                | 06:00 on the 1st |
+| /api/imports/fail-stuck             | 05:00 daily      |
 
 Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
 that Better Stack URL after a <400 response (unset var = off); the option

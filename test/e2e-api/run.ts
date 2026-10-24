@@ -671,6 +671,71 @@ async function scheduledCronFlow(userId: string): Promise<void> {
   check('cron: nextRunDate advanced into the future', after?.future === true);
 }
 
+async function stuckImportSweepFlow(userId: string): Promise<void> {
+  const insertImport = async (status: string, ageHours: number) => {
+    const [row] = await query<{ id: string }>(
+      `insert into "Import"
+         (id, "userId", "fileUrl", "originalFileName", status, "createdAt", "updatedAt")
+       values (gen_random_uuid(), $1, 'e2e/stuck.xlsx', 'stuck.xlsx', $2::"ImportStatus",
+               now() - make_interval(hours => $3), now())
+       returning id`,
+      [userId, status, ageHours],
+    );
+    return row.id;
+  };
+  const stuckId = await insertImport('PROCESSING', 7);
+  const freshId = await insertImport('PROCESSING', 5);
+  const completedId = await insertImport('COMPLETED', 7);
+
+  const unauthed = await api('GET', '/api/imports/fail-stuck');
+  check(
+    'cron: fail-stuck without the secret is rejected',
+    unauthed.status === 401,
+    `status ${unauthed.status}`,
+  );
+
+  const run = await api('GET', '/api/imports/fail-stuck', {
+    token: process.env.CRON_SECRET || 'e2e',
+  });
+  check(
+    'cron: fail-stuck with CRON_SECRET succeeds',
+    run.status === 200,
+    `status ${run.status}`,
+  );
+
+  const rows = await query<{
+    id: string;
+    status: string;
+    claimed: boolean;
+    error: string | null;
+  }>(
+    `select id, status, "extractionCompletedAt" is not null as claimed, error
+       from "Import" where id = any($1::uuid[])`,
+    [[stuckId, freshId, completedId]],
+  );
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const stuck = byId.get(stuckId);
+  check(
+    'cron: an import PROCESSING past the token expiry is FAILED and claimed',
+    stuck?.status === 'FAILED' && stuck.claimed && !!stuck.error,
+    JSON.stringify(stuck),
+  );
+  check(
+    'cron: an import PROCESSING within the token expiry is left alone',
+    byId.get(freshId)?.status === 'PROCESSING',
+    `status ${byId.get(freshId)?.status}`,
+  );
+  check(
+    'cron: an old COMPLETED import is left alone',
+    byId.get(completedId)?.status === 'COMPLETED',
+    `status ${byId.get(completedId)?.status}`,
+  );
+
+  await query('delete from "Import" where id = any($1::uuid[])', [
+    [stuckId, freshId, completedId],
+  ]);
+}
+
 // The dev server runs without TELEGRAM_WEBHOOK_SECRET, so only the fail-closed
 // path is covered here.
 async function telegramWebhookFlow(): Promise<void> {
@@ -1391,6 +1456,7 @@ async function main(): Promise<void> {
   await transactionCategoryBreakdownFlow(seeded.userA.token);
   await transactionCursorPagingFlow(seeded.userA.token, seeded.userA.id);
   await scheduledCronFlow(seeded.userA.id);
+  await stuckImportSweepFlow(seeded.userA.id);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
   // The import flows run on an Imports-scoped API token rather than the

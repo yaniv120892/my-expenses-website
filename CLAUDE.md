@@ -92,7 +92,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   import with its pending count and, when merged, the import it merged into),
   `/api/auth/*` (cookie handling), `/api/health` (liveness only — touches no
   dependency, so Neon can scale to zero) and `/api/health/deep` (polled at
-  most hourly).
+  most hourly; each instance reuses its last outcome, failures included, for
+  60s and runs one check for concurrent misses, so a caller polling it
+  reaches the database at most once a minute per instance).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
   `services/assistant/` (Mastra agent, tools, PG-backed memory, and

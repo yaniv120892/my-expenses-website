@@ -12,6 +12,17 @@ export function toDayString(date: Date): string {
   return format(date, DAY_FORMAT);
 }
 
+/**
+ * The calendar day a stored transaction date carries in its UTC fields (see
+ * `toAppWallClock`). `toDayString` reads local time, so off UTC it can name
+ * the neighbouring day.
+ */
+export function toUtcDayString(date: Date): string {
+  return toDayString(
+    new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isCalendarDay(value: string): boolean {

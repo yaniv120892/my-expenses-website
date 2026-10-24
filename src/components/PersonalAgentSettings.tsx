@@ -6,11 +6,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   List,
   ListItem,
@@ -20,7 +15,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   useApiTokensQuery,
@@ -32,8 +26,9 @@ import { AGENT_EXAMPLE_REQUESTS } from '@/shared/agentTools';
 import { buildAgentBriefing } from '@/utils/agentBriefing';
 import { describeApiError } from '@/utils/api';
 import { formatDay } from '@/utils/dateUtils';
+import CopyableText from '@/components/CopyableText';
+import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 
-const AGENT_SCOPE = 'AGENT';
 const DEFAULT_AGENT_NAME = 'Instinct';
 const MCP_PATH = '/api/mcp';
 
@@ -41,48 +36,49 @@ const COPY_LABELS = {
   idle: 'העתקה',
   copied: 'הועתק',
   failed: 'ההעתקה נכשלה — סמנו את הטקסט והעתיקו ידנית',
-} as const;
+};
 
-function subscribeToNothing(): () => void {
-  return () => {};
-}
+const REVOKE_LABELS = {
+  title: function revokeTitle(tokenName: string) {
+    return `לבטל את הגישה של ״${tokenName}״?`;
+  },
+  consequence: 'הסוכן יפסיק לגשת ל-My Expenses מיד. אי אפשר לבטל את הפעולה.',
+  cancel: 'חזרה',
+  confirm: 'ביטול הגישה',
+};
 
-// The page renders on the server first, where there is no origin to read.
-function useSiteOrigin(): string {
-  return useSyncExternalStore(
-    subscribeToNothing,
-    () => window.location.origin,
-    () => '',
-  );
-}
+type ShownToken = { id: string; token: string };
 
 export default function PersonalAgentSettings() {
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
   const [name, setName] = useState(DEFAULT_AGENT_NAME);
-  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [shownToken, setShownToken] = useState<ShownToken | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
     null,
   );
   const mcpUrl = `${useSiteOrigin()}${MCP_PATH}`;
 
-  const agentTokens = (tokens ?? []).filter((token) =>
-    token.scopes.includes(AGENT_SCOPE),
-  );
+  const agentTokens = (tokens ?? []).filter(isAgentOnlyToken);
   const now = new Date();
 
   const handleCreate = () => {
     createMutation.mutate(
-      { name: name.trim(), scopes: [AGENT_SCOPE] },
-      { onSuccess: (created) => setCreatedToken(created.token) },
+      { name: name.trim(), scopes: ['AGENT'] },
+      {
+        onSuccess: (created) =>
+          setShownToken({ id: created.id, token: created.token }),
+      },
     );
   };
 
-  const handleConfirmRevoke = () => {
-    if (pendingRevoke) {
-      revokeMutation.mutate(pendingRevoke.id);
-    }
+  // A revoked token must not stay on screen, or in the briefing, as if usable.
+  const handleConfirmRevoke = (token: ApiTokenSummary) => {
+    revokeMutation.mutate(token.id, {
+      onSuccess: () =>
+        setShownToken((shown) => (shown?.id === token.id ? null : shown)),
+    });
     setPendingRevoke(null);
   };
 
@@ -121,17 +117,21 @@ export default function PersonalAgentSettings() {
         </Alert>
       )}
 
-      {createdToken && (
-        <Alert severity="warning" onClose={() => setCreatedToken(null)}>
+      {shownToken && (
+        <Alert severity="warning" onClose={() => setShownToken(null)}>
           <Typography variant="body2" sx={{ mb: 1 }}>
             העתיקו את הטוקן עכשיו — הוא לא יוצג שוב. הוא כבר משולב בהודעה לסוכן
             שלמטה.
           </Typography>
-          <CopyableText label="Token" value={createdToken} />
+          <CopyableText
+            label="Token"
+            value={shownToken.token}
+            copyLabels={COPY_LABELS}
+          />
         </Alert>
       )}
 
-      <CopyableText label="MCP URL" value={mcpUrl} />
+      <CopyableText label="MCP URL" value={mcpUrl} copyLabels={COPY_LABELS} />
 
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
@@ -143,7 +143,11 @@ export default function PersonalAgentSettings() {
         </Typography>
         <CopyableText
           label="Briefing"
-          value={buildAgentBriefing({ mcpUrl, token: createdToken })}
+          value={buildAgentBriefing({
+            mcpUrl,
+            token: shownToken?.token ?? null,
+          })}
+          copyLabels={COPY_LABELS}
           multiline
         />
       </Box>
@@ -203,26 +207,21 @@ export default function PersonalAgentSettings() {
         </Box>
       )}
 
-      <Dialog
-        open={!!pendingRevoke}
-        onClose={() => setPendingRevoke(null)}
+      <RevokeTokenDialog
+        token={pendingRevoke}
+        labels={REVOKE_LABELS}
+        onCancel={() => setPendingRevoke(null)}
+        onConfirm={handleConfirmRevoke}
         dir="rtl"
-      >
-        <DialogTitle>לבטל את הגישה של ״{pendingRevoke?.name}״?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            הסוכן יפסיק לגשת ל-My Expenses מיד. אי אפשר לבטל את הפעולה.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingRevoke(null)}>חזרה</Button>
-          <Button color="error" onClick={handleConfirmRevoke}>
-            ביטול הגישה
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
     </Stack>
   );
+}
+
+// A token that also carries another scope belongs to a script; revoking it
+// here would break that script too.
+function isAgentOnlyToken(token: ApiTokenSummary): boolean {
+  return token.scopes.length === 1 && token.scopes[0] === 'AGENT';
 }
 
 function describeTokenUse({
@@ -242,61 +241,15 @@ function describeTokenUse({
   return `${lastUse} · ${expiry}`;
 }
 
-function CopyableText({
-  label,
-  value,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
-  const [copyState, setCopyState] = useState<keyof typeof COPY_LABELS>('idle');
+function subscribeToNothing(): () => void {
+  return () => {};
+}
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopyState('copied');
-    } catch {
-      setCopyState('failed');
-    }
-  };
-
-  return (
-    <Box
-      dir="ltr"
-      sx={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 1,
-        p: 1,
-        borderRadius: 1,
-        bgcolor: 'action.hover',
-      }}
-    >
-      <Typography
-        variant="body2"
-        component={multiline ? 'pre' : 'span'}
-        aria-label={label}
-        sx={{
-          flexGrow: 1,
-          m: 0,
-          fontFamily: 'monospace',
-          wordBreak: 'break-all',
-          whiteSpace: multiline ? 'pre-wrap' : 'normal',
-        }}
-      >
-        {value}
-      </Typography>
-      <Tooltip title={COPY_LABELS[copyState]}>
-        <IconButton
-          size="small"
-          onClick={handleCopy}
-          aria-label={`Copy ${label}`}
-        >
-          <ContentCopyIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Box>
+// The page renders on the server first, where there is no origin to read.
+function useSiteOrigin(): string {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => window.location.origin,
+    () => '',
   );
 }

@@ -5,7 +5,7 @@
 import { z } from 'zod/v4';
 import { TREND_PERIODS } from '@/shared/types/trends';
 
-const transactionTypeFilter = z.enum(['INCOME', 'EXPENSE']);
+export const transactionTypeFilter = z.enum(['INCOME', 'EXPENSE']);
 
 export const transactionFilterShape = {
   startDate: z
@@ -42,12 +42,13 @@ export const summaryAggregationSchema = z
   ])
   .describe('Which figure to compute');
 
-const periodSchema = (exampleLabel: string) =>
-  z.object({
+function periodSchema(exampleLabel: string) {
+  return z.object({
     label: z.string().describe(`Short human label, e.g. "${exampleLabel}"`),
     startDate: z.string().describe('Inclusive start date, YYYY-MM-DD'),
     endDate: z.string().describe('Inclusive end date, YYYY-MM-DD'),
   });
+}
 
 export const comparePeriodsShape = {
   periodA: periodSchema('January 2026'),

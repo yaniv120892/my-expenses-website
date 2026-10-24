@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type {
@@ -12,6 +12,7 @@ const {
   transactionService,
   scheduledTransactionService,
   reportSwallowedError,
+  logger,
 } = vi.hoisted(() => ({
   categoryRepository: { getAllCategories: vi.fn() },
   transactionRepository: {
@@ -28,6 +29,7 @@ const {
   },
   scheduledTransactionService: { listScheduledTransactions: vi.fn() },
   reportSwallowedError: vi.fn(),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
@@ -45,6 +47,7 @@ vi.mock('@/server/services/scheduledTransactionService', () => ({
 vi.mock('@/server/logging/reportSwallowedError', () => ({
   reportSwallowedError,
 }));
+vi.mock('@/server/logging/logger', () => ({ default: logger }));
 
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { HttpError } from '@/server/http/errors';
@@ -107,13 +110,13 @@ type ToolCallOutcome = { text: string; isError: boolean };
 async function call({
   client,
   name,
-  args = {},
+  toolArguments = {},
 }: {
   client: Client;
   name: string;
-  args?: Record<string, unknown>;
+  toolArguments?: Record<string, unknown>;
 }): Promise<ToolCallOutcome> {
-  const result = await client.callTool({ name, arguments: args });
+  const result = await client.callTool({ name, arguments: toolArguments });
   const content = Array.isArray(result.content) ? result.content : [];
   const text = content
     .map((part: { type: string; text?: string }) => part.text ?? '')
@@ -131,8 +134,14 @@ beforeEach(async () => {
   transactionService.getTransactionItem.mockResolvedValue(transaction());
   transactionService.createTransaction.mockResolvedValue({
     id: TRANSACTION_ID,
+    transaction: transaction(),
   });
+  transactionService.updateTransaction.mockResolvedValue(transaction());
   client = await connectClient();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('MCP tool surface', () => {
@@ -201,7 +210,7 @@ describe('read tools', () => {
     const outcome = await call({
       client,
       name: 'summarize_transactions',
-      args: { aggregation: 'total', categoryName: 'groceries' },
+      toolArguments: { aggregation: 'total', categoryName: 'groceries' },
     });
 
     expect(outcome.isError).toBe(false);
@@ -225,7 +234,7 @@ describe('read tools', () => {
     const outcome = await call({
       client,
       name: 'compare_periods',
-      args: {
+      toolArguments: {
         periodA: {
           label: 'Sep',
           startDate: '2026-09-01',
@@ -246,7 +255,7 @@ describe('read tools', () => {
     const outcome = await call({
       client,
       name: 'summarize_transactions',
-      args: { aggregation: 'total', categoryName: 'Utilities' },
+      toolArguments: { aggregation: 'total', categoryName: 'Utilities' },
     });
 
     expect(outcome.isError).toBe(true);
@@ -255,26 +264,90 @@ describe('read tools', () => {
   });
 
   it('finds transactions with their ids, scoped to the token owner', async () => {
-    transactionService.getTransactionsList.mockResolvedValue({
-      items: [transaction()],
-      nextCursor: null,
-    });
-
     const outcome = await call({
       client,
       name: 'find_transactions',
-      args: { searchTerm: 'קפה', categoryName: 'Food & Groceries' },
+      toolArguments: { searchTerm: 'קפה', categoryName: 'Food & Groceries' },
     });
 
     expect(outcome.text).toContain(`id ${TRANSACTION_ID}`);
     expect(outcome.text).toContain('קפה בארומה');
     expect(outcome.text).toContain('Fast Food');
-    expect(transactionService.getTransactionsList).toHaveBeenCalledWith({
+    expect(outcome.text).not.toContain('Note:');
+    expect(transactionRepository.getTransactions).toHaveBeenCalledWith({
       userId: USER_ID,
-      limit: 20,
       searchTerm: 'קפה',
       categoryIds: ['c-food', 'c-fast'],
+      page: 1,
+      perPage: 21,
     });
+  });
+
+  it('says when more transactions match than it listed', async () => {
+    transactionRepository.getTransactions.mockResolvedValue([
+      transaction({ id: '44444444-4444-4444-8444-444444444441' }),
+      transaction({ id: '44444444-4444-4444-8444-444444444442' }),
+      transaction({ id: '44444444-4444-4444-8444-444444444443' }),
+    ]);
+
+    const outcome = await call({
+      client,
+      name: 'find_transactions',
+      toolArguments: { limit: 2 },
+    });
+
+    expect(outcome.text).not.toContain('444444444443');
+    expect(outcome.text).toContain(
+      'Note: these are only the newest 2; more transactions match.',
+    );
+  });
+
+  it.each([
+    ['find_transactions', { startDate: 'last month' }],
+    ['summarize_transactions', { aggregation: 'total', endDate: '2026-02-31' }],
+    ['get_spending_trends', { period: 'monthly', startDate: '2026-13-01' }],
+    [
+      'compare_periods',
+      {
+        periodA: {
+          label: 'Feb',
+          startDate: '2026-02-01',
+          endDate: '2026-02-30',
+        },
+        periodB: {
+          label: 'Mar',
+          startDate: '2026-03-01',
+          endDate: '2026-03-31',
+        },
+      },
+    ],
+  ])(
+    '%s refuses a date that is not a real calendar day before any query',
+    async (name, toolArguments) => {
+      const outcome = await call({ client, name, toolArguments });
+
+      expect(outcome.isError).toBe(true);
+      expect(outcome.text).toContain('Use a real calendar day as YYYY-MM-DD');
+      expect(transactionRepository.getTransactions).not.toHaveBeenCalled();
+      expect(
+        transactionRepository.getTransactionsSummary,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  it('trends a category over its whole subtree', async () => {
+    const outcome = await call({
+      client,
+      name: 'get_spending_trends',
+      toolArguments: { period: 'monthly', categoryName: 'groceries' },
+    });
+
+    expect(outcome.text).toContain(
+      'Category: Food & Groceries (including its subcategories)',
+    );
+    expect(transactionRepository.getTransactions).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryIds: ['c-food', 'c-fast'] }),
+    );
   });
 
   it('lists recurring transactions with their category names', async () => {
@@ -311,7 +384,11 @@ describe('add_transaction', () => {
     const outcome = await call({
       client,
       name: 'add_transaction',
-      args: { description: 'קפה בארומה', amount: 18, date: '2026-10-20' },
+      toolArguments: {
+        description: 'קפה בארומה',
+        amount: 18,
+        date: '2026-10-20',
+      },
     });
 
     expect(outcome.isError).toBe(false);
@@ -328,11 +405,72 @@ describe('add_transaction', () => {
     });
   });
 
+  it("dates an undated transaction by today's wall clock in Israel, not UTC", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-20T22:30:00Z'));
+
+    await call({
+      client,
+      name: 'add_transaction',
+      toolArguments: { description: 'פלאפל', amount: 25 },
+    });
+
+    expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ date: new Date('2026-10-21T01:30:00Z') }),
+    );
+  });
+
+  it.each(['2026-02-31', '2026-13-45'])(
+    'refuses %s, which is no calendar day',
+    async (date) => {
+      const outcome = await call({
+        client,
+        name: 'add_transaction',
+        toolArguments: { description: 'Coffee', amount: 18, date },
+      });
+
+      expect(outcome.isError).toBe(true);
+      expect(transactionService.createTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['amount', { amount: 1e12 }],
+    ['ilsAmount', { amount: 100, currency: 'USD', ilsAmount: 1e12 }],
+  ])('refuses an implausibly large %s', async (_field, amounts) => {
+    const outcome = await call({
+      client,
+      name: 'add_transaction',
+      toolArguments: { description: 'Typo', ...amounts },
+    });
+
+    expect(outcome.isError).toBe(true);
+    expect(transactionService.createTransaction).not.toHaveBeenCalled();
+  });
+
+  it('logs the call with the id of the transaction it wrote', async () => {
+    await call({
+      client,
+      name: 'add_transaction',
+      toolArguments: { description: 'קפה בארומה', amount: 18 },
+    });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_ID,
+        toolName: 'add_transaction',
+        outcome: 'ok',
+        transactionId: TRANSACTION_ID,
+      }),
+      'MCP tool call',
+    );
+  });
+
   it('hands a foreign amount to the conversion service unconverted', async () => {
     await call({
       client,
       name: 'add_transaction',
-      args: { description: 'Netflix', amount: 25, currency: 'usd' },
+      toolArguments: { description: 'Netflix', amount: 25, currency: 'usd' },
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
@@ -348,7 +486,7 @@ describe('add_transaction', () => {
     await call({
       client,
       name: 'add_transaction',
-      args: {
+      toolArguments: {
         description: 'Hotel',
         amount: 100,
         currency: 'EUR',
@@ -369,7 +507,7 @@ describe('add_transaction', () => {
     const outcome = await call({
       client,
       name: 'add_transaction',
-      args: { description: 'Coffee', amount: 18, ilsAmount: 18 },
+      toolArguments: { description: 'Coffee', amount: 18, ilsAmount: 18 },
     });
 
     expect(outcome.isError).toBe(true);
@@ -381,7 +519,11 @@ describe('add_transaction', () => {
     await call({
       client,
       name: 'add_transaction',
-      args: { description: 'שכירות', amount: 5000, categoryName: 'Rent' },
+      toolArguments: {
+        description: 'שכירות',
+        amount: 5000,
+        categoryName: 'Rent',
+      },
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
@@ -400,7 +542,7 @@ describe('add_transaction', () => {
     const outcome = await call({
       client,
       name: 'add_transaction',
-      args: { description: 'Taxi', amount: 300, currency: 'THB' },
+      toolArguments: { description: 'Taxi', amount: 300, currency: 'THB' },
     });
 
     expect(outcome.isError).toBe(true);
@@ -412,7 +554,7 @@ describe('add_transaction', () => {
     const outcome = await call({
       client,
       name: 'add_transaction',
-      args: { description: 'Taxi', amount: 300, currency: 'XYZ1' },
+      toolArguments: { description: 'Taxi', amount: 300, currency: 'XYZ1' },
     });
 
     expect(outcome.isError).toBe(true);
@@ -432,7 +574,7 @@ describe('update_transaction', () => {
     await call({
       client,
       name: 'update_transaction',
-      args: { id: TRANSACTION_ID, description: 'Netflix' },
+      toolArguments: { id: TRANSACTION_ID, description: 'Netflix' },
     });
 
     expect(transactionService.updateTransaction).toHaveBeenCalledWith(
@@ -453,7 +595,7 @@ describe('update_transaction', () => {
     await call({
       client,
       name: 'update_transaction',
-      args: { id: TRANSACTION_ID, categoryName: 'Rent', amount: 20 },
+      toolArguments: { id: TRANSACTION_ID, categoryName: 'Rent', amount: 20 },
     });
 
     expect(transactionService.updateTransaction).toHaveBeenCalledWith(
@@ -471,12 +613,28 @@ describe('update_transaction', () => {
     const outcome = await call({
       client,
       name: 'update_transaction',
-      args: { id: TRANSACTION_ID, currency: 'USD' },
+      toolArguments: { id: TRANSACTION_ID, currency: 'USD' },
     });
 
     expect(outcome.isError).toBe(true);
     expect(outcome.text).toContain('from ILS to USD needs the amount');
     expect(transactionService.updateTransaction).not.toHaveBeenCalled();
+  });
+
+  it('answers with the updated row as stored', async () => {
+    transactionService.updateTransaction.mockResolvedValue(
+      transaction({ description: 'Netflix' }),
+    );
+
+    const outcome = await call({
+      client,
+      name: 'update_transaction',
+      toolArguments: { id: TRANSACTION_ID, description: 'Netflix' },
+    });
+
+    expect(outcome.text).toContain('Updated:');
+    expect(outcome.text).toContain('Netflix');
+    expect(transactionService.getTransactionItem).toHaveBeenCalledTimes(1);
   });
 
   it("reports a transaction the token owner doesn't have as not found", async () => {
@@ -485,7 +643,7 @@ describe('update_transaction', () => {
     const outcome = await call({
       client,
       name: 'update_transaction',
-      args: { id: TRANSACTION_ID, amount: 20 },
+      toolArguments: { id: TRANSACTION_ID, amount: 20 },
     });
 
     expect(outcome.isError).toBe(true);
@@ -493,6 +651,13 @@ describe('update_transaction', () => {
     expect(transactionService.getTransactionItem).toHaveBeenCalledWith(
       TRANSACTION_ID,
       USER_ID,
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'update_transaction',
+        outcome: 'client_error',
+      }),
+      'MCP tool call',
     );
   });
 });
@@ -502,7 +667,7 @@ describe('delete_transaction', () => {
     const outcome = await call({
       client,
       name: 'delete_transaction',
-      args: { id: TRANSACTION_ID },
+      toolArguments: { id: TRANSACTION_ID },
     });
 
     expect(outcome.text).toContain('Deleted:');
@@ -517,7 +682,7 @@ describe('delete_transaction', () => {
     const outcome = await call({
       client,
       name: 'delete_transaction',
-      args: { id: 'last-one' },
+      toolArguments: { id: 'last-one' },
     });
 
     expect(outcome.isError).toBe(true);
@@ -534,7 +699,7 @@ describe('unexpected failures', () => {
     const outcome = await call({
       client,
       name: 'delete_transaction',
-      args: { id: TRANSACTION_ID },
+      toolArguments: { id: TRANSACTION_ID },
     });
 
     expect(outcome.isError).toBe(true);

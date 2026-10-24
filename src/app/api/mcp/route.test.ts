@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
-const { apiTokenRepository, enforceRateLimits } = vi.hoisted(() => ({
+const { apiTokenRepository, enforceRateLimits, logger } = vi.hoisted(() => ({
   apiTokenRepository: { findByHash: vi.fn(), markUsed: vi.fn() },
   enforceRateLimits: vi.fn(),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
@@ -16,9 +17,7 @@ vi.mock('@/server/http/rateLimit', async () => ({
   )),
   enforceRateLimits,
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
+vi.mock('@/server/logging/logger', () => ({ default: logger }));
 vi.mock('@/server/logging/betterStackStream', () => ({
   flushRemoteLogs: vi.fn(),
   betterStackStream: { write: vi.fn() },
@@ -243,6 +242,29 @@ describe('POST /api/mcp with an AGENT token', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.result.tools.length).toBeGreaterThan(0);
+  });
+});
+
+describe('protocol errors', () => {
+  it('logs a JSON-RPC error the SDK answers, with the method it answered', async () => {
+    const response = await POST(
+      mcpRequest({
+        authorization: `Bearer ${token}`,
+        body: { jsonrpc: '2.0', id: 3, method: 'resources/list', params: {} },
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    const body = await response.json();
+    expect(body.error.code).toBeDefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: TOKEN_OWNER,
+        method: 'resources/list',
+        code: body.error.code,
+      }),
+      'MCP request answered with a JSON-RPC error',
+    );
   });
 });
 

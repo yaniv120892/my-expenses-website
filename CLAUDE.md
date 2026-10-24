@@ -275,16 +275,21 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `auth: 'apiToken'` route needing `AGENT`, the token Settings → סוכן אישי
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
   or `{error}` body, so an MCP client can read it. The server is stateless
-  (`sessionIdGenerator: undefined`, JSON responses): each POST builds one
+  (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
   `createMcpServer({ userId })`, answers one message and closes; GET and DELETE
   are 405. The user id is captured in every tool's closure, so no tool takes
   one. Tools are adapters over existing services — reads through
   `financeQueryService` (the same code the Mastra tools call) and the
   transaction/schedule services, writes through `transactionService`, whose
   amounts go through `currencyConversionService` like any other create or
-  edit. A tool never throws: a 4xx comes back as an `isError` result with its
-  message, anything else is reported via `reportSwallowedError` and returned
-  neutrally. The settings briefing names the tools from
+  edit. Every tool is registered through `registerSafeTool`
+  (`src/server/mcp/safeTool.ts`), so a tool never throws: a 4xx comes back as
+  an `isError` result with its message, anything else is reported via
+  `reportSwallowedError` and returned neutrally, and each call logs one
+  `MCP tool call` line with its outcome (and, on a write, the transaction id).
+  Every date an agent sends must be a real calendar day; an undated
+  `add_transaction` takes the current Israel wall-clock time, stored as the
+  form stores it (`toAppWallClock`, `src/shared/dates.ts`). The settings briefing names the tools from
   `src/shared/agentTools.ts`, which `src/server/mcp/mcpTools.test.ts` holds
   equal to the registered set.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced

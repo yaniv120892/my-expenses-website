@@ -1,9 +1,34 @@
 // zod/v4 to match the assistant's shared query schemas, which these extend.
 import { z } from 'zod/v4';
-import { transactionFilterShape } from '@/server/services/assistant/financeQuerySchemas';
+import {
+  comparePeriodsShape,
+  spendingTrendsShape,
+  transactionFilterShape,
+  transactionTypeFilter,
+} from '@/server/services/assistant/financeQuerySchemas';
 import { BASE_CURRENCY, isIsoCurrencyCode } from '@/shared/currency';
+import { isCalendarDay } from '@/shared/dates';
 
-const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
+// Far above any one personal transaction, and inside the NUMERIC(14,2) columns.
+export const MAX_AGENT_AMOUNT = 10_000_000;
+
+// A shape-only check lets "2026-13-45" reach the database as an Invalid Date
+// and "2026-02-31" roll over to March, so the day must exist.
+const dayString = z
+  .string()
+  .refine(isCalendarDay, 'Use a real calendar day as YYYY-MM-DD');
+
+const dateBounds = {
+  startDate: dayString.optional().describe('Inclusive start day, YYYY-MM-DD'),
+  endDate: dayString.optional().describe('Inclusive end day, YYYY-MM-DD'),
+};
+
+const periodDays = {
+  startDate: dayString.describe('Inclusive start day, YYYY-MM-DD'),
+  endDate: dayString.describe('Inclusive end day, YYYY-MM-DD'),
+};
+
+const amount = z.number().positive().max(MAX_AGENT_AMOUNT);
 
 const transactionId = z
   .string()
@@ -19,12 +44,9 @@ const currencyCode = z
     `ISO 4217 code of the currency the amount was paid in. Defaults to ${BASE_CURRENCY}; set it only when the user names another currency (dollars → USD, euros → EUR).`,
   );
 
-const ilsAmount = z
-  .number()
-  .positive()
-  .describe(
-    `Only for a foreign-currency charge, and only when the user knows what was billed in ${BASE_CURRENCY}. Otherwise the official exchange rate for the date is used.`,
-  );
+const ilsAmount = amount.describe(
+  `Only for a foreign-currency charge, and only when the user knows what was billed in ${BASE_CURRENCY}. Otherwise the official exchange rate for the date is used.`,
+);
 
 const categoryName = z
   .string()
@@ -33,8 +55,24 @@ const categoryName = z
     'Exact name from list_categories. Omit it to let My Expenses pick the category from the description, which is usually right.',
   );
 
-export const findTransactionsShape = {
+export const transactionFilterToolShape = {
   ...transactionFilterShape,
+  ...dateBounds,
+};
+
+export const comparePeriodsToolShape = {
+  ...comparePeriodsShape,
+  periodA: comparePeriodsShape.periodA.extend(periodDays),
+  periodB: comparePeriodsShape.periodB.extend(periodDays),
+};
+
+export const spendingTrendsToolShape = {
+  ...spendingTrendsShape,
+  ...dateBounds,
+};
+
+export const findTransactionsShape = {
+  ...transactionFilterToolShape,
   limit: z
     .number()
     .int()
@@ -53,12 +91,10 @@ export const addTransactionShape = {
     .describe(
       'What the money was for, in the words the user used (Hebrew or English), e.g. "קפה בארומה" or "Salary".',
     ),
-  amount: z
-    .number()
-    .positive()
-    .describe('The amount paid or received, in `currency`. Always positive.'),
-  type: z
-    .enum(['EXPENSE', 'INCOME'])
+  amount: amount.describe(
+    'The amount paid or received, in `currency`. Always positive.',
+  ),
+  type: transactionTypeFilter
     .default('EXPENSE')
     .describe(
       'EXPENSE for money spent (the default), INCOME for money received',
@@ -74,14 +110,12 @@ export const addTransactionShape = {
 export const updateTransactionShape = {
   id: transactionId,
   description: addTransactionShape.description.optional(),
-  amount: z
-    .number()
-    .positive()
+  amount: amount
     .optional()
     .describe(
       "New amount, in the transaction's own currency unless `currency` is also given",
     ),
-  type: z.enum(['EXPENSE', 'INCOME']).optional(),
+  type: transactionTypeFilter.optional(),
   currency: currencyCode.optional(),
   ilsAmount: ilsAmount.optional(),
   date: dayString.optional().describe('New day, YYYY-MM-DD'),
@@ -89,8 +123,3 @@ export const updateTransactionShape = {
 };
 
 export const deleteTransactionShape = { id: transactionId };
-
-export const findTransactionsSchema = z.object(findTransactionsShape);
-export const addTransactionSchema = z.object(addTransactionShape);
-export const updateTransactionSchema = z.object(updateTransactionShape);
-export const deleteTransactionSchema = z.object(deleteTransactionShape);

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerInsightTools } from '@/server/mcp/tools/insightTools';
 import { registerScheduleTools } from '@/server/mcp/tools/scheduleTools';
 import { registerTransactionTools } from '@/server/mcp/tools/transactionTools';
-import type { McpActor } from '@/server/mcp/toolSchemas.types';
+import type { McpActor } from '@/server/mcp/createMcpServer.types';
 
 export const MCP_SERVER_INSTRUCTIONS = [
   "My Expenses is the user's personal expense tracker. Use these tools to answer questions about their spending and income and to record, correct or remove transactions.",
@@ -23,9 +23,9 @@ export function createMcpServer(actor: McpActor): McpServer {
     { instructions: MCP_SERVER_INSTRUCTIONS },
   );
 
-  registerInsightTools(server, actor);
-  registerTransactionTools(server, actor);
-  registerScheduleTools(server, actor);
+  registerInsightTools({ server, actor });
+  registerTransactionTools({ server, actor });
+  registerScheduleTools({ server, actor });
 
   return server;
 }

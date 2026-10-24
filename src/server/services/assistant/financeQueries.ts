@@ -16,6 +16,7 @@ import type {
 } from '@/shared/types/chat';
 import type {
   ComparePeriodsInput,
+  FoundTransactions,
   ResolvedCategory,
   SpendingTrendsInput,
   SummaryResult,
@@ -112,15 +113,7 @@ class FinanceQueryService {
     aggregation: AggregationType;
   }): Promise<SummaryResult> {
     const category = await this.resolveCategory(filters.categoryName);
-    // Field-by-field rather than a spread, so the unresolved categoryName can
-    // never ride along into the resolved shape.
-    const scoped: ResolvedTransactionFilters = {
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      transactionType: filters.transactionType,
-      searchTerm: filters.searchTerm,
-      categoryIds: category?.ids,
-    };
+    const scoped = this.toResolvedFilters({ filters, category });
 
     const result = this.isTotalsAggregation(aggregation)
       ? chatAggregationService.aggregateFromTotals(
@@ -130,6 +123,31 @@ class FinanceQueryService {
       : await this.aggregateRows({ userId, filters: scoped, aggregation });
 
     return this.toSummaryResult(result, category);
+  }
+
+  /**
+   * Reads one row past `limit`, so a caller can say the list is cut short
+   * without a count query.
+   */
+  public async findTransactions({
+    userId,
+    filters,
+    limit,
+  }: {
+    userId: string;
+    filters: TransactionFilterInput;
+    limit: number;
+  }): Promise<FoundTransactions> {
+    const category = await this.resolveCategory(filters.categoryName);
+    const rows = await transactionRepository.getTransactions({
+      ...this.toRepositoryFilters(
+        userId,
+        this.toResolvedFilters({ filters, category }),
+      ),
+      page: 1,
+      perPage: limit + 1,
+    });
+    return { transactions: rows.slice(0, limit), hasMore: rows.length > limit };
   }
 
   public async comparePeriods({
@@ -174,16 +192,13 @@ class FinanceQueryService {
     input: SpendingTrendsInput;
   }): Promise<TrendResult> {
     const category = await this.resolveCategory(input.categoryName);
-    // trendService filters one categoryId exact-match, so only the subtree's
-    // root is passed; expanding trends to the subtree is a separate fix.
-    const categoryId = category?.ids[0];
     const resolvedCategory = category?.name ?? null;
 
     const request = {
       period: input.period,
       ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
       ...(input.endDate ? { endDate: new Date(input.endDate) } : {}),
-      ...(categoryId ? { categoryId } : {}),
+      ...(category ? { categoryIds: category.ids } : {}),
       ...(input.transactionType
         ? { transactionType: input.transactionType }
         : {}),
@@ -271,6 +286,24 @@ class FinanceQueryService {
     return {
       ...result,
       summary: `${result.summary}\n\nNote: computed from the newest ${transactions.length} of ${count} matching transactions — report these figures as partial.`,
+    };
+  }
+
+  // Field-by-field rather than a spread, so the unresolved categoryName can
+  // never ride along into the resolved shape.
+  private toResolvedFilters({
+    filters,
+    category,
+  }: {
+    filters: TransactionFilterInput;
+    category: ResolvedCategory | undefined;
+  }): ResolvedTransactionFilters {
+    return {
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      transactionType: filters.transactionType,
+      searchTerm: filters.searchTerm,
+      categoryIds: category?.ids,
     };
   }
 

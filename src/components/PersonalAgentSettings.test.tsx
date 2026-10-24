@@ -34,6 +34,11 @@ beforeEach(() => {
   vi.mocked(getApiTokens).mockResolvedValue([
     summary({ id: 'agent', name: 'Instinct' }),
     summary({ id: 'script', name: 'MacBook script', scopes: ['IMPORTS'] }),
+    summary({
+      id: 'both',
+      name: 'Imports and agent',
+      scopes: ['IMPORTS', 'AGENT'],
+    }),
   ]);
   vi.mocked(createApiToken).mockResolvedValue({
     ...summary({ id: 'new' }),
@@ -82,6 +87,32 @@ describe('PersonalAgentSettings', () => {
       await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
     ).toBeTruthy();
     expect(screen.queryByText('MacBook script')).toBeNull();
+  });
+
+  it('leaves a token that also drives imports to the API token manager', async () => {
+    renderWithClient(<PersonalAgentSettings />);
+
+    await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' });
+    expect(screen.queryByText('Imports and agent')).toBeNull();
+  });
+
+  it('stops showing the new token once it is revoked', async () => {
+    vi.mocked(getApiTokens).mockResolvedValue([
+      summary({ id: 'new', name: 'Instinct' }),
+    ]);
+    renderWithClient(<PersonalAgentSettings />);
+    fireEvent.click(screen.getByRole('button', { name: 'יצירת גישה לסוכן' }));
+    await screen.findByLabelText('Token');
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'ביטול הגישה' }));
+
+    await waitFor(() => expect(screen.queryByLabelText('Token')).toBeNull());
+    expect(screen.getByLabelText('Briefing').textContent).not.toContain(
+      PLAINTEXT_TOKEN,
+    );
   });
 
   it('revokes an agent token only after confirmation', async () => {

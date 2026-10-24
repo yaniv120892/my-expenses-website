@@ -6,6 +6,7 @@ import type {
   transactionFilterSchema,
   trendOutputSchema,
 } from '@/server/services/assistant/financeQuerySchemas';
+import type { Transaction } from '@/shared/types/transaction';
 
 export type TransactionFilterInput = z.infer<typeof transactionFilterSchema>;
 export type ComparePeriodsInput = z.infer<typeof comparePeriodsSchema>;
@@ -15,3 +16,8 @@ export type TrendResult = z.infer<typeof trendOutputSchema>;
 
 /** A category name resolved to the ids of its whole subtree. */
 export type ResolvedCategory = { ids: string[]; name: string };
+
+export type FoundTransactions = {
+  transactions: Transaction[];
+  hasMore: boolean;
+};

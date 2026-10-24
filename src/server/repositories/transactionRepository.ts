@@ -236,25 +236,17 @@ class TransactionRepository {
 
   public async createTransaction(
     data: CreateTransactionDbModel,
-  ): Promise<string> {
-    const transaction = await this.createTransactionOp(data);
-    return transaction.id;
+  ): Promise<Transaction> {
+    const transaction = await prisma.transaction.create({
+      data: this.toCreateData(data),
+      include: { category: true },
+    });
+    return this.mapToDomain(transaction);
   }
 
   /** Unawaited so the caller can batch it with related writes. */
   public createTransactionOp(data: CreateTransactionDbModel) {
-    return prisma.transaction.create({
-      data: {
-        description: data.description,
-        ...toAmountColumns(data),
-        date: data.date,
-        categoryId: data.categoryId,
-        type: data.type,
-        status: data.status || TransactionStatus.APPROVED,
-        scheduledTransactionId: data.scheduledTransactionId ?? null,
-        userId: data.userId,
-      },
-    });
+    return prisma.transaction.create({ data: this.toCreateData(data) });
   }
 
   /**
@@ -382,11 +374,15 @@ class TransactionRepository {
     id: string,
     data: UpdateTransactionDbModel,
     userId: string,
-  ): Promise<string> {
-    const transaction = await this.updateTransactionOp(id, data, userId).catch(
-      throwNotFoundOnMissingRow,
-    );
-    return transaction.id;
+  ): Promise<Transaction> {
+    const transaction = await prisma.transaction
+      .update({
+        where: { id, userId },
+        data: this.toUpdateData(data),
+        include: { category: true },
+      })
+      .catch(throwNotFoundOnMissingRow);
+    return this.mapToDomain(transaction);
   }
 
   /** Unawaited for batching; a missing row fails as a raw Prisma error, not a 404. */
@@ -397,14 +393,7 @@ class TransactionRepository {
   ) {
     return prisma.transaction.update({
       where: { id, userId },
-      data: {
-        description: data.description,
-        ...(data.amount ? toAmountColumns(data.amount) : {}),
-        date: data.date,
-        categoryId: data.categoryId,
-        type: data.type,
-        status: data.status,
-      },
+      data: this.toUpdateData(data),
     });
   }
 
@@ -499,6 +488,30 @@ class TransactionRepository {
       bankDescriptionPrefix:
         transaction.scheduledTransaction?.bankDescriptionPrefix ?? null,
     }));
+  }
+
+  private toCreateData(data: CreateTransactionDbModel) {
+    return {
+      description: data.description,
+      ...toAmountColumns(data),
+      date: data.date,
+      categoryId: data.categoryId,
+      type: data.type,
+      status: data.status || TransactionStatus.APPROVED,
+      scheduledTransactionId: data.scheduledTransactionId ?? null,
+      userId: data.userId,
+    };
+  }
+
+  private toUpdateData(data: UpdateTransactionDbModel) {
+    return {
+      description: data.description,
+      ...(data.amount ? toAmountColumns(data.amount) : {}),
+      date: data.date,
+      categoryId: data.categoryId,
+      type: data.type,
+      status: data.status,
+    };
   }
 
   private buildAmountWindowWhere(window: MatchWindow) {

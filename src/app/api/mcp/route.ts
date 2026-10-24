@@ -1,6 +1,9 @@
 import { createHandler } from '@/server/http/handler';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
-import { JSON_RPC_ERROR_CODES } from '@/server/http/jsonRpc';
+import {
+  JSON_RPC_ERROR_CODES,
+  jsonRpcErrorResponse,
+} from '@/server/http/jsonRpc';
 import { handleMcpRequest } from '@/server/mcp/handleMcpRequest';
 
 export const runtime = 'nodejs';
@@ -19,25 +22,14 @@ export const POST = createHandler({
 });
 
 // Stateless: there is no server-to-client stream to open and no session to end.
-export async function GET(): Promise<Response> {
-  return statelessMethodNotAllowed();
-}
+export const GET = statelessMethodNotAllowed;
+export const DELETE = statelessMethodNotAllowed;
 
-export async function DELETE(): Promise<Response> {
-  return statelessMethodNotAllowed();
-}
-
-function statelessMethodNotAllowed(): Response {
-  return Response.json(
-    {
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: JSON_RPC_ERROR_CODES.SERVER_ERROR,
-        message:
-          'This MCP server is stateless; send JSON-RPC requests by POST.',
-      },
-    },
-    { status: 405, headers: { allow: 'POST' } },
-  );
+async function statelessMethodNotAllowed(): Promise<Response> {
+  return jsonRpcErrorResponse({
+    status: 405,
+    code: JSON_RPC_ERROR_CODES.SERVER_ERROR,
+    message: 'This MCP server is stateless; send JSON-RPC requests by POST.',
+    headers: { allow: 'POST' },
+  });
 }

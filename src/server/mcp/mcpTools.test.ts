@@ -380,10 +380,7 @@ describe('read tools', () => {
   });
 });
 
-// A transaction keeps its day in UTC fields, a schedule's next run is local
-// midnight: a host west of UTC reads a UTC midnight as the previous day, and a
-// host east of it reads a late-evening transaction or a UTC-formatted local
-// midnight as the wrong day.
+// Each case runs on a host whose offset shifts the day under the wrong formatter.
 describe('dates in tool output', () => {
   it('heads a spending trend with plain days on a host west of UTC', async () => {
     vi.stubEnv('TZ', 'America/Los_Angeles');

@@ -205,6 +205,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   its conversion. A payload with only `value` is ILS, as before currencies.
   Rows predating the feature were backfilled as ILS by migration
   `20261008000000_transaction_currency`. Scheduled transactions are ILS-only.
+  Every amount a request carries is strictly positive, a blank field included
+  (`positiveAmountSchema`, `src/shared/schemas/amount.ts`); the transaction
+  type carries the direction.
 - **An imported row's billed ILS is its conversion.** The extraction service
   reports each row's `originalAmount`/`originalCurrency` and
   `chargedAmount`/`chargedCurrency` (additive to `value`), and

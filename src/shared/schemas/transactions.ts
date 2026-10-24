@@ -1,14 +1,15 @@
 import { z } from 'zod';
 import { transactionStatusSchema, transactionTypeSchema } from './common';
 import { currencyCodeSchema } from '@/shared/currency';
+import { positiveAmountSchema } from './amount';
 
 // `value` alone is an ILS amount, as before currencies existed. A foreign
 // amount is `originalAmount` + `currency`, with `value` (the ILS charged) or
 // `exchangeRate` when the caller knows it.
 const transactionAmountFields = {
-  value: z.coerce.number().optional(),
+  value: positiveAmountSchema.optional(),
   currency: currencyCodeSchema.optional(),
-  originalAmount: z.coerce.number().positive().optional(),
+  originalAmount: positiveAmountSchema.optional(),
   exchangeRate: z.coerce.number().positive().optional(),
 };
 

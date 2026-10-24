@@ -23,9 +23,9 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 // bodiless 504 instead of a 503 naming what broke.
 const PROBE_TIMEOUT_MS = 5000;
 
-// Every probe wakes Neon's compute, so a caller polling this route must not be
-// able to keep it awake: within the window every call on this instance gets the
-// last outcome, failures included. See README "Do not lower the deep interval".
+// Every probe wakes a scale-to-zero database, so the route is public but its
+// probes are not: within the window every call on this instance gets the last
+// outcome, failures included. See README "Do not lower the deep interval".
 const RESULT_TTL_MS = 60_000;
 
 let cached: { result: DeepHealth; expiresAt: number } | undefined;
@@ -42,10 +42,16 @@ async function currentHealth(): Promise<DeepHealth> {
   if (cached && Date.now() < cached.expiresAt) {
     return cached.result;
   }
-  inFlight ??= checkDependencies().finally(() => {
-    inFlight = undefined;
-  });
+  inFlight ??= runSharedCheck();
   return inFlight;
+}
+
+async function runSharedCheck(): Promise<DeepHealth> {
+  try {
+    return await checkDependencies();
+  } finally {
+    inFlight = undefined;
+  }
 }
 
 async function checkDependencies(): Promise<DeepHealth> {

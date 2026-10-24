@@ -5,6 +5,7 @@ import {
   addYears,
   setDay,
   setDate,
+  getDaysInMonth,
   isAfter,
   startOfDay,
 } from 'date-fns';
@@ -22,27 +23,30 @@ export function calculateNextRunDate(
     case 'DAILY':
       return startOfDay(addDays(fromDate, intervalValue));
     case 'WEEKLY': {
-      const baseDate = addWeeks(fromDate, intervalValue);
-      if (dayOfWeek !== undefined) {
-        const zeroBasedDayOfWeek = dayOfWeek - 1;
-        let next = setDay(baseDate, zeroBasedDayOfWeek, { weekStartsOn: 0 });
-        if (!isAfter(next, fromDate)) {
-          next = addWeeks(next, 1);
-        }
-        return startOfDay(next);
+      if (dayOfWeek === undefined) {
+        return startOfDay(addWeeks(fromDate, intervalValue));
       }
-      return startOfDay(baseDate);
+      const zeroBasedDayOfWeek = dayOfWeek - 1;
+      const thisWeek = setDay(fromDate, zeroBasedDayOfWeek, {
+        weekStartsOn: 0,
+      });
+      return startOfDay(
+        isAfter(thisWeek, fromDate)
+          ? thisWeek
+          : addWeeks(thisWeek, intervalValue),
+      );
     }
     case 'MONTHLY': {
-      if (dayOfMonth !== undefined) {
-        const currentMonthDate = setDate(new Date(fromDate), dayOfMonth);
-        if (isAfter(currentMonthDate, fromDate)) {
-          return startOfDay(currentMonthDate);
-        }
-        const nextMonth = addMonths(fromDate, intervalValue);
-        return startOfDay(setDate(nextMonth, dayOfMonth));
+      if (dayOfMonth === undefined) {
+        return startOfDay(addMonths(fromDate, intervalValue));
       }
-      return startOfDay(addMonths(fromDate, intervalValue));
+      const thisMonth = onDayOfMonth(fromDate, dayOfMonth);
+      if (isAfter(thisMonth, fromDate)) {
+        return startOfDay(thisMonth);
+      }
+      return startOfDay(
+        onDayOfMonth(addMonths(fromDate, intervalValue), dayOfMonth),
+      );
     }
     case 'YEARLY':
       return startOfDay(addYears(fromDate, intervalValue));
@@ -51,4 +55,10 @@ export function calculateNextRunDate(
     default:
       return startOfDay(addDays(fromDate, 1));
   }
+}
+
+// A day past the month's end falls on its last day, so a schedule for the 31st
+// runs on February 28th rather than skipping February for March 3rd.
+function onDayOfMonth(date: Date, dayOfMonth: number): Date {
+  return setDate(date, Math.min(dayOfMonth, getDaysInMonth(date)));
 }

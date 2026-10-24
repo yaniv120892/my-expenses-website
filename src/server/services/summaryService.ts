@@ -4,6 +4,7 @@ import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
+import { TransactionType } from '@/generated/prisma/client';
 import {
   formatSummaryMessage,
   SummaryTransaction,
@@ -66,6 +67,7 @@ class SummaryService {
     return transactionService.getAllTransactions({
       startDate: today,
       endDate: today,
+      transactionType: TransactionType.EXPENSE,
       userId,
     });
   }

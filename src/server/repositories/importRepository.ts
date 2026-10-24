@@ -15,6 +15,8 @@ export type ImportWithPendingCount = Import & {
   mergedInto: { originalFileName: string } | null;
 };
 
+type StuckImportSweep = { importIds: string[]; failedCount: number };
+
 const listItemInclude = {
   _count: {
     select: {
@@ -144,6 +146,38 @@ export class ImportRepository {
       data: { status: ImportStatus.FAILED, error },
     });
     return failed.count > 0;
+  }
+
+  /**
+   * The write is scoped to PROCESSING again, so a callback that completes or
+   * merges an import between the read and the write keeps its status. It claims
+   * the extraction too, so a callback signed moments before the cutoff is a
+   * no-op rather than rows written into a FAILED import.
+   */
+  public async failStuckProcessing(
+    createdBefore: Date,
+    error: string,
+  ): Promise<StuckImportSweep> {
+    const stuck = await prisma.import.findMany({
+      where: {
+        status: ImportStatus.PROCESSING,
+        createdAt: { lt: createdBefore },
+      },
+      select: { id: true },
+    });
+    const importIds = stuck.map((stuckImport) => stuckImport.id);
+    if (importIds.length === 0) {
+      return { importIds, failedCount: 0 };
+    }
+    const failed = await prisma.import.updateMany({
+      where: { id: { in: importIds }, status: ImportStatus.PROCESSING },
+      data: {
+        status: ImportStatus.FAILED,
+        error,
+        extractionCompletedAt: new Date(),
+      },
+    });
+    return { importIds, failedCount: failed.count };
   }
 
   public async updateStatus(

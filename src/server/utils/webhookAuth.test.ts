@@ -65,8 +65,14 @@ describe('verifyWebhookToken', () => {
     expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(true);
   });
 
-  it('accepts a token near the expiry boundary', () => {
-    const timestamp = Date.now() - 60 * 60 * 1000 + 5000;
+  it('accepts a token five hours old, as a slow extraction delivers it', () => {
+    const timestamp = Date.now() - 5 * 60 * 60 * 1000;
+    const token = sign('user-1', timestamp);
+    expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(true);
+  });
+
+  it('accepts a token near the six-hour expiry boundary', () => {
+    const timestamp = Date.now() - 6 * 60 * 60 * 1000 + 5000;
     const token = sign('user-1', timestamp);
     expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(true);
   });
@@ -82,8 +88,8 @@ describe('verifyWebhookToken', () => {
     expect(verifyWebhookToken('short-token', 'user-1', timestamp)).toBe(false);
   });
 
-  it('rejects an expired timestamp', () => {
-    const timestamp = Date.now() - 60 * 60 * 1000 - 1000;
+  it('rejects a timestamp past the six-hour expiry', () => {
+    const timestamp = Date.now() - 6 * 60 * 60 * 1000 - 1000;
     const token = sign('user-1', timestamp);
     expect(verifyWebhookToken(token, 'user-1', timestamp)).toBe(false);
   });

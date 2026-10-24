@@ -17,10 +17,13 @@ import { secretsEqual } from '@/server/utils/webhookAuth';
 
 const MAX_CODE_ATTEMPTS = 5;
 const CODE_TTL_SECONDS = 600;
-// Each signup gets its own code, so a stranger signing up with the same address
-// cannot replace the code the owner was mailed; capped because every live code
-// shares the one attempts counter.
+// Each signup gets its own code, so one stranger's signup does not void the code
+// the owner was mailed; capped because every live code shares one attempts
+// counter.
 const MAX_PENDING_CODES = 3;
+// Not a bcrypt hash, so compare() never matches it: a pending account has no
+// password until a code is verified.
+const UNUSABLE_PASSWORD = '!unverified';
 const VERIFICATION_CODE_SENT =
   'Verification code sent to email. Code is valid for 10 minutes.';
 
@@ -33,14 +36,10 @@ function loginCodeKey(email: string): string {
 // before codes carried one and verifies without changing the password.
 const pendingCodeSchema = z.object({
   code: z.string(),
-  passwordHash: z.string(),
+  passwordHash: z.string().nullable(),
   expiresAt: z.number(),
 });
-type PendingCode = {
-  code: string;
-  passwordHash: string | null;
-  expiresAt: number;
-};
+type PendingCode = z.infer<typeof pendingCodeSchema>;
 const storedCodesSchema = z.union([
   z.array(pendingCodeSchema),
   z
@@ -76,16 +75,10 @@ class AuthService {
       }
       return { error: 'User already exists' };
     }
-    // The account holds no usable password until a code is verified, so a
-    // signup for someone else's address fixes nothing.
-    const unusablePassword = await hash(
-      crypto.randomBytes(32).toString('hex'),
-      10,
-    );
     const user = await userRepository.createUser(
       email,
       username,
-      unusablePassword,
+      UNUSABLE_PASSWORD,
     );
     await announcementService.acknowledgeAllForNewUser(user.id);
     return this.issueVerificationCode(email, password, websiteUrl);
@@ -111,7 +104,8 @@ class AuthService {
       CODE_TTL_SECONDS,
       'branch',
     );
-    await deleteValue(loginCodeAttemptsKey(email), 'branch');
+    // The attempts counter is left alone: anyone can sign up for a pending
+    // address, so a reset here would let a guesser lift its own cap.
     await this.sendCodeByEmail(email, code, websiteUrl);
     return { message: VERIFICATION_CODE_SENT };
   }
@@ -144,7 +138,7 @@ class AuthService {
       'branch',
     );
     if (attempts > MAX_CODE_ATTEMPTS) {
-      return { error: 'Too many attempts. Please request a new code.' };
+      return { error: 'Too many attempts. Please try again in 10 minutes.' };
     }
 
     const matchedCode = (await this.readPendingCodes(email)).find((pending) =>
@@ -156,6 +150,12 @@ class AuthService {
     const user = await userRepository.findByEmail(email);
     if (!user) {
       return { error: 'User not found' };
+    }
+    // A signup racing the owner's verify can store a code after it; that code
+    // must never reset a verified account's password.
+    if (user.verified) {
+      await deleteValue(loginCodeKey(email), 'branch');
+      return { error: 'Invalid or expired code' };
     }
     await userRepository.verifyUser(email, matchedCode.passwordHash);
     const token = await signToken(user.id);

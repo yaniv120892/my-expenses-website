@@ -99,7 +99,7 @@ describe('verifyLoginCode', () => {
     const result = await authService.verifyLoginCode(EMAIL, '000000');
 
     expect(result).toEqual({
-      error: 'Too many attempts. Please request a new code.',
+      error: 'Too many attempts. Please try again in 10 minutes.',
     });
     expect(redis.deleteValue).not.toHaveBeenCalledWith(`loginCode:${EMAIL}`);
   });
@@ -132,8 +132,9 @@ describe('signupUser', () => {
       600,
       'branch',
     );
-    // The lockout has to lift too, or the fresh code is unusable.
-    expect(redis.deleteValue).toHaveBeenCalledWith(
+    // Anyone may sign up for a pending address, so a signup must not lift the
+    // guess cap.
+    expect(redis.deleteValue).not.toHaveBeenCalledWith(
       `loginCodeAttempts:${EMAIL}`,
       'branch',
     );
@@ -236,6 +237,20 @@ describe('signup squatting', () => {
     const second = await authService.signupUser(EMAIL, 'b', PASSWORD);
 
     expect(second).toEqual(first);
+  });
+
+  it('never lets a code reset a verified account’s password', async () => {
+    await authService.signupUser(EMAIL, 'squatter', SQUATTER_PASSWORD);
+    users.findByEmail.mockResolvedValue({
+      id: 'user-1',
+      email: EMAIL,
+      verified: true,
+    });
+
+    expect(await authService.verifyLoginCode(EMAIL, mailedCode(0))).toEqual({
+      error: 'Invalid or expired code',
+    });
+    expect(users.verifyUser).not.toHaveBeenCalled();
   });
 
   it('spends the code once verified', async () => {

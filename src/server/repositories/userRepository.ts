@@ -72,9 +72,7 @@ class UserRepository {
   ): Promise<User> {
     return prisma.user.update({
       where: { email },
-      data: passwordHash
-        ? { verified: true, password: passwordHash }
-        : { verified: true },
+      data: { verified: true, password: passwordHash ?? undefined },
     });
   }
 

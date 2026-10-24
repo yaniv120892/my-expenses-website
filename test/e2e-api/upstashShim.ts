@@ -62,6 +62,21 @@ function runCommand(command: unknown[]): unknown {
   }
 }
 
+// The client asks for base64 results and decodes every string it gets back, as
+// the real service sends them; a plain string would reach the app as garbage.
+function encodeResult(result: unknown, base64: boolean): unknown {
+  if (!base64) {
+    return result;
+  }
+  if (typeof result === 'string') {
+    return Buffer.from(result).toString('base64');
+  }
+  if (Array.isArray(result)) {
+    return result.map((item) => encodeResult(item, base64));
+  }
+  return result;
+}
+
 export function startUpstashShim(port: number): Promise<http.Server> {
   const server = http.createServer((req, res) => {
     let raw = '';
@@ -91,6 +106,8 @@ export function startUpstashShim(port: number): Promise<http.Server> {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
+      const base64 =
+        String(req.headers['upstash-encoding']).toLowerCase() === 'base64';
 
       // The client auto-pipelines: several commands arrive as an array of
       // arrays and it expects an array of results back, one per command.
@@ -99,13 +116,15 @@ export function startUpstashShim(port: number): Promise<http.Server> {
 
       if (isPipeline) {
         const results = (command as unknown[][]).map((c) => ({
-          result: runCommand(c),
+          result: encodeResult(runCommand(c), base64),
         }));
         res.end(JSON.stringify(results));
         return;
       }
 
-      res.end(JSON.stringify({ result: runCommand(command) }));
+      res.end(
+        JSON.stringify({ result: encodeResult(runCommand(command), base64) }),
+      );
     });
   });
 

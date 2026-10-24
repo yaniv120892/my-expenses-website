@@ -5,6 +5,7 @@ import {
   TotalsAggregationType,
 } from '@/shared/types/chat';
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
+import { toUtcDayString } from '@/shared/dates';
 
 export interface ComparisonPeriodTotals {
   label: string;
@@ -254,7 +255,7 @@ class ChatAggregationService {
   }
 
   private formatDate(date: Date): string {
-    return new Date(date).toISOString().split('T')[0];
+    return toUtcDayString(new Date(date));
   }
 }
 

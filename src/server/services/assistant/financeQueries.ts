@@ -4,6 +4,7 @@ import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { formatCurrencyPlain } from '@/utils/format';
+import { toUtcDayString } from '@/shared/dates';
 import { collectCategorySubtree } from '@/server/utils/categoryHierarchy';
 import type {
   Transaction,
@@ -230,7 +231,7 @@ class FinanceQueryService {
 
     return {
       summary: [
-        `Spending trend (${trend.period}) from ${trend.startDate} to ${trend.endDate}:`,
+        `Spending trend (${trend.period}) from ${toUtcDayString(new Date(trend.startDate))} to ${toUtcDayString(new Date(trend.endDate))}:`,
         ...points,
         `\nTotal: ${formatCurrencyPlain(trend.totalAmount)}`,
         `Change vs previous period: ${chatAggregationService.formatPercentChange(trend.percentageChange)} (trending ${trend.trend})`,

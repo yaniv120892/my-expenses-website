@@ -52,6 +52,7 @@ vi.mock('@/server/logging/logger', () => ({ default: logger }));
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { HttpError } from '@/server/http/errors';
 import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
+import { setHostTimeZone } from '@/test/hostTimeZone';
 
 const USER_ID = 'user-1';
 const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
@@ -377,6 +378,78 @@ describe('read tools', () => {
       scheduledTransactionService.listScheduledTransactions,
     ).toHaveBeenCalledWith(USER_ID);
   });
+});
+
+// Stored dates keep their day in UTC fields; a host west of UTC reads a
+// midnight as the previous day, a host east of it reads a late evening as the
+// next one.
+describe('dates in tool output', () => {
+  const HOST_TIME_ZONES = ['America/Los_Angeles', 'Asia/Jerusalem'];
+
+  it.each(HOST_TIME_ZONES)(
+    'heads a spending trend with plain days on a %s host',
+    async (timeZone) => {
+      setHostTimeZone(timeZone);
+
+      const outcome = await call({
+        client,
+        name: 'get_spending_trends',
+        toolArguments: {
+          period: 'monthly',
+          startDate: '2026-07-01',
+          endDate: '2026-10-24',
+        },
+      });
+
+      expect(outcome.text).toContain(
+        'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
+      );
+    },
+  );
+
+  it.each([
+    ['America/Los_Angeles', '2026-10-20T00:00:00Z'],
+    ['Asia/Jerusalem', '2026-10-20T23:30:00Z'],
+  ])(
+    'lists a transaction under its stored day on a %s host',
+    async (timeZone, storedDate) => {
+      setHostTimeZone(timeZone);
+      transactionRepository.getTransactions.mockResolvedValue([
+        transaction({ date: new Date(storedDate) }),
+      ]);
+
+      const outcome = await call({ client, name: 'find_transactions' });
+
+      expect(outcome.text).toContain(`id ${TRANSACTION_ID} | 2026-10-20 |`);
+    },
+  );
+
+  it.each(HOST_TIME_ZONES)(
+    "names a schedule's next run day on a %s host",
+    async (timeZone) => {
+      setHostTimeZone(timeZone);
+      scheduledTransactionService.listScheduledTransactions.mockResolvedValue([
+        {
+          id: 's-1',
+          description: 'Rent',
+          value: 5000,
+          type: 'EXPENSE',
+          categoryId: 'c-rent',
+          scheduleType: 'MONTHLY',
+          dayOfMonth: 1,
+          nextRunDate: new Date('2026-11-01T00:00:00Z'),
+          userId: USER_ID,
+        },
+      ]);
+
+      const outcome = await call({
+        client,
+        name: 'list_scheduled_transactions',
+      });
+
+      expect(outcome.text).toContain('next 2026-11-01');
+    },
+  );
 });
 
 describe('add_transaction', () => {

@@ -131,6 +131,21 @@ export class ImportRepository {
     });
   }
 
+  /**
+   * Conditional, so a crash after this import was merged away or completed
+   * leaves that status alone rather than overwriting it with FAILED.
+   */
+  public async markFailedIfProcessing(
+    id: string,
+    error: string,
+  ): Promise<boolean> {
+    const failed = await prisma.import.updateMany({
+      where: { id, status: ImportStatus.PROCESSING },
+      data: { status: ImportStatus.FAILED, error },
+    });
+    return failed.count > 0;
+  }
+
   public async updateStatus(
     id: string,
     status: ImportStatus,

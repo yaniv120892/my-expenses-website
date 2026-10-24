@@ -254,11 +254,16 @@ export async function processExcelExtractionWebhook(
 
 async function markImportFailedSafe(importId: string): Promise<void> {
   try {
-    await importRepository.updateStatus(
+    const failed = await importRepository.markFailedIfProcessing(
       importId,
-      ImportStatus.FAILED,
       'Processing the extraction result failed',
     );
+    if (!failed) {
+      logger.warn(
+        { importId },
+        'Webhook failed after the import left PROCESSING; keeping its status',
+      );
+    }
   } catch (err) {
     reportSwallowedError({ err, importId }, 'Failed to mark import as failed');
   }

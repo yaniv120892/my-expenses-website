@@ -20,6 +20,7 @@ const {
     findById: vi.fn(),
     updateStatus: vi.fn(),
     create: vi.fn(),
+    softDeleteOp: vi.fn(),
   },
   importedTxRepo: {
     findById: vi.fn(),
@@ -28,6 +29,7 @@ const {
     findPendingByImportId: vi.fn(),
     findPendingByIds: vi.fn(),
     findClaimedMatchingTransactionIds: vi.fn(),
+    softDeleteByImportIdOp: vi.fn(),
     updateStatusBatch: vi.fn(),
     updateStatus: vi.fn(),
   },
@@ -1069,6 +1071,32 @@ describe('a batch applies the rows it already loaded', () => {
     );
   });
 
+  it('learns a merge category under the statement description, not the hand-logged one', async () => {
+    importedTxRepo.findById.mockResolvedValue(
+      loadedRow({
+        id: 'r1',
+        deleted: false,
+        description: 'AROMA TLV',
+        matchingTransactionId: 'tx-1',
+        matchingTransaction: { ...pendingMatch, description: 'coffee' },
+      }),
+    );
+
+    await importService.mergeImportedTransaction('r1', 'user-1', {
+      description: 'AROMA TLV',
+      value: 12.5,
+      date: new Date(2026, 2, 7),
+      type: 'EXPENSE',
+      categoryId: 'cat-2',
+    });
+
+    expect(txService.learnCategoryMappingSafe).toHaveBeenCalledWith(
+      { description: 'AROMA TLV', categoryId: 'cat-1' },
+      'cat-2',
+      'user-1',
+    );
+  });
+
   it('creates for an unmatched row and marks it approved', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([
       loadedRow({ id: 'r1' }),
@@ -1209,6 +1237,25 @@ describe('single-row approve, merge and ignore', () => {
 
     await expect(ignore()).rejects.toMatchObject({ status: 409 });
     expect(importedTxRepo.updateStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('deleteImport', () => {
+  it('deletes the rows with the import in one batch, so none stays approvable', async () => {
+    importRepo.softDeleteOp.mockReturnValue({ op: 'deleteImport' });
+    importedTxRepo.softDeleteByImportIdOp.mockReturnValue({ op: 'deleteRows' });
+
+    await importService.deleteImport('imp-1', 'user-1');
+
+    expect(importRepo.softDeleteOp).toHaveBeenCalledWith('imp-1', 'user-1');
+    expect(importedTxRepo.softDeleteByImportIdOp).toHaveBeenCalledWith(
+      'imp-1',
+      'user-1',
+    );
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      { op: 'deleteImport' },
+      { op: 'deleteRows' },
+    ]);
   });
 });
 

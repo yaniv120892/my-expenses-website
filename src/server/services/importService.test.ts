@@ -1091,8 +1091,11 @@ describe('a batch applies the rows it already loaded', () => {
     });
 
     expect(txService.learnCategoryMappingSafe).toHaveBeenCalledWith(
-      { description: 'AROMA TLV', categoryId: 'cat-1' },
-      'cat-2',
+      {
+        description: 'AROMA TLV',
+        previousCategoryId: 'cat-1',
+        categoryId: 'cat-2',
+      },
       'user-1',
     );
   });

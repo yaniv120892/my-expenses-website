@@ -45,6 +45,12 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
+type CategoryMappingChange = {
+  description: string;
+  previousCategoryId: string;
+  categoryId: string;
+};
+
 export interface TransactionFileView {
   id: string;
   fileName: string;
@@ -249,10 +255,10 @@ class TransactionService {
     );
     await this.learnCategoryMappingSafe(
       {
-        description: existing.description,
-        categoryId: existing.category.id,
+        description: data.description,
+        previousCategoryId: existing.category.id,
+        categoryId: data.categoryId,
       },
-      data.categoryId,
       userId,
     );
     return transactionRepository.updateTransaction(
@@ -268,23 +274,26 @@ class TransactionService {
     );
   }
 
+  /**
+   * Keyed on the description the charge carries after the change, so a rename
+   * made with the recategorisation teaches the new name, never the old one.
+   */
   public async learnCategoryMappingSafe(
-    charge: { description: string; categoryId: string },
-    categoryId: string,
+    change: CategoryMappingChange,
     userId: string,
   ): Promise<void> {
-    if (charge.categoryId === categoryId) {
+    if (change.previousCategoryId === change.categoryId) {
       return;
     }
     try {
-      const normalizedDescription = charge.description.toLowerCase().trim();
+      const descriptionPattern = this.toDescriptionPattern(change.description);
       await userCategoryMappingRepository.upsert(
         userId,
-        normalizedDescription,
-        categoryId,
+        descriptionPattern,
+        change.categoryId,
       );
       logger.debug(
-        `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
+        `Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`,
       );
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
@@ -431,7 +440,7 @@ class TransactionService {
       const mapping =
         await userCategoryMappingRepository.findByUserAndDescription(
           userId,
-          description.toLowerCase().trim(),
+          this.toDescriptionPattern(description),
         );
       const mappedCategory = mapping
         ? categories.find((c) => c.id === mapping.categoryId)
@@ -548,6 +557,10 @@ class TransactionService {
       throw new HttpError(404, 'File not found');
     }
     return file;
+  }
+
+  private toDescriptionPattern(description: string): string {
+    return description.toLowerCase().trim();
   }
 }
 

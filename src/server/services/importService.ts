@@ -387,9 +387,9 @@ class ImportService {
       await transactionService.learnCategoryMappingSafe(
         {
           description: record.description,
-          categoryId: matchingTransaction.categoryId,
+          previousCategoryId: matchingTransaction.categoryId,
+          categoryId: transactionData.categoryId,
         },
-        transactionData.categoryId,
         userId,
       );
     }

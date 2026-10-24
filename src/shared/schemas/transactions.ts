@@ -95,5 +95,5 @@ export const attachFileSchema = z.object({
 export const getPresignedUploadUrlSchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
-  fileSize: z.number().int().positive(),
+  fileSize: z.number().int().nonnegative(),
 });

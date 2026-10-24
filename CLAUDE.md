@@ -103,6 +103,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 - `src/shared/` — code both routes and client import: zod request schemas
   (`schemas/`, with inferred types), domain types (`types/`), and cross-cutting
   constants and pure helpers (`dates.ts`, `csv.ts`, `periodBuckets.ts`).
+  `uploadLimits.ts` is the one file-size cap (4 MB, under a function's ~4.5 MB
+  request body) that every upload path checks, client before any bytes move
+  and server with a 413; an attachment's declared size is signed into its
+  presigned upload URL, so the store holds the bytes to it.
 - `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
   `src/services/` (thin axios client, SSE chat client), `src/utils/` (pure
   helpers — components and hooks import from here, never the reverse),

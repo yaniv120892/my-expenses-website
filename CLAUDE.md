@@ -238,14 +238,21 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   non-duplicate rows there, puts the survivor in `REMATCHING`, and marks the
   duplicate `MERGED` with `mergedIntoImportId`; the survivor returns to
   `COMPLETED` only after `findPotentialMatchesForImport` has run over it. So
-  `COMPLETED` always means "every row's match is decided", the web UI and
+  `COMPLETED` means "no matching is running", the web UI and
   `scripts/import-statements.ts` both wait on that status rather than racing
   it, and the script follows the recorded pointer (`GET /api/imports/[id]`)
   instead of reconstructing the survivor from the filename. A `MERGED` import
   holds no rows and never becomes a merge target (`findExisting` requires
-  `COMPLETED`). The submitted payment month wins over the one extraction
-  reports, since card + month is the duplicate key. That key is compared as
-  stored, so every write stores the month as `MM/YYYY` through
+  `COMPLETED`). Every exit from `REMATCHING`, success or failure, is back to
+  `COMPLETED`, written only while the status is still `REMATCHING`
+  (`importRepository.transitionStatus`); only a function killed mid-run can
+  leave an import there. A re-match (`rematchImport`) enters it the same way
+  from `COMPLETED`, so of two concurrent calls one gets 409, and reads its rows
+  only after; a failed one leaves the rows it had not reached unmatched for a
+  retry. A webhook that fails after its merge committed releases the survivor
+  its `MERGED` import points to. The submitted payment month wins over the one
+  extraction reports, since card + month is the duplicate key. That key is
+  compared as stored, so every write stores the month as `MM/YYYY` through
   `normalizePaymentMonth` (`src/shared/paymentMonth.ts`): an upload with any other
   month is a 400 (the upload form checks first, before any bytes move), and the
   webhook reads both the submitted and the extracted month through it, ignoring

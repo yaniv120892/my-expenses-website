@@ -7,6 +7,7 @@ import {
   ImportedTransactionStatus,
 } from '@/generated/prisma/client';
 import logger from '@/server/logging/logger';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import { getErrorMessage } from '@/server/utils/errorUtils';
 import {
   importRepository,
@@ -116,6 +117,9 @@ function assertUploadedImportUrl(fileUrl: string): void {
     throw new HttpError(400, 'fileUrl must point to an uploaded import file');
   }
 }
+
+const REMATCH_REQUIRES_COMPLETED_ERROR =
+  'Import must be in COMPLETED status to re-match';
 
 class ImportService {
   private getAiProvider = lazy(() => AIServiceFactory.getAIService());
@@ -741,12 +745,35 @@ class ImportService {
     }
 
     if (importRecord.status !== ImportStatus.COMPLETED) {
-      throw new HttpError(
-        409,
-        'Import must be in COMPLETED status to re-match',
-      );
+      throw new HttpError(409, REMATCH_REQUIRES_COMPLETED_ERROR);
     }
 
+    // Claimed before the rows are read, so rows a merge moved in before the
+    // claim are in the snapshot rather than cleared and never re-matched.
+    const claimed = await importRepository.transitionStatus(
+      importId,
+      ImportStatus.COMPLETED,
+      ImportStatus.REMATCHING,
+    );
+    if (!claimed) {
+      throw new HttpError(409, REMATCH_REQUIRES_COMPLETED_ERROR);
+    }
+
+    // Back to COMPLETED on failure too: the rows a failed run left unmatched
+    // are still PENDING, and COMPLETED is the status a retry needs.
+    try {
+      await this.rematchClaimedImport(importId, userId);
+    } catch (error) {
+      await this.releaseRematchSafe(importId);
+      throw error;
+    }
+    await this.releaseRematch(importId);
+  }
+
+  private async rematchClaimedImport(
+    importId: string,
+    userId: string,
+  ): Promise<void> {
     const allTransactions =
       await importedTransactionRepository.findByUserIdAndImportId(
         userId,
@@ -761,29 +788,42 @@ class ImportService {
       throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
-    await importRepository.updateStatus(importId, ImportStatus.REMATCHING);
+    await this.rematchPendingTransactions(
+      importId,
+      userId,
+      allTransactions,
+      pendingTransactions,
+    );
 
+    logger.info(
+      { importId, pendingCount: pendingTransactions.length },
+      'Completed re-matching import',
+    );
+  }
+
+  private async releaseRematch(importId: string): Promise<void> {
+    const released = await importRepository.transitionStatus(
+      importId,
+      ImportStatus.REMATCHING,
+      ImportStatus.COMPLETED,
+    );
+    if (!released) {
+      logger.warn(
+        { importId },
+        'Re-match finished after another writer moved the import out of REMATCHING',
+      );
+    }
+  }
+
+  /** Never replaces the re-match's own error with the release's. */
+  private async releaseRematchSafe(importId: string): Promise<void> {
     try {
-      await this.rematchPendingTransactions(
-        importId,
-        userId,
-        allTransactions,
-        pendingTransactions,
+      await this.releaseRematch(importId);
+    } catch (err) {
+      reportSwallowedError(
+        { err, importId },
+        'Failed to return a failed re-match to COMPLETED',
       );
-
-      await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
-
-      logger.info(
-        { importId, pendingCount: pendingTransactions.length },
-        'Completed re-matching import',
-      );
-    } catch (error) {
-      await importRepository.updateStatus(
-        importId,
-        ImportStatus.FAILED,
-        getErrorMessage(error, 'Re-match failed'),
-      );
-      throw error;
     }
   }
 

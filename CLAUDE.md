@@ -79,7 +79,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   request. Every error it maps to a 5xx is also reported to Sentry and alerted
   to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/mcp` (the personal
   agent's MCP server; below), `/api/webhook`
-  (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
+  (Telegram, secret-token header; the bot only sends, except that
+  `/start <code>` binds the chat it arrives from to the user who issued the
+  code — see the Telegram invariant below), `/api/excel-extraction-agent/webhook`
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
   `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
@@ -109,9 +111,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `src/test/` (test-only render helpers), `src/theme/` (MUI CSS-vars theme,
   light+dark, `palette.charts` for recharts colors).
 - Server state that changes without the client acting — extraction webhooks
-  are the only case today — is observed by polling: `useImportsQuery` sets a
-  `refetchInterval` while any import is in flight and `false` otherwise (see
-  `src/utils/importStatus.ts`), overriding the global 60s `staleTime`.
+  and a Telegram chat being linked — is observed by polling: `useImportsQuery`
+  sets a `refetchInterval` while any import is in flight and `false` otherwise
+  (see `src/utils/importStatus.ts`), overriding the global 60s `staleTime`;
+  `useUserSettingsQuery` does the same while a link code is out.
 - `src/proxy.ts` — page-level auth (verifies the `session` cookie JWT,
   redirects), plus an Origin check on non-GET `/api/*`.
 - `next.config.ts` — security response headers on every route via `headers()`
@@ -307,9 +310,22 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   database. Only production is bare; everything else, an unconfigured local
   process included, is namespaced. Preview caches key on the commit
   (`preview:<sha>:`) so a fix is never served a buggy commit's value; sessions
-  and login codes pass `'branch'` (`preview:<branch>:`) to survive pushes.
+  and login and Telegram link codes pass `'branch'` (`preview:<branch>:`) to
+  survive pushes.
   Superseded namespaces expire by TTL, except a counter killed between
   INCR and EXPIRE, which has none.
+- **A Telegram chat is linked only by the bot hearing from it.** No request
+  names a chat id: the settings PUT schema has no provider field (an older
+  client's `provider.telegramChatId` is stripped), GET reports only
+  `telegramLinked`, and the test send goes to the linked chat. Settings →
+  Telegram asks `POST /api/user/settings/telegram-link` for a random code
+  (Redis `telegramLinkCode:<code>` → user id, 10 minutes) and shows
+  `/start <code>`, plus a `t.me` deep link when `TELEGRAM_BOT_USERNAME` is set.
+  The webhook takes the code with one GETDEL (`takeValue`), so it binds at most
+  once, writes `{ chatId }` to the user's `UserNotificationProvider` through
+  `userRepository.setTelegramChat` — its one writer — and replies in the chat;
+  an unknown, expired or used code binds nothing and gets the same neutral
+  reply. `DELETE` on the same route unlinks.
 - **Prisma**: schema + migrations in `prisma/`; the schema names no URL —
   `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
   `prisma generate` writes the client to `src/generated/prisma` (gitignored;

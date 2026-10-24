@@ -124,8 +124,10 @@ the error message. Set `TELEGRAM_ALERT_CHAT_ID` (alongside
 `TELEGRAM_BOT_TOKEN`) to turn it on; leave it unset and alerting is silently
 off, which is how local development and CI run. Get the chat id by messaging
 the bot and reading `result[].message.chat.id` from
-`https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates`, then confirm it
-with `POST /api/user/settings/test-telegram`.
+`https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates` (which answers
+only while no webhook is registered), then confirm it with the Bot API's own
+`sendMessage`. The app's `POST /api/user/settings/test-telegram` sends only to
+the caller's linked chat, never to an id in the request.
 
 The chat is deliberately separate from user notifications, and the send goes
 straight to `telegramService` rather than through the per-user notifier — an

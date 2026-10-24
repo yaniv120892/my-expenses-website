@@ -100,6 +100,9 @@ export async function seed(): Promise<SeedResult> {
     await prisma.import.deleteMany({});
     await prisma.transaction.deleteMany({});
     await prisma.category.deleteMany({});
+    // Saving settings or linking Telegram during a run leaves these behind.
+    await prisma.userNotificationPreference.deleteMany({});
+    await prisma.userNotificationProvider.deleteMany({});
     await prisma.user.deleteMany({});
 
     const groceries = await prisma.category.create({

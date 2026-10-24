@@ -6,6 +6,7 @@ const commands = {
   set: vi.fn(),
   get: vi.fn(),
   del: vi.fn(),
+  getdel: vi.fn(),
   incr: vi.fn(),
   pipeline: () => ({
     incr: vi.fn(),
@@ -128,6 +129,19 @@ describe('the wrappers namespace what they send to Redis', () => {
     const expected = `preview:${BRANCH}:session:u1:tok`;
     expect(commands.set).toHaveBeenCalledWith(expected, '1', { ex: 60 });
     expect(commands.get).toHaveBeenCalledWith(expected);
+  });
+
+  it('takes a single-use value with one GETDEL under its namespace', async () => {
+    commands.getdel.mockReset().mockResolvedValue('user-1');
+    const { takeValue } = await import('@/server/redis');
+
+    await expect(takeValue('telegramLinkCode:abc', 'branch')).resolves.toBe(
+      'user-1',
+    );
+    expect(commands.getdel).toHaveBeenCalledExactlyOnceWith(
+      `preview:${BRANCH}:telegramLinkCode:abc`,
+    );
+    expect(commands.get).not.toHaveBeenCalled();
   });
 
   it('never sends a bare key from a preview', async () => {

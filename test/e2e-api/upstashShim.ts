@@ -42,6 +42,11 @@ function runCommand(command: unknown[]): unknown {
       return liveEntry(key)?.value ?? null;
     case 'del':
       return store.delete(key) ? 1 : 0;
+    case 'getdel': {
+      const taken = liveEntry(key)?.value ?? null;
+      store.delete(key);
+      return taken;
+    }
     case 'incr': {
       const entry = liveEntry(key);
       const next = Number(entry?.value ?? '0') + 1;
@@ -62,11 +67,22 @@ function runCommand(command: unknown[]): unknown {
   }
 }
 
+// The client asks for base64 results (`Upstash-Encoding: base64`) and decodes
+// every string but "OK"; a raw string that happens to be valid base64 would
+// come back as garbage.
+function encodeResult(result: unknown, base64: boolean): unknown {
+  if (!base64 || typeof result !== 'string' || result === 'OK') {
+    return result;
+  }
+  return Buffer.from(result).toString('base64');
+}
+
 export function startUpstashShim(port: number): Promise<http.Server> {
   const server = http.createServer((req, res) => {
     let raw = '';
     req.on('data', (chunk) => (raw += chunk));
     req.on('end', () => {
+      const base64 = req.headers['upstash-encoding'] === 'base64';
       // The client may put the command in the path or in the JSON body;
       // accept either so the shim is not coupled to one client version.
       const pathParts = (req.url || '/')
@@ -99,13 +115,15 @@ export function startUpstashShim(port: number): Promise<http.Server> {
 
       if (isPipeline) {
         const results = (command as unknown[][]).map((c) => ({
-          result: runCommand(c),
+          result: encodeResult(runCommand(c), base64),
         }));
         res.end(JSON.stringify(results));
         return;
       }
 
-      res.end(JSON.stringify({ result: runCommand(command) }));
+      res.end(
+        JSON.stringify({ result: encodeResult(runCommand(command), base64) }),
+      );
     });
   });
 

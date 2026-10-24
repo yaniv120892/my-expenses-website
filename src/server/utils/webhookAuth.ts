@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import logger from '@/server/logging/logger';
 import { requireEnv } from '@/server/env';
 
-export const WEBHOOK_TOKEN_EXPIRY_MS = 6 * 60 * 60 * 1000;
+export const WEBHOOK_TOKEN_EXPIRY_HOURS = 6;
+export const WEBHOOK_TOKEN_EXPIRY_MS =
+  WEBHOOK_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000;
 
 function getWebhookSecret(): string {
   return requireEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET');

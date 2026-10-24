@@ -48,6 +48,7 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { HttpError } from '@/server/http/errors';
+import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
 
 const USER_ID = 'user-1';
 const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
@@ -150,6 +151,14 @@ describe('MCP tool surface', () => {
       'summarize_transactions',
       'update_transaction',
     ]);
+  });
+
+  it('briefs the agent on exactly the tools the server registers', async () => {
+    const { tools } = await client.listTools();
+
+    expect(AGENT_TOOL_GUIDE.map((tool) => tool.name).sort()).toEqual(
+      tools.map((tool) => tool.name).sort(),
+    );
   });
 
   it('takes no user id from the agent on any tool', async () => {

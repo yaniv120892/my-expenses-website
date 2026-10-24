@@ -49,6 +49,10 @@ const SCOPE_DETAILS = {
     label: 'Imports',
     description: 'Upload statements, preview and approve imports',
   },
+  AGENT: {
+    label: 'Personal agent',
+    description: 'Read, add, edit and delete transactions over MCP',
+  },
 } satisfies Record<ApiTokenScope, { label: string; description: string }>;
 
 export default function ApiTokenManager() {

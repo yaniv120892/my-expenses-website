@@ -17,8 +17,13 @@ import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
+import { JSON_RPC_ERROR_CODES } from '@/server/http/jsonRpc';
 
-type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
+type AuthMode = 'session' | 'apiToken' | 'cron' | 'telegram' | 'public';
+
+// The body a protocol client parses: `json-rpc` keeps an MCP client reading a
+// refusal as a JSON-RPC error instead of failing to parse it.
+type ErrorFormat = 'json' | 'json-rpc';
 
 const uuidRouteParamsSchema = z.record(z.string().uuid());
 
@@ -60,24 +65,36 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         heartbeatEnvVar?: string;
         rateLimit?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
       }
     | {
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
       }
     | {
         auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: ApiTokenScope;
+        errorFormat?: never;
       }
     | {
         auth: 'telegram';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
+      }
+    | {
+        // Bearer API token only; a session cookie on the request is ignored.
+        auth: 'apiToken';
+        apiTokenScope: ApiTokenScope;
+        rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
+        heartbeatEnvVar?: never;
+        errorFormat?: ErrorFormat;
       }
   );
 
@@ -117,6 +134,16 @@ async function resolveAuth(
       }
       return authenticateApiToken(credential.token, apiTokenScope);
     }
+    case 'apiToken': {
+      const token = bearerApiToken(req);
+      if (!token || !apiTokenScope) {
+        throw new AuthError(
+          'API_TOKEN_REQUIRED',
+          'This route requires an API token as an Authorization: Bearer header',
+        );
+      }
+      return authenticateApiToken(token, apiTokenScope);
+    }
     case 'cron': {
       const authHeader = req.headers.get('authorization');
       if (!secretsEqual(authHeader, `Bearer ${requireEnv('CRON_SECRET')}`)) {
@@ -137,36 +164,87 @@ async function resolveAuth(
   }
 }
 
-function errorResponse(err: unknown, auth: AuthMode): NextResponse {
+function bearerApiToken(req: NextRequest): string | null {
+  const [scheme, token] = req.headers.get('authorization')?.split(' ') ?? [];
+  const isApiTokenBearer =
+    scheme?.toLowerCase() === 'bearer' && !!token && isApiToken(token);
+  return isApiTokenBearer ? token : null;
+}
+
+type ErrorDescription = { status: number; message: string; code?: string };
+
+function describeError(err: unknown, auth: AuthMode): ErrorDescription {
   if (err instanceof AuthError) {
-    return NextResponse.json(
-      { error: err.message, code: err.code },
-      { status: 401 },
-    );
+    return { status: 401, message: err.message, code: err.code };
   }
   if (err instanceof ZodError) {
-    return NextResponse.json(
-      { message: formatZodIssues(err) },
-      { status: 400 },
-    );
+    return { status: 400, message: formatZodIssues(err) };
   }
   if (err instanceof HttpError) {
-    return NextResponse.json({ message: err.message }, { status: err.status });
+    return { status: err.status, message: err.message };
   }
-  // Only routes with a human client get the 4xx mapping. A cron or Telegram
-  // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
-  // logging and alerting.
-  if (auth === 'session' || auth === 'public') {
-    const prismaHttpError = prismaErrorToHttpError(err);
-    if (prismaHttpError) {
-      return errorResponse(prismaHttpError, auth);
-    }
+  // Only routes with a correcting client get the 4xx mapping. A cron or
+  // Telegram caller cannot correct a bad id, so its Prisma failures stay 500s
+  // and keep logging and alerting.
+  const mapsPrismaErrors =
+    auth === 'session' || auth === 'public' || auth === 'apiToken';
+  const prismaHttpError = mapsPrismaErrors
+    ? prismaErrorToHttpError(err)
+    : undefined;
+  if (prismaHttpError) {
+    return describeError(prismaHttpError, auth);
   }
   // Neutral to the client; a deliberate client-facing status must be thrown as
   // an HttpError.
+  return { status: 500, message: 'Internal Server Error' };
+}
+
+function errorResponse(
+  err: unknown,
+  auth: AuthMode,
+  format: ErrorFormat,
+): NextResponse {
+  const error = describeError(err, auth);
+  switch (format) {
+    case 'json-rpc':
+      return jsonRpcErrorResponse(error);
+    case 'json':
+      return error.code
+        ? NextResponse.json(
+            { error: error.message, code: error.code },
+            { status: error.status },
+          )
+        : NextResponse.json(
+            { message: error.message },
+            { status: error.status },
+          );
+  }
+}
+
+function jsonRpcErrorResponse({
+  status,
+  message,
+  code,
+}: ErrorDescription): NextResponse {
+  const isAuthFailure = status === 401 || status === 403;
   return NextResponse.json(
-    { message: 'Internal Server Error' },
-    { status: 500 },
+    {
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: isAuthFailure
+          ? JSON_RPC_ERROR_CODES.UNAUTHORIZED
+          : JSON_RPC_ERROR_CODES.SERVER_ERROR,
+        message,
+        ...(code && { data: { code } }),
+      },
+    },
+    {
+      status,
+      ...(status === 401 && {
+        headers: { 'www-authenticate': 'Bearer realm="my-expenses"' },
+      }),
+    },
   );
 }
 
@@ -231,7 +309,11 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err, options.auth);
+      response = errorResponse(
+        err,
+        options.auth,
+        options.errorFormat ?? 'json',
+      );
       if (response.status >= 500) {
         logger.error(
           {

@@ -19,10 +19,14 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import Image from 'next/image';
 import { downloadBlob } from '@/utils/download';
+import {
+  MAX_UPLOAD_LABEL,
+  exceedsUploadLimit,
+  uploadTooLargeMessage,
+} from '@/shared/uploadLimits';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
 import { TransactionFile } from '../../types';
 
-const MAX_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/png',
@@ -94,8 +98,13 @@ export default function TransactionAttachments({
       if (!file) {
         return;
       }
-      if (file.size > MAX_SIZE) {
-        setError('File size exceeds 10MB limit');
+      if (exceedsUploadLimit(file.size)) {
+        setError(
+          uploadTooLargeMessage({
+            fileName: file.name,
+            sizeInBytes: file.size,
+          }),
+        );
         return;
       }
       if (!ALLOWED_TYPES.includes(file.type)) {
@@ -204,7 +213,7 @@ export default function TransactionAttachments({
             >
               {isDragActive
                 ? 'Drop the file here'
-                : 'Drag and drop or click to select a file (max 10MB)'}
+                : `Drag and drop or click to select a file (max ${MAX_UPLOAD_LABEL})`}
             </Typography>
           </Box>
           {transactionId && (

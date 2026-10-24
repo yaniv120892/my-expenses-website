@@ -39,6 +39,7 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
 
 const CATEGORIES = [
@@ -280,11 +281,11 @@ describe('getSuggestedCategory', () => {
 
 describe('attachFile', () => {
   const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
-  const attach = (fileKey: string) =>
+  const attach = (fileKey: string, fileSize = 10) =>
     transactionService.attachFile(TRANSACTION_ID, 'user-1', {
       fileName: 'receipt.pdf',
       fileKey,
-      fileSize: 10,
+      fileSize,
       mimeType: 'application/pdf',
     });
 
@@ -311,6 +312,52 @@ describe('attachFile', () => {
   ])('400s for %s without storing it', async (_label, fileKey) => {
     await expect(attach(fileKey)).rejects.toMatchObject({ status: 400 });
     expect(createTransactionFile).not.toHaveBeenCalled();
+  });
+
+  it('413s a file declared over 4 MB without storing it', async () => {
+    await expect(
+      attach(
+        `transactions/${TRANSACTION_ID}/uuid-receipt.pdf`,
+        MAX_UPLOAD_BYTES + 1,
+      ),
+    ).rejects.toMatchObject({
+      status: 413,
+      message: 'receipt.pdf is 4.1 MB, over the 4 MB upload limit.',
+    });
+    expect(createTransactionFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('getPresignedUploadUrl', () => {
+  const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
+  const presign = (fileSize: number) =>
+    transactionService.getPresignedUploadUrl(TRANSACTION_ID, 'user-1', {
+      fileName: 'receipt.pdf',
+      mimeType: 'application/pdf',
+      fileSize,
+    });
+
+  beforeEach(() => {
+    process.env.TRANSACTION_ATTACHMENT_S3_REGION = 'eu-central-1';
+    process.env.TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID = 'key';
+    process.env.TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY = 'secret';
+    process.env.TRANSACTION_ATTACHMENT_S3_BUCKET_NAME = 'bucket';
+    serviceInternals.getTransactionItem = vi.fn().mockResolvedValue({
+      id: TRANSACTION_ID,
+    });
+  });
+
+  it('issues an upload URL for a file of exactly 4 MB', async () => {
+    const { fileKey } = await presign(MAX_UPLOAD_BYTES);
+
+    expect(fileKey).toMatch(`transactions/${TRANSACTION_ID}/`);
+  });
+
+  it('413s a file one byte over 4 MB before any URL is signed', async () => {
+    await expect(presign(MAX_UPLOAD_BYTES + 1)).rejects.toMatchObject({
+      status: 413,
+      message: 'receipt.pdf is 4.1 MB, over the 4 MB upload limit.',
+    });
   });
 });
 

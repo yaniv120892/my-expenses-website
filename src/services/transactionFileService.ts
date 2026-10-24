@@ -23,12 +23,11 @@ export async function removeFile(transactionId: string, fileId: string) {
 
 export async function getPresignedUploadUrl(
   transactionId: string,
-  fileName: string,
-  mimeType: string,
+  file: { fileName: string; mimeType: string; fileSize: number },
 ) {
   const res = await api.post(
     `/api/transactions/${transactionId}/attachments/presign-upload`,
-    { fileName, mimeType },
+    file,
   );
   return res.data;
 }

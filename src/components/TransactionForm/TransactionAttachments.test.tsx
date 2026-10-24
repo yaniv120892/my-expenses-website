@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import { renderWithClient } from '@/test/renderWithClient';
 import TransactionAttachments from '@/components/TransactionForm/TransactionAttachments';
 
@@ -76,5 +78,55 @@ describe('removing one of several pending images', () => {
       .filter((url) => !revoked.includes(url));
     expect(revoked).toContain('blob:stub-0');
     expect(live).toHaveLength(1);
+  });
+});
+
+describe('choosing a file over the upload limit', () => {
+  function fileInput(): HTMLInputElement {
+    const input = document.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('react-dropzone rendered no file input');
+    }
+    return input;
+  }
+
+  function pdfOfSize(sizeInBytes: number) {
+    return new File([new Uint8Array(sizeInBytes)], 'scan.pdf', {
+      type: 'application/pdf',
+    });
+  }
+
+  function renderPicker(setPendingFiles: (files: File[]) => void) {
+    renderWithClient(
+      <TransactionAttachments
+        pendingFiles={[]}
+        setPendingFiles={setPendingFiles}
+        filesToRemove={[]}
+        setFilesToRemove={() => {}}
+      />,
+    );
+  }
+
+  it('says why and never queues a file one byte over 4 MB', async () => {
+    const setPendingFiles = vi.fn();
+    renderPicker(setPendingFiles);
+
+    await userEvent.upload(fileInput(), pdfOfSize(MAX_UPLOAD_BYTES + 1));
+
+    expect(
+      await screen.findByText(
+        'scan.pdf is 4.1 MB, over the 4 MB upload limit.',
+      ),
+    ).toBeTruthy();
+    expect(setPendingFiles).not.toHaveBeenCalled();
+  });
+
+  it('queues a file of exactly 4 MB', async () => {
+    const setPendingFiles = vi.fn();
+    renderPicker(setPendingFiles);
+
+    await userEvent.upload(fileInput(), pdfOfSize(MAX_UPLOAD_BYTES));
+
+    expect(setPendingFiles).toHaveBeenCalledTimes(1);
   });
 });

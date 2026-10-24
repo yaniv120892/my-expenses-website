@@ -39,6 +39,10 @@ import type { ReconciliationPreviewItem } from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
+import {
+  exceedsUploadLimit,
+  uploadTooLargeMessage,
+} from '../src/shared/uploadLimits';
 
 class ApiError extends Error {
   constructor(
@@ -348,6 +352,14 @@ async function submitStatement(
 ): Promise<string> {
   const form = new FormData();
   const contents = await readFile(statement.filePath);
+  if (exceedsUploadLimit(contents.byteLength)) {
+    throw new Error(
+      uploadTooLargeMessage({
+        fileName: statement.fileName,
+        sizeInBytes: contents.byteLength,
+      }),
+    );
+  }
   form.append('file', new Blob([contents]), statement.fileName);
 
   const { fileUrl } = await client.postForm<{ fileUrl: string }>(

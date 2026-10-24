@@ -48,17 +48,30 @@ export async function buildDownloadUrl(
   });
 }
 
-export async function getPresignedUploadUrl(
-  transactionId: string,
-  fileName: string,
-  mimeType: string,
+/**
+ * The declared size is signed into the URL as Content-Length, so the store
+ * refuses a body of any other size and the limit checked at presign holds for
+ * the bytes that actually arrive.
+ */
+export async function getPresignedUploadUrl({
+  transactionId,
+  fileName,
+  mimeType,
+  fileSize,
   expiresInSeconds = 600,
-) {
+}: {
+  transactionId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  expiresInSeconds?: number;
+}) {
   const fileKey = buildAttachmentKey(transactionId, fileName, randomUUID());
   const command = new PutObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: fileKey,
     ContentType: mimeType,
+    ContentLength: fileSize,
   });
   const uploadUrl = await getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,

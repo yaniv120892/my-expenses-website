@@ -243,7 +243,7 @@ export async function processExcelExtractionWebhook(
     // not retry, so a crash must fail the import. The claim stays taken because
     // a redelivery would insert every row again.
     if (importId) {
-      await markImportFailedSafe(importId);
+      await recoverImportAfterFailureSafe(importId);
     }
     return {
       status: 500,
@@ -252,21 +252,47 @@ export async function processExcelExtractionWebhook(
   }
 }
 
-async function markImportFailedSafe(importId: string): Promise<void> {
+async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
   try {
     const failed = await importRepository.markFailedIfProcessing(
       importId,
       'Processing the extraction result failed',
     );
-    if (!failed) {
-      logger.warn(
-        { importId },
-        'Webhook failed after the import left PROCESSING; keeping its status',
-      );
+    if (failed) {
+      return;
     }
+    logger.warn(
+      { importId },
+      'Webhook failed after the import left PROCESSING; keeping its status',
+    );
+    await releaseMergeSurvivorOf(importId);
   } catch (err) {
-    reportSwallowedError({ err, importId }, 'Failed to mark import as failed');
+    reportSwallowedError(
+      { err, importId },
+      'Failed to recover the import after a webhook failure',
+    );
   }
+}
+
+/** A crash after the merge committed would otherwise hold the survivor in REMATCHING for good. */
+async function releaseMergeSurvivorOf(importId: string): Promise<void> {
+  const mergedImport = await importRepository.findById(importId);
+  if (mergedImport?.status !== ImportStatus.MERGED) {
+    return;
+  }
+  if (!mergedImport.mergedIntoImportId) {
+    return;
+  }
+  await releaseMergeSurvivor(mergedImport.mergedIntoImportId);
+}
+
+/** Conditional, so it never moves a survivor some other writer has already moved on. */
+async function releaseMergeSurvivor(survivorId: string): Promise<void> {
+  await importRepository.transitionStatus(
+    survivorId,
+    ImportStatus.REMATCHING,
+    ImportStatus.COMPLETED,
+  );
 }
 
 async function handleCompletedExtraction(
@@ -311,7 +337,11 @@ async function handleCompletedExtraction(
   await findPotentialMatchesSafe(finalImportId, importRecord.userId);
 
   // COMPLETED tells a poller the preview is now the whole story.
-  await importRepository.updateStatus(finalImportId, ImportStatus.COMPLETED);
+  if (mergedIntoImportId) {
+    await releaseMergeSurvivor(mergedIntoImportId);
+  } else {
+    await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
+  }
 
   logger.info(
     { importId, finalImportId, transactionCount: transactions.length },

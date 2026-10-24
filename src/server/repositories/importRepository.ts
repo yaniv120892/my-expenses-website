@@ -146,6 +146,25 @@ export class ImportRepository {
     return failed.count > 0;
   }
 
+  /**
+   * Conditional, so a writer that moved the import on first keeps its status;
+   * false when the import was not in `from`.
+   */
+  public async transitionStatus(
+    id: string,
+    from: ImportStatus,
+    to: ImportStatus,
+  ): Promise<boolean> {
+    const moved = await prisma.import.updateMany({
+      where: { id, status: from },
+      data: {
+        status: to,
+        ...(to === ImportStatus.COMPLETED && { completedAt: new Date() }),
+      },
+    });
+    return moved.count > 0;
+  }
+
   public async updateStatus(
     id: string,
     status: ImportStatus,

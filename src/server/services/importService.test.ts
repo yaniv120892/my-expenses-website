@@ -19,6 +19,7 @@ const {
   importRepo: {
     findById: vi.fn(),
     updateStatus: vi.fn(),
+    transitionStatus: vi.fn(),
     create: vi.fn(),
     softDeleteOp: vi.fn(),
   },
@@ -133,6 +134,7 @@ beforeEach(() => {
     deleted: false,
     status: 'COMPLETED',
   });
+  importRepo.transitionStatus.mockResolvedValue(true);
   importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row()]);
   importedTxRepo.findByImportId.mockResolvedValue([row()]);
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
@@ -168,7 +170,16 @@ describe('rematchImport', () => {
       status: 'PROCESSING',
     });
     await expect(run()).rejects.toMatchObject({ status: 409 });
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(importRepo.transitionStatus).not.toHaveBeenCalled();
+  });
+
+  it('409s, touching nothing, when a concurrent call moved the import out of COMPLETED first', async () => {
+    importRepo.transitionStatus.mockResolvedValueOnce(false);
+
+    await expect(run()).rejects.toMatchObject({ status: 409 });
+
+    expect(importRepo.transitionStatus).toHaveBeenCalledTimes(1);
+    expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
   });
 
   it('409s when nothing is pending', async () => {
@@ -176,22 +187,24 @@ describe('rematchImport', () => {
       row({ status: 'APPROVED' }),
     ]);
     await expect(run()).rejects.toMatchObject({ status: 409 });
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(importRepo.transitionStatus).not.toHaveBeenCalled();
   });
 
   it('clears pending matches, re-matches, and returns to COMPLETED', async () => {
     await run();
 
-    expect(importRepo.updateStatus.mock.calls[0]).toEqual([
+    expect(importRepo.transitionStatus.mock.calls[0]).toEqual([
       'imp-1',
+      'COMPLETED',
       'REMATCHING',
     ]);
     expect(prismaMock.importedTransaction.updateMany).toHaveBeenCalledWith({
       where: { importId: 'imp-1', userId: 'user-1', status: 'PENDING' },
       data: { matchingTransactionId: null },
     });
-    expect(importRepo.updateStatus.mock.calls[1]).toEqual([
+    expect(importRepo.transitionStatus.mock.calls[1]).toEqual([
       'imp-1',
+      'REMATCHING',
       'COMPLETED',
     ]);
   });
@@ -251,22 +264,28 @@ describe('rematchImport', () => {
     await run();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
-    expect(importRepo.updateStatus.mock.calls[1]).toEqual([
+    expect(importRepo.transitionStatus.mock.calls[1]).toEqual([
       'imp-1',
+      'REMATCHING',
       'COMPLETED',
     ]);
   });
 
-  it('a failure outside the per-row guard marks the import FAILED', async () => {
-    prismaMock.importedTransaction.updateMany.mockRejectedValue(
+  it('a failure outside the per-row guard returns the import to COMPLETED, so it can be re-matched again', async () => {
+    prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
       new Error('db down'),
     );
+
     await expect(run()).rejects.toThrow('db down');
-    expect(importRepo.updateStatus.mock.calls[1]).toEqual([
-      'imp-1',
-      'FAILED',
-      'db down',
+
+    expect(importRepo.transitionStatus.mock.calls).toEqual([
+      ['imp-1', 'COMPLETED', 'REMATCHING'],
+      ['imp-1', 'REMATCHING', 'COMPLETED'],
     ]);
+    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+
+    await run();
+    expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
   });
 });
 

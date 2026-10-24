@@ -117,6 +117,9 @@ function assertUploadedImportUrl(fileUrl: string): void {
   }
 }
 
+const REMATCH_REQUIRES_COMPLETED_ERROR =
+  'Import must be in COMPLETED status to re-match';
+
 class ImportService {
   private getAiProvider = lazy(() => AIServiceFactory.getAIService());
 
@@ -741,10 +744,7 @@ class ImportService {
     }
 
     if (importRecord.status !== ImportStatus.COMPLETED) {
-      throw new HttpError(
-        409,
-        'Import must be in COMPLETED status to re-match',
-      );
+      throw new HttpError(409, REMATCH_REQUIRES_COMPLETED_ERROR);
     }
 
     const allTransactions =
@@ -761,7 +761,14 @@ class ImportService {
       throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
-    await importRepository.updateStatus(importId, ImportStatus.REMATCHING);
+    const claimed = await importRepository.transitionStatus(
+      importId,
+      ImportStatus.COMPLETED,
+      ImportStatus.REMATCHING,
+    );
+    if (!claimed) {
+      throw new HttpError(409, REMATCH_REQUIRES_COMPLETED_ERROR);
+    }
 
     try {
       await this.rematchPendingTransactions(
@@ -771,19 +778,18 @@ class ImportService {
         pendingTransactions,
       );
 
-      await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
-
       logger.info(
         { importId, pendingCount: pendingTransactions.length },
         'Completed re-matching import',
       );
-    } catch (error) {
-      await importRepository.updateStatus(
+    } finally {
+      // Back to COMPLETED even on failure: rows a failed run left unmatched
+      // are still PENDING, and COMPLETED is the status a retry needs.
+      await importRepository.transitionStatus(
         importId,
-        ImportStatus.FAILED,
-        getErrorMessage(error, 'Re-match failed'),
+        ImportStatus.REMATCHING,
+        ImportStatus.COMPLETED,
       );
-      throw error;
     }
   }
 

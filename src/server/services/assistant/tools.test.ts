@@ -92,7 +92,7 @@ describe('category resolution', () => {
         categoryName: 'Utilities',
         aggregation: 'total',
       }),
-    ).rejects.toThrow(/Unknown category "Utilities".*listCategories/);
+    ).rejects.toThrow(/Unknown category "Utilities".*category list/);
     expect(getTransactionsSummary).not.toHaveBeenCalled();
   });
 

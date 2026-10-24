@@ -296,6 +296,7 @@ model UserCategoryMapping {
 
 enum ApiTokenScope {
   IMPORTS
+  AGENT
 }
 
 model ApiToken {

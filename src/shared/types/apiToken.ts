@@ -1,4 +1,4 @@
-export const API_TOKEN_SCOPES = ['IMPORTS'] as const;
+export const API_TOKEN_SCOPES = ['IMPORTS', 'AGENT'] as const;
 
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
 

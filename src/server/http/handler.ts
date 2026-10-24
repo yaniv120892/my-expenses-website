@@ -5,6 +5,7 @@ import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import {
   AuthError,
+  extractBearerToken,
   extractCredential,
   requireUser,
 } from '@/server/auth/session';
@@ -17,8 +18,23 @@ import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
+import {
+  JSON_RPC_ERROR_CODES,
+  jsonRpcErrorResponse,
+} from '@/server/http/jsonRpc';
 
-type AuthMode = 'session' | 'cron' | 'telegram' | 'public';
+type AuthMode = 'session' | 'apiToken' | 'cron' | 'telegram' | 'public';
+
+// The body a protocol client parses: `json-rpc` keeps an MCP client reading a
+// refusal as a JSON-RPC error instead of failing to parse it.
+type ErrorFormat = 'json' | 'json-rpc';
+
+type AuthOptions =
+  | { auth: 'session'; apiTokenScope?: ApiTokenScope }
+  | { auth: 'apiToken'; apiTokenScope: ApiTokenScope }
+  | { auth: 'cron' | 'telegram' | 'public' };
+
+type ErrorDescription = { status: number; message: string; code?: string };
 
 const uuidRouteParamsSchema = z.record(z.string().uuid());
 
@@ -60,24 +76,36 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
         heartbeatEnvVar?: string;
         rateLimit?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
       }
     | {
         auth: 'public';
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
       }
     | {
         auth: 'session';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: ApiTokenScope;
+        errorFormat?: never;
       }
     | {
         auth: 'telegram';
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
+        errorFormat?: never;
+      }
+    | {
+        // Bearer API token only; a session cookie on the request is ignored.
+        auth: 'apiToken';
+        apiTokenScope: ApiTokenScope;
+        rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
+        heartbeatEnvVar?: never;
+        errorFormat?: ErrorFormat;
       }
   );
 
@@ -94,12 +122,25 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
 
 type AuthResult = { userId: string; apiTokenId?: string };
 
-async function resolveAuth(
-  req: NextRequest,
-  mode: AuthMode,
-  apiTokenScope: ApiTokenScope | undefined,
-): Promise<AuthResult> {
-  switch (mode) {
+// Only routes with a correcting client get the 4xx mapping. A cron or Telegram
+// caller cannot correct a bad id, so its Prisma failures stay 500s and keep
+// logging and alerting.
+const MAPS_PRISMA_ERRORS = {
+  session: true,
+  apiToken: true,
+  public: true,
+  cron: false,
+  telegram: false,
+} satisfies Record<AuthMode, boolean>;
+
+async function resolveAuth({
+  req,
+  options,
+}: {
+  req: NextRequest;
+  options: AuthOptions;
+}): Promise<AuthResult> {
+  switch (options.auth) {
     case 'session': {
       // Only the Authorization header carries an API token: one in the
       // cookie would be a credential the browser attaches on its own.
@@ -109,13 +150,23 @@ async function resolveAuth(
       if (!isApiTokenBearer) {
         return { userId: await requireUser(req) };
       }
-      if (!apiTokenScope) {
+      if (!options.apiTokenScope) {
         throw new AuthError(
           'API_TOKEN_NOT_ACCEPTED',
           'This route does not accept an API token',
         );
       }
-      return authenticateApiToken(credential.token, apiTokenScope);
+      return authenticateApiToken(credential.token, options.apiTokenScope);
+    }
+    case 'apiToken': {
+      const token = bearerApiToken(req);
+      if (!token) {
+        throw new AuthError(
+          'API_TOKEN_REQUIRED',
+          'This route requires an API token as an Authorization: Bearer header',
+        );
+      }
+      return authenticateApiToken(token, options.apiTokenScope);
     }
     case 'cron': {
       const authHeader = req.headers.get('authorization');
@@ -137,37 +188,76 @@ async function resolveAuth(
   }
 }
 
-function errorResponse(err: unknown, auth: AuthMode): NextResponse {
+function bearerApiToken(request: NextRequest): string | null {
+  const token = extractBearerToken(request);
+  return token && isApiToken(token) ? token : null;
+}
+
+function describeError({
+  err,
+  auth,
+}: {
+  err: unknown;
+  auth: AuthMode;
+}): ErrorDescription {
   if (err instanceof AuthError) {
-    return NextResponse.json(
-      { error: err.message, code: err.code },
-      { status: 401 },
-    );
+    return { status: 401, message: err.message, code: err.code };
   }
   if (err instanceof ZodError) {
-    return NextResponse.json(
-      { message: formatZodIssues(err) },
-      { status: 400 },
-    );
+    return { status: 400, message: formatZodIssues(err) };
   }
   if (err instanceof HttpError) {
-    return NextResponse.json({ message: err.message }, { status: err.status });
+    return { status: err.status, message: err.message };
   }
-  // Only routes with a human client get the 4xx mapping. A cron or Telegram
-  // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
-  // logging and alerting.
-  if (auth === 'session' || auth === 'public') {
-    const prismaHttpError = prismaErrorToHttpError(err);
-    if (prismaHttpError) {
-      return errorResponse(prismaHttpError, auth);
-    }
+  const prismaHttpError = MAPS_PRISMA_ERRORS[auth]
+    ? prismaErrorToHttpError(err)
+    : undefined;
+  if (prismaHttpError) {
+    return describeError({ err: prismaHttpError, auth });
   }
   // Neutral to the client; a deliberate client-facing status must be thrown as
   // an HttpError.
-  return NextResponse.json(
-    { message: 'Internal Server Error' },
-    { status: 500 },
-  );
+  return { status: 500, message: 'Internal Server Error' };
+}
+
+// A bearer-only route says how to authenticate on every 401 (RFC 6750).
+function errorResponse({
+  err,
+  auth,
+  format,
+}: {
+  err: unknown;
+  auth: AuthMode;
+  format: ErrorFormat;
+}): Response {
+  const error = describeError({ err, auth });
+  const headers =
+    error.status === 401 && auth === 'apiToken'
+      ? { 'www-authenticate': 'Bearer realm="my-expenses"' }
+      : undefined;
+  switch (format) {
+    case 'json-rpc':
+      return jsonRpcErrorResponse({
+        status: error.status,
+        code: toJsonRpcErrorCode(error.status),
+        message: error.message,
+        ...(error.code && { data: { code: error.code } }),
+        headers,
+      });
+    case 'json': {
+      const body = error.code
+        ? { error: error.message, code: error.code }
+        : { message: error.message };
+      return NextResponse.json(body, { status: error.status, headers });
+    }
+  }
+}
+
+function toJsonRpcErrorCode(status: number): number {
+  const isAuthFailure = status === 401 || status === 403;
+  return isAuthFailure
+    ? JSON_RPC_ERROR_CODES.UNAUTHORIZED
+    : JSON_RPC_ERROR_CODES.SERVER_ERROR;
 }
 
 export function createHandler<
@@ -189,11 +279,7 @@ export function createHandler<
     let params: Record<string, string> = {};
 
     try {
-      ({ userId, apiTokenId } = await resolveAuth(
-        req,
-        options.auth,
-        options.apiTokenScope,
-      ));
+      ({ userId, apiTokenId } = await resolveAuth({ req, options }));
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = options.paramsSchema
         ? options.paramsSchema.parse(params)
@@ -231,7 +317,11 @@ export function createHandler<
               });
       }
     } catch (err) {
-      response = errorResponse(err, options.auth);
+      response = errorResponse({
+        err,
+        auth: options.auth,
+        format: options.errorFormat ?? 'json',
+      });
       if (response.status >= 500) {
         logger.error(
           {

@@ -4,7 +4,7 @@ import transactionFileRepository from '@/server/repositories/transactionFileRepo
 import {
   CreateTransaction,
   CategoryBreakdownItem,
-  CreateTransactionResult,
+  CreatedTransaction,
   Transaction,
   TransactionListFilters,
   TransactionListPage,
@@ -63,28 +63,22 @@ class TransactionService {
 
   public async createTransaction(
     data: CreateTransaction,
-  ): Promise<CreateTransactionResult> {
+  ): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
     const transactionModel = await this.prepareCreateTransaction(data);
-    const transactionId =
+    const transaction =
       await transactionRepository.createTransaction(transactionModel);
 
     await this.notifyTransactionCreatedSafe(
-      transactionId,
+      transaction.id,
       transactionModel.userId,
     );
 
-    const result: CreateTransactionResult = { id: transactionId };
-
-    if (!userProvidedCategory) {
-      const categories = await categoryRepository.getAllCategories();
-      const cat = categories.find((c) => c.id === transactionModel.categoryId);
-      if (cat) {
-        result.suggestedCategory = { id: cat.id, name: cat.name };
-      }
-    }
-
-    return result;
+    return {
+      id: transaction.id,
+      ...(!userProvidedCategory && { suggestedCategory: transaction.category }),
+      transaction,
+    };
   }
 
   /**
@@ -240,7 +234,7 @@ class TransactionService {
     id: string,
     data: UpdateTransactionRequest,
     userId: string,
-  ): Promise<void> {
+  ): Promise<Transaction> {
     const existing = await transactionRepository.getTransactionItem(id, userId);
     if (!existing) {
       throw new HttpError(404, 'Transaction not found');
@@ -258,7 +252,7 @@ class TransactionService {
       data.categoryId,
       userId,
     );
-    await transactionRepository.updateTransaction(
+    return transactionRepository.updateTransaction(
       id,
       {
         description: data.description,

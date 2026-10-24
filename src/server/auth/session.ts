@@ -44,12 +44,19 @@ async function isSessionActive(
 
 export type Credential = { source: 'cookie' | 'bearer'; token: string };
 
+export function extractBearerToken(request: NextRequest): string | null {
+  const [scheme, token] =
+    request.headers.get('authorization')?.split(' ') ?? [];
+  const isBearer = scheme?.toLowerCase() === 'bearer' && !!token;
+  return isBearer ? token : null;
+}
+
 export function extractCredential(req: NextRequest): Credential | null {
   const cookieToken = req.cookies.get(SESSION_COOKIE)?.value;
   if (cookieToken) {
     return { source: 'cookie', token: cookieToken };
   }
-  const bearerToken = req.headers.get('authorization')?.split(' ')[1];
+  const bearerToken = extractBearerToken(req);
   return bearerToken ? { source: 'bearer', token: bearerToken } : null;
 }
 

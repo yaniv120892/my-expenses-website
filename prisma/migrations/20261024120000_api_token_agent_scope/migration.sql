@@ -1,0 +1,1 @@
+ALTER TYPE "ApiTokenScope" ADD VALUE 'AGENT';

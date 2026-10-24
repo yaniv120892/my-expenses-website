@@ -196,8 +196,8 @@ class ChatAggregationService {
 
     return {
       summary: [
-        `Highest: ${formatCurrencyPlain(highest.value)} — "${highest.description}" (${highest.category.name}, ${this.formatDate(highest.date)})`,
-        `Lowest: ${formatCurrencyPlain(lowest.value)} — "${lowest.description}" (${lowest.category.name}, ${this.formatDate(lowest.date)})`,
+        `Highest: ${formatCurrencyPlain(highest.value)} — "${highest.description}" (${highest.category.name}, ${toUtcDayString(highest.date)})`,
+        `Lowest: ${formatCurrencyPlain(lowest.value)} — "${lowest.description}" (${lowest.category.name}, ${toUtcDayString(lowest.date)})`,
       ].join('\n'),
       data: {
         highestValue: highest.value,
@@ -215,7 +215,7 @@ class ChatAggregationService {
 
     const lines = top.map(
       (t) =>
-        `  - ${this.formatDate(t.date)} | ${t.description} | ${formatAmountWithOriginal(t)} | ${t.category.name} (${t.type})`,
+        `  - ${toUtcDayString(t.date)} | ${t.description} | ${formatAmountWithOriginal(t)} | ${t.category.name} (${t.type})`,
     );
 
     const summaryParts = [
@@ -252,10 +252,6 @@ class ChatAggregationService {
 
   private pluralize(count: number, noun: string): string {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
-  }
-
-  private formatDate(date: Date): string {
-    return toUtcDayString(new Date(date));
   }
 }
 

@@ -13,9 +13,9 @@ export function toDayString(date: Date): string {
 }
 
 /**
- * The calendar day a stored date carries in its UTC fields — a transaction's
- * wall-clock time (see `toAppWallClock`) or a run date's midnight UTC.
- * `toDayString` reads local time, so off UTC it can name the neighbouring day.
+ * The calendar day a stored transaction date carries in its UTC fields (see
+ * `toAppWallClock`). `toDayString` reads local time, so off UTC it can name
+ * the neighbouring day.
  */
 export function toUtcDayString(date: Date): string {
   return toDayString(

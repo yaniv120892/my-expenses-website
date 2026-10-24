@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toUtcDayString } from '@/shared/dates';
-import { setHostTimeZone } from '@/test/hostTimeZone';
 
 describe('toUtcDayString', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it.each([
     ['America/Los_Angeles', '2026-07-01T00:00:00Z', '2026-07-01'],
     ['Asia/Jerusalem', '2026-10-24T23:30:00Z', '2026-10-24'],
@@ -10,7 +13,7 @@ describe('toUtcDayString', () => {
   ])(
     'reads the UTC calendar day on a %s host',
     (timeZone, instant, expected) => {
-      setHostTimeZone(timeZone);
+      vi.stubEnv('TZ', timeZone);
 
       expect(toUtcDayString(new Date(instant))).toBe(expected);
     },

@@ -6,7 +6,7 @@ import {
   formatCurrencyPlain,
   translateToScheduleSummary,
 } from '@/utils/format';
-import { toUtcDayString } from '@/shared/dates';
+import { toDayString } from '@/shared/dates';
 import type { ScheduledTransactionDomain } from '@/shared/types/scheduledTransaction';
 import { READ_ONLY, registerSafeTool } from '@/server/mcp/safeTool';
 import { describeTransactions } from '@/server/mcp/transactionText';
@@ -92,7 +92,7 @@ function describeSchedule({
       schedule.dayOfMonth,
     ),
     schedule.nextRunDate
-      ? `next ${toUtcDayString(schedule.nextRunDate)}`
+      ? `next ${toDayString(schedule.nextRunDate)}`
       : 'no next run',
   ].join(' | ');
 }

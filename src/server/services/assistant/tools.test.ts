@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transaction, TransactionSummary } from '@/shared/types/transaction';
-import { setHostTimeZone } from '@/test/hostTimeZone';
 
 const { getAllCategories, getTransactions, getTransactionsSummary } =
   vi.hoisted(() => ({
@@ -199,8 +198,12 @@ describe('comparePeriods', () => {
 });
 
 describe('getSpendingTrends', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('heads the trend with plain days on a host west of UTC', async () => {
-    setHostTimeZone('America/Los_Angeles');
+    vi.stubEnv('TZ', 'America/Los_Angeles');
 
     const result = await invoke(tools.getSpendingTrends, {
       period: 'monthly',

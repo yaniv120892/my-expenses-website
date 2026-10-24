@@ -224,6 +224,8 @@ class FinanceQueryService {
     }
 
     const trend = await trendService.getSpendingTrends(request, userId);
+    const firstDay = toUtcDayString(new Date(trend.startDate));
+    const lastDay = toUtcDayString(new Date(trend.endDate));
     const points = trend.points.map(
       (point) =>
         `  ${point.date}: ${formatCurrencyPlain(point.amount)} (${point.count} transactions)`,
@@ -231,7 +233,7 @@ class FinanceQueryService {
 
     return {
       summary: [
-        `Spending trend (${trend.period}) from ${toUtcDayString(new Date(trend.startDate))} to ${toUtcDayString(new Date(trend.endDate))}:`,
+        `Spending trend (${trend.period}) from ${firstDay} to ${lastDay}:`,
         ...points,
         `\nTotal: ${formatCurrencyPlain(trend.totalAmount)}`,
         `Change vs previous period: ${chatAggregationService.formatPercentChange(trend.percentageChange)} (trending ${trend.trend})`,

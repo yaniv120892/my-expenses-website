@@ -5,6 +5,7 @@ const {
   importedTxRepo,
   prismaMock,
   agentClient,
+  reportSwallowedError,
   findPotentialMatches,
   findPotentialMatchesForCharges,
   findMatchingTransaction,
@@ -40,6 +41,7 @@ const {
     $transaction: vi.fn(),
   },
   agentClient: { submitExtractionRequest: vi.fn() },
+  reportSwallowedError: vi.fn(),
   findPotentialMatches: vi.fn(),
   findPotentialMatchesForCharges: vi.fn(),
   findMatchingTransaction: vi.fn(),
@@ -83,6 +85,9 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 vi.mock('@/server/services/transactionService', () => ({ default: txService }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
+}));
+vi.mock('@/server/logging/reportSwallowedError', () => ({
+  reportSwallowedError,
 }));
 
 import { importService } from '@/server/services/importService';
@@ -179,15 +184,30 @@ describe('rematchImport', () => {
     await expect(run()).rejects.toMatchObject({ status: 409 });
 
     expect(importRepo.transitionStatus).toHaveBeenCalledTimes(1);
+    expect(importedTxRepo.findByUserIdAndImportId).not.toHaveBeenCalled();
     expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
   });
 
-  it('409s when nothing is pending', async () => {
+  it('reads the rows only after claiming the import', async () => {
+    await run();
+
+    expect(
+      importRepo.transitionStatus.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      importedTxRepo.findByUserIdAndImportId.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('409s when nothing is pending, and hands the import back', async () => {
     importedTxRepo.findByUserIdAndImportId.mockResolvedValue([
       row({ status: 'APPROVED' }),
     ]);
     await expect(run()).rejects.toMatchObject({ status: 409 });
-    expect(importRepo.transitionStatus).not.toHaveBeenCalled();
+    expect(importRepo.transitionStatus.mock.calls).toEqual([
+      ['imp-1', 'COMPLETED', 'REMATCHING'],
+      ['imp-1', 'REMATCHING', 'COMPLETED'],
+    ]);
+    expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
   });
 
   it('clears pending matches, re-matches, and returns to COMPLETED', async () => {
@@ -271,21 +291,59 @@ describe('rematchImport', () => {
     ]);
   });
 
-  it('a failure outside the per-row guard returns the import to COMPLETED, so it can be re-matched again', async () => {
-    prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
-      new Error('db down'),
-    );
+  describe('when it fails', () => {
+    let status: string;
 
-    await expect(run()).rejects.toThrow('db down');
+    beforeEach(() => {
+      status = 'COMPLETED';
+      importRepo.findById.mockImplementation(async () => ({
+        id: 'imp-1',
+        userId: 'user-1',
+        deleted: false,
+        status,
+      }));
+      importRepo.transitionStatus.mockImplementation(
+        async (_id: string, from: string, to: string) => {
+          if (status !== from) {
+            return false;
+          }
+          status = to;
+          return true;
+        },
+      );
+    });
 
-    expect(importRepo.transitionStatus.mock.calls).toEqual([
-      ['imp-1', 'COMPLETED', 'REMATCHING'],
-      ['imp-1', 'REMATCHING', 'COMPLETED'],
-    ]);
-    expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    it('returns the import to COMPLETED, so a retry can re-match it', async () => {
+      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
+        new Error('db down'),
+      );
 
-    await run();
-    expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
+      await expect(run()).rejects.toThrow('db down');
+      expect(status).toBe('COMPLETED');
+      expect(importRepo.updateStatus).not.toHaveBeenCalled();
+
+      await run();
+      expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
+      expect(status).toBe('COMPLETED');
+    });
+
+    it('keeps the re-match error when handing the import back fails too', async () => {
+      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
+        new Error('db down'),
+      );
+      importRepo.transitionStatus
+        .mockImplementationOnce(async () => {
+          status = 'REMATCHING';
+          return true;
+        })
+        .mockRejectedValueOnce(new Error('still down'));
+
+      await expect(run()).rejects.toThrow('db down');
+      expect(reportSwallowedError).toHaveBeenCalledWith(
+        expect.objectContaining({ importId: 'imp-1' }),
+        expect.any(String),
+      );
+    });
   });
 });
 

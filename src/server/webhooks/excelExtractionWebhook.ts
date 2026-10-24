@@ -277,22 +277,27 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
 /** A crash after the merge committed would otherwise hold the survivor in REMATCHING for good. */
 async function releaseMergeSurvivorOf(importId: string): Promise<void> {
   const mergedImport = await importRepository.findById(importId);
-  if (mergedImport?.status !== ImportStatus.MERGED) {
-    return;
+  const survivorId =
+    mergedImport?.status === ImportStatus.MERGED
+      ? mergedImport.mergedIntoImportId
+      : null;
+  if (survivorId) {
+    await releaseMergeSurvivor(survivorId);
   }
-  if (!mergedImport.mergedIntoImportId) {
-    return;
-  }
-  await releaseMergeSurvivor(mergedImport.mergedIntoImportId);
 }
 
-/** Conditional, so it never moves a survivor some other writer has already moved on. */
 async function releaseMergeSurvivor(survivorId: string): Promise<void> {
-  await importRepository.transitionStatus(
+  const released = await importRepository.transitionStatus(
     survivorId,
     ImportStatus.REMATCHING,
     ImportStatus.COMPLETED,
   );
+  if (!released) {
+    logger.warn(
+      { survivorId },
+      'Merge survivor had already left REMATCHING; keeping its status',
+    );
+  }
 }
 
 async function handleCompletedExtraction(

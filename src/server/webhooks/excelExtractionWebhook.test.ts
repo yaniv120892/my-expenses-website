@@ -719,16 +719,12 @@ describe('redelivered callbacks', () => {
       .mockRejectedValueOnce(new Error('db blip'))
       .mockResolvedValue(true);
     importRepo.markFailedIfProcessing.mockResolvedValue(false);
-    importRepo.findById.mockImplementation(async (id: string) =>
-      id === 'imp-1'
-        ? {
-            id: 'imp-1',
-            userId: 'user-1',
-            status: 'MERGED',
-            mergedIntoImportId: 'imp-old',
-          }
-        : null,
-    );
+    importRepo.findById.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      status: 'MERGED',
+      mergedIntoImportId: 'imp-old',
+    });
 
     const res = await run(payload([tx()]));
 

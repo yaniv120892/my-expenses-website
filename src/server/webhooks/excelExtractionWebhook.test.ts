@@ -15,6 +15,7 @@ const {
     findById: vi.fn(),
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
+    markFailedIfProcessing: vi.fn(),
     claimExtraction: vi.fn(),
   },
   importedTxRepo: {
@@ -606,9 +607,8 @@ describe('completed extraction', () => {
     const res = await run(payload([tx()]));
 
     expect(res.status).toBe(500);
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+    expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith(
       'imp-1',
-      'FAILED',
       expect.any(String),
     );
     expect(reportSwallowedError).toHaveBeenCalledWith(
@@ -686,9 +686,8 @@ describe('redelivered callbacks', () => {
     const res = await run(payload([tx()]));
 
     expect(res.status).toBe(500);
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+    expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith(
       'imp-1',
-      'FAILED',
       'Processing the extraction result failed',
     );
 
@@ -700,6 +699,29 @@ describe('redelivered callbacks', () => {
 
     expect(redelivery.status).toBe(200);
     expect(importedTxRepo.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails only an import still PROCESSING, so a crash after the merge keeps its MERGED pointer', async () => {
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-old',
+      createdAt: OLDER,
+    });
+    importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
+    importRepo.updateStatus.mockRejectedValue(new Error('db blip'));
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(500);
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+    expect(importRepo.updateStatus).not.toHaveBeenCalledWith(
+      'imp-1',
+      'FAILED',
+      expect.anything(),
+    );
+    expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith(
+      'imp-1',
+      expect.any(String),
+    );
   });
 
   it('claims before doing any work', async () => {

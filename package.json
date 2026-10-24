@@ -64,7 +64,7 @@
     "csv-parse": "^7.0.3",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
-    "googleapis": "^181.0.0",
+    "googleapis": "^187.0.0",
     "jose": "^6.0.0",
     "json2csv": "^6.0.0-alpha.2",
     "next": "16.4.1",

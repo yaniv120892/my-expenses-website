@@ -6,10 +6,8 @@ import {
 } from '@/server/services/assistant/financeQuerySchemas';
 import { BASE_CURRENCY, isIsoCurrencyCode } from '@/shared/currency';
 import { isCalendarDay } from '@/shared/dates';
+import { MAXIMUM_AMOUNT, MINIMUM_AMOUNT } from '@/shared/schemas/amount';
 import { recordIdSchema, transactionTypeSchema } from '@/shared/schemas/common';
-
-// Far above any one personal transaction, and inside the NUMERIC(14,2) columns.
-export const MAX_AGENT_AMOUNT = 10_000_000;
 
 // A shape-only check lets "2026-13-45" reach the database as an Invalid Date
 // and "2026-02-31" roll over to March, so the day must exist.
@@ -27,7 +25,7 @@ const periodDays = {
   endDate: dayString.describe('Inclusive end day, YYYY-MM-DD'),
 };
 
-const amount = z.number().positive().max(MAX_AGENT_AMOUNT);
+const amount = z.number().min(MINIMUM_AMOUNT).max(MAXIMUM_AMOUNT);
 
 const transactionId = recordIdSchema.describe(
   'The transaction id, as find_transactions returns it',

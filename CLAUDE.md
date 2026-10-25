@@ -212,6 +212,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   its conversion. A payload with only `value` is ILS, as before currencies.
   Rows predating the feature were backfilled as ILS by migration
   `20261008000000_transaction_currency`. Scheduled transactions are ILS-only.
+  Every amount a request carries is between `MINIMUM_AMOUNT` (a cent, the
+  smallest the column stores) and `MAXIMUM_AMOUNT`; the transaction type
+  carries the direction. REST schemas build on
+  `src/shared/schemas/amount.ts`, which refuses a blank or non-numeric field
+  rather than coercing it, and the MCP tools take the same bounds.
 - **An imported row's billed ILS is its conversion.** The extraction service
   reports each row's `originalAmount`/`originalCurrency` and
   `chargedAmount`/`chargedCurrency` (additive to `value`), and

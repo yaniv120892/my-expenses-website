@@ -15,6 +15,15 @@ import { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';
 import { bucketKeyFor } from '@/shared/periodBuckets';
 
+type PeriodQuery = {
+  startDate: Date;
+  endDate: Date;
+  userId: string;
+  transactionType?: TransactionType;
+  categoryId?: string;
+  categoryIds?: string[];
+};
+
 interface CategoryTrendData {
   points: CategoryTrendPoint[];
   totalAmount: number;
@@ -28,22 +37,18 @@ class TrendService {
     userId: string,
   ): Promise<SpendingTrend> {
     const { startDate, endDate } = this.getDateRange(request);
+    const periodQuery: PeriodQuery = {
+      startDate,
+      endDate,
+      userId,
+      transactionType: request.transactionType,
+      categoryId: request.categoryId,
+      categoryIds: request.categoryIds,
+    };
 
     const [currentPeriodData, previousPeriodData] = await Promise.all([
-      this.fetchTransactionsForPeriod(
-        startDate,
-        endDate,
-        userId,
-        request.transactionType,
-        request.categoryId,
-      ),
-      this.fetchPreviousPeriodData(
-        startDate,
-        endDate,
-        userId,
-        request.transactionType,
-        request.categoryId,
-      ),
+      this.fetchTransactionsForPeriod(periodQuery),
+      this.fetchPreviousPeriodData(periodQuery),
     ]);
 
     const points = this.groupTransactionsByPeriod(
@@ -73,6 +78,14 @@ class TrendService {
     userId: string,
   ): Promise<CategorySpendingTrend[]> {
     const { startDate, endDate } = this.getDateRange(request);
+    const periodQuery: PeriodQuery = {
+      startDate,
+      endDate,
+      userId,
+      transactionType: request.transactionType,
+      categoryId: request.categoryId,
+      categoryIds: request.categoryIds,
+    };
 
     const [
       currentPeriodData,
@@ -80,18 +93,8 @@ class TrendService {
       topLevelCategories,
       categoryParentMap,
     ] = await Promise.all([
-      this.fetchTransactionsForPeriod(
-        startDate,
-        endDate,
-        userId,
-        request.transactionType,
-      ),
-      this.fetchPreviousPeriodData(
-        startDate,
-        endDate,
-        userId,
-        request.transactionType,
-      ),
+      this.fetchTransactionsForPeriod(periodQuery),
+      this.fetchPreviousPeriodData(periodQuery),
       categoryRepository.getTopLevelCategories(),
       buildCategoryParentMap(),
     ]);
@@ -219,13 +222,14 @@ class TrendService {
     return { startDate, endDate };
   }
 
-  private async fetchTransactionsForPeriod(
-    startDate: Date,
-    endDate: Date,
-    userId: string,
-    transactionType?: TransactionType,
-    categoryId?: string,
-  ) {
+  private async fetchTransactionsForPeriod({
+    startDate,
+    endDate,
+    userId,
+    transactionType,
+    categoryId,
+    categoryIds,
+  }: PeriodQuery) {
     // Paginated to exhaustion — a single capped page would silently truncate
     // trend totals for heavy months.
     const transactions: Transaction[] = [];
@@ -236,6 +240,7 @@ class TrendService {
         startDate,
         endDate,
         categoryId,
+        categoryIds,
         userId,
         status: TransactionStatus.APPROVED,
         page,
@@ -250,13 +255,8 @@ class TrendService {
     }
   }
 
-  private async fetchPreviousPeriodData(
-    startDate: Date,
-    endDate: Date,
-    userId: string,
-    transactionType?: TransactionType,
-    categoryId?: string,
-  ) {
+  private async fetchPreviousPeriodData(query: PeriodQuery) {
+    const { startDate, endDate } = query;
     const previousPeriodLength = endDate.getTime() - startDate.getTime();
     const previousPeriodStartDate = new Date(
       startDate.getTime() - previousPeriodLength,
@@ -265,13 +265,11 @@ class TrendService {
     // endDate to endOfDay, so passing startDate itself double-counts that day.
     const previousPeriodEndDate = subDays(startDate, 1);
 
-    return this.fetchTransactionsForPeriod(
-      previousPeriodStartDate,
-      previousPeriodEndDate,
-      userId,
-      transactionType,
-      categoryId,
-    );
+    return this.fetchTransactionsForPeriod({
+      ...query,
+      startDate: previousPeriodStartDate,
+      endDate: previousPeriodEndDate,
+    });
   }
 
   private filterTransactionsByCategory(

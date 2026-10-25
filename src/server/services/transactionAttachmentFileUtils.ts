@@ -5,6 +5,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
+import path from 'path';
+import { create as contentDisposition } from 'content-disposition';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 
@@ -39,7 +41,7 @@ export async function buildDownloadUrl(
   const command = new GetObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
-    ResponseContentDisposition: `attachment; filename="${filename}"`,
+    ResponseContentDisposition: contentDisposition(filename),
   });
   return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,
@@ -52,9 +54,7 @@ export async function getPresignedUploadUrl(
   mimeType: string,
   expiresInSeconds = 600,
 ) {
-  const ext = fileName.split('.').pop();
-  const baseName = fileName.replace(`.${ext}`, '');
-  const fileKey = `${attachmentKeyPrefix(transactionId)}${randomUUID()}-${baseName}.${ext}`;
+  const fileKey = buildAttachmentKey(transactionId, fileName, randomUUID());
   const command = new PutObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: fileKey,
@@ -84,6 +84,15 @@ export function isAttachmentKeyForTransaction(
     fileKey.length > prefix.length &&
     !hasDotSegment
   );
+}
+
+export function buildAttachmentKey(
+  transactionId: string,
+  fileName: string,
+  id: string,
+): string {
+  const { name, ext } = path.parse(fileName);
+  return `${attachmentKeyPrefix(transactionId)}${id}-${name}${ext}`;
 }
 
 function attachmentKeyPrefix(transactionId: string): string {

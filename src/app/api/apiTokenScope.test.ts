@@ -7,7 +7,8 @@ const API_DIR = join(process.cwd(), 'src/app/api');
 // Every handler an API token can reach, with the scope it needs. Opening a
 // route to a token is a decision made here as well as in the route. IMPORTS
 // covers what scripts/import-statements.ts calls, the per-row approve the
-// collect-statements skill falls back to, and the read-only list.
+// collect-statements skill falls back to, and the read-only list. AGENT is the
+// MCP endpoint alone; every tool behind it is bound to the token's owner.
 const HANDLER_SCOPES = [
   "GET imports/[importId]/reconciliation-preview/route.ts → 'IMPORTS'",
   "GET imports/[importId]/route.ts → 'IMPORTS'",
@@ -16,6 +17,7 @@ const HANDLER_SCOPES = [
   "POST imports/process/route.ts → 'IMPORTS'",
   "POST imports/transactions/[importedTransactionId]/approve/route.ts → 'IMPORTS'",
   "POST imports/upload/route.ts → 'IMPORTS'",
+  "POST mcp/route.ts → 'AGENT'",
 ];
 
 const SCOPE_DECLARATION = /\bapiTokenScope\s*:\s*([^,\n}]+)/;

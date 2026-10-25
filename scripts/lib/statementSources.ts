@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ImportStatus } from '../../src/shared/types/import';
+import { APP_TIME_ZONE } from '../../src/shared/dates';
 import {
   BASE_URL_FLAG,
   DEFAULT_BASE_URL,
@@ -8,7 +9,6 @@ import {
 
 const STATEMENT_ISSUERS = ['cal', 'isracard', 'amex'] as const;
 const PAYMENT_MONTH_PATTERN = /^(0[1-9]|1[0-2])\/(\d{4})$/;
-const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
 const SOURCES_FLAG = '--sources=';
 const USAGE =
   'Usage: tsx scripts/statements-due.ts [--sources=<json>] [--base-url=<url>]';
@@ -195,7 +195,7 @@ export function statementFileName(
 
 export function israelDate(instant: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: ISRAEL_TIME_ZONE,
+    timeZone: APP_TIME_ZONE,
   }).format(instant);
 }
 

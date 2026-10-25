@@ -16,6 +16,9 @@ export const RATE_LIMITS = {
   verify: { limit: 20, windowSeconds: 900 },
   chat: { limit: 20, windowSeconds: 300 },
   testTelegram: { limit: 5, windowSeconds: 3600 },
+  // A single agent turn runs initialize, tools/list and its tool calls, each
+  // its own stateless request.
+  mcp: { limit: 300, windowSeconds: 300 },
 } satisfies Record<string, { limit: number; windowSeconds: number }>;
 
 export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {

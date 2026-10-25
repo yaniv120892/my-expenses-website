@@ -4,6 +4,7 @@ import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
+import { buildImportObjectKey } from '@/server/utils/importObjectKey';
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -42,13 +43,13 @@ export const POST = createHandler({
 
     const bucket = requireEnv('IMPORTS_S3_BUCKET');
     const region = requireEnv('IMPORTS_S3_REGION');
-    const fileName = `imports/${crypto.randomUUID()}-${file.name}`;
+    const objectKey = buildImportObjectKey(file.name, crypto.randomUUID());
 
     try {
       await getS3Client().send(
         new PutObjectCommand({
           Bucket: bucket,
-          Key: fileName,
+          Key: objectKey,
           Body: Buffer.from(await file.arrayBuffer()),
           ContentType: file.type,
         }),
@@ -59,7 +60,7 @@ export const POST = createHandler({
     }
 
     return {
-      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${fileName}`,
+      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${objectKey}`,
     };
   },
 });

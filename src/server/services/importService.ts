@@ -381,9 +381,14 @@ class ImportService {
       throw new HttpError(404, 'Matching transaction not found');
     }
 
+    // Keyed on the statement's description, which is what the next import of
+    // this charge will carry, not on the hand-logged one the merge replaces.
     if (transactionData.categoryId) {
       await transactionService.learnCategoryMappingSafe(
-        matchingTransaction,
+        {
+          description: record.description,
+          categoryId: matchingTransaction.categoryId,
+        },
         transactionData.categoryId,
         userId,
       );
@@ -438,8 +443,13 @@ class ImportService {
       .catch(throwOnMissingRow);
   }
 
+  // The rows go with the import, so none can still be approved or hold a
+  // claim on a transaction that a re-import of the statement should match.
   public async deleteImport(importId: string, userId: string) {
-    await importRepository.softDelete(importId, userId);
+    await prisma.$transaction([
+      importRepository.softDeleteOp(importId, userId),
+      importedTransactionRepository.softDeleteByImportIdOp(importId, userId),
+    ]);
   }
 
   public async deleteImportedTransaction(

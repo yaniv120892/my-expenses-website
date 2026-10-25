@@ -82,8 +82,9 @@ export class ImportRepository {
   }
 
   /**
-   * Oldest, so only the younger of two racing callbacks finds a target;
-   * COMPLETED, so a merge never dedupes against rows still being written.
+   * COMPLETED, so a merge never dedupes against rows still being written and
+   * two racing callbacks never find each other; oldest, so the choice among
+   * several is stable.
    */
   public async findExisting(
     userId: string,
@@ -123,11 +124,26 @@ export class ImportRepository {
     return claimed.count > 0;
   }
 
-  public async softDelete(id: string, userId: string): Promise<void> {
-    await prisma.import.update({
+  public softDeleteOp(id: string, userId: string) {
+    return prisma.import.update({
       where: { id, userId },
       data: { deleted: true },
     });
+  }
+
+  /**
+   * Conditional, so a crash after this import was merged away or completed
+   * leaves that status alone rather than overwriting it with FAILED.
+   */
+  public async markFailedIfProcessing(
+    id: string,
+    error: string,
+  ): Promise<boolean> {
+    const failed = await prisma.import.updateMany({
+      where: { id, status: ImportStatus.PROCESSING },
+      data: { status: ImportStatus.FAILED, error },
+    });
+    return failed.count > 0;
   }
 
   public async updateStatus(

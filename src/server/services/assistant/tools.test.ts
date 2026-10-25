@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
 const { getAllCategories, getTransactions, getTransactionsSummary } =
@@ -92,7 +92,7 @@ describe('category resolution', () => {
         categoryName: 'Utilities',
         aggregation: 'total',
       }),
-    ).rejects.toThrow(/Unknown category "Utilities".*listCategories/);
+    ).rejects.toThrow(/Unknown category "Utilities".*category list/);
     expect(getTransactionsSummary).not.toHaveBeenCalled();
   });
 
@@ -194,5 +194,25 @@ describe('comparePeriods', () => {
     expect(result.summary).toContain('Difference: +500.00');
     expect(result.summary).toContain('Percentage change: +50%');
     expect(getTransactions).not.toHaveBeenCalled();
+  });
+});
+
+describe('getSpendingTrends', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('heads the trend with plain days on a host west of UTC', async () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+
+    const result = await invoke(tools.getSpendingTrends, {
+      period: 'monthly',
+      startDate: '2026-07-01',
+      endDate: '2026-10-24',
+    });
+
+    expect(result.summary).toContain(
+      'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
+    );
   });
 });

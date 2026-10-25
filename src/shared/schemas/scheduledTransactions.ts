@@ -28,9 +28,10 @@ const scheduledTransactionBaseSchema = z.object({
   type: transactionTypeSchema,
   categoryId: z.string().uuid(),
   scheduleType: scheduleTypeSchema,
-  interval: z.coerce.number().optional(),
-  dayOfWeek: z.coerce.number().optional(),
-  dayOfMonth: z.coerce.number().optional(),
+  interval: z.coerce.number().int().positive().optional(),
+  // 1 is Sunday, as the form numbers the week.
+  dayOfWeek: z.coerce.number().int().min(1).max(7).optional(),
+  dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
   monthOfYear: z.coerce.number().optional(),
   // A blank field clears the prefix, so the form can send what it shows.
   bankDescriptionPrefix: z.preprocess(

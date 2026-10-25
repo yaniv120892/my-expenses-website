@@ -28,6 +28,7 @@ import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightne
 import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '@/components/shell/PageHeader';
 import ApiTokenManager from '@/components/ApiTokenManager';
+import PersonalAgentSettings from '@/components/PersonalAgentSettings';
 import {
   useTestMonthlyReportMutation,
   useTestTelegramMutation,
@@ -449,6 +450,10 @@ export default function SettingsPage() {
             &quot;Send now&quot; emails you last month&apos;s report
             immediately, so you can check it works without waiting for the 1st.
           </Typography>
+        </SettingsSection>
+
+        <SettingsSection title="סוכן אישי">
+          <PersonalAgentSettings />
         </SettingsSection>
 
         <SettingsSection title="API tokens">

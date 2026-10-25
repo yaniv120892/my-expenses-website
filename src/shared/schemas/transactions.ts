@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { transactionStatusSchema, transactionTypeSchema } from './common';
+import {
+  recordIdSchema,
+  transactionStatusSchema,
+  transactionTypeSchema,
+} from './common';
 import { currencyCodeSchema } from '@/shared/currency';
 
 // `value` alone is an ILS amount, as before currencies existed. A foreign
@@ -20,7 +24,7 @@ function requireAnAmount(
     amount.value === undefined && amount.originalAmount === undefined;
   if (hasNoAmount) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: ['value'],
       message: 'value or originalAmount is required',
     });
@@ -31,7 +35,7 @@ export const createTransactionSchema = z
   .object({
     description: z.string(),
     ...transactionAmountFields,
-    categoryId: z.string().uuid().optional(),
+    categoryId: recordIdSchema.optional(),
     type: transactionTypeSchema,
     date: z.coerce.date().optional(),
   })
@@ -42,7 +46,7 @@ export const updateTransactionSchema = z
   .object({
     description: z.string(),
     ...transactionAmountFields,
-    categoryId: z.string().uuid(),
+    categoryId: recordIdSchema,
     type: transactionTypeSchema,
     date: z.coerce.date(),
   })
@@ -58,7 +62,7 @@ export const updateTransactionStatusSchema = z.object({
 export const transactionFilterSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
-  categoryId: z.string().uuid().optional(),
+  categoryId: recordIdSchema.optional(),
   type: transactionTypeSchema.optional(),
   searchTerm: z.string().optional(),
 });

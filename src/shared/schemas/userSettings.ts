@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const userSettingsInfoSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
 });
 
 export const userSettingsNotificationsSchema = z.object({

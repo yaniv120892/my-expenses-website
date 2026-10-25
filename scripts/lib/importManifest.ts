@@ -13,13 +13,13 @@ const manifestPreviewSchema = z.object({
 });
 
 const targetManifestSchema = z.object({
-  statements: z.record(manifestStatementSchema),
-  previews: z.record(manifestPreviewSchema),
+  statements: z.record(z.string(), manifestStatementSchema),
+  previews: z.record(z.string(), manifestPreviewSchema),
 });
 
 const importManifestSchema = z.object({
   version: z.literal(1),
-  targets: z.record(targetManifestSchema),
+  targets: z.record(z.string(), targetManifestSchema),
 });
 
 export type ManifestStatement = z.infer<typeof manifestStatementSchema>;

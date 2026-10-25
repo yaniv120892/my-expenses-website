@@ -8,6 +8,10 @@ import {
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
+// Longer than the platform lets any function run, so a claim older than this
+// belongs to a callback that died mid-write.
+const CALLBACK_CLAIM_GRACE_MS = 15 * 60 * 1000;
+
 export type ImportWithPendingCount = Import & {
   _count: {
     transactions: number;
@@ -152,7 +156,9 @@ export class ImportRepository {
    * The write is scoped to PROCESSING again, so a callback that completes or
    * merges an import between the read and the write keeps its status. It claims
    * the extraction too, so a callback signed moments before the cutoff is a
-   * no-op rather than rows written into a FAILED import.
+   * no-op rather than rows written into a FAILED import. A callback that has
+   * claimed the extraction is left to finish unless its claim has outlived any
+   * function.
    */
   public async failStuckProcessing(
     createdBefore: Date,
@@ -169,8 +175,16 @@ export class ImportRepository {
     if (importIds.length === 0) {
       return { importIds, failedCount: 0 };
     }
+    const claimedBefore = new Date(Date.now() - CALLBACK_CLAIM_GRACE_MS);
     const failed = await prisma.import.updateMany({
-      where: { id: { in: importIds }, status: ImportStatus.PROCESSING },
+      where: {
+        id: { in: importIds },
+        status: ImportStatus.PROCESSING,
+        OR: [
+          { extractionCompletedAt: null },
+          { extractionCompletedAt: { lt: claimedBefore } },
+        ],
+      },
       data: {
         status: ImportStatus.FAILED,
         error,

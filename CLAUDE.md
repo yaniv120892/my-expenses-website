@@ -255,7 +255,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   token lives `WEBHOOK_TOKEN_EXPIRY_MS` (6 hours, `src/server/utils/webhookAuth.ts`),
   so an import still `PROCESSING` that long after it was created can never
   complete; the `/api/imports/fail-stuck` cron fails it, claiming the
-  extraction as it does, and the user deletes and re-imports. Deleting an import deletes
+  extraction as it does, and the user deletes and re-imports. It skips an
+  import a callback claimed within the last 15 minutes, longer than any
+  function runs, so a callback mid-write finishes. Deleting an import deletes
   its rows with it, so none can still be approved or hold a match a re-import
   needs.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key

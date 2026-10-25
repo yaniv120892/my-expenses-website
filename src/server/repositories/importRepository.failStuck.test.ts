@@ -28,7 +28,14 @@ describe('importRepository.failStuckProcessing', () => {
       select: { id: true },
     });
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['imp-1', 'imp-2'] }, status: 'PROCESSING' },
+      where: {
+        id: { in: ['imp-1', 'imp-2'] },
+        status: 'PROCESSING',
+        OR: [
+          { extractionCompletedAt: null },
+          { extractionCompletedAt: { lt: expect.any(Date) } },
+        ],
+      },
       data: {
         status: 'FAILED',
         error: 'stuck',
@@ -36,6 +43,20 @@ describe('importRepository.failStuckProcessing', () => {
       },
     });
     expect(sweep).toEqual({ importIds: ['imp-1', 'imp-2'], failedCount: 1 });
+  });
+
+  it('leaves an import whose callback claimed it within the grace to finish', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-24T06:00:00Z') });
+    findMany.mockResolvedValue([{ id: 'imp-1' }]);
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await importRepository.failStuckProcessing(cutoff, 'stuck');
+
+    const [{ where }] = updateMany.mock.calls[0];
+    expect(where.OR[1].extractionCompletedAt.lt).toEqual(
+      new Date('2026-10-24T05:45:00Z'),
+    );
+    vi.useRealTimers();
   });
 
   it('writes nothing when no import is stuck', async () => {

@@ -119,6 +119,12 @@ describe('a form field sent as text', () => {
     expect(create({ value: ' 12.50 ' }).data?.value).toBe(12.5);
   });
 
+  it('reads the forms a number input yields without a leading or trailing digit', () => {
+    expect(create({ value: '.5' }).data?.value).toBe(0.5);
+    expect(create({ value: '5.' }).data?.value).toBe(5);
+    expect(create({ value: '.' }).success).toBe(false);
+  });
+
   it('keeps a rate under a cent, and refuses a blank or infinite one', () => {
     const foreign = { currency: 'JPY', originalAmount: 1000 };
 

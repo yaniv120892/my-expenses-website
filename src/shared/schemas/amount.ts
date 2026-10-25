@@ -8,7 +8,7 @@ export const MAXIMUM_AMOUNT = 10_000_000;
 
 export const POSITIVE_AMOUNT_MESSAGE = `Amount must be a number from ${MINIMUM_AMOUNT} to ${MAXIMUM_AMOUNT}`;
 
-const NUMERIC_TEXT = /^\s*\d+(\.\d+)?\s*$/;
+const NUMERIC_TEXT = /^\s*(\d+\.?\d*|\.\d+)\s*$/;
 
 // The direction of money lives in the transaction type, so an amount is
 // always strictly positive.

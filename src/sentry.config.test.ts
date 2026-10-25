@@ -60,4 +60,22 @@ describe('initSentry', () => {
       expect.objectContaining({ tracesSampleRate: 0 }),
     );
   });
+
+  it('sends no cookies, request bodies or user identity with an error', () => {
+    process.env.NEXT_PUBLIC_SENTRY_DSN = DSN;
+
+    initSentry();
+
+    expect(Sentry.init).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataCollection: expect.objectContaining({
+          userInfo: false,
+          cookies: false,
+          httpBodies: [],
+          genAI: { inputs: false, outputs: false },
+          databaseQueryData: false,
+        }),
+      }),
+    );
+  });
 });

@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from 'crypto';
 import { Readable } from 'stream';
+import { text } from 'stream/consumers';
 import { Common } from 'googleapis';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GoogleStorageProvider } from '@/server/services/backup/googleStorageProvider';
@@ -15,6 +16,16 @@ type SentRequest = {
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 const SERVICE_ACCOUNT = 'backup@project.iam.gserviceaccount.com';
+const WEB_VIEW_LINK = 'https://drive.google.com/file/d/file-1/view';
+
+const RESPONSES: Record<string, unknown> = {
+  [TOKEN_URL]: { access_token: 'test-token', expires_in: 3600 },
+  [UPLOAD_URL]: { id: 'file-1', webViewLink: WEB_VIEW_LINK },
+};
+
+const SERVICE_ACCOUNT_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  .privateKey.export({ type: 'pkcs8', format: 'pem' })
+  .toString();
 
 // Stubs the HTTP client the SDK's auth and API layers share, reached through
 // googleapis' own re-export so it is the instance they load.
@@ -23,6 +34,9 @@ function stubGoogleHttp(): SentRequest[] {
   vi.spyOn(Common.Gaxios.prototype, 'request').mockImplementation(
     async function respond(config = {}) {
       const url = String(config.url);
+      if (!(url in RESPONSES)) {
+        throw new Error(`unexpected Google request: ${config.method} ${url}`);
+      }
       const headers = new Headers(config.headers);
       sent.push({
         method: config.method ?? 'GET',
@@ -31,13 +45,7 @@ function stubGoogleHttp(): SentRequest[] {
         params: config.params ?? {},
         body: await readBody(config.data),
       });
-      const data =
-        url === TOKEN_URL
-          ? { access_token: 'test-token', expires_in: 3600 }
-          : {
-              id: 'file-1',
-              webViewLink: 'https://drive.google.com/file/d/file-1/view',
-            };
+      const data = RESPONSES[url];
       return Object.assign(new Response(JSON.stringify(data)), {
         config: { ...config, url: new URL(url), headers },
         data,
@@ -48,22 +56,13 @@ function stubGoogleHttp(): SentRequest[] {
 }
 
 async function readBody(data: unknown): Promise<string> {
-  if (data instanceof Readable) {
-    const chunks: Buffer[] = [];
-    for await (const chunk of data) {
-      chunks.push(Buffer.from(chunk));
-    }
-    return Buffer.concat(chunks).toString();
-  }
-  return String(data ?? '');
+  return data instanceof Readable ? text(data) : String(data ?? '');
 }
 
 describe('GoogleStorageProvider.uploadBackup', () => {
   beforeEach(() => {
-    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-    const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
     vi.stubEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL', SERVICE_ACCOUNT);
-    vi.stubEnv('GOOGLE_PRIVATE_KEY', pem.replace(/\n/g, '\\n'));
+    vi.stubEnv('GOOGLE_PRIVATE_KEY', SERVICE_ACCOUNT_KEY.replace(/\n/g, '\\n'));
     vi.stubEnv('GOOGLE_DRIVE_FOLDER_ID', 'folder-1');
   });
 
@@ -81,7 +80,7 @@ describe('GoogleStorageProvider.uploadBackup', () => {
       'application/vnd.ms-excel',
     );
 
-    expect(link).toBe('https://drive.google.com/file/d/file-1/view');
+    expect(link).toBe(WEB_VIEW_LINK);
     expect(sent.map(({ method, url }) => `${method} ${url}`)).toEqual([
       `POST ${TOKEN_URL}`,
       `POST ${UPLOAD_URL}`,
@@ -89,6 +88,7 @@ describe('GoogleStorageProvider.uploadBackup', () => {
 
     const [token, upload] = sent;
     const assertion = new URLSearchParams(token.body).get('assertion') ?? '';
+    expect(assertion.split('.')).toHaveLength(3);
     const claims: unknown = JSON.parse(
       Buffer.from(assertion.split('.')[1], 'base64url').toString(),
     );

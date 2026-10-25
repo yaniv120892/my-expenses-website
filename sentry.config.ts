@@ -30,18 +30,17 @@ const IDENTIFYING_KEY_PATTERNS = [
 ];
 
 // An unset `dataCollection` sends cookies (the session JWT), identifying
-// headers and every request body (passwords, transactions). This is the SDK's
-// documented no-PII baseline.
+// headers and every request body (passwords, transactions). Each category is
+// pinned so a permissive default added later cannot switch on silently.
 const NO_REQUEST_DATA_COLLECTION = {
   userInfo: false,
   cookies: false,
-  httpHeaders: {
-    request: { deny: IDENTIFYING_KEY_PATTERNS },
-    response: { deny: IDENTIFYING_KEY_PATTERNS },
-  },
+  httpHeaders: { deny: IDENTIFYING_KEY_PATTERNS },
   httpBodies: [],
   urlQueryParams: { deny: IDENTIFYING_KEY_PATTERNS },
   genAI: { inputs: false, outputs: false },
   databaseQueryData: false,
   graphQL: { document: false, variables: false },
+  queues: false,
+  stackFrameVariables: false,
 } satisfies Sentry.BrowserOptions['dataCollection'];

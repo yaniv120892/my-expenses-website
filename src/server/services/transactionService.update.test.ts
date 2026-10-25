@@ -132,6 +132,30 @@ describe('transactionService.updateTransaction', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('learns nothing under a blank description', async () => {
+    await transactionService.updateTransaction(
+      'tx-1',
+      edit({ description: '   ', categoryId: 'cat-tv', value: 92.35 }),
+      'user-1',
+    );
+
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('learns nothing from an edit whose write fails', async () => {
+    updateTransaction.mockRejectedValue(new Error('write failed'));
+
+    await expect(
+      transactionService.updateTransaction(
+        'tx-1',
+        edit({ description: 'Netflix', categoryId: 'cat-tv', value: 92.35 }),
+        'user-1',
+      ),
+    ).rejects.toThrow('write failed');
+
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it('404s an edit of a transaction that is not the user’s', async () => {
     getTransactionItem.mockResolvedValue(null);
 

@@ -384,14 +384,12 @@ class ImportService {
     // Keyed on the statement's description, which is what the next import of
     // this charge will carry, not on the hand-logged one the merge replaces.
     if (transactionData.categoryId) {
-      await transactionService.learnCategoryMappingSafe(
-        {
-          description: record.description,
-          previousCategoryId: matchingTransaction.categoryId,
-          categoryId: transactionData.categoryId,
-        },
+      await transactionService.learnCategoryMappingSafe({
         userId,
-      );
+        description: record.description,
+        previousCategoryId: matchingTransaction.categoryId,
+        categoryId: transactionData.categoryId,
+      });
     }
 
     const approveMatch =

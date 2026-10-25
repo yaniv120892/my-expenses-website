@@ -46,6 +46,7 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
 type CategoryMappingChange = {
+  userId: string;
   description: string;
   previousCategoryId: string;
   categoryId: string;
@@ -253,15 +254,7 @@ class TransactionService {
       data.date,
       existing,
     );
-    await this.learnCategoryMappingSafe(
-      {
-        description: data.description,
-        previousCategoryId: existing.category.id,
-        categoryId: data.categoryId,
-      },
-      userId,
-    );
-    return transactionRepository.updateTransaction(
+    const updated = await transactionRepository.updateTransaction(
       id,
       {
         description: data.description,
@@ -272,23 +265,28 @@ class TransactionService {
       },
       userId,
     );
+    await this.learnCategoryMappingSafe({
+      userId,
+      description: data.description,
+      previousCategoryId: existing.category.id,
+      categoryId: data.categoryId,
+    });
+    return updated;
   }
 
-  /**
-   * Keyed on the description the charge carries after the change, so a rename
-   * made with the recategorisation teaches the new name, never the old one.
-   */
   public async learnCategoryMappingSafe(
     change: CategoryMappingChange,
-    userId: string,
   ): Promise<void> {
     if (change.previousCategoryId === change.categoryId) {
       return;
     }
+    const descriptionPattern = this.toDescriptionPattern(change.description);
+    if (!descriptionPattern) {
+      return;
+    }
     try {
-      const descriptionPattern = this.toDescriptionPattern(change.description);
       await userCategoryMappingRepository.upsert(
-        userId,
+        change.userId,
         descriptionPattern,
         change.categoryId,
       );

@@ -28,6 +28,7 @@ import userCategoryMappingRepository from '@/server/repositories/userCategoryMap
 import {
   buildPreviewUrl,
   buildDownloadUrl,
+  deleteAttachmentObject,
   getPresignedUploadUrl,
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
@@ -37,6 +38,7 @@ import {
 } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
+import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { lazy } from '@/server/lib/lazy';
 import { toAppWallClock } from '@/shared/dates';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
@@ -44,6 +46,13 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 // Larger than any UI page: nothing is rendered from this walk, so the only
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
+
+type CategoryMappingChange = {
+  userId: string;
+  description: string;
+  previousCategoryId: string;
+  categoryId: string;
+};
 
 export interface TransactionFileView {
   id: string;
@@ -247,15 +256,7 @@ class TransactionService {
       data.date,
       existing,
     );
-    await this.learnCategoryMappingSafe(
-      {
-        description: existing.description,
-        categoryId: existing.category.id,
-      },
-      data.categoryId,
-      userId,
-    );
-    return transactionRepository.updateTransaction(
+    const updated = await transactionRepository.updateTransaction(
       id,
       {
         description: data.description,
@@ -266,25 +267,33 @@ class TransactionService {
       },
       userId,
     );
+    await this.learnCategoryMappingSafe({
+      userId,
+      description: data.description,
+      previousCategoryId: existing.category.id,
+      categoryId: data.categoryId,
+    });
+    return updated;
   }
 
   public async learnCategoryMappingSafe(
-    charge: { description: string; categoryId: string },
-    categoryId: string,
-    userId: string,
+    change: CategoryMappingChange,
   ): Promise<void> {
-    if (charge.categoryId === categoryId) {
+    if (change.previousCategoryId === change.categoryId) {
+      return;
+    }
+    const descriptionPattern = this.toDescriptionPattern(change.description);
+    if (!descriptionPattern) {
       return;
     }
     try {
-      const normalizedDescription = charge.description.toLowerCase().trim();
       await userCategoryMappingRepository.upsert(
-        userId,
-        normalizedDescription,
-        categoryId,
+        change.userId,
+        descriptionPattern,
+        change.categoryId,
       );
       logger.debug(
-        `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
+        `Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`,
       );
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
@@ -292,7 +301,12 @@ class TransactionService {
   }
 
   public async deleteTransaction(id: string, userId: string): Promise<void> {
-    return transactionRepository.deleteTransaction(id, userId);
+    const fileKeys = await transactionRepository.deleteTransaction(id, userId);
+    await Promise.all(
+      fileKeys.map((fileKey) =>
+        this.deleteAttachmentObjectSafe({ fileKey, transactionId: id }),
+      ),
+    );
   }
 
   public async attachFile(
@@ -305,6 +319,10 @@ class TransactionService {
       mimeType: string;
     },
   ): Promise<void> {
+    assertWithinUploadLimit({
+      fileName: fileData.fileName,
+      sizeInBytes: fileData.fileSize,
+    });
     if (!isAttachmentKeyForTransaction(fileData.fileKey, transactionId)) {
       throw new HttpError(
         400,
@@ -356,22 +374,30 @@ class TransactionService {
     userId: string,
   ): Promise<void> {
     await this.assertTransactionExists(transactionId, userId);
-    await this.assertTransactionFileExists(fileId, transactionId);
+    const file = await this.assertTransactionFileExists(fileId, transactionId);
 
     await transactionFileRepository.markForDeletion(fileId);
     logger.debug(
       `File ${fileId} marked for deletion from transaction ${transactionId}`,
     );
+    await this.deleteAttachmentObjectSafe({
+      fileKey: file.fileKey,
+      transactionId,
+      fileId,
+    });
   }
 
   public async getPresignedUploadUrl(
     transactionId: string,
     userId: string,
-    fileName: string,
-    mimeType: string,
+    file: { fileName: string; mimeType: string; fileSize: number },
   ) {
+    assertWithinUploadLimit({
+      fileName: file.fileName,
+      sizeInBytes: file.fileSize,
+    });
     await this.assertTransactionExists(transactionId, userId);
-    return getPresignedUploadUrl(transactionId, fileName, mimeType);
+    return getPresignedUploadUrl({ transactionId, ...file });
   }
 
   private async validateCreateTransaction(
@@ -431,7 +457,7 @@ class TransactionService {
       const mapping =
         await userCategoryMappingRepository.findByUserAndDescription(
           userId,
-          description.toLowerCase().trim(),
+          this.toDescriptionPattern(description),
         );
       const mappedCategory = mapping
         ? categories.find((c) => c.id === mapping.categoryId)
@@ -539,6 +565,46 @@ class TransactionService {
     return transaction;
   }
 
+  /**
+   * Runs after the database write, so a storage failure leaves an orphaned
+   * object, never a failed delete. A key another active row still names is kept.
+   */
+  private async deleteAttachmentObjectSafe({
+    fileKey,
+    transactionId,
+    fileId,
+  }: {
+    fileKey: string;
+    transactionId: string;
+    fileId?: string;
+  }): Promise<void> {
+    try {
+      const isStillAttached =
+        await transactionFileRepository.hasActiveFileWithKey(fileKey);
+      if (isStillAttached) {
+        return;
+      }
+      await deleteAttachmentObject(fileKey);
+    } catch (err) {
+      reportSwallowedError(
+        { err, fileKey, transactionId, fileId },
+        'Failed to delete attachment object from storage',
+      );
+      return;
+    }
+    if (!fileId) {
+      return;
+    }
+    try {
+      await transactionFileRepository.markDeleted(fileId);
+    } catch (err) {
+      reportSwallowedError(
+        { err, fileKey, transactionId, fileId },
+        'Deleted attachment object but failed to mark its file DELETED',
+      );
+    }
+  }
+
   private async assertTransactionFileExists(
     fileId: string,
     transactionId: string,
@@ -548,6 +614,10 @@ class TransactionService {
       throw new HttpError(404, 'File not found');
     }
     return file;
+  }
+
+  private toDescriptionPattern(description: string): string {
+    return description.toLowerCase().trim();
   }
 }
 

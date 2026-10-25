@@ -153,6 +153,25 @@ export class ImportRepository {
   }
 
   /**
+   * Conditional, so a writer that moved the import on first keeps its status;
+   * false when the import was not in `from`.
+   */
+  public async transitionStatus(
+    id: string,
+    from: ImportStatus,
+    to: ImportStatus,
+  ): Promise<boolean> {
+    const moved = await prisma.import.updateMany({
+      where: { id, status: from },
+      data: {
+        status: to,
+        ...(to === ImportStatus.COMPLETED && { completedAt: new Date() }),
+      },
+    });
+    return moved.count > 0;
+  }
+
+  /**
    * The write is scoped to PROCESSING again, so a callback that completes or
    * merges an import between the read and the write keeps its status. It claims
    * the extraction too, so a callback signed moments before the cutoff is a

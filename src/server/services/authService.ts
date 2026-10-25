@@ -1,5 +1,6 @@
 import { hash, compare } from 'bcryptjs';
 import crypto from 'crypto';
+import { z } from 'zod';
 import {
   setValue,
   getValue,
@@ -15,12 +16,38 @@ import { requireSiteUrl } from '@/server/env';
 import { secretsEqual } from '@/server/utils/webhookAuth';
 
 const MAX_CODE_ATTEMPTS = 5;
+const CODE_TTL_SECONDS = 600;
+// Each signup gets its own code, so one stranger's signup does not void the code
+// the owner was mailed; capped because every live code shares one attempts
+// counter.
+const MAX_PENDING_CODES = 3;
+// Not a bcrypt hash, so compare() never matches it: a pending account has no
+// password until a code is verified.
+const UNUSABLE_PASSWORD = '!unverified';
 const VERIFICATION_CODE_SENT =
   'Verification code sent to email. Code is valid for 10 minutes.';
 
 function loginCodeKey(email: string): string {
   return `loginCode:${email}`;
 }
+
+// A code carries the password of the signup that requested it, so the password
+// takes effect only for whoever reads the mail. A bare code string was issued
+// before codes carried one and verifies without changing the password.
+const pendingCodeSchema = z.object({
+  code: z.string(),
+  passwordHash: z.string().nullable(),
+  expiresAt: z.number(),
+});
+type PendingCode = z.infer<typeof pendingCodeSchema>;
+const storedCodesSchema = z.union([
+  z.array(pendingCodeSchema),
+  z
+    .union([z.string(), z.number()])
+    .transform((code): PendingCode[] => [
+      { code: String(code), passwordHash: null, expiresAt: Infinity },
+    ]),
+]);
 
 function loginCodeAttemptsKey(email: string): string {
   return `loginCodeAttempts:${email}`;
@@ -36,31 +63,49 @@ class AuthService {
       username,
     );
     if (existingUser) {
-      // A retry of an unverified signup, not a conflict, answered identically
-      // so this public endpoint allows no password guessing. The email check is
-      // because the lookup also matches username.
-      if (!existingUser.verified && existingUser.email === email) {
-        if (await compare(password, existingUser.password)) {
-          return this.issueVerificationCode(existingUser.email, websiteUrl);
-        }
-        return { message: VERIFICATION_CODE_SENT };
+      // The email check is because the lookup also matches username.
+      const isPendingSignupForThisEmail =
+        !existingUser.verified && existingUser.email === email;
+      if (isPendingSignupForThisEmail) {
+        return this.issueVerificationCode(
+          existingUser.email,
+          password,
+          websiteUrl,
+        );
       }
       return { error: 'User already exists' };
     }
-    const hashedPassword = await hash(password, 10);
     const user = await userRepository.createUser(
       email,
       username,
-      hashedPassword,
+      UNUSABLE_PASSWORD,
     );
     await announcementService.acknowledgeAllForNewUser(user.id);
-    return this.issueVerificationCode(email, websiteUrl);
+    return this.issueVerificationCode(email, password, websiteUrl);
   }
 
-  private async issueVerificationCode(email: string, websiteUrl: string) {
+  private async issueVerificationCode(
+    email: string,
+    password: string,
+    websiteUrl: string,
+  ) {
     const code = this.generateCode();
-    await setValue(loginCodeKey(email), code, 600, 'branch');
-    await deleteValue(loginCodeAttemptsKey(email), 'branch');
+    const pendingCode: PendingCode = {
+      code,
+      passwordHash: await hash(password, 10),
+      expiresAt: Date.now() + CODE_TTL_SECONDS * 1000,
+    };
+    const liveCodes = (await this.readPendingCodes(email)).filter(
+      (pending) => pending.passwordHash !== null,
+    );
+    await setValue(
+      loginCodeKey(email),
+      [...liveCodes, pendingCode].slice(-MAX_PENDING_CODES),
+      CODE_TTL_SECONDS,
+      'branch',
+    );
+    // The attempts counter is left alone: anyone can sign up for a pending
+    // address, so a reset here would let a guesser lift its own cap.
     await this.sendCodeByEmail(email, code, websiteUrl);
     return { message: VERIFICATION_CODE_SENT };
   }
@@ -87,20 +132,32 @@ class AuthService {
     // /api/auth/verify is public, so burning the code would let anyone strand a
     // pending signup.
     const attemptsKey = loginCodeAttemptsKey(email);
-    const attempts = await incrementWithTtl(attemptsKey, 600, 'branch');
+    const attempts = await incrementWithTtl(
+      attemptsKey,
+      CODE_TTL_SECONDS,
+      'branch',
+    );
     if (attempts > MAX_CODE_ATTEMPTS) {
-      return { error: 'Too many attempts. Please request a new code.' };
+      return { error: 'Too many attempts. Please try again in 10 minutes.' };
     }
 
-    const cachedCode = await getValue<string>(loginCodeKey(email), 'branch');
-    if (!cachedCode || !secretsEqual(code, String(cachedCode))) {
+    const matchedCode = (await this.readPendingCodes(email)).find((pending) =>
+      secretsEqual(code, pending.code),
+    );
+    if (!matchedCode) {
       return { error: 'Invalid or expired code' };
     }
     const user = await userRepository.findByEmail(email);
     if (!user) {
       return { error: 'User not found' };
     }
-    await userRepository.verifyUser(email);
+    // A signup racing the owner's verify can store a code after it; that code
+    // must never reset a verified account's password.
+    if (user.verified) {
+      await deleteValue(loginCodeKey(email), 'branch');
+      return { error: 'Invalid or expired code' };
+    }
+    await userRepository.verifyUser(email, matchedCode.passwordHash);
     const token = await signToken(user.id);
     await deleteValue(loginCodeKey(email), 'branch');
     await deleteValue(attemptsKey, 'branch');
@@ -110,6 +167,17 @@ class AuthService {
 
   public async logoutUser(userId: string, token: string) {
     await invalidateSession(userId, token);
+  }
+
+  private async readPendingCodes(email: string): Promise<PendingCode[]> {
+    const stored = storedCodesSchema.safeParse(
+      await getValue<unknown>(loginCodeKey(email), 'branch'),
+    );
+    if (!stored.success) {
+      return [];
+    }
+    const now = Date.now();
+    return stored.data.filter((pending) => pending.expiresAt > now);
   }
 
   private generateCode() {

@@ -5,15 +5,16 @@ import {
   transactionTypeSchema,
 } from './common';
 import { currencyCodeSchema } from '@/shared/currency';
+import { positiveAmountSchema, positiveRateSchema } from './amount';
 
 // `value` alone is an ILS amount, as before currencies existed. A foreign
 // amount is `originalAmount` + `currency`, with `value` (the ILS charged) or
 // `exchangeRate` when the caller knows it.
 const transactionAmountFields = {
-  value: z.coerce.number().optional(),
+  value: positiveAmountSchema.optional(),
   currency: currencyCodeSchema.optional(),
-  originalAmount: z.coerce.number().positive().optional(),
-  exchangeRate: z.coerce.number().positive().optional(),
+  originalAmount: positiveAmountSchema.optional(),
+  exchangeRate: positiveRateSchema.optional(),
 };
 
 function requireAnAmount(
@@ -92,11 +93,12 @@ export const getTransactionsSchema = transactionFilterSchema.extend({
 export const attachFileSchema = z.object({
   fileName: z.string(),
   fileKey: z.string(),
-  fileSize: z.number(),
+  fileSize: z.number().int().nonnegative(),
   mimeType: z.string(),
 });
 
 export const getPresignedUploadUrlSchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
+  fileSize: z.number().int().nonnegative(),
 });

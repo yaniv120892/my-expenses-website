@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { positiveAmountSchema } from './amount';
 import { recordIdSchema, subscriptionStatusSchema } from './common';
 
 export const subscriptionFrequencySchema = z.enum([
@@ -14,7 +15,7 @@ export const convertSubscriptionSchema = z.object({
 export const updateSubscriptionSchema = z
   .object({
     displayName: z.string().trim().min(1).max(120).optional(),
-    averageAmount: z.coerce.number().positive().optional(),
+    averageAmount: positiveAmountSchema.optional(),
     frequency: subscriptionFrequencySchema.optional(),
     lastChargeDate: z.coerce.date().optional(),
     nextExpectedDate: z.coerce.date().optional(),

@@ -26,6 +26,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import { describeApiError } from '@/utils/api';
+import { isPositiveAmount } from '@/shared/schemas/amount';
 import NotificationSnackbar from './NotificationSnackbar';
 import {
   isUsableBankDescriptionPrefix,
@@ -104,7 +105,7 @@ export default function ScheduledTransactionForm({
     if (!form.description) {
       errs.description = 'Description is required';
     }
-    if (!form.value || form.value <= 0) {
+    if (!isPositiveAmount(form.value)) {
       errs.value = 'Value must be greater than 0';
     }
     if (!form.type) {

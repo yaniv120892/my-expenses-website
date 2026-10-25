@@ -13,7 +13,7 @@ const NUMERIC_TEXT = /^\s*(\d+\.?\d*|\.\d+)\s*$/;
 // The direction of money lives in the transaction type, so an amount is
 // always strictly positive.
 export const strictPositiveAmountSchema = z
-  .number({ invalid_type_error: POSITIVE_AMOUNT_MESSAGE })
+  .number({ error: POSITIVE_AMOUNT_MESSAGE })
   .min(MINIMUM_AMOUNT, POSITIVE_AMOUNT_MESSAGE)
   .max(MAXIMUM_AMOUNT, POSITIVE_AMOUNT_MESSAGE);
 
@@ -28,7 +28,7 @@ export const positiveAmountSchema = z.preprocess(
 export const positiveRateSchema = z.preprocess(
   numericTextToNumber,
   z
-    .number({ invalid_type_error: 'exchangeRate must be a positive number' })
+    .number({ error: 'exchangeRate must be a positive number' })
     .finite()
     .positive('exchangeRate must be a positive number'),
 );

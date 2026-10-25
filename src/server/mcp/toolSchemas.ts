@@ -1,14 +1,13 @@
-// zod/v4 to match the assistant's shared query schemas, which these extend.
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import {
   comparePeriodsShape,
   spendingTrendsShape,
   transactionFilterShape,
-  transactionTypeFilter,
 } from '@/server/services/assistant/financeQuerySchemas';
 import { BASE_CURRENCY, isIsoCurrencyCode } from '@/shared/currency';
 import { isCalendarDay } from '@/shared/dates';
 import { MAXIMUM_AMOUNT, MINIMUM_AMOUNT } from '@/shared/schemas/amount';
+import { recordIdSchema, transactionTypeSchema } from '@/shared/schemas/common';
 
 // A shape-only check lets "2026-13-45" reach the database as an Invalid Date
 // and "2026-02-31" roll over to March, so the day must exist.
@@ -28,10 +27,9 @@ const periodDays = {
 
 const amount = z.number().min(MINIMUM_AMOUNT).max(MAXIMUM_AMOUNT);
 
-const transactionId = z
-  .string()
-  .uuid()
-  .describe('The transaction id, as find_transactions returns it');
+const transactionId = recordIdSchema.describe(
+  'The transaction id, as find_transactions returns it',
+);
 
 const currencyCode = z
   .string()
@@ -92,7 +90,7 @@ export const addTransactionShape = {
   amount: amount.describe(
     'The amount paid or received, in `currency`. Always positive.',
   ),
-  type: transactionTypeFilter
+  type: transactionTypeSchema
     .default('EXPENSE')
     .describe(
       'EXPENSE for money spent (the default), INCOME for money received',
@@ -113,7 +111,7 @@ export const updateTransactionShape = {
     .describe(
       "New amount, in the transaction's own currency unless `currency` is also given",
     ),
-  type: transactionTypeFilter.optional(),
+  type: transactionTypeSchema.optional(),
   currency: currencyCode.optional(),
   ilsAmount: ilsAmount.optional(),
   date: dayString.optional().describe('New day, YYYY-MM-DD'),

@@ -1,5 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import logger from '@/server/logging/logger';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import {

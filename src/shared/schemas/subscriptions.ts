@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { positiveAmountSchema } from './amount';
-import { subscriptionStatusSchema } from './common';
+import { recordIdSchema, subscriptionStatusSchema } from './common';
 
 export const subscriptionFrequencySchema = z.enum([
   'WEEKLY',
@@ -9,7 +9,7 @@ export const subscriptionFrequencySchema = z.enum([
 ]);
 
 export const convertSubscriptionSchema = z.object({
-  categoryId: z.string().uuid().optional(),
+  categoryId: recordIdSchema.optional(),
 });
 
 export const updateSubscriptionSchema = z
@@ -20,7 +20,7 @@ export const updateSubscriptionSchema = z
     lastChargeDate: z.coerce.date().optional(),
     nextExpectedDate: z.coerce.date().optional(),
     // Null clears the category; undefined leaves it untouched.
-    categoryId: z.string().uuid().nullable().optional(),
+    categoryId: recordIdSchema.nullable().optional(),
   })
   .refine((value) => Object.values(value).some((v) => v !== undefined), {
     message: 'At least one field must be provided',

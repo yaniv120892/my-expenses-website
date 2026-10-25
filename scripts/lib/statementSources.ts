@@ -42,7 +42,7 @@ const statementSourcesSchema = z
     for (const card of [...cards, ...closedCards]) {
       if (seen.has(card.last4)) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `card ${card.last4} is listed twice`,
         });
       }

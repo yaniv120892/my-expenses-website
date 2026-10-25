@@ -70,8 +70,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
-  validates dynamic route params as uuids by default (a route with a
-  non-uuid segment must declare its own `paramsSchema`),
+  validates dynamic route params as uuids by default through
+  `recordIdSchema` (a route with a non-uuid segment must declare its own
+  `paramsSchema`),
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}` (or a JSON-RPC error envelope
@@ -372,6 +373,11 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `PendingTransactionsList` is the opposite — it has no error surface, so its
   handlers must not reject and the page catches (`runWithNotice`). A new dialog
   picks one and says which in its props.
+- **A uuid-checked id goes through `recordIdSchema`**
+  (`src/shared/schemas/common.ts`) — route params, request schemas and MCP
+  tool schemas alike. It checks the uuid shape only, since the categories the
+  first migrations seeded carry ids without the RFC 9562 version and variant
+  bits that `z.uuid()` requires.
 - **Comments** only where code cannot explain itself — a surprising why, 1–2
   sentences. Names carry the what; this file carries the design.
 

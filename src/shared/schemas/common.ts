@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Shape only: the categories the first migrations seeded carry hand-written
+// ids without RFC 9562 version and variant bits, which z.uuid() rejects.
+export const recordIdSchema = z.guid('Invalid uuid');
+
 export const transactionTypeSchema = z.enum(['INCOME', 'EXPENSE']);
 
 export const transactionStatusSchema = z.enum(['APPROVED', 'PENDING_APPROVAL']);

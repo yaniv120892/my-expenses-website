@@ -1,4 +1,4 @@
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { createTool } from '@mastra/core/tools';
 import financeQueryService from '@/server/services/assistant/financeQueries';
 import {

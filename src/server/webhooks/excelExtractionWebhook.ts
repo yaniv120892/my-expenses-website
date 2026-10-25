@@ -77,7 +77,10 @@ const extractionResultSchema = z.object({
         value: z.number(),
         type: z.enum(['EXPENSE', 'INCOME']),
         rawData: z
-          .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+          .record(
+            z.string(),
+            z.union([z.string(), z.number(), z.boolean(), z.null()]),
+          )
           .optional(),
         originalAmount: z.number().nonnegative().optional(),
         originalCurrency: z.string().optional(),

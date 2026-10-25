@@ -17,5 +17,30 @@ export function initSentry(): void {
     // Traces and Session Replay bill against their own quotas; only errors are
     // budgeted.
     tracesSampleRate: 0,
+    dataCollection: NO_REQUEST_DATA_COLLECTION,
   });
 }
+
+const IDENTIFYING_KEY_PATTERNS = [
+  'forwarded',
+  '-ip',
+  'remote-',
+  'via',
+  '-user',
+];
+
+// An unset `dataCollection` sends cookies (the session JWT), identifying
+// headers and every request body (passwords, transactions). Each category is
+// pinned so a permissive default added later cannot switch on silently.
+const NO_REQUEST_DATA_COLLECTION = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: { deny: IDENTIFYING_KEY_PATTERNS },
+  httpBodies: [],
+  urlQueryParams: { deny: IDENTIFYING_KEY_PATTERNS },
+  genAI: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  graphQL: { document: false, variables: false },
+  queues: false,
+  stackFrameVariables: false,
+} satisfies Sentry.BrowserOptions['dataCollection'];

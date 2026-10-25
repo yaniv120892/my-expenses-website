@@ -61,6 +61,13 @@ const PENDING_ROW = {
   deleted: false,
 } as const;
 
+// An import deleted before deleteImport began flagging its rows left them
+// live, so reads of rows to act on also check the import.
+const PENDING_ROW_OF_LIVE_IMPORT = {
+  ...PENDING_ROW,
+  import: { deleted: false },
+} satisfies Prisma.ImportedTransactionWhereInput;
+
 export class ImportedTransactionRepository {
   public async createMany(
     transactions: ImportedTransactionCreateRow[],
@@ -170,8 +177,7 @@ export class ImportedTransactionRepository {
         importId,
         id: { in: ids },
         userId,
-        status: ImportedTransactionStatus.PENDING,
-        deleted: false,
+        ...PENDING_ROW_OF_LIVE_IMPORT,
       },
       include: WITH_MATCH,
       orderBy: { date: 'desc' },
@@ -186,8 +192,7 @@ export class ImportedTransactionRepository {
       where: {
         importId,
         userId,
-        status: ImportedTransactionStatus.PENDING,
-        deleted: false,
+        ...PENDING_ROW_OF_LIVE_IMPORT,
       },
       include: WITH_MATCH,
       orderBy: { date: 'desc' },
@@ -207,6 +212,13 @@ export class ImportedTransactionRepository {
     ];
   }
 
+  public softDeleteByImportIdOp(importId: string, userId: string) {
+    return prisma.importedTransaction.updateMany({
+      where: { importId, userId },
+      data: { deleted: true },
+    });
+  }
+
   /** Hard delete: the parent import row is about to go, and the FK is Restrict. */
   public deleteByImportIdOp(importId: string) {
     return prisma.importedTransaction.deleteMany({ where: { importId } });
@@ -218,8 +230,7 @@ export class ImportedTransactionRepository {
     const claimed = await prisma.importedTransaction.findMany({
       where: {
         userId,
-        deleted: false,
-        status: ImportedTransactionStatus.PENDING,
+        ...PENDING_ROW_OF_LIVE_IMPORT,
         matchingTransactionId: { not: null },
       },
       select: { matchingTransactionId: true },

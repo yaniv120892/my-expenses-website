@@ -142,6 +142,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 describe('MCP tool surface', () => {
@@ -376,6 +377,68 @@ describe('read tools', () => {
     expect(
       scheduledTransactionService.listScheduledTransactions,
     ).toHaveBeenCalledWith(USER_ID);
+  });
+});
+
+// Each case runs on a host whose offset shifts the day under the wrong formatter.
+describe('dates in tool output', () => {
+  it('heads a spending trend with plain days on a host west of UTC', async () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+
+    const outcome = await call({
+      client,
+      name: 'get_spending_trends',
+      toolArguments: {
+        period: 'monthly',
+        startDate: '2026-07-01',
+        endDate: '2026-10-24',
+      },
+    });
+
+    expect(outcome.text).toContain(
+      'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
+    );
+  });
+
+  it.each([
+    ['America/Los_Angeles', '2026-10-20T00:00:00Z'],
+    ['Asia/Jerusalem', '2026-10-20T23:30:00Z'],
+  ])(
+    'lists a transaction under its stored day on a %s host',
+    async (timeZone, storedDate) => {
+      vi.stubEnv('TZ', timeZone);
+      transactionRepository.getTransactions.mockResolvedValue([
+        transaction({ date: new Date(storedDate) }),
+      ]);
+
+      const outcome = await call({ client, name: 'find_transactions' });
+
+      expect(outcome.text).toContain(`id ${TRANSACTION_ID} | 2026-10-20 |`);
+    },
+  );
+
+  it("names a schedule's next run by its local day on a host east of UTC", async () => {
+    vi.stubEnv('TZ', 'Asia/Jerusalem');
+    scheduledTransactionService.listScheduledTransactions.mockResolvedValue([
+      {
+        id: 's-1',
+        description: 'Rent',
+        value: 5000,
+        type: 'EXPENSE',
+        categoryId: 'c-rent',
+        scheduleType: 'MONTHLY',
+        dayOfMonth: 1,
+        nextRunDate: new Date(2026, 10, 1),
+        userId: USER_ID,
+      },
+    ]);
+
+    const outcome = await call({
+      client,
+      name: 'list_scheduled_transactions',
+    });
+
+    expect(outcome.text).toContain('next 2026-11-01');
   });
 });
 

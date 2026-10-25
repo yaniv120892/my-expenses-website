@@ -33,6 +33,14 @@ describe('getTodayTransactions', () => {
     expect(startDate).toEqual(new Date('2026-08-25T21:00:00'));
     expect(endDate).toEqual(new Date('2026-08-25T21:00:00'));
   });
+
+  it('asks for expenses only, since the message lists and totals them as expenses', async () => {
+    await service.getTodayTransactions('user-1');
+
+    expect(getAllTransactions.mock.calls[0][0]).toMatchObject({
+      transactionType: 'EXPENSE',
+    });
+  });
 });
 
 describe('formatSummaryMessage', () => {

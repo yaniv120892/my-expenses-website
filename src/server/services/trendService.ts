@@ -78,6 +78,14 @@ class TrendService {
     userId: string,
   ): Promise<CategorySpendingTrend[]> {
     const { startDate, endDate } = this.getDateRange(request);
+    const periodQuery: PeriodQuery = {
+      startDate,
+      endDate,
+      userId,
+      transactionType: request.transactionType,
+      categoryId: request.categoryId,
+      categoryIds: request.categoryIds,
+    };
 
     const [
       currentPeriodData,
@@ -85,18 +93,8 @@ class TrendService {
       topLevelCategories,
       categoryParentMap,
     ] = await Promise.all([
-      this.fetchTransactionsForPeriod({
-        startDate,
-        endDate,
-        userId,
-        transactionType: request.transactionType,
-      }),
-      this.fetchPreviousPeriodData({
-        startDate,
-        endDate,
-        userId,
-        transactionType: request.transactionType,
-      }),
+      this.fetchTransactionsForPeriod(periodQuery),
+      this.fetchPreviousPeriodData(periodQuery),
       categoryRepository.getTopLevelCategories(),
       buildCategoryParentMap(),
     ]);

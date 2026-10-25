@@ -102,5 +102,7 @@ export interface GetSpendingTrendsRequest {
   endDate?: Date;
   period: TrendPeriod;
   categoryId?: string;
+  /** A category's whole subtree; wins over `categoryId` when both are set. */
+  categoryIds?: string[];
   transactionType?: TransactionType;
 }

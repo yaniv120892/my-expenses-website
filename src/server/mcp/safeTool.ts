@@ -1,0 +1,118 @@
+import type {
+  McpServer,
+  ToolCallback,
+} from '@modelcontextprotocol/sdk/server/mcp.js';
+import type {
+  ShapeOutput,
+  ZodRawShapeCompat,
+} from '@modelcontextprotocol/sdk/server/zod-compat.js';
+import type {
+  CallToolResult,
+  ToolAnnotations,
+} from '@modelcontextprotocol/sdk/types.js';
+import { HttpError } from '@/server/http/errors';
+import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
+import logger from '@/server/logging/logger';
+import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import type { McpActor } from '@/server/mcp/createMcpServer.types';
+// A write names the transaction it touched, so the call's log line carries it.
+type ToolReply = string | { text: string; transactionId: string };
+
+type ToolOutcome = 'ok' | 'client_error' | 'server_error';
+
+const NEUTRAL_FAILURE =
+  'Something went wrong in My Expenses. Try again in a moment.';
+
+export const READ_ONLY = {
+  readOnlyHint: true,
+  openWorldHint: false,
+} as const satisfies ToolAnnotations;
+
+/**
+ * A tool never throws at the model: a thrown error becomes an opaque protocol
+ * failure, while a returned one ("Unknown category …, close matches: …") is
+ * something the agent can correct or relay. A 4xx is written for the caller,
+ * so its message passes through; anything else is reported and kept neutral.
+ * Every call logs one line with its outcome.
+ */
+export function registerSafeTool<TShape extends ZodRawShapeCompat>({
+  server,
+  actor,
+  name,
+  config,
+  handler,
+}: {
+  server: McpServer;
+  actor: McpActor;
+  name: string;
+  config: {
+    title: string;
+    description: string;
+    inputSchema: TShape;
+    annotations: ToolAnnotations;
+  };
+  handler: (input: ShapeOutput<TShape>) => Promise<ToolReply>;
+}): void {
+  async function handlesToolErrors(
+    input: ShapeOutput<TShape>,
+  ): Promise<CallToolResult> {
+    const started = Date.now();
+    const logCall = ({
+      outcome,
+      transactionId,
+    }: {
+      outcome: ToolOutcome;
+      transactionId?: string;
+    }) =>
+      logger.info(
+        {
+          userId: actor.userId,
+          toolName: name,
+          outcome,
+          durationMs: Date.now() - started,
+          ...(transactionId && { transactionId }),
+        },
+        'MCP tool call',
+      );
+    try {
+      const reply = await handler(input);
+      if (typeof reply === 'string') {
+        logCall({ outcome: 'ok' });
+        return toolSuccess(reply);
+      }
+      logCall({ outcome: 'ok', transactionId: reply.transactionId });
+      return toolSuccess(reply.text);
+    } catch (error) {
+      const clientError = toClientError(error);
+      if (clientError) {
+        logCall({ outcome: 'client_error' });
+        return toolFailure(clientError.message);
+      }
+      logCall({ outcome: 'server_error' });
+      reportSwallowedError(
+        { err: error, userId: actor.userId, toolName: name },
+        'MCP tool failed',
+      );
+      return toolFailure(NEUTRAL_FAILURE);
+    }
+  }
+
+  // ToolCallback is conditional on the shape, which TypeScript cannot resolve
+  // for a generic one; ShapeOutput<TShape> is exactly what it resolves to.
+  const callback = handlesToolErrors as unknown as ToolCallback<TShape>;
+  server.registerTool(name, config, callback);
+}
+
+function toolSuccess(text: string): CallToolResult {
+  return { content: [{ type: 'text', text }] };
+}
+
+function toolFailure(text: string): CallToolResult {
+  return { content: [{ type: 'text', text }], isError: true };
+}
+
+function toClientError(error: unknown): HttpError | undefined {
+  const httpError =
+    error instanceof HttpError ? error : prismaErrorToHttpError(error);
+  return httpError && httpError.status < 500 ? httpError : undefined;
+}

@@ -182,6 +182,18 @@ redirects to `/login`, and a redirect-following monitor records that page's 200.
 response body**, which no other page returns; that is what makes a
 wrong-URL failure visible regardless of how it is wrong.
 
+## Personal agent (MCP)
+
+`POST /api/mcp` is a remote MCP server (Streamable HTTP, stateless, JSON
+responses) for the owner's own AI agent. Settings → סוכן אישי issues its
+token (scope `AGENT`), shows the URL, and builds an English briefing to paste
+to the agent. The agent is configured with:
+
+- URL: `<site origin>/api/mcp`
+- Header: `Authorization: Bearer mxk_…`
+
+It needs no env var of its own; tokens are signed with `JWT_SECRET`.
+
 ## External services
 
 | Service                  | Contract                                                                                                                |

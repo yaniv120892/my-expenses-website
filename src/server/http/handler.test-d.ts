@@ -92,3 +92,31 @@ test('body and query inference survives the union', () => {
     },
   });
 });
+
+test('an apiToken route must declare the scope it accepts', () => {
+  expectTypeOf<{
+    auth: 'apiToken';
+    apiTokenScope: 'AGENT';
+    handler: Handler;
+  }>().toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'apiToken';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+});
+
+test('only an apiToken route may answer errors as JSON-RPC', () => {
+  expectTypeOf<{
+    auth: 'apiToken';
+    apiTokenScope: 'AGENT';
+    errorFormat: 'json-rpc';
+    handler: Handler;
+  }>().toExtend<Options>();
+
+  expectTypeOf<{
+    auth: 'session';
+    errorFormat: 'json-rpc';
+    handler: Handler;
+  }>().not.toExtend<Options>();
+});

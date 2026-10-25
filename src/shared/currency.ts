@@ -29,11 +29,15 @@ export const SELECTABLE_CURRENCIES: readonly string[] = [
 
 const KNOWN_CURRENCIES = new Set(Intl.supportedValuesOf('currency'));
 
+export function isIsoCurrencyCode(code: string): boolean {
+  return KNOWN_CURRENCIES.has(code);
+}
+
 export const currencyCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .refine((code) => KNOWN_CURRENCIES.has(code), {
+  .refine(isIsoCurrencyCode, {
     message: 'Must be an ISO 4217 currency code, such as ILS or USD',
   });
 

@@ -4,7 +4,7 @@ import transactionFileRepository from '@/server/repositories/transactionFileRepo
 import {
   CreateTransaction,
   CategoryBreakdownItem,
-  CreateTransactionResult,
+  CreatedTransaction,
   Transaction,
   TransactionListFilters,
   TransactionListPage,
@@ -38,6 +38,7 @@ import {
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
+import { toAppWallClock } from '@/shared/dates';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
@@ -63,28 +64,22 @@ class TransactionService {
 
   public async createTransaction(
     data: CreateTransaction,
-  ): Promise<CreateTransactionResult> {
+  ): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
     const transactionModel = await this.prepareCreateTransaction(data);
-    const transactionId =
+    const transaction =
       await transactionRepository.createTransaction(transactionModel);
 
     await this.notifyTransactionCreatedSafe(
-      transactionId,
+      transaction.id,
       transactionModel.userId,
     );
 
-    const result: CreateTransactionResult = { id: transactionId };
-
-    if (!userProvidedCategory) {
-      const categories = await categoryRepository.getAllCategories();
-      const cat = categories.find((c) => c.id === transactionModel.categoryId);
-      if (cat) {
-        result.suggestedCategory = { id: cat.id, name: cat.name };
-      }
-    }
-
-    return result;
+    return {
+      id: transaction.id,
+      ...(!userProvidedCategory && { suggestedCategory: transaction.category }),
+      transaction,
+    };
   }
 
   /**
@@ -94,7 +89,9 @@ class TransactionService {
   public async prepareCreateTransaction(
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
-    const date = data.date || new Date();
+    // An undated create is stamped as the form would stamp it: the app's
+    // wall-clock time in the UTC fields, not the server's instant.
+    const date = data.date || toAppWallClock(new Date());
     const [amount, resolved] = await Promise.all([
       data.resolvedAmount ??
         currencyConversionService.resolveAmount(data, date),
@@ -240,7 +237,7 @@ class TransactionService {
     id: string,
     data: UpdateTransactionRequest,
     userId: string,
-  ): Promise<void> {
+  ): Promise<Transaction> {
     const existing = await transactionRepository.getTransactionItem(id, userId);
     if (!existing) {
       throw new HttpError(404, 'Transaction not found');
@@ -258,7 +255,7 @@ class TransactionService {
       data.categoryId,
       userId,
     );
-    await transactionRepository.updateTransaction(
+    return transactionRepository.updateTransaction(
       id,
       {
         description: data.description,

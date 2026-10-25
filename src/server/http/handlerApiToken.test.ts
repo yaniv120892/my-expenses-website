@@ -139,4 +139,27 @@ describe('createHandler API token auth', () => {
     expect(await response.json()).toEqual({ userId: 'session-user' });
     expect(authenticateApiToken).not.toHaveBeenCalled();
   });
+
+  it('challenges for a bearer on every 401 from an apiToken route', async () => {
+    const route = createHandler({
+      auth: 'apiToken',
+      apiTokenScope: 'AGENT',
+      handler: async ({ userId }) => ({ userId }),
+    });
+
+    const response = await route(request(''), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe(
+      'Bearer realm="my-expenses"',
+    );
+  });
+
+  it('takes a token only under the Bearer scheme', async () => {
+    requireUser.mockResolvedValue(TOKEN_OWNER);
+
+    await echoUserRoute('IMPORTS')(request('Token mxk_secret'), ROUTE_CONTEXT);
+
+    expect(authenticateApiToken).not.toHaveBeenCalled();
+  });
 });

@@ -125,6 +125,11 @@ export interface CreateTransactionResult {
   };
 }
 
+/** The server-side result, carrying the stored row so no caller re-reads it. */
+export type CreatedTransaction = CreateTransactionResult & {
+  transaction: Transaction;
+};
+
 export const TRANSACTION_TYPES = ['INCOME', 'EXPENSE'] as const;
 
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];

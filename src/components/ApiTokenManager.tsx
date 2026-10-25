@@ -3,16 +3,10 @@
 import { useState } from 'react';
 import {
   Alert,
-  Box,
   Button,
   Checkbox,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   FormControlLabel,
   FormGroup,
   IconButton,
@@ -26,7 +20,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   useApiTokensQuery,
@@ -37,17 +30,33 @@ import { API_TOKEN_SCOPES } from '@/shared/types/apiToken';
 import type { ApiTokenScope, ApiTokenSummary } from '@/types/apiToken';
 import { describeApiError } from '@/utils/api';
 import { formatDay } from '@/utils/dateUtils';
+import CopyableText from '@/components/CopyableText';
+import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 
 const COPY_LABELS = {
   idle: 'Copy',
   copied: 'Copied',
   failed: 'Copy failed — select the text instead',
-} as const;
+};
+
+const REVOKE_LABELS = {
+  title: function revokeTitle(tokenName: string) {
+    return `Revoke “${tokenName}”?`;
+  },
+  consequence:
+    'Any script using this token stops working immediately. This cannot be undone.',
+  cancel: 'Cancel',
+  confirm: 'Revoke',
+};
 
 const SCOPE_DETAILS = {
   IMPORTS: {
     label: 'Imports',
     description: 'Upload statements, preview and approve imports',
+  },
+  AGENT: {
+    label: 'Personal agent',
+    description: 'Read, add, edit and delete transactions over MCP',
   },
 } satisfies Record<ApiTokenScope, { label: string; description: string }>;
 
@@ -58,7 +67,6 @@ export default function ApiTokenManager() {
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<ApiTokenScope[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
-  const [copyState, setCopyState] = useState<keyof typeof COPY_LABELS>('idle');
   const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
     null,
   );
@@ -77,7 +85,6 @@ export default function ApiTokenManager() {
       {
         onSuccess: (created) => {
           setCreatedToken(created.token);
-          setCopyState('idle');
           setName('');
           setScopes([]);
         },
@@ -85,19 +92,8 @@ export default function ApiTokenManager() {
     );
   };
 
-  const handleCopy = async (token: string) => {
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopyState('copied');
-    } catch {
-      setCopyState('failed');
-    }
-  };
-
-  const handleConfirmRevoke = () => {
-    if (pendingRevoke) {
-      revokeMutation.mutate(pendingRevoke.id);
-    }
+  const handleConfirmRevoke = (token: ApiTokenSummary) => {
+    revokeMutation.mutate(token.id);
     setPendingRevoke(null);
   };
 
@@ -151,23 +147,12 @@ export default function ApiTokenManager() {
           <Typography variant="body2" sx={{ mb: 1 }}>
             Copy this token now — it will not be shown again.
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography
-              variant="body2"
-              sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}
-            >
-              {createdToken}
-            </Typography>
-            <Tooltip title={COPY_LABELS[copyState]}>
-              <IconButton
-                size="small"
-                onClick={() => handleCopy(createdToken)}
-                aria-label="Copy token"
-              >
-                <ContentCopyIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <CopyableText
+            key={createdToken}
+            label="Token"
+            value={createdToken}
+            copyLabels={COPY_LABELS}
+          />
         </Alert>
       )}
 
@@ -250,21 +235,12 @@ export default function ApiTokenManager() {
         </Table>
       )}
 
-      <Dialog open={!!pendingRevoke} onClose={() => setPendingRevoke(null)}>
-        <DialogTitle>Revoke “{pendingRevoke?.name}”?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Any script using this token stops working immediately. This cannot
-            be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingRevoke(null)}>Cancel</Button>
-          <Button color="error" onClick={handleConfirmRevoke}>
-            Revoke
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <RevokeTokenDialog
+        token={pendingRevoke}
+        labels={REVOKE_LABELS}
+        onCancel={() => setPendingRevoke(null)}
+        onConfirm={handleConfirmRevoke}
+      />
     </Stack>
   );
 }

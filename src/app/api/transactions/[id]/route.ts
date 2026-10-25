@@ -5,8 +5,9 @@ import transactionService from '@/server/services/transactionService';
 export const PUT = createHandler({
   auth: 'session',
   bodySchema: updateTransactionSchema,
-  handler: async ({ userId, body, params }) =>
-    transactionService.updateTransaction(params.id, body, userId),
+  handler: async ({ userId, body, params }) => {
+    await transactionService.updateTransaction(params.id, body, userId);
+  },
 });
 
 export const DELETE = createHandler({

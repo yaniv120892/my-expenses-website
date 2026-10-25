@@ -69,14 +69,16 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   subscriptions, imports, trends, settings) inside the AppShell drawer layout.
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
-  (`session` | `cron` | `telegram` | `public`), zod-validates body/query,
+  (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
   validates dynamic route params as uuids by default (a route with a
   non-uuid segment must declare its own `paramsSchema`),
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
-  maps errors to `{message}`/`{error, code}`, and logs one pino line per
+  maps errors to `{message}`/`{error, code}` (or a JSON-RPC error envelope
+  on a route declaring `errorFormat: 'json-rpc'`), and logs one pino line per
   request. Every error it maps to a 5xx is also reported to Sentry and alerted
-  to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/webhook`
+  to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/mcp` (the personal
+  agent's MCP server; below), `/api/webhook`
   (Telegram, secret-token header), `/api/excel-extraction-agent/webhook`
   (HMAC in query params over `userId:timestamp:importId`, so a callback is
   bound to the import it was submitted for),
@@ -93,7 +95,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   most hourly).
 - `src/server/` — backend logic: `services/` (business logic; singletons),
   `repositories/` (Prisma),
-  `services/assistant/` (Mastra agent, tools, PG-backed memory),
+  `services/assistant/` (Mastra agent, tools, PG-backed memory, and
+  `financeQueries.ts`, the read-side figures both assistants share),
+  `mcp/` (the MCP server behind `/api/mcp`),
   `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
   `integrations` live inside services as `lazy()` fields.
 - `src/shared/` — code both routes and client import: zod request schemas
@@ -227,8 +231,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   matches. `selectNonDuplicateRows` claims each existing row at most once, so a
   genuinely repeated charge still imports.
 - **A duplicate import is kept as a pointer, and its survivor is held until
-  the moved rows are matched.** When the extraction webhook finds an older
-  COMPLETED import for the same card and month, one transaction moves the
+  the moved rows are matched.** When the extraction webhook finds a COMPLETED
+  import for the same card and month — the oldest, whichever upload came
+  first, since the one being processed is not yet COMPLETED and two callbacks
+  therefore never merge into each other — one transaction moves the
   non-duplicate rows there, puts the survivor in `REMATCHING`, and marks the
   duplicate `MERGED` with `mergedIntoImportId`; the survivor returns to
   `COMPLETED` only after `findPotentialMatchesForImport` has run over it. So
@@ -245,7 +251,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   webhook reads both the submitted and the extracted month through it, ignoring
   one that names no month. A FAILED import keeps its
   extraction claim, since a redelivery after a partial write would insert every
-  row again, so recovery is delete and re-import.
+  row again, so recovery is delete and re-import. Deleting an import deletes
+  its rows with it, so none can still be approved or hold a match a re-import
+  needs.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -264,7 +272,36 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `src/app/api/apiTokenScope.test.ts`; a new scope is a new enum value plus
   the routes it opens. A scope names a whole capability, not a read/write
   half: `IMPORTS` drives the import workflow end to end (list, upload,
-  preview, approve). A session cookie on the same request wins.
+  preview, approve). A session cookie on the same request wins. An
+  `auth: 'apiToken'` route takes only an API token — a cookie or session JWT
+  is refused with 401 `API_TOKEN_REQUIRED` — and must declare its scope.
+- **The personal agent reaches the app only through `/api/mcp`.** It is an
+  `auth: 'apiToken'` route needing `AGENT`, the token Settings → סוכן אישי
+  issues, and answers every refusal as a JSON-RPC error rather than a redirect
+  or `{error}` body, so an MCP client can read it. The server is stateless
+  (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
+  `createMcpServer({ userId })`, answers one message and closes; a JSON-RPC
+  batch is a 400 (`-32600`), since the rate limit counts requests; GET and
+  DELETE are 405. The user id is captured in every tool's closure, so no tool takes
+  one. Tools are adapters over existing services — reads through
+  `financeQueryService` (the same code the Mastra tools call) and the
+  transaction/schedule services, writes through `transactionService`, whose
+  amounts go through `currencyConversionService` like any other create or
+  edit. Every tool is registered through `registerSafeTool`
+  (`src/server/mcp/safeTool.ts`), so a tool never throws: a 4xx comes back as
+  an `isError` result with its message, anything else is reported via
+  `reportSwallowedError` and returned neutrally, and each call logs one
+  `MCP tool call` line with its outcome (and, on a write, the transaction id).
+  Every date an agent sends must be a real calendar day; an undated
+  `add_transaction` — like any undated create
+  (`transactionService.prepareCreateTransaction`) — takes the current Israel
+  wall-clock time, stored as the form stores it (`toAppWallClock`,
+  `src/shared/dates.ts`). A day either
+  assistant prints from a stored transaction date reads its UTC fields
+  (`toUtcDayString`), so it is right on a host off UTC; a schedule's
+  `nextRunDate` is local midnight and stays on `toDayString`. The settings briefing names the tools from
+  `src/shared/agentTools.ts`, which `src/server/mcp/mcpTools.test.ts` holds
+  equal to the registered set.
 - **Redis keys**: every key written through `src/server/redis.ts` is namespaced
   by `redisKeyPrefix(scope)`, because previews share production's one Upstash
   database. Only production is bare; everything else, an unconfigured local

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { scheduleTypeSchema, transactionTypeSchema } from './common';
+import {
+  recordIdSchema,
+  scheduleTypeSchema,
+  transactionTypeSchema,
+} from './common';
 import {
   isUsableBankDescriptionPrefix,
   MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
@@ -26,7 +30,7 @@ const scheduledTransactionBaseSchema = z.object({
   description: z.string(),
   value: z.coerce.number(),
   type: transactionTypeSchema,
-  categoryId: z.string().uuid(),
+  categoryId: recordIdSchema,
   scheduleType: scheduleTypeSchema,
   interval: z.coerce.number().int().positive().optional(),
   // 1 is Sunday, as the form numbers the week.

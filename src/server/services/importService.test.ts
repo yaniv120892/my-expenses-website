@@ -327,6 +327,20 @@ describe('rematchImport', () => {
       expect(status).toBe('COMPLETED');
     });
 
+    it('retries handing back a re-match that succeeded', async () => {
+      importRepo.transitionStatus
+        .mockResolvedValueOnce(true)
+        .mockRejectedValueOnce(new Error('blip'))
+        .mockResolvedValueOnce(true);
+
+      await expect(run()).rejects.toThrow('blip');
+      expect(importRepo.transitionStatus.mock.calls).toEqual([
+        ['imp-1', 'COMPLETED', 'REMATCHING'],
+        ['imp-1', 'REMATCHING', 'COMPLETED'],
+        ['imp-1', 'REMATCHING', 'COMPLETED'],
+      ]);
+    });
+
     it('keeps the re-match error when handing the import back fails too', async () => {
       prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
         new Error('db down'),

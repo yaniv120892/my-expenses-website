@@ -245,8 +245,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   holds no rows and never becomes a merge target (`findExisting` requires
   `COMPLETED`). Every exit from `REMATCHING`, success or failure, is back to
   `COMPLETED`, written only while the status is still `REMATCHING`
-  (`importRepository.transitionStatus`); only a function killed mid-run can
-  leave an import there. A re-match (`rematchImport`) enters it the same way
+  (`importRepository.transitionStatus`), and a release that fails is tried
+  once more and reported; only a function killed mid-run, or a release that
+  fails twice, leaves an import there. A re-match (`rematchImport`) enters it the same way
   from `COMPLETED`, so of two concurrent calls one gets 409, and reads its rows
   only after; a failed one leaves the rows it had not reached unmatched for a
   retry. A webhook that fails after its merge committed releases the survivor

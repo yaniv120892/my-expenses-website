@@ -763,11 +763,11 @@ class ImportService {
     // are still PENDING, and COMPLETED is the status a retry needs.
     try {
       await this.rematchClaimedImport(importId, userId);
+      await this.releaseRematch(importId);
     } catch (error) {
       await this.releaseRematchSafe(importId);
       throw error;
     }
-    await this.releaseRematch(importId);
   }
 
   private async rematchClaimedImport(

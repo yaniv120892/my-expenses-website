@@ -392,12 +392,18 @@ class TransactionRepository {
     });
   }
 
-  public async deleteTransaction(id: string, userId: string): Promise<void> {
-    await prisma.transaction
+  /** Returns the attachment keys the cascade dropped, read by the delete itself. */
+  public async deleteTransaction(
+    id: string,
+    userId: string,
+  ): Promise<string[]> {
+    const deleted = await prisma.transaction
       .delete({
         where: { id, userId },
+        select: { files: { select: { fileKey: true } } },
       })
       .catch(throwNotFoundOnMissingRow);
+    return deleted.files.map((file) => file.fileKey);
   }
 
   /** The caller folds the day rows into whatever period buckets it needs. */

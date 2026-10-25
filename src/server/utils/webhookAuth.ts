@@ -2,15 +2,18 @@ import crypto from 'crypto';
 import logger from '@/server/logging/logger';
 import { requireEnv } from '@/server/env';
 
-const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
+export const WEBHOOK_TOKEN_EXPIRY_HOURS = 6;
+export const WEBHOOK_TOKEN_EXPIRY_MS =
+  WEBHOOK_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000;
 
 function getWebhookSecret(): string {
   return requireEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET');
 }
 
 // importId is optional only so callbacks already in flight at deploy time
-// still verify. Tokens expire after TOKEN_EXPIRY_MS, so the unbound branch is
-// dead an hour after rollout and both `importId?` parameters can be required.
+// still verify. Tokens expire after WEBHOOK_TOKEN_EXPIRY_MS, so the unbound
+// branch is dead that long after rollout and both `importId?` parameters can be
+// required.
 export function generateWebhookToken(
   userId: string,
   timestamp: number,
@@ -55,9 +58,9 @@ export function verifyWebhookToken(
   const now = Date.now();
   const age = now - timestamp;
 
-  if (age > TOKEN_EXPIRY_MS) {
+  if (age > WEBHOOK_TOKEN_EXPIRY_MS) {
     logger.warn(
-      { userId, timestamp, age, maxAge: TOKEN_EXPIRY_MS },
+      { userId, timestamp, age, maxAge: WEBHOOK_TOKEN_EXPIRY_MS },
       'Webhook token expired',
     );
     return false;

@@ -73,7 +73,7 @@ tier allows 3 GB a month with 3-day retention, and one `info` line per request
 would exhaust it while burying the records worth keeping — the full stream is
 still in Vercel's logs for the hour after a request. The marker is the
 exception that pays for itself: `createHandler` sets it on the request line of
-every `auth: 'cron'` route, six lines a day, so a cron that ran and finished
+every `auth: 'cron'` route, seven lines a day, so a cron that ran and finished
 says so. Without it a successful run and a run killed mid-request both ship
 nothing, and the absence of logs means nothing at all.
 

@@ -232,6 +232,20 @@ describe('signup squatting', () => {
     expect(await compare(SQUATTER_PASSWORD, passwordHash)).toBe(false);
   });
 
+  it('keeps only the three latest codes live for a pending address', async () => {
+    await authService.signupUser(EMAIL, 'user', PASSWORD);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await authService.signupUser(EMAIL, 'squatter', SQUATTER_PASSWORD);
+    }
+
+    expect(await authService.verifyLoginCode(EMAIL, mailedCode(0))).toEqual({
+      error: 'Invalid or expired code',
+    });
+    expect(await authService.verifyLoginCode(EMAIL, mailedCode(3))).toEqual({
+      token: 'token',
+    });
+  });
+
   it('answers every signup for a pending address identically', async () => {
     const first = await authService.signupUser(EMAIL, 'a', SQUATTER_PASSWORD);
     const second = await authService.signupUser(EMAIL, 'b', PASSWORD);

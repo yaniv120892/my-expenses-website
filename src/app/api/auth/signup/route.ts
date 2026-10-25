@@ -11,7 +11,10 @@ export const POST = createHandler({
   // its own counter or rotating IPs could flood its inbox.
   rateLimit: ({ req, body }) => [
     { key: `signup:ip:${resolveClientIp(req)}`, ...RATE_LIMITS.signup },
-    { key: `signup:email:${body.email.toLowerCase()}`, ...RATE_LIMITS.signup },
+    {
+      key: `signup:email:${body.email.toLowerCase()}`,
+      ...RATE_LIMITS.signupPerAddress,
+    },
   ],
   handler: async ({ body }) => {
     const result = await authService.signupUser(

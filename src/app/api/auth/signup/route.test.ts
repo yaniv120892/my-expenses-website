@@ -48,8 +48,14 @@ describe('POST /api/auth/signup', () => {
     await POST(request, { params: Promise.resolve(undefined) });
 
     const [rules] = enforceRateLimits.mock.calls[0];
-    expect(rules).toContainEqual(
-      expect.objectContaining({ key: 'signup:email:owner@example.com' }),
+    const perAddress = rules.find(
+      (rule: { key: string }) => rule.key === 'signup:email:owner@example.com',
     );
+    const perHost = rules.find((rule: { key: string }) =>
+      rule.key.startsWith('signup:ip:'),
+    );
+    expect(perAddress).toBeDefined();
+    // A stranger can spend the address's quota, so it must outlast one host's.
+    expect(perAddress.limit).toBeGreaterThan(perHost.limit);
   });
 });

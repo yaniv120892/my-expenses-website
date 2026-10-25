@@ -355,9 +355,12 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `ship: true` — how a healthy cron's request line gets out. Unset
   `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns shipping off. README "Log shipping".
 - **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set;
-  errors only, no tracing or replay. `sentry.config.ts` holds the single
-  `Sentry.init`, run by `src/instrumentation.ts` (Node, edge) and
-  `src/instrumentation-client.ts` (browser); `initSentry` takes no arguments
+  errors only, no tracing or replay, and no identifying request data — its
+  `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
+  forwarding headers, or user identity, which the SDK otherwise collects by
+  default. `sentry.config.ts` holds the single `Sentry.init`, run by
+  `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
+  (browser); `initSentry` takes no arguments
   and reads `process.env` itself, since a constant-folded argument breaks the
   browser bundle. `createHandler` reports every 5xx it turns an error into;
   `onRequestError` covers what escapes a route; React boundaries report via

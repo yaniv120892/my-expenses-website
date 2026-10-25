@@ -4,7 +4,7 @@ import { z } from 'zod';
 // username field, but the API contract still accepts one.
 const credentialsSchema = z
   .object({
-    email: z.string().email(),
+    email: z.email(),
     username: z.string().min(1).optional(),
     password: z.string().min(8),
   })
@@ -17,6 +17,6 @@ export const signupSchema = credentialsSchema;
 export const loginSchema = credentialsSchema;
 
 export const verifyLoginCodeSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   code: z.string().min(1),
 });

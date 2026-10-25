@@ -17,6 +17,11 @@ updates:
     ignore:
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
+      # TS 7 is the native port with no compiler API yet; typescript-eslint
+      # (peer <6.1.0) cannot load it. Drop once upstream supports TS 7:
+      # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      - dependency-name: typescript
+        versions: ['7.x']
     # A dependency joins the first group it matches. Packages released in
     # lockstep share one major PR, since each fails CI when bumped alone.
     groups:

@@ -67,14 +67,19 @@ function runCommand(command: unknown[]): unknown {
   }
 }
 
-// The client asks for base64 results (`Upstash-Encoding: base64`) and decodes
-// every string but "OK"; a raw string that happens to be valid base64 would
-// come back as garbage.
+// The client asks for base64 results and decodes every string but "OK", as
+// the real service sends them; a plain string would reach the app as garbage.
 function encodeResult(result: unknown, base64: boolean): unknown {
-  if (!base64 || typeof result !== 'string' || result === 'OK') {
+  if (!base64) {
     return result;
   }
-  return Buffer.from(result).toString('base64');
+  if (typeof result === 'string') {
+    return result === 'OK' ? result : Buffer.from(result).toString('base64');
+  }
+  if (Array.isArray(result)) {
+    return result.map((item) => encodeResult(item, base64));
+  }
+  return result;
 }
 
 export function startUpstashShim(port: number): Promise<http.Server> {
@@ -82,7 +87,6 @@ export function startUpstashShim(port: number): Promise<http.Server> {
     let raw = '';
     req.on('data', (chunk) => (raw += chunk));
     req.on('end', () => {
-      const base64 = req.headers['upstash-encoding'] === 'base64';
       // The client may put the command in the path or in the JSON body;
       // accept either so the shim is not coupled to one client version.
       const pathParts = (req.url || '/')
@@ -107,6 +111,8 @@ export function startUpstashShim(port: number): Promise<http.Server> {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
+      const base64 =
+        String(req.headers['upstash-encoding']).toLowerCase() === 'base64';
 
       // The client auto-pipelines: several commands arrive as an array of
       // arrays and it expects an array of results back, one per command.

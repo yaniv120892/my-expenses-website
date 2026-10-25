@@ -158,7 +158,15 @@ Two monitors, on two routes, at deliberately different intervals:
 
 The deep response reports each dependency separately — `{"status":"unhealthy",
 "checks":{"db":"fail","redis":"ok"}}` with HTTP 503 — so the alert email names
-what broke. Both responses are `Cache-Control: no-store`.
+what broke, and `checkedAt` says when the probes ran. Both responses are
+`Cache-Control: no-store`.
+
+Each instance answers from its last deep check for 60 seconds, a 503 as much
+as a 200, and concurrent calls that miss share one check, so a recovered
+dependency shows green up to a minute late. However often the route is called,
+it reaches the database at most once a minute per instance. That bounds the
+cost of a hostile poller; it does not let the compute sleep under one, since
+the idle timeout is longer than the window.
 
 ### Do not lower the deep interval
 

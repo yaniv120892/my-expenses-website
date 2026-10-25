@@ -15,6 +15,7 @@ const {
     findById: vi.fn(),
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
+    transitionStatus: vi.fn(),
     markFailedIfProcessing: vi.fn(),
     claimExtraction: vi.fn(),
   },
@@ -481,10 +482,12 @@ describe('completed extraction', () => {
     // The survivor is released only once the moved rows are matched.
     const matchOrder =
       findPotentialMatchesForImport.mock.invocationCallOrder[0];
-    const releaseOrder = importRepo.updateStatus.mock.invocationCallOrder[0];
+    const releaseOrder =
+      importRepo.transitionStatus.mock.invocationCallOrder[0];
     expect(matchOrder).toBeLessThan(releaseOrder);
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+    expect(importRepo.transitionStatus).toHaveBeenCalledWith(
       'imp-old',
+      'REMATCHING',
       'COMPLETED',
     );
     expect(importRepo.updateStatus).not.toHaveBeenCalledWith(
@@ -511,8 +514,9 @@ describe('completed extraction', () => {
         mergedIntoImportId: 'imp-new',
       }),
     });
-    expect(importRepo.updateStatus).toHaveBeenCalledWith(
+    expect(importRepo.transitionStatus).toHaveBeenCalledWith(
       'imp-new',
+      'REMATCHING',
       'COMPLETED',
     );
     expect(importRepo.updateStatus).not.toHaveBeenCalledWith(
@@ -688,7 +692,7 @@ describe('redelivered callbacks', () => {
       createdAt: OLDER,
     });
     importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
-    importRepo.updateStatus.mockRejectedValue(new Error('db blip'));
+    importRepo.transitionStatus.mockRejectedValueOnce(new Error('db blip'));
 
     const res = await run(payload([tx()]));
 
@@ -703,6 +707,51 @@ describe('redelivered callbacks', () => {
       'imp-1',
       expect.any(String),
     );
+  });
+
+  it('releases the survivor from REMATCHING when the webhook fails after the merge committed', async () => {
+    importRepo.findExisting.mockResolvedValue({
+      id: 'imp-old',
+      createdAt: OLDER,
+    });
+    importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
+    importRepo.transitionStatus
+      .mockRejectedValueOnce(new Error('db blip'))
+      .mockResolvedValue(true);
+    importRepo.markFailedIfProcessing.mockResolvedValue(false);
+    importRepo.findById.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      status: 'MERGED',
+      mergedIntoImportId: 'imp-old',
+    });
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(500);
+    expect(importRepo.transitionStatus).toHaveBeenLastCalledWith(
+      'imp-old',
+      'REMATCHING',
+      'COMPLETED',
+    );
+    expect(importRepo.transitionStatus).toHaveBeenCalledTimes(2);
+    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the survivor alone when the failing import was never merged', async () => {
+    importRepo.updateStatus.mockRejectedValue(new Error('db blip'));
+    importRepo.markFailedIfProcessing.mockResolvedValue(false);
+    importRepo.findById.mockResolvedValue({
+      id: 'imp-1',
+      userId: 'user-1',
+      status: 'COMPLETED',
+      mergedIntoImportId: null,
+    });
+
+    const res = await run(payload([tx()]));
+
+    expect(res.status).toBe(500);
+    expect(importRepo.transitionStatus).not.toHaveBeenCalled();
   });
 
   it('claims before doing any work', async () => {

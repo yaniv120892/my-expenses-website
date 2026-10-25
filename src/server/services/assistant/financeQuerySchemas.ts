@@ -1,7 +1,6 @@
 import { z } from 'zod';
+import { transactionTypeSchema } from '@/shared/schemas/common';
 import { TREND_PERIODS } from '@/shared/types/trends';
-
-export const transactionTypeFilter = z.enum(['INCOME', 'EXPENSE']);
 
 export const transactionFilterShape = {
   startDate: z
@@ -16,7 +15,7 @@ export const transactionFilterShape = {
     .string()
     .optional()
     .describe('Category name, exactly as the category list returns it'),
-  transactionType: transactionTypeFilter
+  transactionType: transactionTypeSchema
     .optional()
     .describe('Restrict to income or expenses'),
   searchTerm: z
@@ -53,7 +52,7 @@ export const comparePeriodsShape = {
     .string()
     .optional()
     .describe('Restrict both periods to this category'),
-  transactionType: transactionTypeFilter
+  transactionType: transactionTypeSchema
     .optional()
     .describe('Restrict both periods to income or expenses'),
 };
@@ -68,7 +67,7 @@ export const spendingTrendsShape = {
     .string()
     .optional()
     .describe('Restrict the trend to a single category'),
-  transactionType: transactionTypeFilter.optional(),
+  transactionType: transactionTypeSchema.optional(),
   byCategory: z
     .boolean()
     .optional()

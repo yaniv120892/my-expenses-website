@@ -3,10 +3,10 @@ import {
   comparePeriodsShape,
   spendingTrendsShape,
   transactionFilterShape,
-  transactionTypeFilter,
 } from '@/server/services/assistant/financeQuerySchemas';
 import { BASE_CURRENCY, isIsoCurrencyCode } from '@/shared/currency';
 import { isCalendarDay } from '@/shared/dates';
+import { recordIdSchema, transactionTypeSchema } from '@/shared/schemas/common';
 
 // Far above any one personal transaction, and inside the NUMERIC(14,2) columns.
 export const MAX_AGENT_AMOUNT = 10_000_000;
@@ -29,10 +29,9 @@ const periodDays = {
 
 const amount = z.number().positive().max(MAX_AGENT_AMOUNT);
 
-const transactionId = z
-  .string()
-  .uuid()
-  .describe('The transaction id, as find_transactions returns it');
+const transactionId = recordIdSchema.describe(
+  'The transaction id, as find_transactions returns it',
+);
 
 const currencyCode = z
   .string()
@@ -93,7 +92,7 @@ export const addTransactionShape = {
   amount: amount.describe(
     'The amount paid or received, in `currency`. Always positive.',
   ),
-  type: transactionTypeFilter
+  type: transactionTypeSchema
     .default('EXPENSE')
     .describe(
       'EXPENSE for money spent (the default), INCOME for money received',
@@ -114,7 +113,7 @@ export const updateTransactionShape = {
     .describe(
       "New amount, in the transaction's own currency unless `currency` is also given",
     ),
-  type: transactionTypeFilter.optional(),
+  type: transactionTypeSchema.optional(),
   currency: currencyCode.optional(),
   ilsAmount: ilsAmount.optional(),
   date: dayString.optional().describe('New day, YYYY-MM-DD'),

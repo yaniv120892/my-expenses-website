@@ -104,11 +104,7 @@ const DATE_COLUMN: SortColumn = {
   },
 };
 
-const amountCursorSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .pipe(z.coerce.number<string>());
+const amountCursorSchema = z.string().trim().min(1).pipe(z.coerce.number());
 
 const AMOUNT_COLUMN: SortColumn = {
   orderBy: (direction) => ({ value: direction }),

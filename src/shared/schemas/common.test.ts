@@ -28,68 +28,50 @@ describe('recordIdSchema', () => {
     expect(result.error?.issues[0]?.message).toBe('Invalid uuid');
   });
 
+  const expenseFields = {
+    description: 'x',
+    value: 1,
+    type: 'EXPENSE',
+    categoryId: SEEDED_CATEGORY_ID,
+  };
+
   it.each([
-    [
-      'createTransactionSchema',
-      () =>
-        createTransactionSchema.parse({
-          description: 'x',
-          value: 1,
-          type: 'EXPENSE',
-          categoryId: SEEDED_CATEGORY_ID,
-        }).categoryId,
-    ],
+    ['createTransactionSchema', createTransactionSchema, expenseFields],
     [
       'updateTransactionSchema',
-      () =>
-        updateTransactionSchema.parse({
-          description: 'x',
-          value: 1,
-          type: 'EXPENSE',
-          categoryId: SEEDED_CATEGORY_ID,
-          date: '2026-01-01',
-        }).categoryId,
+      updateTransactionSchema,
+      { ...expenseFields, date: '2026-01-01' },
     ],
     [
       'getTransactionsSchema',
-      () =>
-        getTransactionsSchema.parse({ categoryId: SEEDED_CATEGORY_ID })
-          .categoryId,
+      getTransactionsSchema,
+      { categoryId: SEEDED_CATEGORY_ID },
     ],
     [
       'createScheduledTransactionSchema',
-      () =>
-        createScheduledTransactionSchema.parse({
-          description: 'x',
-          value: 1,
-          type: 'EXPENSE',
-          categoryId: SEEDED_CATEGORY_ID,
-          scheduleType: 'MONTHLY',
-          dayOfMonth: 2,
-        }).categoryId,
+      createScheduledTransactionSchema,
+      { ...expenseFields, scheduleType: 'MONTHLY', dayOfMonth: 2 },
     ],
     [
       'convertSubscriptionSchema',
-      () =>
-        convertSubscriptionSchema.parse({ categoryId: SEEDED_CATEGORY_ID })
-          .categoryId,
+      convertSubscriptionSchema,
+      { categoryId: SEEDED_CATEGORY_ID },
     ],
     [
       'updateSubscriptionSchema',
-      () =>
-        updateSubscriptionSchema.parse({ categoryId: SEEDED_CATEGORY_ID })
-          .categoryId,
+      updateSubscriptionSchema,
+      { categoryId: SEEDED_CATEGORY_ID },
     ],
     [
       'getCategoryComparisonQuerySchema',
-      () =>
-        getCategoryComparisonQuerySchema.parse({
-          startDate: '2026-01-01',
-          endDate: '2026-03-31',
-          categoryIds: SEEDED_CATEGORY_ID,
-        }).categoryIds[0],
+      getCategoryComparisonQuerySchema,
+      {
+        startDate: '2026-01-01',
+        endDate: '2026-03-31',
+        categoryIds: SEEDED_CATEGORY_ID,
+      },
     ],
-  ])('%s takes a seeded category id', (_name, parseCategoryId) => {
-    expect(parseCategoryId()).toBe(SEEDED_CATEGORY_ID);
+  ] as const)('%s takes a seeded category id', (_name, schema, input) => {
+    expect(schema.safeParse(input).success).toBe(true);
   });
 });

@@ -155,18 +155,13 @@ describe('createHandler params validation', () => {
     handler: async ({ params }) => ({ received: params }),
   });
 
-  it('passes uuid params through by default', async () => {
-    const id = '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a';
-    const response = await echoParams(get(), {
-      params: Promise.resolve({ id }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ received: { id } });
-  });
-
-  it('passes an id without RFC 9562 version bits, as the seeded categories carry', async () => {
-    const id = 'a6b7c8d9-6e7f-8a9b-3c4d-4e5f6a7b8c9d';
+  it.each([
+    ['an RFC 9562 uuid', '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a'],
+    [
+      'a seeded category id without RFC 9562 version bits',
+      'a6b7c8d9-6e7f-8a9b-3c4d-4e5f6a7b8c9d',
+    ],
+  ])('passes %s through by default', async (_label, id) => {
     const response = await echoParams(get(), {
       params: Promise.resolve({ id }),
     });
@@ -184,31 +179,6 @@ describe('createHandler params validation', () => {
     expect(await response.json()).toEqual({ message: 'id: Invalid uuid' });
     expect(logger.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
-  });
-
-  it('answers an invalid body with every issue in one message', async () => {
-    const handler = createHandler({
-      auth: 'public',
-      rateLimit: 'none',
-      bodySchema: z.object({
-        description: z.string(),
-        items: z.array(z.object({ value: z.number() })),
-      }),
-      handler: async () => ({}),
-    });
-    const response = await handler(
-      new NextRequest('https://website.localhost/api/thing', {
-        method: 'POST',
-        body: JSON.stringify({ items: [{ value: 'x' }] }),
-      }),
-      routeContext,
-    );
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      message:
-        'description: Invalid input: expected string, received undefined; items.0.value: Invalid input: expected number, received string',
-    });
   });
 
   it('accepts a static route with no params', async () => {
@@ -242,5 +212,32 @@ describe('createHandler params validation', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ slug: 'monthly-report' });
+  });
+});
+
+describe('createHandler body validation', () => {
+  it('answers an invalid body with every issue in one message', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      bodySchema: z.object({
+        description: z.string(),
+        items: z.array(z.object({ value: z.number() })),
+      }),
+      handler: async () => ({}),
+    });
+    const response = await handler(
+      new NextRequest('https://website.localhost/api/thing', {
+        method: 'POST',
+        body: JSON.stringify({ items: [{ value: 'x' }] }),
+      }),
+      routeContext,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      message:
+        'description: Invalid input: expected string, received undefined; items.0.value: Invalid input: expected number, received string',
+    });
   });
 });

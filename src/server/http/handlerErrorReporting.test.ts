@@ -165,6 +165,16 @@ describe('createHandler params validation', () => {
     expect(await response.json()).toEqual({ received: { id } });
   });
 
+  it('passes an id without RFC 9562 version bits, as the seeded categories carry', async () => {
+    const id = 'a6b7c8d9-6e7f-8a9b-3c4d-4e5f6a7b8c9d';
+    const response = await echoParams(get(), {
+      params: Promise.resolve({ id }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: { id } });
+  });
+
   it('rejects a malformed id with a schema 400, not a Prisma 500', async () => {
     const response = await echoParams(get(), {
       params: Promise.resolve({ id: 'not-a-uuid' }),
@@ -174,6 +184,31 @@ describe('createHandler params validation', () => {
     expect(await response.json()).toEqual({ message: 'id: Invalid uuid' });
     expect(logger.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('answers an invalid body with every issue in one message', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      bodySchema: z.object({
+        description: z.string(),
+        items: z.array(z.object({ value: z.number() })),
+      }),
+      handler: async () => ({}),
+    });
+    const response = await handler(
+      new NextRequest('https://website.localhost/api/thing', {
+        method: 'POST',
+        body: JSON.stringify({ items: [{ value: 'x' }] }),
+      }),
+      routeContext,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      message:
+        'description: Invalid input: expected string, received undefined; items.0.value: Invalid input: expected number, received string',
+    });
   });
 
   it('accepts a static route with no params', async () => {

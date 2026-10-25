@@ -1,5 +1,4 @@
-// zod/v4 to match the assistant's shared query schemas, which these extend.
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import {
   comparePeriodsShape,
   spendingTrendsShape,

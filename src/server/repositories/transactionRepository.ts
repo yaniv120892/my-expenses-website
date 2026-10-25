@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { recordIdSchema } from '@/shared/schemas/common';
 import {
   Prisma,
   TransactionType,
@@ -107,7 +108,7 @@ const amountCursorSchema = z
   .string()
   .trim()
   .min(1)
-  .pipe(z.coerce.number().finite());
+  .pipe(z.coerce.number<string>());
 
 const AMOUNT_COLUMN: SortColumn = {
   orderBy: (direction) => ({ value: direction }),
@@ -129,13 +130,11 @@ const CATEGORY_COLUMN: SortColumn = {
   }),
 };
 
-const uuidSchema = z.string().uuid();
-
 const ID_COLUMN: SortColumn = {
   orderBy: (direction) => ({ id: direction }),
   toCursor: (row) => row.id,
   where: (comparison, cursorValue) => {
-    if (!uuidSchema.safeParse(cursorValue).success) {
+    if (!recordIdSchema.safeParse(cursorValue).success) {
       invalidCursor();
     }
     return { id: { [comparison]: cursorValue } };

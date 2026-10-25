@@ -65,7 +65,7 @@ export const sampleFileSchema = z
     const names = new Set(file.categories);
     if (names.size !== file.categories.length) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['categories'],
         message: 'category names must be unique',
       });
@@ -75,7 +75,7 @@ export const sampleFileSchema = z
         .filter((name) => !names.has(name))
         .forEach((name) => {
           context.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             path: ['samples', index, 'expected'],
             message: `"${name}" is not a listed category, so "${sample.description}" could never pass`,
           });

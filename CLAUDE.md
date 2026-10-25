@@ -72,6 +72,10 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
   validates dynamic route params as uuids by default (a route with a
   non-uuid segment must declare its own `paramsSchema`),
+  through `recordIdSchema` (`src/shared/schemas/common.ts`), which every
+  record id in a request schema uses too — it checks the uuid shape only,
+  since the categories the first migrations seeded carry ids without RFC 9562
+  version bits that `z.uuid()` refuses,
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
   maps errors to `{message}`/`{error, code}` (or a JSON-RPC error envelope

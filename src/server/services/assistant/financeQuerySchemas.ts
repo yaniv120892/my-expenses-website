@@ -1,8 +1,4 @@
-// zod/v4 rather than the root export: the root is v3, which routes Mastra
-// through a zod-v3 adapter with a broken CommonJS interop; the v4 adapter
-// uses zod's own toJSONSchema and works. The MCP SDK accepts v4 shapes too, so
-// both assistants read one set of tool schemas.
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { TREND_PERIODS } from '@/shared/types/trends';
 
 export const transactionTypeFilter = z.enum(['INCOME', 'EXPENSE']);

@@ -92,11 +92,12 @@ export const getTransactionsSchema = transactionFilterSchema.extend({
 export const attachFileSchema = z.object({
   fileName: z.string(),
   fileKey: z.string(),
-  fileSize: z.number(),
+  fileSize: z.number().int().nonnegative(),
   mimeType: z.string(),
 });
 
 export const getPresignedUploadUrlSchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
+  fileSize: z.number().int().nonnegative(),
 });

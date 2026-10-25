@@ -42,6 +42,11 @@ function runCommand(command: unknown[]): unknown {
       return liveEntry(key)?.value ?? null;
     case 'del':
       return store.delete(key) ? 1 : 0;
+    case 'getdel': {
+      const taken = liveEntry(key)?.value ?? null;
+      store.delete(key);
+      return taken;
+    }
     case 'incr': {
       const entry = liveEntry(key);
       const next = Number(entry?.value ?? '0') + 1;
@@ -62,14 +67,14 @@ function runCommand(command: unknown[]): unknown {
   }
 }
 
-// The client asks for base64 results and decodes every string it gets back, as
+// The client asks for base64 results and decodes every string but "OK", as
 // the real service sends them; a plain string would reach the app as garbage.
 function encodeResult(result: unknown, base64: boolean): unknown {
   if (!base64) {
     return result;
   }
   if (typeof result === 'string') {
-    return Buffer.from(result).toString('base64');
+    return result === 'OK' ? result : Buffer.from(result).toString('base64');
   }
   if (Array.isArray(result)) {
     return result.map((item) => encodeResult(item, base64));

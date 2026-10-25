@@ -11,17 +11,10 @@ export const userSettingsNotificationsSchema = z.object({
   monthlyReport: z.boolean(),
 });
 
-export const notificationProviderSchema = z.object({
-  enabled: z.boolean(),
-  telegramChatId: z.string().nullable(),
-});
-
+// No provider field: a Telegram chat is bound only by the bot receiving a
+// one-time `/start <code>` from it. An older client still sending
+// `provider.telegramChatId` has it stripped, so its notification toggles save.
 export const updateUserSettingsSchema = z.object({
   info: userSettingsInfoSchema,
   notifications: userSettingsNotificationsSchema,
-  provider: notificationProviderSchema,
-});
-
-export const testTelegramSchema = z.object({
-  chatId: z.string().min(1),
 });

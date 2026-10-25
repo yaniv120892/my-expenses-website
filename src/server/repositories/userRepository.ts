@@ -100,20 +100,18 @@ class UserRepository {
     };
   }
 
-  public async updateUserSettings(
-    userId: string,
+  public async updateNotificationPreferences({
+    userId,
+    notifications,
+  }: {
+    userId: string;
     notifications: {
       createTransaction: boolean;
       dailySummary: boolean;
       subscriptionAudit: boolean;
       monthlyReport: boolean;
-    },
-    providers: {
-      provider: NotificationProvider;
-      enabled: boolean;
-      data: object;
-    }[],
-  ) {
+    };
+  }) {
     await prisma.userNotificationPreference.upsert({
       where: { userId: userId },
       update: {
@@ -130,22 +128,34 @@ class UserRepository {
         monthlyReport: notifications.monthlyReport,
       },
     });
+  }
 
-    for (const provider of providers) {
-      await prisma.userNotificationProvider.upsert({
-        where: { userId_provider: { userId, provider: provider.provider } },
-        update: {
-          enabled: provider.enabled,
-          data: provider.data,
-        },
-        create: {
-          userId: userId,
-          provider: provider.provider,
-          enabled: provider.enabled,
-          data: provider.data,
-        },
-      });
-    }
+  public async findTelegramProvider(userId: string) {
+    return prisma.userNotificationProvider.findUnique({
+      where: {
+        userId_provider: { userId, provider: NotificationProvider.TELEGRAM },
+      },
+    });
+  }
+
+  public async setTelegramChat({
+    userId,
+    chatId,
+  }: {
+    userId: string;
+    chatId: string | null;
+  }) {
+    const provider = {
+      enabled: chatId !== null,
+      data: chatId === null ? {} : { chatId },
+    };
+    await prisma.userNotificationProvider.upsert({
+      where: {
+        userId_provider: { userId, provider: NotificationProvider.TELEGRAM },
+      },
+      update: provider,
+      create: { userId, provider: NotificationProvider.TELEGRAM, ...provider },
+    });
   }
 
   public async list(query: UserQuery) {

@@ -11,8 +11,6 @@ import type {
   TransactionFile as SharedTransactionFile,
   TransactionType,
 } from '@/shared/types/transaction';
-import type { updateUserSettingsSchema } from '@/shared/schemas/userSettings';
-import type { z } from 'zod';
 
 export type { Category, TransactionType };
 export type {
@@ -90,4 +88,8 @@ export class ApiResponse<T> {
   public error?: string;
 }
 
-export type UserSettings = z.infer<typeof updateUserSettingsSchema>;
+export type {
+  UpdateUserSettings,
+  UserSettingsView as UserSettings,
+  TelegramLinkCode,
+} from '@/shared/types/userSettings';

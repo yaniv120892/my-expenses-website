@@ -54,7 +54,7 @@
     "@mui/system": "^9.4.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "@sentry/nextjs": "^10.70.0",
+    "@sentry/nextjs": "^11.8.0",
     "@tanstack/react-query": "^5.104.1",
     "@upstash/redis": "^1.34.9",
     "@vercel/analytics": "^2.0.1",

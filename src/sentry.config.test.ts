@@ -60,4 +60,26 @@ describe('initSentry', () => {
       expect.objectContaining({ tracesSampleRate: 0 }),
     );
   });
+
+  it('sends no cookies, request bodies, locals or user identity with an error', () => {
+    process.env.NEXT_PUBLIC_SENTRY_DSN = DSN;
+
+    initSentry();
+
+    const identifyingKeys = ['forwarded', '-ip', 'remote-', 'via', '-user'];
+    expect(vi.mocked(Sentry.init).mock.calls[0][0]).toMatchObject({
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: { deny: identifyingKeys },
+        httpBodies: [],
+        urlQueryParams: { deny: identifyingKeys },
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        graphQL: { document: false, variables: false },
+        queues: false,
+        stackFrameVariables: false,
+      },
+    });
+  });
 });

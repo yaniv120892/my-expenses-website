@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { transactionTypeSchema } from './common';
+import { recordIdSchema, transactionTypeSchema } from './common';
 import { countBuckets } from '@/shared/periodBuckets';
 import {
   MAX_COMPARISON_BUCKETS,
@@ -40,7 +40,7 @@ const categoryIdListSchema = z
       .map((id) => id.trim())
       .filter(Boolean),
   )
-  .pipe(z.array(z.string().uuid()).min(1).max(MAX_COMPARISON_SERIES));
+  .pipe(z.array(recordIdSchema).min(1).max(MAX_COMPARISON_SERIES));
 
 export const getCategoryComparisonQuerySchema = z
   .object({

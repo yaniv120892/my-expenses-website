@@ -27,8 +27,8 @@ const SERVICE_ACCOUNT_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
   .privateKey.export({ type: 'pkcs8', format: 'pem' })
   .toString();
 
-// Stubs the HTTP client the SDK's auth and API layers share, reached through
-// googleapis' own re-export so it is the instance they load.
+// A direct `gaxios` import resolves its ESM build, a different class from the
+// CJS one the SDK calls, so the stub goes through googleapis' own re-export.
 function stubGoogleHttp(): SentRequest[] {
   const sent: SentRequest[] = [];
   vi.spyOn(Common.Gaxios.prototype, 'request').mockImplementation(

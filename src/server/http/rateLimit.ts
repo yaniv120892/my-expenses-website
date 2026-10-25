@@ -13,6 +13,9 @@ export type RateLimitRule = {
 export const RATE_LIMITS = {
   login: { limit: 10, windowSeconds: 900 },
   signup: { limit: 5, windowSeconds: 3600 },
+  // Above the per-host limit: any per-address cap is one a stranger can spend
+  // to keep the owner from being mailed a code, so it only bounds the flood.
+  signupPerAddress: { limit: 20, windowSeconds: 3600 },
   verify: { limit: 20, windowSeconds: 900 },
   chat: { limit: 20, windowSeconds: 300 },
   testTelegram: { limit: 5, windowSeconds: 3600 },

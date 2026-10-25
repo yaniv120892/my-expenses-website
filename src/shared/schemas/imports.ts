@@ -3,7 +3,7 @@ import { transactionTypeSchema } from './common';
 import { normalizePaymentMonth } from '../paymentMonth';
 
 export const processImportSchema = z.object({
-  fileUrl: z.string().url(),
+  fileUrl: z.url(),
   originalFileName: z.string(),
   paymentMonth: z
     .string()
@@ -15,7 +15,7 @@ export const processImportSchema = z.object({
       const paymentMonth = normalizePaymentMonth(raw);
       if (!paymentMonth) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `paymentMonth must be MM/YYYY (got "${raw}")`,
         });
         return z.NEVER;

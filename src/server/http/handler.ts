@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { z, ZodType, ZodTypeDef, ZodError } from 'zod';
+import { z, ZodType, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import {
@@ -16,6 +16,7 @@ import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
+import { recordIdSchema } from '@/shared/schemas/common';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
 import {
@@ -36,7 +37,7 @@ type AuthOptions =
 
 type ErrorDescription = { status: number; message: string; code?: string };
 
-const uuidRouteParamsSchema = z.record(z.string().uuid());
+const uuidRouteParamsSchema = z.record(z.string(), recordIdSchema);
 
 export interface HandlerContext<
   TBody,
@@ -53,9 +54,9 @@ export interface HandlerContext<
 interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
-  bodySchema?: ZodType<TBody, ZodTypeDef, unknown>;
-  querySchema?: ZodType<TQuery, ZodTypeDef, unknown>;
-  paramsSchema?: ZodType<TParams, ZodTypeDef, unknown>;
+  bodySchema?: ZodType<TBody, unknown>;
+  querySchema?: ZodType<TQuery, unknown>;
+  paramsSchema?: ZodType<TParams, unknown>;
   status?: number;
   handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 }

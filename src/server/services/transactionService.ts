@@ -570,13 +570,22 @@ class TransactionService {
         return;
       }
       await deleteAttachmentObject(fileKey);
-      if (fileId) {
-        await transactionFileRepository.markDeleted(fileId);
-      }
     } catch (err) {
       reportSwallowedError(
         { err, fileKey, transactionId, fileId },
         'Failed to delete attachment object from storage',
+      );
+      return;
+    }
+    if (!fileId) {
+      return;
+    }
+    try {
+      await transactionFileRepository.markDeleted(fileId);
+    } catch (err) {
+      reportSwallowedError(
+        { err, fileKey, transactionId, fileId },
+        'Deleted attachment object but failed to mark its file DELETED',
       );
     }
   }

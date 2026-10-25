@@ -261,9 +261,9 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   the database write, keeps one another `ACTIVE` row still names, and bounds the
   call at 5s. Storage is best effort: a failure is reported via
   `reportSwallowedError` with its key, never fails the request, and leaves a
-  removed row `MARKED_FOR_DELETION`. A database cascade the service does not
-  drive (the `User` relation's) orphans its objects, so a path that deletes
-  transactions or files goes through `transactionService`.
+  removed row `MARKED_FOR_DELETION`. Only `transactionService` knows the
+  keys, so a path that deletes transactions or files goes through it, and a
+  database-level delete it does not drive orphans their objects.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

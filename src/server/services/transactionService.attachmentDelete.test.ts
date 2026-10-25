@@ -109,6 +109,22 @@ describe('removeFile', () => {
     );
   });
 
+  it('reports a failed DELETED marking as such, not as a storage failure', async () => {
+    const markError = new Error('db blip');
+    markDeleted.mockRejectedValue(markError);
+
+    await expect(
+      transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1'),
+    ).resolves.toBeUndefined();
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    expect(reportSwallowedError).toHaveBeenCalledWith(
+      expect.objectContaining({ err: markError, fileId: FILE_ID }),
+      'Deleted attachment object but failed to mark its file DELETED',
+    );
+  });
+
   it('keeps an object another active attachment still names', async () => {
     hasActiveFileWithKey.mockResolvedValue(true);
 

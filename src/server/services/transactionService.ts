@@ -47,6 +47,13 @@ import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
+type CategoryMappingChange = {
+  userId: string;
+  description: string;
+  previousCategoryId: string;
+  categoryId: string;
+};
+
 export interface TransactionFileView {
   id: string;
   fileName: string;
@@ -249,15 +256,7 @@ class TransactionService {
       data.date,
       existing,
     );
-    await this.learnCategoryMappingSafe(
-      {
-        description: existing.description,
-        categoryId: existing.category.id,
-      },
-      data.categoryId,
-      userId,
-    );
-    return transactionRepository.updateTransaction(
+    const updated = await transactionRepository.updateTransaction(
       id,
       {
         description: data.description,
@@ -268,25 +267,33 @@ class TransactionService {
       },
       userId,
     );
+    await this.learnCategoryMappingSafe({
+      userId,
+      description: data.description,
+      previousCategoryId: existing.category.id,
+      categoryId: data.categoryId,
+    });
+    return updated;
   }
 
   public async learnCategoryMappingSafe(
-    charge: { description: string; categoryId: string },
-    categoryId: string,
-    userId: string,
+    change: CategoryMappingChange,
   ): Promise<void> {
-    if (charge.categoryId === categoryId) {
+    if (change.previousCategoryId === change.categoryId) {
+      return;
+    }
+    const descriptionPattern = this.toDescriptionPattern(change.description);
+    if (!descriptionPattern) {
       return;
     }
     try {
-      const normalizedDescription = charge.description.toLowerCase().trim();
       await userCategoryMappingRepository.upsert(
-        userId,
-        normalizedDescription,
-        categoryId,
+        change.userId,
+        descriptionPattern,
+        change.categoryId,
       );
       logger.debug(
-        `Saved category mapping: "${normalizedDescription}" -> ${categoryId}`,
+        `Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`,
       );
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
@@ -450,7 +457,7 @@ class TransactionService {
       const mapping =
         await userCategoryMappingRepository.findByUserAndDescription(
           userId,
-          description.toLowerCase().trim(),
+          this.toDescriptionPattern(description),
         );
       const mappedCategory = mapping
         ? categories.find((c) => c.id === mapping.categoryId)
@@ -607,6 +614,10 @@ class TransactionService {
       throw new HttpError(404, 'File not found');
     }
     return file;
+  }
+
+  private toDescriptionPattern(description: string): string {
+    return description.toLowerCase().trim();
   }
 }
 

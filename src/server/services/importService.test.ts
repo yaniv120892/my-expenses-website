@@ -1181,11 +1181,12 @@ describe('a batch applies the rows it already loaded', () => {
       categoryId: 'cat-2',
     });
 
-    expect(txService.learnCategoryMappingSafe).toHaveBeenCalledWith(
-      { description: 'AROMA TLV', categoryId: 'cat-1' },
-      'cat-2',
-      'user-1',
-    );
+    expect(txService.learnCategoryMappingSafe).toHaveBeenCalledWith({
+      userId: 'user-1',
+      description: 'AROMA TLV',
+      previousCategoryId: 'cat-1',
+      categoryId: 'cat-2',
+    });
   });
 
   it('creates for an unmatched row and marks it approved', async () => {

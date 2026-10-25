@@ -254,11 +254,16 @@ export async function processExcelExtractionWebhook(
 
 async function markImportFailedSafe(importId: string): Promise<void> {
   try {
-    await importRepository.updateStatus(
+    const failed = await importRepository.markFailedIfProcessing(
       importId,
-      ImportStatus.FAILED,
       'Processing the extraction result failed',
     );
+    if (!failed) {
+      logger.warn(
+        { importId },
+        'Webhook failed after the import left PROCESSING; keeping its status',
+      );
+    }
   } catch (err) {
     reportSwallowedError({ err, importId }, 'Failed to mark import as failed');
   }
@@ -299,7 +304,6 @@ async function handleCompletedExtraction(
   const mergedIntoImportId = await mergeIntoDuplicateImport(
     importId,
     importRecord.userId,
-    importRecord.createdAt,
     metadata,
   );
   const finalImportId = mergedIntoImportId ?? importId;
@@ -422,13 +426,14 @@ function toImportBankSourceType(
 }
 
 /**
- * Moves this duplicate's rows into an older COMPLETED import for the same card
- * and month, returning the survivor's id or null.
+ * Moves this import's rows into a COMPLETED import for the same card and month,
+ * returning the survivor's id or null. The target's age does not matter: this
+ * import is still PROCESSING, so it cannot be a target itself, and two callbacks
+ * can never merge into each other.
  */
 async function mergeIntoDuplicateImport(
   importId: string,
   userId: string,
-  createdAt: Date,
   metadata: ExtractionMetadata,
 ): Promise<string | null> {
   // Without a card and a month there is nothing to identify a duplicate by,
@@ -445,17 +450,7 @@ async function mergeIntoDuplicateImport(
     metadata.creditCardLastFour,
     importId,
   );
-  // findExisting already excludes this import, and returns the globally oldest
-  // match — which may still be younger than this one, so the check stands.
   if (!existingImport) {
-    return null;
-  }
-
-  const isOlder =
-    existingImport.createdAt < createdAt ||
-    (existingImport.createdAt.getTime() === createdAt.getTime() &&
-      existingImport.id < importId);
-  if (!isOlder) {
     return null;
   }
 

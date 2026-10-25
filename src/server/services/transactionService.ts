@@ -38,6 +38,7 @@ import {
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
+import { toAppWallClock } from '@/shared/dates';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
@@ -88,7 +89,9 @@ class TransactionService {
   public async prepareCreateTransaction(
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
-    const date = data.date || new Date();
+    // An undated create is stamped as the form would stamp it: the app's
+    // wall-clock time in the UTC fields, not the server's instant.
+    const date = data.date || toAppWallClock(new Date());
     const [amount, resolved] = await Promise.all([
       data.resolvedAmount ??
         currencyConversionService.resolveAmount(data, date),

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   findByUserAndDescription,
@@ -311,5 +311,41 @@ describe('attachFile', () => {
   ])('400s for %s without storing it', async (_label, fileKey) => {
     await expect(attach(fileKey)).rejects.toMatchObject({ status: 400 });
     expect(createTransactionFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('prepareCreateTransaction', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('stamps an undated create with the app wall-clock time, so a late-evening entry keeps its local day', async () => {
+    vi.useFakeTimers();
+    // 00:30 on the 26th in Israel (UTC+3).
+    vi.setSystemTime(new Date('2026-08-25T21:30:00Z'));
+    serviceInternals.updateCategory = async (data: object) => ({
+      ...data,
+      categoryId: 'cat-food',
+    });
+    serviceInternals.validateCreateTransaction = async () => undefined;
+
+    const model = await transactionService.prepareCreateTransaction({
+      description: 'Falafel',
+      categoryId: 'cat-food',
+      date: null,
+      value: 30,
+      type: 'EXPENSE',
+      userId: 'user-1',
+      resolvedAmount: {
+        value: 30,
+        currency: 'ILS',
+        originalAmount: 30,
+        exchangeRate: null,
+        exchangeRateDate: null,
+        exchangeRateSource: null,
+      },
+    });
+
+    expect(model.date).toEqual(new Date('2026-08-26T00:30:00Z'));
   });
 });

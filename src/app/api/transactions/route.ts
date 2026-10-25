@@ -22,7 +22,7 @@ export const POST = createHandler({
     const { id, suggestedCategory } =
       await transactionService.createTransaction({
         ...body,
-        date: body.date || new Date(),
+        date: body.date ?? null,
         categoryId: body.categoryId || null,
         userId,
       });

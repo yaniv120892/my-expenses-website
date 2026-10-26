@@ -4,8 +4,8 @@ import {
   SubscriptionEvidenceCharge,
 } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
-import { formatCurrency, formatSubscriptionFrequency } from '@/utils/format';
-import { formatDay } from '@/utils/dateUtils';
+import type { AppFormatter } from '@/i18n/useAppFormat';
+import type { T } from '@/i18n/useT';
 
 export type ChargeWithGap = SubscriptionEvidenceCharge & {
   /** Days since the charge before it; null for the oldest one listed. */
@@ -30,21 +30,50 @@ export function withChargeGaps(
   });
 }
 
-export function buildEvidenceReasons(
-  subscription: DetectedSubscription,
-  evidence: SubscriptionDetectionEvidence,
-): string[] {
-  const frequencyLabel = formatSubscriptionFrequency(
-    subscription.frequency,
-  ).toLowerCase();
+export function buildEvidenceReasons({
+  subscription,
+  evidence,
+  t,
+  formatter,
+}: {
+  subscription: DetectedSubscription;
+  evidence: SubscriptionDetectionEvidence;
+  t: T;
+  formatter: AppFormatter;
+}): string[] {
+  const frequencyLabel = formatter
+    .frequency(subscription.frequency)
+    .toLocaleLowerCase();
 
   return [
-    `${evidence.chargeCount} charges matched the merchant "${subscription.merchantName}" between ${formatDay(evidence.firstChargeDate)} and ${formatDay(evidence.lastChargeDate)}.`,
-    `They arrive about every ${evidence.medianIntervalDays} days, which falls inside the ${frequencyLabel} window of ${evidence.frequencyWindowDays.min}–${evidence.frequencyWindowDays.max} days.`,
-    `The spacing varies by ${evidence.intervalStdDevDays} days (${Math.round(evidence.intervalVariationRatio * 100)}% of the typical gap) — detection rejects anything above ${Math.round(evidence.intervalToleranceRatio * 100)}%.`,
+    t('subscriptions.reason.matched', {
+      count: evidence.chargeCount,
+      merchant: subscription.merchantName,
+      from: formatter.day(evidence.firstChargeDate),
+      to: formatter.day(evidence.lastChargeDate),
+    }),
+    t('subscriptions.reason.interval', {
+      days: evidence.medianIntervalDays,
+      frequency: frequencyLabel,
+      min: evidence.frequencyWindowDays.min,
+      max: evidence.frequencyWindowDays.max,
+    }),
+    t('subscriptions.reason.spacing', {
+      days: formatter.number(evidence.intervalStdDevDays),
+      ratio: Math.round(evidence.intervalVariationRatio * 100),
+      tolerance: Math.round(evidence.intervalToleranceRatio * 100),
+    }),
     evidence.minAmount === evidence.maxAmount
-      ? `Every charge was ${formatCurrency(evidence.minAmount)}.`
-      : `Charges ranged from ${formatCurrency(evidence.minAmount)} to ${formatCurrency(evidence.maxAmount)}, averaging ${formatCurrency(evidence.averageAmount)}.`,
-    `That gives a confidence of ${Math.round(subscription.confidence * 100)}%.`,
+      ? t('subscriptions.reason.sameAmount', {
+          amount: formatter.currency(evidence.minAmount),
+        })
+      : t('subscriptions.reason.amountRange', {
+          min: formatter.currency(evidence.minAmount),
+          max: formatter.currency(evidence.maxAmount),
+          average: formatter.currency(evidence.averageAmount),
+        }),
+    t('subscriptions.reason.confidence', {
+      confidence: Math.round(subscription.confidence * 100),
+    }),
   ];
 }

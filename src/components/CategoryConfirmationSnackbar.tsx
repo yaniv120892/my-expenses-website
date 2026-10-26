@@ -15,6 +15,7 @@ import {
 import CategorySelect from './CategorySelect';
 import { useUpdateTransactionMutation } from '../hooks/useTransactionsQuery';
 import { CreateTransactionInput } from '../types';
+import { useT } from '@/i18n/useT';
 
 type CategoryConfirmationSnackbarProps = {
   open: boolean;
@@ -32,6 +33,7 @@ export default function CategoryConfirmationSnackbar({
   suggestedCategory,
   onClose,
 }: CategoryConfirmationSnackbarProps) {
+  const t = useT();
   const [changingCategory, setChangingCategory] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     suggestedCategory.id,
@@ -65,7 +67,7 @@ export default function CategoryConfirmationSnackbar({
   };
 
   const truncatedDescription =
-    description.length > 30 ? description.slice(0, 30) + '...' : description;
+    description.length > 30 ? description.slice(0, 30) + '…' : description;
 
   return (
     <>
@@ -81,13 +83,15 @@ export default function CategoryConfirmationSnackbar({
           onClose={onClose}
           action={
             <Button color="inherit" size="small" onClick={handleChange}>
-              Change
+              {t('transactions.categoryConfirmation.change')}
             </Button>
           }
           sx={{ width: '100%', alignItems: 'center' }}
         >
           <Typography variant="body2">
-            Category for &quot;{truncatedDescription}&quot;:{' '}
+            {t('transactions.categoryConfirmation.message', {
+              description: truncatedDescription,
+            })}{' '}
             <strong>{suggestedCategory.name}</strong>
           </Typography>
         </Alert>
@@ -99,11 +103,13 @@ export default function CategoryConfirmationSnackbar({
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Change Category</DialogTitle>
+        <DialogTitle>
+          {t('transactions.categoryConfirmation.dialogTitle')}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              &quot;{description}&quot;
+              {description}
             </Typography>
             <CategorySelect
               value={selectedCategoryId}
@@ -113,14 +119,14 @@ export default function CategoryConfirmationSnackbar({
               <Alert severity="error" sx={{ mt: 2 }}>
                 {updateMutation.error instanceof Error
                   ? updateMutation.error.message
-                  : 'Failed to update category'}
+                  : t('transactions.categoryConfirmation.updateFailed')}
               </Alert>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDialogClose} variant="outlined">
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -128,7 +134,7 @@ export default function CategoryConfirmationSnackbar({
             color="primary"
             disabled={updateMutation.isPending}
           >
-            Save
+            {t('common.save')}
           </Button>
         </DialogActions>
       </Dialog>

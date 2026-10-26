@@ -1,8 +1,132 @@
 import type { Dictionary, Messages } from '@yaniv120892/my-ui';
 
-const en = {} satisfies Messages;
+const en = {
+  'scheduled.title': 'Scheduled',
+  'scheduled.subtitle':
+    'Recurring transactions created automatically on schedule',
+  'scheduled.add': 'Add scheduled',
+  'scheduled.loadFailed':
+    'Failed to load scheduled transactions. Please try again.',
+  'scheduled.empty': 'No scheduled transactions found.',
+  'scheduled.notAvailable': 'N/A',
+  'scheduled.edit': 'Edit',
+  'scheduled.column.description': 'Description',
+  'scheduled.column.category': 'Category',
+  'scheduled.column.schedule': 'Schedule',
+  'scheduled.column.nextRun': 'Next run',
+  'scheduled.column.amount': 'Amount',
+  'scheduled.form.editTitle': 'Edit Scheduled Transaction',
+  'scheduled.form.newTitle': 'New Scheduled Transaction',
+  'scheduled.form.description': 'Description',
+  'scheduled.form.value': 'Value',
+  'scheduled.form.prefix': 'Amount varies — bank description starts with',
+  'scheduled.form.prefixHint':
+    'Optional. Imported charges whose description starts with this are matched at any amount, e.g. GOOGLE',
+  'scheduled.form.type': 'Type',
+  'scheduled.form.scheduleType': 'Schedule Type',
+  'scheduled.form.interval': 'Interval',
+  'scheduled.form.dayOfWeek': 'Day of Week',
+  'scheduled.form.chooseDay': 'Choose day',
+  'scheduled.form.dayOfMonth': 'Day of Month',
+  'scheduled.form.create': 'Create',
+  'scheduled.form.update': 'Update',
+  'scheduled.form.delete': 'Delete',
+  'scheduled.form.cancel': 'Cancel',
+  'scheduled.type.EXPENSE': 'Expense',
+  'scheduled.type.INCOME': 'Income',
+  'scheduled.scheduleType.DAILY': 'Daily',
+  'scheduled.scheduleType.WEEKLY': 'Weekly',
+  'scheduled.scheduleType.MONTHLY': 'Monthly',
+  'scheduled.created': 'Scheduled transaction created successfully',
+  'scheduled.updated': 'Scheduled transaction updated successfully',
+  'scheduled.saveFailed': 'Failed to save scheduled transaction',
+  'scheduled.deleted': 'Scheduled transaction deleted successfully',
+  'scheduled.deleteFailed': 'Failed to delete scheduled transaction',
+  'scheduled.validation.descriptionRequired': 'Description is required',
+  'scheduled.validation.valuePositive': 'Value must be greater than 0',
+  'scheduled.validation.typeRequired': 'Type is required',
+  'scheduled.validation.categoryRequired': 'Category is required',
+  'scheduled.validation.scheduleTypeRequired': 'Schedule type is required',
+  'scheduled.validation.prefixTooShort':
+    'Use at least {count} letters or digits',
+  'scheduled.validation.dayOfWeekRequired': 'Day of week is required',
+  'scheduled.validation.dayOfMonthRequired': 'Day of month is required',
+  'scheduled.validation.dayOfWeekNotMonthly':
+    'Day of week is not valid for monthly schedule',
+  'scheduled.validation.dayOfWeekNotDaily':
+    'Day of week is not valid for daily schedule',
+  'scheduled.validation.dayOfMonthNotDaily':
+    'Day of month is not valid for daily schedule',
+  'scheduled.validation.monthOfYearNotDaily':
+    'Month of year is not valid for daily schedule',
+  'scheduled.validation.dayOfMonthNotWeekly':
+    'Day of month is not valid for weekly schedule',
+  'scheduled.validation.monthOfYearNotWeekly':
+    'Month of year is not valid for weekly schedule',
+} satisfies Messages;
 
 export const scheduledMessages: Dictionary<typeof en> = {
   en,
-  he: {},
+  he: {
+    'scheduled.title': 'קבועות',
+    'scheduled.subtitle': 'תנועות חוזרות שנוצרות אוטומטית לפי לוח זמנים',
+    'scheduled.add': 'הוספת תנועה קבועה',
+    'scheduled.loadFailed': 'טעינת התנועות הקבועות נכשלה. נסו שוב.',
+    'scheduled.empty': 'אין תנועות קבועות.',
+    'scheduled.notAvailable': 'לא ידוע',
+    'scheduled.edit': 'עריכה',
+    'scheduled.column.description': 'תיאור',
+    'scheduled.column.category': 'קטגוריה',
+    'scheduled.column.schedule': 'תדירות',
+    'scheduled.column.nextRun': 'החיוב הבא',
+    'scheduled.column.amount': 'סכום',
+    'scheduled.form.editTitle': 'עריכת תנועה קבועה',
+    'scheduled.form.newTitle': 'תנועה קבועה חדשה',
+    'scheduled.form.description': 'תיאור',
+    'scheduled.form.value': 'סכום',
+    'scheduled.form.prefix': 'סכום משתנה — התיאור בבנק מתחיל ב־',
+    'scheduled.form.prefixHint':
+      'לא חובה. חיובים מיובאים שהתיאור שלהם מתחיל בטקסט הזה יותאמו בכל סכום, למשל GOOGLE',
+    'scheduled.form.type': 'סוג',
+    'scheduled.form.scheduleType': 'תדירות',
+    'scheduled.form.interval': 'מרווח',
+    'scheduled.form.dayOfWeek': 'יום בשבוע',
+    'scheduled.form.chooseDay': 'בחירת יום',
+    'scheduled.form.dayOfMonth': 'יום בחודש',
+    'scheduled.form.create': 'יצירה',
+    'scheduled.form.update': 'עדכון',
+    'scheduled.form.delete': 'מחיקה',
+    'scheduled.form.cancel': 'ביטול',
+    'scheduled.type.EXPENSE': 'הוצאה',
+    'scheduled.type.INCOME': 'הכנסה',
+    'scheduled.scheduleType.DAILY': 'יומי',
+    'scheduled.scheduleType.WEEKLY': 'שבועי',
+    'scheduled.scheduleType.MONTHLY': 'חודשי',
+    'scheduled.created': 'התנועה הקבועה נוצרה',
+    'scheduled.updated': 'התנועה הקבועה עודכנה',
+    'scheduled.saveFailed': 'שמירת התנועה הקבועה נכשלה',
+    'scheduled.deleted': 'התנועה הקבועה נמחקה',
+    'scheduled.deleteFailed': 'מחיקת התנועה הקבועה נכשלה',
+    'scheduled.validation.descriptionRequired': 'נא להזין תיאור',
+    'scheduled.validation.valuePositive': 'הסכום חייב להיות גדול מ־0',
+    'scheduled.validation.typeRequired': 'נא לבחור סוג',
+    'scheduled.validation.categoryRequired': 'נא לבחור קטגוריה',
+    'scheduled.validation.scheduleTypeRequired': 'נא לבחור תדירות',
+    'scheduled.validation.prefixTooShort':
+      'נא להזין לפחות {count} אותיות או ספרות',
+    'scheduled.validation.dayOfWeekRequired': 'נא לבחור יום בשבוע',
+    'scheduled.validation.dayOfMonthRequired': 'נא להזין יום בחודש',
+    'scheduled.validation.dayOfWeekNotMonthly':
+      'יום בשבוע לא מתאים לתדירות חודשית',
+    'scheduled.validation.dayOfWeekNotDaily':
+      'יום בשבוע לא מתאים לתדירות יומית',
+    'scheduled.validation.dayOfMonthNotDaily':
+      'יום בחודש לא מתאים לתדירות יומית',
+    'scheduled.validation.monthOfYearNotDaily':
+      'חודש בשנה לא מתאים לתדירות יומית',
+    'scheduled.validation.dayOfMonthNotWeekly':
+      'יום בחודש לא מתאים לתדירות שבועית',
+    'scheduled.validation.monthOfYearNotWeekly':
+      'חודש בשנה לא מתאים לתדירות שבועית',
+  },
 };

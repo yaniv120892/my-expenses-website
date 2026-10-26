@@ -17,21 +17,44 @@ import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
-import {
-  MAX_UPLOAD_LABEL,
-  exceedsUploadLimit,
-  uploadTooLargeMessage,
-} from '@/shared/uploadLimits';
+import { MAX_UPLOAD_LABEL, exceedsUploadLimit } from '@/shared/uploadLimits';
+import { useT, type T } from '@/i18n/useT';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 
-interface FileUploadProps {
+type FileUploadProps = {
   onUploadComplete?: () => void;
   onRunningChange?: (isRunning: boolean) => void;
+};
+
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+
+function tooLargeMessage({
+  file,
+  t,
+  formatter,
+}: {
+  file: File;
+  t: T;
+  formatter: AppFormatter;
+}): string {
+  // Rounded up, so a file just over the limit never reads as exactly the limit.
+  const megabytes = Math.ceil((file.size / BYTES_PER_MEGABYTE) * 10) / 10;
+  return t('imports.upload.tooLarge', {
+    fileName: file.name,
+    size: formatter.number(megabytes, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }),
+    limit: MAX_UPLOAD_LABEL,
+  });
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({
   onUploadComplete,
   onRunningChange,
 }) => {
+  const t = useT();
+  const formatter = useAppFormat();
   const [paymentMonth, setPaymentMonth] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +82,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
     (droppedFiles: File[], rejections: FileRejection[]) => {
       if (rejections.length > 0) {
         setError(
-          `${rejections.length} file(s) were rejected. Supported formats: XLSX, XLS, CSV (max ${MAX_FILES_PER_BATCH} per batch).`,
+          t('imports.upload.rejected', {
+            count: rejections.length,
+            max: MAX_FILES_PER_BATCH,
+          }),
         );
       }
       const oversized = droppedFiles.filter((file) =>
@@ -68,12 +94,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       if (oversized.length > 0) {
         setError(
           oversized
-            .map((file) =>
-              uploadTooLargeMessage({
-                fileName: file.name,
-                sizeInBytes: file.size,
-              }),
-            )
+            .map((file) => tooLargeMessage({ file, t, formatter }))
             .join(' '),
         );
       }
@@ -87,11 +108,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
       const rejectedAsFull = addFiles(acceptedFiles, paymentMonth);
       if (rejectedAsFull > 0) {
         setError(
-          `The queue holds ${MAX_FILES_PER_BATCH} files, so ${rejectedAsFull} were not added. Upload these first.`,
+          t('imports.upload.queueFull', {
+            max: MAX_FILES_PER_BATCH,
+            count: rejectedAsFull,
+          }),
         );
       }
     },
-    [addFiles, paymentMonth],
+    [addFiles, paymentMonth, t, formatter],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -119,16 +143,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
       >
         <TextField
           fullWidth
-          label="Default Payment Month (MM/YYYY)"
+          label={t('imports.upload.defaultMonthLabel')}
           value={paymentMonth}
           onChange={(e) => setPaymentMonth(e.target.value)}
           disabled={isRunning}
-          placeholder="e.g., 01/2024 (Optional)"
+          placeholder={t('imports.upload.defaultMonthPlaceholder')}
           error={isUnreadablePaymentMonth(paymentMonth)}
           helperText={
             isUnreadablePaymentMonth(paymentMonth)
-              ? 'Use MM/YYYY, e.g. 03/2026'
-              : 'Applied to files as you add them. Leave blank if the month is in the filename (e.g., XXXX_01_2024.csv).'
+              ? t('imports.upload.monthFormatError')
+              : t('imports.upload.defaultMonthHelp')
           }
         />
         <Button
@@ -137,7 +161,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           disabled={isRunning || items.length === 0}
           sx={{ mt: 1, flexShrink: 0 }}
         >
-          Apply to all
+          {t('imports.upload.applyToAll')}
         </Button>
       </Stack>
 
@@ -177,8 +201,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
             sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}
           >
             {isDragActive
-              ? 'Drop the files here'
-              : 'Drag and drop files here, or click to select'}
+              ? t('imports.upload.dropHere')
+              : t('imports.upload.dragOrClick')}
           </Typography>
           <Typography
             variant="caption"
@@ -187,12 +211,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
               color: 'text.secondary',
             }}
           >
-            Supported formats: XLSX, XLS, CSV, up to {MAX_UPLOAD_LABEL} each.
-            Each file becomes its own import.
+            {t('imports.upload.formats', { limit: MAX_UPLOAD_LABEL })}
           </Typography>
           {!isRunning && (
             <Button variant="contained" size="small">
-              Select Files
+              {t('imports.upload.selectFiles')}
             </Button>
           )}
         </Stack>
@@ -215,8 +238,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
             onClick={start}
           >
             {queuedCount === 1
-              ? 'Upload 1 file'
-              : `Upload ${queuedCount} files`}
+              ? t('imports.upload.start.one')
+              : t('imports.upload.start.other', { count: queuedCount })}
           </Button>
           {hasFailures && (
             <Button
@@ -225,7 +248,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               onClick={retryAllFailed}
               sx={{ flexShrink: 0 }}
             >
-              Retry failed
+              {t('imports.upload.retryFailed')}
             </Button>
           )}
         </Stack>
@@ -236,7 +259,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <BatchProgressIndicator
             result={summary}
             isLoading={false}
-            itemLabel="files"
+            itemKind="files"
             onClose={reset}
           />
         </Box>

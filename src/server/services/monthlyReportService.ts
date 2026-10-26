@@ -19,6 +19,8 @@ interface CategoryTotal {
 export interface MonthlyReportOutcome {
   sent: boolean;
   monthLabel: string;
+  /** `MONTH_FORMAT`, for a caller that labels the month in its own language. */
+  month: string;
   transactionCount: number;
   recipient?: string;
   reason?: 'NO_SETTINGS' | 'NO_TRANSACTIONS';
@@ -72,6 +74,7 @@ class MonthlyReportService {
   ): Promise<MonthlyReportOutcome> {
     const reportMonth = subMonths(options.referenceDate ?? new Date(), 1);
     const monthLabel = format(reportMonth, 'MMMM yyyy');
+    const month = format(reportMonth, MONTH_FORMAT);
 
     const userSettings = await userSettingsService.getUserSettings(userId);
     if (!userSettings) {
@@ -79,6 +82,7 @@ class MonthlyReportService {
       return {
         sent: false,
         monthLabel,
+        month,
         transactionCount: 0,
         reason: 'NO_SETTINGS',
       };
@@ -94,6 +98,7 @@ class MonthlyReportService {
       return {
         sent: false,
         monthLabel,
+        month,
         transactionCount: 0,
         reason: 'NO_TRANSACTIONS',
       };
@@ -128,6 +133,7 @@ class MonthlyReportService {
     return {
       sent: true,
       monthLabel,
+      month,
       transactionCount: transactions.length,
       recipient: userSettings.info.email,
     };

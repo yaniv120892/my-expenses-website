@@ -9,18 +9,21 @@ import {
   Chip,
 } from '@mui/material';
 import { RecentTransaction } from '@/types/dashboard';
-import { formatTransactionDate } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import AmountText from '@/components/AmountText';
 
-interface Props {
+type Props = {
   transactions: RecentTransaction[];
   onViewAll: () => void;
-}
+};
 
 export function RecentTransactionsQuickView({
   transactions,
   onViewAll,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
@@ -33,23 +36,23 @@ export function RecentTransactionsQuickView({
           }}
         >
           <Typography variant="h4" component="h2">
-            Recent Transactions
+            {t('dashboard.recent.title')}
           </Typography>
           <Button size="small" onClick={onViewAll}>
-            View All
+            {t('dashboard.recent.viewAll')}
           </Button>
         </Box>
 
         {!transactions.length && (
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            No transactions yet
+            {t('dashboard.recent.empty')}
           </Typography>
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {transactions.map((tx) => (
+          {transactions.map((transaction) => (
             <Box
-              key={tx.id}
+              key={transaction.id}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -67,7 +70,7 @@ export function RecentTransactionsQuickView({
                     fontWeight: 600,
                   }}
                 >
-                  {tx.description}
+                  {transaction.description}
                 </Typography>
                 <Box
                   sx={{
@@ -81,18 +84,18 @@ export function RecentTransactionsQuickView({
                     variant="caption"
                     sx={{ color: 'text.secondary' }}
                   >
-                    {formatTransactionDate(tx.date)}
+                    {formatter.day(new Date(transaction.date))}
                   </Typography>
                   <Chip
-                    label={tx.categoryName}
+                    label={transaction.categoryName}
                     size="small"
                     sx={{ height: 20, fontSize: 11 }}
                   />
                 </Box>
               </Box>
               <AmountText
-                type={tx.type}
-                value={tx.value}
+                type={transaction.type}
+                value={transaction.value}
                 fontWeight={700}
                 format="signed"
               />

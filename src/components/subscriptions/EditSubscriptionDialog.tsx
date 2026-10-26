@@ -20,11 +20,9 @@ import {
   SubscriptionFrequency,
   UpdateSubscriptionPayload,
 } from '@/types/subscription';
-import {
-  formatCurrency,
-  formatSubscriptionFrequency,
-  SUBSCRIPTION_FREQUENCIES,
-} from '@/utils/format';
+import { SUBSCRIPTION_FREQUENCIES } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import { toMonthlyAmount, toAnnualAmount } from '@/utils/subscriptionMath';
 import { isOneOf } from '@/utils/oneOf';
 
@@ -78,6 +76,8 @@ export default function EditSubscriptionDialog({
   isLoading,
   error,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -121,27 +121,29 @@ export default function EditSubscriptionDialog({
       fullWidth
       fullScreen={fullScreen}
     >
-      <DialogTitle>Edit subscription</DialogTitle>
+      <DialogTitle>{t('subscriptions.edit.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
-            label="Name"
+            label={t('subscriptions.edit.name')}
             value={form.displayName}
             onChange={(e) => set('displayName', e.target.value)}
             error={nameError}
-            helperText={nameError ? 'Name is required' : undefined}
+            helperText={
+              nameError ? t('subscriptions.edit.nameRequired') : undefined
+            }
             fullWidth
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
-              label="Amount per charge"
+              label={t('subscriptions.edit.amount')}
               type="number"
               value={form.amount}
               onChange={(e) => set('amount', e.target.value)}
               error={amountError}
               helperText={
-                amountError ? 'Enter an amount greater than zero' : undefined
+                amountError ? t('subscriptions.edit.amountInvalid') : undefined
               }
               fullWidth
               slotProps={{
@@ -150,7 +152,7 @@ export default function EditSubscriptionDialog({
             />
             <TextField
               select
-              label="Frequency"
+              label={t('subscriptions.edit.frequency')}
               value={form.frequency}
               onChange={(e) => {
                 const frequency = e.target.value;
@@ -162,14 +164,14 @@ export default function EditSubscriptionDialog({
             >
               {SUBSCRIPTION_FREQUENCIES.map((frequency) => (
                 <MenuItem key={frequency} value={frequency}>
-                  {formatSubscriptionFrequency(frequency)}
+                  {formatter.frequency(frequency)}
                 </MenuItem>
               ))}
             </TextField>
           </Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
-              label="Last charge"
+              label={t('subscriptions.edit.lastCharge')}
               type="date"
               value={form.lastChargeDate}
               onChange={(e) => set('lastChargeDate', e.target.value)}
@@ -179,7 +181,7 @@ export default function EditSubscriptionDialog({
               }}
             />
             <TextField
-              label="Next expected"
+              label={t('subscriptions.edit.nextExpected')}
               type="date"
               value={form.nextExpectedDate}
               onChange={(e) => set('nextExpectedDate', e.target.value)}
@@ -200,21 +202,24 @@ export default function EditSubscriptionDialog({
                 color: 'text.secondary',
               }}
             >
-              Costs{' '}
-              {formatCurrency(toMonthlyAmount(parsedAmount, form.frequency))}
-              /month ·{' '}
-              {formatCurrency(toAnnualAmount(parsedAmount, form.frequency))}
-              /year
+              {t('subscriptions.edit.costs', {
+                monthly: formatter.currency(
+                  toMonthlyAmount(parsedAmount, form.frequency),
+                ),
+                annual: formatter.currency(
+                  toAnnualAmount(parsedAmount, form.frequency),
+                ),
+              })}
             </Typography>
           )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={isLoading}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button variant="contained" onClick={handleSave} disabled={!canSave}>
-          {isLoading ? 'Saving...' : 'Save'}
+          {isLoading ? t('common.saving') : t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -14,10 +14,12 @@ import {
   useDeletePendingTransactionMutation,
 } from '@/hooks/usePendingTransactionsQuery';
 import { useScheduledTransactionsQuery } from '@/hooks/useScheduledTransactionsQuery';
+import { useT } from '@/i18n/useT';
 
 type Notice = { message: string; severity: 'success' | 'error' };
 
 export default function PendingPage() {
+  const t = useT();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   // Remounts the snackbar per notice, restarting its auto-hide timer and
@@ -38,11 +40,15 @@ export default function PendingPage() {
   const confirmMutation = useConfirmTransactionMutation();
   const deleteMutation = useDeletePendingTransactionMutation();
 
-  async function runWithNotice(
-    action: () => Promise<unknown>,
-    successMessage: string,
-    failureMessage: string,
-  ) {
+  async function runWithNotice({
+    action,
+    successMessage,
+    failureMessage,
+  }: {
+    action: () => Promise<unknown>;
+    successMessage: string;
+    failureMessage: string;
+  }) {
     try {
       await action();
       showNotice({ message: successMessage, severity: 'success' });
@@ -55,25 +61,22 @@ export default function PendingPage() {
   }
 
   const handleConfirm = (id: string) =>
-    runWithNotice(
-      () => confirmMutation.mutateAsync(id),
-      'Transaction approved successfully',
-      'Failed to confirm transaction',
-    );
+    runWithNotice({
+      action: () => confirmMutation.mutateAsync(id),
+      successMessage: t('pending.approved'),
+      failureMessage: t('pending.approveFailed'),
+    });
 
   const handleDelete = (id: string) =>
-    runWithNotice(
-      () => deleteMutation.mutateAsync(id),
-      'Transaction rejected successfully',
-      'Failed to delete transaction',
-    );
+    runWithNotice({
+      action: () => deleteMutation.mutateAsync(id),
+      successMessage: t('pending.rejected'),
+      failureMessage: t('pending.rejectFailed'),
+    });
 
   return (
     <>
-      <PageHeader
-        title="Pending"
-        subtitle="Transactions waiting for your approval"
-      />
+      <PageHeader title={t('pending.title')} subtitle={t('pending.subtitle')} />
       <FixedExpensesSummary
         scheduledTransactions={scheduledTransactions}
         today={new Date()}
@@ -81,9 +84,7 @@ export default function PendingPage() {
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />
       ) : loadFailed ? (
-        <Alert severity="error">
-          Failed to load pending transactions. Please try again.
-        </Alert>
+        <Alert severity="error">{t('pending.loadFailed')}</Alert>
       ) : (
         <PendingTransactionsList
           transactions={pendingTransactions}

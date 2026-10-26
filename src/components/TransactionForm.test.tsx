@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { renderWithClient } from '@/test/renderWithClient';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import {
+  createTestQueryClient,
+  DesignTestProvider,
+  renderWithClient,
+} from '@/test/renderWithClient';
 import TransactionForm from '@/components/TransactionForm';
 
 // The attachments panel fetches the edit row's files on render; the reset
@@ -234,7 +239,9 @@ describe('TransactionForm attachment failure reporting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(
-      await screen.findByText(/Transaction saved\. Direct S3 upload failed\./),
+      await screen.findByText(
+        /Transaction saved\. Uploading an attachment failed\./,
+      ),
     ).toBeTruthy();
     expect(screen.queryByText('Failed to save transaction')).toBeNull();
     expect(screen.queryByText(/created successfully/i)).toBeNull();
@@ -267,7 +274,7 @@ describe('TransactionForm currency', () => {
     expect((valueInput() as HTMLInputElement).value).toBe('25');
     expect(
       screen.getByText(
-        /Original \$25\.00 = 92\.35 ₪ at 3\.694 \(card statement\)/,
+        /Original \$25\.00 = ₪92\.35 at 3\.694 \(card statement\)/,
       ),
     ).toBeTruthy();
 
@@ -335,5 +342,27 @@ describe('TransactionForm currency', () => {
       value: 90,
       currency: 'ILS',
     });
+  });
+});
+
+describe('TransactionForm in Hebrew', () => {
+  it('labels the dialog and reports validation in Hebrew', async () => {
+    const onSubmitAction = vi.fn().mockResolvedValue(undefined);
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <DesignTestProvider locale="he">
+          <TransactionForm
+            open
+            onCloseAction={() => {}}
+            onSubmitAction={onSubmitAction}
+          />
+        </DesignTestProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText('תנועה חדשה')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'יצירה' }));
+    expect(await screen.findByText('יש להזין תיאור')).toBeTruthy();
+    expect(onSubmitAction).not.toHaveBeenCalled();
   });
 });

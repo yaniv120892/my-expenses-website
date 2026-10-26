@@ -2,13 +2,19 @@
 
 import React from 'react';
 import ListSkeleton from './ListSkeleton';
-
-const COLUMNS = ['Description', 'Category', 'Date', 'Amount'];
+import { useT } from '@/i18n/useT';
 
 export default function TransactionListSkeleton({
   rows = 5,
 }: {
   rows?: number;
 }) {
-  return <ListSkeleton columns={COLUMNS} rows={rows} />;
+  const t = useT();
+  const columns = [
+    t('common.description'),
+    t('common.category'),
+    t('common.date'),
+    t('common.amount'),
+  ];
+  return <ListSkeleton columns={columns} rows={rows} />;
 }

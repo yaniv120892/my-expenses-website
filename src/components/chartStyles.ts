@@ -11,3 +11,8 @@ export const CLICKABLE_ROW_SX = {
   mx: -0.5,
   '&:hover': { bgcolor: 'action.hover' },
 };
+
+/** Trend arrows point along the reading direction, so they mirror in RTL. */
+export const MIRROR_IN_RTL_SX = {
+  '[dir=rtl] &': { transform: 'scaleX(-1)' },
+};

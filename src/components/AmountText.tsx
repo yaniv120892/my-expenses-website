@@ -5,7 +5,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { isForeignCurrency } from '@/shared/currency';
 import { TypographyProps } from '@mui/material/Typography';
 import { TransactionType } from '../types';
-import { formatCurrency, formatMoney, formatNumber } from '../utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
 
 type Props = {
   value: number;
@@ -27,6 +27,7 @@ export default function AmountText({
   original,
 }: Props) {
   const theme = useTheme();
+  const formatter = useAppFormat();
   const palette = (theme.vars ?? theme).palette;
 
   const amount = (
@@ -40,8 +41,8 @@ export default function AmountText({
       }}
     >
       {format === 'currency'
-        ? formatCurrency(value)
-        : `${type === 'INCOME' ? '+' : '-'}${formatNumber(value)}`}
+        ? formatter.currency(value)
+        : `${type === 'INCOME' ? '+' : '-'}${formatter.number(value)}`}
     </Typography>
   );
   const showsOriginal = original && isForeignCurrency(original.currency);
@@ -55,7 +56,7 @@ export default function AmountText({
         variant="caption"
         sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}
       >
-        {formatMoney(original.originalAmount, original.currency)}
+        {formatter.money(original.originalAmount, original.currency)}
       </Typography>
     </Box>
   );

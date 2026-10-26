@@ -111,7 +111,10 @@ describe('useMultiFileImport', () => {
       'failed',
       'succeeded',
     ]);
-    expect(result.current.items[1].error).toBe('Unsupported file type');
+    expect(result.current.items[1].error).toEqual({
+      code: 'REQUEST_FAILED',
+      message: 'Unsupported file type',
+    });
     expect(result.current.hasFailures).toBe(true);
     expect(result.current.summary).toEqual({
       total: 3,

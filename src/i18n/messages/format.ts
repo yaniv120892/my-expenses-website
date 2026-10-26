@@ -40,8 +40,8 @@ export const formatMessages: Dictionary<typeof en> = {
     'format.dateRange.allTime': 'כל הזמן',
     'format.schedule.daily.one': 'מתבצע כל יום.',
     'format.schedule.daily.other': 'מתבצע כל {interval} ימים.',
-    'format.schedule.weekly.one': 'מתבצע כל שבוע ביום {day}.',
-    'format.schedule.weekly.other': 'מתבצע כל {interval} שבועות ביום {day}.',
+    'format.schedule.weekly.one': 'מתבצע כל שבוע ב{day}.',
+    'format.schedule.weekly.other': 'מתבצע כל {interval} שבועות ב{day}.',
     'format.schedule.weekly.missingDay': 'בחרו יום בשבוע.',
     'format.schedule.monthly.one': 'מתבצע כל חודש ב־{day} לחודש.',
     'format.schedule.monthly.other':

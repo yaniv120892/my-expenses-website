@@ -14,11 +14,12 @@ import {
   Typography,
 } from '@mui/material';
 import { Transaction } from '../types';
-import { formatTransactionDate } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 function MobileRow({
   transaction,
@@ -27,6 +28,7 @@ function MobileRow({
   transaction: Transaction;
   onEdit: (tx: Transaction) => void;
 }) {
+  const formatter = useAppFormat();
   return (
     <Box
       onClick={() => onEdit(transaction)}
@@ -66,7 +68,7 @@ function MobileRow({
             color: 'text.secondary',
           }}
         >
-          {formatTransactionDate(transaction.date)}
+          {formatter.day(new Date(transaction.date))}
         </Typography>
       </Box>
     </Box>
@@ -81,9 +83,11 @@ export default function TransactionList({
   onEditAction: (tx: Transaction) => void;
 }) {
   const isMobile = useIsMobile();
+  const t = useT();
+  const formatter = useAppFormat();
 
   if (!transactions.length) {
-    return <EmptyState message="No transactions found." />;
+    return <EmptyState message={t('transactions.list.empty')} />;
   }
 
   if (isMobile) {
@@ -96,7 +100,7 @@ export default function TransactionList({
             <SwipeableRow
               key={tx.id}
               onSwipeRight={() => onEditAction(tx)}
-              rightLabel="Edit"
+              rightLabel={t('transactions.list.edit')}
               rightColor="primary.main"
             >
               <MobileRow transaction={tx} onEdit={onEditAction} />
@@ -112,10 +116,10 @@ export default function TransactionList({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Description</TableCell>
-            <TableCell>Category</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell align="right">Amount</TableCell>
+            <TableCell>{t('common.description')}</TableCell>
+            <TableCell>{t('common.category')}</TableCell>
+            <TableCell>{t('common.date')}</TableCell>
+            <TableCell align="right">{t('common.amount')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -131,7 +135,7 @@ export default function TransactionList({
                 {tx.category?.name}
               </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
-                {formatTransactionDate(tx.date)}
+                {formatter.day(new Date(tx.date))}
               </TableCell>
               <TableCell align="right">
                 <AmountText type={tx.type} value={tx.value} original={tx} />

@@ -3,22 +3,27 @@
 import { useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { useT } from '@/i18n/useT';
 
-type CopyLabels = { idle: string; copied: string; failed: string };
+type CopyState = 'idle' | 'copied' | 'failed';
 
-type CopyState = keyof CopyLabels;
+const COPY_STATE_KEYS = {
+  idle: 'common.copy',
+  copied: 'common.copied',
+  failed: 'common.copyFailed',
+} as const satisfies Record<CopyState, string>;
 
+/** Code-like values (tokens, URLs, commands) stay left-to-right in either language. */
 export default function CopyableText({
   label,
   value,
-  copyLabels,
   multiline = false,
 }: {
   label: string;
   value: string;
-  copyLabels: CopyLabels;
   multiline?: boolean;
 }) {
+  const t = useT();
   const [copyState, setCopyState] = useState<CopyState>('idle');
 
   const handleCopy = async () => {
@@ -32,7 +37,6 @@ export default function CopyableText({
 
   return (
     <Box
-      dir="ltr"
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -45,6 +49,7 @@ export default function CopyableText({
       <Typography
         variant="body2"
         component={multiline ? 'pre' : 'span'}
+        dir="ltr"
         aria-label={label}
         sx={{
           flexGrow: 1,
@@ -56,11 +61,11 @@ export default function CopyableText({
       >
         {value}
       </Typography>
-      <Tooltip title={copyLabels[copyState]}>
+      <Tooltip title={t(COPY_STATE_KEYS[copyState])}>
         <IconButton
           size="small"
           onClick={handleCopy}
-          aria-label={`Copy ${label}`}
+          aria-label={t('settings.copyLabel', { label })}
         >
           <ContentCopyIcon fontSize="small" />
         </IconButton>

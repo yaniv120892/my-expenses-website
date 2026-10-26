@@ -38,15 +38,19 @@ function submitPayload(values: TransactionFormValues) {
 
 describe('validateTransactionForm', () => {
   it('accepts a complete form in both modes', () => {
-    expect(validateTransactionForm(form(), false)).toEqual({});
-    expect(validateTransactionForm(form(), true)).toEqual({});
+    expect(
+      validateTransactionForm({ form: form(), requireCategory: false }),
+    ).toEqual({});
+    expect(
+      validateTransactionForm({ form: form(), requireCategory: true }),
+    ).toEqual({});
   });
 
   it('reports the usual required fields', () => {
-    const errors = validateTransactionForm(
-      form({ description: '', value: 0, type: '', date: '' }),
-      false,
-    );
+    const errors = validateTransactionForm({
+      form: form({ description: '', value: 0, type: '', date: '' }),
+      requireCategory: false,
+    });
     expect(Object.keys(errors).sort()).toEqual([
       'date',
       'description',
@@ -56,18 +60,24 @@ describe('validateTransactionForm', () => {
   });
 
   it('rejects a non-numeric value', () => {
-    expect(validateTransactionForm(form({ value: 'abc' }), false).value).toBe(
-      'Value must be a number',
-    );
+    expect(
+      validateTransactionForm({
+        form: form({ value: 'abc' }),
+        requireCategory: false,
+      }).value,
+    ).toBe('transactions.validation.valueNotNumber');
   });
 
   it('holds the value to the server amount bounds', () => {
     const valueError = (value: number | string) =>
-      validateTransactionForm(form({ value }), false).value;
+      validateTransactionForm({ form: form({ value }), requireCategory: false })
+        .value;
 
-    expect(valueError(0.004)).toBe('Value must be greater than 0');
-    expect(valueError(10_000_001)).toBe('Value must be greater than 0');
-    expect(valueError('')).toBe('Value must be greater than 0');
+    expect(valueError(0.004)).toBe('transactions.validation.valueNotPositive');
+    expect(valueError(10_000_001)).toBe(
+      'transactions.validation.valueNotPositive',
+    );
+    expect(valueError('')).toBe('transactions.validation.valueNotPositive');
     expect(valueError(0.01)).toBeUndefined();
     expect(valueError('.5')).toBeUndefined();
     expect(valueError(10_000_000)).toBeUndefined();
@@ -75,7 +85,10 @@ describe('validateTransactionForm', () => {
 
   it('holds the amount charged to the same bounds', () => {
     const baseValueError = (baseValue: number | string) =>
-      validateTransactionForm(form({ baseValue }), false).baseValue;
+      validateTransactionForm({
+        form: form({ baseValue }),
+        requireCategory: false,
+      }).baseValue;
 
     expect(baseValueError(0.004)).toBeDefined();
     expect(baseValueError(0)).toBeDefined();
@@ -86,10 +99,14 @@ describe('validateTransactionForm', () => {
   it('requires a category only when the target endpoint does', () => {
     const cleared = form({ categoryId: '' });
 
-    expect(validateTransactionForm(cleared, false).categoryId).toBeUndefined();
-    expect(validateTransactionForm(cleared, true).categoryId).toBe(
-      'Category is required',
-    );
+    expect(
+      validateTransactionForm({ form: cleared, requireCategory: false })
+        .categoryId,
+    ).toBeUndefined();
+    expect(
+      validateTransactionForm({ form: cleared, requireCategory: true })
+        .categoryId,
+    ).toBe('transactions.validation.categoryRequired');
   });
 
   it('lets an uncategorized import through the approve schema', () => {

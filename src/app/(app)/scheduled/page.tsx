@@ -15,8 +15,10 @@ import {
   useDeleteScheduledTransactionMutation,
 } from '@/hooks/useScheduledTransactionsQuery';
 import { useCategoriesQuery } from '@/hooks/useTransactionsQuery';
+import { useT } from '@/i18n/useT';
 
 export default function ScheduledPage() {
+  const t = useT();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
 
@@ -43,8 +45,8 @@ export default function ScheduledPage() {
   return (
     <>
       <PageHeader
-        title="Scheduled"
-        subtitle="Recurring transactions created automatically on schedule"
+        title={t('scheduled.title')}
+        subtitle={t('scheduled.subtitle')}
         actions={
           <Button
             variant="contained"
@@ -54,7 +56,7 @@ export default function ScheduledPage() {
               setFormOpen(true);
             }}
           >
-            Add scheduled
+            {t('scheduled.add')}
           </Button>
         }
       />
@@ -62,9 +64,7 @@ export default function ScheduledPage() {
       {loading ? (
         <ScheduledTransactionListSkeleton rows={6} />
       ) : loadFailed ? (
-        <Alert severity="error">
-          Failed to load scheduled transactions. Please try again.
-        </Alert>
+        <Alert severity="error">{t('scheduled.loadFailed')}</Alert>
       ) : (
         <ScheduledTransactionList
           scheduledTransactions={scheduledTransactions}

@@ -15,28 +15,25 @@ import {
 } from '@mui/material';
 import { useIsMobile } from '../hooks/useBreakpoints';
 
-const RIGHT_ALIGNED_COLUMNS = ['Amount', 'Actions'];
+const DEFAULT_COLUMN_WIDTH = '60%';
+const LEADING_COLUMN_WIDTH = '70%';
 
-const COLUMN_WIDTHS: Record<string, string | number> = {
-  Description: '70%',
-  Category: '50%',
-  Date: '60%',
-  Schedule: '70%',
-  'Next run': '60%',
-  Amount: '50%',
-  Actions: 64,
-};
-
+/** Columns arrive translated; the trailing `alignEndCount` hold amounts or actions. */
 export default function ListSkeleton({
   columns,
   rows = 5,
   mobileLines = 2,
+  alignEndCount = 1,
 }: {
   columns: string[];
   rows?: number;
   mobileLines?: number;
+  alignEndCount?: number;
 }) {
   const isMobile = useIsMobile();
+
+  const firstEndAlignedIndex = columns.length - alignEndCount;
+  const isEndAligned = (index: number) => index >= firstEndAlignedIndex;
 
   if (isMobile) {
     return (
@@ -44,9 +41,9 @@ export default function ListSkeleton({
         <Stack
           divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
         >
-          {[...Array(rows)].map((_, idx) => (
+          {[...Array(rows)].map((_, index) => (
             <Box
-              key={idx}
+              key={index}
               sx={{
                 display: 'flex',
                 alignItems: mobileLines > 2 ? 'flex-start' : 'center',
@@ -77,12 +74,10 @@ export default function ListSkeleton({
       <Table size="small">
         <TableHead>
           <TableRow>
-            {columns.map((column) => (
+            {columns.map((column, index) => (
               <TableCell
                 key={column}
-                align={
-                  RIGHT_ALIGNED_COLUMNS.includes(column) ? 'right' : 'inherit'
-                }
+                align={isEndAligned(index) ? 'right' : 'inherit'}
               >
                 {column}
               </TableCell>
@@ -90,17 +85,21 @@ export default function ListSkeleton({
           </TableRow>
         </TableHead>
         <TableBody>
-          {[...Array(rows)].map((_, idx) => (
-            <TableRow key={idx} sx={{ '&:last-child td': { border: 0 } }}>
-              {columns.map((column) => {
-                const alignRight = RIGHT_ALIGNED_COLUMNS.includes(column);
+          {[...Array(rows)].map((_, index) => (
+            <TableRow key={index} sx={{ '&:last-child td': { border: 0 } }}>
+              {columns.map((column, columnIndex) => {
+                const alignRight = isEndAligned(columnIndex);
                 return (
                   <TableCell
                     key={column}
                     align={alignRight ? 'right' : 'inherit'}
                   >
                     <Skeleton
-                      width={COLUMN_WIDTHS[column] ?? '60%'}
+                      width={
+                        columnIndex === 0
+                          ? LEADING_COLUMN_WIDTH
+                          : DEFAULT_COLUMN_WIDTH
+                      }
                       sx={alignRight ? { ml: 'auto' } : undefined}
                     />
                   </TableCell>

@@ -47,6 +47,9 @@ import {
 } from '@/hooks/useTransactionsQuery';
 import { CreateTransactionResponse } from '@/services/transactions';
 import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { describeApiError } from '@/utils/api';
+import { useT } from '@/i18n/useT';
 
 const filterShape = transactionFilterSchema.shape;
 
@@ -54,6 +57,8 @@ function TransactionsPageContent() {
   // Read once to seed the filters: the drill-down from the dashboard pie arrives
   // as query params, but the page owns its filters from then on.
   const searchParams = useSearchParams();
+  const t = useT();
+  const formatter = useAppFormat();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filtersDialogOpen, setFiltersDialogOpen] = useState(false);
@@ -129,9 +134,9 @@ function TransactionsPageContent() {
     exportMutation.mutate(
       { filters, sort },
       {
-        onError: (e) =>
+        onError: (exportError) =>
           setError(
-            e instanceof Error ? e.message : 'Failed to export transactions',
+            describeApiError(exportError, t('transactions.page.exportFailed')),
           ),
       },
     );
@@ -166,7 +171,7 @@ function TransactionsPageContent() {
   return (
     <>
       <PageHeader
-        title="Transactions"
+        title={t('nav.transactions')}
         actions={
           <Stack direction="row" spacing={1}>
             <Button
@@ -181,7 +186,7 @@ function TransactionsPageContent() {
               disabled={exportMutation.isPending}
               onClick={handleExport}
             >
-              Export CSV
+              {t('transactions.page.exportCsv')}
             </Button>
             <Button
               variant="contained"
@@ -191,7 +196,7 @@ function TransactionsPageContent() {
                 setFormOpen(true);
               }}
             >
-              Add transaction
+              {t('transactions.page.add')}
             </Button>
           </Stack>
         }
@@ -212,15 +217,15 @@ function TransactionsPageContent() {
             categoryId: prev.type ? undefined : prev.categoryId,
           }))
         }
-        title={describeDateRange(filters)}
+        title={describeDateRange({ range: filters, t, formatter })}
       />
 
       {filters.type && (
         <CategoryBreakdownPieChart
           title={
             filters.type === 'EXPENSE'
-              ? 'Expenses by category'
-              : 'Income by category'
+              ? t('transactions.page.expensesByCategory')
+              : t('transactions.page.incomeByCategory')
           }
           items={categoryBreakdown}
           loading={categoryBreakdownLoading}
@@ -273,9 +278,7 @@ function TransactionsPageContent() {
         {loading ? (
           <TransactionListSkeleton rows={6} />
         ) : loadFailed ? (
-          <Alert severity="error">
-            Failed to load transactions. Please try again.
-          </Alert>
+          <Alert severity="error">{t('transactions.page.loadFailed')}</Alert>
         ) : (
           <>
             {summary && summary.count > 0 && (
@@ -287,7 +290,10 @@ function TransactionsPageContent() {
                   mb: 1,
                 }}
               >
-                {`Showing ${transactions.length} of ${summary.count}`}
+                {t('transactions.page.showing', {
+                  shown: formatter.number(transactions.length),
+                  total: formatter.number(summary.count),
+                })}
               </Typography>
             )}
             <TransactionList

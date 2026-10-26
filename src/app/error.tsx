@@ -1,6 +1,6 @@
 'use client';
 
-import ErrorFallback from '@/components/ErrorFallback';
+import TranslatedErrorFallback from '@/components/TranslatedErrorFallback';
 
 export default function Error({
   error,
@@ -9,5 +9,7 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <ErrorFallback error={error} reset={reset} minHeight="60vh" />;
+  return (
+    <TranslatedErrorFallback error={error} reset={reset} minHeight="60vh" />
+  );
 }

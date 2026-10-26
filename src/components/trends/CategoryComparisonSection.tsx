@@ -17,11 +17,9 @@ import {
   CategoryComparison,
   ComparisonMeasure,
 } from '@/types/trends';
-import {
-  MEASURE_LABELS,
-  comparisonFileName,
-  comparisonToCsv,
-} from '@/utils/comparison';
+import { comparisonFileName, comparisonToCsv } from '@/utils/comparison';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import { downloadCsv } from '@/utils/download';
 import { isOneOf } from '@/utils/oneOf';
 import { TrendCardSkeleton } from '@/components/trends/TrendSkeleton';
@@ -44,6 +42,12 @@ interface Props {
 
 const CROWDED_BUCKET_COUNT = 40;
 
+const MEASURE_TOGGLE_ORDER: readonly ComparisonMeasure[] = [
+  'net',
+  'expense',
+  'income',
+];
+
 export function CategoryComparisonSection({
   comparison,
   isLoading,
@@ -53,6 +57,8 @@ export function CategoryComparisonSection({
   onMeasureChange,
   onOpenFilters,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const [chartMode, setChartMode] = useState<ComparisonChartMode>('grouped');
 
   if (selectedCount === 0) {
@@ -60,7 +66,7 @@ export function CategoryComparisonSection({
       <Card variant="outlined">
         <CardContent>
           <Typography variant="h5" sx={{ mb: 1 }}>
-            Compare categories
+            {t('trends.compare.title')}
           </Typography>
           <Typography
             variant="body2"
@@ -69,11 +75,10 @@ export function CategoryComparisonSection({
               mb: 2,
             }}
           >
-            Pick up to 8 categories to see them side by side as a table and a
-            chart, then export the result.
+            {t('trends.compare.intro')}
           </Typography>
           <Button variant="contained" onClick={onOpenFilters}>
-            Choose categories
+            {t('trends.compare.chooseCategories')}
           </Button>
         </CardContent>
       </Card>
@@ -90,12 +95,11 @@ export function CategoryComparisonSection({
             severity="error"
             action={
               <Button color="inherit" size="small" onClick={onOpenFilters}>
-                Change filters
+                {t('trends.compare.changeFilters')}
               </Button>
             }
           >
-            Could not load the comparison. Check the dates and categories you
-            picked, then try again.
+            {t('trends.compare.loadError')}
           </Alert>
         </CardContent>
       </Card>
@@ -118,7 +122,7 @@ export function CategoryComparisonSection({
             mb: 2,
           }}
         >
-          <Typography variant="h5">Compare categories</Typography>
+          <Typography variant="h5">{t('trends.compare.title')}</Typography>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={1}
@@ -135,15 +139,13 @@ export function CategoryComparisonSection({
                   onMeasureChange(value);
                 }
               }}
-              aria-label="Measure"
+              aria-label={t('trends.compare.measureLabel')}
             >
-              <ToggleButton value="net">{MEASURE_LABELS.net}</ToggleButton>
-              <ToggleButton value="expense">
-                {MEASURE_LABELS.expense}
-              </ToggleButton>
-              <ToggleButton value="income">
-                {MEASURE_LABELS.income}
-              </ToggleButton>
+              {MEASURE_TOGGLE_ORDER.map((option) => (
+                <ToggleButton key={option} value={option}>
+                  {t(`trends.measure.${option}`)}
+                </ToggleButton>
+              ))}
             </ToggleButtonGroup>
             <ToggleButtonGroup
               value={chartMode}
@@ -154,11 +156,13 @@ export function CategoryComparisonSection({
                   setChartMode(value);
                 }
               }}
-              aria-label="Chart type"
+              aria-label={t('trends.compare.chartTypeLabel')}
             >
-              <ToggleButton value="grouped">Grouped</ToggleButton>
-              <ToggleButton value="stacked">Stacked</ToggleButton>
-              <ToggleButton value="lines">Lines</ToggleButton>
+              {COMPARISON_CHART_MODES.map((mode) => (
+                <ToggleButton key={mode} value={mode}>
+                  {t(`trends.compare.chart.${mode}`)}
+                </ToggleButton>
+              ))}
             </ToggleButtonGroup>
             <Button
               variant="outlined"
@@ -167,27 +171,26 @@ export function CategoryComparisonSection({
               onClick={() =>
                 downloadCsv(
                   comparisonFileName(comparison),
-                  comparisonToCsv(comparison, measure),
+                  comparisonToCsv({ comparison, measure, t, formatter }),
                 )
               }
             >
-              Export CSV
+              {t('trends.compare.exportCsv')}
             </Button>
           </Stack>
         </Stack>
 
         {comparison.hasOverlappingSeries && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            One selected category contains another, so their columns count some
-            transactions twice. The Total column still counts each transaction
-            once.
+            {t('trends.compare.overlapWarning')}
           </Alert>
         )}
 
         {comparison.buckets.length > CROWDED_BUCKET_COUNT && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            {comparison.buckets.length} periods is a lot for one chart. A wider
-            period or a shorter date range will read more clearly.
+            {t('trends.compare.crowded', {
+              count: comparison.buckets.length,
+            })}
           </Alert>
         )}
 

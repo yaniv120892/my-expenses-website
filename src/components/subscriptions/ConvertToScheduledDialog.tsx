@@ -14,7 +14,8 @@ import {
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
 import { DetectedSubscription } from '@/types/subscription';
-import { formatCurrency } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 interface Props {
   open: boolean;
@@ -32,6 +33,8 @@ export default function ConvertToScheduledDialog({
   isLoading,
 }: Props) {
   const [categoryId, setCategoryId] = useState('');
+  const t = useT();
+  const formatter = useAppFormat();
   const fullScreen = useIsCompact();
 
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function ConvertToScheduledDialog({
       fullWidth
       fullScreen={fullScreen}
     >
-      <DialogTitle>Convert to Scheduled Transaction</DialogTitle>
+      <DialogTitle>{t('subscriptions.convert.title')}</DialogTitle>
       <DialogContent>
         {subscription && (
           <>
@@ -67,7 +70,7 @@ export default function ConvertToScheduledDialog({
                   mb: 0.5,
                 }}
               >
-                Description
+                {t('subscriptions.convert.description')}
               </Typography>
               <Typography
                 variant="body1"
@@ -87,7 +90,7 @@ export default function ConvertToScheduledDialog({
                     mb: 0.5,
                   }}
                 >
-                  Amount
+                  {t('subscriptions.convert.amount')}
                 </Typography>
                 <Typography
                   variant="body1"
@@ -95,7 +98,7 @@ export default function ConvertToScheduledDialog({
                     fontWeight: 600,
                   }}
                 >
-                  {formatCurrency(subscription.averageAmount)}
+                  {formatter.currency(subscription.averageAmount)}
                 </Typography>
               </Box>
               <Box>
@@ -106,7 +109,7 @@ export default function ConvertToScheduledDialog({
                     mb: 0.5,
                   }}
                 >
-                  Frequency
+                  {t('subscriptions.convert.frequency')}
                 </Typography>
                 <Typography
                   variant="body1"
@@ -114,7 +117,7 @@ export default function ConvertToScheduledDialog({
                     fontWeight: 600,
                   }}
                 >
-                  {subscription.frequency}
+                  {formatter.frequency(subscription.frequency)}
                 </Typography>
               </Box>
             </Stack>
@@ -128,14 +131,16 @@ export default function ConvertToScheduledDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={isLoading}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
           disabled={!categoryId || isLoading}
         >
-          {isLoading ? 'Converting...' : 'Convert'}
+          {isLoading
+            ? t('subscriptions.convert.submitting')
+            : t('subscriptions.convert.submit')}
         </Button>
       </DialogActions>
     </Dialog>

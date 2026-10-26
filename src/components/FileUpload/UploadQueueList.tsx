@@ -15,38 +15,59 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import {
+  describeUploadError,
   isTerminal,
   UploadItem,
   UploadItemStatus,
 } from '@/utils/importUploadQueue';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
+import { useT, type T } from '@/i18n/useT';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 
 // 'succeeded' is absent by design: that row renders a tick, never a chip.
-const STATUS_CHIPS: Record<
+const STATUS_CHIPS = {
+  queued: { labelKey: 'imports.upload.queued', color: 'default' },
+  uploading: { labelKey: 'imports.upload.uploading', color: 'primary' },
+  processing: { labelKey: 'imports.upload.processing', color: 'primary' },
+  failed: { labelKey: 'imports.upload.failed', color: 'error' },
+} as const satisfies Record<
   Exclude<UploadItemStatus, 'succeeded'>,
-  { label: string; color: 'default' | 'primary' | 'error' }
-> = {
-  queued: { label: 'Queued', color: 'default' },
-  uploading: { label: 'Uploading', color: 'primary' },
-  processing: { label: 'Processing', color: 'primary' },
-  failed: { label: 'Failed', color: 'error' },
-};
+  { labelKey: string; color: 'default' | 'primary' | 'error' }
+>;
 
-function formatSize(bytes: number): string {
-  const megabytes = bytes / (1024 * 1024);
+const BYTES_PER_KILOBYTE = 1024;
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+
+function formatSize({
+  bytes,
+  t,
+  formatter,
+}: {
+  bytes: number;
+  t: T;
+  formatter: AppFormatter;
+}): string {
+  const megabytes = bytes / BYTES_PER_MEGABYTE;
   if (megabytes >= 1) {
-    return `${megabytes.toFixed(1)} MB`;
+    return t('imports.upload.sizeMegabytes', {
+      size: formatter.number(megabytes, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
+    });
   }
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return t('imports.upload.sizeKilobytes', {
+    size: formatter.number(Math.max(1, Math.round(bytes / BYTES_PER_KILOBYTE))),
+  });
 }
 
-interface UploadQueueListProps {
+type UploadQueueListProps = {
   items: UploadItem[];
   isRunning: boolean;
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
   onPaymentMonthChange: (id: string, paymentMonth: string) => void;
-}
+};
 
 export default function UploadQueueList({
   items,
@@ -55,6 +76,8 @@ export default function UploadQueueList({
   onRetry,
   onPaymentMonthChange,
 }: UploadQueueListProps) {
+  const t = useT();
+  const formatter = useAppFormat();
   if (items.length === 0) {
     return null;
   }
@@ -89,7 +112,7 @@ export default function UploadQueueList({
                   color: 'text.secondary',
                 }}
               >
-                {formatSize(item.file.size)}
+                {formatSize({ bytes: item.file.size, t, formatter })}
               </Typography>
             </Box>
 
@@ -108,19 +131,25 @@ export default function UploadQueueList({
               ) : (
                 <Chip
                   size="small"
-                  label={STATUS_CHIPS[item.status].label}
+                  label={t(STATUS_CHIPS[item.status].labelKey)}
                   color={STATUS_CHIPS[item.status].color}
                 />
               )}
 
               {item.status === 'failed' && (
                 <Tooltip
-                  title={isRunning ? 'Wait for the batch to finish' : 'Retry'}
+                  title={
+                    isRunning
+                      ? t('imports.upload.waitForBatch')
+                      : t('imports.upload.retry')
+                  }
                 >
                   <span>
                     <IconButton
                       size="small"
-                      aria-label={`Retry ${item.file.name}`}
+                      aria-label={t('imports.upload.retryFile', {
+                        fileName: item.file.name,
+                      })}
                       disabled={isRunning}
                       onClick={() => onRetry(item.id)}
                     >
@@ -133,7 +162,9 @@ export default function UploadQueueList({
               {(item.status === 'queued' || item.status === 'failed') && (
                 <IconButton
                   size="small"
-                  aria-label={`Remove ${item.file.name}`}
+                  aria-label={t('imports.upload.removeFile', {
+                    fileName: item.file.name,
+                  })}
                   onClick={() => onRemove(item.id)}
                 >
                   <DeleteOutlineRoundedIcon fontSize="small" />
@@ -146,15 +177,15 @@ export default function UploadQueueList({
             <TextField
               fullWidth
               size="small"
-              label="Payment Month (MM/YYYY)"
+              label={t('imports.upload.monthLabel')}
               value={item.paymentMonth}
               onChange={(e) => onPaymentMonthChange(item.id, e.target.value)}
               disabled={item.status !== 'queued'}
-              placeholder="Optional"
+              placeholder={t('imports.upload.monthPlaceholder')}
               error={isUnreadablePaymentMonth(item.paymentMonth)}
               helperText={
                 isUnreadablePaymentMonth(item.paymentMonth)
-                  ? 'Use MM/YYYY, e.g. 03/2026'
+                  ? t('imports.upload.monthFormatError')
                   : undefined
               }
               sx={{ mt: 1.5 }}
@@ -171,7 +202,7 @@ export default function UploadQueueList({
             />
           )}
 
-          {item.status === 'failed' && item.error && (
+          {item.status === 'failed' && (
             <Typography
               variant="caption"
               color="error"
@@ -180,7 +211,7 @@ export default function UploadQueueList({
                 mt: 1,
               }}
             >
-              {item.error}
+              {describeUploadError({ error: item.error, t })}
             </Typography>
           )}
         </Box>

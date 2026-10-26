@@ -8,6 +8,12 @@ import {
   unlinkTelegram,
 } from '../services/userSettingsService';
 import type { UpdateUserSettings } from '../types';
+import { useT, type T } from '@/i18n/useT';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
+import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
+
+type TestNotice = { success: boolean; message: string };
+import { describeApiError } from '@/utils/api';
 
 const TELEGRAM_LINK_POLL_MS = 3000;
 
@@ -56,17 +62,15 @@ export const useUnlinkTelegramMutation = () => {
 };
 
 export const useTestTelegramMutation = () => {
+  const t = useT();
   return useMutation({
     mutationFn: async () => {
       try {
         return await testTelegram();
-      } catch (e) {
+      } catch (error) {
         return {
           success: false,
-          message:
-            e instanceof Error
-              ? e.message
-              : 'Failed to test Telegram connection',
+          message: describeApiError(error, t('settings.telegram.testFailed')),
         };
       }
     },
@@ -74,17 +78,61 @@ export const useTestTelegramMutation = () => {
 };
 
 export const useTestMonthlyReportMutation = () => {
+  const t = useT();
+  const formatter = useAppFormat();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<TestNotice> => {
       try {
-        return await testMonthlyReport();
-      } catch (e) {
+        return describeTestMonthlyReport({
+          result: await testMonthlyReport(),
+          t,
+          formatter,
+        });
+      } catch (error) {
         return {
           success: false,
-          message:
-            e instanceof Error ? e.message : 'Failed to send the test report',
+          message: describeApiError(
+            error,
+            t('settings.notifications.testReportFailed'),
+          ),
         };
       }
     },
   });
 };
+
+function describeTestMonthlyReport({
+  result,
+  t,
+  formatter,
+}: {
+  result: TestMonthlyReportResult;
+  t: T;
+  formatter: AppFormatter;
+}): TestNotice {
+  switch (result.status) {
+    case 'SENT': {
+      const variables = {
+        month: formatter.month(`${result.month}-01`),
+        recipient: result.recipient,
+      };
+      return {
+        success: true,
+        message:
+          result.transactionCount === 0
+            ? t('settings.notifications.testReportSentEmpty', variables)
+            : t('settings.notifications.testReportSent', variables),
+      };
+    }
+    case 'NOT_BUILT':
+      return {
+        success: false,
+        message: t('settings.notifications.testReportNotBuilt'),
+      };
+    default:
+      return {
+        success: false,
+        message: t('settings.notifications.testReportFailed'),
+      };
+  }
+}

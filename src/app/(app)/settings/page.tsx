@@ -32,6 +32,7 @@ import {
   useUserSettingsQuery,
 } from '@/hooks/useUserSettingsQuery';
 import { describeApiError } from '@/utils/api';
+import { useT } from '@/i18n/useT';
 
 type UserSettingsForm = {
   notifications: {
@@ -48,16 +49,19 @@ type UserSettingsForm = {
 const NOTIFICATION_FIELDS = [
   {
     name: 'notifications.createTransaction',
-    label: 'Notify on new transaction creation',
+    labelKey: 'settings.notifications.createTransaction',
   },
-  { name: 'notifications.dailySummary', label: 'Daily summary notification' },
+  {
+    name: 'notifications.dailySummary',
+    labelKey: 'settings.notifications.dailySummary',
+  },
   {
     name: 'notifications.subscriptionAudit',
-    label: 'Monthly subscription audit',
+    labelKey: 'settings.notifications.subscriptionAudit',
   },
   {
     name: 'notifications.monthlyReport',
-    label: 'Monthly report by email',
+    labelKey: 'settings.notifications.monthlyReport',
   },
 ] as const;
 
@@ -81,6 +85,7 @@ function SettingsSection({
 }
 
 function AppearanceSection() {
+  const t = useT();
   const { mode, setMode } = useColorScheme();
   const [mounted, setMounted] = useState(false);
 
@@ -91,7 +96,7 @@ function AppearanceSection() {
   }, []);
 
   return (
-    <SettingsSection title="Appearance">
+    <SettingsSection title={t('settings.appearance.title')}>
       {mounted ? (
         <ToggleButtonGroup
           value={mode ?? 'system'}
@@ -102,22 +107,22 @@ function AppearanceSection() {
             }
           }}
           size="small"
-          aria-label="Theme mode"
+          aria-label={t('settings.appearance.mode')}
         >
           <ToggleButton value="light">
             <LightModeOutlinedIcon sx={{ mr: 0.75 }} fontSize="small" />
-            Light
+            {t('settings.appearance.light')}
           </ToggleButton>
           <ToggleButton value="system">
             <SettingsBrightnessOutlinedIcon
               sx={{ mr: 0.75 }}
               fontSize="small"
             />
-            System
+            {t('settings.appearance.system')}
           </ToggleButton>
           <ToggleButton value="dark">
             <DarkModeOutlinedIcon sx={{ mr: 0.75 }} fontSize="small" />
-            Dark
+            {t('settings.appearance.dark')}
           </ToggleButton>
         </ToggleButtonGroup>
       ) : (
@@ -144,6 +149,7 @@ function SettingsSkeleton() {
 }
 
 export default function SettingsPage() {
+  const t = useT();
   const { data: settings, isLoading: loading, error } = useUserSettingsQuery();
   const { mutateAsync: saveUserSettings } = useUpdateUserSettingsMutation();
   const { mutateAsync: sendTestMonthlyReport } = useTestMonthlyReportMutation();
@@ -194,7 +200,7 @@ export default function SettingsPage() {
     } catch {
       setTestResult({
         success: false,
-        message: 'Failed to send the test report',
+        message: t('settings.notifications.testReportFailed'),
       });
     } finally {
       setReportTestLoading(false);
@@ -210,14 +216,14 @@ export default function SettingsPage() {
     } catch (error) {
       setTestResult({
         success: false,
-        message: describeApiError(error, 'Failed to save settings'),
+        message: describeApiError(error, t('settings.saveFailed')),
       });
     } finally {
       setSaveLoading(false);
     }
   };
 
-  const header = <PageHeader title="Settings" />;
+  const header = <PageHeader title={t('settings.title')} />;
 
   if (loading) {
     return (
@@ -243,7 +249,7 @@ export default function SettingsPage() {
     return (
       <>
         {header}
-        <Alert severity="error">Failed to load settings</Alert>
+        <Alert severity="error">{t('settings.loadFailed')}</Alert>
       </>
     );
   }
@@ -251,7 +257,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader
-        title="Settings"
+        title={t('settings.title')}
         actions={
           <Button
             variant="contained"
@@ -263,7 +269,7 @@ export default function SettingsPage() {
               ) : null
             }
           >
-            {saveLoading ? 'Saving...' : 'Save'}
+            {saveLoading ? t('common.saving') : t('common.save')}
           </Button>
         }
       />
@@ -271,7 +277,7 @@ export default function SettingsPage() {
       <Stack spacing={2} sx={{ maxWidth: 720 }}>
         <AppearanceSection />
 
-        <SettingsSection title="Account">
+        <SettingsSection title={t('settings.account.title')}>
           <Stack spacing={2}>
             <Controller
               name="info.email"
@@ -279,7 +285,7 @@ export default function SettingsPage() {
               render={({ field }) => (
                 <TextField
                   {...field}
-                  label="Email"
+                  label={t('settings.account.email')}
                   error={!!formState.errors.info?.email}
                   helperText={formState.errors.info?.email?.message || ''}
                   disabled
@@ -290,16 +296,16 @@ export default function SettingsPage() {
           </Stack>
         </SettingsSection>
 
-        <SettingsSection title="Telegram">
+        <SettingsSection title={t('settings.telegram.title')}>
           <TelegramLinkSettings
             linked={settings.provider.telegramLinked}
             onResult={setTestResult}
           />
         </SettingsSection>
 
-        <SettingsSection title="Notifications">
+        <SettingsSection title={t('settings.notifications.title')}>
           <Stack>
-            {NOTIFICATION_FIELDS.map(({ name, label }) => (
+            {NOTIFICATION_FIELDS.map(({ name, labelKey }) => (
               <Stack
                 key={name}
                 direction="row"
@@ -320,7 +326,7 @@ export default function SettingsPage() {
                           onChange={(e) => field.onChange(e.target.checked)}
                         />
                       }
-                      label={label}
+                      label={t(labelKey)}
                     />
                   )}
                 />
@@ -339,7 +345,7 @@ export default function SettingsPage() {
                       ) : null
                     }
                   >
-                    Send now
+                    {t('settings.notifications.sendNow')}
                   </Button>
                 )}
               </Stack>
@@ -353,16 +359,15 @@ export default function SettingsPage() {
               mt: 1,
             }}
           >
-            &quot;Send now&quot; emails you last month&apos;s report
-            immediately, so you can check it works without waiting for the 1st.
+            {t('settings.notifications.sendNowHint')}
           </Typography>
         </SettingsSection>
 
-        <SettingsSection title="סוכן אישי">
+        <SettingsSection title={t('settings.agent.title')}>
           <PersonalAgentSettings />
         </SettingsSection>
 
-        <SettingsSection title="API tokens">
+        <SettingsSection title={t('settings.tokens.title')}>
           <ApiTokenManager />
         </SettingsSection>
       </Stack>
@@ -374,7 +379,7 @@ export default function SettingsPage() {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity="success" sx={{ width: '100%' }}>
-          Settings saved successfully
+          {t('settings.saved')}
         </Alert>
       </Snackbar>
       <Snackbar

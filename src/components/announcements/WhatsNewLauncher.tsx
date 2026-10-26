@@ -8,8 +8,10 @@ import {
   useAcknowledgeAnnouncementsMutation,
   useAnnouncementsQuery,
 } from '@/hooks/useAnnouncementsQuery';
+import { useT } from '@/i18n/useT';
 
 export default function WhatsNewLauncher() {
+  const t = useT();
   const { data: announcements = [] } = useAnnouncementsQuery();
   const { mutate: acknowledge } = useAcknowledgeAnnouncementsMutation();
   const [open, setOpen] = useState(false);
@@ -34,11 +36,11 @@ export default function WhatsNewLauncher() {
 
   return (
     <>
-      <Tooltip title="What's new">
+      <Tooltip title={t('announcements.whatsNew')}>
         <IconButton
           size="small"
           onClick={() => setOpen(true)}
-          aria-label="What's new"
+          aria-label={t('announcements.whatsNew')}
         >
           <Badge badgeContent={unseenCount} color="error" max={99}>
             <CampaignOutlinedIcon fontSize="small" />

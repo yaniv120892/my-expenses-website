@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UploadQueueList from '@/components/FileUpload/UploadQueueList';
+import { DesignTestProvider } from '@/test/renderWithClient';
 import { UploadItem } from '@/utils/importUploadQueue';
 
 afterEach(cleanup);
@@ -30,7 +31,7 @@ function renderList(
     onPaymentMonthChange: vi.fn(),
     ...over,
   };
-  render(<UploadQueueList {...props} />);
+  render(<UploadQueueList {...props} />, { wrapper: DesignTestProvider });
   return props;
 }
 
@@ -44,6 +45,7 @@ describe('UploadQueueList', () => {
         onRetry={vi.fn()}
         onPaymentMonthChange={vi.fn()}
       />,
+      { wrapper: DesignTestProvider },
     );
 
     expect(container.innerHTML).toBe('');
@@ -68,7 +70,11 @@ describe('UploadQueueList', () => {
       item({ id: '0', status: 'queued' }),
       item({ id: '1', status: 'uploading' }),
       item({ id: '2', status: 'processing' }),
-      item({ id: '3', status: 'failed', error: 'File is too large' }),
+      item({
+        id: '3',
+        status: 'failed',
+        error: { code: 'REQUEST_FAILED', message: 'File is too large' },
+      }),
     ]);
 
     expect(screen.getByText('Queued')).toBeTruthy();
@@ -88,14 +94,23 @@ describe('UploadQueueList', () => {
   });
 
   it('surfaces the failure reason on the row', () => {
-    renderList([item({ status: 'failed', error: 'File is too large' })]);
+    renderList([
+      item({
+        status: 'failed',
+        error: { code: 'REQUEST_FAILED', message: 'File is too large' },
+      }),
+    ]);
 
     expect(screen.getByText('File is too large')).toBeTruthy();
   });
 
   it('offers retry and remove only on a failed row', async () => {
     const props = renderList([
-      item({ id: '0', status: 'failed', error: 'boom' }),
+      item({
+        id: '0',
+        status: 'failed',
+        error: { code: 'REQUEST_FAILED', message: 'boom' },
+      }),
       item({ id: '1', status: 'succeeded' }),
     ]);
 
@@ -108,9 +123,17 @@ describe('UploadQueueList', () => {
   });
 
   it('does not let a failed row retry while the batch is still running', () => {
-    renderList([item({ status: 'failed', error: 'boom' })], {
-      isRunning: true,
-    });
+    renderList(
+      [
+        item({
+          status: 'failed',
+          error: { code: 'REQUEST_FAILED', message: 'boom' },
+        }),
+      ],
+      {
+        isRunning: true,
+      },
+    );
 
     expect(
       screen.getByLabelText('Retry card-1234.csv').hasAttribute('disabled'),
@@ -144,7 +167,11 @@ describe('UploadQueueList', () => {
   it('drops the payment month field for settled rows', () => {
     renderList([
       item({ id: '0', status: 'succeeded' }),
-      item({ id: '1', status: 'failed', error: 'boom' }),
+      item({
+        id: '1',
+        status: 'failed',
+        error: { code: 'REQUEST_FAILED', message: 'boom' },
+      }),
     ]);
 
     expect(screen.queryByLabelText(/Payment Month/)).toBeNull();
@@ -157,5 +184,31 @@ describe('UploadQueueList', () => {
     renderList([item({ file: big })]);
 
     expect(screen.getByText('2.0 MB')).toBeTruthy();
+  });
+
+  it('reads in Hebrew when the locale is Hebrew', () => {
+    render(
+      <UploadQueueList
+        items={[
+          item({
+            status: 'failed',
+            error: { code: 'REQUEST_FAILED', message: null },
+          }),
+        ]}
+        isRunning={false}
+        onRemove={vi.fn()}
+        onRetry={vi.fn()}
+        onPaymentMonthChange={vi.fn()}
+      />,
+      {
+        wrapper: ({ children }) => (
+          <DesignTestProvider locale="he">{children}</DesignTestProvider>
+        ),
+      },
+    );
+
+    expect(screen.getByText('נכשל')).toBeTruthy();
+    expect(screen.getByText('ייבוא הקובץ נכשל')).toBeTruthy();
+    expect(screen.getByLabelText('הסרת card-1234.csv')).toBeTruthy();
   });
 });

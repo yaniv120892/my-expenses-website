@@ -19,8 +19,13 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useChat } from '../../hooks/useChat';
 import { useIsCompact } from '../../hooks/useBreakpoints';
 import ChatEmptyState from './ChatEmptyState';
+import { SHELL } from '@yaniv120892/my-ui';
+import { useT } from '@/i18n/useT';
+
+const SAFE_AREA_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
 
 const Chat: React.FC = () => {
+  const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const {
@@ -71,13 +76,17 @@ const Chat: React.FC = () => {
       {!isOpen && (
         <Fab
           color="primary"
-          aria-label="Open chat"
+          aria-label={t('chat.open')}
           onClick={handleOpen}
           sx={{
             position: 'fixed',
-            bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
-            right: 24,
-            zIndex: (t) => t.zIndex.speedDial,
+            // Below md the shell's bottom bar owns the bottom edge.
+            bottom: {
+              xs: `calc(${SHELL.bottomNavHeight + 16}px + ${SAFE_AREA_BOTTOM})`,
+              md: `calc(24px + ${SAFE_AREA_BOTTOM})`,
+            },
+            right: { xs: 16, md: 24 },
+            zIndex: (theme) => theme.zIndex.speedDial,
           }}
         >
           <ChatBubbleOutlineRoundedIcon />
@@ -100,10 +109,10 @@ const Chat: React.FC = () => {
             py: 1.5,
           }}
         >
-          Financial Assistant
+          {t('chat.title')}
           <IconButton
             onClick={handleClose}
-            aria-label="Close chat"
+            aria-label={t('chat.close')}
             size="small"
             edge="end"
           >
@@ -189,9 +198,9 @@ const Chat: React.FC = () => {
           >
             <TextField
               fullWidth
-              placeholder="Ask about your transactions..."
+              placeholder={t('chat.placeholder')}
               slotProps={{
-                htmlInput: { 'aria-label': 'Message the assistant' },
+                htmlInput: { 'aria-label': t('chat.inputLabel') },
               }}
               value={inputValue}
               onChange={handleInputChange}
@@ -201,9 +210,11 @@ const Chat: React.FC = () => {
               type="submit"
               color="primary"
               disabled={isLoading || !inputValue.trim()}
-              aria-label="Send message"
+              aria-label={t('chat.send')}
             >
-              <SendRoundedIcon />
+              <SendRoundedIcon
+                sx={{ '[dir=rtl] &': { transform: 'scaleX(-1)' } }}
+              />
             </IconButton>
           </Box>
         </DialogContent>

@@ -1,6 +1,12 @@
+// @vitest-environment jsdom
+import React from 'react';
 import { describe, expect, it } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import type { Locale } from '@yaniv120892/my-ui';
+import { DesignTestProvider } from '@/test/renderWithClient';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import {
-  MEASURE_LABELS,
   comparisonFileName,
   comparisonToCsv,
   formatBucketLabel,
@@ -54,15 +60,13 @@ const comparison: CategoryComparison = {
   hasOverlappingSeries: false,
 };
 
-describe('MEASURE_LABELS', () => {
-  it('labels every measure', () => {
-    expect(MEASURE_LABELS).toEqual({
-      net: 'Net',
-      expense: 'Spent',
-      income: 'Received',
-    });
-  });
-});
+function renderI18n(locale: Locale = 'en') {
+  return renderHook(() => ({ t: useT(), formatter: useAppFormat() }), {
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
+    ),
+  }).result.current;
+}
 
 describe('selectMeasure', () => {
   it('picks the field matching the measure', () => {
@@ -85,27 +89,64 @@ describe('seriesColor', () => {
 
 describe('formatBucketLabel', () => {
   it('renders the year for yearly buckets', () => {
+    const { formatter } = renderI18n();
     expect(
-      formatBucketLabel({ key: '2024', startDate: '2024-01-01' }, 'yearly'),
+      formatBucketLabel({
+        bucket: { key: '2024', startDate: '2024-01-01' },
+        period: 'yearly',
+        formatter,
+      }),
     ).toBe('2024');
   });
 
   it('uses the raw key for weekly buckets', () => {
+    const { formatter } = renderI18n();
     expect(
-      formatBucketLabel({ key: '2024-W07', startDate: '2024-02-12' }, 'weekly'),
+      formatBucketLabel({
+        bucket: { key: '2024-W07', startDate: '2024-02-12' },
+        period: 'weekly',
+        formatter,
+      }),
     ).toBe('2024-W07');
   });
 
-  it('renders MMM yyyy for monthly buckets', () => {
+  it('renders the short month and year for monthly buckets', () => {
+    const { formatter } = renderI18n();
     expect(
-      formatBucketLabel({ key: '2023-12', startDate: '2023-12-01' }, 'monthly'),
+      formatBucketLabel({
+        bucket: { key: '2023-12', startDate: '2023-12-01' },
+        period: 'monthly',
+        formatter,
+      }),
     ).toBe('Dec 2023');
+  });
+
+  it('names the month in Hebrew for a Hebrew reader', () => {
+    const { formatter } = renderI18n('he');
+    expect(
+      formatBucketLabel({
+        bucket: { key: '2023-12', startDate: '2023-12-01' },
+        period: 'monthly',
+        formatter,
+      }),
+    ).toContain('2023');
+    expect(
+      formatBucketLabel({
+        bucket: { key: '2023-12', startDate: '2023-12-01' },
+        period: 'monthly',
+        formatter,
+      }),
+    ).toMatch(/דצמ/);
   });
 });
 
 describe('comparisonToCsv', () => {
   it('builds header, bucket rows and a totals row with CSV escaping', () => {
-    const csv = comparisonToCsv(comparison, 'expense');
+    const csv = comparisonToCsv({
+      comparison,
+      measure: 'expense',
+      ...renderI18n(),
+    });
     expect(csv.split('\n')).toEqual([
       '"Period","Food, ""fresh""","Rent","Total"',
       '"Dec 2023","10","50","60"',
@@ -115,9 +156,26 @@ describe('comparisonToCsv', () => {
   });
 
   it('respects the selected measure', () => {
-    const csv = comparisonToCsv(comparison, 'net');
+    const csv = comparisonToCsv({
+      comparison,
+      measure: 'net',
+      ...renderI18n(),
+    });
     expect(csv).toContain('"Dec 2023","-10","-50","-60"');
     expect(csv.endsWith('"Total","-30","-100","-130"')).toBe(true);
+  });
+});
+
+describe('comparisonToCsv in Hebrew', () => {
+  it('translates the period and total headers', () => {
+    const csv = comparisonToCsv({
+      comparison,
+      measure: 'expense',
+      ...renderI18n('he'),
+    });
+    const lines = csv.split('\n');
+    expect(lines[0]).toBe('"תקופה","Food, ""fresh""' + '","Rent","סך הכול"');
+    expect(lines[lines.length - 1]).toBe('"סך הכול","30","100","130"');
   });
 });
 

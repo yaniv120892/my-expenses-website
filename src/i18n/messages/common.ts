@@ -42,6 +42,7 @@ const en = {
   'common.errorBody':
     'An unexpected error occurred. Try again, and if it keeps happening, reload the page.',
   'common.reload': 'Reload',
+  'common.unexpectedError': 'An unexpected error occurred.',
 } satisfies Messages;
 
 export const commonMessages: Dictionary<typeof en> = {
@@ -88,5 +89,6 @@ export const commonMessages: Dictionary<typeof en> = {
     'common.errorBody':
       'אירעה שגיאה לא צפויה. נסו שוב, ואם זה חוזר על עצמו, טענו מחדש את הדף.',
     'common.reload': 'טעינה מחדש',
+    'common.unexpectedError': 'אירעה שגיאה לא צפויה.',
   },
 };

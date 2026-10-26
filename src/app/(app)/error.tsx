@@ -1,6 +1,6 @@
 'use client';
 
-import ErrorFallback from '@/components/ErrorFallback';
+import TranslatedErrorFallback from '@/components/TranslatedErrorFallback';
 
 // Inside the (app) layout, so a failing page keeps the AppShell and its navigation.
 export default function Error({
@@ -10,5 +10,7 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <ErrorFallback error={error} reset={reset} minHeight="40vh" />;
+  return (
+    <TranslatedErrorFallback error={error} reset={reset} minHeight="40vh" />
+  );
 }

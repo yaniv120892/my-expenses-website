@@ -38,11 +38,9 @@ import type {
   ExchangeRateSource,
   TransactionAmountInput,
 } from '@/shared/types/transaction';
-import {
-  EXCHANGE_RATE_SOURCE_LABELS,
-  formatCurrencyPlain,
-  formatMoney,
-} from '@/utils/format';
+import type { TransactionFormErrors } from '@/utils/transactionFormValidation';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
+import { useT, type T } from '@/i18n/useT';
 
 // An edited transaction may be in a currency outside the usual list.
 function currencyOptions(current: string): readonly string[] {
@@ -146,28 +144,52 @@ function toAmountInput(form: FormValues): TransactionAmountInput {
   };
 }
 
-function baseValueHelperText(editsSameCurrency: boolean): string {
+function baseValueHelperText({
+  editsSameCurrency,
+  t,
+}: {
+  editsSameCurrency: boolean;
+  t: T;
+}): string {
   return editsSameCurrency
-    ? 'Leave empty to convert at the Bank of Israel rate for the date, or keep the current conversion if amount and date are unchanged.'
-    : 'Leave empty to convert at the Bank of Israel rate for the date.';
+    ? t('transactions.form.baseValueHintKeep')
+    : t('transactions.form.baseValueHint');
 }
 
-function describeConversion(initialData: TransactionFormType): string | null {
+function describeConversion({
+  initialData,
+  t,
+  formatter,
+}: {
+  initialData: TransactionFormType;
+  t: T;
+  formatter: AppFormatter;
+}): string | null {
   const { currency } = initialData;
   if (currency === undefined || currency === BASE_CURRENCY) {
     return null;
   }
   if (currency === null) {
-    return `Original amount ${initialData.originalAmount}; the statement does not say which currency it is in.`;
+    return t('transactions.form.conversion.unknownCurrency', {
+      amount: formatter.number(initialData.originalAmount ?? 0),
+    });
   }
-  const original = formatMoney(initialData.originalAmount ?? 0, currency);
+  const original = formatter.money(initialData.originalAmount ?? 0, currency);
   if (initialData.value === null || initialData.value === '') {
-    return `Original ${original}. No exchange rate was available: enter the ${BASE_CURRENCY} amount charged.`;
+    return t('transactions.form.conversion.noRate', {
+      original,
+      currency: BASE_CURRENCY,
+    });
   }
   const source = initialData.exchangeRateSource
-    ? EXCHANGE_RATE_SOURCE_LABELS[initialData.exchangeRateSource]
-    : 'unknown source';
-  return `Original ${original} = ${formatCurrencyPlain(Number(initialData.value))} at ${initialData.exchangeRate ?? '?'} (${source}).`;
+    ? formatter.exchangeRateSource(initialData.exchangeRateSource)
+    : t('transactions.form.conversion.unknownSource');
+  return t('transactions.form.conversion.converted', {
+    original,
+    converted: formatter.currency(Number(initialData.value)),
+    rate: initialData.exchangeRate ?? '?',
+    source,
+  });
 }
 
 export default function TransactionForm({
@@ -178,9 +200,13 @@ export default function TransactionForm({
   initialData,
   mode,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const confirmsImportedRow = mode !== undefined;
-  const conversionNote = initialData ? describeConversion(initialData) : null;
+  const conversionNote = initialData
+    ? describeConversion({ initialData, t, formatter })
+    : null;
   const [form, setForm] = useState<FormValues>(() =>
     initialData
       ? toFormValues(initialData, confirmsImportedRow)
@@ -188,7 +214,7 @@ export default function TransactionForm({
   );
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
-  const [errors, setErrors] = useState<{ [k: string]: string }>({});
+  const [errors, setErrors] = useState<TransactionFormErrors>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] =
@@ -218,9 +244,9 @@ export default function TransactionForm({
   const requireCategory = mode === 'merge' || (!mode && Boolean(initialData));
 
   const validate = () => {
-    const errs = validateTransactionForm(form, requireCategory);
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const nextErrors = validateTransactionForm({ form, requireCategory });
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,6 +264,11 @@ export default function TransactionForm({
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
+  };
+
+  const errorText = (field: keyof TransactionFormErrors) => {
+    const message = errors[field];
+    return message ? t(message) : undefined;
   };
 
   const describeAttachmentFailure = (summary: string, err: unknown): string => {
@@ -276,7 +307,7 @@ export default function TransactionForm({
           setFilesToRemove([]);
         } catch (err) {
           attachmentFailure = describeAttachmentFailure(
-            'Removing an attachment failed.',
+            t('transactions.form.removeAttachmentFailed'),
             err,
           );
         }
@@ -287,7 +318,7 @@ export default function TransactionForm({
             await directS3Upload.upload(transactionId, file);
           } catch (err) {
             attachmentFailure = describeAttachmentFailure(
-              'Direct S3 upload failed.',
+              t('transactions.form.uploadAttachmentFailed'),
               err,
             );
           }
@@ -297,19 +328,22 @@ export default function TransactionForm({
       // Not a failed save, but it goes through the snackbar: closing the dialog
       // unmounts the alert that also carries it.
       if (attachmentFailure) {
-        showSnackbar(`Transaction saved. ${attachmentFailure}`, 'warning');
+        showSnackbar(
+          t('transactions.form.saved', { failure: attachmentFailure }),
+          'warning',
+        );
       } else {
         showSnackbar(
           initialData
-            ? 'Transaction updated successfully'
-            : 'Transaction created successfully',
+            ? t('transactions.form.updated')
+            : t('transactions.form.created'),
           'success',
         );
       }
       onCloseAction();
     } catch (err) {
       showSnackbar(
-        describeApiError(err, 'Failed to save transaction'),
+        describeApiError(err, t('transactions.form.saveFailed')),
         'error',
       );
     } finally {
@@ -322,11 +356,11 @@ export default function TransactionForm({
       setIsLoadingDelete(true);
       try {
         await onDeleteAction(initialData.id);
-        showSnackbar('Transaction deleted successfully', 'success');
+        showSnackbar(t('transactions.form.deleted'), 'success');
         onCloseAction();
       } catch (err) {
         showSnackbar(
-          describeApiError(err, 'Failed to delete transaction'),
+          describeApiError(err, t('transactions.form.deleteFailed')),
           'error',
         );
       } finally {
@@ -337,22 +371,26 @@ export default function TransactionForm({
 
   const getDialogTitle = () => {
     if (mode === 'approve') {
-      return 'Approve Imported Transaction';
+      return t('transactions.form.title.approve');
     }
     if (mode === 'merge') {
-      return 'Merge Imported Transaction';
+      return t('transactions.form.title.merge');
     }
-    return initialData ? 'Edit Transaction' : 'New Transaction';
+    return initialData
+      ? t('transactions.form.title.edit')
+      : t('transactions.form.title.new');
   };
 
   const getSubmitButtonText = () => {
     if (mode === 'approve') {
-      return 'Approve';
+      return t('transactions.form.submit.approve');
     }
     if (mode === 'merge') {
-      return 'Merge';
+      return t('transactions.form.submit.merge');
     }
-    return initialData ? 'Update' : 'Create';
+    return initialData
+      ? t('transactions.form.submit.update')
+      : t('transactions.form.submit.create');
   };
 
   const busy = isLoadingUpdate || isLoadingDelete;
@@ -369,31 +407,35 @@ export default function TransactionForm({
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Description"
+              label={t('common.description')}
               name="description"
               value={form.description}
               onChange={handleChange}
               error={!!errors.description}
-              helperText={errors.description}
+              helperText={errorText('description')}
               fullWidth
             />
             <Stack direction="row" spacing={1.5}>
               <TextField
                 label={
-                  confirmsImportedRow ? `Value (${BASE_CURRENCY})` : 'Value'
+                  confirmsImportedRow
+                    ? t('transactions.form.valueInCurrency', {
+                        currency: BASE_CURRENCY,
+                      })
+                    : t('transactions.form.value')
                 }
                 name="value"
                 type="number"
                 value={form.value}
                 onChange={handleChange}
                 error={!!errors.value}
-                helperText={errors.value}
+                helperText={errorText('value')}
                 fullWidth
               />
               {!confirmsImportedRow && (
                 <TextField
                   select
-                  label="Currency"
+                  label={t('transactions.form.currency')}
                   name="currency"
                   value={form.currency}
                   onChange={handleChange}
@@ -409,15 +451,20 @@ export default function TransactionForm({
             </Stack>
             {!confirmsImportedRow && isForeignCurrency(form.currency) && (
               <TextField
-                label={`Amount charged in ${BASE_CURRENCY} (optional)`}
+                label={t('transactions.form.baseValue', {
+                  currency: BASE_CURRENCY,
+                })}
                 name="baseValue"
                 type="number"
                 value={form.baseValue}
                 onChange={handleChange}
                 error={!!errors.baseValue}
                 helperText={
-                  errors.baseValue ??
-                  baseValueHelperText(initialData?.currency === form.currency)
+                  errorText('baseValue') ??
+                  baseValueHelperText({
+                    editsSameCurrency: initialData?.currency === form.currency,
+                    t,
+                  })
                 }
                 fullWidth
               />
@@ -434,8 +481,8 @@ export default function TransactionForm({
               value={form.categoryId}
               onChange={(value) => setForm({ ...form, categoryId: value })}
               error={!!errors.categoryId}
-              helperText={errors.categoryId}
-              label="Category"
+              helperText={errorText('categoryId')}
+              label={t('common.category')}
               fullWidth
             />
             {form.categoryId === '' && !requireCategory && (
@@ -443,30 +490,30 @@ export default function TransactionForm({
                 variant="caption"
                 sx={{ color: 'warning.main', mt: -1 }}
               >
-                If category is not filled, it will be generated by AI.
+                {t('transactions.form.aiCategoryHint')}
               </Typography>
             )}
             <TextField
               select
-              label="Type"
+              label={t('common.type')}
               name="type"
               value={form.type}
               onChange={handleChange}
               error={!!errors.type}
-              helperText={errors.type}
+              helperText={errorText('type')}
               fullWidth
             >
-              <MenuItem value="EXPENSE">Expense</MenuItem>
-              <MenuItem value="INCOME">Income</MenuItem>
+              <MenuItem value="EXPENSE">{t('common.expense')}</MenuItem>
+              <MenuItem value="INCOME">{t('common.income')}</MenuItem>
             </TextField>
             <TextField
-              label="Date"
+              label={t('common.date')}
               name="date"
               type="date"
               value={form.date}
               onChange={handleChange}
               error={!!errors.date}
-              helperText={errors.date}
+              helperText={errorText('date')}
               fullWidth
             />
             <TransactionAttachments
@@ -495,14 +542,14 @@ export default function TransactionForm({
                 )
               }
             >
-              Delete
+              {t('common.delete')}
             </Button>
           ) : (
             <Box />
           )}
           <Stack direction="row" spacing={1.5}>
             <Button variant="outlined" onClick={onCloseAction} disabled={busy}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="contained"

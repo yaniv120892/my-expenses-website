@@ -5,13 +5,26 @@ import { Box, Button, Typography } from '@mui/material';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import * as Sentry from '@sentry/nextjs';
 
+type ErrorFallbackLabels = {
+  title: string;
+  unexpectedError: string;
+  retry: string;
+};
+
 type Props = {
   error: Error & { digest?: string };
   reset: () => void;
   minHeight: string;
+  labels: ErrorFallbackLabels;
 };
 
-export default function ErrorFallback({ error, reset, minHeight }: Props) {
+/** Takes its text as props: the global error page renders outside the i18n provider. */
+export default function ErrorFallback({
+  error,
+  reset,
+  minHeight,
+  labels,
+}: Props) {
   useEffect(() => {
     // A `digest` means Next redacted a server error that `onRequestError`
     // already reported with its real stack.
@@ -39,7 +52,7 @@ export default function ErrorFallback({ error, reset, minHeight }: Props) {
           color: 'text.primary',
         }}
       >
-        Something went wrong
+        {labels.title}
       </Typography>
       <Typography
         sx={{
@@ -48,10 +61,10 @@ export default function ErrorFallback({ error, reset, minHeight }: Props) {
           maxWidth: 400,
         }}
       >
-        {error.message || 'An unexpected error occurred.'}
+        {error.message || labels.unexpectedError}
       </Typography>
       <Button variant="contained" color="primary" onClick={reset}>
-        Try Again
+        {labels.retry}
       </Button>
     </Box>
   );

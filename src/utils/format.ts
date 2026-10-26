@@ -1,5 +1,4 @@
 import { ScheduleType, Transaction } from '../types';
-import type { ExchangeRateSource } from '@/shared/types/transaction';
 import { SubscriptionFrequency } from '../types/subscription';
 import { toDayString } from '@/shared/dates';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
@@ -18,25 +17,11 @@ export function formatNumber(value: number) {
   return value.toLocaleString();
 }
 
-const SUBSCRIPTION_FREQUENCY_LABELS: Record<SubscriptionFrequency, string> = {
-  WEEKLY: 'Weekly',
-  MONTHLY: 'Monthly',
-  YEARLY: 'Yearly',
-};
-
-// Listed rather than derived from the labels, because Object.keys widens to
-// string[]. The Record above still fails to compile if a frequency has no label.
 export const SUBSCRIPTION_FREQUENCIES: readonly SubscriptionFrequency[] = [
   'WEEKLY',
   'MONTHLY',
   'YEARLY',
 ];
-
-export function formatSubscriptionFrequency(
-  frequency: SubscriptionFrequency,
-): string {
-  return SUBSCRIPTION_FREQUENCY_LABELS[frequency];
-}
 
 const ilsFormatter = new Intl.NumberFormat('he-IL', {
   style: 'currency',
@@ -54,22 +39,6 @@ export function formatCurrencyPlain(value: number) {
     .replace(/[\u200e\u200f]/g, '')
     .replace(/\u00a0/g, ' ');
 }
-
-const ilsRoundedFormatter = new Intl.NumberFormat('he-IL', {
-  style: 'currency',
-  currency: 'ILS',
-  maximumFractionDigits: 0,
-});
-
-export function formatCurrencyRounded(value: number) {
-  return ilsRoundedFormatter.format(value);
-}
-
-export const EXCHANGE_RATE_SOURCE_LABELS: Record<ExchangeRateSource, string> = {
-  STATEMENT: 'card statement',
-  BANK_OF_ISRAEL: 'Bank of Israel rate',
-  MANUAL: 'entered by hand',
-};
 
 const moneyFormatters = new Map<string, Intl.NumberFormat>();
 

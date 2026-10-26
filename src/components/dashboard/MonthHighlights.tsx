@@ -11,12 +11,13 @@ import {
   useTheme,
 } from '@mui/material';
 import { MonthComparison, TopCategory } from '@/types/dashboard';
-import { formatNumber } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   comparison: MonthComparison;
   categories: TopCategory[];
-}
+};
 
 function SpendingBar({
   label,
@@ -29,6 +30,7 @@ function SpendingBar({
   max: number;
   barColor: string;
 }) {
+  const formatter = useAppFormat();
   return (
     <Box>
       <Stack
@@ -40,7 +42,7 @@ function SpendingBar({
       >
         <Typography variant="body2">{label}</Typography>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {formatNumber(value)}
+          {formatter.number(value)}
         </Typography>
       </Stack>
       <LinearProgress
@@ -58,6 +60,8 @@ function SpendingBar({
 }
 
 export function MonthHighlights({ comparison, categories }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const { charts } = palette;
@@ -80,7 +84,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
     <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Typography variant="h5" sx={{ mb: 2 }}>
-          Month Highlights
+          {t('dashboard.highlights.title')}
         </Typography>
 
         <Typography
@@ -90,17 +94,17 @@ export function MonthHighlights({ comparison, categories }: Props) {
             mb: 1,
           }}
         >
-          Spending Comparison
+          {t('dashboard.highlights.spendingComparison')}
         </Typography>
         <Stack spacing={1.5} sx={{ mb: 2.5 }}>
           <SpendingBar
-            label="This Month"
+            label={t('dashboard.highlights.thisMonth')}
             value={currentMonth.totalExpense}
             max={maxExpense}
             barColor={charts.negative}
           />
           <SpendingBar
-            label="Last Month"
+            label={t('dashboard.highlights.lastMonth')}
             value={previousMonth.totalExpense}
             max={maxExpense}
             barColor={palette.primary.main}
@@ -115,14 +119,19 @@ export function MonthHighlights({ comparison, categories }: Props) {
                 color: 'text.secondary',
               }}
             >
-              Biggest Increase
+              {t('dashboard.highlights.biggestIncrease')}
             </Typography>
             <Typography
               variant="body2"
               sx={{ fontWeight: 600, color: charts.negative }}
             >
-              {biggestIncrease.categoryName}: +
-              {Math.abs(biggestIncrease.change.percentage).toFixed(1)}%
+              {t('dashboard.highlights.categoryChange', {
+                category: biggestIncrease.categoryName,
+                change: formatter.percent(
+                  Math.abs(biggestIncrease.change.percentage) / 100,
+                  { signDisplay: 'always' },
+                ),
+              })}
             </Typography>
           </Box>
         )}
@@ -135,14 +144,18 @@ export function MonthHighlights({ comparison, categories }: Props) {
                 color: 'text.secondary',
               }}
             >
-              Biggest Decrease
+              {t('dashboard.highlights.biggestDecrease')}
             </Typography>
             <Typography
               variant="body2"
               sx={{ fontWeight: 600, color: charts.positive }}
             >
-              {biggestDecrease.categoryName}:{' '}
-              {biggestDecrease.change.percentage.toFixed(1)}%
+              {t('dashboard.highlights.categoryChange', {
+                category: biggestDecrease.categoryName,
+                change: formatter.percent(
+                  biggestDecrease.change.percentage / 100,
+                ),
+              })}
             </Typography>
           </Box>
         )}

@@ -11,14 +11,17 @@ import {
 } from '@mui/material';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import { SubscriptionSnapshot } from '@/types/dashboard';
-import { formatCurrencyRounded } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   subscriptions: SubscriptionSnapshot | undefined;
   onViewAll: () => void;
-}
+};
 
 export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   if (!subscriptions) {
     return null;
   }
@@ -48,7 +51,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
               fontWeight: 700,
             }}
           >
-            Subscriptions
+            {t('dashboard.subscriptions.title')}
           </Typography>
           {detectedCount > 0 && (
             <Badge badgeContent={detectedCount} color="error" sx={{ ml: 1 }}>
@@ -58,7 +61,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                   color: 'text.secondary',
                 }}
               >
-                new
+                {t('dashboard.subscriptions.new')}
               </Typography>
             </Badge>
           )}
@@ -79,7 +82,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                 color: 'text.secondary',
               }}
             >
-              Active
+              {t('dashboard.subscriptions.active')}
             </Typography>
             <Typography
               variant="h5"
@@ -97,7 +100,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                 color: 'text.secondary',
               }}
             >
-              Monthly
+              {t('dashboard.subscriptions.monthly')}
             </Typography>
             <Typography
               variant="h5"
@@ -105,7 +108,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                 fontWeight: 700,
               }}
             >
-              {formatCurrencyRounded(totalMonthlyEstimate)}
+              {formatter.currencyRounded(totalMonthlyEstimate)}
             </Typography>
           </Box>
           <Box sx={{ minWidth: 80 }}>
@@ -115,7 +118,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                 color: 'text.secondary',
               }}
             >
-              Annual
+              {t('dashboard.subscriptions.annual')}
             </Typography>
             <Typography
               variant="h5"
@@ -123,13 +126,13 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
                 fontWeight: 700,
               }}
             >
-              {formatCurrencyRounded(totalAnnualEstimate)}
+              {formatter.currencyRounded(totalAnnualEstimate)}
             </Typography>
           </Box>
         </Box>
 
         <Button variant="outlined" size="small" onClick={onViewAll} fullWidth>
-          View all subscriptions
+          {t('dashboard.subscriptions.viewAll')}
         </Button>
       </CardContent>
     </Card>

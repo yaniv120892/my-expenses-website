@@ -194,14 +194,14 @@ describe('runUploadBatch', () => {
     expect(actions).toContainEqual({
       type: 'ITEM_FAILED',
       id: '1',
-      error: 'Unsupported file type',
+      error: { code: 'REQUEST_FAILED', message: 'Unsupported file type' },
     });
     expect(
       actions.filter((a) => a.type === 'ITEM_SUCCEEDED').map((a) => a.id),
     ).toEqual(['0', '2']);
   });
 
-  it('falls back to a generic message for a non-Error rejection', async () => {
+  it('records no message for a non-Error rejection', async () => {
     const api = buildApi({
       processImport: vi.fn(async () => {
         throw 'nope';
@@ -214,7 +214,20 @@ describe('runUploadBatch', () => {
     expect(actions).toContainEqual({
       type: 'ITEM_FAILED',
       id: '0',
-      error: 'Failed to import file',
+      error: { code: 'REQUEST_FAILED', message: null },
+    });
+  });
+
+  it('records a malformed payment month as its own error', async () => {
+    const api = buildApi();
+    const { actions, dispatch } = recorder();
+
+    await runUploadBatch([item({ paymentMonth: '2026-03' })], api, dispatch, 2);
+
+    expect(actions).toContainEqual({
+      type: 'ITEM_FAILED',
+      id: '0',
+      error: { code: 'INVALID_PAYMENT_MONTH' },
     });
   });
 

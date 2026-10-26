@@ -22,17 +22,6 @@ export const SUBSCRIPTION_SORT_KEYS: readonly SubscriptionSortKey[] = [
   'NAME',
 ];
 
-export const SUBSCRIPTION_SORT_OPTIONS: {
-  value: SubscriptionSortKey;
-  label: string;
-}[] = [
-  { value: 'MONTHLY_DESC', label: 'Monthly cost — high to low' },
-  { value: 'MONTHLY_ASC', label: 'Monthly cost — low to high' },
-  { value: 'ANNUAL_DESC', label: 'Annual cost — high to low' },
-  { value: 'NEXT_CHARGE', label: 'Next charge — soonest first' },
-  { value: 'NAME', label: 'Name — A to Z' },
-];
-
 export function sortSubscriptions(
   subscriptions: DetectedSubscription[],
   sortKey: SubscriptionSortKey,

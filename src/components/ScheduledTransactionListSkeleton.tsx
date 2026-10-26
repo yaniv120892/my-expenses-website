@@ -2,13 +2,20 @@
 
 import React from 'react';
 import ListSkeleton from './ListSkeleton';
-
-const COLUMNS = ['Description', 'Category', 'Schedule', 'Next run', 'Amount'];
+import { useT } from '@/i18n/useT';
 
 export default function ScheduledTransactionListSkeleton({
   rows = 5,
 }: {
   rows?: number;
 }) {
-  return <ListSkeleton columns={COLUMNS} rows={rows} mobileLines={3} />;
+  const t = useT();
+  const columns = [
+    t('scheduled.column.description'),
+    t('scheduled.column.category'),
+    t('scheduled.column.schedule'),
+    t('scheduled.column.nextRun'),
+    t('scheduled.column.amount'),
+  ];
+  return <ListSkeleton columns={columns} rows={rows} mobileLines={3} />;
 }

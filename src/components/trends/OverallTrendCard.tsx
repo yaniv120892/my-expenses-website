@@ -14,8 +14,12 @@ import {
 import { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
 import { Category } from '@/types';
 import { TrendIcon } from './TrendIcon';
-import { formatTrendDate } from '@/utils/dateUtils';
-import { formatCurrency } from '@/utils/format';
+import { useI18n } from '@yaniv120892/my-ui';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT, type T } from '@/i18n/useT';
+import { ALL_CATEGORIES, shouldReverseNewestFirstAxis } from './trendFilters';
+import { ChangeFromPrevious } from './ChangeFromPrevious';
+import { trendPointLabel } from './trendPointLabel';
 
 interface OverallTrendCardProps {
   trend: SpendingTrend;
@@ -32,6 +36,9 @@ export const OverallTrendCard = ({
   transactionType,
   period,
 }: OverallTrendCardProps) => {
+  const t = useT();
+  const formatter = useAppFormat();
+  const { direction } = useI18n();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
@@ -40,10 +47,13 @@ export const OverallTrendCard = ({
       : palette.charts.positive;
 
   const categoryName =
-    selectedCategory !== 'All Categories'
+    selectedCategory !== ALL_CATEGORIES
       ? categories.find((c) => c.id === selectedCategory)?.name
       : undefined;
-  const typeLabel = transactionType === 'EXPENSE' ? 'Spending' : 'Income';
+  const isExpense = transactionType === 'EXPENSE';
+  const labels = overallTrendLabels({ t, isExpense, categoryName });
+  const pointLabel = (date: string) =>
+    trendPointLabel({ date, period, formatter });
 
   if (!trend.points.length) {
     return (
@@ -56,7 +66,7 @@ export const OverallTrendCard = ({
               textAlign: 'center',
             }}
           >
-            No transactions found for selected period and category
+            {t('trends.card.noTransactions')}
           </Typography>
         </CardContent>
       </Card>
@@ -70,8 +80,7 @@ export const OverallTrendCard = ({
           variant="h4"
           sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
         >
-          {categoryName ? `${categoryName} ` : 'Overall '}
-          {typeLabel} Trend
+          {labels.title}
           <TrendIcon trend={trend.trend} />
         </Typography>
         <Box
@@ -90,10 +99,12 @@ export const OverallTrendCard = ({
                 color: 'text.secondary',
               }}
             >
-              Total {typeLabel}
+              {isExpense
+                ? t('trends.card.totalSpending')
+                : t('trends.card.totalIncome')}
             </Typography>
             <Typography variant="h4">
-              {formatCurrency(trend.totalAmount)}
+              {formatter.currency(trend.totalAmount)}
             </Typography>
           </Box>
           <Box>
@@ -103,18 +114,12 @@ export const OverallTrendCard = ({
                 color: 'text.secondary',
               }}
             >
-              Change from Previous Period
+              {t('trends.card.change')}
             </Typography>
-            <Typography
+            <ChangeFromPrevious
+              percentageChange={trend.percentageChange}
               variant="h4"
-              sx={{
-                color:
-                  trend.percentageChange > 0 ? 'error.main' : 'success.main',
-              }}
-            >
-              {trend.percentageChange > 0 ? '+' : ''}
-              {trend.percentageChange.toFixed(1)}%
-            </Typography>
+            />
           </Box>
         </Box>
         <Box sx={{ height: { xs: 240, md: 300 } }}>
@@ -123,19 +128,24 @@ export const OverallTrendCard = ({
               <CartesianGrid strokeDasharray="3 3" stroke={palette.divider} />
               <XAxis
                 dataKey="date"
-                tickFormatter={(date) => formatTrendDate(date, period)}
+                tickFormatter={pointLabel}
                 stroke={palette.text.secondary}
                 tick={{ fill: palette.text.secondary, fontSize: 12 }}
-                reversed={true}
+                reversed={shouldReverseNewestFirstAxis(direction)}
               />
               <YAxis
                 stroke={palette.text.secondary}
                 tick={{ fill: palette.text.secondary, fontSize: 12 }}
+                tickFormatter={(value: number) => formatter.number(value)}
                 width={48}
+                orientation={direction === 'rtl' ? 'right' : 'left'}
               />
               <Tooltip
-                labelFormatter={(date) => formatTrendDate(String(date), period)}
-                formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                labelFormatter={(date) => pointLabel(String(date))}
+                formatter={(value) => [
+                  formatter.currency(Number(value)),
+                  t('trends.card.amount'),
+                ]}
                 contentStyle={{
                   backgroundColor: palette.background.paper,
                   border: `1px solid ${palette.divider}`,
@@ -147,7 +157,7 @@ export const OverallTrendCard = ({
               <Line
                 type="monotone"
                 dataKey="amount"
-                name={`${categoryName ? `${categoryName} ` : ''}${typeLabel}`}
+                name={labels.series}
                 stroke={lineColor}
                 strokeWidth={2}
                 dot={{ r: 3 }}
@@ -160,3 +170,38 @@ export const OverallTrendCard = ({
     </Card>
   );
 };
+
+function overallTrendLabels({
+  t,
+  isExpense,
+  categoryName,
+}: {
+  t: T;
+  isExpense: boolean;
+  categoryName?: string;
+}): { title: string; series: string } {
+  if (categoryName) {
+    return isExpense
+      ? {
+          title: t('trends.card.categorySpendingTitle', {
+            category: categoryName,
+          }),
+          series: t('trends.card.categorySpending', { category: categoryName }),
+        }
+      : {
+          title: t('trends.card.categoryIncomeTitle', {
+            category: categoryName,
+          }),
+          series: t('trends.card.categoryIncome', { category: categoryName }),
+        };
+  }
+  return isExpense
+    ? {
+        title: t('trends.card.overallSpendingTitle'),
+        series: t('trends.card.spending'),
+      }
+    : {
+        title: t('trends.card.overallIncomeTitle'),
+        series: t('trends.card.income'),
+      };
+}

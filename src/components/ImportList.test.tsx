@@ -58,4 +58,13 @@ describe('ImportList payment month order', () => {
       .map((option) => option.textContent);
     expect(options).toEqual(['All', '12/2025', '01/2026', '02/2026']);
   });
+
+  it('labels each status in words rather than its enum value', () => {
+    renderWithClient(
+      <ImportList onImportClick={vi.fn()} expandedImportId={null} />,
+    );
+
+    expect(screen.getAllByText('Completed')).toHaveLength(3);
+    expect(screen.queryByText('COMPLETED')).toBeNull();
+  });
 });

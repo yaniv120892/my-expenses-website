@@ -46,12 +46,3 @@ export const AGENT_TOOL_GUIDE = [
     purpose: 'permanently delete one transaction, by id',
   },
 ] as const;
-
-export const AGENT_EXAMPLE_REQUESTS = [
-  'תרשום הוצאה של 18 ש״ח על קפה',
-  'שילמתי 25 דולר על נטפליקס',
-  'כמה הוצאתי על אוכל החודש?',
-  'תשווה את ההוצאות של החודש לחודש שעבר',
-  'מה החיובים הקבועים שלי?',
-  'תמחק את ההוצאה על המונית מאתמול',
-] as const;

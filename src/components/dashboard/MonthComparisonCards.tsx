@@ -13,11 +13,13 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import { MonthComparison, PercentageChange } from '@/types/dashboard';
-import { formatNumber } from '@/utils/format';
+import { MIRROR_IN_RTL_SX } from '@/components/chartStyles';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   comparison: MonthComparison;
-}
+};
 
 function ComparisonCard({
   title,
@@ -30,6 +32,8 @@ function ComparisonCard({
   change: PercentageChange;
   invertColors?: boolean;
 }) {
+  const t = useT();
+  const formatter = useAppFormat();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const { charts } = palette;
@@ -65,7 +69,7 @@ function ComparisonCard({
           {title}
         </Typography>
         <Typography variant="h3" component="p">
-          {formatNumber(value)}
+          {formatter.number(value)}
         </Typography>
         <Stack
           direction="row"
@@ -75,9 +79,9 @@ function ComparisonCard({
             mt: 1,
           }}
         >
-          <TrendGlyph fontSize="small" sx={{ color }} />
+          <TrendGlyph fontSize="small" sx={{ color, ...MIRROR_IN_RTL_SX }} />
           <Typography variant="body2" sx={{ color, fontWeight: 600 }}>
-            {Math.abs(change.percentage).toFixed(1)}%
+            {formatter.percent(Math.abs(change.percentage) / 100)}
           </Typography>
           <Typography
             variant="body2"
@@ -85,7 +89,7 @@ function ComparisonCard({
               color: 'text.secondary',
             }}
           >
-            vs last month
+            {t('dashboard.comparison.vsLastMonth')}
           </Typography>
         </Stack>
       </CardContent>
@@ -94,6 +98,7 @@ function ComparisonCard({
 }
 
 export function MonthComparisonCards({ comparison }: Props) {
+  const t = useT();
   return (
     <Box
       sx={{
@@ -103,18 +108,18 @@ export function MonthComparisonCards({ comparison }: Props) {
       }}
     >
       <ComparisonCard
-        title="Income"
+        title={t('common.incomePlural')}
         value={comparison.currentMonth.totalIncome}
         change={comparison.incomeChange}
       />
       <ComparisonCard
-        title="Expenses"
+        title={t('common.expensePlural')}
         value={comparison.currentMonth.totalExpense}
         change={comparison.expenseChange}
         invertColors
       />
       <ComparisonCard
-        title="Savings"
+        title={t('dashboard.comparison.savings')}
         value={comparison.currentMonth.savings}
         change={comparison.savingsChange}
       />

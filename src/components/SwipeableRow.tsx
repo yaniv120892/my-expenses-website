@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useRef, useState, useCallback } from 'react';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
+import { useT } from '@/i18n/useT';
 
 const THRESHOLD = 80;
 
-interface SwipeableRowProps {
+type SwipeableRowProps = {
   children: React.ReactNode;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
@@ -13,17 +14,19 @@ interface SwipeableRowProps {
   rightLabel?: string;
   leftColor?: string;
   rightColor?: string;
-}
+};
 
 export default function SwipeableRow({
   children,
   onSwipeLeft,
   onSwipeRight,
-  leftLabel = 'Delete',
-  rightLabel = 'Edit',
+  leftLabel,
+  rightLabel,
   leftColor = 'error.main',
   rightColor = 'success.main',
 }: SwipeableRowProps) {
+  const t = useT();
+  const theme = useTheme();
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -93,18 +96,25 @@ export default function SwipeableRow({
     zIndex: 0,
   } as const;
 
+  // A swipe is physical: the finger and translateX move the same way in either
+  // direction, so each label is pinned to a physical side. Named the opposite
+  // side under RTL, where the stylesheet plugin flips left and right back.
+  const isRtl = theme.direction === 'rtl';
+  const physicalLeft = isRtl ? 'right' : 'left';
+  const physicalRight = isRtl ? 'left' : 'right';
+
   return (
     <Box
       sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}
     >
       {showRight && (
-        <Box sx={{ ...actionSx, left: 0, bgcolor: rightColor }}>
-          {rightLabel}
+        <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>
+          {rightLabel ?? t('transactions.swipe.edit')}
         </Box>
       )}
       {showLeft && (
-        <Box sx={{ ...actionSx, right: 0, bgcolor: leftColor }}>
-          {leftLabel}
+        <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>
+          {leftLabel ?? t('transactions.swipe.delete')}
         </Box>
       )}
       <Box

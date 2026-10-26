@@ -19,12 +19,7 @@ import {
 import type { TelegramLinkCode } from '@/types';
 import { describeApiError } from '@/utils/api';
 import CopyableText from '@/components/CopyableText';
-
-const COPY_LABELS = {
-  idle: 'Copy',
-  copied: 'Copied',
-  failed: 'Copy failed — select the text and copy it by hand',
-};
+import { useT } from '@/i18n/useT';
 
 type IssuedCode = TelegramLinkCode & {
   issuedWhileLinked: boolean;
@@ -41,6 +36,7 @@ export default function TelegramLinkSettings({
   linked: boolean;
   onResult: (result: ActionResult) => void;
 }) {
+  const t = useT();
   const [issuedCode, setIssuedCode] = useState<IssuedCode | null>(null);
   const createCodeMutation = useCreateTelegramLinkCodeMutation();
   const unlinkMutation = useUnlinkTelegramMutation();
@@ -79,7 +75,10 @@ export default function TelegramLinkSettings({
       onError: (error) =>
         onResult({
           success: false,
-          message: describeApiError(error, 'Failed to create a link code'),
+          message: describeApiError(
+            error,
+            t('settings.telegram.createCodeFailed'),
+          ),
         }),
     });
   };
@@ -88,12 +87,12 @@ export default function TelegramLinkSettings({
     unlinkMutation.mutate(undefined, {
       onSuccess: () => {
         setIssuedCode(null);
-        onResult({ success: true, message: 'Telegram unlinked' });
+        onResult({ success: true, message: t('settings.telegram.unlinked') });
       },
       onError: (error) =>
         onResult({
           success: false,
-          message: describeApiError(error, 'Failed to unlink Telegram'),
+          message: describeApiError(error, t('settings.telegram.unlinkFailed')),
         }),
     });
   };
@@ -103,7 +102,7 @@ export default function TelegramLinkSettings({
     onResult({
       success: result.success,
       message: result.success
-        ? 'Test message sent successfully'
+        ? t('settings.telegram.testSent')
         : result.message,
     });
   };
@@ -118,12 +117,12 @@ export default function TelegramLinkSettings({
         {linked ? (
           <Chip
             icon={<CheckCircleOutlinedIcon />}
-            label="Linked"
+            label={t('settings.telegram.linked')}
             color="success"
             variant="outlined"
           />
         ) : (
-          <Chip label="Not linked" variant="outlined" />
+          <Chip label={t('settings.telegram.notLinked')} variant="outlined" />
         )}
         {linked && (
           <Button
@@ -137,7 +136,7 @@ export default function TelegramLinkSettings({
               ) : null
             }
           >
-            Test
+            {t('settings.telegram.test')}
           </Button>
         )}
         <Button
@@ -146,7 +145,7 @@ export default function TelegramLinkSettings({
           onClick={handleCreateCode}
           disabled={createCodeMutation.isPending}
         >
-          {linked ? 'Link a different chat' : 'Link Telegram'}
+          {linked ? t('settings.telegram.relink') : t('settings.telegram.link')}
         </Button>
         {linked && (
           <Button
@@ -155,7 +154,7 @@ export default function TelegramLinkSettings({
             onClick={handleUnlink}
             disabled={unlinkMutation.isPending}
           >
-            Unlink
+            {t('settings.telegram.unlink')}
           </Button>
         )}
       </Stack>
@@ -169,25 +168,24 @@ export default function TelegramLinkSettings({
               size="small"
               onClick={() => setIssuedCode(null)}
             >
-              Done
+              {t('settings.telegram.done')}
             </Button>
           }
         >
           {visibleCode.expired ? (
             <Typography variant="body2">
-              This code has expired. Create a new one to link a chat.
+              {t('settings.telegram.codeExpired')}
             </Typography>
           ) : (
             <Stack spacing={1}>
               <Typography variant="body2">
-                Send this message to the My Expenses bot from the chat that
-                should receive notifications. The code works once and expires in{' '}
-                {Math.round(visibleCode.expiresInSeconds / 60)} minutes.
+                {t('settings.telegram.instructions', {
+                  minutes: Math.round(visibleCode.expiresInSeconds / 60),
+                })}
               </Typography>
               <CopyableText
-                label="Telegram link command"
+                label={t('settings.telegram.command')}
                 value={visibleCode.command}
-                copyLabels={COPY_LABELS}
               />
               {visibleCode.deepLink && (
                 <Button
@@ -198,12 +196,12 @@ export default function TelegramLinkSettings({
                   rel="noopener noreferrer"
                   sx={{ alignSelf: 'flex-start' }}
                 >
-                  Open in Telegram
+                  {t('settings.telegram.open')}
                 </Button>
               )}
               {awaitingLink && (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Waiting for the bot to receive it…
+                  {t('settings.telegram.waiting')}
                 </Typography>
               )}
             </Stack>

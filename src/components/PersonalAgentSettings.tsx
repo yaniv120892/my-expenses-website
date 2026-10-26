@@ -22,34 +22,30 @@ import {
   useRevokeApiTokenMutation,
 } from '@/hooks/useApiTokensQuery';
 import type { ApiTokenSummary } from '@/types/apiToken';
-import { AGENT_EXAMPLE_REQUESTS } from '@/shared/agentTools';
 import { buildAgentBriefing } from '@/utils/agentBriefing';
 import { describeApiError } from '@/utils/api';
-import { formatDay } from '@/utils/dateUtils';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
+import { useT, type T } from '@/i18n/useT';
 import CopyableText from '@/components/CopyableText';
 import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 
 const DEFAULT_AGENT_NAME = 'Instinct';
 const MCP_PATH = '/api/mcp';
 
-const COPY_LABELS = {
-  idle: 'העתקה',
-  copied: 'הועתק',
-  failed: 'ההעתקה נכשלה — סמנו את הטקסט והעתיקו ידנית',
-};
-
-const REVOKE_LABELS = {
-  title: function revokeTitle(tokenName: string) {
-    return `לבטל את הגישה של ״${tokenName}״?`;
-  },
-  consequence: 'הסוכן יפסיק לגשת ל-My Expenses מיד. אי אפשר לבטל את הפעולה.',
-  cancel: 'חזרה',
-  confirm: 'ביטול הגישה',
-};
+const EXAMPLE_REQUEST_KEYS = [
+  'settings.agent.example.coffee',
+  'settings.agent.example.netflix',
+  'settings.agent.example.food',
+  'settings.agent.example.compare',
+  'settings.agent.example.recurring',
+  'settings.agent.example.delete',
+] as const;
 
 type ShownToken = { id: string; token: string };
 
 export default function PersonalAgentSettings() {
+  const t = useT();
+  const formatter = useAppFormat();
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
@@ -62,6 +58,13 @@ export default function PersonalAgentSettings() {
 
   const agentTokens = (tokens ?? []).filter(isAgentOnlyToken);
   const now = new Date();
+  const revokeLabels = {
+    title: (tokenName: string) =>
+      t('settings.agent.revokeTitle', { name: tokenName }),
+    consequence: t('settings.agent.revokeConsequence'),
+    cancel: t('common.back'),
+    confirm: t('settings.agent.remove'),
+  };
 
   const handleCreate = () => {
     createMutation.mutate(
@@ -83,17 +86,15 @@ export default function PersonalAgentSettings() {
   };
 
   return (
-    <Stack spacing={2} dir="rtl">
+    <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        חברו את הסוכן האישי שלכם ל-My Expenses, כדי שיוכל לרשום הוצאות והכנסות,
-        לתקן ולמחוק אותן ולענות על שאלות על ההוצאות — למשל מהודעה קולית בטלגרם.
-        הסוכן מקבל גישה משלו, שאפשר לבטל כאן בכל רגע, והיא תקפה לשנה.
+        {t('settings.agent.intro')}
       </Typography>
 
       <Stack direction="row" spacing={1}>
         <TextField
           size="small"
-          label="שם הסוכן"
+          label={t('settings.agent.name')}
           value={name}
           onChange={(event) => setName(event.target.value)}
           sx={{ flexGrow: 1 }}
@@ -106,60 +107,61 @@ export default function PersonalAgentSettings() {
           {createMutation.isPending ? (
             <CircularProgress size={20} />
           ) : (
-            'יצירת גישה לסוכן'
+            t('settings.agent.create')
           )}
         </Button>
       </Stack>
 
       {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(createMutation.error, 'יצירת הגישה נכשלה')}
+          {describeApiError(
+            createMutation.error,
+            t('settings.agent.createFailed'),
+          )}
         </Alert>
       )}
 
       {shownToken && (
         <Alert severity="warning" onClose={() => setShownToken(null)}>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            העתיקו את הטוקן עכשיו — הוא לא יוצג שוב. הוא כבר משולב בהודעה לסוכן
-            שלמטה.
+            {t('settings.agent.copyTokenNow')}
           </Typography>
           <CopyableText
-            label="Token"
+            label={t('settings.agent.token')}
             value={shownToken.token}
-            copyLabels={COPY_LABELS}
           />
         </Alert>
       )}
 
-      <CopyableText label="MCP URL" value={mcpUrl} copyLabels={COPY_LABELS} />
+      <CopyableText label={t('settings.agent.mcpUrl')} value={mcpUrl} />
 
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-          ההודעה לסוכן
+          {t('settings.agent.briefingTitle')}
         </Typography>
         <Typography variant="caption" color="text.secondary" component="p">
-          שלחו לסוכן את ההודעה הזו כמו שהיא. היא באנגלית כי סוכנים עוקבים אחרי
-          הוראות באנגלית בצורה הכי מדויקת.
+          {t('settings.agent.briefingHint')}
         </Typography>
         <CopyableText
-          label="Briefing"
+          label={t('settings.agent.briefing')}
           value={buildAgentBriefing({
             mcpUrl,
             token: shownToken?.token ?? null,
           })}
-          copyLabels={COPY_LABELS}
           multiline
         />
       </Box>
 
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-          דוגמאות לבקשות
+          {t('settings.agent.examplesTitle')}
         </Typography>
         <List dense disablePadding>
-          {AGENT_EXAMPLE_REQUESTS.map((request) => (
-            <ListItem key={request} disableGutters>
-              <ListItemText primary={`״${request}״`} />
+          {EXAMPLE_REQUEST_KEYS.map((key) => (
+            <ListItem key={key} disableGutters>
+              <ListItemText
+                primary={t('settings.agent.exampleQuote', { request: t(key) })}
+              />
             </ListItem>
           ))}
         </List>
@@ -167,29 +169,36 @@ export default function PersonalAgentSettings() {
 
       {revokeMutation.error && (
         <Alert severity="error">
-          {describeApiError(revokeMutation.error, 'ביטול הגישה נכשל')}
+          {describeApiError(
+            revokeMutation.error,
+            t('settings.agent.revokeFailed'),
+          )}
         </Alert>
       )}
       {isLoading && <CircularProgress size={24} />}
       {error && (
         <Alert severity="error">
-          {describeApiError(error, 'טעינת הגישות נכשלה')}
+          {describeApiError(error, t('settings.agent.loadFailed'))}
         </Alert>
       )}
       {agentTokens.length > 0 && (
         <Box>
-          <Typography variant="subtitle2">גישות פעילות</Typography>
+          <Typography variant="subtitle2">
+            {t('settings.agent.activeTitle')}
+          </Typography>
           <List dense disablePadding>
             {agentTokens.map((token) => (
               <ListItem
                 key={token.id}
                 disableGutters
                 secondaryAction={
-                  <Tooltip title="ביטול הגישה">
+                  <Tooltip title={t('settings.agent.remove')}>
                     <IconButton
                       edge="end"
                       size="small"
-                      aria-label={`ביטול הגישה של ${token.name}`}
+                      aria-label={t('settings.agent.removeFor', {
+                        name: token.name,
+                      })}
                       onClick={() => setPendingRevoke(token)}
                     >
                       <DeleteIcon fontSize="small" />
@@ -199,7 +208,7 @@ export default function PersonalAgentSettings() {
               >
                 <ListItemText
                   primary={token.name}
-                  secondary={describeTokenUse({ token, now })}
+                  secondary={describeTokenUse({ token, now, t, formatter })}
                 />
               </ListItem>
             ))}
@@ -209,10 +218,9 @@ export default function PersonalAgentSettings() {
 
       <RevokeTokenDialog
         token={pendingRevoke}
-        labels={REVOKE_LABELS}
+        labels={revokeLabels}
         onCancel={() => setPendingRevoke(null)}
         onConfirm={handleConfirmRevoke}
-        dir="rtl"
       />
     </Stack>
   );
@@ -227,17 +235,23 @@ function isAgentOnlyToken(token: ApiTokenSummary): boolean {
 function describeTokenUse({
   token,
   now,
+  t,
+  formatter,
 }: {
   token: ApiTokenSummary;
   now: Date;
+  t: T;
+  formatter: AppFormatter;
 }): string {
   const lastUse = token.lastUsedAt
-    ? `שימוש אחרון ${formatDay(token.lastUsedAt)}`
-    : 'עדיין לא בשימוש';
+    ? t('settings.agent.lastUsed', { date: formatter.day(token.lastUsedAt) })
+    : t('settings.agent.neverUsed');
   const expiry =
     new Date(token.expiresAt) <= now
-      ? 'פג תוקף'
-      : `בתוקף עד ${formatDay(token.expiresAt)}`;
+      ? t('settings.agent.expired')
+      : t('settings.agent.validUntil', {
+          date: formatter.day(token.expiresAt),
+        });
   return `${lastUse} · ${expiry}`;
 }
 

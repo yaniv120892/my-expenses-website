@@ -20,7 +20,6 @@ import {
   ScheduleType,
   TransactionType,
 } from '../types';
-import { translateToScheduleSummary } from '../utils/format';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import { useIsCompact } from '../hooks/useBreakpoints';
@@ -32,6 +31,8 @@ import {
   isUsableBankDescriptionPrefix,
   MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
 } from '@/shared/descriptions';
+import { scheduleSummary, useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 interface Props {
   open: boolean;
@@ -49,8 +50,13 @@ const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   scheduleType: 'MONTHLY',
 };
 
-const scheduleTypes: ScheduleType[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
+const scheduleTypes = [
+  'DAILY',
+  'WEEKLY',
+  'MONTHLY',
+] as const satisfies ScheduleType[];
 const transactionTypes: TransactionType[] = ['EXPENSE', 'INCOME'];
+const DAYS_OF_WEEK = [1, 2, 3, 4, 5, 6, 7];
 
 export default function ScheduledTransactionForm({
   open,
@@ -59,13 +65,15 @@ export default function ScheduledTransactionForm({
   onDeleteAction,
   initialData,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const [form, setForm] = useState<CreateScheduledTransactionInput>({
     ...defaultForm,
   });
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
-  const [errors, setErrors] = useState<{ [k: string]: string }>({});
+  const [errors, setErrors] = useState<{ [field: string]: string }>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
@@ -92,56 +100,56 @@ export default function ScheduledTransactionForm({
   }, [initialData, open]);
 
   function getScheduleSummary() {
-    return translateToScheduleSummary(
-      form.scheduleType,
-      form.interval,
-      form.dayOfWeek,
-      form.dayOfMonth,
-    );
+    return scheduleSummary({ schedule: form, t, formatter });
   }
 
   function validate() {
-    const errs: { [k: string]: string } = {};
+    const fieldErrors: { [field: string]: string } = {};
     if (!form.description) {
-      errs.description = 'Description is required';
+      fieldErrors.description = t('scheduled.validation.descriptionRequired');
     }
     if (!isPositiveAmount(form.value)) {
-      errs.value = 'Value must be greater than 0';
+      fieldErrors.value = t('scheduled.validation.valuePositive');
     }
     if (!form.type) {
-      errs.type = 'Type is required';
+      fieldErrors.type = t('scheduled.validation.typeRequired');
     }
     if (!form.categoryId) {
-      errs.categoryId = 'Category is required';
+      fieldErrors.categoryId = t('scheduled.validation.categoryRequired');
     }
     if (!form.scheduleType) {
-      errs.scheduleType = 'Schedule type is required';
+      fieldErrors.scheduleType = t('scheduled.validation.scheduleTypeRequired');
     }
     const prefix = form.bankDescriptionPrefix?.trim() ?? '';
     if (prefix.length > 0 && !isUsableBankDescriptionPrefix(prefix)) {
-      errs.bankDescriptionPrefix = `Use at least ${MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH} letters or digits`;
+      fieldErrors.bankDescriptionPrefix = t(
+        'scheduled.validation.prefixTooShort',
+        {
+          count: MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+        },
+      );
     }
     if (form.scheduleType === 'WEEKLY' && !form.dayOfWeek) {
-      errs.dayOfWeek = 'Day of week is required';
+      fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekRequired');
     }
     if (form.scheduleType === 'MONTHLY' && !form.dayOfMonth) {
-      errs.dayOfMonth = 'Day of month is required';
+      fieldErrors.dayOfMonth = t('scheduled.validation.dayOfMonthRequired');
     }
     if (form.scheduleType === 'MONTHLY' && form.dayOfWeek) {
-      errs.dayOfWeek = 'Day of week is not valid for monthly schedule';
+      fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekNotMonthly');
     }
     if (
       form.scheduleType === 'DAILY' &&
       (form.dayOfWeek || form.dayOfMonth || form.monthOfYear)
     ) {
       if (form.dayOfWeek) {
-        errs.dayOfWeek = 'Day of week is not valid for daily schedule';
+        fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekNotDaily');
       }
       if (form.dayOfMonth) {
-        errs.dayOfMonth = 'Day of month is not valid for daily schedule';
+        fieldErrors.dayOfMonth = t('scheduled.validation.dayOfMonthNotDaily');
       }
       if (form.monthOfYear) {
-        errs.monthOfYear = 'Month of year is not valid for daily schedule';
+        fieldErrors.monthOfYear = t('scheduled.validation.monthOfYearNotDaily');
       }
     }
     if (
@@ -149,14 +157,16 @@ export default function ScheduledTransactionForm({
       (form.dayOfMonth || form.monthOfYear)
     ) {
       if (form.dayOfMonth) {
-        errs.dayOfMonth = 'Day of month is not valid for weekly schedule';
+        fieldErrors.dayOfMonth = t('scheduled.validation.dayOfMonthNotWeekly');
       }
       if (form.monthOfYear) {
-        errs.monthOfYear = 'Month of year is not valid for weekly schedule';
+        fieldErrors.monthOfYear = t(
+          'scheduled.validation.monthOfYearNotWeekly',
+        );
       }
     }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setErrors(fieldErrors);
+    return Object.keys(fieldErrors).length === 0;
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -188,17 +198,12 @@ export default function ScheduledTransactionForm({
     try {
       await onSubmitAction(form);
       showSnackbar(
-        initialData
-          ? 'Scheduled transaction updated successfully'
-          : 'Scheduled transaction created successfully',
+        initialData ? t('scheduled.updated') : t('scheduled.created'),
         'success',
       );
       onCloseAction();
     } catch (err) {
-      showSnackbar(
-        describeApiError(err, 'Failed to save scheduled transaction'),
-        'error',
-      );
+      showSnackbar(describeApiError(err, t('scheduled.saveFailed')), 'error');
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -209,11 +214,11 @@ export default function ScheduledTransactionForm({
       setIsLoadingDelete(true);
       try {
         await onDeleteAction(initialData.id);
-        showSnackbar('Scheduled transaction deleted successfully', 'success');
+        showSnackbar(t('scheduled.deleted'), 'success');
         onCloseAction();
       } catch (err) {
         showSnackbar(
-          describeApiError(err, 'Failed to delete scheduled transaction'),
+          describeApiError(err, t('scheduled.deleteFailed')),
           'error',
         );
       } finally {
@@ -234,8 +239,8 @@ export default function ScheduledTransactionForm({
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
           {initialData
-            ? 'Edit Scheduled Transaction'
-            : 'New Scheduled Transaction'}
+            ? t('scheduled.form.editTitle')
+            : t('scheduled.form.newTitle')}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -243,7 +248,7 @@ export default function ScheduledTransactionForm({
               {getScheduleSummary()}
             </Typography>
             <TextField
-              label="Description"
+              label={t('scheduled.form.description')}
               name="description"
               value={form.description}
               onChange={handleChange}
@@ -252,7 +257,7 @@ export default function ScheduledTransactionForm({
               fullWidth
             />
             <TextField
-              label="Value"
+              label={t('scheduled.form.value')}
               name="value"
               type="number"
               value={form.value}
@@ -262,14 +267,13 @@ export default function ScheduledTransactionForm({
               fullWidth
             />
             <TextField
-              label="Amount varies — bank description starts with"
+              label={t('scheduled.form.prefix')}
               name="bankDescriptionPrefix"
               value={form.bankDescriptionPrefix ?? ''}
               onChange={handleChange}
               error={!!errors.bankDescriptionPrefix}
               helperText={
-                errors.bankDescriptionPrefix ??
-                'Optional. Imported charges whose description starts with this are matched at any amount, e.g. GOOGLE'
+                errors.bankDescriptionPrefix ?? t('scheduled.form.prefixHint')
               }
               fullWidth
             />
@@ -281,7 +285,7 @@ export default function ScheduledTransactionForm({
             />
             <TextField
               select
-              label="Type"
+              label={t('scheduled.form.type')}
               name="type"
               value={form.type}
               onChange={handleChange}
@@ -291,13 +295,13 @@ export default function ScheduledTransactionForm({
             >
               {transactionTypes.map((type) => (
                 <MenuItem key={type} value={type}>
-                  {type.charAt(0) + type.slice(1).toLowerCase()}
+                  {t(`scheduled.type.${type}`)}
                 </MenuItem>
               ))}
             </TextField>
             <TextField
               select
-              label="Schedule Type"
+              label={t('scheduled.form.scheduleType')}
               name="scheduleType"
               value={form.scheduleType}
               onChange={handleChange}
@@ -307,12 +311,12 @@ export default function ScheduledTransactionForm({
             >
               {scheduleTypes.map((type) => (
                 <MenuItem key={type} value={type}>
-                  {type.charAt(0) + type.slice(1).toLowerCase()}
+                  {t(`scheduled.scheduleType.${type}`)}
                 </MenuItem>
               ))}
             </TextField>
             <TextField
-              label="Interval"
+              label={t('scheduled.form.interval')}
               name="interval"
               type="number"
               value={form.interval ?? ''}
@@ -322,7 +326,7 @@ export default function ScheduledTransactionForm({
             {form.scheduleType === 'WEEKLY' && (
               <TextField
                 select
-                label="Day of Week"
+                label={t('scheduled.form.dayOfWeek')}
                 name="dayOfWeek"
                 value={form.dayOfWeek ?? ''}
                 onChange={handleNumberChange}
@@ -331,20 +335,18 @@ export default function ScheduledTransactionForm({
                 fullWidth
               >
                 <MenuItem value="">
-                  <em>Choose day</em>
+                  <em>{t('scheduled.form.chooseDay')}</em>
                 </MenuItem>
-                <MenuItem value={1}>Sunday</MenuItem>
-                <MenuItem value={2}>Monday</MenuItem>
-                <MenuItem value={3}>Tuesday</MenuItem>
-                <MenuItem value={4}>Wednesday</MenuItem>
-                <MenuItem value={5}>Thursday</MenuItem>
-                <MenuItem value={6}>Friday</MenuItem>
-                <MenuItem value={7}>Saturday</MenuItem>
+                {DAYS_OF_WEEK.map((day) => (
+                  <MenuItem key={day} value={day}>
+                    {formatter.weekday(day)}
+                  </MenuItem>
+                ))}
               </TextField>
             )}
             {form.scheduleType === 'MONTHLY' && (
               <TextField
-                label="Day of Month"
+                label={t('scheduled.form.dayOfMonth')}
                 name="dayOfMonth"
                 type="number"
                 value={form.dayOfMonth ?? ''}
@@ -372,14 +374,14 @@ export default function ScheduledTransactionForm({
                 )
               }
             >
-              Delete
+              {t('scheduled.form.delete')}
             </Button>
           ) : (
             <Box />
           )}
           <Stack direction="row" spacing={1.5}>
             <Button variant="outlined" onClick={onCloseAction} disabled={busy}>
-              Cancel
+              {t('scheduled.form.cancel')}
             </Button>
             <Button
               variant="contained"
@@ -393,7 +395,9 @@ export default function ScheduledTransactionForm({
                 )
               }
             >
-              {initialData ? 'Update' : 'Create'}
+              {initialData
+                ? t('scheduled.form.update')
+                : t('scheduled.form.create')}
             </Button>
           </Stack>
         </DialogActions>

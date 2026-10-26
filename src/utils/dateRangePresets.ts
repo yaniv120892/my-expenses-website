@@ -1,28 +1,27 @@
 import {
   endOfMonth,
   endOfYear,
-  format,
   parseISO,
   startOfMonth,
   startOfYear,
   subMonths,
 } from 'date-fns';
-import { formatDateRange, formatDay } from '@/utils/dateUtils';
+import type { AppFormatter } from '@/i18n/useAppFormat';
+import type { T } from '@/i18n/useT';
 import { toDayString } from '@/shared/dates';
 
 export type DateRangePresetId =
   'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'all-time';
 
-export interface DateRange {
+export type DateRange = {
   startDate?: string;
   endDate?: string;
-}
+};
 
-export interface DateRangePreset {
+export type DateRangePreset = {
   id: DateRangePresetId;
-  label: string;
   range: (now: Date) => DateRange;
-}
+};
 
 const thisMonth = (now: Date): DateRange => ({
   startDate: toDayString(startOfMonth(now)),
@@ -30,10 +29,9 @@ const thisMonth = (now: Date): DateRange => ({
 });
 
 export const DATE_RANGE_PRESETS: DateRangePreset[] = [
-  { id: 'this-month', label: 'This month', range: thisMonth },
+  { id: 'this-month', range: thisMonth },
   {
     id: 'last-month',
-    label: 'Last month',
     range: (now) => ({
       startDate: toDayString(startOfMonth(subMonths(now, 1))),
       endDate: toDayString(endOfMonth(subMonths(now, 1))),
@@ -41,7 +39,6 @@ export const DATE_RANGE_PRESETS: DateRangePreset[] = [
   },
   {
     id: 'last-3-months',
-    label: 'Last 3 months',
     range: (now) => ({
       startDate: toDayString(startOfMonth(subMonths(now, 2))),
       endDate: toDayString(endOfMonth(now)),
@@ -49,13 +46,12 @@ export const DATE_RANGE_PRESETS: DateRangePreset[] = [
   },
   {
     id: 'this-year',
-    label: 'This year',
     range: (now) => ({
       startDate: toDayString(startOfYear(now)),
       endDate: toDayString(endOfYear(now)),
     }),
   },
-  { id: 'all-time', label: 'All time', range: () => ({}) },
+  { id: 'all-time', range: () => ({}) },
 ];
 
 export function matchDateRangePreset(
@@ -73,13 +69,23 @@ export function defaultDateRange(now: Date = new Date()): DateRange {
 }
 
 /** Names a whole calendar month or year rather than spelling out both bounds. */
-export function describeDateRange(range: DateRange): string {
+export function describeDateRange({
+  range,
+  t,
+  formatter,
+}: {
+  range: DateRange;
+  t: T;
+  formatter: AppFormatter;
+}): string {
   const { startDate, endDate } = range;
   if (!startDate) {
-    return endDate ? `Until ${formatDay(endDate)}` : 'All time';
+    return endDate
+      ? t('format.dateRange.until', { date: formatter.day(endDate) })
+      : t('format.dateRange.allTime');
   }
   if (!endDate) {
-    return `From ${formatDay(startDate)}`;
+    return t('format.dateRange.from', { date: formatter.day(startDate) });
   }
 
   const start = parseISO(startDate);
@@ -88,13 +94,13 @@ export function describeDateRange(range: DateRange): string {
     startDate === toDayString(startOfYear(start)) &&
     endDate === toDayString(endOfYear(start))
   ) {
-    return format(start, 'yyyy');
+    return formatter.year(start);
   }
   if (
     startDate === toDayString(startOfMonth(start)) &&
     endDate === toDayString(endOfMonth(start))
   ) {
-    return format(start, 'MMMM yyyy');
+    return formatter.month(start);
   }
-  return formatDateRange(startDate, endDate, '–');
+  return formatter.dateRange(startDate, endDate);
 }

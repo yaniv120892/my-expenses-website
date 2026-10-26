@@ -1,9 +1,17 @@
+// @vitest-environment jsdom
+import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
+import { DesignTestProvider } from '@/test/renderWithClient';
+import type { Locale } from '@yaniv120892/my-ui';
 import {
   DATE_RANGE_PRESETS,
   defaultDateRange,
   describeDateRange,
   matchDateRangePreset,
+  type DateRange,
 } from '@/utils/dateRangePresets';
 
 // Mid-month, mid-year, so a preset that leaked "today" as a bound would show.
@@ -90,28 +98,44 @@ describe('defaultDateRange', () => {
   });
 });
 
+function describeIn(locale: Locale) {
+  const { result } = renderHook(
+    () => ({ t: useT(), formatter: useAppFormat() }),
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
+      ),
+    },
+  );
+  return (range: DateRange) => describeDateRange({ range, ...result.current });
+}
+
 describe('describeDateRange', () => {
+  const describeRange = describeIn('en');
+
   it('names a whole calendar month', () => {
-    expect(describeDateRange(rangeOf('this-month'))).toBe('July 2026');
+    expect(describeRange(rangeOf('this-month'))).toBe('July 2026');
   });
 
   it('names a whole calendar year', () => {
-    expect(describeDateRange(rangeOf('this-year'))).toBe('2026');
+    expect(describeRange(rangeOf('this-year'))).toBe('2026');
   });
 
   it('spells out a span that is neither', () => {
-    expect(describeDateRange(rangeOf('last-3-months'))).toBe(
+    expect(describeRange(rangeOf('last-3-months'))).toBe(
       'May 1, 2026 – Jul 31, 2026',
     );
   });
 
   it('handles an unbounded and a half-bounded range', () => {
-    expect(describeDateRange({})).toBe('All time');
-    expect(describeDateRange({ startDate: '2026-07-01' })).toBe(
-      'From Jul 1, 2026',
-    );
-    expect(describeDateRange({ endDate: '2026-07-31' })).toBe(
-      'Until Jul 31, 2026',
-    );
+    expect(describeRange({})).toBe('All time');
+    expect(describeRange({ startDate: '2026-07-01' })).toBe('From Jul 1, 2026');
+    expect(describeRange({ endDate: '2026-07-31' })).toBe('Until Jul 31, 2026');
+  });
+
+  it('speaks Hebrew in a Hebrew session', () => {
+    const describeInHebrew = describeIn('he');
+    expect(describeInHebrew({})).toBe('כל הזמן');
+    expect(describeInHebrew(rangeOf('this-month'))).toBe('יולי 2026');
   });
 });

@@ -2,22 +2,23 @@
 
 import { Chip, Button, Stack } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters, Category, TransactionType } from '@/types';
-import { formatDateRange } from '@/utils/dateUtils';
+import { TransactionFilters, Category } from '@/types';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
-interface TransactionFiltersDisplayProps extends TransactionFilters {
+type TransactionFiltersDisplayProps = TransactionFilters & {
   onOpenFilters: () => void;
   categories: Category[];
   onResetSearch: () => void;
   onResetCategory: () => void;
   onResetDateRange: () => void;
   onResetType: () => void;
-}
-
-const TYPE_LABELS: Record<TransactionType, string> = {
-  INCOME: 'Income',
-  EXPENSE: 'Expense',
 };
+
+const TYPE_LABEL_KEYS = {
+  INCOME: 'common.income',
+  EXPENSE: 'common.expense',
+} as const;
 
 export const TransactionFiltersDisplay = ({
   searchTerm,
@@ -32,6 +33,8 @@ export const TransactionFiltersDisplay = ({
   onResetDateRange,
   onResetType,
 }: TransactionFiltersDisplayProps) => {
+  const t = useT();
+  const formatter = useAppFormat();
   const hasActiveFilters =
     searchTerm || categoryId || type || startDate || endDate;
 
@@ -56,14 +59,16 @@ export const TransactionFiltersDisplay = ({
         startIcon={<FilterListIcon />}
         onClick={onOpenFilters}
       >
-        Filters
+        {t('common.filters')}
       </Button>
 
       {hasActiveFilters && (
         <>
           {searchTerm && (
             <Chip
-              label={`Search: ${searchTerm}`}
+              label={t('transactions.filters.chip.search', {
+                value: searchTerm,
+              })}
               variant="outlined"
               onClick={onOpenFilters}
               onDelete={onResetSearch}
@@ -71,7 +76,9 @@ export const TransactionFiltersDisplay = ({
           )}
           {categoryId && (
             <Chip
-              label={`Category: ${getCategoryName(categoryId)}`}
+              label={t('transactions.filters.chip.category', {
+                value: getCategoryName(categoryId),
+              })}
               variant="outlined"
               onClick={onOpenFilters}
               onDelete={onResetCategory}
@@ -79,14 +86,18 @@ export const TransactionFiltersDisplay = ({
           )}
           {type && (
             <Chip
-              label={`Type: ${TYPE_LABELS[type]}`}
+              label={t('transactions.filters.chip.type', {
+                value: t(TYPE_LABEL_KEYS[type]),
+              })}
               variant="outlined"
               onDelete={onResetType}
             />
           )}
           {(startDate || endDate) && (
             <Chip
-              label={`Date: ${formatDateRange(startDate, endDate)}`}
+              label={t('transactions.filters.chip.date', {
+                value: formatter.dateRange(startDate, endDate),
+              })}
               variant="outlined"
               onClick={onOpenFilters}
               onDelete={onResetDateRange}

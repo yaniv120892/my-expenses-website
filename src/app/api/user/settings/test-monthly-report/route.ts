@@ -1,44 +1,31 @@
 import { createHandler } from '@/server/http/handler';
 import monthlyReportService from '@/server/services/monthlyReportService';
 import logger from '@/server/logging/logger';
+import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 
 export const POST = createHandler({
   auth: 'session',
-  handler: async ({ userId }) => {
+  handler: async ({ userId }): Promise<TestMonthlyReportResult> => {
     try {
       const outcome = await monthlyReportService.sendMonthlyReportForUser(
         userId,
         { sendWhenEmpty: true },
       );
-
-      if (!outcome.sent) {
-        return {
-          success: false,
-          message: 'Could not build the report for your account.',
-        };
+      if (!outcome.sent || !outcome.recipient) {
+        return { status: 'NOT_BUILT' };
       }
-
-      if (outcome.transactionCount === 0) {
-        return {
-          success: true,
-          message: `${outcome.monthLabel} report sent to ${outcome.recipient}. That month had no transactions, so the scheduled monthly email would have skipped it.`,
-        };
-      }
-
       return {
-        success: true,
-        message: `${outcome.monthLabel} report sent to ${outcome.recipient}.`,
+        status: 'SENT',
+        month: outcome.month,
+        recipient: outcome.recipient,
+        transactionCount: outcome.transactionCount,
       };
     } catch (error) {
       logger.error(
         { err: error, userId },
         'Failed to send test monthly report',
       );
-      return {
-        success: false,
-        message:
-          'Could not send the report. Please check the email configuration.',
-      };
+      return { status: 'FAILED' };
     }
   },
 });

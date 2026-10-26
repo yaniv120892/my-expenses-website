@@ -1,6 +1,7 @@
 import React from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 import { useCategoriesQuery } from '../hooks/useTransactionsQuery';
+import { useT } from '@/i18n/useT';
 
 type CategorySelectProps = {
   value: string;
@@ -18,11 +19,12 @@ export default function CategorySelect({
   onChange,
   error,
   helperText,
-  label = 'Category',
+  label,
   required = false,
   fullWidth = true,
   disabled = false,
 }: CategorySelectProps) {
+  const t = useT();
   const { data: categories = [] } = useCategoriesQuery();
   const sortedCategories = [...categories].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -37,7 +39,7 @@ export default function CategorySelect({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={label ?? t('common.category')}
           error={error}
           helperText={helperText}
           required={required}

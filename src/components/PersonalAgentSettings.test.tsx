@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { renderWithClient } from '@/test/renderWithClient';
+import { render } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import {
+  createTestQueryClient,
+  DesignTestProvider,
+  renderWithClient,
+} from '@/test/renderWithClient';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
 import {
   createApiToken,
@@ -66,7 +72,9 @@ describe('PersonalAgentSettings', () => {
       PLAINTEXT_TOKEN,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'יצירת גישה לסוכן' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Give the agent access' }),
+    );
 
     await waitFor(() =>
       expect(screen.getByLabelText('Token').textContent).toBe(PLAINTEXT_TOKEN),
@@ -84,7 +92,7 @@ describe('PersonalAgentSettings', () => {
     renderWithClient(<PersonalAgentSettings />);
 
     expect(
-      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
+      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
     ).toBeTruthy();
     expect(screen.queryByText('MacBook script')).toBeNull();
   });
@@ -92,7 +100,7 @@ describe('PersonalAgentSettings', () => {
   it('leaves a token that also drives imports to the API token manager', async () => {
     renderWithClient(<PersonalAgentSettings />);
 
-    await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' });
+    await screen.findByRole('button', { name: 'Remove access for Instinct' });
     expect(screen.queryByText('Imports and agent')).toBeNull();
   });
 
@@ -101,13 +109,15 @@ describe('PersonalAgentSettings', () => {
       summary({ id: 'new', name: 'Instinct' }),
     ]);
     renderWithClient(<PersonalAgentSettings />);
-    fireEvent.click(screen.getByRole('button', { name: 'יצירת גישה לסוכן' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Give the agent access' }),
+    );
     await screen.findByLabelText('Token');
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
+      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'ביטול הגישה' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
 
     await waitFor(() => expect(screen.queryByLabelText('Token')).toBeNull());
     expect(screen.getByLabelText('Briefing').textContent).not.toContain(
@@ -119,13 +129,33 @@ describe('PersonalAgentSettings', () => {
     renderWithClient(<PersonalAgentSettings />);
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
+      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
     );
     expect(revokeApiToken).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'ביטול הגישה' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
 
     await waitFor(() =>
       expect(vi.mocked(revokeApiToken).mock.calls[0][0]).toBe('agent'),
+    );
+  });
+
+  it('reads in Hebrew for a Hebrew-speaking user, briefing the agent in English', async () => {
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <DesignTestProvider locale="he">
+          <PersonalAgentSettings />
+        </DesignTestProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'יצירת גישה לסוכן' }),
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('הודעה לסוכן').textContent).toContain(
+      'HOW TO CONNECT',
     );
   });
 });

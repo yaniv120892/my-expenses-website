@@ -29,38 +29,16 @@ import {
 import { API_TOKEN_SCOPES } from '@/shared/types/apiToken';
 import type { ApiTokenScope, ApiTokenSummary } from '@/types/apiToken';
 import { describeApiError } from '@/utils/api';
-import { formatDay } from '@/utils/dateUtils';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import CopyableText from '@/components/CopyableText';
 import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 
-const COPY_LABELS = {
-  idle: 'Copy',
-  copied: 'Copied',
-  failed: 'Copy failed — select the text instead',
-};
-
-const REVOKE_LABELS = {
-  title: function revokeTitle(tokenName: string) {
-    return `Revoke “${tokenName}”?`;
-  },
-  consequence:
-    'Any script using this token stops working immediately. This cannot be undone.',
-  cancel: 'Cancel',
-  confirm: 'Revoke',
-};
-
-const SCOPE_DETAILS = {
-  IMPORTS: {
-    label: 'Imports',
-    description: 'Upload statements, preview and approve imports',
-  },
-  AGENT: {
-    label: 'Personal agent',
-    description: 'Read, add, edit and delete transactions over MCP',
-  },
-} satisfies Record<ApiTokenScope, { label: string; description: string }>;
+const STATEMENTS_IMPORT_COMMAND = 'npm run statements:import';
 
 export default function ApiTokenManager() {
+  const t = useT();
+  const formatter = useAppFormat();
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
@@ -98,20 +76,30 @@ export default function ApiTokenManager() {
   };
 
   const now = new Date();
+  const revokeLabels = {
+    title: (tokenName: string) =>
+      t('settings.tokens.revokeTitle', { name: tokenName }),
+    consequence: t('settings.tokens.revokeConsequence'),
+    cancel: t('common.cancel'),
+    confirm: t('settings.tokens.revoke'),
+  };
+  const [introBefore, introAfter] = t('settings.tokens.intro').split(
+    '{command}',
+  );
 
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        A token lets a script such as <code>npm run statements:import</code>{' '}
-        call the API without a browser session. It can do only what its scopes
-        allow, lasts a year, and can be revoked here at any time.
+        {introBefore}
+        <code>{STATEMENTS_IMPORT_COMMAND}</code>
+        {introAfter}
       </Typography>
 
       <Stack direction="row" spacing={1}>
         <TextField
           size="small"
-          label="Token name"
-          placeholder="e.g. MacBook statements script"
+          label={t('settings.tokens.name')}
+          placeholder={t('settings.tokens.namePlaceholder')}
           value={name}
           onChange={(event) => setName(event.target.value)}
           sx={{ flexGrow: 1 }}
@@ -123,7 +111,11 @@ export default function ApiTokenManager() {
             !name.trim() || scopes.length === 0 || createMutation.isPending
           }
         >
-          {createMutation.isPending ? <CircularProgress size={20} /> : 'Create'}
+          {createMutation.isPending ? (
+            <CircularProgress size={20} />
+          ) : (
+            t('settings.tokens.create')
+          )}
         </Button>
       </Stack>
       <FormGroup>
@@ -137,7 +129,10 @@ export default function ApiTokenManager() {
                 onChange={() => toggleScope(scope)}
               />
             }
-            label={`${SCOPE_DETAILS[scope].label} — ${SCOPE_DETAILS[scope].description}`}
+            label={t('settings.tokens.scopeOption', {
+              label: t(`settings.tokens.scope.${scope}`),
+              description: t(`settings.tokens.scope.${scope}.description`),
+            })}
           />
         ))}
       </FormGroup>
@@ -145,43 +140,48 @@ export default function ApiTokenManager() {
       {createdToken && (
         <Alert severity="warning" onClose={() => setCreatedToken(null)}>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            Copy this token now — it will not be shown again.
+            {t('settings.tokens.copyNow')}
           </Typography>
           <CopyableText
             key={createdToken}
-            label="Token"
+            label={t('settings.agent.token')}
             value={createdToken}
-            copyLabels={COPY_LABELS}
           />
         </Alert>
       )}
 
       {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(createMutation.error, 'Failed to create the token')}
+          {describeApiError(
+            createMutation.error,
+            t('settings.tokens.createFailed'),
+          )}
         </Alert>
       )}
       {revokeMutation.error && (
         <Alert severity="error">
-          {describeApiError(revokeMutation.error, 'Failed to revoke the token')}
+          {describeApiError(
+            revokeMutation.error,
+            t('settings.tokens.revokeFailed'),
+          )}
         </Alert>
       )}
 
       {isLoading && <CircularProgress size={24} />}
       {error && (
         <Alert severity="error">
-          {describeApiError(error, 'Failed to load API tokens')}
+          {describeApiError(error, t('settings.tokens.loadFailed'))}
         </Alert>
       )}
       {tokens && tokens.length > 0 && (
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Scopes</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Last used</TableCell>
-              <TableCell>Expires</TableCell>
+              <TableCell>{t('settings.tokens.column.name')}</TableCell>
+              <TableCell>{t('settings.tokens.column.scopes')}</TableCell>
+              <TableCell>{t('settings.tokens.column.created')}</TableCell>
+              <TableCell>{t('settings.tokens.column.lastUsed')}</TableCell>
+              <TableCell>{t('settings.tokens.column.expires')}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -200,27 +200,35 @@ export default function ApiTokenManager() {
                         <Chip
                           key={scope}
                           size="small"
-                          label={SCOPE_DETAILS[scope].label}
+                          label={t(`settings.tokens.scope.${scope}`)}
                         />
                       ))}
                     </Stack>
                   </TableCell>
-                  <TableCell>{formatDay(token.createdAt)}</TableCell>
+                  <TableCell>{formatter.day(token.createdAt)}</TableCell>
                   <TableCell>
-                    {token.lastUsedAt ? formatDay(token.lastUsedAt) : 'Never'}
+                    {token.lastUsedAt
+                      ? formatter.day(token.lastUsedAt)
+                      : t('settings.tokens.never')}
                   </TableCell>
                   <TableCell>
                     {isExpired ? (
-                      <Chip size="small" color="error" label="Expired" />
+                      <Chip
+                        size="small"
+                        color="error"
+                        label={t('settings.tokens.expired')}
+                      />
                     ) : (
-                      formatDay(token.expiresAt)
+                      formatter.day(token.expiresAt)
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Revoke">
+                    <Tooltip title={t('settings.tokens.revoke')}>
                       <IconButton
                         size="small"
-                        aria-label={`Revoke ${token.name}`}
+                        aria-label={t('settings.tokens.revokeFor', {
+                          name: token.name,
+                        })}
                         onClick={() => setPendingRevoke(token)}
                         disabled={isRevoking}
                       >
@@ -237,7 +245,7 @@ export default function ApiTokenManager() {
 
       <RevokeTokenDialog
         token={pendingRevoke}
-        labels={REVOKE_LABELS}
+        labels={revokeLabels}
         onCancel={() => setPendingRevoke(null)}
         onConfirm={handleConfirmRevoke}
       />

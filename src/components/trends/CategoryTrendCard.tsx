@@ -27,8 +27,12 @@ import {
 import { TrendIcon } from './TrendIcon';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { formatTrendDate } from '@/utils/dateUtils';
-import { formatCurrency } from '@/utils/format';
+import { useI18n } from '@yaniv120892/my-ui';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
+import { ChangeFromPrevious } from './ChangeFromPrevious';
+import { shouldReverseNewestFirstAxis } from './trendFilters';
+import { trendPointLabel } from './trendPointLabel';
 
 interface CategoryTrendCardProps {
   trend: CategorySpendingTrend;
@@ -45,13 +49,19 @@ export const CategoryTrendCard = ({
   isExpanded,
   onExpand,
 }: CategoryTrendCardProps) => {
+  const t = useT();
+  const formatter = useAppFormat();
+  const { direction } = useI18n();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
     transactionType === 'EXPENSE'
       ? palette.charts.negative
       : palette.charts.positive;
-  const typeLabel = transactionType === 'EXPENSE' ? 'Spending' : 'Income';
+  const isExpense = transactionType === 'EXPENSE';
+  const category = trend.categoryName;
+  const pointLabel = (date: string) =>
+    trendPointLabel({ date, period, formatter });
 
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -65,7 +75,9 @@ export const CategoryTrendCard = ({
               variant="h5"
               sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
             >
-              {trend.categoryName} {typeLabel}
+              {isExpense
+                ? t('trends.card.categorySpending', { category })
+                : t('trends.card.categoryIncome', { category })}
               <TrendIcon trend={trend.trend} />
             </Typography>
             <Box
@@ -78,10 +90,12 @@ export const CategoryTrendCard = ({
                     color: 'text.secondary',
                   }}
                 >
-                  Total {typeLabel}
+                  {isExpense
+                    ? t('trends.card.totalSpending')
+                    : t('trends.card.totalIncome')}
                 </Typography>
                 <Typography variant="h5">
-                  {formatCurrency(trend.totalAmount)}
+                  {formatter.currency(trend.totalAmount)}
                 </Typography>
               </Box>
               <Box>
@@ -91,20 +105,12 @@ export const CategoryTrendCard = ({
                     color: 'text.secondary',
                   }}
                 >
-                  Change from Previous Period
+                  {t('trends.card.change')}
                 </Typography>
-                <Typography
+                <ChangeFromPrevious
+                  percentageChange={trend.percentageChange}
                   variant="h5"
-                  sx={{
-                    color:
-                      trend.percentageChange > 0
-                        ? 'error.main'
-                        : 'success.main',
-                  }}
-                >
-                  {trend.percentageChange > 0 ? '+' : ''}
-                  {trend.percentageChange.toFixed(1)}%
-                </Typography>
+                />
               </Box>
             </Box>
           </CardContent>
@@ -112,7 +118,11 @@ export const CategoryTrendCard = ({
         <Box sx={{ display: 'flex', alignItems: 'center', px: 1 }}>
           <IconButton
             onClick={() => onExpand(trend.categoryId)}
-            aria-label={isExpanded ? 'Collapse chart' : 'Expand chart'}
+            aria-label={
+              isExpanded
+                ? t('trends.card.collapseChart')
+                : t('trends.card.expandChart')
+            }
           >
             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
@@ -126,23 +136,23 @@ export const CategoryTrendCard = ({
                 <CartesianGrid strokeDasharray="3 3" stroke={palette.divider} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={(date) => formatTrendDate(date, period)}
+                  tickFormatter={pointLabel}
                   stroke={palette.text.secondary}
                   tick={{ fill: palette.text.secondary, fontSize: 12 }}
-                  reversed={true}
+                  reversed={shouldReverseNewestFirstAxis(direction)}
                 />
                 <YAxis
                   stroke={palette.text.secondary}
                   tick={{ fill: palette.text.secondary, fontSize: 12 }}
+                  tickFormatter={(value: number) => formatter.number(value)}
                   width={48}
+                  orientation={direction === 'rtl' ? 'right' : 'left'}
                 />
                 <Tooltip
-                  labelFormatter={(date) =>
-                    formatTrendDate(String(date), period)
-                  }
+                  labelFormatter={(date) => pointLabel(String(date))}
                   formatter={(value) => [
-                    formatCurrency(Number(value)),
-                    'Amount',
+                    formatter.currency(Number(value)),
+                    t('trends.card.amount'),
                   ]}
                   contentStyle={{
                     backgroundColor: palette.background.paper,
@@ -154,7 +164,11 @@ export const CategoryTrendCard = ({
                 <Line
                   type="monotone"
                   dataKey="amount"
-                  name={typeLabel}
+                  name={
+                    isExpense
+                      ? t('trends.card.spending')
+                      : t('trends.card.income')
+                  }
                   stroke={lineColor}
                   strokeWidth={2}
                   dot={{ r: 3 }}

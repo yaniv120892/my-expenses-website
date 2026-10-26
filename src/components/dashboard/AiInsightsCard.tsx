@@ -14,20 +14,22 @@ import {
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import { DashboardInsightsResponse } from '@/types/dashboard';
+import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   insights: DashboardInsightsResponse | null | undefined;
   isLoading: boolean;
-}
+};
 
 export function AiInsightsCard({ insights, isLoading }: Props) {
+  const t = useT();
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <AutoAwesomeIcon color="primary" />
           <Typography variant="h4" component="h2">
-            AI Insights
+            {t('dashboard.insights.title')}
           </Typography>
         </Box>
 
@@ -50,15 +52,15 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
             variant="body2"
             sx={{ color: 'text.secondary', fontStyle: 'italic' }}
           >
-            Insights unavailable
+            {t('dashboard.insights.unavailable')}
           </Typography>
         )}
 
         {!isLoading && insights?.unusualSpending && (
           <>
             <List dense disablePadding>
-              {insights.unusualSpending.map((insight, idx) => (
-                <ListItem key={idx} disableGutters sx={{ py: 0.5 }}>
+              {insights.unusualSpending.map((insight, index) => (
+                <ListItem key={index} disableGutters sx={{ py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <LightbulbIcon
                       sx={{ color: 'warning.main', fontSize: 18 }}

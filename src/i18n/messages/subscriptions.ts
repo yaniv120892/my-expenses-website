@@ -81,12 +81,11 @@ const en = {
   'subscriptions.reason.interval':
     'They arrive about every {days} days, which falls inside the {frequency} window of {min}–{max} days.',
   'subscriptions.reason.spacing':
-    'The spacing varies by {days} days ({ratio}% of the typical gap) — detection rejects anything above {tolerance}%.',
+    'The spacing varies by {days} days ({ratio} of the typical gap) — detection rejects anything above {tolerance}.',
   'subscriptions.reason.sameAmount': 'Every charge was {amount}.',
   'subscriptions.reason.amountRange':
     'Charges ranged from {min} to {max}, averaging {average}.',
-  'subscriptions.reason.confidence':
-    'That gives a confidence of {confidence}%.',
+  'subscriptions.reason.confidence': 'That gives a confidence of {confidence}.',
 } satisfies Messages;
 
 export const subscriptionsMessages: Dictionary<typeof en> = {
@@ -172,10 +171,10 @@ export const subscriptionsMessages: Dictionary<typeof en> = {
     'subscriptions.reason.interval':
       'הם מגיעים בערך כל {days} ימים, בתוך הטווח של מינוי {frequency} ({min}–{max} ימים).',
     'subscriptions.reason.spacing':
-      'המרווחים משתנים ב־{days} ימים ({ratio}% מהמרווח האופייני) — הזיהוי פוסל כל מה שמעל {tolerance}%.',
+      'המרווחים משתנים ב־{days} ימים ({ratio} מהמרווח האופייני) — הזיהוי פוסל כל מה שמעל {tolerance}.',
     'subscriptions.reason.sameAmount': 'כל חיוב היה בסך {amount}.',
     'subscriptions.reason.amountRange':
       'החיובים נעו בין {min} ל־{max}, ובממוצע {average}.',
-    'subscriptions.reason.confidence': 'מכאן רמת ודאות של {confidence}%.',
+    'subscriptions.reason.confidence': 'מכאן רמת ודאות של {confidence}.',
   },
 };

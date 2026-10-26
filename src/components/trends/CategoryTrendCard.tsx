@@ -31,8 +31,10 @@ import { useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
-import { shouldReverseNewestFirstAxis } from './trendFilters';
-import { trendPointLabel } from './trendPointLabel';
+import {
+  shouldReverseNewestFirstAxis,
+  valueAxisOrientation,
+} from './trendFilters';
 
 interface CategoryTrendCardProps {
   trend: CategorySpendingTrend;
@@ -60,8 +62,7 @@ export const CategoryTrendCard = ({
       : palette.charts.positive;
   const isExpense = transactionType === 'EXPENSE';
   const category = trend.categoryName;
-  const pointLabel = (date: string) =>
-    trendPointLabel({ date, period, formatter });
+  const pointLabel = (date: string) => formatter.trendDate(date, period);
 
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -146,7 +147,7 @@ export const CategoryTrendCard = ({
                   tick={{ fill: palette.text.secondary, fontSize: 12 }}
                   tickFormatter={(value: number) => formatter.number(value)}
                   width={48}
-                  orientation={direction === 'rtl' ? 'right' : 'left'}
+                  orientation={valueAxisOrientation(direction)}
                 />
                 <Tooltip
                   labelFormatter={(date) => pointLabel(String(date))}

@@ -9,7 +9,8 @@ import {
 } from '@/types/trends';
 import { Category } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { ALL_CATEGORIES } from './trendFilters';
 
 interface TrendFiltersDisplayProps {
@@ -40,7 +41,7 @@ export const TrendFiltersDisplay = ({
   const t = useT();
   const formatter = useAppFormat();
   const periodLabel = t(`trends.period.${period}`);
-  const dateRange = formatter.dateRange(startDate, endDate);
+  const dateRange = formatter.dateRange({ start: startDate, end: endDate });
 
   const categoryName =
     selectedCategory === ALL_CATEGORIES

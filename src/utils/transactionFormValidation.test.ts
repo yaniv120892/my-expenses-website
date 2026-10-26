@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  validateTransactionForm,
-  TransactionFormValues,
-} from './transactionFormValidation';
+import { validateTransactionForm } from './transactionFormValidation';
+import type { TransactionFormValues } from './transactionFormValidation.types';
 import {
   createTransactionSchema,
   updateTransactionSchema,

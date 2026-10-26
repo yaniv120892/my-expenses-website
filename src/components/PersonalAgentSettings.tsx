@@ -25,7 +25,8 @@ import type { ApiTokenSummary } from '@/types/apiToken';
 import { buildAgentBriefing } from '@/utils/agentBriefing';
 import { describeApiError } from '@/utils/api';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import CopyableText from '@/components/CopyableText';
 import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 

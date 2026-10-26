@@ -21,8 +21,10 @@ import {
   UploadItemStatus,
 } from '@/utils/importUploadQueue';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
+import { BYTES_PER_MEGABYTE } from '@/shared/uploadLimits';
 
 // 'succeeded' is absent by design: that row renders a tick, never a chip.
 const STATUS_CHIPS = {
@@ -36,7 +38,6 @@ const STATUS_CHIPS = {
 >;
 
 const BYTES_PER_KILOBYTE = 1024;
-const BYTES_PER_MEGABYTE = 1024 * 1024;
 
 function formatSize({
   bytes,
@@ -50,10 +51,7 @@ function formatSize({
   const megabytes = bytes / BYTES_PER_MEGABYTE;
   if (megabytes >= 1) {
     return t('imports.upload.sizeMegabytes', {
-      size: formatter.number(megabytes, {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }),
+      size: formatter.megabytes(megabytes),
     });
   }
   return t('imports.upload.sizeKilobytes', {

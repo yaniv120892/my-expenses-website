@@ -20,8 +20,6 @@ import {
   CLICKABLE_SLICE_SX,
 } from '@/components/chartStyles';
 
-const ONE_DECIMAL = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
-
 type Props = {
   title: string;
   items: CategoryBreakdownItem[];
@@ -51,7 +49,7 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
           {item.categoryName}:
         </Box>{' '}
         {formatter.currency(item.amount)} (
-        {formatter.percent(item.percentage / 100, ONE_DECIMAL)})
+        {formatter.percentagePoints(item.percentage)})
       </Typography>
     </Paper>
   );
@@ -183,7 +181,7 @@ export default function CategoryBreakdownPieChart({
                 {item.categoryName}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {formatter.percent(item.percentage / 100, ONE_DECIMAL)}
+                {formatter.percentagePoints(item.percentage)}
               </Typography>
               <Typography
                 variant="caption"

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { formatMessage } from '@yaniv120892/my-ui';
 import { messages } from '@/i18n/messages';
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import {
   describeUploadError,
   initialUploadQueueState,

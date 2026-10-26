@@ -1,6 +1,5 @@
-import { useTranslations, type Translate } from '@yaniv120892/my-ui';
+import { useTranslations } from '@yaniv120892/my-ui';
 import type { AppMessages } from './messages';
-
-export type T = Translate<AppMessages>;
+import type { T } from './useT.types';
 
 export const useT = (): T => useTranslations<AppMessages>();

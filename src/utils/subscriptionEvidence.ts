@@ -5,7 +5,9 @@ import {
 } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
 import type { AppFormatter } from '@/i18n/useAppFormat';
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
+
+const WHOLE_PERCENT = { maximumFractionDigits: 0 };
 
 export type ChargeWithGap = SubscriptionEvidenceCharge & {
   /** Days since the charge before it; null for the oldest one listed. */
@@ -60,8 +62,11 @@ export function buildEvidenceReasons({
     }),
     t('subscriptions.reason.spacing', {
       days: formatter.number(evidence.intervalStdDevDays),
-      ratio: Math.round(evidence.intervalVariationRatio * 100),
-      tolerance: Math.round(evidence.intervalToleranceRatio * 100),
+      ratio: formatter.percent(evidence.intervalVariationRatio, WHOLE_PERCENT),
+      tolerance: formatter.percent(
+        evidence.intervalToleranceRatio,
+        WHOLE_PERCENT,
+      ),
     }),
     evidence.minAmount === evidence.maxAmount
       ? t('subscriptions.reason.sameAmount', {
@@ -73,7 +78,7 @@ export function buildEvidenceReasons({
           average: formatter.currency(evidence.averageAmount),
         }),
     t('subscriptions.reason.confidence', {
-      confidence: Math.round(subscription.confidence * 100),
+      confidence: formatter.percent(subscription.confidence, WHOLE_PERCENT),
     }),
   ];
 }

@@ -1,10 +1,9 @@
 import { BatchResult } from '@/types/import';
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 
 export type UploadItemStatus =
   'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';
 
-/** Why a row failed; the server's own message when it sent one. */
 export type UploadItemError =
   | { code: 'INVALID_PAYMENT_MONTH' }
   | { code: 'REQUEST_FAILED'; message: string | null };

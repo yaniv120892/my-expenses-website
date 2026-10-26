@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmountWithOriginal, formatMoney } from './format';
-
-describe('formatMoney', () => {
-  it('formats a foreign amount in its own currency', () => {
-    expect(formatMoney(25, 'USD')).toBe('$25.00');
-    expect(formatMoney(-10.5, 'EUR')).toBe('-€10.50');
-  });
-});
+import { formatAmountWithOriginal } from './format';
 
 describe('formatAmountWithOriginal', () => {
   it('shows an ILS amount alone', () => {

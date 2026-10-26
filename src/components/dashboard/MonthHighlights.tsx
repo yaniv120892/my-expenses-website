@@ -127,8 +127,8 @@ export function MonthHighlights({ comparison, categories }: Props) {
             >
               {t('dashboard.highlights.categoryChange', {
                 category: biggestIncrease.categoryName,
-                change: formatter.percent(
-                  Math.abs(biggestIncrease.change.percentage) / 100,
+                change: formatter.percentagePoints(
+                  Math.abs(biggestIncrease.change.percentage),
                   { signDisplay: 'always' },
                 ),
               })}
@@ -152,8 +152,8 @@ export function MonthHighlights({ comparison, categories }: Props) {
             >
               {t('dashboard.highlights.categoryChange', {
                 category: biggestDecrease.categoryName,
-                change: formatter.percent(
-                  biggestDecrease.change.percentage / 100,
+                change: formatter.percentagePoints(
+                  biggestDecrease.change.percentage,
                 ),
               })}
             </Typography>

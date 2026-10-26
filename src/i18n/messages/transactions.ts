@@ -106,9 +106,6 @@ const en = {
   'transactions.categoryConfirmation.change': 'Change',
   'transactions.categoryConfirmation.dialogTitle': 'Change Category',
   'transactions.categoryConfirmation.updateFailed': 'Failed to update category',
-
-  'transactions.swipe.delete': 'Delete',
-  'transactions.swipe.edit': 'Edit',
 } satisfies Messages;
 
 export const transactionsMessages: Dictionary<typeof en> = {
@@ -218,8 +215,5 @@ export const transactionsMessages: Dictionary<typeof en> = {
     'transactions.categoryConfirmation.change': 'שינוי',
     'transactions.categoryConfirmation.dialogTitle': 'שינוי קטגוריה',
     'transactions.categoryConfirmation.updateFailed': 'עדכון הקטגוריה נכשל',
-
-    'transactions.swipe.delete': 'מחיקה',
-    'transactions.swipe.edit': 'עריכה',
   },
 };

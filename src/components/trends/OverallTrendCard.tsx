@@ -16,10 +16,14 @@ import { Category } from '@/types';
 import { TrendIcon } from './TrendIcon';
 import { useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
-import { useT, type T } from '@/i18n/useT';
-import { ALL_CATEGORIES, shouldReverseNewestFirstAxis } from './trendFilters';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
+import {
+  ALL_CATEGORIES,
+  shouldReverseNewestFirstAxis,
+  valueAxisOrientation,
+} from './trendFilters';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
-import { trendPointLabel } from './trendPointLabel';
 
 interface OverallTrendCardProps {
   trend: SpendingTrend;
@@ -52,8 +56,7 @@ export const OverallTrendCard = ({
       : undefined;
   const isExpense = transactionType === 'EXPENSE';
   const labels = overallTrendLabels({ t, isExpense, categoryName });
-  const pointLabel = (date: string) =>
-    trendPointLabel({ date, period, formatter });
+  const pointLabel = (date: string) => formatter.trendDate(date, period);
 
   if (!trend.points.length) {
     return (
@@ -138,7 +141,7 @@ export const OverallTrendCard = ({
                 tick={{ fill: palette.text.secondary, fontSize: 12 }}
                 tickFormatter={(value: number) => formatter.number(value)}
                 width={48}
-                orientation={direction === 'rtl' ? 'right' : 'left'}
+                orientation={valueAxisOrientation(direction)}
               />
               <Tooltip
                 labelFormatter={(date) => pointLabel(String(date))}

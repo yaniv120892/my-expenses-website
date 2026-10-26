@@ -17,11 +17,8 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TopCategory } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import {
-  CLICKABLE_ROW_SX,
-  CLICKABLE_SLICE_SX,
-  MIRROR_IN_RTL_SX,
-} from '@/components/chartStyles';
+import { CLICKABLE_ROW_SX, CLICKABLE_SLICE_SX } from '@/components/chartStyles';
+import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 
 type Props = {
   categories: TopCategory[];
@@ -202,7 +199,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                     color: 'text.secondary',
                   }}
                 >
-                  ({formatter.percent(category.percentage / 100)})
+                  ({formatter.percentagePoints(category.percentage)})
                 </Typography>
                 <CategoryTrendIcon trend={category.change.trend} />
               </Stack>

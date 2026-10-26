@@ -38,9 +38,10 @@ import type {
   ExchangeRateSource,
   TransactionAmountInput,
 } from '@/shared/types/transaction';
-import type { TransactionFormErrors } from '@/utils/transactionFormValidation';
+import type { TransactionFormErrors } from '@/utils/transactionFormValidation.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 
 // An edited transaction may be in a currency outside the usual list.
 function currencyOptions(current: string): readonly string[] {

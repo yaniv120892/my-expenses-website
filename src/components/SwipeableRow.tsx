@@ -2,19 +2,23 @@
 
 import React, { useRef, useState, useCallback } from 'react';
 import { Box, useTheme } from '@mui/material';
-import { useT } from '@/i18n/useT';
 
 const THRESHOLD = 80;
 
+type SwipeLeft =
+  | { onSwipeLeft: () => void; leftLabel: string }
+  | { onSwipeLeft?: never; leftLabel?: never };
+
+type SwipeRight =
+  | { onSwipeRight: () => void; rightLabel: string }
+  | { onSwipeRight?: never; rightLabel?: never };
+
 type SwipeableRowProps = {
   children: React.ReactNode;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
-  leftLabel?: string;
-  rightLabel?: string;
   leftColor?: string;
   rightColor?: string;
-};
+} & SwipeLeft &
+  SwipeRight;
 
 export default function SwipeableRow({
   children,
@@ -25,7 +29,6 @@ export default function SwipeableRow({
   leftColor = 'error.main',
   rightColor = 'success.main',
 }: SwipeableRowProps) {
-  const t = useT();
   const theme = useTheme();
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);
@@ -109,12 +112,12 @@ export default function SwipeableRow({
     >
       {showRight && (
         <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>
-          {rightLabel ?? t('transactions.swipe.edit')}
+          {rightLabel}
         </Box>
       )}
       {showLeft && (
         <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>
-          {leftLabel ?? t('transactions.swipe.delete')}
+          {leftLabel}
         </Box>
       )}
       <Box

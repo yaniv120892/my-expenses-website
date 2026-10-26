@@ -13,7 +13,6 @@ import { subscriptionsMessages } from './subscriptions';
 import { transactionsMessages } from './transactions';
 import { trendsMessages } from './trends';
 
-/** One dictionary per feature; the merge below is what the app ships. */
 export const messageAreas = {
   announcements: announcementsMessages,
   auth: authMessages,

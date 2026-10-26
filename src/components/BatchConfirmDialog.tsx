@@ -10,7 +10,8 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 
 type BatchAction = 'approve' | 'ignore';
 

@@ -39,13 +39,13 @@ export default function ScheduledTransactionList({
     return found ? found.name : t('scheduled.notAvailable');
   }
 
-  function summary(tx: ScheduledTransaction) {
-    return scheduleSummary({ schedule: tx, t, formatter });
+  function summary(schedule: ScheduledTransaction) {
+    return scheduleSummary({ schedule, t, formatter });
   }
 
-  function nextRun(tx: ScheduledTransaction) {
-    return tx.nextRunDate
-      ? formatter.day(tx.nextRunDate)
+  function nextRun(schedule: ScheduledTransaction) {
+    return schedule.nextRunDate
+      ? formatter.day(schedule.nextRunDate)
       : t('scheduled.notAvailable');
   }
 

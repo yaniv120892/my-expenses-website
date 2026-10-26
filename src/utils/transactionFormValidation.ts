@@ -1,18 +1,8 @@
 import { isPositiveAmount } from '@/shared/schemas/amount';
-import type { TransactionValidationMessage } from './transactionFormValidation.types';
-
-export type TransactionFormValues = {
-  description: string;
-  value: number | string;
-  baseValue?: number | string;
-  categoryId: string;
-  type: string;
-  date: string;
-};
-
-export type TransactionFormErrors = Partial<
-  Record<keyof TransactionFormValues, TransactionValidationMessage>
->;
+import type {
+  TransactionFormErrors,
+  TransactionFormValues,
+} from './transactionFormValidation.types';
 
 /**
  * Returns message keys rather than text, so the form translates them in the

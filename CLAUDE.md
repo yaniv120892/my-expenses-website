@@ -132,12 +132,18 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `src/i18n/messages/<area>.ts` — English the source, Hebrew beside it, merged
   in `src/i18n/messages/index.ts`, held equal by `messages.test.ts` — read with
   `useT()`. Numbers, money and dates go through `useAppFormat()`
-  (`src/i18n/useAppFormat.ts`, built on the package's `useFormat`); a pure
+  (`src/i18n/useAppFormat.ts`, built on `cachedFormat`, the package's
+  `useFormat` with each Intl formatter cached per locale and options, since a
+  table formats hundreds of values a render); a pure
   helper that builds UI text takes `t` and the formatter as arguments. Data
   (descriptions, categories, announcements, assistant replies) and text sent to
   Telegram, email or agents is not translated; the server formatters in
   `src/utils/format.ts` are for those. Layout is written for LTR and the RTL
-  plugin flips physical sides; nothing is mirrored by hand. Dashboard AI
+  plugin flips physical sides. What it cannot flip is mirrored from the
+  locale's direction: an icon pointing along the reading direction takes
+  `MIRROR_IN_RTL_SX` (`src/components/rtlStyles.ts`), and a chart sets its
+  axes from `useI18n().direction` (`src/components/trends/trendFilters.ts`).
+  Dashboard AI
   insights are generated in the request's locale and cached per locale.
 - Server state that changes without the client acting — extraction webhooks
   and a Telegram chat being linked — is observed by polling: `useImportsQuery`

@@ -21,6 +21,7 @@ import { useIsCompact } from '../../hooks/useBreakpoints';
 import ChatEmptyState from './ChatEmptyState';
 import { SHELL } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
+import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 
 const SAFE_AREA_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
 
@@ -212,9 +213,7 @@ const Chat: React.FC = () => {
               disabled={isLoading || !inputValue.trim()}
               aria-label={t('chat.send')}
             >
-              <SendRoundedIcon
-                sx={{ '[dir=rtl] &': { transform: 'scaleX(-1)' } }}
-              />
+              <SendRoundedIcon sx={MIRROR_IN_RTL_SX} />
             </IconButton>
           </Box>
         </DialogContent>

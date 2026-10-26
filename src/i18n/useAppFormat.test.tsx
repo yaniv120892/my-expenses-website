@@ -50,8 +50,29 @@ describe('useAppFormat', () => {
     expect(formatterFor('he').formatter.weekday(1)).toBe('יום ראשון');
   });
 
+  it('shows percentage points to one decimal in both locales', () => {
+    expect(plain(formatterFor('en').formatter.percentagePoints(12))).toBe(
+      '12.0%',
+    );
+    expect(plain(formatterFor('he').formatter.percentagePoints(12.54))).toBe(
+      '12.5%',
+    );
+    expect(
+      plain(
+        formatterFor('en').formatter.percentagePoints(3, {
+          signDisplay: 'always',
+        }),
+      ),
+    ).toBe('+3.0%');
+  });
+
+  it('shows megabytes to one decimal', () => {
+    expect(formatterFor('en').formatter.megabytes(4)).toBe('4.0');
+  });
+
   it('labels trend buckets per period', () => {
     const { formatter } = formatterFor('en');
+    expect(formatter.trendDate('2024-02-29', 'daily')).toBe('Feb 29, 2024');
     expect(formatter.trendDate('2024-23', 'weekly')).toBe('Week 23');
     expect(formatter.trendDate('2024-02', 'monthly')).toBe('Feb 2024');
     expect(formatter.trendDate('2024', 'yearly')).toBe('2024');
@@ -62,10 +83,12 @@ describe('useAppFormat', () => {
 
   it('leaves a missing range bound blank', () => {
     const { formatter } = formatterFor('en');
-    expect(formatter.dateRange('2024-01-15', '2024-02-29')).toBe(
-      'Jan 15, 2024 – Feb 29, 2024',
+    expect(
+      formatter.dateRange({ start: '2024-01-15', end: '2024-02-29' }),
+    ).toBe('Jan 15, 2024 – Feb 29, 2024');
+    expect(formatter.dateRange({ start: '2024-01-15' })).toBe(
+      'Jan 15, 2024 – ',
     );
-    expect(formatter.dateRange('2024-01-15')).toBe('Jan 15, 2024 – ');
   });
 
   it('shows the original amount beside the shekel amount', () => {

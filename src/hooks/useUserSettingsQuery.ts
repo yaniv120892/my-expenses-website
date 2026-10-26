@@ -8,12 +8,13 @@ import {
   unlinkTelegram,
 } from '../services/userSettingsService';
 import type { UpdateUserSettings } from '../types';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
+import { describeApiError } from '@/utils/api';
 
 type TestNotice = { success: boolean; message: string };
-import { describeApiError } from '@/utils/api';
 
 const TELEGRAM_LINK_POLL_MS = 3000;
 

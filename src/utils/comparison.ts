@@ -7,7 +7,7 @@ import {
 } from '@/types/trends';
 import { toDayString } from '@/shared/dates';
 import type { AppFormatter } from '@/i18n/useAppFormat';
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 
 type ComparisonBucketLabelInput = {
   bucket: { key: string; startDate: string };

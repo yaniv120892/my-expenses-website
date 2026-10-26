@@ -13,7 +13,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import { MonthComparison, PercentageChange } from '@/types/dashboard';
-import { MIRROR_IN_RTL_SX } from '@/components/chartStyles';
+import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
@@ -81,7 +81,7 @@ function ComparisonCard({
         >
           <TrendGlyph fontSize="small" sx={{ color, ...MIRROR_IN_RTL_SX }} />
           <Typography variant="body2" sx={{ color, fontWeight: 600 }}>
-            {formatter.percent(Math.abs(change.percentage) / 100)}
+            {formatter.percentagePoints(Math.abs(change.percentage))}
           </Typography>
           <Typography
             variant="body2"

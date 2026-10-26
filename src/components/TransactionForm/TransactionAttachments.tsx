@@ -19,7 +19,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import Image from 'next/image';
 import { downloadBlob } from '@/utils/download';
-import { MAX_UPLOAD_LABEL, exceedsUploadLimit } from '@/shared/uploadLimits';
+import {
+  MAX_UPLOAD_LABEL,
+  exceedsUploadLimit,
+  megabytesRoundedUp,
+} from '@/shared/uploadLimits';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
@@ -43,13 +47,6 @@ type Props = {
   setFilesToRemove: (ids: string[]) => void;
   submitButtonLabel?: string;
 };
-
-const BYTES_PER_MEGABYTE = 1024 * 1024;
-
-/** Rounded up, so a file just over the limit never reads as exactly 4.0 MB. */
-function megabytesRoundedUp(sizeInBytes: number): number {
-  return Math.ceil((sizeInBytes / BYTES_PER_MEGABYTE) * 10) / 10;
-}
 
 function failureReason(err: unknown): string | null {
   if (err instanceof Error) {
@@ -116,10 +113,7 @@ export default function TransactionAttachments({
         setError(
           t('transactions.attachments.tooLarge', {
             fileName: file.name,
-            size: formatter.number(megabytesRoundedUp(file.size), {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            }),
+            size: formatter.megabytes(megabytesRoundedUp(file.size)),
             limit: MAX_UPLOAD_LABEL,
           }),
         );

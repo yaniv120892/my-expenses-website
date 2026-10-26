@@ -35,6 +35,17 @@ describe('messages', () => {
     expect(duplicates).toEqual([]);
   });
 
+  it('ships exactly the keys of the listed areas', () => {
+    for (const locale of ['en', 'he'] as const) {
+      const listed = Object.values(messageAreas).flatMap((dictionary) =>
+        Object.keys(dictionary[locale]),
+      );
+      expect(Object.keys(messages[locale]).sort(), locale).toEqual(
+        listed.sort(),
+      );
+    }
+  });
+
   it('keeps the same placeholders in both languages', () => {
     const placeholders = (text: string) =>
       [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();

@@ -50,7 +50,8 @@ import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
 import { useErrorNotice } from '../hooks/useErrorNotice';
 import { CreateTransactionInput } from '../types';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 
 type ImportedTransactionListProps = {

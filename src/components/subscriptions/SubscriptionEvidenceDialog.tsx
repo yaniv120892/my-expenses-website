@@ -139,10 +139,10 @@ export default function SubscriptionEvidenceDialog({
                 />
                 <Fact
                   label={t('subscriptions.evidence.window')}
-                  value={formatter.dateRange(
-                    evidence.analyzedFrom,
-                    evidence.analyzedTo,
-                  )}
+                  value={formatter.dateRange({
+                    start: evidence.analyzedFrom,
+                    end: evidence.analyzedTo,
+                  })}
                 />
                 <Fact
                   label={t('subscriptions.evidence.merchantKey')}

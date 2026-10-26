@@ -7,7 +7,7 @@ import {
   subMonths,
 } from 'date-fns';
 import type { AppFormatter } from '@/i18n/useAppFormat';
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { toDayString } from '@/shared/dates';
 
 export type DateRangePresetId =
@@ -102,5 +102,5 @@ export function describeDateRange({
   ) {
     return formatter.month(start);
   }
-  return formatter.dateRange(startDate, endDate);
+  return formatter.dateRange({ start: startDate, end: endDate });
 }

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { parseISO } from 'date-fns';
-import { useFormat } from '@yaniv120892/my-ui';
+import { useI18n } from '@yaniv120892/my-ui';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import type { ExchangeRateSource } from '@/shared/types/transaction';
 import type { SubscriptionFrequency } from '@/types/subscription';
@@ -12,19 +12,18 @@ import type {
   Format,
   ScheduleSummaryInput,
 } from './useAppFormat.types';
-import { useT, type T } from './useT';
+import { cachedFormat } from './cachedFormat';
+import { useT } from './useT';
+import type { T } from './useT.types';
 
 const SUNDAY_2023_01_01 = new Date(2023, 0, 1);
+const ONE_DECIMAL = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
 
 /** parseISO, not `new Date`: the latter reads a date-only string as UTC midnight. */
 function toDate(value: string | Date): Date {
   return typeof value === 'string' ? parseISO(value) : value;
 }
 
-/**
- * The app's locale-aware formatting: the shared `useFormat()` for numbers and
- * dates, plus the labels this app builds from them.
- */
 export function createAppFormatter({ format, t }: { format: Format; t: T }) {
   const currency = (value: number) => format.currency({ value });
   const day = (value: string | Date) =>
@@ -35,6 +34,10 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
     currency,
     currencyRounded: (value: number) =>
       format.currency({ value, options: { maximumFractionDigits: 0 } }),
+    /** A percentage given in points (12.5, not 0.125), to one decimal. */
+    percentagePoints: (points: number, options?: Intl.NumberFormatOptions) =>
+      format.percent(points / 100, { ...ONE_DECIMAL, ...options }),
+    megabytes: (value: number) => format.number(value, ONE_DECIMAL),
     money: (amount: number, currencyCode: string) =>
       format.currency({ value: amount, currency: currencyCode }),
     day,
@@ -52,14 +55,21 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
       date.setDate(date.getDate() + ((dayOfWeek - 1) % 7));
       return format.date(date, { weekday: 'long' });
     },
-    dateRange: (start?: string | Date, end?: string | Date) =>
-      `${start ? day(start) : ''} – ${end ? day(end) : ''}`,
+    dateRange: ({
+      start,
+      end,
+    }: {
+      start?: string | Date;
+      end?: string | Date;
+    }) => `${start ? day(start) : ''} – ${end ? day(end) : ''}`,
     frequency: (frequency: SubscriptionFrequency) =>
       t(`format.frequency.${frequency}`),
     exchangeRateSource: (source: ExchangeRateSource) =>
       t(`format.exchangeRateSource.${source}`),
     trendDate: (date: string, period: TrendPeriod) => {
       switch (period) {
+        case 'daily':
+          return day(date);
         case 'weekly':
           return t('format.week', { week: date.split('-')[1] });
         case 'monthly':
@@ -96,7 +106,8 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
 export type AppFormatter = ReturnType<typeof createAppFormatter>;
 
 export function useAppFormat(): AppFormatter {
-  const format = useFormat();
+  const { locale } = useI18n();
+  const format = useMemo(() => cachedFormat(locale), [locale]);
   const t = useT();
   return useMemo(() => createAppFormatter({ format, t }), [format, t]);
 }

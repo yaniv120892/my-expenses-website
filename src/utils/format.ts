@@ -1,21 +1,6 @@
-import { ScheduleType, Transaction } from '../types';
+import { ScheduleType } from '../types';
 import { SubscriptionFrequency } from '../types/subscription';
-import { toDayString } from '@/shared/dates';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
-
-export function formatTransactionDate(date: string) {
-  return toDayString(new Date(date));
-}
-
-export function formatTransaction(transaction: Transaction) {
-  return `${transaction.description} - (${
-    transaction.category?.name || 'N/A'
-  }) on ${formatTransactionDate(transaction.date)}`;
-}
-
-export function formatNumber(value: number) {
-  return value.toLocaleString();
-}
 
 export const SUBSCRIPTION_FREQUENCIES: readonly SubscriptionFrequency[] = [
   'WEEKLY',
@@ -40,9 +25,13 @@ export function formatCurrencyPlain(value: number) {
     .replace(/\u00a0/g, ' ');
 }
 
+function formatNumber(value: number) {
+  return value.toLocaleString();
+}
+
 const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
-export function formatMoney(amount: number, currency: string) {
+function formatMoney(amount: number, currency: string) {
   let formatter = moneyFormatters.get(currency);
   if (!formatter) {
     formatter = new Intl.NumberFormat(

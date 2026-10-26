@@ -96,7 +96,7 @@ export const TransactionFiltersDisplay = ({
           {(startDate || endDate) && (
             <Chip
               label={t('transactions.filters.chip.date', {
-                value: formatter.dateRange(startDate, endDate),
+                value: formatter.dateRange({ start: startDate, end: endDate }),
               })}
               variant="outlined"
               onClick={onOpenFilters}

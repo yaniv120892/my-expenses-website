@@ -1,4 +1,4 @@
-import type { T } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { AuthRequestError } from '@/services/authClient';
 
 const TOO_MANY_REQUESTS = 429;

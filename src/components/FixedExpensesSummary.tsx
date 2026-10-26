@@ -3,7 +3,8 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { ScheduledTransaction } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
-import { useT, type T } from '@/i18n/useT';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { forecastFixedExpenses } from '@/utils/scheduledForecast';
 
 type FixedExpensesSummaryProps = {

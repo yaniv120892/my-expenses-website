@@ -22,6 +22,7 @@ import {
   seriesColor,
 } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
+import { valueAxisOrientation } from './trendFilters';
 
 export const COMPARISON_CHART_MODES = ['grouped', 'stacked', 'lines'] as const;
 
@@ -130,7 +131,7 @@ export function ComparisonChart({ comparison, measure, mode }: Props) {
       tickFormatter={(value: number) => formatter.number(value)}
       tick={tickStyle}
       width={72}
-      orientation={isRightToLeft ? 'right' : 'left'}
+      orientation={valueAxisOrientation(direction)}
     />,
     <Tooltip key="tooltip" content={<ChartTooltip />} />,
     ...(isMobile ? [] : [<Legend key="legend" />]),

@@ -17,16 +17,19 @@ import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
-import { MAX_UPLOAD_LABEL, exceedsUploadLimit } from '@/shared/uploadLimits';
-import { useT, type T } from '@/i18n/useT';
+import {
+  MAX_UPLOAD_LABEL,
+  exceedsUploadLimit,
+  megabytesRoundedUp,
+} from '@/shared/uploadLimits';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 
 type FileUploadProps = {
   onUploadComplete?: () => void;
   onRunningChange?: (isRunning: boolean) => void;
 };
-
-const BYTES_PER_MEGABYTE = 1024 * 1024;
 
 function tooLargeMessage({
   file,
@@ -37,14 +40,9 @@ function tooLargeMessage({
   t: T;
   formatter: AppFormatter;
 }): string {
-  // Rounded up, so a file just over the limit never reads as exactly the limit.
-  const megabytes = Math.ceil((file.size / BYTES_PER_MEGABYTE) * 10) / 10;
   return t('imports.upload.tooLarge', {
     fileName: file.name,
-    size: formatter.number(megabytes, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }),
+    size: formatter.megabytes(megabytesRoundedUp(file.size)),
     limit: MAX_UPLOAD_LABEL,
   });
 }

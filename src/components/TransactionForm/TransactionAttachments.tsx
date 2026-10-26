@@ -22,8 +22,10 @@ import { downloadBlob } from '@/utils/download';
 import {
   MAX_UPLOAD_LABEL,
   exceedsUploadLimit,
-  uploadTooLargeMessage,
+  megabytesRoundedUp,
 } from '@/shared/uploadLimits';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
 import { TransactionFile } from '../../types';
 
@@ -37,13 +39,20 @@ const ALLOWED_TYPES = [
   'text/plain',
 ];
 
-interface Props {
+type Props = {
   transactionId?: string;
   pendingFiles: File[];
   setPendingFiles: (files: File[]) => void;
   filesToRemove: string[];
   setFilesToRemove: (ids: string[]) => void;
   submitButtonLabel?: string;
+};
+
+function failureReason(err: unknown): string | null {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return typeof err === 'string' ? err : null;
 }
 
 function FileThumbnail({ src, alt }: { src: string; alt: string }) {
@@ -85,8 +94,10 @@ export default function TransactionAttachments({
   setPendingFiles,
   filesToRemove = [],
   setFilesToRemove,
-  submitButtonLabel = 'Update',
+  submitButtonLabel,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const [error, setError] = useState<string | null>(null);
 
   const { data: files = [], isLoading: isFilesLoading } =
@@ -100,20 +111,21 @@ export default function TransactionAttachments({
       }
       if (exceedsUploadLimit(file.size)) {
         setError(
-          uploadTooLargeMessage({
+          t('transactions.attachments.tooLarge', {
             fileName: file.name,
-            sizeInBytes: file.size,
+            size: formatter.megabytes(megabytesRoundedUp(file.size)),
+            limit: MAX_UPLOAD_LABEL,
           }),
         );
         return;
       }
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setError('File type not allowed');
+        setError(t('transactions.attachments.typeNotAllowed'));
         return;
       }
       setPendingFiles([...pendingFiles, file]);
     },
-    [setPendingFiles, pendingFiles],
+    [setPendingFiles, pendingFiles, t, formatter],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -142,13 +154,12 @@ export default function TransactionAttachments({
   };
 
   const handleDownloadFileError = (err: unknown) => {
-    let message = 'Failed to download file.';
-    if (err instanceof Error) {
-      message += ` Error: ${err.message}`;
-    } else if (typeof err === 'string') {
-      message += ` Error: ${err}`;
-    }
-    setError(message);
+    const reason = failureReason(err);
+    setError(
+      reason
+        ? t('transactions.attachments.downloadFailedWithReason', { reason })
+        : t('transactions.attachments.downloadFailed'),
+    );
   };
 
   const downloadFile = async (
@@ -185,7 +196,7 @@ export default function TransactionAttachments({
       <Accordion variant="outlined" disableGutters defaultExpanded={false}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Attachments ({attachedCount})
+            {t('transactions.attachments.title', { count: attachedCount })}
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
@@ -212,15 +223,19 @@ export default function TransactionAttachments({
               sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}
             >
               {isDragActive
-                ? 'Drop the file here'
-                : `Drag and drop or click to select a file (max ${MAX_UPLOAD_LABEL})`}
+                ? t('transactions.attachments.drop')
+                : t('transactions.attachments.select', {
+                    limit: MAX_UPLOAD_LABEL,
+                  })}
             </Typography>
           </Box>
           {transactionId && (
             <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 2 }}>
               <Stack spacing={1}>
                 {isFilesLoading ? (
-                  <Typography variant="body2">Loading files...</Typography>
+                  <Typography variant="body2">
+                    {t('transactions.attachments.loading')}
+                  </Typography>
                 ) : files.length === 0 ? (
                   <Typography
                     variant="body2"
@@ -228,7 +243,7 @@ export default function TransactionAttachments({
                       color: 'text.secondary',
                     }}
                   >
-                    No attachments yet.
+                    {t('transactions.attachments.empty')}
                   </Typography>
                 ) : (
                   files.map((file: TransactionFile) => {
@@ -273,7 +288,9 @@ export default function TransactionAttachments({
                         </Typography>
                         <IconButton
                           aria-label={
-                            markedForRemoval ? 'Undo remove' : 'Remove file'
+                            markedForRemoval
+                              ? t('transactions.attachments.undoRemove')
+                              : t('transactions.attachments.remove')
                           }
                           onClick={() => handleToggleRemove(file.id)}
                           size="small"
@@ -281,7 +298,7 @@ export default function TransactionAttachments({
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                         <IconButton
-                          aria-label="Download file"
+                          aria-label={t('transactions.attachments.download')}
                           size="small"
                           onClick={() =>
                             downloadFile(file, file.downloadableFileUrl)
@@ -300,7 +317,7 @@ export default function TransactionAttachments({
             <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 1 }}>
               <Stack spacing={1}>
                 <Typography variant="subtitle2" color="primary">
-                  Pending Attachments
+                  {t('transactions.attachments.pendingTitle')}
                 </Typography>
                 <Typography
                   variant="caption"
@@ -312,8 +329,11 @@ export default function TransactionAttachments({
                     fontSize="inherit"
                     sx={{ mr: 0.5, verticalAlign: 'middle' }}
                   />
-                  These files will be uploaded and attached only after you press{' '}
-                  <b>{submitButtonLabel}</b>.
+                  {t('transactions.attachments.pendingHintBefore')}{' '}
+                  <b>
+                    {submitButtonLabel ?? t('transactions.form.submit.update')}
+                  </b>
+                  {t('transactions.attachments.pendingHintAfter')}
                 </Typography>
                 {pendingFiles.map((file, idx) => (
                   <Stack
@@ -341,11 +361,11 @@ export default function TransactionAttachments({
                         component="span"
                         sx={{ fontWeight: 500, ml: 1, opacity: 0.7 }}
                       >
-                        (will be uploaded)
+                        {t('transactions.attachments.willUpload')}
                       </Box>
                     </Typography>
                     <IconButton
-                      aria-label="Remove pending file"
+                      aria-label={t('transactions.attachments.removePending')}
                       onClick={() => handleRemovePending(idx)}
                       size="small"
                     >

@@ -13,18 +13,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  CategoryComparison,
-  ComparisonMeasure,
-  TrendPeriod,
-} from '@/types/trends';
-import { formatCurrency, formatNumber } from '@/utils/format';
+import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
+import { localeDirection, useI18n } from '@yaniv120892/my-ui';
+import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import {
   formatBucketLabel,
   selectMeasure,
   seriesColor,
 } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
+import { valueAxisOrientation } from './trendFilters';
 
 export const COMPARISON_CHART_MODES = ['grouped', 'stacked', 'lines'] as const;
 
@@ -45,6 +43,7 @@ function ChartTooltip({
   payload?: { name: string; value: number; color: string }[];
   label?: string;
 }) {
+  const formatter = useAppFormat();
   if (!active || !payload?.length) {
     return null;
   }
@@ -76,7 +75,7 @@ function ChartTooltip({
               {entry.name}
             </Typography>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {formatCurrency(entry.value)}
+              {formatter.currency(entry.value)}
             </Typography>
           </Stack>
         ))}
@@ -85,14 +84,22 @@ function ChartTooltip({
   );
 }
 
-function buildChartRows(
-  comparison: CategoryComparison,
-  measure: ComparisonMeasure,
-  period: TrendPeriod,
-) {
+function buildChartRows({
+  comparison,
+  measure,
+  formatter,
+}: {
+  comparison: CategoryComparison;
+  measure: ComparisonMeasure;
+  formatter: AppFormatter;
+}) {
   return comparison.buckets.map((bucket) => {
     const row: Record<string, string | number> = {
-      label: formatBucketLabel(bucket, period),
+      label: formatBucketLabel({
+        bucket,
+        period: comparison.period,
+        formatter,
+      }),
     };
     comparison.series.forEach((series, index) => {
       row[series.categoryId] = selectMeasure(bucket.cells[index], measure);
@@ -104,9 +111,12 @@ function buildChartRows(
 export function ComparisonChart({ comparison, measure, mode }: Props) {
   const theme = useTheme();
   const isMobile = useIsMobile();
+  const formatter = useAppFormat();
+  const direction = localeDirection(useI18n().locale);
+  const isRightToLeft = direction === 'rtl';
   const palette = (theme.vars ?? theme).palette;
   const seriesColors = palette.charts.series;
-  const rows = buildChartRows(comparison, measure, comparison.period);
+  const rows = buildChartRows({ comparison, measure, formatter });
 
   const tickStyle = { fill: palette.text.secondary, fontSize: 12 };
   // Returned as an array, not a fragment: recharts discovers axes, grid,
@@ -114,13 +124,14 @@ export function ComparisonChart({ comparison, measure, mode }: Props) {
   // traverse into a Fragment — wrapping these hides them entirely.
   const axes = [
     <CartesianGrid key="grid" strokeDasharray="3 3" stroke={palette.divider} />,
-    // Not reversed: a comparison reads left to right chronologically.
-    <XAxis key="x" dataKey="label" tick={tickStyle} />,
+    // Buckets arrive oldest first, so time runs in the reading direction.
+    <XAxis key="x" dataKey="label" tick={tickStyle} reversed={isRightToLeft} />,
     <YAxis
       key="y"
-      tickFormatter={(value: number) => formatNumber(value)}
+      tickFormatter={(value: number) => formatter.number({ value })}
       tick={tickStyle}
       width={72}
+      orientation={valueAxisOrientation(direction)}
     />,
     <Tooltip key="tooltip" content={<ChartTooltip />} />,
     ...(isMobile ? [] : [<Legend key="legend" />]),

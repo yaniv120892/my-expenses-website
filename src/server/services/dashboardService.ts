@@ -15,6 +15,12 @@ import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
 import { classifyTrend } from '@/server/utils/trendMath';
 import { formatCurrencyPlain } from '@/utils/format';
+import type { Locale } from '@yaniv120892/my-ui';
+
+const INSIGHTS_LANGUAGE: Record<Locale, string> = {
+  he: 'Hebrew',
+  en: 'English',
+};
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
@@ -69,11 +75,15 @@ class DashboardService {
     };
   }
 
-  public async getInsights(
-    userId: string,
-  ): Promise<DashboardInsightsResponse | null> {
+  public async getInsights({
+    userId,
+    locale,
+  }: {
+    userId: string;
+    locale: Locale;
+  }): Promise<DashboardInsightsResponse | null> {
     const now = new Date();
-    const cacheKey = `dashboard-insights:${userId}:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const cacheKey = `dashboard-insights:${userId}:${locale}:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     try {
       const cached = await getValue<unknown>(cacheKey);
@@ -108,11 +118,12 @@ class DashboardService {
           ),
         ]);
 
-      const result = await this.generateAiInsights(
-        currentMonthSummary,
+      const result = await this.generateAiInsights({
+        currentMonth: currentMonthSummary,
         topCategories,
-        previousMonthSummary,
-      );
+        previousMonth: previousMonthSummary,
+        locale,
+      });
       if (result) {
         try {
           await setValue(
@@ -200,15 +211,21 @@ class DashboardService {
     });
   }
 
-  private async generateAiInsights(
-    currentMonth: MonthSummary,
+  private async generateAiInsights({
+    currentMonth,
+    topCategories,
+    previousMonth,
+    locale,
+  }: {
+    currentMonth: MonthSummary;
     topCategories: {
       categoryId: string;
       categoryName: string;
       amount: number;
-    }[],
-    previousMonth: MonthSummary,
-  ): Promise<DashboardInsightsResponse | null> {
+    }[];
+    previousMonth: MonthSummary;
+    locale: Locale;
+  }): Promise<DashboardInsightsResponse | null> {
     try {
       const categoriesSummary = topCategories
         .map((c) => `${c.categoryName}: ${formatCurrencyPlain(c.amount)}`)
@@ -218,6 +235,7 @@ class DashboardService {
 Current month (${currentMonth.month}): Income ${formatCurrencyPlain(currentMonth.totalIncome)}, Expenses ${formatCurrencyPlain(currentMonth.totalExpense)}, Savings ${formatCurrencyPlain(currentMonth.savings)}.
 Previous month (${previousMonth.month}): Income ${formatCurrencyPlain(previousMonth.totalIncome)}, Expenses ${formatCurrencyPlain(previousMonth.totalExpense)}, Savings ${formatCurrencyPlain(previousMonth.savings)}.
 Top spending categories this month: ${categoriesSummary}.
+Write every insight and the summary in ${INSIGHTS_LANGUAGE[locale]}; keep category names as given.
 
 Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {"unusualSpending": ["insight 1", "insight 2"], "summary": "A brief overall summary"}`;

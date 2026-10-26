@@ -15,13 +15,15 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TopCategory } from '@/types/dashboard';
-import { formatNumber } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import { CLICKABLE_ROW_SX, CLICKABLE_SLICE_SX } from '@/components/chartStyles';
+import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 
-interface Props {
+type Props = {
   categories: TopCategory[];
   onSelectCategory?: (categoryId: string) => void;
-}
+};
 
 function ChartTooltip({
   active,
@@ -30,6 +32,7 @@ function ChartTooltip({
   active?: boolean;
   payload?: { name: string; value: number }[];
 }) {
+  const formatter = useAppFormat();
   if (!active || !payload || !payload.length) {
     return null;
   }
@@ -40,7 +43,7 @@ function ChartTooltip({
         <Box component="span" sx={{ fontWeight: 600 }}>
           {name}:
         </Box>{' '}
-        {formatNumber(value)}
+        {formatter.number({ value })}
       </Typography>
     </Paper>
   );
@@ -53,15 +56,27 @@ function CategoryTrendIcon({
 }) {
   // Spending semantics: an upward-trending expense category is the bad case.
   if (trend === 'up') {
-    return <TrendingUpIcon fontSize="small" color="error" />;
+    return (
+      <TrendingUpIcon fontSize="small" color="error" sx={MIRROR_IN_RTL_SX} />
+    );
   }
   if (trend === 'down') {
-    return <TrendingDownIcon fontSize="small" color="success" />;
+    return (
+      <TrendingDownIcon
+        fontSize="small"
+        color="success"
+        sx={MIRROR_IN_RTL_SX}
+      />
+    );
   }
-  return <TrendingFlatIcon fontSize="small" color="disabled" />;
+  return (
+    <TrendingFlatIcon fontSize="small" color="disabled" sx={MIRROR_IN_RTL_SX} />
+  );
 }
 
 export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const seriesColors = palette.charts.series;
@@ -71,7 +86,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
       <Card sx={{ height: '100%' }}>
         <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Top Categories
+            {t('dashboard.topCategories.title')}
           </Typography>
           <Typography
             variant="body2"
@@ -79,23 +94,23 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
               color: 'text.secondary',
             }}
           >
-            No expense data yet
+            {t('dashboard.topCategories.empty')}
           </Typography>
         </CardContent>
       </Card>
     );
   }
 
-  const chartData = categories.map((c) => ({
-    name: c.categoryName,
-    value: c.amount,
+  const chartData = categories.map((category) => ({
+    name: category.categoryName,
+    value: category.amount,
   }));
 
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Typography variant="h5" sx={{ mb: 2 }}>
-          Top Categories
+          {t('dashboard.topCategories.title')}
         </Typography>
         <Box
           sx={{
@@ -133,10 +148,10 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                       : undefined
                   }
                 >
-                  {chartData.map((_, idx) => (
+                  {chartData.map((_, index) => (
                     <Cell
-                      key={idx}
-                      fill={seriesColors[idx % seriesColors.length]}
+                      key={index}
+                      fill={seriesColors[index % seriesColors.length]}
                     />
                   ))}
                 </Pie>
@@ -148,14 +163,14 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
             spacing={1}
             sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}
           >
-            {categories.map((cat, idx) => (
+            {categories.map((category, index) => (
               <Stack
-                key={cat.categoryId}
+                key={category.categoryId}
                 direction="row"
                 spacing={1}
                 onClick={
                   onSelectCategory
-                    ? () => onSelectCategory(cat.categoryId)
+                    ? () => onSelectCategory(category.categoryId)
                     : undefined
                 }
                 sx={{
@@ -168,15 +183,15 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                     width: 12,
                     height: 12,
                     borderRadius: '50%',
-                    bgcolor: seriesColors[idx % seriesColors.length],
+                    bgcolor: seriesColors[index % seriesColors.length],
                     flexShrink: 0,
                   }}
                 />
                 <Typography variant="body2" sx={{ flex: 1 }} noWrap>
-                  {cat.categoryName}
+                  {category.categoryName}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {formatNumber(cat.amount)}
+                  {formatter.number({ value: category.amount })}
                 </Typography>
                 <Typography
                   variant="caption"
@@ -184,9 +199,9 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                     color: 'text.secondary',
                   }}
                 >
-                  ({cat.percentage.toFixed(1)}%)
+                  ({formatter.percentagePoints(category.percentage)})
                 </Typography>
-                <CategoryTrendIcon trend={cat.change.trend} />
+                <CategoryTrendIcon trend={category.change.trend} />
               </Stack>
             ))}
           </Stack>

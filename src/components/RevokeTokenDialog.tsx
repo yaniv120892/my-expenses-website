@@ -22,13 +22,11 @@ export default function RevokeTokenDialog({
   labels,
   onCancel,
   onConfirm,
-  dir,
 }: {
   token: ApiTokenSummary | null;
   labels: RevokeTokenLabels;
   onCancel: () => void;
   onConfirm: (token: ApiTokenSummary) => void;
-  dir?: 'rtl' | 'ltr';
 }) {
   function confirmRevoke() {
     if (token) {
@@ -37,7 +35,7 @@ export default function RevokeTokenDialog({
   }
 
   return (
-    <Dialog open={!!token} onClose={onCancel} dir={dir}>
+    <Dialog open={!!token} onClose={onCancel}>
       <DialogTitle>{labels.title(token?.name ?? '')}</DialogTitle>
       <DialogContent>
         <DialogContentText>{labels.consequence}</DialogContentText>

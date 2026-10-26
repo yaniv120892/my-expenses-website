@@ -59,14 +59,21 @@ non-local `DIRECT_URL`, since it wipes every table.
 
 Vitest runs on `node`; a component or hook test opts into a DOM with a
 `// @vitest-environment jsdom` docblock and renders through
-`src/test/renderWithClient.tsx`. Keep DOM-free logic in plain `.ts` modules.
+`src/test/renderWithClient.tsx`, which supplies the shared theme and English
+messages (`DesignTestProvider locale="he"` renders Hebrew). Keep DOM-free logic
+in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
+(`server.deps.inline`), and `src/test/setup.ts` stubs `next/navigation`, whose
+`useRouter` its `I18nProvider` calls.
 `*.test-d.ts` type assertions run inside `npm test`.
 
 ## Architecture
 
 - `src/app/` — App Router. `(auth)/` login/signup/verify; `(app)/` the 8
   authenticated pages (dashboard, transactions, pending, scheduled,
-  subscriptions, imports, trends, settings) inside the AppShell drawer layout.
+  subscriptions, imports, trends, settings) inside `ExpensesShell`, the
+  shared `AppShell` from `@yaniv120892/my-ui` (drawer on desktop; top bar and
+  a four-item bottom bar plus "More" on phones). Auth pages sit in its
+  `AuthCard`.
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
@@ -115,8 +122,29 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 - `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
   `src/services/` (thin axios client, SSE chat client), `src/utils/` (pure
   helpers — components and hooks import from here, never the reverse),
-  `src/test/` (test-only render helpers), `src/theme/` (MUI CSS-vars theme,
-  light+dark, `palette.charts` for recharts colors).
+  `src/test/` (test-only render helpers), `src/config/appUrls.ts` (the sibling
+  apps the drawer links to).
+- **Design and language** come from `@yaniv120892/my-ui`, shared with My
+  Investments and My Shopping: the root layout reads the locale with
+  `getLocale()` (a `locale` cookie, then `Accept-Language`, default Hebrew),
+  sets `<html lang dir>`, and renders `DesignProvider` (theme, RTL emotion
+  cache, i18n). Every user-visible string is a key in
+  `src/i18n/messages/<area>.ts` — English the source, Hebrew beside it, merged
+  in `src/i18n/messages/index.ts`, held equal by `messages.test.ts` — read with
+  `useT()`. Numbers, money and dates go through `useAppFormat()`
+  (`src/i18n/useAppFormat.ts`, built on the package's `useFormat`, which
+  caches each Intl formatter per locale and options and formats dates in one
+  shared time zone); a pure
+  helper that builds UI text takes `t` and the formatter as arguments. Data
+  (descriptions, categories, announcements, assistant replies) and text sent to
+  Telegram, email or agents is not translated; the server formatters in
+  `src/utils/format.ts` are for those. Layout is written for LTR and the RTL
+  plugin flips physical sides. What it cannot flip is mirrored from the
+  locale's direction: an icon pointing along the reading direction takes
+  `MIRROR_IN_RTL_SX` (`src/components/rtlStyles.ts`), and a chart sets its
+  axes from `useI18n().direction` (`src/components/trends/trendFilters.ts`).
+  Dashboard AI
+  insights are generated in the request's locale and cached per locale.
 - Server state that changes without the client acting — extraction webhooks
   and a Telegram chat being linked — is observed by polling: `useImportsQuery`
   sets a `refetchInterval` while any import is in flight and `false` otherwise
@@ -315,7 +343,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   `auth: 'apiToken'` route takes only an API token — a cookie or session JWT
   is refused with 401 `API_TOKEN_REQUIRED` — and must declare its scope.
 - **The personal agent reaches the app only through `/api/mcp`.** It is an
-  `auth: 'apiToken'` route needing `AGENT`, the token Settings → סוכן אישי
+  `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
   or `{error}` body, so an MCP client can read it. The server is stateless
   (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
@@ -391,7 +419,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
   goes through the same extension.
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
-  components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`).
+  components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`: `positive` for money in, `negative` for money out).
 - **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
   `logger.info({ userId }, 'msg')`; errors under the `err` key. Outside
   development records also ship to Better Stack through `pino.multistream`

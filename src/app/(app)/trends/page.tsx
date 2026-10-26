@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Box, Button, Tab, Tabs } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { subMonths } from 'date-fns';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import {
   ComparisonMeasure,
   TRENDS_VIEWS,
@@ -24,14 +24,17 @@ import {
 } from '@/hooks/useTrendsQuery';
 import { useCategoriesQuery } from '@/hooks/useTransactionsQuery';
 import { isOneOf } from '@/utils/oneOf';
+import { ALL_CATEGORIES } from '@/components/trends/trendFilters';
+import { useT } from '@/i18n/useT';
 
 export default function TrendsPage() {
+  const t = useT();
   const [view, setView] = useState<TrendsView>('overview');
   const [filters, setFilters] = useState<TrendFilters>({
     period: 'monthly',
     startDate: subMonths(new Date(), 6),
     endDate: new Date(),
-    selectedCategory: 'All Categories',
+    selectedCategory: ALL_CATEGORIES,
     transactionType: 'EXPENSE',
     comparisonCategoryIds: [],
     comparisonScope: 'SUBTREE',
@@ -43,7 +46,7 @@ export default function TrendsPage() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const isCompare = view === 'compare';
-  const isAllCategories = filters.selectedCategory === 'All Categories';
+  const isAllCategories = filters.selectedCategory === ALL_CATEGORIES;
 
   const { data: categories = [] } = useCategoriesQuery();
   const { data: overallTrend, isLoading: isOverallLoading } =
@@ -106,14 +109,14 @@ export default function TrendsPage() {
   return (
     <>
       <PageHeader
-        title="Trends"
-        action={
+        title={t('trends.title')}
+        actions={
           <Button
             variant="contained"
             startIcon={<FilterListRoundedIcon />}
             onClick={() => setIsFiltersOpen(true)}
           >
-            Filters
+            {t('trends.filters')}
           </Button>
         }
       />
@@ -126,10 +129,10 @@ export default function TrendsPage() {
               setView(value);
             }
           }}
-          aria-label="Trends view"
+          aria-label={t('trends.viewLabel')}
         >
-          <Tab label="Overview" value="overview" />
-          <Tab label="Compare" value="compare" />
+          <Tab label={t('trends.view.overview')} value="overview" />
+          <Tab label={t('trends.view.compare')} value="compare" />
         </Tabs>
       </Box>
 

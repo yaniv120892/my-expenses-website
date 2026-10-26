@@ -19,6 +19,7 @@ import {
   UploadItem,
 } from '@/utils/importUploadQueue';
 import { runUploadBatch, UploadRunnerApi } from '@/utils/importUploadRunner';
+import { useT } from '@/i18n/useT';
 
 interface UseMultiFileImportOptions {
   onAllSucceeded?: () => void;
@@ -56,6 +57,7 @@ export function useMultiFileImport({
     initialUploadQueueState,
   );
   const queryClient = useQueryClient();
+  const t = useT();
 
   // A retry dispatches and starts its batch in the same tick, before the
   // state-derived flag would have re-rendered.
@@ -63,7 +65,7 @@ export function useMultiFileImport({
   const notifiedRef = useRef(false);
 
   const isDrained = selectIsDrained(state);
-  const summary = isDrained ? toBatchResult(state) : null;
+  const summary = isDrained ? toBatchResult({ state, t }) : null;
 
   // Passed in rather than read from state: the caller's dispatch has not
   // rendered yet.

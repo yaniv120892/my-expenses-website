@@ -2,19 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ThemeProvider } from '@mui/material/styles';
 import { renderWithClient } from '@/test/renderWithClient';
-import theme from '@/theme';
 import PendingPage from '@/app/(app)/pending/page';
 import { Transaction } from '@/types';
 
-// AmountText reads theme.palette.charts, which only the app theme defines.
 function renderPage() {
-  return renderWithClient(
-    <ThemeProvider theme={theme}>
-      <PendingPage />
-    </ThemeProvider>,
-  );
+  return renderWithClient(<PendingPage />);
 }
 
 const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } =

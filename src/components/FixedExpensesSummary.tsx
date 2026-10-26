@@ -2,7 +2,9 @@
 
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { ScheduledTransaction } from '@/types';
-import { formatCurrency } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { forecastFixedExpenses } from '@/utils/scheduledForecast';
 
 type FixedExpensesSummaryProps = {
@@ -20,17 +22,22 @@ export default function FixedExpensesSummary({
   scheduledTransactions,
   today,
 }: FixedExpensesSummaryProps) {
+  const t = useT();
+  const formatter = useAppFormat();
   const forecast = forecastFixedExpenses(scheduledTransactions, today);
   if (forecast.expenseCount === 0) {
     return null;
   }
 
-  const monthName = today.toLocaleString('en-US', { month: 'long' });
+  const monthName = formatter.date({
+    value: today,
+    options: { month: 'long' },
+  });
 
   return (
     <Box
       component="section"
-      aria-label="Fixed expenses"
+      aria-label={t('dashboard.fixedExpenses.label')}
       sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
@@ -39,26 +46,36 @@ export default function FixedExpensesSummary({
       }}
     >
       <SummaryCard
-        title={`Fixed expenses left in ${monthName}`}
+        title={t('dashboard.fixedExpenses.leftInMonth', { month: monthName })}
         value={forecast.remainingThisMonth}
-        caption={describeRemainingCharges(forecast.remainingCount)}
+        caption={describeRemainingCharges({
+          count: forecast.remainingCount,
+          t,
+        })}
       />
       <SummaryCard
-        title="Fixed expenses per month"
+        title={t('dashboard.fixedExpenses.perMonth')}
         value={forecast.monthlyTotal}
-        caption="All scheduled expenses, averaged to one month"
+        caption={t('dashboard.fixedExpenses.perMonthCaption')}
       />
     </Box>
   );
 }
 
-function describeRemainingCharges(count: number): string {
+function describeRemainingCharges({
+  count,
+  t,
+}: {
+  count: number;
+  t: T;
+}): string {
   return count === 1
-    ? '1 scheduled charge to go'
-    : `${count} scheduled charges to go`;
+    ? t('dashboard.fixedExpenses.remaining.one')
+    : t('dashboard.fixedExpenses.remaining.other', { count });
 }
 
 function SummaryCard({ title, value, caption }: SummaryCardProps) {
+  const formatter = useAppFormat();
   return (
     <Card>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -70,7 +87,7 @@ function SummaryCard({ title, value, caption }: SummaryCardProps) {
           {title}
         </Typography>
         <Typography variant="h3" component="p">
-          {formatCurrency(value)}
+          {formatter.currency(value)}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
           {caption}

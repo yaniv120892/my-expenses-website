@@ -12,6 +12,8 @@ export default defineConfig({
   reporter: IS_CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: BASE_URL,
+    // Specs select on English labels; the app otherwise follows Accept-Language and defaults to Hebrew.
+    locale: 'en-US',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     // The Claude Code sandbox ships its own Chromium; GitHub Actions

@@ -23,13 +23,14 @@ import {
   matchDateRangePreset,
 } from '@/utils/dateRangePresets';
 import CategorySelect from '../CategorySelect';
+import { useT } from '@/i18n/useT';
 
-interface TransactionFiltersDialogProps {
+type TransactionFiltersDialogProps = {
   open: boolean;
   onClose: () => void;
   onApply: (filters: TransactionFilters) => void;
   initialFilters?: TransactionFilters;
-}
+};
 
 export const TransactionFiltersDialog = ({
   open,
@@ -37,6 +38,7 @@ export const TransactionFiltersDialog = ({
   onApply,
   initialFilters,
 }: TransactionFiltersDialogProps) => {
+  const t = useT();
   const fullScreen = useIsCompact();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -93,7 +95,7 @@ export const TransactionFiltersDialog = ({
           }}
         >
           <FilterListIcon />
-          <span>Filter Transactions</span>
+          <span>{t('transactions.filters.title')}</span>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -105,7 +107,7 @@ export const TransactionFiltersDialog = ({
                 color: 'text.secondary',
               }}
             >
-              Date range
+              {t('transactions.filters.dateRange')}
             </Typography>
             <Stack
               direction="row"
@@ -118,7 +120,7 @@ export const TransactionFiltersDialog = ({
               {DATE_RANGE_PRESETS.map((preset) => (
                 <Chip
                   key={preset.id}
-                  label={preset.label}
+                  label={t(`transactions.datePreset.${preset.id}`)}
                   size="small"
                   color={activePreset === preset.id ? 'primary' : 'default'}
                   variant={activePreset === preset.id ? 'filled' : 'outlined'}
@@ -134,7 +136,7 @@ export const TransactionFiltersDialog = ({
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
-              label="Start Date"
+              label={t('transactions.filters.startDate')}
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -144,7 +146,7 @@ export const TransactionFiltersDialog = ({
               }}
             />
             <TextField
-              label="End Date"
+              label={t('transactions.filters.endDate')}
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
@@ -162,7 +164,7 @@ export const TransactionFiltersDialog = ({
                 color: 'text.secondary',
               }}
             >
-              Type
+              {t('common.type')}
             </Typography>
             <ToggleButtonGroup
               exclusive
@@ -173,14 +175,16 @@ export const TransactionFiltersDialog = ({
                 setType(next || undefined)
               }
             >
-              <ToggleButton value="">Any</ToggleButton>
-              <ToggleButton value="INCOME">Income</ToggleButton>
-              <ToggleButton value="EXPENSE">Expense</ToggleButton>
+              <ToggleButton value="">
+                {t('transactions.filters.any')}
+              </ToggleButton>
+              <ToggleButton value="INCOME">{t('common.income')}</ToggleButton>
+              <ToggleButton value="EXPENSE">{t('common.expense')}</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
 
           <TextField
-            label="Search"
+            label={t('common.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             fullWidth
@@ -188,14 +192,14 @@ export const TransactionFiltersDialog = ({
           <CategorySelect
             value={categoryId}
             onChange={(value) => setCategoryId(value)}
-            label="Category"
+            label={t('common.category')}
             fullWidth
           />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1 }}>
         <Button variant="outlined" onClick={onClose} disabled={loading}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
@@ -205,7 +209,7 @@ export const TransactionFiltersDialog = ({
             loading ? <CircularProgress size={18} color="inherit" /> : undefined
           }
         >
-          Apply
+          {t('common.apply')}
         </Button>
       </DialogActions>
     </Dialog>

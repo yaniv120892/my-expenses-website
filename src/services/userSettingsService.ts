@@ -1,3 +1,4 @@
+import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 import api from './api';
 import type {
   TelegramLinkCode,
@@ -34,10 +35,7 @@ export async function unlinkTelegram(): Promise<void> {
   await api.delete('/api/user/settings/telegram-link');
 }
 
-export async function testMonthlyReport(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function testMonthlyReport(): Promise<TestMonthlyReportResult> {
   const response = await api.post('/api/user/settings/test-monthly-report');
   return response.data;
 }

@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import EmptyState from '@/components/EmptyState';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import SubscriptionCard from '@/components/subscriptions/SubscriptionCard';
@@ -34,16 +34,22 @@ import {
 } from '@/types/subscription';
 import { describeApiError } from '@/utils/api';
 import { useErrorNotice } from '@/hooks/useErrorNotice';
-import { formatCurrencyRounded } from '@/utils/format';
 import { isOneOf } from '@/utils/oneOf';
 import {
   SUBSCRIPTION_SORT_KEYS,
-  SUBSCRIPTION_SORT_OPTIONS,
   SubscriptionSortKey,
   sortSubscriptions,
 } from '@/utils/subscriptionSort';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
+
+const STATUS_TABS: SubscriptionStatus[] = [
+  'DETECTED',
+  'CONFIRMED',
+  'DISMISSED',
+];
 
 type DialogTarget = {
   kind: 'convert' | 'edit' | 'explain';
@@ -79,6 +85,8 @@ function StatTile({
 }
 
 export default function SubscriptionsPage() {
+  const t = useT();
+  const formatter = useAppFormat();
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
@@ -105,7 +113,7 @@ export default function SubscriptionsPage() {
       { id, categoryId },
       {
         onSuccess: closeDialog,
-        onError: reportFailure('Failed to convert subscription'),
+        onError: reportFailure(t('subscriptions.convertFailed')),
       },
     );
   }
@@ -122,11 +130,9 @@ export default function SubscriptionsPage() {
   if (error) {
     return (
       <>
-        <PageHeader title="Subscriptions" />
+        <PageHeader title={t('subscriptions.title')} />
         <Alert severity="error">
-          {error instanceof Error
-            ? error.message
-            : 'Failed to load subscriptions'}
+          {describeApiError(error, t('subscriptions.loadFailed'))}
         </Alert>
       </>
     );
@@ -135,8 +141,8 @@ export default function SubscriptionsPage() {
   return (
     <>
       <PageHeader
-        title="Subscriptions"
-        subtitle="Recurring charges detected from your transactions"
+        title={t('subscriptions.title')}
+        subtitle={t('subscriptions.subtitle')}
       />
 
       {isLoading || !data ? (
@@ -166,19 +172,22 @@ export default function SubscriptionsPage() {
               mb: 3,
             }}
           >
-            <StatTile label="Active" value={String(data.activeCount)} />
             <StatTile
-              label="Detected"
-              value={String(data.detectedCount)}
+              label={t('subscriptions.stat.active')}
+              value={formatter.number({ value: data.activeCount })}
+            />
+            <StatTile
+              label={t('subscriptions.stat.detected')}
+              value={formatter.number({ value: data.detectedCount })}
               valueColor="warning.main"
             />
             <StatTile
-              label="Monthly"
-              value={formatCurrencyRounded(data.totalMonthlyEstimate)}
+              label={t('subscriptions.stat.monthly')}
+              value={formatter.currencyRounded(data.totalMonthlyEstimate)}
             />
             <StatTile
-              label="Annual"
-              value={formatCurrencyRounded(data.totalAnnualEstimate)}
+              label={t('subscriptions.stat.annual')}
+              value={formatter.currencyRounded(data.totalAnnualEstimate)}
             />
           </Box>
 
@@ -199,15 +208,19 @@ export default function SubscriptionsPage() {
               allowScrollButtonsMobile
               sx={{ borderBottom: 1, borderColor: 'divider', flexGrow: 1 }}
             >
-              <Tab label="All" value="ALL" />
-              <Tab label="Detected" value="DETECTED" />
-              <Tab label="Confirmed" value="CONFIRMED" />
-              <Tab label="Dismissed" value="DISMISSED" />
+              <Tab label={t('subscriptions.tab.ALL')} value="ALL" />
+              {STATUS_TABS.map((status) => (
+                <Tab
+                  key={status}
+                  label={t(`subscriptions.status.${status}`)}
+                  value={status}
+                />
+              ))}
             </Tabs>
             <TextField
               select
               size="small"
-              label="Sort by"
+              label={t('subscriptions.sortBy')}
               value={sortKey}
               onChange={(e) => {
                 const selected = e.target.value;
@@ -217,16 +230,16 @@ export default function SubscriptionsPage() {
               }}
               sx={{ minWidth: { xs: '100%', md: 260 } }}
             >
-              {SUBSCRIPTION_SORT_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+              {SUBSCRIPTION_SORT_KEYS.map((key) => (
+                <MenuItem key={key} value={key}>
+                  {t(`subscriptions.sort.${key}`)}
                 </MenuItem>
               ))}
             </TextField>
           </Stack>
 
           {sortedSubscriptions.length === 0 ? (
-            <EmptyState message="No subscriptions found" />
+            <EmptyState message={t('subscriptions.empty')} />
           ) : (
             <Box
               sx={{
@@ -245,12 +258,12 @@ export default function SubscriptionsPage() {
                   subscription={sub}
                   onConfirm={(id) =>
                     confirmMutation.mutate(id, {
-                      onError: reportFailure('Failed to confirm subscription'),
+                      onError: reportFailure(t('subscriptions.confirmFailed')),
                     })
                   }
                   onDismiss={(id) =>
                     dismissMutation.mutate(id, {
-                      onError: reportFailure('Failed to dismiss subscription'),
+                      onError: reportFailure(t('subscriptions.dismissFailed')),
                     })
                   }
                   onConvert={(s) =>

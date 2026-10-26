@@ -21,8 +21,8 @@ import {
 } from '@mui/material';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { DetectedSubscription } from '@/types/subscription';
-import { formatCurrency } from '@/utils/format';
-import { formatDateRange, formatDay } from '@/utils/dateUtils';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import {
   buildEvidenceReasons,
   withChargeGaps,
@@ -62,6 +62,8 @@ export default function SubscriptionEvidenceDialog({
   subscription,
   onClose,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const evidence = subscription?.detectionEvidence;
 
@@ -73,19 +75,26 @@ export default function SubscriptionEvidenceDialog({
       fullWidth
       fullScreen={fullScreen}
     >
-      <DialogTitle>Why {subscription?.displayName} was detected</DialogTitle>
+      <DialogTitle>
+        {t('subscriptions.evidence.title', {
+          name: subscription?.displayName ?? '',
+        })}
+      </DialogTitle>
       <DialogContent>
         {subscription &&
           (!evidence ? (
             <Alert severity="info">
-              This subscription was found before detection started recording its
-              reasoning. The details will appear after the next weekly detection
-              run.
+              {t('subscriptions.evidence.noEvidence')}
             </Alert>
           ) : (
             <Stack spacing={2.5} sx={{ mt: 1 }}>
               <Box>
-                {buildEvidenceReasons(subscription, evidence).map((reason) => (
+                {buildEvidenceReasons({
+                  subscription,
+                  evidence,
+                  t,
+                  formatter,
+                }).map((reason) => (
                   <Typography key={reason} variant="body2" sx={{ mb: 0.75 }}>
                     • {reason}
                   </Typography>
@@ -102,39 +111,48 @@ export default function SubscriptionEvidenceDialog({
                 }}
               >
                 <Fact
-                  label="Typical gap"
-                  value={`${evidence.medianIntervalDays} days`}
+                  label={t('subscriptions.evidence.typicalGap')}
+                  value={t('subscriptions.evidence.days', {
+                    count: evidence.medianIntervalDays,
+                  })}
                 />
                 <Fact
-                  label="Gap range"
-                  value={`${evidence.minIntervalDays}–${evidence.maxIntervalDays} days`}
+                  label={t('subscriptions.evidence.gapRange')}
+                  value={t('subscriptions.evidence.daysRange', {
+                    min: evidence.minIntervalDays,
+                    max: evidence.maxIntervalDays,
+                  })}
                 />
                 <Fact
-                  label="Amount range"
+                  label={t('subscriptions.evidence.amountRange')}
                   value={
                     evidence.minAmount === evidence.maxAmount
-                      ? `${formatCurrency(evidence.minAmount)} every time`
-                      : `${formatCurrency(evidence.minAmount)} – ${formatCurrency(evidence.maxAmount)}`
+                      ? t('subscriptions.evidence.sameAmount', {
+                          amount: formatter.currency(evidence.minAmount),
+                        })
+                      : `${formatter.currency(evidence.minAmount)} – ${formatter.currency(evidence.maxAmount)}`
                   }
                 />
                 <Fact
-                  label="Charges matched"
-                  value={`${evidence.chargeCount}`}
+                  label={t('subscriptions.evidence.chargesMatched')}
+                  value={formatter.number({ value: evidence.chargeCount })}
                 />
                 <Fact
-                  label="Window analyzed"
-                  value={formatDateRange(
-                    evidence.analyzedFrom,
-                    evidence.analyzedTo,
-                    '→',
-                  )}
+                  label={t('subscriptions.evidence.window')}
+                  value={formatter.dateRange({
+                    start: evidence.analyzedFrom,
+                    end: evidence.analyzedTo,
+                  })}
                 />
-                <Fact label="Merchant key" value={subscription.merchantName} />
+                <Fact
+                  label={t('subscriptions.evidence.merchantKey')}
+                  value={subscription.merchantName}
+                />
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Matching descriptions
+                  {t('subscriptions.evidence.matchingDescriptions')}
                 </Typography>
                 <Stack
                   direction="row"
@@ -152,31 +170,41 @@ export default function SubscriptionEvidenceDialog({
 
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Charges behind this
+                  {t('subscriptions.evidence.charges')}
                 </Typography>
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Description</TableCell>
-                        <TableCell align="right">Amount</TableCell>
-                        <TableCell align="right">Gap</TableCell>
+                        <TableCell>
+                          {t('subscriptions.evidence.column.date')}
+                        </TableCell>
+                        <TableCell>
+                          {t('subscriptions.evidence.column.description')}
+                        </TableCell>
+                        <TableCell align="right">
+                          {t('subscriptions.evidence.column.amount')}
+                        </TableCell>
+                        <TableCell align="right">
+                          {t('subscriptions.evidence.column.gap')}
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {withChargeGaps(evidence.recentCharges).map(
                         (charge, index) => (
                           <TableRow key={`${charge.date}-${index}`}>
-                            <TableCell>{formatDay(charge.date)}</TableCell>
+                            <TableCell>{formatter.day(charge.date)}</TableCell>
                             <TableCell>{charge.description}</TableCell>
                             <TableCell align="right">
-                              {formatCurrency(charge.amount)}
+                              {formatter.currency(charge.amount)}
                             </TableCell>
                             <TableCell align="right">
                               {charge.gapDays === null
                                 ? '—'
-                                : `${charge.gapDays}d`}
+                                : t('subscriptions.evidence.gapDays', {
+                                    count: charge.gapDays,
+                                  })}
                             </TableCell>
                           </TableRow>
                         ),
@@ -193,25 +221,27 @@ export default function SubscriptionEvidenceDialog({
                       display: 'block',
                     }}
                   >
-                    {evidence.olderChargeCount} older charge
-                    {evidence.olderChargeCount > 1 ? 's' : ''} also matched.
+                    {evidence.olderChargeCount === 1
+                      ? t('subscriptions.evidence.olderCharges.one')
+                      : t('subscriptions.evidence.olderCharges.other', {
+                          count: evidence.olderChargeCount,
+                        })}
                   </Typography>
                 )}
               </Box>
 
               {subscription.userEditedAt && (
                 <Alert severity="info">
-                  You edited these figures on{' '}
-                  {formatDay(subscription.userEditedAt)}. Detection keeps
-                  refreshing the charges above but no longer overwrites your
-                  amount, frequency or name.
+                  {t('subscriptions.evidence.userEdited', {
+                    date: formatter.day(subscription.userEditedAt),
+                  })}
                 </Alert>
               )}
             </Stack>
           ))}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('common.close')}</Button>
       </DialogActions>
     </Dialog>
   );

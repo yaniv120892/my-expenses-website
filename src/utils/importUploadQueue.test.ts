@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { createTranslator } from '@yaniv120892/my-ui';
+import { messages } from '@/i18n/messages';
+import type { T } from '@/i18n/useT.types';
 import {
+  describeUploadError,
   initialUploadQueueState,
   planAddFiles,
   selectIsDrained,
@@ -10,6 +14,8 @@ import {
   UploadQueueAction,
   UploadQueueState,
 } from '@/utils/importUploadQueue';
+
+const englishT: T = createTranslator({ locale: 'en', messages: messages.en });
 
 function file(name: string, lastModified = 1): File {
   return new File(['content'], name, { lastModified });
@@ -126,7 +132,11 @@ describe('uploadQueueReducer', () => {
     const retried = file('a.csv');
     const state = reduce(
       withFiles([retried]),
-      { type: 'ITEM_FAILED', id: '0', error: 'boom' },
+      {
+        type: 'ITEM_FAILED',
+        id: '0',
+        error: { code: 'REQUEST_FAILED', message: 'boom' },
+      },
       { type: 'ADD_FILES', files: [retried], paymentMonth: '' },
     );
 
@@ -155,7 +165,11 @@ describe('uploadQueueReducer', () => {
       withFiles([file('a.csv')]),
       { type: 'UPLOAD_STARTED', id: '0' },
       { type: 'UPLOAD_SUCCEEDED', id: '0', fileUrl: 'https://s3/a.csv' },
-      { type: 'ITEM_FAILED', id: '0', error: 'process failed' },
+      {
+        type: 'ITEM_FAILED',
+        id: '0',
+        error: { code: 'REQUEST_FAILED', message: 'process failed' },
+      },
       { type: 'REQUEUE', ids: ['0'] },
     );
 
@@ -171,7 +185,11 @@ describe('uploadQueueReducer', () => {
     const state = reduce(
       withFiles([file('a.csv'), file('b.csv')]),
       { type: 'ITEM_SUCCEEDED', id: '0', importId: 'import-1' },
-      { type: 'ITEM_FAILED', id: '1', error: 'boom' },
+      {
+        type: 'ITEM_FAILED',
+        id: '1',
+        error: { code: 'REQUEST_FAILED', message: 'boom' },
+      },
       { type: 'REQUEUE', ids: ['1'] },
     );
 
@@ -237,7 +255,7 @@ describe('upload queue selectors', () => {
     const drained = reduce(state, {
       type: 'ITEM_FAILED',
       id: '1',
-      error: 'boom',
+      error: { code: 'REQUEST_FAILED', message: 'boom' },
     });
     expect(selectIsDrained(drained)).toBe(true);
   });
@@ -259,14 +277,47 @@ describe('upload queue selectors', () => {
     const state = reduce(
       withFiles([file('a.csv'), file('b.csv')]),
       { type: 'ITEM_SUCCEEDED', id: '0', importId: 'import-1' },
-      { type: 'ITEM_FAILED', id: '1', error: 'File is too large' },
+      {
+        type: 'ITEM_FAILED',
+        id: '1',
+        error: { code: 'REQUEST_FAILED', message: 'File is too large' },
+      },
     );
 
-    expect(toBatchResult(state)).toEqual({
+    expect(toBatchResult({ state, t: englishT })).toEqual({
       total: 2,
       succeeded: 1,
       failed: 1,
       errors: [{ id: 'b.csv', error: 'File is too large' }],
     });
+  });
+});
+
+describe('describeUploadError', () => {
+  it("names a malformed payment month in the reader's language", () => {
+    expect(
+      describeUploadError({
+        error: { code: 'INVALID_PAYMENT_MONTH' },
+        t: englishT,
+      }),
+    ).toBe('Payment month must be MM/YYYY');
+  });
+
+  it('shows the server message when there is one', () => {
+    expect(
+      describeUploadError({
+        error: { code: 'REQUEST_FAILED', message: 'File is too large' },
+        t: englishT,
+      }),
+    ).toBe('File is too large');
+  });
+
+  it('falls back to a translated message when the server sent none', () => {
+    expect(
+      describeUploadError({
+        error: { code: 'REQUEST_FAILED', message: null },
+        t: englishT,
+      }),
+    ).toBe('Failed to import file');
   });
 });

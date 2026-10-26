@@ -9,6 +9,9 @@ export default defineConfig({
       'prisma.config.test.ts',
     ],
     environment: 'node',
+    setupFiles: ['src/test/setup.ts'],
+    // The shared UI package ships extensionless ESM imports for the bundler.
+    server: { deps: { inline: ['@yaniv120892/my-ui'] } },
     typecheck: {
       enabled: true,
       include: ['src/**/*.test-d.ts'],

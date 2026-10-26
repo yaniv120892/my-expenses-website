@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
+import { renderWithClient } from '@/test/renderWithClient';
 import TelegramLinkSettings from '@/components/TelegramLinkSettings';
 
 const { useUserSettingsQuery, createCode } = vi.hoisted(() => ({
@@ -53,7 +48,7 @@ afterEach(() => {
 
 describe('TelegramLinkSettings', () => {
   it('polls while a first link is pending and stops once the chat is linked', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithClient(
       <TelegramLinkSettings linked={false} onResult={onResult} />,
     );
     expect(lastPollRequest()).toBe(false);
@@ -68,7 +63,7 @@ describe('TelegramLinkSettings', () => {
   });
 
   it('keeps a relink code on screen without polling until Done', () => {
-    render(<TelegramLinkSettings linked onResult={onResult} />);
+    renderWithClient(<TelegramLinkSettings linked onResult={onResult} />);
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Link a different chat' }),
@@ -82,7 +77,9 @@ describe('TelegramLinkSettings', () => {
 
   it('stops polling and says so when the code expires', () => {
     vi.useFakeTimers();
-    render(<TelegramLinkSettings linked={false} onResult={onResult} />);
+    renderWithClient(
+      <TelegramLinkSettings linked={false} onResult={onResult} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Link Telegram' }));
     expect(lastPollRequest()).toBe(true);

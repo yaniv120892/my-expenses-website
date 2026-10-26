@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import {
   CategoryComparison,
   ComparisonCell,
@@ -6,11 +6,13 @@ import {
   TrendPeriod,
 } from '@/types/trends';
 import { toDayString } from '@/shared/dates';
+import type { AppFormatter } from '@/i18n/useAppFormat';
+import type { T } from '@/i18n/useT.types';
 
-export const MEASURE_LABELS: Record<ComparisonMeasure, string> = {
-  net: 'Net',
-  expense: 'Spent',
-  income: 'Received',
+type ComparisonBucketLabelInput = {
+  bucket: { key: string; startDate: string };
+  period: TrendPeriod;
+  formatter: AppFormatter;
 };
 
 export function selectMeasure(
@@ -30,18 +32,19 @@ export function seriesColor(index: number, palette: string[]): string {
   return palette[index % palette.length];
 }
 
-export function formatBucketLabel(
-  bucket: { key: string; startDate: string },
-  period: TrendPeriod,
-): string {
-  const date = parseISO(bucket.startDate);
-  if (period === 'yearly') {
-    return format(date, 'yyyy');
+export function formatBucketLabel({
+  bucket,
+  period,
+  formatter,
+}: ComparisonBucketLabelInput): string {
+  switch (period) {
+    case 'yearly':
+      return formatter.year(bucket.startDate);
+    case 'weekly':
+      return bucket.key;
+    default:
+      return formatter.monthShort(bucket.startDate);
   }
-  if (period === 'weekly') {
-    return bucket.key;
-  }
-  return format(date, 'MMM yyyy');
 }
 
 function escapeCsvValue(value: string | number): string {
@@ -49,24 +52,32 @@ function escapeCsvValue(value: string | number): string {
   return `"${raw.replace(/"/g, '""')}"`;
 }
 
-export function comparisonToCsv(
-  comparison: CategoryComparison,
-  measure: ComparisonMeasure,
-): string {
+export function comparisonToCsv({
+  comparison,
+  measure,
+  t,
+  formatter,
+}: {
+  comparison: CategoryComparison;
+  measure: ComparisonMeasure;
+  t: T;
+  formatter: AppFormatter;
+}): string {
+  const totalLabel = t('trends.compare.total');
   const header = [
-    'Period',
+    t('trends.compare.period'),
     ...comparison.series.map((series) => series.categoryName),
-    'Total',
+    totalLabel,
   ];
 
   const rows = comparison.buckets.map((bucket) => [
-    formatBucketLabel(bucket, comparison.period),
+    formatBucketLabel({ bucket, period: comparison.period, formatter }),
     ...bucket.cells.map((cell) => selectMeasure(cell, measure)),
     selectMeasure(bucket.rowTotal, measure),
   ]);
 
   const totals = [
-    'Total',
+    totalLabel,
     ...comparison.series.map((series) => selectMeasure(series.total, measure)),
     selectMeasure(comparison.grandTotal, measure),
   ];

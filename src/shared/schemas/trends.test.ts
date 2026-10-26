@@ -4,7 +4,7 @@ import {
   getCategoryComparisonQuerySchema,
 } from '@/shared/schemas/trends';
 import { MAX_COMPARISON_SERIES as TYPES_MAX } from '@/shared/types/trends';
-import theme from '@/theme';
+import { CHART_SERIES } from '@yaniv120892/my-ui';
 
 const CATEGORY_IDS = Array.from(
   { length: 16 },
@@ -25,7 +25,7 @@ describe('comparison series bound', () => {
   });
 
   it('matches the number of chart series colors in the theme', () => {
-    expect(theme.palette.charts.series).toHaveLength(MAX_COMPARISON_SERIES);
+    expect(CHART_SERIES).toHaveLength(MAX_COMPARISON_SERIES);
   });
 
   it('accepts a selection up to the bound', () => {

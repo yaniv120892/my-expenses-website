@@ -10,26 +10,26 @@ import {
   useTheme,
 } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import type { TooltipContentProps } from 'recharts';
-import { formatCurrency } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import { TransactionType } from '@/types';
 import {
   UNSELECTED_SLICE_OPACITY,
   CLICKABLE_SLICE_SX,
 } from '@/components/chartStyles';
 
-interface PieTooltipPayload {
-  name: string;
-  value: number;
-}
-
-interface PieDatum {
+type PieDatum = {
   name: string;
   value: number;
   type: TransactionType;
-}
+};
 
-interface Props {
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: readonly { payload?: PieDatum }[];
+};
+
+type Props = {
   income: number;
   expense: number;
   loading?: boolean;
@@ -37,23 +37,22 @@ interface Props {
   title?: string;
   selectedType?: TransactionType;
   onSelectType?: (type: TransactionType) => void;
-}
+};
 
-function ChartTooltip({
-  active,
-  payload,
-}: Pick<TooltipContentProps<number, string>, 'active' | 'payload'>) {
-  if (!active || !payload || !payload.length) {
+function ChartTooltip({ active, payload }: ChartTooltipProps) {
+  const formatter = useAppFormat();
+  const datum = payload?.[0]?.payload;
+  if (!active || !datum) {
     return null;
   }
-  const { name, value } = payload[0] as PieTooltipPayload;
+  const { name, value } = datum;
   return (
     <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>
       <Typography variant="caption">
         <Box component="span" sx={{ fontWeight: 600 }}>
           {name}:
         </Box>{' '}
-        {formatCurrency(value)}
+        {formatter.currency(value)}
       </Typography>
     </Paper>
   );
@@ -68,14 +67,16 @@ export default function IncomeExpensePieChart({
   selectedType,
   onSelectType,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const { charts } = palette;
   const pieData: PieDatum[] = [
-    { name: 'Income', value: income, type: 'INCOME' },
-    { name: 'Expense', value: expense, type: 'EXPENSE' },
+    { name: t('common.income'), value: income, type: 'INCOME' },
+    { name: t('common.expense'), value: expense, type: 'EXPENSE' },
   ];
-  const pieColors = [charts.income, charts.expense];
+  const pieColors = [charts.positive, charts.negative];
   const total = income - expense;
 
   return (
@@ -108,7 +109,7 @@ export default function IncomeExpensePieChart({
               color: 'error.main',
             }}
           >
-            Failed to load summary
+            {t('dashboard.incomeExpense.loadFailed')}
           </Typography>
         ) : (
           <>
@@ -142,7 +143,7 @@ export default function IncomeExpensePieChart({
                   >
                     {pieData.map((entry, idx) => (
                       <Cell
-                        key={entry.name}
+                        key={entry.type}
                         fill={pieColors[idx % pieColors.length]}
                         fillOpacity={
                           selectedType && selectedType !== entry.type
@@ -163,12 +164,12 @@ export default function IncomeExpensePieChart({
                   color: 'text.secondary',
                 }}
               >
-                Income:{' '}
+                {t('dashboard.incomeExpense.incomeLabel')}{' '}
                 <Box
                   component="span"
-                  sx={{ color: charts.income, fontWeight: 600 }}
+                  sx={{ color: charts.positive, fontWeight: 600 }}
                 >
-                  {formatCurrency(income)}
+                  {formatter.currency(income)}
                 </Box>
               </Typography>
               <Typography
@@ -177,22 +178,24 @@ export default function IncomeExpensePieChart({
                   color: 'text.secondary',
                 }}
               >
-                Expenses:{' '}
+                {t('dashboard.incomeExpense.expensesLabel')}{' '}
                 <Box
                   component="span"
-                  sx={{ color: charts.expense, fontWeight: 600 }}
+                  sx={{ color: charts.negative, fontWeight: 600 }}
                 >
-                  {formatCurrency(expense)}
+                  {formatter.currency(expense)}
                 </Box>
               </Typography>
               <Typography
                 variant="subtitle2"
                 sx={{
                   fontWeight: 700,
-                  color: total >= 0 ? charts.income : charts.expense,
+                  color: total >= 0 ? charts.positive : charts.negative,
                 }}
               >
-                Total: {formatCurrency(Math.abs(Math.round(total)))}
+                {t('dashboard.incomeExpense.total', {
+                  amount: formatter.currency(Math.abs(Math.round(total))),
+                })}
               </Typography>
             </Stack>
           </>

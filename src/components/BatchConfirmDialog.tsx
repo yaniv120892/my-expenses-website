@@ -10,15 +10,19 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 
-interface BatchConfirmDialogProps {
+type BatchAction = 'approve' | 'ignore';
+
+type BatchConfirmDialogProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  action: 'approve' | 'ignore';
+  action: BatchAction;
   count: number;
   isLoading: boolean;
-}
+};
 
 export default function BatchConfirmDialog({
   open,
@@ -28,37 +32,74 @@ export default function BatchConfirmDialog({
   count,
   isLoading,
 }: BatchConfirmDialogProps) {
-  const actionLabel = action === 'approve' ? 'approve' : 'ignore';
+  const t = useT();
+  const isApprove = action === 'approve';
 
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose}>
       <DialogTitle>
-        Confirm Batch {action === 'approve' ? 'Approve/Merge' : 'Ignore'}
+        {isApprove
+          ? t('imports.batch.confirmApproveTitle')
+          : t('imports.batch.confirmIgnoreTitle')}
       </DialogTitle>
       <DialogContent>
         <DialogContentText>
-          Are you sure you want to {actionLabel} {count} transaction
-          {count !== 1 ? 's' : ''}?
-          {action === 'approve' &&
-            ' Transactions with a match will be merged; others will be created as new records.'}
+          {confirmationText({ action, count, t })}
         </DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isLoading}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           onClick={onConfirm}
           variant="contained"
-          color={action === 'approve' ? 'success' : 'warning'}
+          color={isApprove ? 'success' : 'warning'}
           disabled={isLoading}
           startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
         >
-          {isLoading
-            ? 'Processing...'
-            : `${action === 'approve' ? 'Approve' : 'Ignore'} ${count}`}
+          {confirmButtonLabel({ action, count, isLoading, t })}
         </Button>
       </DialogActions>
     </Dialog>
   );
+}
+
+function confirmationText({
+  action,
+  count,
+  t,
+}: {
+  action: BatchAction;
+  count: number;
+  t: T;
+}): string {
+  const isOne = count === 1;
+  if (action === 'approve') {
+    return isOne
+      ? t('imports.batch.confirmApprove.one')
+      : t('imports.batch.confirmApprove.other', { count });
+  }
+  return isOne
+    ? t('imports.batch.confirmIgnore.one')
+    : t('imports.batch.confirmIgnore.other', { count });
+}
+
+function confirmButtonLabel({
+  action,
+  count,
+  isLoading,
+  t,
+}: {
+  action: BatchAction;
+  count: number;
+  isLoading: boolean;
+  t: T;
+}): string {
+  if (isLoading) {
+    return t('imports.batch.processing');
+  }
+  return action === 'approve'
+    ? t('imports.batch.approveCount', { count })
+    : t('imports.batch.ignoreCount', { count });
 }

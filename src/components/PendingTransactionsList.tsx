@@ -23,11 +23,12 @@ import {
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Transaction } from '../types';
-import { formatTransactionDate } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 type Props = {
   transactions: Transaction[];
@@ -41,6 +42,8 @@ export default function PendingTransactionsList({
   onConfirmAction,
   onDeleteAction,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const isMobile = useIsMobile();
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -79,7 +82,7 @@ export default function PendingTransactionsList({
   }
 
   if (transactions.length === 0) {
-    return <EmptyState message="No pending transactions found." />;
+    return <EmptyState message={t('pending.empty')} />;
   }
 
   return (
@@ -94,9 +97,9 @@ export default function PendingTransactionsList({
                 key={tx.id}
                 onSwipeRight={() => void onConfirmAction(tx.id)}
                 onSwipeLeft={() => void onDeleteAction(tx.id)}
-                rightLabel="Approve"
+                rightLabel={t('pending.approve')}
                 rightColor="success.main"
-                leftLabel="Delete"
+                leftLabel={t('pending.delete')}
                 leftColor="error.main"
               >
                 <Box
@@ -133,7 +136,7 @@ export default function PendingTransactionsList({
                         color: 'text.secondary',
                       }}
                     >
-                      {formatTransactionDate(tx.date)}
+                      {formatter.day(tx.date)}
                     </Typography>
                   </Box>
                 </Box>
@@ -146,11 +149,15 @@ export default function PendingTransactionsList({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Description</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('pending.column.description')}</TableCell>
+                <TableCell>{t('pending.column.category')}</TableCell>
+                <TableCell>{t('pending.column.date')}</TableCell>
+                <TableCell align="right">
+                  {t('pending.column.amount')}
+                </TableCell>
+                <TableCell align="right">
+                  {t('pending.column.actions')}
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -168,17 +175,17 @@ export default function PendingTransactionsList({
                     {tx.category?.name}
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>
-                    {formatTransactionDate(tx.date)}
+                    {formatter.day(tx.date)}
                   </TableCell>
                   <TableCell align="right">
                     <AmountText type={tx.type} value={tx.value} original={tx} />
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    <Tooltip title="Approve">
+                    <Tooltip title={t('pending.approve')}>
                       <IconButton
                         size="small"
                         color="success"
-                        aria-label="Approve transaction"
+                        aria-label={t('pending.approveAria')}
                         onClick={(e) => {
                           e.stopPropagation();
                           void onConfirmAction(tx.id);
@@ -187,11 +194,11 @@ export default function PendingTransactionsList({
                         <CheckRoundedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    <Tooltip title={t('pending.delete')}>
                       <IconButton
                         size="small"
                         color="error"
-                        aria-label="Delete transaction"
+                        aria-label={t('pending.deleteAria')}
                         onClick={(e) => {
                           e.stopPropagation();
                           void onDeleteAction(tx.id);
@@ -225,18 +232,18 @@ export default function PendingTransactionsList({
                   color: 'text.secondary',
                 }}
               >
-                Approve or delete this transaction?
+                {t('pending.dialog.question')}
               </Typography>
             </DialogContent>
             <DialogActions sx={{ p: 2, gap: 1 }}>
               <Button variant="outlined" onClick={closeDialog}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button variant="contained" color="error" onClick={handleDelete}>
-                Delete
+                {t('pending.delete')}
               </Button>
               <Button variant="contained" onClick={handleApprove}>
-                Approve
+                {t('pending.approve')}
               </Button>
             </DialogActions>
           </>

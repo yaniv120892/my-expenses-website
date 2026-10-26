@@ -18,15 +18,8 @@ import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
-import {
-  formatTransactionDate,
-  translateToScheduleSummary,
-} from '../utils/format';
-
-function getCategoryName(categoryId: string, categories: Category[]) {
-  const found = categories.find((cat) => cat.id === categoryId);
-  return found ? found.name : 'N/A';
-}
+import { scheduleSummary, useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 export default function ScheduledTransactionList({
   scheduledTransactions,
@@ -37,10 +30,27 @@ export default function ScheduledTransactionList({
   categories: Category[];
   onEditAction: (tx: ScheduledTransaction) => void;
 }) {
+  const t = useT();
+  const formatter = useAppFormat();
   const isMobile = useIsMobile();
 
+  function categoryName(categoryId: string) {
+    const found = categories.find((category) => category.id === categoryId);
+    return found ? found.name : t('scheduled.notAvailable');
+  }
+
+  function summary(schedule: ScheduledTransaction) {
+    return scheduleSummary({ schedule, t, formatter });
+  }
+
+  function nextRun(schedule: ScheduledTransaction) {
+    return schedule.nextRunDate
+      ? formatter.day(schedule.nextRunDate)
+      : t('scheduled.notAvailable');
+  }
+
   if (!scheduledTransactions.length) {
-    return <EmptyState message="No scheduled transactions found." />;
+    return <EmptyState message={t('scheduled.empty')} />;
   }
 
   if (isMobile) {
@@ -53,7 +63,7 @@ export default function ScheduledTransactionList({
             <SwipeableRow
               key={tx.id}
               onSwipeRight={() => onEditAction(tx)}
-              rightLabel="Edit"
+              rightLabel={t('scheduled.edit')}
               rightColor="primary.main"
             >
               <Box
@@ -79,7 +89,7 @@ export default function ScheduledTransactionList({
                       color: 'text.secondary',
                     }}
                   >
-                    {getCategoryName(tx.categoryId, categories)}
+                    {categoryName(tx.categoryId)}
                   </Typography>
                   <Typography
                     variant="caption"
@@ -88,12 +98,7 @@ export default function ScheduledTransactionList({
                       color: 'text.secondary',
                     }}
                   >
-                    {translateToScheduleSummary(
-                      tx.scheduleType,
-                      tx.interval,
-                      tx.dayOfWeek,
-                      tx.dayOfMonth,
-                    )}
+                    {summary(tx)}
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
@@ -104,9 +109,7 @@ export default function ScheduledTransactionList({
                       color: 'text.secondary',
                     }}
                   >
-                    {tx.nextRunDate
-                      ? formatTransactionDate(tx.nextRunDate)
-                      : 'N/A'}
+                    {nextRun(tx)}
                   </Typography>
                 </Box>
               </Box>
@@ -122,11 +125,11 @@ export default function ScheduledTransactionList({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Description</TableCell>
-            <TableCell>Category</TableCell>
-            <TableCell>Schedule</TableCell>
-            <TableCell>Next run</TableCell>
-            <TableCell align="right">Amount</TableCell>
+            <TableCell>{t('scheduled.column.description')}</TableCell>
+            <TableCell>{t('scheduled.column.category')}</TableCell>
+            <TableCell>{t('scheduled.column.schedule')}</TableCell>
+            <TableCell>{t('scheduled.column.nextRun')}</TableCell>
+            <TableCell align="right">{t('scheduled.column.amount')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -139,18 +142,13 @@ export default function ScheduledTransactionList({
             >
               <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
-                {getCategoryName(tx.categoryId, categories)}
+                {categoryName(tx.categoryId)}
               </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
-                {translateToScheduleSummary(
-                  tx.scheduleType,
-                  tx.interval,
-                  tx.dayOfWeek,
-                  tx.dayOfMonth,
-                )}
+                {summary(tx)}
               </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
-                {tx.nextRunDate ? formatTransactionDate(tx.nextRunDate) : 'N/A'}
+                {nextRun(tx)}
               </TableCell>
               <TableCell align="right">
                 <AmountText type={tx.type} value={tx.value} />

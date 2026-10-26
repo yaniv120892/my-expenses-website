@@ -34,6 +34,14 @@ import { isOneOf } from '@/utils/oneOf';
 import { useState, useEffect } from 'react';
 import { toDayString } from '@/shared/dates';
 import { parseDayInput } from '@/utils/dateUtils';
+import { useT } from '@/i18n/useT';
+import { ALL_CATEGORIES } from './trendFilters';
+
+const SELECTABLE_PERIODS: readonly TrendPeriod[] = [
+  'weekly',
+  'monthly',
+  'yearly',
+];
 
 interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;
@@ -57,6 +65,7 @@ export const TrendFiltersDialog = ({
   categories,
   showComparisonFields,
 }: TrendFiltersDialogProps) => {
+  const t = useT();
   const fullScreen = useIsCompact();
   const theme = useTheme();
   const seriesColors = (theme.vars ?? theme).palette.charts.series;
@@ -184,8 +193,8 @@ export const TrendFiltersDialog = ({
         renderInput={(params) => (
           <TextField
             {...params}
-            label="Categories to compare"
-            placeholder={isSelectionFull ? '' : 'Add a category'}
+            label={t('trends.dialog.categoriesToCompare')}
+            placeholder={isSelectionFull ? '' : t('trends.dialog.addCategory')}
           />
         )}
       />
@@ -199,15 +208,19 @@ export const TrendFiltersDialog = ({
               setComparisonScope(value);
             }
           }}
-          aria-label="Category scope"
+          aria-label={t('trends.dialog.scopeLabel')}
         >
-          <ToggleButton value="SUBTREE">Include subcategories</ToggleButton>
-          <ToggleButton value="EXACT">This category only</ToggleButton>
+          <ToggleButton value="SUBTREE">
+            {t('trends.dialog.scope.subtree')}
+          </ToggleButton>
+          <ToggleButton value="EXACT">
+            {t('trends.dialog.scope.exact')}
+          </ToggleButton>
         </ToggleButtonGroup>
         <FormHelperText>
           {comparisonScope === 'SUBTREE'
-            ? 'A parent category sums all of its subcategories.'
-            : 'Each category counts only its own transactions.'}
+            ? t('trends.dialog.scope.subtreeHelp')
+            : t('trends.dialog.scope.exactHelp')}
         </FormHelperText>
       </FormControl>
     </>
@@ -222,31 +235,39 @@ export const TrendFiltersDialog = ({
       fullScreen={fullScreen}
     >
       <DialogTitle>
-        {showComparisonFields ? 'Filter Comparison' : 'Filter Trends'}
+        {showComparisonFields
+          ? t('trends.dialog.filterComparison')
+          : t('trends.dialog.filterTrends')}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {/* Compare spans both types at once, so it has no Type filter. */}
           {!showComparisonFields && (
             <FormControl fullWidth>
-              <InputLabel>Type</InputLabel>
+              <InputLabel>{t('trends.dialog.type')}</InputLabel>
               <Select
                 value={transactionType}
-                label="Type"
+                label={t('trends.dialog.type')}
                 onChange={handleTransactionTypeChange}
               >
-                <MenuItem value="EXPENSE">Expenses</MenuItem>
-                <MenuItem value="INCOME">Income</MenuItem>
+                <MenuItem value="EXPENSE">{t('trends.type.expense')}</MenuItem>
+                <MenuItem value="INCOME">{t('trends.type.income')}</MenuItem>
               </Select>
             </FormControl>
           )}
 
           <FormControl fullWidth>
-            <InputLabel>Period</InputLabel>
-            <Select value={period} label="Period" onChange={handlePeriodChange}>
-              <MenuItem value="weekly">Weekly</MenuItem>
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
+            <InputLabel>{t('trends.dialog.period')}</InputLabel>
+            <Select
+              value={period}
+              label={t('trends.dialog.period')}
+              onChange={handlePeriodChange}
+            >
+              {SELECTABLE_PERIODS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {t(`trends.period.${option}`)}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -254,13 +275,15 @@ export const TrendFiltersDialog = ({
             comparisonFields
           ) : (
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
+              <InputLabel>{t('trends.dialog.category')}</InputLabel>
               <Select
                 value={selectedCategory}
-                label="Category"
+                label={t('trends.dialog.category')}
                 onChange={handleCategoryChange}
               >
-                <MenuItem value="All Categories">All Categories</MenuItem>
+                <MenuItem value={ALL_CATEGORIES}>
+                  {t('trends.allCategories')}
+                </MenuItem>
                 {sortedCategories.map((category) => (
                   <MenuItem key={category.id} value={category.id}>
                     {category.name}
@@ -271,7 +294,7 @@ export const TrendFiltersDialog = ({
           )}
 
           <TextField
-            label="Start Date"
+            label={t('trends.dialog.startDate')}
             type="date"
             value={toDayString(new Date(startDate))}
             onChange={handleStartDateChange}
@@ -280,7 +303,7 @@ export const TrendFiltersDialog = ({
           />
 
           <TextField
-            label="End Date"
+            label={t('trends.dialog.endDate')}
             type="date"
             value={toDayString(new Date(endDate))}
             onChange={handleEndDateChange}
@@ -290,9 +313,9 @@ export const TrendFiltersDialog = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('trends.dialog.cancel')}</Button>
         <Button variant="contained" onClick={handleApply}>
-          Apply
+          {t('trends.dialog.apply')}
         </Button>
       </DialogActions>
     </Dialog>

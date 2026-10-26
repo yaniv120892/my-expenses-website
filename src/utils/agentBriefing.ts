@@ -24,7 +24,7 @@ export function buildAgentBriefing({
     'HOW TO CONNECT',
     `- It is a remote MCP server (Streamable HTTP): ${mcpUrl}`,
     `- Send this header on every request: Authorization: Bearer ${token ?? AGENT_TOKEN_PLACEHOLDER}`,
-    '- The token is mine and secret. Never show it in a chat or send it anywhere else. If you get a 401, ask me to issue a new one in My Expenses → Settings → סוכן אישי.',
+    '- The token is mine and secret. Never show it in a chat or send it anywhere else. If you get a 401, ask me to issue a new one in My Expenses → Settings → Personal agent (in Hebrew: הגדרות → סוכן אישי).',
     '',
     'WHAT YOU CAN DO (MCP tools)',
     ...toolLines,

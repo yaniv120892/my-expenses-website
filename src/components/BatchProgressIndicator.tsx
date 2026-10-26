@@ -11,28 +11,33 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
 import { BatchResult } from '../types/import';
 
-interface BatchProgressIndicatorProps {
+type BatchItemKind = 'transactions' | 'files';
+
+type BatchProgressIndicatorProps = {
   result: BatchResult | null;
   isLoading: boolean;
   onClose: () => void;
-  itemLabel?: string;
-}
+  itemKind?: BatchItemKind;
+};
 
 export default function BatchProgressIndicator({
   result,
   isLoading,
   onClose,
-  itemLabel = 'transactions',
+  itemKind = 'transactions',
 }: BatchProgressIndicatorProps) {
+  const t = useT();
   const [showErrors, setShowErrors] = useState(false);
 
   if (isLoading) {
     return (
       <Box sx={{ mb: 2 }}>
         <Typography variant="body2" sx={{ mb: 1 }}>
-          Processing batch operation...
+          {t('imports.batch.inProgress')}
         </Typography>
         <LinearProgress />
       </Box>
@@ -55,21 +60,25 @@ export default function BatchProgressIndicator({
       <Alert
         severity={severity}
         action={
-          <IconButton size="small" onClick={onClose}>
+          <IconButton
+            size="small"
+            onClick={onClose}
+            aria-label={t('imports.batch.dismiss')}
+          >
             <CloseIcon fontSize="small" />
           </IconButton>
         }
       >
         <Typography variant="body2">
-          {result.succeeded} of {result.total} {itemLabel} processed
-          successfully.
-          {result.failed > 0 && ` ${result.failed} failed.`}
+          {resultSummary({ result, itemKind, t })}
         </Typography>
         {result.errors.length > 0 && (
           <>
             <IconButton
               size="small"
               onClick={() => setShowErrors(!showErrors)}
+              aria-label={t('imports.batch.toggleErrors')}
+              aria-expanded={showErrors}
               sx={{ ml: 1 }}
             >
               <ExpandMoreIcon
@@ -81,15 +90,15 @@ export default function BatchProgressIndicator({
             </IconButton>
             <Collapse in={showErrors}>
               <Box sx={{ mt: 1 }}>
-                {result.errors.map((err, i) => (
+                {result.errors.map((batchError, index) => (
                   <Typography
-                    key={i}
+                    key={index}
                     variant="caption"
                     sx={{
                       display: 'block',
                     }}
                   >
-                    {err.id}: {err.error}
+                    {batchError.id}: {batchError.error}
                   </Typography>
                 ))}
               </Box>
@@ -99,4 +108,24 @@ export default function BatchProgressIndicator({
       </Alert>
     </Box>
   );
+}
+
+function resultSummary({
+  result,
+  itemKind,
+  t,
+}: {
+  result: BatchResult;
+  itemKind: BatchItemKind;
+  t: T;
+}): string {
+  const counts = { succeeded: result.succeeded, total: result.total };
+  const processed =
+    itemKind === 'files'
+      ? t('imports.batch.filesResult', counts)
+      : t('imports.batch.transactionsResult', counts);
+  if (result.failed === 0) {
+    return processed;
+  }
+  return `${processed} ${t('imports.batch.failedCount', { count: result.failed })}`;
 }

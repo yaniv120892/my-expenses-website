@@ -12,7 +12,8 @@ import {
 } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { CategoryBreakdownItem } from '@/types';
-import { formatCurrency } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 import {
   CLICKABLE_ROW_SX,
   UNSELECTED_SLICE_OPACITY,
@@ -36,6 +37,7 @@ type ChartTooltipProps = {
 };
 
 function ChartTooltip({ active, payload }: ChartTooltipProps) {
+  const formatter = useAppFormat();
   const item = payload?.[0]?.payload;
   if (!active || !item) {
     return null;
@@ -46,7 +48,8 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
         <Box component="span" sx={{ fontWeight: 600 }}>
           {item.categoryName}:
         </Box>{' '}
-        {formatCurrency(item.amount)} ({item.percentage.toFixed(1)}%)
+        {formatter.currency(item.amount)} (
+        {formatter.percentagePoints(item.percentage)})
       </Typography>
     </Paper>
   );
@@ -60,6 +63,8 @@ export default function CategoryBreakdownPieChart({
   selectedCategoryId,
   onSelectCategory,
 }: Props) {
+  const t = useT();
+  const formatter = useAppFormat();
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const seriesColors = palette.charts.series;
@@ -85,14 +90,14 @@ export default function CategoryBreakdownPieChart({
     if (error) {
       return (
         <Typography variant="body2" sx={{ color: 'error.main' }}>
-          Failed to load category breakdown
+          {t('dashboard.categoryBreakdown.loadFailed')}
         </Typography>
       );
     }
     if (!items.length) {
       return (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          No transactions in this period
+          {t('dashboard.categoryBreakdown.empty')}
         </Typography>
       );
     }
@@ -158,7 +163,7 @@ export default function CategoryBreakdownPieChart({
                 display: 'flex',
                 gap: 1,
                 justifyContent: 'flex-start',
-                textAlign: 'left',
+                textAlign: 'start',
                 opacity: isDimmed(item.categoryId) ? UNSELECTED_ROW_OPACITY : 1,
                 ...CLICKABLE_ROW_SX,
               }}
@@ -176,13 +181,13 @@ export default function CategoryBreakdownPieChart({
                 {item.categoryName}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {item.percentage.toFixed(1)}%
+                {formatter.percentagePoints(item.percentage)}
               </Typography>
               <Typography
                 variant="caption"
                 sx={{ color: 'text.secondary', minWidth: 72, textAlign: 'end' }}
               >
-                {formatCurrency(item.amount)}
+                {formatter.currency(item.amount)}
               </Typography>
             </ButtonBase>
           ))}

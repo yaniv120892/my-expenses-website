@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import NotificationSnackbar from './NotificationSnackbar';
 import { usePendingTransactionsQuery } from '../hooks/usePendingTransactionsQuery';
+import { useT } from '@/i18n/useT';
 
 const STORAGE_KEY = 'pendingTransactionsSeenDate';
 
@@ -11,6 +12,7 @@ function getTodayKey() {
 }
 
 export default function PendingTransactionsPopup() {
+  const t = useT();
   const { data: pendingTransactions = [] } = usePendingTransactionsQuery();
   const [open, setOpen] = useState(false);
 
@@ -34,7 +36,11 @@ export default function PendingTransactionsPopup() {
   return (
     <NotificationSnackbar
       open={open}
-      message={`Hi - you have ${pendingTransactions.length} pending transaction${pendingTransactions.length > 1 ? 's' : ''} - take a look!`}
+      message={
+        pendingTransactions.length === 1
+          ? t('pending.popup.one')
+          : t('pending.popup.other', { count: pendingTransactions.length })
+      }
       severity="info"
       onClose={handleClose}
       autoHideDuration={6000}

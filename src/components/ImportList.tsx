@@ -44,10 +44,11 @@ import {
   useRematchImportMutation,
 } from '../hooks/useImports';
 import ImportedTransactionList from './ImportedTransactionList';
-import { formatDate } from '../utils/dateUtils';
 import { comparePaymentMonths } from '../utils/paymentMonth';
 import EmptyState from './EmptyState';
 import ImportListSkeleton from './ImportListSkeleton';
+import { useT } from '@/i18n/useT';
+import { useAppFormat } from '@/i18n/useAppFormat';
 
 type SortField = 'createdAt' | 'paymentMonth' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -67,12 +68,12 @@ function getStatusColor(status: ImportStatus) {
   }
 }
 
-interface RowActionsProps {
+type RowActionsProps = {
   importItem: Import;
   onDeleteClick: (importItem: Import) => void;
   onRematchClick: (importItem: Import) => void;
   isRematching: boolean;
-}
+};
 
 function RowActions({
   importItem,
@@ -80,6 +81,7 @@ function RowActions({
   onRematchClick,
   isRematching,
 }: RowActionsProps) {
+  const t = useT();
   return (
     <Stack
       direction="row"
@@ -94,8 +96,8 @@ function RowActions({
             size="small"
             color="primary"
             disabled={isRematching}
-            aria-label="Re-match"
-            title="Re-match"
+            aria-label={t('imports.list.rematch')}
+            title={t('imports.list.rematch')}
             onClick={(e) => {
               e.stopPropagation();
               onRematchClick(importItem);
@@ -107,7 +109,7 @@ function RowActions({
       <IconButton
         size="small"
         color="error"
-        aria-label="Delete import"
+        aria-label={t('imports.list.delete')}
         onClick={(e) => {
           e.stopPropagation();
           onDeleteClick(importItem);
@@ -120,6 +122,7 @@ function RowActions({
 }
 
 function ExpandedContent({ importItem }: { importItem: Import }) {
+  const t = useT();
   return (
     <Box sx={{ py: 2, px: { xs: 1, md: 3 } }}>
       {importItem.status === ImportStatus.COMPLETED && (
@@ -127,7 +130,7 @@ function ExpandedContent({ importItem }: { importItem: Import }) {
       )}
       {importItem.status === ImportStatus.FAILED && (
         <Typography color="error" variant="body2">
-          Error: {importItem.error}
+          {t('imports.list.error', { error: importItem.error ?? '' })}
         </Typography>
       )}
       {importItem.status === ImportStatus.MERGED && (
@@ -137,24 +140,28 @@ function ExpandedContent({ importItem }: { importItem: Import }) {
             color: 'text.secondary',
           }}
         >
-          Duplicate of an earlier import for the same card and month. Its new
-          rows were moved into {importItem.mergedIntoFileName ?? 'that import'}{' '}
-          and are reconciled there.
+          {t('imports.list.mergedInto', {
+            fileName:
+              importItem.mergedIntoFileName ??
+              t('imports.list.mergedIntoUnknown'),
+          })}
         </Typography>
       )}
     </Box>
   );
 }
 
-interface ImportListProps {
+type ImportListProps = {
   onImportClick: (importId: string) => void;
   expandedImportId: string | null;
-}
+};
 
 export default function ImportList({
   onImportClick,
   expandedImportId,
 }: ImportListProps) {
+  const t = useT();
+  const formatter = useAppFormat();
   const { data: imports = [], isLoading } = useImportsQuery();
   const deleteImportMutation = useDeleteImportMutation();
   const rematchImportMutation = useRematchImportMutation();
@@ -260,7 +267,7 @@ export default function ImportList({
   }
 
   if (!imports.length) {
-    return <EmptyState message="No imports found." />;
+    return <EmptyState message={t('imports.list.empty')} />;
   }
 
   const filterBar = (
@@ -275,28 +282,28 @@ export default function ImportList({
       }}
     >
       <FormControl size="small" sx={{ minWidth: 130 }}>
-        <InputLabel>Status</InputLabel>
+        <InputLabel>{t('imports.list.status')}</InputLabel>
         <Select
           value={statusFilter}
-          label="Status"
+          label={t('imports.list.status')}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <MenuItem value="ALL">All</MenuItem>
-          {Object.values(ImportStatus).map((s) => (
-            <MenuItem key={s} value={s}>
-              {s}
+          <MenuItem value="ALL">{t('common.all')}</MenuItem>
+          {Object.values(ImportStatus).map((status) => (
+            <MenuItem key={status} value={status}>
+              {t(`imports.status.${status}`)}
             </MenuItem>
           ))}
         </Select>
       </FormControl>
       <FormControl size="small" sx={{ minWidth: 140 }}>
-        <InputLabel>Payment Month</InputLabel>
+        <InputLabel>{t('imports.list.paymentMonth')}</InputLabel>
         <Select
           value={paymentMonthFilter}
-          label="Payment Month"
+          label={t('imports.list.paymentMonth')}
           onChange={(e) => setPaymentMonthFilter(e.target.value)}
         >
-          <MenuItem value="ALL">All</MenuItem>
+          <MenuItem value="ALL">{t('common.all')}</MenuItem>
           {filterOptions.paymentMonths.map((m) => (
             <MenuItem key={m} value={m}>
               {m}
@@ -305,13 +312,13 @@ export default function ImportList({
         </Select>
       </FormControl>
       <FormControl size="small" sx={{ minWidth: 130 }}>
-        <InputLabel>Card (Last 4)</InputLabel>
+        <InputLabel>{t('imports.list.card')}</InputLabel>
         <Select
           value={cardFilter}
-          label="Card (Last 4)"
+          label={t('imports.list.card')}
           onChange={(e) => setCardFilter(e.target.value)}
         >
-          <MenuItem value="ALL">All</MenuItem>
+          <MenuItem value="ALL">{t('common.all')}</MenuItem>
           {filterOptions.cards.map((c) => (
             <MenuItem key={c} value={c}>
               {c}
@@ -329,31 +336,36 @@ export default function ImportList({
           }
         }}
       >
-        <ToggleButton value="ALL">All</ToggleButton>
-        <ToggleButton value="true">Verified</ToggleButton>
-        <ToggleButton value="false">Not Verified</ToggleButton>
+        <ToggleButton value="ALL">{t('common.all')}</ToggleButton>
+        <ToggleButton value="true">{t('imports.list.verified')}</ToggleButton>
+        <ToggleButton value="false">
+          {t('imports.list.notVerified')}
+        </ToggleButton>
       </ToggleButtonGroup>
     </Stack>
   );
 
   const deleteDialog = (
     <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-      <DialogTitle>Delete Import</DialogTitle>
+      <DialogTitle>{t('imports.list.deleteTitle')}</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          Are you sure you want to delete the import &quot;
-          {deleteTarget?.originalFileName}&quot;? This action cannot be undone.
+          {t('imports.list.deleteBody', {
+            fileName: deleteTarget?.originalFileName ?? '',
+          })}
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+        <Button onClick={() => setDeleteTarget(null)}>
+          {t('common.cancel')}
+        </Button>
         <Button
           variant="contained"
           color="error"
           onClick={handleDeleteConfirm}
           disabled={deleteImportMutation.isPending}
         >
-          Delete
+          {t('common.delete')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -396,8 +408,14 @@ export default function ImportList({
                           color: 'text.secondary',
                         }}
                       >
-                        Card: {importItem.creditCardLastFourDigits || 'N/A'}{' '}
-                        &bull; Month: {importItem.paymentMonth || 'N/A'}
+                        {t('imports.list.cardAndMonth', {
+                          card:
+                            importItem.creditCardLastFourDigits ||
+                            t('imports.list.notAvailable'),
+                          month:
+                            importItem.paymentMonth ||
+                            t('imports.list.notAvailable'),
+                        })}
                       </Typography>
                       <Typography
                         variant="caption"
@@ -406,8 +424,10 @@ export default function ImportList({
                           display: 'block',
                         }}
                       >
-                        Created: {formatDate(importItem.createdAt, true)} &bull;
-                        Updated: {formatDate(importItem.updatedAt, true)}
+                        {t('imports.list.createdAndUpdated', {
+                          created: formatter.dateTime(importItem.createdAt),
+                          updated: formatter.dateTime(importItem.updatedAt),
+                        })}
                       </Typography>
                     </Box>
                     {isExpanded ? (
@@ -425,7 +445,7 @@ export default function ImportList({
                     }}
                   >
                     <Chip
-                      label={importItem.status}
+                      label={t(`imports.status.${importItem.status}`)}
                       color={getStatusColor(importItem.status)}
                       size="small"
                     />
@@ -464,7 +484,7 @@ export default function ImportList({
                 py: 4,
               }}
             >
-              No imports match the selected filters.
+              {t('imports.list.noFilterMatches')}
             </Typography>
           )}
         </Stack>
@@ -481,7 +501,7 @@ export default function ImportList({
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 48 }} />
-              <TableCell>Card (Last 4)</TableCell>
+              <TableCell>{t('imports.list.card')}</TableCell>
               <TableCell
                 sortDirection={
                   sortField === 'paymentMonth' ? sortDirection : false
@@ -494,10 +514,10 @@ export default function ImportList({
                   }
                   onClick={() => handleSortClick('paymentMonth')}
                 >
-                  Payment Month
+                  {t('imports.list.paymentMonth')}
                 </TableSortLabel>
               </TableCell>
-              <TableCell>File Name</TableCell>
+              <TableCell>{t('imports.list.fileName')}</TableCell>
               <TableCell
                 sortDirection={sortField === 'status' ? sortDirection : false}
               >
@@ -506,10 +526,10 @@ export default function ImportList({
                   direction={sortField === 'status' ? sortDirection : 'asc'}
                   onClick={() => handleSortClick('status')}
                 >
-                  Status
+                  {t('imports.list.status')}
                 </TableSortLabel>
               </TableCell>
-              <TableCell align="center">Verified</TableCell>
+              <TableCell align="center">{t('imports.list.verified')}</TableCell>
               <TableCell
                 sortDirection={
                   sortField === 'createdAt' ? sortDirection : false
@@ -520,10 +540,10 @@ export default function ImportList({
                   direction={sortField === 'createdAt' ? sortDirection : 'asc'}
                   onClick={() => handleSortClick('createdAt')}
                 >
-                  Created At
+                  {t('imports.list.createdAt')}
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Updated At</TableCell>
+              <TableCell>{t('imports.list.updatedAt')}</TableCell>
               <TableCell sx={{ width: 80 }} />
             </TableRow>
           </TableHead>
@@ -548,9 +568,13 @@ export default function ImportList({
                       )}
                     </TableCell>
                     <TableCell>
-                      {importItem.creditCardLastFourDigits || 'N/A'}
+                      {importItem.creditCardLastFourDigits ||
+                        t('imports.list.notAvailable')}
                     </TableCell>
-                    <TableCell>{importItem.paymentMonth || 'N/A'}</TableCell>
+                    <TableCell>
+                      {importItem.paymentMonth ||
+                        t('imports.list.notAvailable')}
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography
                         variant="body2"
@@ -562,7 +586,7 @@ export default function ImportList({
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={importItem.status}
+                        label={t(`imports.status.${importItem.status}`)}
                         color={getStatusColor(importItem.status)}
                         size="small"
                       />
@@ -578,10 +602,10 @@ export default function ImportList({
                       )}
                     </TableCell>
                     <TableCell>
-                      {formatDate(importItem.createdAt, true)}
+                      {formatter.dateTime(importItem.createdAt)}
                     </TableCell>
                     <TableCell>
-                      {formatDate(importItem.updatedAt, true)}
+                      {formatter.dateTime(importItem.updatedAt)}
                     </TableCell>
                     <TableCell align="right">
                       <RowActions
@@ -612,7 +636,7 @@ export default function ImportList({
                       color: 'text.secondary',
                     }}
                   >
-                    No imports match the selected filters.
+                    {t('imports.list.noFilterMatches')}
                   </Typography>
                 </TableCell>
               </TableRow>

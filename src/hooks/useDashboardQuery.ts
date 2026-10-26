@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useI18n, type Locale } from '@yaniv120892/my-ui';
 import {
   fetchDashboard,
   fetchDashboardInsights,
@@ -7,7 +8,8 @@ import {
 export const dashboardKeys = {
   all: ['dashboard'] as const,
   overview: () => [...dashboardKeys.all, 'overview'] as const,
-  insights: () => [...dashboardKeys.all, 'insights'] as const,
+  insights: (locale: Locale) =>
+    [...dashboardKeys.all, 'insights', locale] as const,
 };
 
 export const useDashboardQuery = () => {
@@ -18,9 +20,11 @@ export const useDashboardQuery = () => {
   });
 };
 
+// The server writes insights in the request's language, so each locale caches its own.
 export const useDashboardInsightsQuery = (enabled: boolean) => {
+  const { locale } = useI18n();
   return useQuery({
-    queryKey: dashboardKeys.insights(),
+    queryKey: dashboardKeys.insights(locale),
     queryFn: fetchDashboardInsights,
     staleTime: 30 * 60 * 1000,
     enabled,

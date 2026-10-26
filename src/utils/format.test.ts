@@ -2,65 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCurrency,
   formatCurrencyPlain,
-  formatCurrencyRounded,
-  formatNumber,
-  formatTransaction,
-  formatTransactionDate,
   translateToScheduleSummary,
 } from '@/utils/format';
-import { Transaction } from '@/types';
 
 const normalizeCurrency = (value: string) =>
   value.replace(/[‎‏]/g, '').replace(/ /g, ' ');
-
-const makeTransaction = (overrides: Partial<Transaction> = {}): Transaction =>
-  ({
-    id: 't1',
-    description: 'Groceries',
-    value: 120,
-    date: '2024-03-15T12:00:00',
-    type: 'EXPENSE',
-    category: { id: 'c1', name: 'Food' },
-    ...overrides,
-  }) as Transaction;
-
-describe('formatTransactionDate', () => {
-  it('renders yyyy-MM-dd', () => {
-    expect(formatTransactionDate('2024-03-15T12:00:00')).toBe('2024-03-15');
-  });
-
-  it('zero-pads single-digit months and days', () => {
-    expect(formatTransactionDate('2024-01-05T00:00:00')).toBe('2024-01-05');
-  });
-});
-
-describe('formatTransaction', () => {
-  it('combines description, category and date', () => {
-    expect(formatTransaction(makeTransaction())).toBe(
-      'Groceries - (Food) on 2024-03-15',
-    );
-  });
-
-  it('falls back to N/A without a category', () => {
-    const transaction = makeTransaction({
-      category: undefined as unknown as Transaction['category'],
-    });
-    expect(formatTransaction(transaction)).toBe(
-      'Groceries - (N/A) on 2024-03-15',
-    );
-  });
-});
-
-describe('formatNumber', () => {
-  it('adds thousands separators', () => {
-    expect(formatNumber(1234567)).toBe('1,234,567');
-  });
-
-  it('leaves small numbers untouched', () => {
-    expect(formatNumber(0)).toBe('0');
-    expect(formatNumber(999)).toBe('999');
-  });
-});
 
 describe('formatCurrency', () => {
   it('formats as ILS with two decimals', () => {
@@ -85,18 +31,6 @@ describe('formatCurrencyPlain', () => {
   it('strips the marks Intl adds', () => {
     expect(formatCurrencyPlain(1234.5)).not.toMatch(/[\u200e\u200f\u00a0]/);
     expect(formatCurrency(1234.5)).toMatch(/[\u200e\u200f\u00a0]/);
-  });
-});
-
-describe('formatCurrencyRounded', () => {
-  it('drops the decimals and keeps thousands separators', () => {
-    expect(normalizeCurrency(formatCurrencyRounded(1234.56))).toBe('1,235 ₪');
-    expect(normalizeCurrency(formatCurrencyRounded(14814.72))).toBe('14,815 ₪');
-  });
-
-  it('formats zero and negatives', () => {
-    expect(normalizeCurrency(formatCurrencyRounded(0))).toBe('0 ₪');
-    expect(normalizeCurrency(formatCurrencyRounded(-99.4))).toBe('-99 ₪');
   });
 });
 

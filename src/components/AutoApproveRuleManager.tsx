@@ -34,12 +34,13 @@ import { AutoApproveRule } from '../types/import';
 import { TransactionType } from '../types';
 import { TRANSACTION_TYPES } from '@/shared/types/transaction';
 import { isOneOf } from '@/utils/oneOf';
+import { useT } from '@/i18n/useT';
 
-interface RuleFormState {
+type RuleFormState = {
   descriptionPattern: string;
   categoryId: string;
   type: TransactionType;
-}
+};
 
 const emptyForm: RuleFormState = {
   descriptionPattern: '',
@@ -48,6 +49,7 @@ const emptyForm: RuleFormState = {
 };
 
 export default function AutoApproveRuleManager() {
+  const t = useT();
   const { data: rules = [], isLoading } = useAutoApproveRulesQuery();
   const createMutation = useCreateAutoApproveRuleMutation();
   const updateMutation = useUpdateAutoApproveRuleMutation();
@@ -122,15 +124,14 @@ export default function AutoApproveRuleManager() {
           mb: 2,
         }}
       >
-        <Typography variant="h6">Auto-Approve Rules</Typography>
+        <Typography variant="h6">{t('settings.rules.title')}</Typography>
         <Button
           variant="contained"
           size="small"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
-          sx={{ textTransform: 'none' }}
         >
-          Add Rule
+          {t('settings.rules.add')}
         </Button>
       </Box>
 
@@ -142,18 +143,17 @@ export default function AutoApproveRuleManager() {
             py: 2,
           }}
         >
-          No auto-approve rules yet. Create one to automatically approve
-          matching imported transactions.
+          {t('settings.rules.empty')}
         </Typography>
       ) : (
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Pattern</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Active</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>{t('settings.rules.column.pattern')}</TableCell>
+              <TableCell>{t('common.category')}</TableCell>
+              <TableCell>{t('common.type')}</TableCell>
+              <TableCell>{t('settings.rules.column.active')}</TableCell>
+              <TableCell>{t('settings.rules.column.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -161,22 +161,42 @@ export default function AutoApproveRuleManager() {
               <TableRow key={rule.id}>
                 <TableCell>{rule.descriptionPattern}</TableCell>
                 <TableCell>{rule.category?.name || rule.categoryId}</TableCell>
-                <TableCell>{rule.type}</TableCell>
+                <TableCell>
+                  {rule.type === 'INCOME'
+                    ? t('common.income')
+                    : t('common.expense')}
+                </TableCell>
                 <TableCell>
                   <Switch
                     checked={rule.isActive}
                     onChange={() => handleToggle(rule)}
                     size="small"
+                    slotProps={{
+                      input: {
+                        'aria-label': t('settings.rules.toggleFor', {
+                          pattern: rule.descriptionPattern,
+                        }),
+                      },
+                    }}
                   />
                 </TableCell>
                 <TableCell>
-                  <IconButton size="small" onClick={() => handleOpen(rule)}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleOpen(rule)}
+                    aria-label={t('settings.rules.editFor', {
+                      pattern: rule.descriptionPattern,
+                    })}
+                  >
                     <EditIcon fontSize="small" />
                   </IconButton>
                   <IconButton
                     size="small"
                     color="error"
                     onClick={() => handleDelete(rule.id)}
+                    aria-label={t('settings.rules.deleteFor', {
+                      pattern: rule.descriptionPattern,
+                    })}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -189,12 +209,14 @@ export default function AutoApproveRuleManager() {
 
       <Dialog open={formOpen} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingRule ? 'Edit Rule' : 'Create Auto-Approve Rule'}
+          {editingRule
+            ? t('settings.rules.editTitle')
+            : t('settings.rules.createTitle')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
-              label="Description Pattern"
+              label={t('settings.rules.pattern')}
               value={form.descriptionPattern}
               onChange={(e) =>
                 setForm((prev) => ({
@@ -202,7 +224,7 @@ export default function AutoApproveRuleManager() {
                   descriptionPattern: e.target.value,
                 }))
               }
-              placeholder='e.g. "Wolt" matches "Wolt delivery", "WOLT*123"'
+              placeholder={t('settings.rules.patternPlaceholder')}
               fullWidth
               required
             />
@@ -215,7 +237,7 @@ export default function AutoApproveRuleManager() {
             />
             <TextField
               select
-              label="Type"
+              label={t('common.type')}
               value={form.type}
               onChange={(e) => {
                 const type = e.target.value;
@@ -226,13 +248,13 @@ export default function AutoApproveRuleManager() {
               fullWidth
               required
             >
-              <MenuItem value="EXPENSE">Expense</MenuItem>
-              <MenuItem value="INCOME">Income</MenuItem>
+              <MenuItem value="EXPENSE">{t('common.expense')}</MenuItem>
+              <MenuItem value="INCOME">{t('common.income')}</MenuItem>
             </TextField>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleClose}>{t('common.cancel')}</Button>
           <Button
             onClick={handleSubmit}
             variant="contained"
@@ -243,7 +265,9 @@ export default function AutoApproveRuleManager() {
               updateMutation.isPending
             }
           >
-            {editingRule ? 'Update' : 'Create'}
+            {editingRule
+              ? t('settings.rules.update')
+              : t('settings.rules.create')}
           </Button>
         </DialogActions>
       </Dialog>

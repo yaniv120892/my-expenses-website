@@ -38,8 +38,6 @@ import {
   useIgnoreImportedTransactionMutation,
   useAutoApproveRulesQuery,
 } from '../hooks/useImports';
-import { formatDate } from '../utils/dateUtils';
-import { formatAmountWithOriginal } from '../utils/format';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   ImportedTransactionStatus,
@@ -52,10 +50,13 @@ import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
 import { useErrorNotice } from '../hooks/useErrorNotice';
 import { CreateTransactionInput } from '../types';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
+import { useAppFormat } from '@/i18n/useAppFormat';
 
-interface ImportedTransactionListProps {
+type ImportedTransactionListProps = {
   importId: string;
-}
+};
 
 function getStatusColor(status: ImportedTransactionStatus) {
   switch (status) {
@@ -70,11 +71,24 @@ function getStatusColor(status: ImportedTransactionStatus) {
   }
 }
 
+function typeLabel({ type, t }: { type: string; t: T }): string {
+  switch (type) {
+    case 'INCOME':
+      return t('common.income');
+    case 'EXPENSE':
+      return t('common.expense');
+    default:
+      return type;
+  }
+}
+
 function TransactionDetails({
   transaction,
 }: {
   transaction: ImportedTransaction;
 }) {
+  const t = useT();
+  const formatter = useAppFormat();
   return (
     <Box>
       <Typography variant="body2">{transaction.description}</Typography>
@@ -84,8 +98,11 @@ function TransactionDetails({
           color: 'text.secondary',
         }}
       >
-        {formatAmountWithOriginal(transaction)} on{' '}
-        {formatDate(transaction.date)} {transaction.type}
+        {t('imports.row.on', {
+          amount: formatter.amountWithOriginal(transaction),
+          date: formatter.day(transaction.date),
+        })}{' '}
+        {typeLabel({ type: transaction.type, t })}
       </Typography>
       <AmountWarning transaction={transaction} />
     </Box>
@@ -93,6 +110,7 @@ function TransactionDetails({
 }
 
 function AmountWarning({ transaction }: { transaction: ImportedTransaction }) {
+  const t = useT();
   if (transaction.value !== null && transaction.currency !== null) {
     return null;
   }
@@ -104,8 +122,8 @@ function AmountWarning({ transaction }: { transaction: ImportedTransaction }) {
       sx={{ mt: 0.5 }}
       label={
         transaction.value === null
-          ? 'Enter the ILS amount to approve'
-          : 'Original currency not recognised'
+          ? t('imports.row.missingIlsAmount')
+          : t('imports.row.currencyNotRecognised')
       }
     />
   );
@@ -116,6 +134,8 @@ function MatchingDetails({
 }: {
   transaction: ImportedTransaction;
 }) {
+  const t = useT();
+  const formatter = useAppFormat();
   if (!transaction.matchingTransaction) {
     return (
       <Typography
@@ -124,7 +144,7 @@ function MatchingDetails({
           color: 'text.secondary',
         }}
       >
-        No match found
+        {t('imports.row.noMatch')}
       </Typography>
     );
   }
@@ -142,7 +162,7 @@ function MatchingDetails({
         </Typography>
         {transaction.matchingTransaction.status ===
           TransactionApprovalStatus.PENDING_APPROVAL && (
-          <Tooltip title="From scheduled transaction">
+          <Tooltip title={t('imports.row.fromScheduled')}>
             <EventRepeatIcon fontSize="small" color="info" />
           </Tooltip>
         )}
@@ -153,15 +173,17 @@ function MatchingDetails({
           color: 'text.secondary',
         }}
       >
-        {formatAmountWithOriginal(transaction.matchingTransaction)} on{' '}
-        {formatDate(transaction.matchingTransaction.date)}{' '}
-        {transaction.matchingTransaction.type}
+        {t('imports.row.on', {
+          amount: formatter.amountWithOriginal(transaction.matchingTransaction),
+          date: formatter.day(transaction.matchingTransaction.date),
+        })}{' '}
+        {typeLabel({ type: transaction.matchingTransaction.type, t })}
       </Typography>
     </Box>
   );
 }
 
-interface RowActionsProps {
+type RowActionsProps = {
   transaction: ImportedTransaction;
   disabled: boolean;
   compact: boolean;
@@ -169,7 +191,7 @@ interface RowActionsProps {
   onApprove: (id: string) => void;
   onIgnore: (id: string) => void;
   onDelete: (id: string) => void;
-}
+};
 
 function RowActions({
   transaction,
@@ -180,6 +202,7 @@ function RowActions({
   onIgnore,
   onDelete,
 }: RowActionsProps) {
+  const t = useT();
   const isPending = transaction.status === ImportedTransactionStatus.PENDING;
 
   if (compact) {
@@ -188,41 +211,41 @@ function RowActions({
         {isPending ? (
           <>
             {transaction.matchingTransaction && (
-              <Tooltip title="Merge">
+              <Tooltip title={t('imports.row.merge')}>
                 <span>
                   <IconButton
                     size="small"
                     color="info"
                     disabled={disabled}
                     onClick={() => onMerge(transaction.id)}
-                    aria-label="Merge"
+                    aria-label={t('imports.row.merge')}
                   >
                     <MergeIcon fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
             )}
-            <Tooltip title="Approve">
+            <Tooltip title={t('imports.row.approve')}>
               <span>
                 <IconButton
                   size="small"
                   color="success"
                   disabled={disabled}
                   onClick={() => onApprove(transaction.id)}
-                  aria-label="Approve"
+                  aria-label={t('imports.row.approve')}
                 >
                   <CheckIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-            <Tooltip title="Ignore">
+            <Tooltip title={t('imports.row.ignore')}>
               <span>
                 <IconButton
                   size="small"
                   color="warning"
                   disabled={disabled}
                   onClick={() => onIgnore(transaction.id)}
-                  aria-label="Ignore"
+                  aria-label={t('imports.row.ignore')}
                 >
                   <CloseIcon fontSize="small" />
                 </IconButton>
@@ -230,14 +253,14 @@ function RowActions({
             </Tooltip>
           </>
         ) : (
-          <Tooltip title="Delete">
+          <Tooltip title={t('imports.row.delete')}>
             <span>
               <IconButton
                 size="small"
                 color="error"
                 disabled={disabled}
                 onClick={() => onDelete(transaction.id)}
-                aria-label="Delete"
+                aria-label={t('imports.row.delete')}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -261,7 +284,7 @@ function RowActions({
               disabled={disabled}
               startIcon={<MergeIcon />}
             >
-              Merge
+              {t('imports.row.merge')}
             </Button>
           )}
           <Button
@@ -272,7 +295,7 @@ function RowActions({
             disabled={disabled}
             startIcon={<CheckIcon />}
           >
-            Approve
+            {t('imports.row.approve')}
           </Button>
           <Button
             variant="outlined"
@@ -282,7 +305,7 @@ function RowActions({
             disabled={disabled}
             startIcon={<CloseIcon />}
           >
-            Ignore
+            {t('imports.row.ignore')}
           </Button>
         </>
       ) : (
@@ -294,7 +317,7 @@ function RowActions({
           disabled={disabled}
           startIcon={<DeleteIcon />}
         >
-          Delete
+          {t('imports.row.delete')}
         </Button>
       )}
     </Stack>
@@ -304,6 +327,7 @@ function RowActions({
 const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   importId,
 }) => {
+  const t = useT();
   const { data: transactions = [], isLoading } =
     useImportedTransactionsQuery(importId);
   const approveMutation = useApproveImportedTransactionMutation(importId);
@@ -413,7 +437,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     try {
       await ignoreMutation.mutateAsync(transactionId);
     } catch (error) {
-      showError(describeApiError(error, 'Failed to ignore transaction'));
+      showError(describeApiError(error, t('imports.row.ignoreFailed')));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -428,7 +452,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     try {
       await deleteMutation.mutateAsync(transactionId);
     } catch (error) {
-      showError(describeApiError(error, 'Failed to delete transaction'));
+      showError(describeApiError(error, t('imports.row.deleteFailed')));
     } finally {
       setPendingOperations((prev) => {
         const updated = { ...prev };
@@ -497,7 +521,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
           py: 2,
         }}
       >
-        No transactions found
+        {t('imports.row.empty')}
       </Typography>
     );
   }
@@ -508,13 +532,15 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     items: ImportedTransaction[];
   }[] = [
     {
-      label: `Expenses (${expenseTransactions.length})`,
-      color: chartColors.expense,
+      label: t('imports.row.expenses', {
+        count: expenseTransactions.length,
+      }),
+      color: chartColors.negative,
       items: expenseTransactions,
     },
     {
-      label: `Incomes (${incomeTransactions.length})`,
-      color: chartColors.income,
+      label: t('imports.row.incomes', { count: incomeTransactions.length }),
+      color: chartColors.positive,
       items: incomeTransactions,
     },
   ].filter((s) => s.items.length > 0);
@@ -552,16 +578,16 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
       />
       <Box sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Status</InputLabel>
+          <InputLabel>{t('imports.list.status')}</InputLabel>
           <Select
             value={statusFilter}
-            label="Status"
+            label={t('imports.list.status')}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <MenuItem value="ALL">All</MenuItem>
-            {Object.values(ImportedTransactionStatus).map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
+            <MenuItem value="ALL">{t('common.all')}</MenuItem>
+            {Object.values(ImportedTransactionStatus).map((status) => (
+              <MenuItem key={status} value={status}>
+                {t(`imports.row.status.${status}`)}
               </MenuItem>
             ))}
           </Select>
@@ -576,7 +602,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
             py: 3,
           }}
         >
-          No transactions match the selected filter.
+          {t('imports.row.noFilterMatches')}
         </Typography>
       )}
 
@@ -616,6 +642,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                           sx={{ p: 0.5, mt: -0.25 }}
                           checked={effectiveSelectedIds.has(transaction.id)}
                           onChange={() => handleToggleSelect(transaction.id)}
+                          slotProps={{
+                            input: {
+                              'aria-label': t('imports.row.selectRow', {
+                                description: transaction.description,
+                              }),
+                            },
+                          }}
                         />
                       )}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -629,13 +662,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                               display: 'block',
                             }}
                           >
-                            Match
+                            {t('imports.row.match')}
                           </Typography>
                           <MatchingDetails transaction={transaction} />
                         </Box>
                       </Box>
                       <Chip
-                        label={transaction.status}
+                        label={t(`imports.row.status.${transaction.status}`)}
                         color={getStatusColor(transaction.status)}
                         size="small"
                       />
@@ -684,12 +717,15 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         ? handleSelectAll()
                         : handleClearSelection()
                     }
+                    slotProps={{
+                      input: { 'aria-label': t('imports.row.selectAllRows') },
+                    }}
                   />
                 </TableCell>
-                <TableCell>Transaction Details</TableCell>
-                <TableCell>Matching Transaction</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell>{t('imports.row.details')}</TableCell>
+                <TableCell>{t('imports.row.matching')}</TableCell>
+                <TableCell>{t('imports.list.status')}</TableCell>
+                <TableCell>{t('imports.row.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -711,6 +747,13 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                           <Checkbox
                             checked={effectiveSelectedIds.has(transaction.id)}
                             onChange={() => handleToggleSelect(transaction.id)}
+                            slotProps={{
+                              input: {
+                                'aria-label': t('imports.row.selectRow', {
+                                  description: transaction.description,
+                                }),
+                              },
+                            }}
                           />
                         ) : null}
                       </TableCell>
@@ -722,7 +765,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={transaction.status}
+                          label={t(`imports.row.status.${transaction.status}`)}
                           color={getStatusColor(transaction.status)}
                           size="small"
                         />

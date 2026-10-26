@@ -8,7 +8,10 @@ import {
   TrendsView,
 } from '@/types/trends';
 import { Category } from '@/types';
-import { formatDateRange } from '@/utils/dateUtils';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
+import type { T } from '@/i18n/useT.types';
+import { ALL_CATEGORIES } from './trendFilters';
 
 interface TrendFiltersDisplayProps {
   period: TrendPeriod;
@@ -35,46 +38,40 @@ export const TrendFiltersDisplay = ({
   categories,
   onOpenFilters,
 }: TrendFiltersDisplayProps) => {
-  const formatPeriod = (p: TrendPeriod) => {
-    switch (p) {
-      case 'daily':
-        return 'Daily';
-      case 'weekly':
-        return 'Weekly';
-      case 'monthly':
-        return 'Monthly';
-      case 'yearly':
-        return 'Yearly';
-    }
-  };
+  const t = useT();
+  const formatter = useAppFormat();
+  const periodLabel = t(`trends.period.${period}`);
+  const dateRange = formatter.dateRange({ start: startDate, end: endDate });
 
-  const getCategoryName = () => {
-    if (selectedCategory === 'All Categories') {
-      return 'All Categories';
-    }
-    return categories.find((c) => c.id === selectedCategory)?.name || '';
-  };
+  const categoryName =
+    selectedCategory === ALL_CATEGORIES
+      ? t('trends.allCategories')
+      : categories.find((category) => category.id === selectedCategory)?.name ||
+        '';
 
   // Compare mode spans both transaction types and its own category selection,
   // so the overview's type and single-category chips would be misleading.
   const labels =
     view === 'compare'
       ? [
-          formatPeriod(period),
-          comparisonCategoryIds.length === 1
-            ? categories.find((c) => c.id === comparisonCategoryIds[0])?.name ||
-              '1 category'
-            : `${comparisonCategoryIds.length} categories`,
+          periodLabel,
+          comparisonCategoriesLabel({
+            t,
+            categories,
+            comparisonCategoryIds,
+          }),
           comparisonScope === 'SUBTREE'
-            ? 'Including subcategories'
-            : 'Exact categories',
-          formatDateRange(startDate, endDate, '–'),
+            ? t('trends.scope.subtreeChip')
+            : t('trends.scope.exactChip'),
+          dateRange,
         ]
       : [
-          transactionType === 'EXPENSE' ? 'Expenses' : 'Income',
-          formatPeriod(period),
-          getCategoryName(),
-          formatDateRange(startDate, endDate, '–'),
+          transactionType === 'EXPENSE'
+            ? t('trends.type.expense')
+            : t('trends.type.income'),
+          periodLabel,
+          categoryName,
+          dateRange,
         ];
 
   return (
@@ -99,3 +96,23 @@ export const TrendFiltersDisplay = ({
     </Stack>
   );
 };
+
+function comparisonCategoriesLabel({
+  t,
+  categories,
+  comparisonCategoryIds,
+}: {
+  t: T;
+  categories: Category[];
+  comparisonCategoryIds: string[];
+}): string {
+  if (comparisonCategoryIds.length === 1) {
+    return (
+      categories.find((category) => category.id === comparisonCategoryIds[0])
+        ?.name || t('trends.categoryCount.one')
+    );
+  }
+  return t('trends.categoryCount.other', {
+    count: comparisonCategoryIds.length,
+  });
+}

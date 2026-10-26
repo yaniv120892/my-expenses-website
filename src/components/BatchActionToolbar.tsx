@@ -15,6 +15,7 @@ import {
 } from '../hooks/useImports';
 import { BatchResult } from '../types/import';
 import { describeApiError } from '../utils/api';
+import { useT } from '@/i18n/useT';
 
 type BatchActionToolbarProps = {
   importId: string;
@@ -35,6 +36,7 @@ export default function BatchActionToolbar({
   hasAutoApproveRules,
   onErrorAction,
 }: BatchActionToolbarProps) {
+  const t = useT();
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     action: 'approve' | 'ignore';
@@ -58,7 +60,7 @@ export default function BatchActionToolbar({
       setBatchResult(result);
       onClearSelection();
     } catch (error) {
-      onErrorAction(describeApiError(error, 'Batch action failed'));
+      onErrorAction(describeApiError(error, t('imports.batch.failed')));
     } finally {
       setConfirmDialog((prev) => ({ ...prev, open: false }));
     }
@@ -70,7 +72,7 @@ export default function BatchActionToolbar({
       setBatchResult(result);
     } catch (error) {
       onErrorAction(
-        describeApiError(error, 'Failed to apply auto-approve rules'),
+        describeApiError(error, t('imports.batch.autoApproveFailed')),
       );
     }
   };
@@ -107,12 +109,14 @@ export default function BatchActionToolbar({
           onClick={hasSelection ? onClearSelection : onSelectAll}
           sx={{ textTransform: 'none' }}
         >
-          {hasSelection ? 'Clear' : 'Select All'}
+          {hasSelection
+            ? t('imports.batch.clear')
+            : t('imports.batch.selectAll')}
         </Button>
 
         {hasSelection && (
           <Chip
-            label={`${selectedIds.length} selected`}
+            label={t('imports.batch.selected', { count: selectedIds.length })}
             size="small"
             color="primary"
             variant="outlined"
@@ -130,7 +134,7 @@ export default function BatchActionToolbar({
           disabled={isProcessing}
           sx={{ textTransform: 'none' }}
         >
-          Approve/Merge All ({pendingCount})
+          {t('imports.batch.approveAll', { count: pendingCount })}
         </Button>
 
         {hasSelection && (
@@ -149,7 +153,9 @@ export default function BatchActionToolbar({
             disabled={isProcessing}
             sx={{ textTransform: 'none' }}
           >
-            Approve/Merge Selected ({selectedIds.length})
+            {t('imports.batch.approveSelected', {
+              count: selectedIds.length,
+            })}
           </Button>
         )}
 
@@ -164,7 +170,7 @@ export default function BatchActionToolbar({
           disabled={isProcessing}
           sx={{ textTransform: 'none' }}
         >
-          Ignore All ({pendingCount})
+          {t('imports.batch.ignoreAll', { count: pendingCount })}
         </Button>
 
         {hasSelection && (
@@ -183,7 +189,9 @@ export default function BatchActionToolbar({
             disabled={isProcessing}
             sx={{ textTransform: 'none' }}
           >
-            Ignore Selected ({selectedIds.length})
+            {t('imports.batch.ignoreSelected', {
+              count: selectedIds.length,
+            })}
           </Button>
         )}
 
@@ -197,7 +205,7 @@ export default function BatchActionToolbar({
             disabled={isProcessing}
             sx={{ textTransform: 'none' }}
           >
-            Auto-Approve Rules
+            {t('imports.batch.autoApprove')}
           </Button>
         )}
       </Stack>

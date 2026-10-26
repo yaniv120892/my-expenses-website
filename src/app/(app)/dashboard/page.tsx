@@ -17,10 +17,12 @@ import { AiInsightsCard } from '@/components/dashboard/AiInsightsCard';
 import { RecentTransactionsQuickView } from '@/components/dashboard/RecentTransactionsQuickView';
 import { SubscriptionsCard } from '@/components/dashboard/SubscriptionsCard';
 import TransactionForm from '@/components/TransactionForm';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import { CreateTransactionInput } from '@/types';
+import { useT } from '@/i18n/useT';
 
 export default function DashboardPage() {
+  const t = useT();
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
 
@@ -37,14 +39,14 @@ export default function DashboardPage() {
 
   const header = (
     <PageHeader
-      title="Dashboard"
-      action={
+      title={t('nav.dashboard')}
+      actions={
         <Button
           variant="contained"
           startIcon={<AddRoundedIcon />}
           onClick={() => setFormOpen(true)}
         >
-          Add transaction
+          {t('dashboard.addTransaction')}
         </Button>
       }
     />
@@ -64,9 +66,9 @@ export default function DashboardPage() {
       <>
         {header}
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography color="error">Failed to load dashboard</Typography>
+          <Typography color="error">{t('dashboard.loadFailed')}</Typography>
           <Button onClick={() => window.location.reload()} sx={{ mt: 2 }}>
-            Retry
+            {t('common.retry')}
           </Button>
         </Box>
       </>

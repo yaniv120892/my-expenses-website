@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import { DetectedSubscription } from '@/types/subscription';
-import { formatCurrency, formatSubscriptionFrequency } from '@/utils/format';
+import { useAppFormat } from '@/i18n/useAppFormat';
+import { useT } from '@/i18n/useT';
 
 interface Props {
   subscription: DetectedSubscription;
@@ -63,7 +64,9 @@ export default function SubscriptionCard({
   onEdit,
   onExplain,
 }: Props) {
-  const nextDate = new Date(subscription.nextExpectedDate).toLocaleDateString();
+  const t = useT();
+  const formatter = useAppFormat();
+  const nextDate = formatter.day(subscription.nextExpectedDate);
   const scheduleMatch = subscription.scheduleMatch;
 
   return (
@@ -105,25 +108,32 @@ export default function SubscriptionCard({
               }}
             >
               <Chip
-                label={formatSubscriptionFrequency(subscription.frequency)}
+                label={formatter.frequency(subscription.frequency)}
                 color={frequencyColor(subscription.frequency)}
                 size="small"
                 variant="outlined"
               />
               <Chip
-                label={subscription.status}
+                label={t(`subscriptions.status.${subscription.status}`)}
                 color={statusColor(subscription.status)}
                 size="small"
               />
               <Chip
-                label={subscription.categoryName ?? 'No category'}
+                label={
+                  subscription.categoryName ??
+                  t('subscriptions.card.noCategory')
+                }
                 size="small"
                 variant="outlined"
                 color={subscription.categoryName ? 'default' : 'warning'}
               />
               {subscription.userEditedAt && (
-                <Tooltip title="You edited these figures; detection no longer overwrites them">
-                  <Chip label="Edited" size="small" variant="outlined" />
+                <Tooltip title={t('subscriptions.card.editedHint')}>
+                  <Chip
+                    label={t('subscriptions.card.edited')}
+                    size="small"
+                    variant="outlined"
+                  />
                 </Tooltip>
               )}
             </Stack>
@@ -135,7 +145,7 @@ export default function SubscriptionCard({
                 fontWeight: 700,
               }}
             >
-              {formatCurrency(subscription.averageAmount)}
+              {formatter.currency(subscription.averageAmount)}
             </Typography>
             <Typography
               variant="caption"
@@ -143,8 +153,10 @@ export default function SubscriptionCard({
                 color: 'text.secondary',
               }}
             >
-              {formatCurrency(subscription.monthlyCost)}/mo ·{' '}
-              {formatCurrency(subscription.annualCost)}/yr
+              {t('subscriptions.card.costs', {
+                monthly: formatter.currency(subscription.monthlyCost),
+                annual: formatter.currency(subscription.annualCost),
+              })}
             </Typography>
           </Box>
         </Stack>
@@ -156,7 +168,7 @@ export default function SubscriptionCard({
             mb: 1,
           }}
         >
-          Next expected: {nextDate}
+          {t('subscriptions.card.nextExpected', { date: nextDate })}
         </Typography>
 
         {scheduleMatch && (
@@ -172,8 +184,10 @@ export default function SubscriptionCard({
             <EventRepeatIcon fontSize="small" />
             <Typography variant="body2">
               {scheduleMatch.matchType === 'LINKED'
-                ? 'Already scheduled'
-                : `Looks scheduled already as "${scheduleMatch.description}"`}
+                ? t('subscriptions.card.alreadyScheduled')
+                : t('subscriptions.card.looksScheduled', {
+                    description: scheduleMatch.description,
+                  })}
             </Typography>
           </Stack>
         )}
@@ -193,7 +207,7 @@ export default function SubscriptionCard({
                   color: 'text.secondary',
                 }}
               >
-                Confidence
+                {t('subscriptions.card.confidence')}
               </Typography>
               <Typography
                 variant="caption"
@@ -201,7 +215,10 @@ export default function SubscriptionCard({
                   color: 'text.secondary',
                 }}
               >
-                {Math.round(subscription.confidence * 100)}%
+                {formatter.percent({
+                  value: subscription.confidence,
+                  options: { maximumFractionDigits: 0 },
+                })}
               </Typography>
             </Stack>
             <LinearProgress
@@ -229,7 +246,7 @@ export default function SubscriptionCard({
                 size="small"
                 onClick={() => onConfirm(subscription.id)}
               >
-                Confirm
+                {t('subscriptions.card.confirm')}
               </Button>
               <Button
                 variant="outlined"
@@ -237,7 +254,7 @@ export default function SubscriptionCard({
                 size="small"
                 onClick={() => onDismiss(subscription.id)}
               >
-                Dismiss
+                {t('subscriptions.card.dismiss')}
               </Button>
             </>
           )}
@@ -246,10 +263,10 @@ export default function SubscriptionCard({
             size="small"
             onClick={() => onEdit(subscription)}
           >
-            Edit
+            {t('subscriptions.card.edit')}
           </Button>
           <Button size="small" onClick={() => onExplain(subscription)}>
-            Why detected?
+            {t('subscriptions.card.explain')}
           </Button>
           {subscription.status !== 'DISMISSED' && !scheduleMatch && (
             <Button
@@ -257,7 +274,7 @@ export default function SubscriptionCard({
               size="small"
               onClick={() => onConvert(subscription)}
             >
-              Convert to Scheduled
+              {t('subscriptions.card.convert')}
             </Button>
           )}
         </Stack>

@@ -1,7 +1,12 @@
 import { BatchResult } from '@/types/import';
+import type { T } from '@/i18n/useT.types';
 
 export type UploadItemStatus =
   'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';
+
+export type UploadItemError =
+  | { code: 'INVALID_PAYMENT_MONTH' }
+  | { code: 'REQUEST_FAILED'; message: string | null };
 
 export interface UploadItem {
   id: string;
@@ -12,7 +17,7 @@ export interface UploadItem {
   /** Set once the S3 put succeeds, so a retry does not re-send the body. */
   fileUrl?: string;
   importId?: string;
-  error?: string;
+  error?: UploadItemError;
 }
 
 export interface UploadQueueState {
@@ -29,7 +34,7 @@ export type UploadQueueAction =
   | { type: 'UPLOAD_PROGRESS'; id: string; progress: number }
   | { type: 'UPLOAD_SUCCEEDED'; id: string; fileUrl: string }
   | { type: 'ITEM_SUCCEEDED'; id: string; importId: string }
-  | { type: 'ITEM_FAILED'; id: string; error: string }
+  | { type: 'ITEM_FAILED'; id: string; error: UploadItemError }
   | { type: 'REQUEUE'; ids: string[] }
   | { type: 'RESET' };
 
@@ -215,7 +220,26 @@ export function selectIsDrained(state: UploadQueueState): boolean {
   );
 }
 
-export function toBatchResult(state: UploadQueueState): BatchResult {
+export function describeUploadError({
+  error,
+  t,
+}: {
+  error: UploadItemError | undefined;
+  t: T;
+}): string {
+  if (error?.code === 'INVALID_PAYMENT_MONTH') {
+    return t('imports.upload.invalidMonth');
+  }
+  return error?.message ?? t('imports.upload.importFailed');
+}
+
+export function toBatchResult({
+  state,
+  t,
+}: {
+  state: UploadQueueState;
+  t: T;
+}): BatchResult {
   const failed = selectFailedItems(state);
 
   return {
@@ -224,7 +248,7 @@ export function toBatchResult(state: UploadQueueState): BatchResult {
     failed: failed.length,
     errors: failed.map((item) => ({
       id: item.file.name,
-      error: item.error ?? 'Upload failed',
+      error: describeUploadError({ error: item.error, t }),
     })),
   };
 }

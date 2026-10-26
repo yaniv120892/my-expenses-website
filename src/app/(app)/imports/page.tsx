@@ -13,11 +13,12 @@ import {
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import FileUpload from '@/components/FileUpload';
 import ImportList from '@/components/ImportList';
 import AutoApproveRuleManager from '@/components/AutoApproveRuleManager';
 import { useIsCompact } from '@/hooks/useBreakpoints';
+import { useT } from '@/i18n/useT';
 
 function ClosableDialog({
   open,
@@ -36,6 +37,7 @@ function ClosableDialog({
   busy?: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const fullScreen = useIsCompact();
 
   return (
@@ -56,7 +58,7 @@ function ClosableDialog({
         {title}
         <IconButton
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('common.close')}
           size="small"
           edge="end"
           disabled={busy}
@@ -70,6 +72,7 @@ function ClosableDialog({
 }
 
 export default function ImportsPage() {
+  const t = useT();
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [isUploadRunning, setUploadRunning] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -82,22 +85,22 @@ export default function ImportsPage() {
   return (
     <>
       <PageHeader
-        title="Imports"
-        action={
+        title={t('imports.title')}
+        actions={
           <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"
               startIcon={<AutoFixHighOutlinedIcon />}
               onClick={() => setRulesOpen(true)}
             >
-              Rules
+              {t('imports.rules')}
             </Button>
             <Button
               variant="contained"
               startIcon={<UploadFileOutlinedIcon />}
               onClick={() => setUploadOpen(true)}
             >
-              Upload
+              {t('imports.uploadAction')}
             </Button>
           </Stack>
         }
@@ -111,7 +114,7 @@ export default function ImportsPage() {
       <ClosableDialog
         open={isUploadOpen}
         onClose={() => setUploadOpen(false)}
-        title="Import Files"
+        title={t('imports.uploadDialogTitle')}
         maxWidth="sm"
         busy={isUploadRunning}
       >
@@ -124,7 +127,7 @@ export default function ImportsPage() {
       <ClosableDialog
         open={rulesOpen}
         onClose={() => setRulesOpen(false)}
-        title="Auto-Approve Rules"
+        title={t('imports.rulesDialogTitle')}
         maxWidth="md"
       >
         <AutoApproveRuleManager />

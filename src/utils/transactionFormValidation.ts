@@ -1,44 +1,45 @@
 import { isPositiveAmount } from '@/shared/schemas/amount';
+import type {
+  TransactionFormErrors,
+  TransactionFormValues,
+} from './transactionFormValidation.types';
 
-export interface TransactionFormValues {
-  description: string;
-  value: number | string;
-  baseValue?: number | string;
-  categoryId: string;
-  type: string;
-  date: string;
-}
-
-// Update and merge require a category uuid while create and import-approve let
-// the server categorize, so the endpoint the submit targets decides
-// `requireCategory`.
-export function validateTransactionForm(
-  form: TransactionFormValues,
-  requireCategory: boolean,
-): Record<string, string> {
-  const errors: Record<string, string> = {};
+/**
+ * Returns message keys rather than text, so the form translates them in the
+ * viewer's language. Update and merge require a category uuid while create and
+ * import-approve let the server categorize, so the endpoint the submit targets
+ * decides `requireCategory`.
+ */
+export function validateTransactionForm({
+  form,
+  requireCategory,
+}: {
+  form: TransactionFormValues;
+  requireCategory: boolean;
+}): TransactionFormErrors {
+  const errors: TransactionFormErrors = {};
 
   if (!form.description) {
-    errors.description = 'Description is required';
+    errors.description = 'transactions.validation.descriptionRequired';
   }
   if (isNaN(Number(form.value))) {
-    errors.value = 'Value must be a number';
+    errors.value = 'transactions.validation.valueNotNumber';
   } else if (!isPositiveAmount(form.value)) {
-    errors.value = 'Value must be greater than 0';
+    errors.value = 'transactions.validation.valueNotPositive';
   }
   const baseValueEntered =
     form.baseValue !== undefined && form.baseValue !== '';
   if (baseValueEntered && !isPositiveAmount(form.baseValue)) {
-    errors.baseValue = 'Amount charged must be a number greater than 0';
+    errors.baseValue = 'transactions.validation.baseValueInvalid';
   }
   if (!form.type) {
-    errors.type = 'Type is required';
+    errors.type = 'transactions.validation.typeRequired';
   }
   if (!form.date) {
-    errors.date = 'Date is required';
+    errors.date = 'transactions.validation.dateRequired';
   }
   if (requireCategory && !form.categoryId) {
-    errors.categoryId = 'Category is required';
+    errors.categoryId = 'transactions.validation.categoryRequired';
   }
 
   return errors;

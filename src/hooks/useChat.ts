@@ -2,10 +2,12 @@ import { useCallback, useRef, useState } from 'react';
 import { handleApiError } from '@/utils/api';
 import { streamMessage } from '../services/chatService';
 import type { ChatMessage } from '@/shared/schemas/chat';
+import { useT } from '@/i18n/useT';
 
 export type Message = ChatMessage;
 
 export const useChat = () => {
+  const t = useT();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -64,10 +66,9 @@ export const useChat = () => {
             // An empty reply would otherwise leave a blank bubble behind; this
             // is a no-op once any text has arrived.
             onDone: () =>
-              appendToLastMessage(
-                "Sorry, I wasn't able to produce an answer. Please try again.",
-                { onlyIfEmpty: true },
-              ),
+              appendToLastMessage(t('chat.error.emptyReply'), {
+                onlyIfEmpty: true,
+              }),
             onError: appendToLastMessage,
           },
           controller.signal,
@@ -77,7 +78,9 @@ export const useChat = () => {
           error instanceof Error && error.name === 'AbortError';
         if (!wasAborted) {
           appendToLastMessage(
-            `Sorry, I encountered an error: ${handleApiError(error)}`,
+            t('chat.error.failed', {
+              error: handleApiError(error, t('chat.error.unknown')),
+            }),
           );
         }
       } finally {
@@ -85,7 +88,7 @@ export const useChat = () => {
         abortRef.current = null;
       }
     },
-    [appendToLastMessage, isLoading, messages],
+    [appendToLastMessage, isLoading, messages, t],
   );
 
   const cancel = useCallback(() => {

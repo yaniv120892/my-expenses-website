@@ -2,20 +2,19 @@
 
 import { MenuItem, TextField } from '@mui/material';
 import type { TransactionSort } from '@/shared/schemas/transactions';
+import { useT } from '@/i18n/useT';
 
-type SortOption = TransactionSort & { label: string };
-
-const SORT_OPTIONS: SortOption[] = [
-  { sortBy: 'date', sortOrder: 'desc', label: 'Newest first' },
-  { sortBy: 'date', sortOrder: 'asc', label: 'Oldest first' },
-  { sortBy: 'amount', sortOrder: 'desc', label: 'Amount: high to low' },
-  { sortBy: 'amount', sortOrder: 'asc', label: 'Amount: low to high' },
-  { sortBy: 'category', sortOrder: 'asc', label: 'Category: A to Z' },
-  { sortBy: 'category', sortOrder: 'desc', label: 'Category: Z to A' },
+const SORT_OPTIONS: TransactionSort[] = [
+  { sortBy: 'date', sortOrder: 'desc' },
+  { sortBy: 'date', sortOrder: 'asc' },
+  { sortBy: 'amount', sortOrder: 'desc' },
+  { sortBy: 'amount', sortOrder: 'asc' },
+  { sortBy: 'category', sortOrder: 'asc' },
+  { sortBy: 'category', sortOrder: 'desc' },
 ];
 
 const optionKey = ({ sortBy, sortOrder }: TransactionSort) =>
-  `${sortBy}-${sortOrder}`;
+  `${sortBy}-${sortOrder}` as const;
 
 export function TransactionSortSelect({
   value,
@@ -24,11 +23,12 @@ export function TransactionSortSelect({
   value: TransactionSort;
   onChange: (sort: TransactionSort) => void;
 }) {
+  const t = useT();
   return (
     <TextField
       select
       size="small"
-      label="Sort by"
+      label={t('transactions.sort.label')}
       value={optionKey(value)}
       onChange={(event) => {
         const option = SORT_OPTIONS.find(
@@ -42,7 +42,7 @@ export function TransactionSortSelect({
     >
       {SORT_OPTIONS.map((option) => (
         <MenuItem key={optionKey(option)} value={optionKey(option)}>
-          {option.label}
+          {t(`transactions.sort.${optionKey(option)}`)}
         </MenuItem>
       ))}
     </TextField>

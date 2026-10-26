@@ -2,13 +2,20 @@
 
 import React from 'react';
 import ListSkeleton from './ListSkeleton';
-
-const COLUMNS = ['Description', 'Category', 'Date', 'Amount', 'Actions'];
+import { useT } from '@/i18n/useT';
 
 export default function PendingTransactionListSkeleton({
   rows = 5,
 }: {
   rows?: number;
 }) {
-  return <ListSkeleton columns={COLUMNS} rows={rows} />;
+  const t = useT();
+  const columns = [
+    t('pending.column.description'),
+    t('pending.column.category'),
+    t('pending.column.date'),
+    t('pending.column.amount'),
+    t('pending.column.actions'),
+  ];
+  return <ListSkeleton columns={columns} rows={rows} alignEndCount={2} />;
 }

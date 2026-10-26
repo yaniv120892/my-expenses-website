@@ -1,6 +1,10 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
-import { handleApiError } from '@/utils/api';
-import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
+import { describeApiError } from '@/utils/api';
+import {
+  UploadItem,
+  UploadItemError,
+  UploadQueueAction,
+} from '@/utils/importUploadQueue';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
@@ -66,7 +70,7 @@ export async function runUploadItem(
 // otherwise only follow.
 function readPaymentMonth(raw: string): string | undefined {
   if (isUnreadablePaymentMonth(raw)) {
-    throw new Error(`Payment month must be MM/YYYY (got "${raw}")`);
+    throw new InvalidPaymentMonthError(raw);
   }
   return normalizePaymentMonth(raw) ?? undefined;
 }
@@ -84,8 +88,23 @@ export async function runUploadBatch(
       dispatch({
         type: 'ITEM_FAILED',
         id: item.id,
-        error: handleApiError(error, 'Failed to import file'),
+        error: toUploadItemError(error),
       });
     }
   });
+}
+
+export class InvalidPaymentMonthError extends Error {
+  constructor(raw: string) {
+    super(`Payment month must be MM/YYYY (got "${raw}")`);
+    this.name = 'InvalidPaymentMonthError';
+  }
+}
+
+function toUploadItemError(error: unknown): UploadItemError {
+  if (error instanceof InvalidPaymentMonthError) {
+    return { code: 'INVALID_PAYMENT_MONTH' };
+  }
+  const message = describeApiError(error, '');
+  return { code: 'REQUEST_FAILED', message: message || null };
 }

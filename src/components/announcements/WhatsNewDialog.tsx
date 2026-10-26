@@ -20,6 +20,7 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { useIsCompact } from '@/hooks/useBreakpoints';
+import { useT } from '@/i18n/useT';
 import {
   AnnouncementIcon,
   AnnouncementItem,
@@ -125,6 +126,7 @@ export default function WhatsNewDialog({
   onAcknowledge,
   onClose,
 }: Props) {
+  const t = useT();
   const fullScreen = useIsCompact();
   const router = useRouter();
 
@@ -187,7 +189,9 @@ export default function WhatsNewDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="contained" onClick={onAcknowledge}>
-          {requireAcknowledgement ? 'Got it' : 'Close'}
+          {requireAcknowledgement
+            ? t('announcements.gotIt')
+            : t('announcements.close')}
         </Button>
       </DialogActions>
     </Dialog>

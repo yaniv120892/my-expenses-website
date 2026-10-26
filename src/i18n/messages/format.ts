@@ -1,0 +1,51 @@
+import type { Dictionary, Messages } from '@yaniv120892/my-ui';
+
+const en = {
+  'format.frequency.WEEKLY': 'Weekly',
+  'format.frequency.MONTHLY': 'Monthly',
+  'format.frequency.YEARLY': 'Yearly',
+  'format.exchangeRateSource.STATEMENT': 'card statement',
+  'format.exchangeRateSource.BANK_OF_ISRAEL': 'Bank of Israel rate',
+  'format.exchangeRateSource.MANUAL': 'entered by hand',
+  'format.baseAmountMissing': '{currency} amount missing',
+  'format.currencyUnknown': '{amount} (currency unknown)',
+  'format.week': 'Week {week}',
+  'format.dateRange.until': 'Until {date}',
+  'format.dateRange.from': 'From {date}',
+  'format.dateRange.allTime': 'All time',
+  'format.schedule.daily.one': 'Runs every day.',
+  'format.schedule.daily.other': 'Runs every {interval} days.',
+  'format.schedule.weekly.one': 'Runs every week on {day}.',
+  'format.schedule.weekly.other': 'Runs every {interval} weeks on {day}.',
+  'format.schedule.weekly.missingDay': 'Choose a day of week.',
+  'format.schedule.monthly.one': 'Runs every month on day {day}.',
+  'format.schedule.monthly.other': 'Runs every {interval} months on day {day}.',
+  'format.schedule.monthly.missingDay': 'Choose a day of month.',
+} satisfies Messages;
+
+export const formatMessages: Dictionary<typeof en> = {
+  en,
+  he: {
+    'format.frequency.WEEKLY': 'שבועי',
+    'format.frequency.MONTHLY': 'חודשי',
+    'format.frequency.YEARLY': 'שנתי',
+    'format.exchangeRateSource.STATEMENT': 'לפי פירוט החיובים',
+    'format.exchangeRateSource.BANK_OF_ISRAEL': 'שער בנק ישראל',
+    'format.exchangeRateSource.MANUAL': 'הוזן ידנית',
+    'format.baseAmountMissing': 'חסר סכום ב{currency}',
+    'format.currencyUnknown': '{amount} (מטבע לא ידוע)',
+    'format.week': 'שבוע {week}',
+    'format.dateRange.until': 'עד {date}',
+    'format.dateRange.from': 'מ־{date}',
+    'format.dateRange.allTime': 'כל הזמן',
+    'format.schedule.daily.one': 'מתבצע כל יום.',
+    'format.schedule.daily.other': 'מתבצע כל {interval} ימים.',
+    'format.schedule.weekly.one': 'מתבצע כל שבוע ב{day}.',
+    'format.schedule.weekly.other': 'מתבצע כל {interval} שבועות ב{day}.',
+    'format.schedule.weekly.missingDay': 'בחרו יום בשבוע.',
+    'format.schedule.monthly.one': 'מתבצע כל חודש ב־{day} לחודש.',
+    'format.schedule.monthly.other':
+      'מתבצע כל {interval} חודשים ב־{day} לחודש.',
+    'format.schedule.monthly.missingDay': 'בחרו יום בחודש.',
+  },
+};

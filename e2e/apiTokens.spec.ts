@@ -13,7 +13,7 @@ test('an API token is shown once, then revoked through the dialog', async ({
   await page.goto('/settings');
   await page.getByLabel('Token name').fill(name);
   await page.getByRole('checkbox', { name: /Imports/ }).check();
-  await page.getByRole('button', { name: 'Create' }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
 
   const plaintext = page.getByText(/^mxk_/);
   await expect(plaintext).toBeVisible();

@@ -59,7 +59,7 @@
     "@upstash/redis": "^1.34.9",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "@yaniv120892/my-ui": "github:yaniv120892/my-ui#2c0d2c31a29d43d514f11b4b0611450bf36feb25",
+    "@yaniv120892/my-ui": "github:yaniv120892/my-ui#a174f513045de696fb89375485ee073c148ba90f",
     "ai": "^7.0.137",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",

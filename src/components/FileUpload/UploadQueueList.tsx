@@ -55,7 +55,9 @@ function formatSize({
     });
   }
   return t('imports.upload.sizeKilobytes', {
-    size: formatter.number(Math.max(1, Math.round(bytes / BYTES_PER_KILOBYTE))),
+    size: formatter.number({
+      value: Math.max(1, Math.round(bytes / BYTES_PER_KILOBYTE)),
+    }),
   });
 }
 

@@ -29,7 +29,10 @@ export default function FixedExpensesSummary({
     return null;
   }
 
-  const monthName = formatter.date(today, { month: 'long' });
+  const monthName = formatter.date({
+    value: today,
+    options: { month: 'long' },
+  });
 
   return (
     <Box

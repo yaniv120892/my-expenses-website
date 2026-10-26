@@ -132,9 +132,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `src/i18n/messages/<area>.ts` — English the source, Hebrew beside it, merged
   in `src/i18n/messages/index.ts`, held equal by `messages.test.ts` — read with
   `useT()`. Numbers, money and dates go through `useAppFormat()`
-  (`src/i18n/useAppFormat.ts`, built on `cachedFormat`, the package's
-  `useFormat` with each Intl formatter cached per locale and options, since a
-  table formats hundreds of values a render); a pure
+  (`src/i18n/useAppFormat.ts`, built on the package's `useFormat`, which
+  caches each Intl formatter per locale and options and formats dates in one
+  shared time zone); a pure
   helper that builds UI text takes `t` and the formatter as arguments. Data
   (descriptions, categories, announcements, assistant replies) and text sent to
   Telegram, email or agents is not translated; the server formatters in

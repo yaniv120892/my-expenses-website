@@ -42,8 +42,9 @@ export default function AmountText({
     >
       {format === 'currency'
         ? formatter.currency(value)
-        : formatter.number(type === 'INCOME' ? value : -value, {
-            signDisplay: 'always',
+        : formatter.number({
+            value: type === 'INCOME' ? value : -value,
+            options: { signDisplay: 'always' },
           })}
     </Typography>
   );

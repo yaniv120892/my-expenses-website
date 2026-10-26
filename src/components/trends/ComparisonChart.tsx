@@ -14,7 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
-import { useI18n } from '@yaniv120892/my-ui';
+import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import {
   formatBucketLabel,
@@ -112,7 +112,7 @@ export function ComparisonChart({ comparison, measure, mode }: Props) {
   const theme = useTheme();
   const isMobile = useIsMobile();
   const formatter = useAppFormat();
-  const { direction } = useI18n();
+  const direction = localeDirection(useI18n().locale);
   const isRightToLeft = direction === 'rtl';
   const palette = (theme.vars ?? theme).palette;
   const seriesColors = palette.charts.series;
@@ -128,7 +128,7 @@ export function ComparisonChart({ comparison, measure, mode }: Props) {
     <XAxis key="x" dataKey="label" tick={tickStyle} reversed={isRightToLeft} />,
     <YAxis
       key="y"
-      tickFormatter={(value: number) => formatter.number(value)}
+      tickFormatter={(value: number) => formatter.number({ value })}
       tick={tickStyle}
       width={72}
       orientation={valueAxisOrientation(direction)}

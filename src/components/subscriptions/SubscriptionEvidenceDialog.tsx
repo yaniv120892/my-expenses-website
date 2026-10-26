@@ -135,7 +135,7 @@ export default function SubscriptionEvidenceDialog({
                 />
                 <Fact
                   label={t('subscriptions.evidence.chargesMatched')}
-                  value={formatter.number(evidence.chargeCount)}
+                  value={formatter.number({ value: evidence.chargeCount })}
                 />
                 <Fact
                   label={t('subscriptions.evidence.window')}

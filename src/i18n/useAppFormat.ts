@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { parseISO } from 'date-fns';
-import { useI18n } from '@yaniv120892/my-ui';
+import { useFormat } from '@yaniv120892/my-ui';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import type { ExchangeRateSource } from '@/shared/types/transaction';
 import type { SubscriptionFrequency } from '@/types/subscription';
@@ -12,7 +12,6 @@ import type {
   Format,
   ScheduleSummaryInput,
 } from './useAppFormat.types';
-import { cachedFormat } from './cachedFormat';
 import { useT } from './useT';
 import type { T } from './useT.types';
 
@@ -25,35 +24,53 @@ function toDate(value: string | Date): Date {
 }
 
 export function createAppFormatter({ format, t }: { format: Format; t: T }) {
-  const currency = (value: number) => format.currency({ value });
+  const currency = (value: number) =>
+    format.currency({ value, currency: BASE_CURRENCY });
   const day = (value: string | Date) =>
-    format.date(toDate(value), { dateStyle: 'medium' });
+    format.date({ value: toDate(value), options: { dateStyle: 'medium' } });
 
   return {
     ...format,
     currency,
     currencyRounded: (value: number) =>
-      format.currency({ value, options: { maximumFractionDigits: 0 } }),
+      format.currency({
+        value,
+        currency: BASE_CURRENCY,
+        options: { maximumFractionDigits: 0 },
+      }),
     /** A percentage given in points (12.5, not 0.125), to one decimal. */
     percentagePoints: (points: number, options?: Intl.NumberFormatOptions) =>
-      format.percent(points / 100, { ...ONE_DECIMAL, ...options }),
-    megabytes: (value: number) => format.number(value, ONE_DECIMAL),
+      format.percent({
+        value: points / 100,
+        options: { ...ONE_DECIMAL, ...options },
+      }),
+    megabytes: (value: number) =>
+      format.number({ value, options: ONE_DECIMAL }),
     money: (amount: number, currencyCode: string) =>
       format.currency({ value: amount, currency: currencyCode }),
     day,
     dateTime: (value: string | Date) =>
-      format.date(toDate(value), { dateStyle: 'short', timeStyle: 'short' }),
+      format.date({
+        value: toDate(value),
+        options: { dateStyle: 'short', timeStyle: 'short' },
+      }),
     month: (value: string | Date) =>
-      format.date(toDate(value), { month: 'long', year: 'numeric' }),
+      format.date({
+        value: toDate(value),
+        options: { month: 'long', year: 'numeric' },
+      }),
     monthShort: (value: string | Date) =>
-      format.date(toDate(value), { month: 'short', year: 'numeric' }),
+      format.date({
+        value: toDate(value),
+        options: { month: 'short', year: 'numeric' },
+      }),
     year: (value: string | Date) =>
-      format.date(toDate(value), { year: 'numeric' }),
+      format.date({ value: toDate(value), options: { year: 'numeric' } }),
     /** 1 is Sunday, as the schedule form stores it. */
     weekday: (dayOfWeek: number) => {
       const date = new Date(SUNDAY_2023_01_01);
       date.setDate(date.getDate() + ((dayOfWeek - 1) % 7));
-      return format.date(date, { weekday: 'long' });
+      return format.date({ value: date, options: { weekday: 'long' } });
     },
     dateRange: ({
       start,
@@ -73,9 +90,9 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
         case 'weekly':
           return t('format.week', { week: date.split('-')[1] });
         case 'monthly':
-          return format.date(parseISO(`${date}-01`), {
-            month: 'short',
-            year: 'numeric',
+          return format.date({
+            value: parseISO(`${date}-01`),
+            options: { month: 'short', year: 'numeric' },
           });
         default:
           return date;
@@ -92,7 +109,7 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
           : currency(amount.value);
       if (amount.currency === null) {
         return amount.value === null
-          ? `${t('format.currencyUnknown', { amount: format.number(amount.originalAmount) })} · ${baseText}`
+          ? `${t('format.currencyUnknown', { amount: format.number({ value: amount.originalAmount }) })} · ${baseText}`
           : baseText;
       }
       if (!isForeignCurrency(amount.currency)) {
@@ -106,8 +123,7 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
 export type AppFormatter = ReturnType<typeof createAppFormatter>;
 
 export function useAppFormat(): AppFormatter {
-  const { locale } = useI18n();
-  const format = useMemo(() => cachedFormat(locale), [locale]);
+  const format = useFormat();
   const t = useT();
   return useMemo(() => createAppFormatter({ format, t }), [format, t]);
 }

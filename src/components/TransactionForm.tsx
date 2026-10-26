@@ -172,7 +172,7 @@ function describeConversion({
   }
   if (currency === null) {
     return t('transactions.form.conversion.unknownCurrency', {
-      amount: formatter.number(initialData.originalAmount ?? 0),
+      amount: formatter.number({ value: initialData.originalAmount ?? 0 }),
     });
   }
   const original = formatter.money(initialData.originalAmount ?? 0, currency);

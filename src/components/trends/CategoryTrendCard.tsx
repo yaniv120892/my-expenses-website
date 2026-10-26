@@ -27,7 +27,7 @@ import {
 import { TrendIcon } from './TrendIcon';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { useI18n } from '@yaniv120892/my-ui';
+import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
@@ -53,7 +53,7 @@ export const CategoryTrendCard = ({
 }: CategoryTrendCardProps) => {
   const t = useT();
   const formatter = useAppFormat();
-  const { direction } = useI18n();
+  const direction = localeDirection(useI18n().locale);
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
@@ -145,7 +145,7 @@ export const CategoryTrendCard = ({
                 <YAxis
                   stroke={palette.text.secondary}
                   tick={{ fill: palette.text.secondary, fontSize: 12 }}
-                  tickFormatter={(value: number) => formatter.number(value)}
+                  tickFormatter={(value: number) => formatter.number({ value })}
                   width={48}
                   orientation={valueAxisOrientation(direction)}
                 />

@@ -174,11 +174,11 @@ export default function SubscriptionsPage() {
           >
             <StatTile
               label={t('subscriptions.stat.active')}
-              value={formatter.number(data.activeCount)}
+              value={formatter.number({ value: data.activeCount })}
             />
             <StatTile
               label={t('subscriptions.stat.detected')}
-              value={formatter.number(data.detectedCount)}
+              value={formatter.number({ value: data.detectedCount })}
               valueColor="warning.main"
             />
             <StatTile

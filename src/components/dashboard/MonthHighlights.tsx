@@ -42,7 +42,7 @@ function SpendingBar({
       >
         <Typography variant="body2">{label}</Typography>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {formatter.number(value)}
+          {formatter.number({ value })}
         </Typography>
       </Stack>
       <LinearProgress

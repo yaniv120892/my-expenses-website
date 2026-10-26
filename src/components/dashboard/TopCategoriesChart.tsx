@@ -43,7 +43,7 @@ function ChartTooltip({
         <Box component="span" sx={{ fontWeight: 600 }}>
           {name}:
         </Box>{' '}
-        {formatter.number(value)}
+        {formatter.number({ value })}
       </Typography>
     </Paper>
   );
@@ -191,7 +191,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   {category.categoryName}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {formatter.number(category.amount)}
+                  {formatter.number({ value: category.amount })}
                 </Typography>
                 <Typography
                   variant="caption"

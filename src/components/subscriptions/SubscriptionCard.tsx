@@ -215,8 +215,9 @@ export default function SubscriptionCard({
                   color: 'text.secondary',
                 }}
               >
-                {formatter.percent(subscription.confidence, {
-                  maximumFractionDigits: 0,
+                {formatter.percent({
+                  value: subscription.confidence,
+                  options: { maximumFractionDigits: 0 },
                 })}
               </Typography>
             </Stack>

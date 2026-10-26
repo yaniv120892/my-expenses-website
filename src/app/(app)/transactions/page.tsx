@@ -291,8 +291,8 @@ function TransactionsPageContent() {
                 }}
               >
                 {t('transactions.page.showing', {
-                  shown: formatter.number(transactions.length),
-                  total: formatter.number(summary.count),
+                  shown: formatter.number({ value: transactions.length }),
+                  total: formatter.number({ value: summary.count }),
                 })}
               </Typography>
             )}

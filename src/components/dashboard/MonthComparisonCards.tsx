@@ -69,7 +69,7 @@ function ComparisonCard({
           {title}
         </Typography>
         <Typography variant="h3" component="p">
-          {formatter.number(value)}
+          {formatter.number({ value })}
         </Typography>
         <Stack
           direction="row"

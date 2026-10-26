@@ -61,12 +61,15 @@ export function buildEvidenceReasons({
       max: evidence.frequencyWindowDays.max,
     }),
     t('subscriptions.reason.spacing', {
-      days: formatter.number(evidence.intervalStdDevDays),
-      ratio: formatter.percent(evidence.intervalVariationRatio, WHOLE_PERCENT),
-      tolerance: formatter.percent(
-        evidence.intervalToleranceRatio,
-        WHOLE_PERCENT,
-      ),
+      days: formatter.number({ value: evidence.intervalStdDevDays }),
+      ratio: formatter.percent({
+        value: evidence.intervalVariationRatio,
+        options: WHOLE_PERCENT,
+      }),
+      tolerance: formatter.percent({
+        value: evidence.intervalToleranceRatio,
+        options: WHOLE_PERCENT,
+      }),
     }),
     evidence.minAmount === evidence.maxAmount
       ? t('subscriptions.reason.sameAmount', {
@@ -78,7 +81,10 @@ export function buildEvidenceReasons({
           average: formatter.currency(evidence.averageAmount),
         }),
     t('subscriptions.reason.confidence', {
-      confidence: formatter.percent(subscription.confidence, WHOLE_PERCENT),
+      confidence: formatter.percent({
+        value: subscription.confidence,
+        options: WHOLE_PERCENT,
+      }),
     }),
   ];
 }

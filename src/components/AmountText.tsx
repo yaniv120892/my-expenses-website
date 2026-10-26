@@ -36,7 +36,7 @@ export default function AmountText({
         fontWeight,
         whiteSpace: 'nowrap',
         color:
-          type === 'INCOME' ? palette.charts.income : palette.charts.expense,
+          type === 'INCOME' ? palette.charts.positive : palette.charts.negative,
       }}
     >
       {format === 'currency'

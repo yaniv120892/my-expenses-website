@@ -1,0 +1,58 @@
+import type { Dictionary, Messages } from '@yaniv120892/my-ui';
+
+const en = {
+  'auth.email': 'Email',
+  'auth.password': 'Password',
+  'auth.login.title': 'Log in',
+  'auth.login.submit': 'Log in',
+  'auth.login.submitting': 'Logging in…',
+  'auth.login.failed': 'Failed to log in',
+  'auth.login.sessionExpired': 'Your session has expired. Please log in again.',
+  'auth.login.noAccount': "Don't have an account?",
+  'auth.login.signupLink': 'Sign up',
+  'auth.signup.title': 'Create your account',
+  'auth.signup.passwordHint': 'At least 8 characters',
+  'auth.signup.submit': 'Sign up',
+  'auth.signup.submitting': 'Creating account…',
+  'auth.signup.failed': 'Failed to sign up',
+  'auth.signup.haveAccount': 'Already have an account?',
+  'auth.signup.loginLink': 'Log in',
+  'auth.verify.title': 'Verify your email',
+  'auth.verify.subtitle':
+    'Enter the 6-digit code we sent to your email. It expires in 10 minutes.',
+  'auth.verify.code': 'Verification code',
+  'auth.verify.submit': 'Verify',
+  'auth.verify.submitting': 'Verifying…',
+  'auth.verify.failed': 'Failed to verify code',
+  'auth.error.rateLimited': 'Too many attempts. Please try again later.',
+} satisfies Messages;
+
+export const authMessages: Dictionary<typeof en> = {
+  en,
+  he: {
+    'auth.email': 'אימייל',
+    'auth.password': 'סיסמה',
+    'auth.login.title': 'התחברות',
+    'auth.login.submit': 'התחברות',
+    'auth.login.submitting': 'מתחבר…',
+    'auth.login.failed': 'ההתחברות נכשלה',
+    'auth.login.sessionExpired': 'פג תוקף החיבור. נא להתחבר שוב.',
+    'auth.login.noAccount': 'אין לך חשבון?',
+    'auth.login.signupLink': 'להרשמה',
+    'auth.signup.title': 'יצירת חשבון',
+    'auth.signup.passwordHint': '8 תווים לפחות',
+    'auth.signup.submit': 'הרשמה',
+    'auth.signup.submitting': 'יוצר חשבון…',
+    'auth.signup.failed': 'ההרשמה נכשלה',
+    'auth.signup.haveAccount': 'כבר יש לך חשבון?',
+    'auth.signup.loginLink': 'להתחברות',
+    'auth.verify.title': 'אימות כתובת האימייל',
+    'auth.verify.subtitle':
+      'הזינו את הקוד בן 6 הספרות ששלחנו לאימייל שלכם. הוא תקף ל־10 דקות.',
+    'auth.verify.code': 'קוד אימות',
+    'auth.verify.submit': 'אימות',
+    'auth.verify.submitting': 'מאמת…',
+    'auth.verify.failed': 'אימות הקוד נכשל',
+    'auth.error.rateLimited': 'יותר מדי ניסיונות. נסו שוב מאוחר יותר.',
+  },
+};

@@ -509,12 +509,12 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   }[] = [
     {
       label: `Expenses (${expenseTransactions.length})`,
-      color: chartColors.expense,
+      color: chartColors.negative,
       items: expenseTransactions,
     },
     {
       label: `Incomes (${incomeTransactions.length})`,
-      color: chartColors.income,
+      color: chartColors.positive,
       items: incomeTransactions,
     },
   ].filter((s) => s.items.length > 0);

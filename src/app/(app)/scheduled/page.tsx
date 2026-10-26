@@ -6,7 +6,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
 import ScheduledTransactionListSkeleton from '@/components/ScheduledTransactionListSkeleton';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import { CreateScheduledTransactionInput, ScheduledTransaction } from '@/types';
 import {
   useScheduledTransactionsQuery,
@@ -45,7 +45,7 @@ export default function ScheduledPage() {
       <PageHeader
         title="Scheduled"
         subtitle="Recurring transactions created automatically on schedule"
-        action={
+        actions={
           <Button
             variant="contained"
             startIcon={<AddRoundedIcon />}

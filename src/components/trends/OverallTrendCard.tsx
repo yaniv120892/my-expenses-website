@@ -36,8 +36,8 @@ export const OverallTrendCard = ({
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
     transactionType === 'EXPENSE'
-      ? palette.charts.expense
-      : palette.charts.income;
+      ? palette.charts.negative
+      : palette.charts.positive;
 
   const categoryName =
     selectedCategory !== 'All Categories'

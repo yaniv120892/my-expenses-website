@@ -75,7 +75,7 @@ export default function IncomeExpensePieChart({
     { name: 'Income', value: income, type: 'INCOME' },
     { name: 'Expense', value: expense, type: 'EXPENSE' },
   ];
-  const pieColors = [charts.income, charts.expense];
+  const pieColors = [charts.positive, charts.negative];
   const total = income - expense;
 
   return (
@@ -166,7 +166,7 @@ export default function IncomeExpensePieChart({
                 Income:{' '}
                 <Box
                   component="span"
-                  sx={{ color: charts.income, fontWeight: 600 }}
+                  sx={{ color: charts.positive, fontWeight: 600 }}
                 >
                   {formatCurrency(income)}
                 </Box>
@@ -180,7 +180,7 @@ export default function IncomeExpensePieChart({
                 Expenses:{' '}
                 <Box
                   component="span"
-                  sx={{ color: charts.expense, fontWeight: 600 }}
+                  sx={{ color: charts.negative, fontWeight: 600 }}
                 >
                   {formatCurrency(expense)}
                 </Box>
@@ -189,7 +189,7 @@ export default function IncomeExpensePieChart({
                 variant="subtitle2"
                 sx={{
                   fontWeight: 700,
-                  color: total >= 0 ? charts.income : charts.expense,
+                  color: total >= 0 ? charts.positive : charts.negative,
                 }}
               >
                 Total: {formatCurrency(Math.abs(Math.round(total)))}

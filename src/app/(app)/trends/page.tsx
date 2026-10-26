@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Box, Button, Tab, Tabs } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { subMonths } from 'date-fns';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import {
   ComparisonMeasure,
   TRENDS_VIEWS,
@@ -107,7 +107,7 @@ export default function TrendsPage() {
     <>
       <PageHeader
         title="Trends"
-        action={
+        actions={
           <Button
             variant="contained"
             startIcon={<FilterListRoundedIcon />}

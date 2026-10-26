@@ -39,9 +39,9 @@ function ComparisonCard({
       return palette.text.secondary;
     }
     if (invertColors) {
-      return change.trend === 'up' ? charts.expense : charts.income;
+      return change.trend === 'up' ? charts.negative : charts.positive;
     }
-    return change.trend === 'up' ? charts.income : charts.expense;
+    return change.trend === 'up' ? charts.positive : charts.negative;
   };
 
   const color = getChangeColor();

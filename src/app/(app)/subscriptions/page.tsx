@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import EmptyState from '@/components/EmptyState';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import SubscriptionCard from '@/components/subscriptions/SubscriptionCard';

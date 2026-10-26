@@ -22,7 +22,7 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
 import { useForm, Controller } from 'react-hook-form';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import ApiTokenManager from '@/components/ApiTokenManager';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
 import TelegramLinkSettings from '@/components/TelegramLinkSettings';
@@ -252,7 +252,7 @@ export default function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        action={
+        actions={
           <Button
             variant="contained"
             onClick={handleSubmit(onSave)}

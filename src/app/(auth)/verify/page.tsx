@@ -2,10 +2,14 @@
 
 import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Button, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Stack, TextField } from '@mui/material';
+import { AuthCard } from '@yaniv120892/my-ui';
+import { useT } from '@/i18n/useT';
 import { verifyCode } from '@/services/authClient';
+import { authErrorMessage } from '@/utils/authErrorMessage';
 
 function VerifyForm() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
@@ -22,59 +26,56 @@ function VerifyForm() {
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify code');
+      setError(
+        authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }),
+      );
       setSubmitting(false);
     }
   }
 
   return (
-    <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
-      <Typography variant="h3" component="h2">
-        Verify your email
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-        }}
-      >
-        Enter the 6-digit code we sent to your email. It expires in 10 minutes.
-      </Typography>
-      {error && <Alert severity="error">{error}</Alert>}
-      <TextField
-        label="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        autoComplete="email"
-        fullWidth
-      />
-      <TextField
-        label="Verification code"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        required
-        autoFocus
-        slotProps={{
-          htmlInput: {
-            inputMode: 'numeric',
-            pattern: '[0-9]*',
-            maxLength: 6,
-          },
-        }}
-        fullWidth
-      />
-      <Button
-        type="submit"
-        variant="contained"
-        size="large"
-        disabled={submitting}
-        fullWidth
-      >
-        {submitting ? 'Verifying…' : 'Verify'}
-      </Button>
-    </Stack>
+    <AuthCard
+      app="expenses"
+      title={t('auth.verify.title')}
+      subtitle={t('auth.verify.subtitle')}
+    >
+      <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
+        {error && <Alert severity="error">{error}</Alert>}
+        <TextField
+          label={t('auth.email')}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          fullWidth
+        />
+        <TextField
+          label={t('auth.verify.code')}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+          autoFocus
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 6,
+            },
+          }}
+          fullWidth
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={submitting}
+          fullWidth
+        >
+          {submitting ? t('auth.verify.submitting') : t('auth.verify.submit')}
+        </Button>
+      </Stack>
+    </AuthCard>
   );
 }
 

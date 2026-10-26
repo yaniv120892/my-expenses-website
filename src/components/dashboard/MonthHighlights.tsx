@@ -97,7 +97,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             label="This Month"
             value={currentMonth.totalExpense}
             max={maxExpense}
-            barColor={charts.expense}
+            barColor={charts.negative}
           />
           <SpendingBar
             label="Last Month"
@@ -119,7 +119,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             </Typography>
             <Typography
               variant="body2"
-              sx={{ fontWeight: 600, color: charts.expense }}
+              sx={{ fontWeight: 600, color: charts.negative }}
             >
               {biggestIncrease.categoryName}: +
               {Math.abs(biggestIncrease.change.percentage).toFixed(1)}%
@@ -139,7 +139,7 @@ export function MonthHighlights({ comparison, categories }: Props) {
             </Typography>
             <Typography
               variant="body2"
-              sx={{ fontWeight: 600, color: charts.income }}
+              sx={{ fontWeight: 600, color: charts.positive }}
             >
               {biggestDecrease.categoryName}:{' '}
               {biggestDecrease.change.percentage.toFixed(1)}%

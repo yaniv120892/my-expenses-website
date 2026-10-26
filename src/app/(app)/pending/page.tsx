@@ -6,7 +6,7 @@ import FixedExpensesSummary from '@/components/FixedExpensesSummary';
 import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import { describeApiError } from '@/utils/api';
 import {
   usePendingTransactionsQuery,

@@ -33,7 +33,7 @@ import IncomeExpensePieChart from '@/components/IncomeExpensePieChart';
 import CategoryBreakdownPieChart from '@/components/CategoryBreakdownPieChart';
 import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import InfiniteScrollSentinel from '@/components/InfiniteScrollSentinel';
 import {
   useTransactionsInfiniteQuery,
@@ -167,7 +167,7 @@ function TransactionsPageContent() {
     <>
       <PageHeader
         title="Transactions"
-        action={
+        actions={
           <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"

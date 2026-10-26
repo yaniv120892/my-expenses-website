@@ -13,7 +13,7 @@ import {
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import FileUpload from '@/components/FileUpload';
 import ImportList from '@/components/ImportList';
 import AutoApproveRuleManager from '@/components/AutoApproveRuleManager';
@@ -83,7 +83,7 @@ export default function ImportsPage() {
     <>
       <PageHeader
         title="Imports"
-        action={
+        actions={
           <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"

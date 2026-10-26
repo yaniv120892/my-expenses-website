@@ -1,0 +1,139 @@
+'use client';
+
+import { useMemo } from 'react';
+import { parseISO } from 'date-fns';
+import { useFormat } from '@yaniv120892/my-ui';
+import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
+import type { ExchangeRateSource } from '@/shared/types/transaction';
+import type { SubscriptionFrequency } from '@/types/subscription';
+import type { TrendPeriod } from '@/types/trends';
+import type {
+  DisplayedAmount,
+  Format,
+  ScheduleSummaryInput,
+} from './useAppFormat.types';
+import { useT, type T } from './useT';
+
+const SUNDAY_2023_01_01 = new Date(2023, 0, 1);
+
+/** parseISO, not `new Date`: the latter reads a date-only string as UTC midnight. */
+function toDate(value: string | Date): Date {
+  return typeof value === 'string' ? parseISO(value) : value;
+}
+
+/**
+ * The app's locale-aware formatting: the shared `useFormat()` for numbers and
+ * dates, plus the labels this app builds from them.
+ */
+export function createAppFormatter({ format, t }: { format: Format; t: T }) {
+  const currency = (value: number) => format.currency({ value });
+  const day = (value: string | Date) =>
+    format.date(toDate(value), { dateStyle: 'medium' });
+
+  return {
+    ...format,
+    currency,
+    currencyRounded: (value: number) =>
+      format.currency({ value, options: { maximumFractionDigits: 0 } }),
+    money: (amount: number, currencyCode: string) =>
+      format.currency({ value: amount, currency: currencyCode }),
+    day,
+    dateTime: (value: string | Date) =>
+      format.date(toDate(value), { dateStyle: 'short', timeStyle: 'short' }),
+    month: (value: string | Date) =>
+      format.date(toDate(value), { month: 'long', year: 'numeric' }),
+    monthShort: (value: string | Date) =>
+      format.date(toDate(value), { month: 'short', year: 'numeric' }),
+    year: (value: string | Date) =>
+      format.date(toDate(value), { year: 'numeric' }),
+    /** 1 is Sunday, as the schedule form stores it. */
+    weekday: (dayOfWeek: number) => {
+      const date = new Date(SUNDAY_2023_01_01);
+      date.setDate(date.getDate() + ((dayOfWeek - 1) % 7));
+      return format.date(date, { weekday: 'long' });
+    },
+    dateRange: (start?: string | Date, end?: string | Date) =>
+      `${start ? day(start) : ''} – ${end ? day(end) : ''}`,
+    frequency: (frequency: SubscriptionFrequency) =>
+      t(`format.frequency.${frequency}`),
+    exchangeRateSource: (source: ExchangeRateSource) =>
+      t(`format.exchangeRateSource.${source}`),
+    trendDate: (date: string, period: TrendPeriod) => {
+      switch (period) {
+        case 'weekly':
+          return t('format.week', { week: date.split('-')[1] });
+        case 'monthly':
+          return format.date(parseISO(`${date}-01`), {
+            month: 'short',
+            year: 'numeric',
+          });
+        default:
+          return date;
+      }
+    },
+    /**
+     * The ILS amount, preceded by the original when the charge was in another
+     * currency: "$25.00 · ₪92.35". An unknown ILS amount says so instead.
+     */
+    amountWithOriginal: (amount: DisplayedAmount) => {
+      const baseText =
+        amount.value === null
+          ? t('format.baseAmountMissing', { currency: BASE_CURRENCY })
+          : currency(amount.value);
+      if (amount.currency === null) {
+        return amount.value === null
+          ? `${t('format.currencyUnknown', { amount: format.number(amount.originalAmount) })} · ${baseText}`
+          : baseText;
+      }
+      if (!isForeignCurrency(amount.currency)) {
+        return baseText;
+      }
+      return `${format.currency({ value: amount.originalAmount, currency: amount.currency })} · ${baseText}`;
+    },
+  };
+}
+
+export type AppFormatter = ReturnType<typeof createAppFormatter>;
+
+export function useAppFormat(): AppFormatter {
+  const format = useFormat();
+  const t = useT();
+  return useMemo(() => createAppFormatter({ format, t }), [format, t]);
+}
+
+export function scheduleSummary({
+  schedule: { scheduleType, interval, dayOfWeek, dayOfMonth },
+  t,
+  formatter,
+}: {
+  schedule: ScheduleSummaryInput;
+  t: T;
+  formatter: AppFormatter;
+}): string {
+  const repeats = interval !== undefined && interval > 1;
+  switch (scheduleType) {
+    case 'DAILY':
+      return repeats
+        ? t('format.schedule.daily.other', { interval })
+        : t('format.schedule.daily.one');
+    case 'WEEKLY': {
+      if (!dayOfWeek) {
+        return t('format.schedule.weekly.missingDay');
+      }
+      const day = formatter.weekday(dayOfWeek);
+      return repeats
+        ? t('format.schedule.weekly.other', { interval, day })
+        : t('format.schedule.weekly.one', { day });
+    }
+    case 'MONTHLY': {
+      if (!dayOfMonth) {
+        return t('format.schedule.monthly.missingDay');
+      }
+      return repeats
+        ? t('format.schedule.monthly.other', { interval, day: dayOfMonth })
+        : t('format.schedule.monthly.one', { day: dayOfMonth });
+    }
+    default:
+      return '';
+  }
+}

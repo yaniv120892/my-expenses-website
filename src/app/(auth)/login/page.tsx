@@ -11,9 +11,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { AuthCard } from '@yaniv120892/my-ui';
+import { useT } from '@/i18n/useT';
 import { login } from '@/services/authClient';
+import { authErrorMessage } from '@/utils/authErrorMessage';
 
 function LoginForm() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('reason') === 'session-expired';
@@ -31,63 +35,59 @@ function LoginForm() {
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log in');
+      setError(
+        authErrorMessage({ error: err, fallback: t('auth.login.failed'), t }),
+      );
       setSubmitting(false);
     }
   }
 
   return (
-    <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
-      <Typography variant="h3" component="h2">
-        Log in
-      </Typography>
-      {sessionExpired && !error && (
-        <Alert severity="info">
-          Your session has expired. Please log in again.
-        </Alert>
-      )}
-      {error && <Alert severity="error">{error}</Alert>}
-      <TextField
-        label="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        autoComplete="email"
-        autoFocus
-        fullWidth
-      />
-      <TextField
-        label="Password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        autoComplete="current-password"
-        fullWidth
-      />
-      <Button
-        type="submit"
-        variant="contained"
-        size="large"
-        disabled={submitting}
-        fullWidth
-      >
-        {submitting ? 'Logging in…' : 'Log in'}
-      </Button>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          textAlign: 'center',
-        }}
-      >
-        Don&apos;t have an account?{' '}
-        <MuiLink component={Link} href="/signup">
-          Sign up
-        </MuiLink>
-      </Typography>
-    </Stack>
+    <AuthCard app="expenses" title={t('auth.login.title')}>
+      <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
+        {sessionExpired && !error && (
+          <Alert severity="info">{t('auth.login.sessionExpired')}</Alert>
+        )}
+        {error && <Alert severity="error">{error}</Alert>}
+        <TextField
+          label={t('auth.email')}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          autoFocus
+          fullWidth
+        />
+        <TextField
+          label={t('auth.password')}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          fullWidth
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={submitting}
+          fullWidth
+        >
+          {submitting ? t('auth.login.submitting') : t('auth.login.submit')}
+        </Button>
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.secondary', textAlign: 'center' }}
+        >
+          {t('auth.login.noAccount')}{' '}
+          <MuiLink component={Link} href="/signup">
+            {t('auth.login.signupLink')}
+          </MuiLink>
+        </Typography>
+      </Stack>
+    </AuthCard>
   );
 }
 

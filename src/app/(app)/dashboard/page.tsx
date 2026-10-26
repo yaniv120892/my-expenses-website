@@ -17,7 +17,7 @@ import { AiInsightsCard } from '@/components/dashboard/AiInsightsCard';
 import { RecentTransactionsQuickView } from '@/components/dashboard/RecentTransactionsQuickView';
 import { SubscriptionsCard } from '@/components/dashboard/SubscriptionsCard';
 import TransactionForm from '@/components/TransactionForm';
-import PageHeader from '@/components/shell/PageHeader';
+import { PageHeader } from '@yaniv120892/my-ui';
 import { CreateTransactionInput } from '@/types';
 
 export default function DashboardPage() {
@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const header = (
     <PageHeader
       title="Dashboard"
-      action={
+      actions={
         <Button
           variant="contained"
           startIcon={<AddRoundedIcon />}

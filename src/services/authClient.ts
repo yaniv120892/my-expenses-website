@@ -1,5 +1,23 @@
 // Raw fetch, not the axios client: its 401 interceptor would redirect away from
 // these pre-auth flows, whose error bodies carry the message shown to the user.
+export class AuthRequestError extends Error {
+  public readonly status: number;
+  public readonly serverMessage: string | null;
+
+  constructor({
+    status,
+    serverMessage,
+  }: {
+    status: number;
+    serverMessage: string | null;
+  }) {
+    super(serverMessage ?? `Auth request failed with status ${status}`);
+    this.name = 'AuthRequestError';
+    this.status = status;
+    this.serverMessage = serverMessage;
+  }
+}
+
 async function post(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
     method: 'POST',
@@ -8,7 +26,10 @@ async function post(path: string, body: Record<string, unknown>) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(data?.error ?? data?.message ?? 'Request failed');
+    throw new AuthRequestError({
+      status: response.status,
+      serverMessage: data?.error ?? data?.message ?? null,
+    });
   }
   return response.json();
 }

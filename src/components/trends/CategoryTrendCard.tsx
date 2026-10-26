@@ -49,8 +49,8 @@ export const CategoryTrendCard = ({
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
     transactionType === 'EXPENSE'
-      ? palette.charts.expense
-      : palette.charts.income;
+      ? palette.charts.negative
+      : palette.charts.positive;
   const typeLabel = transactionType === 'EXPENSE' ? 'Spending' : 'Income';
 
   return (

@@ -42,7 +42,9 @@ export default function AmountText({
     >
       {format === 'currency'
         ? formatter.currency(value)
-        : `${type === 'INCOME' ? '+' : '-'}${formatter.number(value)}`}
+        : formatter.number(type === 'INCOME' ? value : -value, {
+            signDisplay: 'always',
+          })}
     </Typography>
   );
   const showsOriginal = original && isForeignCurrency(original.currency);

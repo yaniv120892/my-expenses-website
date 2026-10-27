@@ -26,9 +26,7 @@ export interface GetComparisonParams {
   transactionType?: TransactionType;
 }
 
-export async function fetchSpendingTrends(
-  params: GetTrendsParams,
-): Promise<SpendingTrend> {
+export async function fetchSpendingTrends(params: GetTrendsParams): Promise<SpendingTrend> {
   const queryParams = {
     ...(params.startDate && {
       startDate: toDayString(params.startDate),

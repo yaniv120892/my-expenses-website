@@ -30,10 +30,7 @@ export type DetectedSubscription = Omit<
   scheduleMatch?: ScheduleMatch;
 };
 
-export type SubscriptionSummary = Omit<
-  SharedSubscriptionSummary,
-  'subscriptions'
-> & {
+export type SubscriptionSummary = Omit<SharedSubscriptionSummary, 'subscriptions'> & {
   subscriptions: DetectedSubscription[];
 };
 

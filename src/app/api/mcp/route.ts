@@ -1,9 +1,6 @@
 import { createHandler } from '@/server/http/handler';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
-import {
-  JSON_RPC_ERROR_CODES,
-  jsonRpcErrorResponse,
-} from '@/server/http/jsonRpc';
+import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
 import { handleMcpRequest } from '@/server/mcp/handleMcpRequest';
 
 export const runtime = 'nodejs';
@@ -14,11 +11,8 @@ export const POST = createHandler({
   auth: 'apiToken',
   apiTokenScope: 'AGENT',
   errorFormat: 'json-rpc',
-  rateLimit: ({ userId }) => [
-    { key: `mcp:user:${userId}`, ...RATE_LIMITS.mcp },
-  ],
-  handler: async ({ req, userId }) =>
-    handleMcpRequest({ request: req, userId }),
+  rateLimit: ({ userId }) => [{ key: `mcp:user:${userId}`, ...RATE_LIMITS.mcp }],
+  handler: async ({ req, userId }) => handleMcpRequest({ request: req, userId }),
 });
 
 // Stateless: there is no server-to-client stream to open and no session to end.

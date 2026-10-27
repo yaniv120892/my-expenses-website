@@ -8,15 +8,11 @@ const { authenticateApiToken, requireUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/apiTokens', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/apiTokens')>(
-    '@/server/auth/apiTokens',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/apiTokens')>('@/server/auth/apiTokens')),
   authenticateApiToken,
 }));
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/logging/logger', () => ({
@@ -61,10 +57,7 @@ describe('createHandler API token auth', () => {
       apiTokenId: 'token-id',
     });
 
-    const response = await echoUserRoute('IMPORTS')(
-      request('Bearer mxk_secret'),
-      ROUTE_CONTEXT,
-    );
+    const response = await echoUserRoute('IMPORTS')(request('Bearer mxk_secret'), ROUTE_CONTEXT);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ userId: TOKEN_OWNER });
@@ -73,10 +66,7 @@ describe('createHandler API token auth', () => {
   });
 
   it('refuses an API token on a route that declares no scope', async () => {
-    const response = await echoUserRoute()(
-      request('Bearer mxk_secret'),
-      ROUTE_CONTEXT,
-    );
+    const response = await echoUserRoute()(request('Bearer mxk_secret'), ROUTE_CONTEXT);
 
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({
@@ -150,9 +140,7 @@ describe('createHandler API token auth', () => {
     const response = await route(request(''), ROUTE_CONTEXT);
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBe(
-      'Bearer realm="my-expenses"',
-    );
+    expect(response.headers.get('www-authenticate')).toBe('Bearer realm="my-expenses"');
   });
 
   it('takes a token only under the Bearer scheme', async () => {

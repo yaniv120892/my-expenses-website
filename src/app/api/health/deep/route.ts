@@ -72,10 +72,7 @@ async function checkDependencies(): Promise<DeepHealth> {
   return result;
 }
 
-async function probe(
-  name: CheckName,
-  run: () => Promise<unknown>,
-): Promise<CheckStatus> {
+async function probe(name: CheckName, run: () => Promise<unknown>): Promise<CheckStatus> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([

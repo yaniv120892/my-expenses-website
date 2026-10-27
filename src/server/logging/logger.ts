@@ -21,10 +21,7 @@ function createLogger(): pino.Logger {
       { level, base: undefined },
       // Attached at info, not warn: the stream decides what ships, so `ship:
       // true` lines can reach Better Stack.
-      pino.multistream([
-        { stream: process.stdout },
-        { stream: betterStackStream, level: 'info' },
-      ]),
+      pino.multistream([{ stream: process.stdout }, { stream: betterStackStream, level: 'info' }]),
     );
   }
   return pino({

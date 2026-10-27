@@ -46,43 +46,23 @@ const ids = (list: DetectedSubscription[]) => list.map((s) => s.id);
 
 describe('sortSubscriptions', () => {
   it('sorts by monthly cost, high to low', () => {
-    expect(ids(sortSubscriptions(all, 'MONTHLY_DESC'))).toEqual([
-      'mid',
-      'yearly',
-      'cheap',
-    ]);
+    expect(ids(sortSubscriptions(all, 'MONTHLY_DESC'))).toEqual(['mid', 'yearly', 'cheap']);
   });
 
   it('sorts by monthly cost, low to high', () => {
-    expect(ids(sortSubscriptions(all, 'MONTHLY_ASC'))).toEqual([
-      'cheap',
-      'yearly',
-      'mid',
-    ]);
+    expect(ids(sortSubscriptions(all, 'MONTHLY_ASC'))).toEqual(['cheap', 'yearly', 'mid']);
   });
 
   it('sorts by annual cost, which can differ from monthly order', () => {
-    expect(ids(sortSubscriptions(all, 'ANNUAL_DESC'))).toEqual([
-      'yearly',
-      'mid',
-      'cheap',
-    ]);
+    expect(ids(sortSubscriptions(all, 'ANNUAL_DESC'))).toEqual(['yearly', 'mid', 'cheap']);
   });
 
   it('sorts by the soonest next charge', () => {
-    expect(ids(sortSubscriptions(all, 'NEXT_CHARGE'))).toEqual([
-      'mid',
-      'cheap',
-      'yearly',
-    ]);
+    expect(ids(sortSubscriptions(all, 'NEXT_CHARGE'))).toEqual(['mid', 'cheap', 'yearly']);
   });
 
   it('sorts by name', () => {
-    expect(ids(sortSubscriptions(all, 'NAME'))).toEqual([
-      'mid',
-      'yearly',
-      'cheap',
-    ]);
+    expect(ids(sortSubscriptions(all, 'NAME'))).toEqual(['mid', 'yearly', 'cheap']);
   });
 
   it('leaves the input array untouched', () => {

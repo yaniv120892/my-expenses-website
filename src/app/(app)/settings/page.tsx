@@ -65,13 +65,7 @@ const NOTIFICATION_FIELDS = [
   },
 ] as const;
 
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card variant="outlined">
       <CardContent>
@@ -114,10 +108,7 @@ function AppearanceSection() {
             {t('settings.appearance.light')}
           </ToggleButton>
           <ToggleButton value="system">
-            <SettingsBrightnessOutlinedIcon
-              sx={{ mr: 0.75 }}
-              fontSize="small"
-            />
+            <SettingsBrightnessOutlinedIcon sx={{ mr: 0.75 }} fontSize="small" />
             {t('settings.appearance.system')}
           </ToggleButton>
           <ToggleButton value="dark">
@@ -238,9 +229,7 @@ export default function SettingsPage() {
     return (
       <>
         {header}
-        <Alert severity="error">
-          {error instanceof Error ? error.message : String(error)}
-        </Alert>
+        <Alert severity="error">{error instanceof Error ? error.message : String(error)}</Alert>
       </>
     );
   }
@@ -263,11 +252,7 @@ export default function SettingsPage() {
             variant="contained"
             onClick={handleSubmit(onSave)}
             disabled={!isDirty || saveLoading}
-            startIcon={
-              saveLoading ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : null
-            }
+            startIcon={saveLoading ? <CircularProgress size={16} color="inherit" /> : null}
           >
             {saveLoading ? t('common.saving') : t('common.save')}
           </Button>
@@ -335,14 +320,9 @@ export default function SettingsPage() {
                     variant="outlined"
                     size="small"
                     onClick={handleTestMonthlyReport}
-                    disabled={
-                      reportTestLoading ||
-                      !watchedValues.notifications.monthlyReport
-                    }
+                    disabled={reportTestLoading || !watchedValues.notifications.monthlyReport}
                     startIcon={
-                      reportTestLoading ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : null
+                      reportTestLoading ? <CircularProgress size={16} color="inherit" /> : null
                     }
                   >
                     {t('settings.notifications.sendNow')}
@@ -388,10 +368,7 @@ export default function SettingsPage() {
         onClose={() => setTestResult(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          severity={testResult?.success ? 'success' : 'error'}
-          sx={{ width: '100%' }}
-        >
+        <Alert severity={testResult?.success ? 'success' : 'error'} sx={{ width: '100%' }}>
           {testResult?.message}
         </Alert>
       </Snackbar>

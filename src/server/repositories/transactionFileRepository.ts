@@ -1,7 +1,4 @@
-import {
-  TransactionFile,
-  TransactionFileStatus,
-} from '@/generated/prisma/client';
+import { TransactionFile, TransactionFileStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export class TransactionFileRepository {
@@ -26,9 +23,7 @@ export class TransactionFileRepository {
     });
   }
 
-  public async findByTransactionId(
-    transactionId: string,
-  ): Promise<TransactionFile[]> {
+  public async findByTransactionId(transactionId: string): Promise<TransactionFile[]> {
     return prisma.transactionFile.findMany({
       where: {
         transactionId,
@@ -38,10 +33,7 @@ export class TransactionFileRepository {
     });
   }
 
-  public async updateStatus(
-    id: string,
-    status: TransactionFileStatus,
-  ): Promise<TransactionFile> {
+  public async updateStatus(id: string, status: TransactionFileStatus): Promise<TransactionFile> {
     return prisma.transactionFile.update({
       where: { id },
       data: { status },

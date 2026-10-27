@@ -32,10 +32,7 @@ export const POST = createHandler({
 
     const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      throw new HttpError(
-        400,
-        `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
-      );
+      throw new HttpError(400, `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
     }
     assertWithinUploadLimit({ fileName: file.name, sizeInBytes: file.size });
 

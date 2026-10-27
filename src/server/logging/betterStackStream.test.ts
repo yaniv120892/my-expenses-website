@@ -3,8 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const fetchMock = vi.hoisted(() => vi.fn());
 vi.stubGlobal('fetch', fetchMock);
 
-const { betterStackStream, flushRemoteLogs } =
-  await import('./betterStackStream');
+const { betterStackStream, flushRemoteLogs } = await import('./betterStackStream');
 
 const SOURCE_URL = 'https://in.betterstack.example/v1/logs';
 const SOURCE_TOKEN = 'source-token';
@@ -12,9 +11,7 @@ const SOURCE_TOKEN = 'source-token';
 // Warn by default: error records flush eagerly, which is its own test below.
 function writeRecords(count: number, level = 40): void {
   for (let index = 0; index < count; index += 1) {
-    betterStackStream.write(
-      `${JSON.stringify({ level, msg: `record-${index}` })}\n`,
-    );
+    betterStackStream.write(`${JSON.stringify({ level, msg: `record-${index}` })}\n`);
   }
 }
 
@@ -51,11 +48,7 @@ describe('betterStackStream', () => {
     expect(init.headers.Authorization).toBe(`Bearer ${SOURCE_TOKEN}`);
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(init.signal).toBeInstanceOf(AbortSignal);
-    expect(sentBatch().map((record) => record.msg)).toEqual([
-      'record-0',
-      'record-1',
-      'record-2',
-    ]);
+    expect(sentBatch().map((record) => record.msg)).toEqual(['record-0', 'record-1', 'record-2']);
   });
 
   it('empties the buffer so a second flush sends nothing', async () => {
@@ -88,9 +81,7 @@ describe('betterStackStream', () => {
     writeRecords(1);
     await flushRemoteLogs();
 
-    expect(
-      sentBatch().some((record) => record.droppedRecords !== undefined),
-    ).toBe(false);
+    expect(sentBatch().some((record) => record.droppedRecords !== undefined)).toBe(false);
   });
 
   it('drops an info record that is not marked for shipping', async () => {
@@ -102,9 +93,7 @@ describe('betterStackStream', () => {
   });
 
   it('ships an info record marked with ship', async () => {
-    betterStackStream.write(
-      `${JSON.stringify({ level: 30, ship: true, msg: 'request' })}\n`,
-    );
+    betterStackStream.write(`${JSON.stringify({ level: 30, ship: true, msg: 'request' })}\n`);
 
     await flushRemoteLogs();
 

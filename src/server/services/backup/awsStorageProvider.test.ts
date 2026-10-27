@@ -29,8 +29,6 @@ describe('AwsStorageProvider.uploadBackup', () => {
       'application/vnd.ms-excel',
     );
 
-    expect(url).toBe(
-      'https://backups-bucket.s3.il-central-1.amazonaws.com/backup.xlsx',
-    );
+    expect(url).toBe('https://backups-bucket.s3.il-central-1.amazonaws.com/backup.xlsx');
   });
 });

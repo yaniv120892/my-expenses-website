@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  InvalidTokenError,
-  TokenExpiredError,
-  verifyToken,
-} from '@/server/auth/tokens';
+import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
 const AUTH_PAGES = ['/login', '/signup', '/verify'];
@@ -46,10 +42,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // CSRF defense-in-depth on top of SameSite=Lax cookies.
   if (pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && isCrossOrigin(req)) {
-      return NextResponse.json(
-        { error: 'Cross-origin request rejected' },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 });
     }
     return NextResponse.next();
   }

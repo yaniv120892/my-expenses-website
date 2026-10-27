@@ -7,9 +7,7 @@ const { enforceRateLimits, authService } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/http/rateLimit', async () => ({
-  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>(
-    '@/server/http/rateLimit',
-  )),
+  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
 vi.mock('@/server/services/authService', () => ({ default: authService }));
@@ -49,9 +47,7 @@ describe('POST /api/auth/login', () => {
       ROUTE_CONTEXT,
     );
 
-    const keys = enforceRateLimits.mock.calls[0][0].map(
-      (rule: { key: string }) => rule.key,
-    );
+    const keys = enforceRateLimits.mock.calls[0][0].map((rule: { key: string }) => rule.key);
     expect(keys).toContain('login:username:victim@example.com');
   });
 });

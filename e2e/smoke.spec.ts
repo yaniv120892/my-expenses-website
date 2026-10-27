@@ -31,9 +31,7 @@ for (const { path, heading } of PAGES) {
     await signIn(page, TOKEN);
     await page.goto(path);
     await expect(page).toHaveURL(path);
-    await expect(
-      page.getByRole('heading', { name: heading }).first(),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
 
     // The heading renders even when a page's data query fails, so assert the
     // error state too.

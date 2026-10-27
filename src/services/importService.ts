@@ -32,9 +32,7 @@ class ImportService {
             reject(new Error('Invalid server response'));
           }
         } else {
-          reject(
-            new Error(xhr.responseText || `Upload failed (${xhr.status})`),
-          );
+          reject(new Error(xhr.responseText || `Upload failed (${xhr.status})`));
         }
       };
       xhr.onerror = () => {
@@ -42,11 +40,7 @@ class ImportService {
       };
       xhr.timeout = UPLOAD_TIMEOUT_MS;
       xhr.ontimeout = () => {
-        reject(
-          new Error(
-            'Upload timed out — please check your connection and try again',
-          ),
-        );
+        reject(new Error('Upload timed out — please check your connection and try again'));
       };
       xhr.send(formData);
     });
@@ -70,9 +64,7 @@ class ImportService {
     return response.data;
   }
 
-  public async getImportedTransactions(
-    importId: string,
-  ): Promise<ImportedTransaction[]> {
+  public async getImportedTransactions(importId: string): Promise<ImportedTransaction[]> {
     const response = await api.get(`/api/imports/${importId}/transactions`);
     return response.data;
   }
@@ -109,9 +101,7 @@ class ImportService {
   }
 
   public async applyAutoApproveRules(importId: string): Promise<BatchResult> {
-    const response = await api.post(
-      `/api/imports/${importId}/apply-auto-approve-rules`,
-    );
+    const response = await api.post(`/api/imports/${importId}/apply-auto-approve-rules`);
     return response.data;
   }
 
@@ -135,10 +125,7 @@ class ImportService {
     ruleId: string,
     data: Partial<AutoApproveRule>,
   ): Promise<AutoApproveRule> {
-    const response = await api.put(
-      `/api/imports/auto-approve-rules/${ruleId}`,
-      data,
-    );
+    const response = await api.put(`/api/imports/auto-approve-rules/${ruleId}`, data);
     return response.data;
   }
 

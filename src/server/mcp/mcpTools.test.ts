@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type {
-  Transaction,
-  TransactionSummary,
-} from '@/shared/types/transaction';
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
 const {
   categoryRepository,
@@ -95,13 +92,9 @@ function totals(overrides: Partial<TransactionSummary> = {}) {
 // shaping run exactly as they do for a remote agent.
 async function connectClient(): Promise<Client> {
   const server = createMcpServer({ userId: USER_ID });
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-agent', version: '1.0.0' });
-  await Promise.all([
-    client.connect(clientTransport),
-    server.connect(serverTransport),
-  ]);
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
   return client;
 }
 
@@ -118,9 +111,7 @@ async function call({
 }): Promise<ToolCallOutcome> {
   const result = await client.callTool({ name, arguments: toolArguments });
   const content = Array.isArray(result.content) ? result.content : [];
-  const text = content
-    .map((part: { type: string; text?: string }) => part.text ?? '')
-    .join('\n');
+  const text = content.map((part: { type: string; text?: string }) => part.text ?? '').join('\n');
   return { text, isError: result.isError === true };
 }
 
@@ -175,9 +166,7 @@ describe('MCP tool surface', () => {
     const { tools } = await client.listTools();
 
     const userScopedInputs = tools.filter((tool) =>
-      Object.keys(tool.inputSchema.properties ?? {}).some((property) =>
-        /user/i.test(property),
-      ),
+      Object.keys(tool.inputSchema.properties ?? {}).some((property) => /user/i.test(property)),
     );
     expect(userScopedInputs).toEqual([]);
   });
@@ -196,11 +185,7 @@ describe('read tools', () => {
   it('lists category names', async () => {
     const outcome = await call({ client, name: 'list_categories' });
 
-    expect(outcome.text.split('\n')).toEqual([
-      'Food & Groceries',
-      'Fast Food',
-      'Rent',
-    ]);
+    expect(outcome.text.split('\n')).toEqual(['Food & Groceries', 'Fast Food', 'Rent']);
   });
 
   it("summarizes the token owner's transactions over a category subtree", async () => {
@@ -216,9 +201,7 @@ describe('read tools', () => {
 
     expect(outcome.isError).toBe(false);
     expect(outcome.text).toContain('1,234.50');
-    expect(outcome.text).toContain(
-      'Category: Food & Groceries (including its subcategories)',
-    );
+    expect(outcome.text).toContain('Category: Food & Groceries (including its subcategories)');
     expect(transactionRepository.getTransactionsSummary).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: USER_ID,
@@ -298,9 +281,7 @@ describe('read tools', () => {
     });
 
     expect(outcome.text).not.toContain('444444444443');
-    expect(outcome.text).toContain(
-      'Note: these are only the newest 2; more transactions match.',
-    );
+    expect(outcome.text).toContain('Note: these are only the newest 2; more transactions match.');
   });
 
   it.each([
@@ -330,9 +311,7 @@ describe('read tools', () => {
       expect(outcome.isError).toBe(true);
       expect(outcome.text).toContain('Use a real calendar day as YYYY-MM-DD');
       expect(transactionRepository.getTransactions).not.toHaveBeenCalled();
-      expect(
-        transactionRepository.getTransactionsSummary,
-      ).not.toHaveBeenCalled();
+      expect(transactionRepository.getTransactionsSummary).not.toHaveBeenCalled();
     },
   );
 
@@ -343,9 +322,7 @@ describe('read tools', () => {
       toolArguments: { period: 'monthly', categoryName: 'groceries' },
     });
 
-    expect(outcome.text).toContain(
-      'Category: Food & Groceries (including its subcategories)',
-    );
+    expect(outcome.text).toContain('Category: Food & Groceries (including its subcategories)');
     expect(transactionRepository.getTransactions).toHaveBeenCalledWith(
       expect.objectContaining({ categoryIds: ['c-food', 'c-fast'] }),
     );
@@ -374,9 +351,7 @@ describe('read tools', () => {
     expect(outcome.text).toContain('Rent | ');
     expect(outcome.text).toContain('Runs every month on day 1.');
     expect(outcome.text).toContain('next 2026-11-01');
-    expect(
-      scheduledTransactionService.listScheduledTransactions,
-    ).toHaveBeenCalledWith(USER_ID);
+    expect(scheduledTransactionService.listScheduledTransactions).toHaveBeenCalledWith(USER_ID);
   });
 });
 
@@ -395,27 +370,22 @@ describe('dates in tool output', () => {
       },
     });
 
-    expect(outcome.text).toContain(
-      'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
-    );
+    expect(outcome.text).toContain('Spending trend (monthly) from 2026-07-01 to 2026-10-24:');
   });
 
   it.each([
     ['America/Los_Angeles', '2026-10-20T00:00:00Z'],
     ['Asia/Jerusalem', '2026-10-20T23:30:00Z'],
-  ])(
-    'lists a transaction under its stored day on a %s host',
-    async (timeZone, storedDate) => {
-      vi.stubEnv('TZ', timeZone);
-      transactionRepository.getTransactions.mockResolvedValue([
-        transaction({ date: new Date(storedDate) }),
-      ]);
+  ])('lists a transaction under its stored day on a %s host', async (timeZone, storedDate) => {
+    vi.stubEnv('TZ', timeZone);
+    transactionRepository.getTransactions.mockResolvedValue([
+      transaction({ date: new Date(storedDate) }),
+    ]);
 
-      const outcome = await call({ client, name: 'find_transactions' });
+    const outcome = await call({ client, name: 'find_transactions' });
 
-      expect(outcome.text).toContain(`id ${TRANSACTION_ID} | 2026-10-20 |`);
-    },
-  );
+    expect(outcome.text).toContain(`id ${TRANSACTION_ID} | 2026-10-20 |`);
+  });
 
   it("names a schedule's next run by its local day on a host east of UTC", async () => {
     vi.stubEnv('TZ', 'Asia/Jerusalem');
@@ -483,19 +453,16 @@ describe('add_transaction', () => {
     );
   });
 
-  it.each(['2026-02-31', '2026-13-45'])(
-    'refuses %s, which is no calendar day',
-    async (date) => {
-      const outcome = await call({
-        client,
-        name: 'add_transaction',
-        toolArguments: { description: 'Coffee', amount: 18, date },
-      });
+  it.each(['2026-02-31', '2026-13-45'])('refuses %s, which is no calendar day', async (date) => {
+    const outcome = await call({
+      client,
+      name: 'add_transaction',
+      toolArguments: { description: 'Coffee', amount: 18, date },
+    });
 
-      expect(outcome.isError).toBe(true);
-      expect(transactionService.createTransaction).not.toHaveBeenCalled();
-    },
-  );
+    expect(outcome.isError).toBe(true);
+    expect(transactionService.createTransaction).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['amount', { amount: 1e12 }],
@@ -596,10 +563,7 @@ describe('add_transaction', () => {
 
   it('relays a missing exchange rate instead of guessing one', async () => {
     transactionService.createTransaction.mockRejectedValue(
-      new HttpError(
-        422,
-        'No exchange rate is available for THB on 2026-10-20.',
-      ),
+      new HttpError(422, 'No exchange rate is available for THB on 2026-10-20.'),
     );
 
     const outcome = await call({
@@ -685,9 +649,7 @@ describe('update_transaction', () => {
   });
 
   it('answers with the updated row as stored', async () => {
-    transactionService.updateTransaction.mockResolvedValue(
-      transaction({ description: 'Netflix' }),
-    );
+    transactionService.updateTransaction.mockResolvedValue(transaction({ description: 'Netflix' }));
 
     const outcome = await call({
       client,
@@ -711,10 +673,7 @@ describe('update_transaction', () => {
 
     expect(outcome.isError).toBe(true);
     expect(outcome.text).toContain(`No transaction with id ${TRANSACTION_ID}`);
-    expect(transactionService.getTransactionItem).toHaveBeenCalledWith(
-      TRANSACTION_ID,
-      USER_ID,
-    );
+    expect(transactionService.getTransactionItem).toHaveBeenCalledWith(TRANSACTION_ID, USER_ID);
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         toolName: 'update_transaction',
@@ -735,10 +694,7 @@ describe('delete_transaction', () => {
 
     expect(outcome.text).toContain('Deleted:');
     expect(outcome.text).toContain('קפה בארומה');
-    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(
-      TRANSACTION_ID,
-      USER_ID,
-    );
+    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(TRANSACTION_ID, USER_ID);
   });
 
   it('rejects an id that is not a uuid without touching the service', async () => {
@@ -755,9 +711,7 @@ describe('delete_transaction', () => {
 
 describe('unexpected failures', () => {
   it('are reported and returned neutrally rather than thrown at the agent', async () => {
-    transactionService.deleteTransaction.mockRejectedValue(
-      new Error('connection reset by pooler'),
-    );
+    transactionService.deleteTransaction.mockRejectedValue(new Error('connection reset by pooler'));
 
     const outcome = await call({
       client,

@@ -2,26 +2,14 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
-import {
-  Alert,
-  Box,
-  Button,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Snackbar, Stack, TextField, Typography } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import BatchProgressIndicator from '@/components/BatchProgressIndicator';
 import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { MAX_FILES_PER_BATCH } from '@/utils/importUploadQueue';
 import UploadQueueList from './UploadQueueList';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
-import {
-  MAX_UPLOAD_LABEL,
-  exceedsUploadLimit,
-  megabytesRoundedUp,
-} from '@/shared/uploadLimits';
+import { MAX_UPLOAD_LABEL, exceedsUploadLimit, megabytesRoundedUp } from '@/shared/uploadLimits';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
@@ -47,10 +35,7 @@ function tooLargeMessage({
   });
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({
-  onUploadComplete,
-  onRunningChange,
-}) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, onRunningChange }) => {
   const t = useT();
   const formatter = useAppFormat();
   const [paymentMonth, setPaymentMonth] = useState('');
@@ -86,19 +71,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
           }),
         );
       }
-      const oversized = droppedFiles.filter((file) =>
-        exceedsUploadLimit(file.size),
-      );
+      const oversized = droppedFiles.filter((file) => exceedsUploadLimit(file.size));
       if (oversized.length > 0) {
-        setError(
-          oversized
-            .map((file) => tooLargeMessage({ file, t, formatter }))
-            .join(' '),
-        );
+        setError(oversized.map((file) => tooLargeMessage({ file, t, formatter })).join(' '));
       }
-      const acceptedFiles = droppedFiles.filter(
-        (file) => !exceedsUploadLimit(file.size),
-      );
+      const acceptedFiles = droppedFiles.filter((file) => !exceedsUploadLimit(file.size));
       if (acceptedFiles.length === 0) {
         return;
       }
@@ -119,9 +96,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
-        '.xlsx',
-      ],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls'],
       'text/csv': ['.csv'],
     },
@@ -194,13 +169,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
               color: isDragActive ? 'primary.main' : 'text.secondary',
             }}
           />
-          <Typography
-            align="center"
-            sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}
-          >
-            {isDragActive
-              ? t('imports.upload.dropHere')
-              : t('imports.upload.dragOrClick')}
+          <Typography align="center" sx={{ color: isDragActive ? 'primary.main' : 'text.primary' }}>
+            {isDragActive ? t('imports.upload.dropHere') : t('imports.upload.dragOrClick')}
           </Typography>
           <Typography
             variant="caption"
@@ -263,11 +233,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </Box>
       )}
 
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-      >
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
         <Alert severity="error" onClose={() => setError(null)}>
           {error}
         </Alert>

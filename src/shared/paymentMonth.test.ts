@@ -9,14 +9,7 @@ describe('normalizePaymentMonth', () => {
   });
 
   it('rejects what does not name a month', () => {
-    for (const raw of [
-      '',
-      '13/2026',
-      '0/2026',
-      '03/26',
-      'March 2026',
-      '2026-03',
-    ]) {
+    for (const raw of ['', '13/2026', '0/2026', '03/26', 'March 2026', '2026-03']) {
       expect(normalizePaymentMonth(raw)).toBeNull();
     }
   });

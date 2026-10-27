@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Chip,
-} from '@mui/material';
+import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
 import { RecentTransaction } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
@@ -18,10 +11,7 @@ type Props = {
   onViewAll: () => void;
 };
 
-export function RecentTransactionsQuickView({
-  transactions,
-  onViewAll,
-}: Props) {
+export function RecentTransactionsQuickView({ transactions, onViewAll }: Props) {
   const t = useT();
   const formatter = useAppFormat();
   return (
@@ -80,10 +70,7 @@ export function RecentTransactionsQuickView({
                     mt: 0.25,
                   }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary' }}
-                  >
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {formatter.day(new Date(transaction.date))}
                   </Typography>
                   <Chip

@@ -1,7 +1,6 @@
 import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
 
-export const AGENT_TOKEN_PLACEHOLDER =
-  '<paste the token shown once in Settings>';
+export const AGENT_TOKEN_PLACEHOLDER = '<paste the token shown once in Settings>';
 
 /**
  * The message the owner pastes to their personal agent. English, because that
@@ -15,9 +14,7 @@ export function buildAgentBriefing({
   mcpUrl: string;
   token: string | null;
 }): string {
-  const toolLines = AGENT_TOOL_GUIDE.map(
-    (tool) => `- ${tool.name}: ${tool.purpose}`,
-  );
+  const toolLines = AGENT_TOOL_GUIDE.map((tool) => `- ${tool.name}: ${tool.purpose}`);
   return [
     'I track my money in an app called My Expenses. Please use it whenever I ask about my spending or income, or tell you about something I paid or received.',
     '',

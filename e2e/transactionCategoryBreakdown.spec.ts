@@ -41,9 +41,7 @@ const TRANSPORT_ROW = {
 
 // Mocked so the shares and rows are fixed: this spec covers how the page wires
 // the two charts to its filters, the endpoint has its own e2e-api checks.
-test('the expense slice opens a category split whose slices filter the list', async ({
-  page,
-}) => {
+test('the expense slice opens a category split whose slices filter the list', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
 
   const listRequests: URLSearchParams[] = [];
@@ -68,10 +66,7 @@ test('the expense slice opens a category split whose slices filter the list', as
         listRequests.push(url.searchParams);
         return route.fulfill({
           json: {
-            items:
-              url.searchParams.get('categoryId') === TRANSPORT_ID
-                ? [TRANSPORT_ROW]
-                : [],
+            items: url.searchParams.get('categoryId') === TRANSPORT_ID ? [TRANSPORT_ROW] : [],
             nextCursor: null,
           },
         });
@@ -81,27 +76,19 @@ test('the expense slice opens a category split whose slices filter the list', as
   });
 
   await page.goto('/transactions');
-  await expect(
-    page.getByRole('heading', { name: 'Expenses by category' }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Expenses by category' })).toHaveCount(0);
 
   // Income is the first sector, Expense the second.
   await page.locator('.recharts-pie-sector').nth(1).click();
-  await expect(
-    page.getByRole('heading', { name: 'Expenses by category' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: /Rent.*90\.0%/ }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Expenses by category' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Rent.*90\.0%/ })).toBeVisible();
 
   await page.getByRole('button', { name: /Transport.*10\.0%/ }).click();
   await expect(page.getByText('Category: Transport')).toBeVisible();
   await expect(page.getByText('Bus pass')).toBeVisible();
   await expect.poll(() => lastListFilter()).toBe(`EXPENSE|${TRANSPORT_ID}`);
   expect(breakdownRequests.length).toBeGreaterThan(0);
-  expect(breakdownRequests.every((params) => !params.has('categoryId'))).toBe(
-    true,
-  );
+  expect(breakdownRequests.every((params) => !params.has('categoryId'))).toBe(true);
 
   // An expense category means nothing under Income, so switching type drops it.
   // Income spans 270°, so its box's centre is the donut hole; aim at the ring's
@@ -114,9 +101,7 @@ test('the expense slice opens a category split whose slices filter the list', as
       y: (incomeBox?.height ?? 0) - 12,
     },
   });
-  await expect(
-    page.getByRole('heading', { name: 'Income by category' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Income by category' })).toBeVisible();
   await expect(page.getByText('Category: Transport')).toHaveCount(0);
   await expect.poll(() => lastListFilter()).toBe('INCOME|none');
 });

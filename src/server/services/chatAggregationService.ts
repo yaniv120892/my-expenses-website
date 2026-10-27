@@ -1,9 +1,5 @@
 import { Transaction, TransactionSummary } from '@/shared/types/transaction';
-import {
-  AggregationResult,
-  RowAggregationType,
-  TotalsAggregationType,
-} from '@/shared/types/chat';
+import { AggregationResult, RowAggregationType, TotalsAggregationType } from '@/shared/types/chat';
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
 
@@ -46,9 +42,7 @@ class ChatAggregationService {
       );
     } else {
       const percentChange = this.round((difference / totalA) * 100);
-      lines.push(
-        `Percentage change: ${this.formatPercentChange(percentChange)}`,
-      );
+      lines.push(`Percentage change: ${this.formatPercentChange(percentChange)}`);
       data.percentChange = percentChange;
     }
 
@@ -129,9 +123,7 @@ class ChatAggregationService {
     }
   }
 
-  private computeCategoryBreakdown(
-    transactions: Transaction[],
-  ): AggregationResult {
+  private computeCategoryBreakdown(transactions: Transaction[]): AggregationResult {
     const byCategory = new Map<string, number>();
     for (const t of transactions) {
       const name = t.category.name;
@@ -158,21 +150,15 @@ class ChatAggregationService {
     };
   }
 
-  private computeMonthlyBreakdown(
-    transactions: Transaction[],
-  ): AggregationResult {
+  private computeMonthlyBreakdown(transactions: Transaction[]): AggregationResult {
     const byMonth = new Map<string, number>();
     for (const t of transactions) {
       const month = new Date(t.date).toISOString().slice(0, 7);
       byMonth.set(month, (byMonth.get(month) || 0) + t.value);
     }
 
-    const sorted = [...byMonth.entries()].sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    const lines = sorted.map(
-      ([month, amount]) => `  ${month}: ${formatCurrencyPlain(amount)}`,
-    );
+    const sorted = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const lines = sorted.map(([month, amount]) => `  ${month}: ${formatCurrencyPlain(amount)}`);
 
     return {
       summary: `Monthly breakdown:\n${lines.join('\n')}`,

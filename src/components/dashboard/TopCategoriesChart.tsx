@@ -1,15 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Paper,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Card, CardContent, Paper, Stack, Typography, useTheme } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
@@ -49,29 +41,15 @@ function ChartTooltip({
   );
 }
 
-function CategoryTrendIcon({
-  trend,
-}: {
-  trend: TopCategory['change']['trend'];
-}) {
+function CategoryTrendIcon({ trend }: { trend: TopCategory['change']['trend'] }) {
   // Spending semantics: an upward-trending expense category is the bad case.
   if (trend === 'up') {
-    return (
-      <TrendingUpIcon fontSize="small" color="error" sx={MIRROR_IN_RTL_SX} />
-    );
+    return <TrendingUpIcon fontSize="small" color="error" sx={MIRROR_IN_RTL_SX} />;
   }
   if (trend === 'down') {
-    return (
-      <TrendingDownIcon
-        fontSize="small"
-        color="success"
-        sx={MIRROR_IN_RTL_SX}
-      />
-    );
+    return <TrendingDownIcon fontSize="small" color="success" sx={MIRROR_IN_RTL_SX} />;
   }
-  return (
-    <TrendingFlatIcon fontSize="small" color="disabled" sx={MIRROR_IN_RTL_SX} />
-  );
+  return <TrendingFlatIcon fontSize="small" color="disabled" sx={MIRROR_IN_RTL_SX} />;
 }
 
 export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
@@ -143,36 +121,25 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   strokeWidth={2}
                   onClick={
                     onSelectCategory
-                      ? (_, index) =>
-                          onSelectCategory(categories[index].categoryId)
+                      ? (_, index) => onSelectCategory(categories[index].categoryId)
                       : undefined
                   }
                 >
                   {chartData.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={seriesColors[index % seriesColors.length]}
-                    />
+                    <Cell key={index} fill={seriesColors[index % seriesColors.length]} />
                   ))}
                 </Pie>
                 <Tooltip content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </Box>
-          <Stack
-            spacing={1}
-            sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}
-          >
+          <Stack spacing={1} sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}>
             {categories.map((category, index) => (
               <Stack
                 key={category.categoryId}
                 direction="row"
                 spacing={1}
-                onClick={
-                  onSelectCategory
-                    ? () => onSelectCategory(category.categoryId)
-                    : undefined
-                }
+                onClick={onSelectCategory ? () => onSelectCategory(category.categoryId) : undefined}
                 sx={{
                   alignItems: 'center',
                   ...(onSelectCategory ? CLICKABLE_ROW_SX : {}),

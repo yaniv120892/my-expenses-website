@@ -13,9 +13,7 @@ const { requireUser, userRepository, telegramService } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/repositories/userRepository', () => ({
@@ -87,9 +85,7 @@ describe('PUT /api/user/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(
-      userRepository.updateNotificationPreferences,
-    ).toHaveBeenCalledExactlyOnceWith({
+    expect(userRepository.updateNotificationPreferences).toHaveBeenCalledExactlyOnceWith({
       userId: 'user-1',
       notifications: NOTIFICATIONS,
     });

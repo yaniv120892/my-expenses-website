@@ -13,11 +13,7 @@ import {
   selectMeasure,
   seriesColor,
 } from '@/utils/comparison';
-import {
-  CategoryComparison,
-  ComparisonCell,
-  ComparisonSeries,
-} from '@/types/trends';
+import { CategoryComparison, ComparisonCell, ComparisonSeries } from '@/types/trends';
 
 const cell = (income: number, expense: number): ComparisonCell => ({
   income,
@@ -26,10 +22,7 @@ const cell = (income: number, expense: number): ComparisonCell => ({
   count: 1,
 });
 
-const series = (
-  categoryName: string,
-  total: ComparisonCell,
-): ComparisonSeries => ({
+const series = (categoryName: string, total: ComparisonCell): ComparisonSeries => ({
   categoryId: categoryName,
   categoryName,
   scope: 'EXACT',
@@ -181,8 +174,6 @@ describe('comparisonToCsv in Hebrew', () => {
 
 describe('comparisonFileName', () => {
   it('embeds the period and both dates', () => {
-    expect(comparisonFileName(comparison)).toBe(
-      'comparison_monthly_2023-12-01_2024-01-31.csv',
-    );
+    expect(comparisonFileName(comparison)).toBe('comparison_monthly_2023-12-01_2024-01-31.csv');
   });
 });

@@ -7,9 +7,7 @@ const { requireUser, send } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@aws-sdk/client-s3', () => ({
@@ -68,10 +66,7 @@ describe('POST /api/imports/upload', () => {
 
   function uploadOfSize(sizeInBytes: number) {
     const form = new FormData();
-    form.append(
-      'file',
-      new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'),
-    );
+    form.append('file', new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'));
     return POST(
       new NextRequest('http://localhost/api/imports/upload', {
         method: 'POST',

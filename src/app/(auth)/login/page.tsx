@@ -3,14 +3,7 @@
 import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Alert,
-  Button,
-  Link as MuiLink,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { login } from '@/services/authClient';
@@ -35,9 +28,7 @@ function LoginForm() {
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(
-        authErrorMessage({ error: err, fallback: t('auth.login.failed'), t }),
-      );
+      setError(authErrorMessage({ error: err, fallback: t('auth.login.failed'), t }));
       setSubmitting(false);
     }
   }
@@ -68,19 +59,10 @@ function LoginForm() {
           autoComplete="current-password"
           fullWidth
         />
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={submitting}
-          fullWidth
-        >
+        <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
           {submitting ? t('auth.login.submitting') : t('auth.login.submit')}
         </Button>
-        <Typography
-          variant="body2"
-          sx={{ color: 'text.secondary', textAlign: 'center' }}
-        >
+        <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
           {t('auth.login.noAccount')}{' '}
           <MuiLink component={Link} href="/signup">
             {t('auth.login.signupLink')}

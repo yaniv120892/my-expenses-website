@@ -4,17 +4,9 @@ import {
   ImportStatus,
   ImportedTransactionStatus,
 } from '@/shared/types/import';
-import type {
-  ExchangeRateSource,
-  TransactionType,
-} from '@/shared/types/transaction';
+import type { ExchangeRateSource, TransactionType } from '@/shared/types/transaction';
 
-export {
-  ImportBankSourceType,
-  ImportFileType,
-  ImportStatus,
-  ImportedTransactionStatus,
-};
+export { ImportBankSourceType, ImportFileType, ImportStatus, ImportedTransactionStatus };
 
 // Mirrors the shared TransactionStatus union as an enum so components can
 // reference its values without importing Prisma.

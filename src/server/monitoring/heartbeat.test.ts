@@ -49,10 +49,7 @@ describe('pingHeartbeat', () => {
 
     await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(
-      { envVar: ENV_VAR, status: 503 },
-      expect.any(String),
-    );
+    expect(warn).toHaveBeenCalledWith({ envVar: ENV_VAR, status: 503 }, expect.any(String));
   });
 
   it('swallows a rejected fetch and warns with the error', async () => {
@@ -61,9 +58,6 @@ describe('pingHeartbeat', () => {
 
     await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(
-      { err, envVar: ENV_VAR },
-      expect.any(String),
-    );
+    expect(warn).toHaveBeenCalledWith({ err, envVar: ENV_VAR }, expect.any(String));
   });
 });

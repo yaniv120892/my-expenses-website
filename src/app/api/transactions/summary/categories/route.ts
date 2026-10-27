@@ -7,7 +7,5 @@ export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSummarySchema,
   handler: async ({ userId, query }) =>
-    transactionService.getCategoryBreakdown(
-      toTransactionFilters(query, userId),
-    ),
+    transactionService.getCategoryBreakdown(toTransactionFilters(query, userId)),
 });

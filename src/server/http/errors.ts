@@ -12,9 +12,7 @@ export class HttpError extends Error {
 export function formatZodIssues(err: ZodError): string {
   return err.issues
     .map((issue) =>
-      issue.path.length
-        ? `${issue.path.join('.')}: ${issue.message}`
-        : issue.message,
+      issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
     )
     .join('; ');
 }

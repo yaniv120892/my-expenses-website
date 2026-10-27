@@ -15,9 +15,7 @@ export interface DashboardResponse {
   subscriptions?: SubscriptionSnapshot;
 }
 
-export type DashboardInsightsResponse = z.infer<
-  typeof dashboardInsightsResponseSchema
->;
+export type DashboardInsightsResponse = z.infer<typeof dashboardInsightsResponseSchema>;
 
 export interface MonthComparison {
   currentMonth: MonthSummary;

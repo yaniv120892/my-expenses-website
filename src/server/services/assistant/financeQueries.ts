@@ -6,10 +6,7 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import { formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
 import { collectCategorySubtree } from '@/server/utils/categoryHierarchy';
-import type {
-  Transaction,
-  TransactionSummary,
-} from '@/shared/types/transaction';
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
 import type {
   AggregationType,
   RowAggregationType,
@@ -58,9 +55,7 @@ class FinanceQueryService {
    * on by retrying with an exact name. A resolved category covers its whole
    * subtree.
    */
-  public async resolveCategory(
-    categoryName?: string,
-  ): Promise<ResolvedCategory | undefined> {
+  public async resolveCategory(categoryName?: string): Promise<ResolvedCategory | undefined> {
     if (!categoryName) {
       return undefined;
     }
@@ -68,9 +63,7 @@ class FinanceQueryService {
     const categories = await categoryRepository.getAllCategories();
     const lowerName = categoryName.toLowerCase();
 
-    const exact = categories.find(
-      (category) => category.name.toLowerCase() === lowerName,
-    );
+    const exact = categories.find((category) => category.name.toLowerCase() === lowerName);
     if (exact) {
       return {
         ids: collectCategorySubtree(categories, exact.id),
@@ -93,9 +86,7 @@ class FinanceQueryService {
 
     const suggestions = partials.length
       ? partials
-      : categories.filter((category) =>
-          lowerName.includes(category.name.toLowerCase()),
-        );
+      : categories.filter((category) => lowerName.includes(category.name.toLowerCase()));
     const nearMatches = suggestions.map((category) => category.name);
     throw new CustomValidationError(
       nearMatches.length
@@ -141,10 +132,7 @@ class FinanceQueryService {
   }): Promise<FoundTransactions> {
     const category = await this.resolveCategory(filters.categoryName);
     const rows = await transactionRepository.getTransactions({
-      ...this.toRepositoryFilters(
-        userId,
-        this.toResolvedFilters({ filters, category }),
-      ),
+      ...this.toRepositoryFilters(userId, this.toResolvedFilters({ filters, category })),
       page: 1,
       perPage: limit + 1,
     });
@@ -200,16 +188,11 @@ class FinanceQueryService {
       ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
       ...(input.endDate ? { endDate: new Date(input.endDate) } : {}),
       ...(category ? { categoryIds: category.ids } : {}),
-      ...(input.transactionType
-        ? { transactionType: input.transactionType }
-        : {}),
+      ...(input.transactionType ? { transactionType: input.transactionType } : {}),
     };
 
     if (input.byCategory) {
-      const trends = await trendService.getCategorySpendingTrends(
-        request,
-        userId,
-      );
+      const trends = await trendService.getCategorySpendingTrends(request, userId);
       const lines = trends.map(
         (trend) =>
           `  ${trend.categoryName}: ${formatCurrencyPlain(trend.totalAmount)} (${chatAggregationService.formatPercentChange(trend.percentageChange)} vs previous period, trending ${trend.trend})`,
@@ -242,9 +225,7 @@ class FinanceQueryService {
     };
   }
 
-  private isTotalsAggregation(
-    aggregation: AggregationType,
-  ): aggregation is TotalsAggregationType {
+  private isTotalsAggregation(aggregation: AggregationType): aggregation is TotalsAggregationType {
     switch (aggregation) {
       case 'total':
       case 'average':
@@ -255,10 +236,7 @@ class FinanceQueryService {
     }
   }
 
-  private toSummaryResult(
-    result: AggregationOutcome,
-    category?: ResolvedCategory,
-  ): SummaryResult {
+  private toSummaryResult(result: AggregationOutcome, category?: ResolvedCategory): SummaryResult {
     return {
       summary: result.summary,
       transactionCount: result.transactionCount,
@@ -310,17 +288,12 @@ class FinanceQueryService {
     };
   }
 
-  private toRepositoryFilters(
-    userId: string,
-    filters: ResolvedTransactionFilters,
-  ) {
+  private toRepositoryFilters(userId: string, filters: ResolvedTransactionFilters) {
     return {
       userId,
       ...(filters.startDate ? { startDate: new Date(filters.startDate) } : {}),
       ...(filters.endDate ? { endDate: new Date(filters.endDate) } : {}),
-      ...(filters.transactionType
-        ? { transactionType: filters.transactionType }
-        : {}),
+      ...(filters.transactionType ? { transactionType: filters.transactionType } : {}),
       ...(filters.searchTerm ? { searchTerm: filters.searchTerm } : {}),
       ...(filters.categoryIds ? { categoryIds: filters.categoryIds } : {}),
     };
@@ -330,9 +303,7 @@ class FinanceQueryService {
     userId: string,
     filters: ResolvedTransactionFilters,
   ): Promise<TransactionSummary> {
-    return transactionRepository.getTransactionsSummary(
-      this.toRepositoryFilters(userId, filters),
-    );
+    return transactionRepository.getTransactionsSummary(this.toRepositoryFilters(userId, filters));
   }
 
   private async fetchTransactions(

@@ -24,13 +24,12 @@ describe('hasActiveImports', () => {
     expect(hasActiveImports([])).toBe(false);
   });
 
-  it.each([
-    ImportStatus.PENDING,
-    ImportStatus.PROCESSING,
-    ImportStatus.REMATCHING,
-  ])('is true for a %s import', (status) => {
-    expect(hasActiveImports([buildImport({ status })])).toBe(true);
-  });
+  it.each([ImportStatus.PENDING, ImportStatus.PROCESSING, ImportStatus.REMATCHING])(
+    'is true for a %s import',
+    (status) => {
+      expect(hasActiveImports([buildImport({ status })])).toBe(true);
+    },
+  );
 
   it.each([ImportStatus.COMPLETED, ImportStatus.FAILED])(
     'is false when every import is %s',

@@ -25,9 +25,6 @@ export async function getPresignedUploadUrl(
   transactionId: string,
   file: { fileName: string; mimeType: string; fileSize: number },
 ) {
-  const res = await api.post(
-    `/api/transactions/${transactionId}/attachments/presign-upload`,
-    file,
-  );
+  const res = await api.post(`/api/transactions/${transactionId}/attachments/presign-upload`, file);
   return res.data;
 }

@@ -12,10 +12,7 @@ import {
   SubscriptionDetectionEvidence,
   UpdateSubscriptionInput,
 } from '@/shared/types/subscription';
-import {
-  nextExpectedDateAfter,
-  toMonthlyAmount,
-} from '@/utils/subscriptionMath';
+import { nextExpectedDateAfter, toMonthlyAmount } from '@/utils/subscriptionMath';
 
 type DetectedSubscriptionRow = DetectedSubscription & {
   category?: Pick<Category, 'id' | 'name'> | null;
@@ -88,10 +85,7 @@ class SubscriptionRepository {
     return subscriptions.map(mapToDomain);
   }
 
-  public async applyDetectionResults(
-    userId: string,
-    results: DetectionInput[],
-  ): Promise<void> {
+  public async applyDetectionResults(userId: string, results: DetectionInput[]): Promise<void> {
     if (results.length === 0) {
       return;
     }
@@ -109,10 +103,7 @@ class SubscriptionRepository {
 
     const byMerchant = new Map<string, typeof existing>();
     for (const row of existing) {
-      byMerchant.set(row.merchantName, [
-        ...(byMerchant.get(row.merchantName) ?? []),
-        row,
-      ]);
+      byMerchant.set(row.merchantName, [...(byMerchant.get(row.merchantName) ?? []), row]);
     }
 
     await Promise.all(
@@ -136,10 +127,7 @@ class SubscriptionRepository {
         where: { id: edited.id },
         data: {
           ...detectionOwnedFields(data),
-          nextExpectedDate: nextExpectedDateAfter(
-            data.lastChargeDate,
-            edited.frequency,
-          ),
+          nextExpectedDate: nextExpectedDateAfter(data.lastChargeDate, edited.frequency),
         },
       });
       return;
@@ -211,10 +199,7 @@ class SubscriptionRepository {
     });
   }
 
-  public async getById(
-    id: string,
-    userId: string,
-  ): Promise<DetectedSubscriptionDomain | null> {
+  public async getById(id: string, userId: string): Promise<DetectedSubscriptionDomain | null> {
     const result = await prisma.detectedSubscription.findUnique({
       where: { id, userId },
       include: withCategory,
@@ -229,9 +214,7 @@ class SubscriptionRepository {
     return users.map((u) => u.id);
   }
 
-  public async getSnapshotByUserId(
-    userId: string,
-  ): Promise<SubscriptionDashboardSnapshot> {
+  public async getSnapshotByUserId(userId: string): Promise<SubscriptionDashboardSnapshot> {
     const subscriptions = await prisma.detectedSubscription.findMany({
       where: {
         userId,
@@ -317,9 +300,7 @@ function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
     scheduledTransactionId: db.scheduledTransactionId ?? undefined,
     categoryId: db.categoryId ?? undefined,
     categoryName: db.category?.name ?? undefined,
-    detectionEvidence:
-      (db.detectionEvidence as SubscriptionDetectionEvidence | null) ??
-      undefined,
+    detectionEvidence: (db.detectionEvidence as SubscriptionDetectionEvidence | null) ?? undefined,
     userEditedAt: db.userEditedAt ?? undefined,
     confidence: db.confidence,
     createdAt: db.createdAt,

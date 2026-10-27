@@ -49,6 +49,4 @@ export const ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-export const ANNOUNCEMENT_IDS = ANNOUNCEMENTS.map(
-  (announcement) => announcement.id,
-);
+export const ANNOUNCEMENT_IDS = ANNOUNCEMENTS.map((announcement) => announcement.id);

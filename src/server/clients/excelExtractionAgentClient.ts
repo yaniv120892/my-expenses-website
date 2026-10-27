@@ -22,11 +22,7 @@ export class ExcelExtractionAgentClient {
   ): Promise<SubmitExtractionResponse> {
     try {
       const timestamp = Date.now();
-      const token = generateWebhookToken(
-        request.userId,
-        timestamp,
-        request.importId,
-      );
+      const token = generateWebhookToken(request.userId, timestamp, request.importId);
 
       // importId rides along so the callback resolves without waiting for the
       // requestId this call is about to return to be persisted.
@@ -62,10 +58,7 @@ export class ExcelExtractionAgentClient {
         },
       });
 
-      const response = await client.post<SubmitExtractionResponse>(
-        '/api/extract',
-        payload,
-      );
+      const response = await client.post<SubmitExtractionResponse>('/api/extract', payload);
 
       logger.info(
         {
@@ -143,9 +136,7 @@ export class ExcelExtractionAgentClient {
 const getClient = lazy(() => new ExcelExtractionAgentClient());
 
 export const excelExtractionAgentClient = {
-  submitExtractionRequest(
-    request: SubmitExtractionRequest,
-  ): Promise<SubmitExtractionResponse> {
+  submitExtractionRequest(request: SubmitExtractionRequest): Promise<SubmitExtractionResponse> {
     return getClient().submitExtractionRequest(request);
   },
 };

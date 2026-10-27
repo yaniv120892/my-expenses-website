@@ -26,8 +26,7 @@ afterEach(() => {
 
 describe('getAssistantMemory', () => {
   it('hands its store the URL with sslmode pinned to verify-full', async () => {
-    const { getAssistantMemory } =
-      await import('@/server/services/assistant/memory');
+    const { getAssistantMemory } = await import('@/server/services/assistant/memory');
 
     expect(getAssistantMemory()).toBeDefined();
     expect(constructStore).toHaveBeenCalledWith(

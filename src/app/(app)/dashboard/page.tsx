@@ -4,10 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Button, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import {
-  useDashboardQuery,
-  useDashboardInsightsQuery,
-} from '@/hooks/useDashboardQuery';
+import { useDashboardQuery, useDashboardInsightsQuery } from '@/hooks/useDashboardQuery';
 import { useCreateTransactionMutation } from '@/hooks/useTransactionsQuery';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { MonthComparisonCards } from '@/components/dashboard/MonthComparisonCards';
@@ -27,8 +24,7 @@ export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
 
   const { data, isLoading, error: dashboardError } = useDashboardQuery();
-  const { data: insights, isLoading: insightsLoading } =
-    useDashboardInsightsQuery(!!data);
+  const { data: insights, isLoading: insightsLoading } = useDashboardInsightsQuery(!!data);
   const createMutation = useCreateTransactionMutation();
 
   // Must not catch: the form reports the outcome (see CLAUDE.md).
@@ -107,10 +103,7 @@ export default function DashboardPage() {
           mt: { xs: 2, md: 3 },
         }}
       >
-        <MonthHighlights
-          comparison={data.monthComparison}
-          categories={data.topCategories}
-        />
+        <MonthHighlights comparison={data.monthComparison} categories={data.topCategories} />
         <RecentTransactionsQuickView
           transactions={data.recentTransactions}
           onViewAll={() => router.push('/transactions')}

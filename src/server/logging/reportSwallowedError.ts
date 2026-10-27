@@ -8,10 +8,7 @@ type ErrorFields = { err: unknown } & Record<string, unknown>;
  * createHandler nor onRequestError sees it, so the Sentry issue is what keeps
  * it visible past Better Stack's retention.
  */
-export function reportSwallowedError(
-  fields: ErrorFields,
-  message: string,
-): void {
+export function reportSwallowedError(fields: ErrorFields, message: string): void {
   logger.error(fields, message);
   Sentry.captureException(fields.err, { tags: { swallowedAt: message } });
 }

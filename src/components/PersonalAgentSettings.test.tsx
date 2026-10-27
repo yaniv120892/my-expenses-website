@@ -9,11 +9,7 @@ import {
   renderWithClient,
 } from '@/test/renderWithClient';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
-import {
-  createApiToken,
-  getApiTokens,
-  revokeApiToken,
-} from '@/services/apiTokenService';
+import { createApiToken, getApiTokens, revokeApiToken } from '@/services/apiTokenService';
 import type { ApiTokenSummary } from '@/types/apiToken';
 
 vi.mock('@/services/apiTokenService', () => ({
@@ -61,24 +57,16 @@ describe('PersonalAgentSettings', () => {
   it('shows the MCP URL of this site', () => {
     renderWithClient(<PersonalAgentSettings />);
 
-    expect(screen.getByLabelText('MCP URL').textContent).toBe(
-      `${window.location.origin}/api/mcp`,
-    );
+    expect(screen.getByLabelText('MCP URL').textContent).toBe(`${window.location.origin}/api/mcp`);
   });
 
   it('issues an AGENT-only token and puts it into the briefing once', async () => {
     renderWithClient(<PersonalAgentSettings />);
-    expect(screen.getByLabelText('Briefing').textContent).not.toContain(
-      PLAINTEXT_TOKEN,
-    );
+    expect(screen.getByLabelText('Briefing').textContent).not.toContain(PLAINTEXT_TOKEN);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Give the agent access' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Give the agent access' }));
 
-    await waitFor(() =>
-      expect(screen.getByLabelText('Token').textContent).toBe(PLAINTEXT_TOKEN),
-    );
+    await waitFor(() => expect(screen.getByLabelText('Token').textContent).toBe(PLAINTEXT_TOKEN));
     expect(vi.mocked(createApiToken).mock.calls[0][0]).toEqual({
       name: 'Instinct',
       scopes: ['AGENT'],
@@ -91,9 +79,7 @@ describe('PersonalAgentSettings', () => {
   it('lists only agent tokens, leaving script tokens to the API token manager', async () => {
     renderWithClient(<PersonalAgentSettings />);
 
-    expect(
-      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
-    ).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Remove access for Instinct' })).toBeTruthy();
     expect(screen.queryByText('MacBook script')).toBeNull();
   });
 
@@ -105,38 +91,26 @@ describe('PersonalAgentSettings', () => {
   });
 
   it('stops showing the new token once it is revoked', async () => {
-    vi.mocked(getApiTokens).mockResolvedValue([
-      summary({ id: 'new', name: 'Instinct' }),
-    ]);
+    vi.mocked(getApiTokens).mockResolvedValue([summary({ id: 'new', name: 'Instinct' })]);
     renderWithClient(<PersonalAgentSettings />);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Give the agent access' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Give the agent access' }));
     await screen.findByLabelText('Token');
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove access for Instinct' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
 
     await waitFor(() => expect(screen.queryByLabelText('Token')).toBeNull());
-    expect(screen.getByLabelText('Briefing').textContent).not.toContain(
-      PLAINTEXT_TOKEN,
-    );
+    expect(screen.getByLabelText('Briefing').textContent).not.toContain(PLAINTEXT_TOKEN);
   });
 
   it('revokes an agent token only after confirmation', async () => {
     renderWithClient(<PersonalAgentSettings />);
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Remove access for Instinct' }),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove access for Instinct' }));
     expect(revokeApiToken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
 
-    await waitFor(() =>
-      expect(vi.mocked(revokeApiToken).mock.calls[0][0]).toBe('agent'),
-    );
+    await waitFor(() => expect(vi.mocked(revokeApiToken).mock.calls[0][0]).toBe('agent'));
   });
 
   it('reads in Hebrew for a Hebrew-speaking user, briefing the agent in English', async () => {
@@ -148,14 +122,8 @@ describe('PersonalAgentSettings', () => {
       </QueryClientProvider>,
     );
 
-    expect(
-      screen.getByRole('button', { name: 'יצירת גישה לסוכן' }),
-    ).toBeTruthy();
-    expect(
-      await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' }),
-    ).toBeTruthy();
-    expect(screen.getByLabelText('הודעה לסוכן').textContent).toContain(
-      'HOW TO CONNECT',
-    );
+    expect(screen.getByRole('button', { name: 'יצירת גישה לסוכן' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'ביטול הגישה של Instinct' })).toBeTruthy();
+    expect(screen.getByLabelText('הודעה לסוכן').textContent).toContain('HOW TO CONNECT');
   });
 });

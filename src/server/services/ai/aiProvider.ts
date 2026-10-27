@@ -20,10 +20,7 @@ export interface CategoryEvaluation {
 }
 
 export interface CategorySuggester {
-  suggestCategory(
-    expenseDescription: string,
-    categoryOptions: Category[],
-  ): Promise<string | null>;
+  suggestCategory(expenseDescription: string, categoryOptions: Category[]): Promise<string | null>;
   /** Throws on provider failure, where `suggestCategory` swallows. */
   evaluateCategory(
     expenseDescription: string,
@@ -39,10 +36,7 @@ export interface AIProvider extends CategorySuggester {
    * Null when the provider call failed, never an apology: callers parse this,
    * and prose turns an outage into a parse error that names the wrong culprit.
    */
-  analyzeExpenses(
-    expenseSummary: string,
-    suffixPrompt?: string,
-  ): Promise<string | null>;
+  analyzeExpenses(expenseSummary: string, suffixPrompt?: string): Promise<string | null>;
   /**
    * Implementations validate the answer through `resolveMatchedTransactionId`,
    * so callers never see an invented id.

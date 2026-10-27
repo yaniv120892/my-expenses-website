@@ -51,16 +51,10 @@ class TrendService {
       this.fetchPreviousPeriodData(periodQuery),
     ]);
 
-    const points = this.groupTransactionsByPeriod(
-      currentPeriodData,
-      request.period,
-    );
+    const points = this.groupTransactionsByPeriod(currentPeriodData, request.period);
     const totalAmount = points.reduce((sum, point) => sum + point.amount, 0);
     const previousTotalAmount = this.calculateTotalAmount(previousPeriodData);
-    const { percentage, trend } = classifyTrend(
-      totalAmount,
-      previousTotalAmount,
-    );
+    const { percentage, trend } = classifyTrend(totalAmount, previousTotalAmount);
 
     return {
       period: request.period,
@@ -87,24 +81,16 @@ class TrendService {
       categoryIds: request.categoryIds,
     };
 
-    const [
-      currentPeriodData,
-      previousPeriodData,
-      topLevelCategories,
-      categoryParentMap,
-    ] = await Promise.all([
-      this.fetchTransactionsForPeriod(periodQuery),
-      this.fetchPreviousPeriodData(periodQuery),
-      categoryRepository.getTopLevelCategories(),
-      buildCategoryParentMap(),
-    ]);
+    const [currentPeriodData, previousPeriodData, topLevelCategories, categoryParentMap] =
+      await Promise.all([
+        this.fetchTransactionsForPeriod(periodQuery),
+        this.fetchPreviousPeriodData(periodQuery),
+        categoryRepository.getTopLevelCategories(),
+        buildCategoryParentMap(),
+      ]);
 
     const categoryTrends = this.seedCategoryTrends(topLevelCategories);
-    this.accumulateCategoryTotals(
-      categoryTrends,
-      currentPeriodData,
-      categoryParentMap,
-    );
+    this.accumulateCategoryTotals(categoryTrends, currentPeriodData, categoryParentMap);
 
     const results: CategorySpendingTrend[] = [];
     for (const [categoryId, data] of categoryTrends.entries()) {
@@ -151,10 +137,7 @@ class TrendService {
   ): void {
     for (const transaction of transactions) {
       if (!transaction.category) {
-        logger.warn(
-          { transactionId: transaction.id },
-          'Transaction has no category',
-        );
+        logger.warn({ transactionId: transaction.id }, 'Transaction has no category');
         continue;
       }
 
@@ -187,10 +170,7 @@ class TrendService {
     previousPeriodData: Transaction[],
   ): CategorySpendingTrend {
     const points = this.groupTransactionsByPeriod(
-      this.filterTransactionsByCategory(
-        currentPeriodData,
-        data.childCategories,
-      ),
+      this.filterTransactionsByCategory(currentPeriodData, data.childCategories),
       request.period,
     ).map((point) => ({
       ...point,
@@ -199,10 +179,7 @@ class TrendService {
     }));
 
     const previousTotalAmount = this.calculateTotalAmount(
-      this.filterTransactionsByCategory(
-        previousPeriodData,
-        data.childCategories,
-      ),
+      this.filterTransactionsByCategory(previousPeriodData, data.childCategories),
     );
 
     return this.createCategoryTrend(
@@ -258,9 +235,7 @@ class TrendService {
   private async fetchPreviousPeriodData(query: PeriodQuery) {
     const { startDate, endDate } = query;
     const previousPeriodLength = endDate.getTime() - startDate.getTime();
-    const previousPeriodStartDate = new Date(
-      startDate.getTime() - previousPeriodLength,
-    );
+    const previousPeriodStartDate = new Date(startDate.getTime() - previousPeriodLength);
     // Ends the day before the current period starts — the repository widens
     // endDate to endOfDay, so passing startDate itself double-counts that day.
     const previousPeriodEndDate = subDays(startDate, 1);
@@ -272,20 +247,12 @@ class TrendService {
     });
   }
 
-  private filterTransactionsByCategory(
-    transactions: Transaction[],
-    categoryIds: Set<string>,
-  ) {
-    return transactions.filter(
-      (t) => t.category && categoryIds.has(t.category.id),
-    );
+  private filterTransactionsByCategory(transactions: Transaction[], categoryIds: Set<string>) {
+    return transactions.filter((t) => t.category && categoryIds.has(t.category.id));
   }
 
   private calculateTotalAmount(transactions: Transaction[]): number {
-    return transactions.reduce(
-      (sum, transaction) => sum + transaction.value,
-      0,
-    );
+    return transactions.reduce((sum, transaction) => sum + transaction.value, 0);
   }
 
   private createCategoryTrend(
@@ -297,10 +264,7 @@ class TrendService {
     previousTotalAmount: number,
     categoryId: string,
   ): CategorySpendingTrend {
-    const { percentage, trend } = classifyTrend(
-      data.totalAmount,
-      previousTotalAmount,
-    );
+    const { percentage, trend } = classifyTrend(data.totalAmount, previousTotalAmount);
 
     return {
       period: request.period,
@@ -315,10 +279,7 @@ class TrendService {
     };
   }
 
-  private groupTransactionsByPeriod(
-    transactions: Transaction[],
-    period: string,
-  ): TrendPoint[] {
+  private groupTransactionsByPeriod(transactions: Transaction[], period: string): TrendPoint[] {
     const groupedData = new Map<string, { amount: number; count: number }>();
 
     transactions.forEach((transaction) => {

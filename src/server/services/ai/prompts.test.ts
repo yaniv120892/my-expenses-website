@@ -39,19 +39,13 @@ describe('resolveMatchedTransactionId', () => {
 
   it('rejects an id the model invented', () => {
     expect(
-      resolveMatchedTransactionId(
-        '99999999-9999-4999-8999-999999999999',
-        candidates,
-      ),
+      resolveMatchedTransactionId('99999999-9999-4999-8999-999999999999', candidates),
     ).toBeNull();
   });
 
-  it.each([['none'], [''], [null], [undefined]])(
-    'treats %s as no match',
-    (answer) => {
-      expect(resolveMatchedTransactionId(answer, candidates)).toBeNull();
-    },
-  );
+  it.each([['none'], [''], [null], [undefined]])('treats %s as no match', (answer) => {
+    expect(resolveMatchedTransactionId(answer, candidates)).toBeNull();
+  });
 });
 
 describe('buildFindMatchingTransactionPrompt', () => {
@@ -94,9 +88,7 @@ describe('buildFindMatchingTransactionPrompt', () => {
   ])(
     'puts %s beside the 019 phone bill with the amount, category and status of each',
     (_shape, importedCharge, dayText) => {
-      const prompt = buildFindMatchingTransactionPrompt(importedCharge, [
-        phoneBill,
-      ]);
+      const prompt = buildFindMatchingTransactionPrompt(importedCharge, [phoneBill]);
 
       expect(prompt).toContain(
         `- description: ${JSON.stringify(importedCharge.description)}\n- amount: ${formatCurrencyPlain(importedCharge.value ?? 0)}\n- date: ${dayText}\n- type: EXPENSE`,
@@ -122,9 +114,7 @@ describe('FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT', () => {
     expect(FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT).toContain(
       'A similar amount or date is never enough',
     );
-    expect(FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT).toContain(
-      'including when only one is listed',
-    );
+    expect(FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT).toContain('including when only one is listed');
   });
 
   it('keeps the id-or-none answer contract resolveMatchedTransactionId parses', () => {
@@ -138,9 +128,7 @@ describe('resolveSuggestedCategoryId', () => {
   const categories = [{ id: 'cat-food', name: 'Food & Drinks' }];
 
   it('strips the quotes and whitespace completion styles add', () => {
-    expect(resolveSuggestedCategoryId(' "Food & Drinks"\n', categories)).toBe(
-      'cat-food',
-    );
+    expect(resolveSuggestedCategoryId(' "Food & Drinks"\n', categories)).toBe('cat-food');
   });
 
   it('rejects a name that was not offered, and an empty or missing answer', () => {

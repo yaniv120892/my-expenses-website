@@ -12,25 +12,19 @@ describe('AIServiceFactory.getCategorySuggester', () => {
     vi.stubEnv('AI_PROVIDER', 'gemini');
     vi.stubEnv('AI_CATEGORY_SUGGESTER', '');
 
-    expect(AIServiceFactory.getCategorySuggester()).toBeInstanceOf(
-      GeminiService,
-    );
+    expect(AIServiceFactory.getCategorySuggester()).toBeInstanceOf(GeminiService);
   });
 
   it('routes the category decision to Jev when the flag says so', () => {
     vi.stubEnv('AI_PROVIDER', 'gemini');
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'JEV');
 
-    expect(AIServiceFactory.getCategorySuggester()).toBeInstanceOf(
-      JevCategorySuggester,
-    );
+    expect(AIServiceFactory.getCategorySuggester()).toBeInstanceOf(JevCategorySuggester);
   });
 
   it('refuses a value it does not know instead of falling back', () => {
     vi.stubEnv('AI_CATEGORY_SUGGESTER', 'jevv');
 
-    expect(() => AIServiceFactory.getCategorySuggester()).toThrow(
-      /AI_CATEGORY_SUGGESTER "jevv"/,
-    );
+    expect(() => AIServiceFactory.getCategorySuggester()).toThrow(/AI_CATEGORY_SUGGESTER "jevv"/);
   });
 });

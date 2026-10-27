@@ -1,11 +1,4 @@
-import {
-  endOfMonth,
-  endOfYear,
-  parseISO,
-  startOfMonth,
-  startOfYear,
-  subMonths,
-} from 'date-fns';
+import { endOfMonth, endOfYear, parseISO, startOfMonth, startOfYear, subMonths } from 'date-fns';
 import type { AppFormatter } from '@/i18n/useAppFormat';
 import type { T } from '@/i18n/useT.types';
 import { toDayString } from '@/shared/dates';
@@ -54,10 +47,7 @@ export const DATE_RANGE_PRESETS: DateRangePreset[] = [
   { id: 'all-time', range: () => ({}) },
 ];
 
-export function matchDateRangePreset(
-  range: DateRange,
-  now: Date,
-): DateRangePresetId | undefined {
+export function matchDateRangePreset(range: DateRange, now: Date): DateRangePresetId | undefined {
   return DATE_RANGE_PRESETS.find((preset) => {
     const { startDate, endDate } = preset.range(now);
     return startDate === range.startDate && endDate === range.endDate;
@@ -90,10 +80,7 @@ export function describeDateRange({
 
   const start = parseISO(startDate);
 
-  if (
-    startDate === toDayString(startOfYear(start)) &&
-    endDate === toDayString(endOfYear(start))
-  ) {
+  if (startDate === toDayString(startOfYear(start)) && endDate === toDayString(endOfYear(start))) {
     return formatter.year(start);
   }
   if (

@@ -43,8 +43,7 @@ export interface UseMultiFileImportResult {
 }
 
 const uploadRunnerApi: UploadRunnerApi = {
-  uploadImportFile: (formData, onProgress) =>
-    importService.uploadImportFile(formData, onProgress),
+  uploadImportFile: (formData, onProgress) => importService.uploadImportFile(formData, onProgress),
   processImport: (fileUrl, originalFileName, paymentMonth) =>
     importService.processImport(fileUrl, originalFileName, paymentMonth),
 };
@@ -52,10 +51,7 @@ const uploadRunnerApi: UploadRunnerApi = {
 export function useMultiFileImport({
   onAllSucceeded,
 }: UseMultiFileImportOptions = {}): UseMultiFileImportResult {
-  const [state, dispatch] = useReducer(
-    uploadQueueReducer,
-    initialUploadQueueState,
-  );
+  const [state, dispatch] = useReducer(uploadQueueReducer, initialUploadQueueState);
   const queryClient = useQueryClient();
   const t = useT();
 
@@ -79,12 +75,7 @@ export function useMultiFileImport({
       notifiedRef.current = false;
 
       try {
-        await runUploadBatch(
-          batch,
-          uploadRunnerApi,
-          dispatch,
-          MAX_CONCURRENT_UPLOADS,
-        );
+        await runUploadBatch(batch, uploadRunnerApi, dispatch, MAX_CONCURRENT_UPLOADS);
       } finally {
         isRunningRef.current = false;
         queryClient.invalidateQueries({ queryKey: importKeys.lists() });

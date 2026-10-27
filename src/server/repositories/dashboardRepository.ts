@@ -13,11 +13,7 @@ class DashboardRepository {
     };
   }
 
-  public async getMonthSummary(
-    userId: string,
-    year: number,
-    month: number,
-  ): Promise<MonthSummary> {
+  public async getMonthSummary(userId: string, year: number, month: number): Promise<MonthSummary> {
     const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({

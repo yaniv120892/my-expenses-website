@@ -39,12 +39,7 @@ export function forecastFixedExpenses(
     if (!tx.nextRunDate) {
       continue;
     }
-    const occurrences = countOccurrencesUntil(
-      tx,
-      tx.nextRunDate,
-      today,
-      monthEnd,
-    );
+    const occurrences = countOccurrencesUntil(tx, tx.nextRunDate, today, monthEnd);
     remainingThisMonth += occurrences * tx.value;
     remainingCount += occurrences;
   }

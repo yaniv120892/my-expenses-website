@@ -38,19 +38,14 @@ describe('FileUpload', () => {
   it('invites the user to add several files', () => {
     renderWithClient(<FileUpload />);
 
-    expect(
-      screen.getByText('Drag and drop files here, or click to select'),
-    ).toBeTruthy();
+    expect(screen.getByText('Drag and drop files here, or click to select')).toBeTruthy();
     expect(screen.getByText(/Each file becomes its own import/)).toBeTruthy();
   });
 
   it('queues each selected file as its own row without uploading yet', async () => {
     renderWithClient(<FileUpload />);
 
-    await userEvent.upload(fileInput(), [
-      csv('card-1234.csv'),
-      csv('card-9876.csv'),
-    ]);
+    await userEvent.upload(fileInput(), [csv('card-1234.csv'), csv('card-9876.csv')]);
 
     expect(screen.getByText('card-1234.csv')).toBeTruthy();
     expect(screen.getByText('card-9876.csv')).toBeTruthy();
@@ -77,9 +72,7 @@ describe('FileUpload', () => {
     renderWithClient(<FileUpload onUploadComplete={onUploadComplete} />);
 
     await userEvent.upload(fileInput(), [csv('a.csv'), csv('b.csv')]);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Upload 2 files' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Upload 2 files' }));
 
     await waitFor(() => expect(processImport).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(onUploadComplete).toHaveBeenCalledTimes(1));
@@ -88,21 +81,12 @@ describe('FileUpload', () => {
   it('applies the batch payment month to files added afterwards', async () => {
     renderWithClient(<FileUpload />);
 
-    await userEvent.type(
-      screen.getByLabelText('Default Payment Month (MM/YYYY)'),
-      '01/2024',
-    );
+    await userEvent.type(screen.getByLabelText('Default Payment Month (MM/YYYY)'), '01/2024');
     await userEvent.upload(fileInput(), [csv('a.csv')]);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Upload 1 file' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Upload 1 file' }));
 
     await waitFor(() =>
-      expect(processImport).toHaveBeenCalledWith(
-        'https://s3/a.csv',
-        'a.csv',
-        '01/2024',
-      ),
+      expect(processImport).toHaveBeenCalledWith('https://s3/a.csv', 'a.csv', '01/2024'),
     );
   });
 
@@ -110,21 +94,12 @@ describe('FileUpload', () => {
     renderWithClient(<FileUpload />);
 
     await userEvent.upload(fileInput(), [csv('a.csv')]);
-    await userEvent.type(
-      screen.getByLabelText('Default Payment Month (MM/YYYY)'),
-      '02/2024',
-    );
+    await userEvent.type(screen.getByLabelText('Default Payment Month (MM/YYYY)'), '02/2024');
     await userEvent.click(screen.getByRole('button', { name: 'Apply to all' }));
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Upload 1 file' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Upload 1 file' }));
 
     await waitFor(() =>
-      expect(processImport).toHaveBeenCalledWith(
-        'https://s3/a.csv',
-        'a.csv',
-        '02/2024',
-      ),
+      expect(processImport).toHaveBeenCalledWith('https://s3/a.csv', 'a.csv', '02/2024'),
     );
   });
 
@@ -139,19 +114,13 @@ describe('FileUpload', () => {
     renderWithClient(<FileUpload onUploadComplete={onUploadComplete} />);
 
     await userEvent.upload(fileInput(), [csv('good.csv'), csv('bad.csv')]);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Upload 2 files' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Upload 2 files' }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Unsupported file type')).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText('Unsupported file type')).toBeTruthy());
     expect(onUploadComplete).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Retry bad.csv')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Retry failed' })).toBeTruthy();
-    expect(
-      screen.getByText(/1 of 2 files processed successfully/),
-    ).toBeTruthy();
+    expect(screen.getByText(/1 of 2 files processed successfully/)).toBeTruthy();
   });
 
   it('reports whether a batch is running so the dialog can block closing', async () => {
@@ -159,14 +128,10 @@ describe('FileUpload', () => {
     renderWithClient(<FileUpload onRunningChange={onRunningChange} />);
 
     await userEvent.upload(fileInput(), [csv('a.csv')]);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Upload 1 file' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Upload 1 file' }));
 
     await waitFor(() => expect(onRunningChange).toHaveBeenCalledWith(true));
-    await waitFor(() =>
-      expect(onRunningChange).toHaveBeenLastCalledWith(false),
-    );
+    await waitFor(() => expect(onRunningChange).toHaveBeenLastCalledWith(false));
   });
 
   it('ignores a second selection of the same file', async () => {
@@ -181,17 +146,13 @@ describe('FileUpload', () => {
 
   it('refuses a file over 4 MB before any bytes move, naming its size and the limit', async () => {
     renderWithClient(<FileUpload />);
-    const oversized = new File(
-      [new Uint8Array(MAX_UPLOAD_BYTES + 1)],
-      'big.csv',
-      { type: 'text/csv' },
-    );
+    const oversized = new File([new Uint8Array(MAX_UPLOAD_BYTES + 1)], 'big.csv', {
+      type: 'text/csv',
+    });
 
     await userEvent.upload(fileInput(), [oversized, csv('small.csv')]);
 
-    expect(
-      await screen.findByText('big.csv is 4.1 MB, over the 4 MB upload limit.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('big.csv is 4.1 MB, over the 4 MB upload limit.')).toBeTruthy();
     expect(screen.getByText('small.csv')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Upload 1 file' })).toBeTruthy();
     expect(uploadImportFile).not.toHaveBeenCalled();

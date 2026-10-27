@@ -134,11 +134,7 @@ export function startMockExtractionAgent(port: number): Promise<http.Server> {
           new Promise<void>((resolve) => {
             const timer = setTimeout(() => {
               pendingCallbacks.delete(timer);
-              void sendCallback(
-                parsed.webhookUrl,
-                requestId,
-                parsed.filename,
-              ).finally(resolve);
+              void sendCallback(parsed.webhookUrl, requestId, parsed.filename).finally(resolve);
             }, CALLBACK_DELAY_MS);
             pendingCallbacks.add(timer);
           }),

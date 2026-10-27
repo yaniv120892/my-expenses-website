@@ -36,22 +36,13 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
         {isLoading && (
           <Box>
             {[1, 2, 3].map((i) => (
-              <Skeleton
-                key={i}
-                variant="text"
-                width="90%"
-                height={20}
-                sx={{ mb: 1 }}
-              />
+              <Skeleton key={i} variant="text" width="90%" height={20} sx={{ mb: 1 }} />
             ))}
           </Box>
         )}
 
         {!isLoading && !insights?.unusualSpending && (
-          <Typography
-            variant="body2"
-            sx={{ color: 'text.secondary', fontStyle: 'italic' }}
-          >
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
             {t('dashboard.insights.unavailable')}
           </Typography>
         )}
@@ -62,9 +53,7 @@ export function AiInsightsCard({ insights, isLoading }: Props) {
               {insights.unusualSpending.map((insight, index) => (
                 <ListItem key={index} disableGutters sx={{ py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <LightbulbIcon
-                      sx={{ color: 'warning.main', fontSize: 18 }}
-                    />
+                    <LightbulbIcon sx={{ color: 'warning.main', fontSize: 18 }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={insight}

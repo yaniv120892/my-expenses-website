@@ -162,9 +162,7 @@ export default function AutoApproveRuleManager() {
                 <TableCell>{rule.descriptionPattern}</TableCell>
                 <TableCell>{rule.category?.name || rule.categoryId}</TableCell>
                 <TableCell>
-                  {rule.type === 'INCOME'
-                    ? t('common.income')
-                    : t('common.expense')}
+                  {rule.type === 'INCOME' ? t('common.income') : t('common.expense')}
                 </TableCell>
                 <TableCell>
                   <Switch
@@ -209,9 +207,7 @@ export default function AutoApproveRuleManager() {
 
       <Dialog open={formOpen} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingRule
-            ? t('settings.rules.editTitle')
-            : t('settings.rules.createTitle')}
+          {editingRule ? t('settings.rules.editTitle') : t('settings.rules.createTitle')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -230,9 +226,7 @@ export default function AutoApproveRuleManager() {
             />
             <CategorySelect
               value={form.categoryId}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, categoryId: value }))
-              }
+              onChange={(value) => setForm((prev) => ({ ...prev, categoryId: value }))}
               required
             />
             <TextField
@@ -265,9 +259,7 @@ export default function AutoApproveRuleManager() {
               updateMutation.isPending
             }
           >
-            {editingRule
-              ? t('settings.rules.update')
-              : t('settings.rules.create')}
+            {editingRule ? t('settings.rules.update') : t('settings.rules.create')}
           </Button>
         </DialogActions>
       </Dialog>

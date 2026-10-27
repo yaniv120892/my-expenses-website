@@ -1,12 +1,7 @@
 import { hash, compare } from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
-import {
-  setValue,
-  getValue,
-  deleteValue,
-  incrementWithTtl,
-} from '@/server/redis';
+import { setValue, getValue, deleteValue, incrementWithTtl } from '@/server/redis';
 import { invalidateSession, storeSession } from '@/server/auth/session';
 import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
@@ -24,8 +19,7 @@ const MAX_PENDING_CODES = 3;
 // Not a bcrypt hash, so compare() never matches it: a pending account has no
 // password until a code is verified.
 const UNUSABLE_PASSWORD = '!unverified';
-const VERIFICATION_CODE_SENT =
-  'Verification code sent to email. Code is valid for 10 minutes.';
+const VERIFICATION_CODE_SENT = 'Verification code sent to email. Code is valid for 10 minutes.';
 
 function loginCodeKey(email: string): string {
   return `loginCode:${email}`;
@@ -58,37 +52,21 @@ class AuthService {
     // Before any write: throwing after createUser would leave an unverified
     // account the retry path cannot rescue.
     const websiteUrl = requireSiteUrl();
-    const existingUser = await userRepository.findByEmailOrUsername(
-      email,
-      username,
-    );
+    const existingUser = await userRepository.findByEmailOrUsername(email, username);
     if (existingUser) {
       // The email check is because the lookup also matches username.
-      const isPendingSignupForThisEmail =
-        !existingUser.verified && existingUser.email === email;
+      const isPendingSignupForThisEmail = !existingUser.verified && existingUser.email === email;
       if (isPendingSignupForThisEmail) {
-        return this.issueVerificationCode(
-          existingUser.email,
-          password,
-          websiteUrl,
-        );
+        return this.issueVerificationCode(existingUser.email, password, websiteUrl);
       }
       return { error: 'User already exists' };
     }
-    const user = await userRepository.createUser(
-      email,
-      username,
-      UNUSABLE_PASSWORD,
-    );
+    const user = await userRepository.createUser(email, username, UNUSABLE_PASSWORD);
     await announcementService.acknowledgeAllForNewUser(user.id);
     return this.issueVerificationCode(email, password, websiteUrl);
   }
 
-  private async issueVerificationCode(
-    email: string,
-    password: string,
-    websiteUrl: string,
-  ) {
+  private async issueVerificationCode(email: string, password: string, websiteUrl: string) {
     const code = this.generateCode();
     const pendingCode: PendingCode = {
       code,
@@ -132,11 +110,7 @@ class AuthService {
     // /api/auth/verify is public, so burning the code would let anyone strand a
     // pending signup.
     const attemptsKey = loginCodeAttemptsKey(email);
-    const attempts = await incrementWithTtl(
-      attemptsKey,
-      CODE_TTL_SECONDS,
-      'branch',
-    );
+    const attempts = await incrementWithTtl(attemptsKey, CODE_TTL_SECONDS, 'branch');
     if (attempts > MAX_CODE_ATTEMPTS) {
       return { error: 'Too many attempts. Please try again in 10 minutes.' };
     }
@@ -184,11 +158,7 @@ class AuthService {
     return crypto.randomInt(100000, 999999).toString();
   }
 
-  private generateVerificationEmailText(
-    code: string,
-    email: string,
-    websiteUrl: string,
-  ) {
+  private generateVerificationEmailText(code: string, email: string, websiteUrl: string) {
     return [
       'Hello,',
       '',
@@ -209,11 +179,7 @@ class AuthService {
     ].join('\n');
   }
 
-  private generateVerificationEmailHtml(
-    code: string,
-    email: string,
-    websiteUrl: string,
-  ) {
+  private generateVerificationEmailHtml(code: string, email: string, websiteUrl: string) {
     const verificationUrl = this.verificationUrl(websiteUrl, email);
     return `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 480px; margin: 0 auto;">
@@ -235,11 +201,7 @@ class AuthService {
     return `${websiteUrl}/verify?email=${encodeURIComponent(email)}`;
   }
 
-  private async sendCodeByEmail(
-    email: string,
-    code: string,
-    websiteUrl: string,
-  ) {
+  private async sendCodeByEmail(email: string, code: string, websiteUrl: string) {
     await emailService.send({
       to: email,
       subject: 'Your Verification Code',

@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
-import {
-  runUploadBatch,
-  runUploadItem,
-  UploadRunnerApi,
-} from '@/utils/importUploadRunner';
+import { runUploadBatch, runUploadItem, UploadRunnerApi } from '@/utils/importUploadRunner';
 
 function item(over: Partial<UploadItem> = {}): UploadItem {
   return {
@@ -42,11 +38,7 @@ describe('runUploadItem', () => {
 
     await runUploadItem(item(), api, dispatch);
 
-    expect(types(actions)).toEqual([
-      'UPLOAD_STARTED',
-      'UPLOAD_SUCCEEDED',
-      'ITEM_SUCCEEDED',
-    ]);
+    expect(types(actions)).toEqual(['UPLOAD_STARTED', 'UPLOAD_SUCCEEDED', 'ITEM_SUCCEEDED']);
     expect(actions[1]).toMatchObject({ fileUrl: 'https://s3/a.csv' });
     expect(actions[2]).toMatchObject({ importId: 'import-1' });
   });
@@ -64,17 +56,9 @@ describe('runUploadItem', () => {
   it('passes the per-file payment month through to the import', async () => {
     const api = buildApi();
 
-    await runUploadItem(
-      item({ paymentMonth: '01/2024' }),
-      api,
-      recorder().dispatch,
-    );
+    await runUploadItem(item({ paymentMonth: '01/2024' }), api, recorder().dispatch);
 
-    expect(api.processImport).toHaveBeenCalledWith(
-      'https://s3/a.csv',
-      'card-1234.csv',
-      '01/2024',
-    );
+    expect(api.processImport).toHaveBeenCalledWith('https://s3/a.csv', 'card-1234.csv', '01/2024');
   });
 
   it('sends no payment month when the field was left blank', async () => {
@@ -82,38 +66,22 @@ describe('runUploadItem', () => {
 
     await runUploadItem(item(), api, recorder().dispatch);
 
-    expect(api.processImport).toHaveBeenCalledWith(
-      'https://s3/a.csv',
-      'card-1234.csv',
-      undefined,
-    );
+    expect(api.processImport).toHaveBeenCalledWith('https://s3/a.csv', 'card-1234.csv', undefined);
   });
 
   it('sends the payment month as MM/YYYY', async () => {
     const api = buildApi();
 
-    await runUploadItem(
-      item({ paymentMonth: ' 3/2026 ' }),
-      api,
-      recorder().dispatch,
-    );
+    await runUploadItem(item({ paymentMonth: ' 3/2026 ' }), api, recorder().dispatch);
 
-    expect(api.processImport).toHaveBeenCalledWith(
-      'https://s3/a.csv',
-      'card-1234.csv',
-      '03/2026',
-    );
+    expect(api.processImport).toHaveBeenCalledWith('https://s3/a.csv', 'card-1234.csv', '03/2026');
   });
 
   it('rejects an unreadable payment month before uploading anything', async () => {
     const api = buildApi();
 
     await expect(
-      runUploadItem(
-        item({ paymentMonth: '2026-03' }),
-        api,
-        recorder().dispatch,
-      ),
+      runUploadItem(item({ paymentMonth: '2026-03' }), api, recorder().dispatch),
     ).rejects.toThrow('Payment month must be MM/YYYY (got "2026-03")');
     expect(api.uploadImportFile).not.toHaveBeenCalled();
   });
@@ -140,11 +108,7 @@ describe('runUploadItem', () => {
     const api = buildApi();
     const { actions, dispatch } = recorder();
 
-    await runUploadItem(
-      item({ fileUrl: 'https://s3/already.csv' }),
-      api,
-      dispatch,
-    );
+    await runUploadItem(item({ fileUrl: 'https://s3/already.csv' }), api, dispatch);
 
     expect(api.uploadImportFile).not.toHaveBeenCalled();
     expect(types(actions)).toEqual(['UPLOAD_SUCCEEDED', 'ITEM_SUCCEEDED']);
@@ -162,9 +126,9 @@ describe('runUploadItem', () => {
       }),
     });
 
-    await expect(
-      runUploadItem(item(), api, recorder().dispatch),
-    ).rejects.toThrow('File is too large');
+    await expect(runUploadItem(item(), api, recorder().dispatch)).rejects.toThrow(
+      'File is too large',
+    );
     expect(api.processImport).not.toHaveBeenCalled();
   });
 });
@@ -196,9 +160,7 @@ describe('runUploadBatch', () => {
       id: '1',
       error: { code: 'REQUEST_FAILED', message: 'Unsupported file type' },
     });
-    expect(
-      actions.filter((a) => a.type === 'ITEM_SUCCEEDED').map((a) => a.id),
-    ).toEqual(['0', '2']);
+    expect(actions.filter((a) => a.type === 'ITEM_SUCCEEDED').map((a) => a.id)).toEqual(['0', '2']);
   });
 
   it('records no message for a non-Error rejection', async () => {

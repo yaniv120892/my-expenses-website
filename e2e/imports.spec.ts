@@ -8,8 +8,7 @@ const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
 
 // Only the S3 upload is fulfilled in the browser; creating the imports,
 // extraction and the completing webhook all run for real.
-const STUBBED_UPLOAD_FAILURE =
-  'statement.csv is 4.2 MB, over the 4 MB upload limit.';
+const STUBBED_UPLOAD_FAILURE = 'statement.csv is 4.2 MB, over the 4 MB upload limit.';
 
 async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
   let uploadCount = 0;
@@ -56,9 +55,7 @@ async function openUploadDialog(page: Page): Promise<void> {
   await page.goto('/imports');
   await expect(page.getByRole('heading', { name: 'Imports' })).toBeVisible();
   await page.getByRole('button', { name: 'Upload' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Import Files' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import Files' })).toBeVisible();
 }
 
 // The seed truncates once per stack, so imports accumulate across tests.
@@ -88,9 +85,9 @@ test.describe('multi-file imports', () => {
 
     await page.getByRole('button', { name: 'Upload 2 files' }).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Import Files' }),
-    ).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeHidden({
+      timeout: 30_000,
+    });
 
     // Reaching COMPLETED without a reload proves the list is polling.
     for (const card of [first, second]) {
@@ -105,18 +102,14 @@ test.describe('multi-file imports', () => {
     }
   });
 
-  test('a rejected file fails on its own row and can be retried', async ({
-    page,
-  }) => {
+  test('a rejected file fails on its own row and can be retried', async ({ page }) => {
     await signIn(page, TOKEN);
     await stubS3Upload(page, true);
 
     const card = uniqueCardFile();
 
     await openUploadDialog(page);
-    await page
-      .locator('input[type="file"]')
-      .setInputFiles([csvFile(card.name)]);
+    await page.locator('input[type="file"]').setInputFiles([csvFile(card.name)]);
     await page.getByRole('button', { name: 'Upload 1 file' }).click();
 
     // Exact, so this is the row's own error rather than the batch summary's
@@ -127,15 +120,13 @@ test.describe('multi-file imports', () => {
       }),
     ).toBeVisible({ timeout: 30_000 });
     // The dialog stays open so the row can be retried.
-    await expect(
-      page.getByRole('heading', { name: 'Import Files' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeVisible();
 
     await page.getByLabel(`Retry ${card.name}`).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Import Files' }),
-    ).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeHidden({
+      timeout: 30_000,
+    });
 
     const row = importRow(page, card.name);
     await expect(row).toBeVisible({ timeout: 30_000 });

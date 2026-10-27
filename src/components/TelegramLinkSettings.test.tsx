@@ -36,8 +36,7 @@ function lastPollRequest(): boolean {
 beforeEach(() => {
   vi.clearAllMocks();
   createCode.mockImplementation(
-    (_: undefined, { onSuccess }: { onSuccess: (code: typeof CODE) => void }) =>
-      onSuccess(CODE),
+    (_: undefined, { onSuccess }: { onSuccess: (code: typeof CODE) => void }) => onSuccess(CODE),
   );
 });
 
@@ -65,9 +64,7 @@ describe('TelegramLinkSettings', () => {
   it('keeps a relink code on screen without polling until Done', () => {
     renderWithClient(<TelegramLinkSettings linked onResult={onResult} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Link a different chat' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Link a different chat' }));
     expect(screen.getByText(/Send this message/)).toBeTruthy();
     expect(lastPollRequest()).toBe(false);
 
@@ -77,9 +74,7 @@ describe('TelegramLinkSettings', () => {
 
   it('stops polling and says so when the code expires', () => {
     vi.useFakeTimers();
-    renderWithClient(
-      <TelegramLinkSettings linked={false} onResult={onResult} />,
-    );
+    renderWithClient(<TelegramLinkSettings linked={false} onResult={onResult} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Link Telegram' }));
     expect(lastPollRequest()).toBe(true);

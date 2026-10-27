@@ -13,8 +13,7 @@ const LINK_CODE_TTL_SECONDS = 600;
 const START_COMMAND = /^\/start(?:@\w+)?(?:\s+(\S+))?\s*$/;
 
 const REPLIES = {
-  linked:
-    'This chat is now linked to your My Expenses account. Notifications will arrive here.',
+  linked: 'This chat is now linked to your My Expenses account. Notifications will arrive here.',
   invalidCode:
     'This link code is invalid or has expired. Create a new one in My Expenses → Settings → Telegram.',
   noCode:
@@ -38,12 +37,7 @@ class TelegramLinkService {
     await this.revokeOutstandingCode(userId);
     const code = crypto.randomBytes(12).toString('base64url');
     await setValue(linkCodeKey(code), userId, LINK_CODE_TTL_SECONDS, 'branch');
-    await setValue(
-      outstandingCodeKey(userId),
-      code,
-      LINK_CODE_TTL_SECONDS,
-      'branch',
-    );
+    await setValue(outstandingCodeKey(userId), code, LINK_CODE_TTL_SECONDS, 'branch');
     logger.info({ userId }, 'Issued Telegram link code');
     return {
       code,
@@ -53,9 +47,7 @@ class TelegramLinkService {
     };
   }
 
-  public async handleIncomingMessage(
-    message: IncomingTelegramMessage,
-  ): Promise<void> {
+  public async handleIncomingMessage(message: IncomingTelegramMessage): Promise<void> {
     const match = message.text?.trim().match(START_COMMAND);
     if (!match) {
       return;
@@ -102,10 +94,7 @@ class TelegramLinkService {
         message: 'Test telegram message sent successfully',
       };
     } catch (err) {
-      logger.error(
-        { err, userId, chatId },
-        'Failed to send test telegram message',
-      );
+      logger.error({ err, userId, chatId }, 'Failed to send test telegram message');
       return {
         success: false,
         message:
@@ -128,12 +117,7 @@ class TelegramLinkService {
     try {
       await userRepository.setTelegramChat({ userId, chatId });
     } catch (err) {
-      await setValue(
-        linkCodeKey(code),
-        userId,
-        LINK_CODE_TTL_SECONDS,
-        'branch',
-      );
+      await setValue(linkCodeKey(code), userId, LINK_CODE_TTL_SECONDS, 'branch');
       throw err;
     }
   }
@@ -154,13 +138,7 @@ class TelegramLinkService {
 
   // The link is already written; a failed reply must not 500 the webhook,
   // which would only make Telegram redeliver a consumed code.
-  private async reply({
-    chatId,
-    text,
-  }: {
-    chatId: string;
-    text: string;
-  }): Promise<void> {
+  private async reply({ chatId, text }: { chatId: string; text: string }): Promise<void> {
     try {
       await telegramService.sendPlainMessage(chatId, text);
     } catch (err) {

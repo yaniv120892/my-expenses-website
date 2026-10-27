@@ -22,10 +22,7 @@ describe('enforceRateLimits', () => {
     incrementManyWithTtl.mockResolvedValue([3, 1]);
 
     await expect(
-      enforceRateLimits([
-        LOGIN_RULE,
-        { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 },
-      ]),
+      enforceRateLimits([LOGIN_RULE, { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 }]),
     ).resolves.toBeUndefined();
     expect(incrementManyWithTtl).toHaveBeenCalledWith([
       { key: 'rateLimit:login:ip:1.2.3.4', ttlSeconds: 60 },
@@ -54,10 +51,7 @@ describe('enforceRateLimits', () => {
     incrementManyWithTtl.mockResolvedValue([99, 1]);
 
     await expect(
-      enforceRateLimits([
-        LOGIN_RULE,
-        { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 },
-      ]),
+      enforceRateLimits([LOGIN_RULE, { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 }]),
     ).rejects.toMatchObject({ status: 429 });
   });
 

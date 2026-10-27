@@ -1,17 +1,10 @@
 import { z } from 'zod';
 import logger from '@/server/logging/logger';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
-import {
-  verifyWebhookToken,
-  extractWebhookParams,
-} from '@/server/utils/webhookAuth';
+import { verifyWebhookToken, extractWebhookParams } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
-import {
-  Import,
-  ImportStatus,
-  ImportBankSourceType,
-} from '@/generated/prisma/client';
+import { Import, ImportStatus, ImportBankSourceType } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { importService } from '@/server/services/importService';
 import importedAmountService from '@/server/services/importedAmountService';
@@ -44,12 +37,8 @@ type ReportedCurrencies = {
 // A code that is not ISO 4217 leaves the row's currency unknown, which is
 // ambiguous, not ILS: read as ILS, the foreign amount would be stored as shekels.
 function recogniseCurrencies<T extends ReportedCurrencies>(row: T): T {
-  const originalCurrency = currencyCodeSchema
-    .optional()
-    .safeParse(row.originalCurrency);
-  const chargedCurrency = currencyCodeSchema
-    .optional()
-    .safeParse(row.chargedCurrency);
+  const originalCurrency = currencyCodeSchema.optional().safeParse(row.originalCurrency);
+  const chargedCurrency = currencyCodeSchema.optional().safeParse(row.chargedCurrency);
   if (originalCurrency.success && chargedCurrency.success) {
     return {
       ...row,
@@ -77,10 +66,7 @@ const extractionResultSchema = z.object({
         value: z.number(),
         type: z.enum(['EXPENSE', 'INCOME']),
         rawData: z
-          .record(
-            z.string(),
-            z.union([z.string(), z.number(), z.boolean(), z.null()]),
-          )
+          .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
           .optional(),
         originalAmount: z.number().nonnegative().optional(),
         originalCurrency: z.string().optional(),
@@ -92,9 +78,7 @@ const extractionResultSchema = z.object({
   ),
   metadata: z.object({
     creditCardLastFour: z.string().nullish(),
-    bankSourceType: z
-      .enum(['BANK_CREDIT', 'NON_BANK_CREDIT', 'UNKNOWN'])
-      .nullish(),
+    bankSourceType: z.enum(['BANK_CREDIT', 'NON_BANK_CREDIT', 'UNKNOWN']).nullish(),
     paymentMonth: z.string().nullish(),
   }),
 });
@@ -126,10 +110,7 @@ export async function processExcelExtractionWebhook(
       authParams.importId,
     );
     if (!isValid) {
-      logger.error(
-        { userId: authParams.userId },
-        'Invalid webhook authentication',
-      );
+      logger.error({ userId: authParams.userId }, 'Invalid webhook authentication');
       return {
         status: 401,
         body: { success: false, error: 'Invalid authentication' },
@@ -270,10 +251,7 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
     );
     await releaseMergeSurvivorOf(importId);
   } catch (err) {
-    reportSwallowedError(
-      { err, importId },
-      'Failed to recover the import after a webhook failure',
-    );
+    reportSwallowedError({ err, importId }, 'Failed to recover the import after a webhook failure');
   }
 }
 
@@ -281,9 +259,7 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
 async function releaseMergeSurvivorOf(importId: string): Promise<void> {
   const mergedImport = await importRepository.findById(importId);
   const survivorId =
-    mergedImport?.status === ImportStatus.MERGED
-      ? mergedImport.mergedIntoImportId
-      : null;
+    mergedImport?.status === ImportStatus.MERGED ? mergedImport.mergedIntoImportId : null;
   if (survivorId) {
     await releaseMergeSurvivor(survivorId);
   }
@@ -296,10 +272,7 @@ async function releaseMergeSurvivor(survivorId: string): Promise<void> {
     ImportStatus.COMPLETED,
   );
   if (!released) {
-    logger.warn(
-      { survivorId },
-      'Merge survivor had already left REMATCHING; keeping its status',
-    );
+    logger.warn({ survivorId }, 'Merge survivor had already left REMATCHING; keeping its status');
   }
 }
 
@@ -357,10 +330,7 @@ async function handleCompletedExtraction(
   );
 }
 
-async function toImportedTransactionRows(
-  result: ExtractionResult,
-  importId: string,
-) {
+async function toImportedTransactionRows(result: ExtractionResult, importId: string) {
   const rows = result.transactions.map((transaction) => {
     // Extraction dates arrive as DD/MM/YYYY.
     const [day, month, year] = transaction.date.split('/').map(Number);
@@ -390,16 +360,8 @@ function reconcileMetadata(
 ): ExtractionMetadata {
   // A month stored before writes were normalized is read the same way, so it
   // still keys the same duplicate; one that names no month gives way.
-  const submittedMonth = readPaymentMonth(
-    importRecord.id,
-    'submitted',
-    importRecord.paymentMonth,
-  );
-  const extractedMonth = readPaymentMonth(
-    importRecord.id,
-    'extracted',
-    extracted.paymentMonth,
-  );
+  const submittedMonth = readPaymentMonth(importRecord.id, 'submitted', importRecord.paymentMonth);
+  const extractedMonth = readPaymentMonth(importRecord.id, 'extracted', extracted.paymentMonth);
   if (!submittedMonth) {
     return { ...extracted, paymentMonth: extractedMonth };
   }
@@ -543,35 +505,19 @@ async function mergeIntoDuplicateImport(
   return existingImport.id;
 }
 
-async function findPotentialMatchesSafe(
-  importId: string,
-  userId: string,
-): Promise<void> {
+async function findPotentialMatchesSafe(importId: string, userId: string): Promise<void> {
   try {
     await importService.findPotentialMatchesForImport(importId, userId);
   } catch (err) {
     // Matching is best-effort; the import itself already succeeded.
-    reportSwallowedError(
-      { importId, err },
-      'Error finding potential matches for import',
-    );
+    reportSwallowedError({ importId, err }, 'Error finding potential matches for import');
   }
 }
 
-async function handleFailedExtraction(
-  importId: string,
-  payload: WebhookPayload,
-): Promise<void> {
+async function handleFailedExtraction(importId: string, payload: WebhookPayload): Promise<void> {
   const errorMessage = payload.error || 'Unknown extraction error';
 
-  logger.error(
-    { importId, error: errorMessage },
-    'Processing failed extraction',
-  );
+  logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
 
-  await importRepository.updateStatus(
-    importId,
-    ImportStatus.FAILED,
-    errorMessage,
-  );
+  await importRepository.updateStatus(importId, ImportStatus.FAILED, errorMessage);
 }

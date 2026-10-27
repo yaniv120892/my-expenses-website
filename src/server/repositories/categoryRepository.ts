@@ -85,10 +85,7 @@ export class CategoryRepository {
     }
   }
 
-  private async writeCacheSafe(
-    cacheKey: string,
-    value: unknown,
-  ): Promise<void> {
+  private async writeCacheSafe(cacheKey: string, value: unknown): Promise<void> {
     try {
       await setValue(cacheKey, value, oneDayInSeconds);
     } catch (err) {

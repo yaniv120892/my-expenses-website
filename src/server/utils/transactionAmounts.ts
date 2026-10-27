@@ -7,10 +7,7 @@ import {
   toRateString,
 } from '@/server/utils/money';
 import { BASE_CURRENCY } from '@/shared/currency';
-import type {
-  ExchangeRateSource,
-  TransactionAmount,
-} from '@/shared/types/transaction';
+import type { ExchangeRateSource, TransactionAmount } from '@/shared/types/transaction';
 
 export function pickAmountFields(row: TransactionAmount): TransactionAmount {
   return {

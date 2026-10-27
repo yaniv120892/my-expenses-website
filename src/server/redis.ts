@@ -49,10 +49,7 @@ export async function takeValue<T = unknown>(
   return getClient().getdel<T>(namespacedKey(key, scope));
 }
 
-export async function deleteValue(
-  key: string,
-  scope: KeyScope = 'build',
-): Promise<void> {
+export async function deleteValue(key: string, scope: KeyScope = 'build'): Promise<void> {
   await getClient().del(namespacedKey(key, scope));
 }
 
@@ -88,10 +85,7 @@ async function expireOrDiscard(
   }
 }
 
-async function discardCounters(
-  client: Redis,
-  entries: { key: string }[],
-): Promise<void> {
+async function discardCounters(client: Redis, entries: { key: string }[]): Promise<void> {
   await Promise.allSettled(entries.map((entry) => client.del(entry.key)));
 }
 
@@ -99,9 +93,7 @@ type CounterIncrement = { key: string; ttlSeconds: number };
 
 // EXPIRE goes out only on a counter's first hit, keeping steady-state cost at
 // one command per counter.
-export async function incrementManyWithTtl(
-  increments: CounterIncrement[],
-): Promise<number[]> {
+export async function incrementManyWithTtl(increments: CounterIncrement[]): Promise<number[]> {
   if (increments.length === 0) {
     return [];
   }
@@ -130,9 +122,7 @@ export async function incrementManyWithTtl(
         .join(', ')})`,
     );
   }
-  const firstHits = namespacedIncrements.filter(
-    (_, index) => counts[index] === 1,
-  );
+  const firstHits = namespacedIncrements.filter((_, index) => counts[index] === 1);
   if (firstHits.length > 0) {
     await expireOrDiscard(client, firstHits);
   }

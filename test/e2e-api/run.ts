@@ -4,18 +4,9 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { hash } from 'bcryptjs';
 import { Client } from 'pg';
-import {
-  getRecording,
-  resetRecording,
-  CHUNK_DELAY_MS,
-} from './mockModelServer';
+import { getRecording, resetRecording, CHUNK_DELAY_MS } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
-import {
-  MOCK_PORT,
-  SHIM_PORT,
-  EXTRACTION_PORT,
-  EXTRACTION_MOCK_PORT,
-} from './ports';
+import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT, EXTRACTION_MOCK_PORT } from './ports';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { requireEnv } from '../../src/server/env';
@@ -42,9 +33,7 @@ const results: { name: string; ok: boolean; detail: string }[] = [];
 
 function check(name: string, ok: boolean, detail = ''): void {
   results.push({ name, ok, detail });
-  console.log(
-    `${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`,
-  );
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -239,17 +228,12 @@ async function authLifecycleFlow(): Promise<void> {
   const setCookie = login.headers.get('set-cookie') || '';
   check(
     'auth: login succeeds and sets the session cookie',
-    login.status === 200 &&
-      loginBody.success === true &&
-      setCookie.includes('session='),
+    login.status === 200 && loginBody.success === true && setCookie.includes('session='),
     `status ${login.status}`,
   );
 
   const sessionKey = `${redisKeyPrefix('branch')}session:${user.id}:${token}`;
-  check(
-    'auth: login stores the redis session key',
-    (await redisGet(sessionKey)) !== null,
-  );
+  check('auth: login stores the redis session key', (await redisGet(sessionKey)) !== null);
 
   const cookie = `session=${token}`;
   const me = await api('GET', '/api/auth/me', { cookie });
@@ -268,11 +252,7 @@ async function authLifecycleFlow(): Promise<void> {
   );
 
   const meAfter = await api('GET', '/api/auth/me', { cookie });
-  check(
-    'auth: me after logout is rejected',
-    meAfter.status === 401,
-    `status ${meAfter.status}`,
-  );
+  check('auth: me after logout is rejected', meAfter.status === 401, `status ${meAfter.status}`);
 }
 
 async function transactionLifecycleFlow(token: string): Promise<void> {
@@ -298,8 +278,7 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     `status ${created.status}`,
   );
 
-  const listPath =
-    '/api/transactions?limit=10&startDate=2026-08-01&endDate=2026-08-03';
+  const listPath = '/api/transactions?limit=10&startDate=2026-08-01&endDate=2026-08-03';
   const listItems = (res: ApiResult) =>
     (res.body as { items?: { id: string }[] } | null)?.items ?? [];
   const inList = (res: ApiResult) => listItems(res).some((t) => t.id === txId);
@@ -333,22 +312,12 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
 
   // Upper-cased to prove the search is case-insensitive; the totals must narrow
   // with the paged list or the header describes rows the list never shows.
-  const searchQuery =
-    'searchTerm=LIFECYCLE&startDate=2026-08-01&endDate=2026-08-03';
-  const searchedList = await api(
-    'GET',
-    `/api/transactions?limit=10&${searchQuery}`,
-    {
-      token,
-    },
-  );
-  const searchedSummary = await api(
-    'GET',
-    `/api/transactions/summary?${searchQuery}`,
-    { token },
-  );
-  const searchedCount = (searchedSummary.body as { count?: number } | null)
-    ?.count;
+  const searchQuery = 'searchTerm=LIFECYCLE&startDate=2026-08-01&endDate=2026-08-03';
+  const searchedList = await api('GET', `/api/transactions?limit=10&${searchQuery}`, {
+    token,
+  });
+  const searchedSummary = await api('GET', `/api/transactions/summary?${searchQuery}`, { token });
+  const searchedCount = (searchedSummary.body as { count?: number } | null)?.count;
   check(
     'transactions: search narrows the list and the summary alike',
     listItems(searchedList).length === searchedCount && inList(searchedList),
@@ -408,8 +377,7 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
   const categoryIds = await query<{ id: string; name: string }>(
     `select id, name from "Category" where name in ('Groceries', 'Rent')`,
   );
-  const idOf = (name: string) =>
-    categoryIds.find((category) => category.name === name)?.id;
+  const idOf = (name: string) => categoryIds.find((category) => category.name === name)?.id;
   // A window no seeded row or other flow writes into, so the shares are exact.
   const rows = [
     {
@@ -450,19 +418,15 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
   type Slice = { categoryName: string; amount: number; percentage: number };
   const slicesOf = (res: ApiResult) =>
     ((res.body as Slice[] | null) ?? []).map(
-      ({ categoryName, amount, percentage }) =>
-        `${categoryName}:${amount}:${percentage}`,
+      ({ categoryName, amount, percentage }) => `${categoryName}:${amount}:${percentage}`,
     );
 
-  const expenses = await api(
-    'GET',
-    `/api/transactions/summary/categories?type=EXPENSE&${window}`,
-    { token },
-  );
+  const expenses = await api('GET', `/api/transactions/summary/categories?type=EXPENSE&${window}`, {
+    token,
+  });
   check(
     'breakdown: expense slices are per category, largest first, with shares',
-    expenses.status === 200 &&
-      slicesOf(expenses).join() === 'Rent:300:75,Groceries:100:25',
+    expenses.status === 200 && slicesOf(expenses).join() === 'Rent:300:75,Groceries:100:25',
     `status ${expenses.status} ${slicesOf(expenses).join()}`,
   );
 
@@ -477,26 +441,17 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
     slicesOf(searched).join(),
   );
 
-  const income = await api(
-    'GET',
-    `/api/transactions/summary/categories?type=INCOME&${window}`,
-    { token },
-  );
+  const income = await api('GET', `/api/transactions/summary/categories?type=INCOME&${window}`, {
+    token,
+  });
   check(
     'breakdown: the income split excludes expenses',
     slicesOf(income).join() === 'Groceries:1000:100',
     slicesOf(income).join(),
   );
 
-  const anonymous = await api(
-    'GET',
-    `/api/transactions/summary/categories?type=EXPENSE&${window}`,
-  );
-  check(
-    'breakdown: no session is 401',
-    anonymous.status === 401,
-    `status ${anonymous.status}`,
-  );
+  const anonymous = await api('GET', `/api/transactions/summary/categories?type=EXPENSE&${window}`);
+  check('breakdown: no session is 401', anonymous.status === 401, `status ${anonymous.status}`);
 
   for (const id of createdIds.filter(Boolean)) {
     await api('DELETE', `/api/transactions/${id}`, { token });
@@ -532,10 +487,7 @@ const MAX_PAGE_REQUESTS = 50;
 
 type PageWalk = { ids: string[] } | { failure: string };
 
-async function walkTransactionPages(
-  token: string,
-  sortParams: string,
-): Promise<PageWalk> {
+async function walkTransactionPages(token: string, sortParams: string): Promise<PageWalk> {
   const seen: string[] = [];
   let cursor: string | undefined;
 
@@ -562,10 +514,7 @@ async function walkTransactionPages(
 
 // Small pages force many cursor hops, so a keyset that skips or repeats a
 // row on a tie (same amount, same category) shows up as a wrong sequence.
-async function transactionCursorPagingFlow(
-  token: string,
-  userId: string,
-): Promise<void> {
+async function transactionCursorPagingFlow(token: string, userId: string): Promise<void> {
   const tiedDescription = 'E2E sort tie';
   await query(
     `insert into "Transaction"
@@ -583,10 +532,7 @@ async function transactionCursorPagingFlow(
 
   try {
     for (const { sortBy, sortOrder, orderSql } of SORT_ORDERS) {
-      const walk = await walkTransactionPages(
-        token,
-        `sortBy=${sortBy}&sortOrder=${sortOrder}`,
-      );
+      const walk = await walkTransactionPages(token, `sortBy=${sortBy}&sortOrder=${sortOrder}`);
       const expected = await query<{ id: string }>(
         `select t.id from "Transaction" t join "Category" c on c.id = t."categoryId"
          where t.status = 'APPROVED' and t."userId" = $1
@@ -607,10 +553,10 @@ async function transactionCursorPagingFlow(
       );
     }
   } finally {
-    await query(
-      `delete from "Transaction" where description = $1 and "userId" = $2`,
-      [tiedDescription, userId],
-    );
+    await query(`delete from "Transaction" where description = $1 and "userId" = $2`, [
+      tiedDescription,
+      userId,
+    ]);
   }
 
   const badSort = await api('GET', '/api/transactions?sortBy=description', {
@@ -624,9 +570,7 @@ async function transactionCursorPagingFlow(
 }
 
 async function scheduledCronFlow(userId: string): Promise<void> {
-  const [category] = await query<{ id: string }>(
-    `select id from "Category" where name = 'Rent'`,
-  );
+  const [category] = await query<{ id: string }>(`select id from "Category" where name = 'Rent'`);
   const description = 'E2E due schedule';
   const [schedule] = await query<{ id: string }>(
     `insert into "ScheduledTransaction"
@@ -646,11 +590,7 @@ async function scheduledCronFlow(userId: string): Promise<void> {
   const run = await api('GET', '/api/scheduled-transactions/process', {
     token: process.env.CRON_SECRET || 'e2e',
   });
-  check(
-    'cron: process with CRON_SECRET succeeds',
-    run.status === 200,
-    `status ${run.status}`,
-  );
+  check('cron: process with CRON_SECRET succeeds', run.status === 200, `status ${run.status}`);
 
   const txRows = await query<{ status: string }>(
     `select status from "Transaction" where "userId" = $1 and description = $2`,
@@ -697,11 +637,7 @@ async function stuckImportSweepFlow(userId: string): Promise<void> {
   const run = await api('GET', '/api/imports/fail-stuck', {
     token: process.env.CRON_SECRET || 'e2e',
   });
-  check(
-    'cron: fail-stuck with CRON_SECRET succeeds',
-    run.status === 200,
-    `status ${run.status}`,
-  );
+  check('cron: fail-stuck with CRON_SECRET succeeds', run.status === 200, `status ${run.status}`);
 
   const rows = await query<{
     id: string;
@@ -731,9 +667,7 @@ async function stuckImportSweepFlow(userId: string): Promise<void> {
     `status ${byId.get(completedId)?.status}`,
   );
 
-  await query('delete from "Import" where id = any($1::uuid[])', [
-    [stuckId, freshId, completedId],
-  ]);
+  await query('delete from "Import" where id = any($1::uuid[])', [[stuckId, freshId, completedId]]);
 }
 
 // The dev server runs without TELEGRAM_WEBHOOK_SECRET, so only the fail-closed
@@ -781,8 +715,7 @@ async function excelWebhookFlow(userId: string): Promise<void> {
   check(
     'excel webhook: malformed JSON body gets 400',
     badJson.status === 400 &&
-      (badJson.body as { error?: string } | null)?.error ===
-        'Invalid JSON body',
+      (badJson.body as { error?: string } | null)?.error === 'Invalid JSON body',
     `status ${badJson.status}`,
   );
 
@@ -858,14 +791,9 @@ function randomCardDigits(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-async function findImport(
-  token: string,
-  importId: string,
-): Promise<ImportRecord | undefined> {
+async function findImport(token: string, importId: string): Promise<ImportRecord | undefined> {
   const listed = await api('GET', '/api/imports', { token });
-  const imports = Array.isArray(listed.body)
-    ? (listed.body as ImportRecord[])
-    : [];
+  const imports = Array.isArray(listed.body) ? (listed.body as ImportRecord[]) : [];
   return imports.find((record) => record.id === importId);
 }
 
@@ -887,10 +815,7 @@ async function waitForImportCompletion(
   return found;
 }
 
-async function apiTokenFlow(
-  sessionToken: string,
-  otherUserSessionToken: string,
-): Promise<string> {
+async function apiTokenFlow(sessionToken: string, otherUserSessionToken: string): Promise<string> {
   const unscoped = await api('POST', '/api/api-tokens', {
     token: sessionToken,
     body: { name: 'no scopes', scopes: [] },
@@ -921,9 +846,7 @@ async function apiTokenFlow(
   );
   check(
     'API tokens: only a hash is stored',
-    Boolean(stored) &&
-      stored.tokenHash !== token &&
-      !stored.tokenHash.includes(token),
+    Boolean(stored) && stored.tokenHash !== token && !stored.tokenHash.includes(token),
   );
 
   const listed = await api('GET', '/api/api-tokens', {
@@ -947,20 +870,14 @@ async function apiTokenFlow(
   const outsideImports = await api('GET', '/api/transactions', { token });
   check(
     'API tokens: refused outside the import routes',
-    outsideImports.status === 401 &&
-      errorCode(outsideImports) === 'API_TOKEN_NOT_ACCEPTED',
+    outsideImports.status === 401 && errorCode(outsideImports) === 'API_TOKEN_NOT_ACCEPTED',
     `status ${outsideImports.status}`,
   );
 
-  const deletesImport = await api(
-    'DELETE',
-    `/api/imports/${crypto.randomUUID()}`,
-    { token },
-  );
+  const deletesImport = await api('DELETE', `/api/imports/${crypto.randomUUID()}`, { token });
   check(
     'API tokens: refused on an import route the script does not drive',
-    deletesImport.status === 401 &&
-      errorCode(deletesImport) === 'API_TOKEN_NOT_ACCEPTED',
+    deletesImport.status === 401 && errorCode(deletesImport) === 'API_TOKEN_NOT_ACCEPTED',
     `status ${deletesImport.status}`,
   );
 
@@ -986,10 +903,7 @@ async function apiTokenFlow(
   return token;
 }
 
-async function apiTokenRevocationFlow(
-  sessionToken: string,
-  apiToken: string,
-): Promise<void> {
+async function apiTokenRevocationFlow(sessionToken: string, apiToken: string): Promise<void> {
   const listed = await api('GET', '/api/api-tokens', {
     token: sessionToken,
   });
@@ -1078,15 +992,14 @@ async function importEncryptionFlow(token: string): Promise<void> {
     atRest === digits ? 'the column holds the plaintext digits' : `${atRest}`,
   );
 
-  await query(
-    'update "Import" set "creditCardLastFourDigits" = $1 where id = $2',
-    [CIPHERTEXT_FROM_AN_EARLIER_CLIENT, importId],
-  );
+  await query('update "Import" set "creditCardLastFourDigits" = $1 where id = $2', [
+    CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
+    importId,
+  ]);
   const withOlderCiphertext = await findImport(token, importId);
   check(
     'imports: a column encrypted by an earlier client still decrypts',
-    withOlderCiphertext?.creditCardLastFourDigits ===
-      DIGITS_BEHIND_THAT_CIPHERTEXT,
+    withOlderCiphertext?.creditCardLastFourDigits === DIGITS_BEHIND_THAT_CIPHERTEXT,
     `read ${withOlderCiphertext?.creditCardLastFourDigits}, expected ${DIGITS_BEHIND_THAT_CIPHERTEXT}`,
   );
 }
@@ -1165,9 +1078,7 @@ async function variableAmountPlaceholderFlow(
   }
   const digits = randomCardDigits();
   const description = `E2E variable ${digits}`;
-  const [category] = await query<{ id: string }>(
-    `select id from "Category" where name = 'Rent'`,
-  );
+  const [category] = await query<{ id: string }>(`select id from "Category" where name = 'Rent'`);
 
   // Created without a prefix and given one after the cron has run, so the
   // check proves an edit reaches a pending transaction already projected.
@@ -1211,22 +1122,16 @@ async function variableAmountPlaceholderFlow(
     return;
   }
 
-  const updated = await api(
-    'PUT',
-    `/api/scheduled-transactions/${scheduleId}`,
-    {
-      token: sessionToken,
-      body: { ...schedule, bankDescriptionPrefix: `coffee ${digits}` },
-    },
-  );
+  const updated = await api('PUT', `/api/scheduled-transactions/${scheduleId}`, {
+    token: sessionToken,
+    body: { ...schedule, bankDescriptionPrefix: `coffee ${digits}` },
+  });
   check(
     'variable amount: a schedule saves with a bank description prefix',
     updated.status === 200,
     `status ${updated.status}`,
   );
-  await query(`update "Transaction" set date = '2026-03-08' where id = $1`, [
-    placeholder.id,
-  ]);
+  await query(`update "Transaction" set date = '2026-03-08' where id = $1`, [placeholder.id]);
 
   const originalFileName = `card-${digits}_05_2026.csv`;
   const submitted = await api('POST', '/api/imports/process', {
@@ -1243,11 +1148,9 @@ async function variableAmountPlaceholderFlow(
   }
   await waitForImportCompletion(apiToken, importId);
 
-  const preview = await api(
-    'GET',
-    `/api/imports/${importId}/reconciliation-preview`,
-    { token: apiToken },
-  );
+  const preview = await api('GET', `/api/imports/${importId}/reconciliation-preview`, {
+    token: apiToken,
+  });
   const [item] = Array.isArray(preview.body)
     ? (preview.body as {
         action: string;
@@ -1289,9 +1192,7 @@ async function main(): Promise<void> {
   check(
     'warm-up request succeeded without an error frame',
     warmup.status === 200 && !warmupError,
-    warmupError
-      ? `error frame: ${warmupError.message}`
-      : `status ${warmup.status}`,
+    warmupError ? `error frame: ${warmupError.message}` : `status ${warmup.status}`,
   );
 
   const schemas = await query<{ nspname: string }>(
@@ -1308,11 +1209,10 @@ async function main(): Promise<void> {
     `${mastraTables[0]?.count} tables`,
   );
 
-  const { stdout } = await execFileAsync(
-    'npx',
-    ['prisma', 'migrate', 'status'],
-    { env: process.env, timeout: 180_000 },
-  ).catch((e) => ({ stdout: String(e.stdout || e) }));
+  const { stdout } = await execFileAsync('npx', ['prisma', 'migrate', 'status'], {
+    env: process.env,
+    timeout: 180_000,
+  }).catch((e) => ({ stdout: String(e.stdout || e) }));
   check(
     'prisma reports no drift after mastra schema exists',
     /up to date/i.test(stdout),
@@ -1320,11 +1220,7 @@ async function main(): Promise<void> {
   );
 
   const unauth = await streamChat(null, 'How much did I spend?');
-  check(
-    'unauthenticated request rejected',
-    unauth.status === 401,
-    `status ${unauth.status}`,
-  );
+  check('unauthenticated request rejected', unauth.status === 401, `status ${unauth.status}`);
 
   resetRecording();
   const compare = await streamChat(
@@ -1340,9 +1236,7 @@ async function main(): Promise<void> {
   );
 
   const deltas = compare.frames.filter((f) => f.type === 'delta');
-  const spread = deltas.length
-    ? deltas[deltas.length - 1].at - deltas[0].at
-    : 0;
+  const spread = deltas.length ? deltas[deltas.length - 1].at - deltas[0].at : 0;
   // Half the mock's chunk gap: the property under test is only "these did not
   // arrive together", and 60ms sits far above timer jitter.
   const minSpread = CHUNK_DELAY_MS / 2;
@@ -1379,10 +1273,7 @@ async function main(): Promise<void> {
     toolOutput.includes('1,100.00'),
     preview(toolOutput),
   );
-  check(
-    'tool result contains the TS-computed percentage',
-    toolOutput.includes('26.83%'),
-  );
+  check('tool result contains the TS-computed percentage', toolOutput.includes('26.83%'));
   check(
     'those figures reached the user',
     compareText.includes('1,100.00') && compareText.includes('26.83%'),
@@ -1403,9 +1294,7 @@ async function main(): Promise<void> {
   const bText = textOf(bStream.frames);
   check(
     "user B sees only user B's data",
-    bText.includes('7,777') &&
-      bText.includes('8,888') &&
-      !bText.includes('4,100'),
+    bText.includes('7,777') && bText.includes('8,888') && !bText.includes('4,100'),
     preview(bText),
   );
 
@@ -1464,17 +1353,11 @@ async function main(): Promise<void> {
   const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
   await importEncryptionFlow(apiToken);
   await importMergeFlow(apiToken);
-  await variableAmountPlaceholderFlow(
-    seeded.userA.token,
-    apiToken,
-    seeded.userA.id,
-  );
+  await variableAmountPlaceholderFlow(seeded.userA.token, apiToken, seeded.userA.id);
   await apiTokenRevocationFlow(seeded.userA.token, apiToken);
 
   const failed = results.filter((r) => !r.ok);
-  console.log(
-    `\n${results.length - failed.length}/${results.length} checks passed`,
-  );
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
   shutdown();
 
   if (failed.length) {

@@ -7,9 +7,7 @@ const { requireUser, sendMonthlyReportForUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/services/monthlyReportService', () => ({

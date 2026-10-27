@@ -6,10 +6,7 @@ import logger from '@/server/logging/logger';
 import userSettingsService from '@/server/services/userSettingsService';
 
 export class TelegramTransactionNotifier implements TransactionNotifier {
-  public async notifyTransactionCreated(
-    transaction: Transaction,
-    userId: string,
-  ): Promise<void> {
+  public async notifyTransactionCreated(transaction: Transaction, userId: string): Promise<void> {
     try {
       logger.debug(
         { userId, transactionId: transaction.id },
@@ -42,10 +39,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     }
   }
 
-  public async sendDailySummary(
-    dailySummary: string,
-    userId: string,
-  ): Promise<void> {
+  public async sendDailySummary(dailySummary: string, userId: string): Promise<void> {
     try {
       logger.debug({ userId }, 'Start sending daily summary to Telegram');
       const chatId = await this.getChatId(userId);

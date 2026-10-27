@@ -42,9 +42,7 @@ export class ApiTokenRepository {
     });
   }
 
-  public async findByHash(
-    tokenHash: string,
-  ): Promise<ApiTokenCredential | null> {
+  public async findByHash(tokenHash: string): Promise<ApiTokenCredential | null> {
     return prisma.apiToken.findUnique({
       where: { tokenHash },
       select: CREDENTIAL_SELECT,

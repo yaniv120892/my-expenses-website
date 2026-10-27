@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
-const { getAllCategories, getTransactions, getTransactionsSummary } =
-  vi.hoisted(() => ({
-    getAllCategories: vi.fn(),
-    getTransactions: vi.fn(),
-    getTransactionsSummary: vi.fn(),
-  }));
+const { getAllCategories, getTransactions, getTransactionsSummary } = vi.hoisted(() => ({
+  getAllCategories: vi.fn(),
+  getTransactions: vi.fn(),
+  getTransactionsSummary: vi.fn(),
+}));
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
@@ -36,10 +35,7 @@ async function invoke(
   if (!tool.execute) {
     throw new Error('tool has no execute');
   }
-  return (await tool.execute(
-    input as never,
-    CONTEXT as never,
-  )) as SummaryToolResult;
+  return (await tool.execute(input as never, CONTEXT as never)) as SummaryToolResult;
 }
 
 const CATEGORIES = [
@@ -133,9 +129,7 @@ describe('category resolution', () => {
 
 describe('aggregation paths', () => {
   it('answers totals from the SQL summary without loading rows', async () => {
-    getTransactionsSummary.mockResolvedValue(
-      totals({ totalExpense: 123456.78, count: 9999 }),
-    );
+    getTransactionsSummary.mockResolvedValue(totals({ totalExpense: 123456.78, count: 9999 }));
 
     const result = await invoke(tools.summarizeTransactions, {
       aggregation: 'total',
@@ -147,9 +141,7 @@ describe('aggregation paths', () => {
   });
 
   it('marks row-level results as partial when the read cap was hit', async () => {
-    getTransactions.mockResolvedValue(
-      Array.from({ length: 5000 }, (_, index) => row(index + 1)),
-    );
+    getTransactions.mockResolvedValue(Array.from({ length: 5000 }, (_, index) => row(index + 1)));
     getTransactionsSummary.mockResolvedValue(totals({ count: 7000 }));
 
     const result = await invoke(tools.summarizeTransactions, {
@@ -211,8 +203,6 @@ describe('getSpendingTrends', () => {
       endDate: '2026-10-24',
     });
 
-    expect(result.summary).toContain(
-      'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
-    );
+    expect(result.summary).toContain('Spending trend (monthly) from 2026-07-01 to 2026-10-24:');
   });
 });

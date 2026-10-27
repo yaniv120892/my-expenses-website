@@ -18,8 +18,7 @@ const en = {
   'auth.signup.haveAccount': 'Already have an account?',
   'auth.signup.loginLink': 'Log in',
   'auth.verify.title': 'Verify your email',
-  'auth.verify.subtitle':
-    'Enter the 6-digit code we sent to your email. It expires in 10 minutes.',
+  'auth.verify.subtitle': 'Enter the 6-digit code we sent to your email. It expires in 10 minutes.',
   'auth.verify.code': 'Verification code',
   'auth.verify.submit': 'Verify',
   'auth.verify.submitting': 'Verifying…',
@@ -47,8 +46,7 @@ export const authMessages: Dictionary<typeof en> = {
     'auth.signup.haveAccount': 'כבר יש לך חשבון?',
     'auth.signup.loginLink': 'להתחברות',
     'auth.verify.title': 'אימות כתובת האימייל',
-    'auth.verify.subtitle':
-      'הזינו את הקוד בן 6 הספרות ששלחנו לאימייל שלכם. הוא תקף ל־10 דקות.',
+    'auth.verify.subtitle': 'הזינו את הקוד בן 6 הספרות ששלחנו לאימייל שלכם. הוא תקף ל־10 דקות.',
     'auth.verify.code': 'קוד אימות',
     'auth.verify.submit': 'אימות',
     'auth.verify.submitting': 'מאמת…',

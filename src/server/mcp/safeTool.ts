@@ -1,15 +1,9 @@
-import type {
-  McpServer,
-  ToolCallback,
-} from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type {
   ShapeOutput,
   ZodRawShapeCompat,
 } from '@modelcontextprotocol/sdk/server/zod-compat.js';
-import type {
-  CallToolResult,
-  ToolAnnotations,
-} from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { HttpError } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import logger from '@/server/logging/logger';
@@ -20,8 +14,7 @@ type ToolReply = string | { text: string; transactionId: string };
 
 type ToolOutcome = 'ok' | 'client_error' | 'server_error';
 
-const NEUTRAL_FAILURE =
-  'Something went wrong in My Expenses. Try again in a moment.';
+const NEUTRAL_FAILURE = 'Something went wrong in My Expenses. Try again in a moment.';
 
 export const READ_ONLY = {
   readOnlyHint: true,
@@ -53,9 +46,7 @@ export function registerSafeTool<TShape extends ZodRawShapeCompat>({
   };
   handler: (input: ShapeOutput<TShape>) => Promise<ToolReply>;
 }): void {
-  async function handlesToolErrors(
-    input: ShapeOutput<TShape>,
-  ): Promise<CallToolResult> {
+  async function handlesToolErrors(input: ShapeOutput<TShape>): Promise<CallToolResult> {
     const started = Date.now();
     const logCall = ({
       outcome,
@@ -89,10 +80,7 @@ export function registerSafeTool<TShape extends ZodRawShapeCompat>({
         return toolFailure(clientError.message);
       }
       logCall({ outcome: 'server_error' });
-      reportSwallowedError(
-        { err: error, userId: actor.userId, toolName: name },
-        'MCP tool failed',
-      );
+      reportSwallowedError({ err: error, userId: actor.userId, toolName: name }, 'MCP tool failed');
       return toolFailure(NEUTRAL_FAILURE);
     }
   }
@@ -112,7 +100,6 @@ function toolFailure(text: string): CallToolResult {
 }
 
 function toClientError(error: unknown): HttpError | undefined {
-  const httpError =
-    error instanceof HttpError ? error : prismaErrorToHttpError(error);
+  const httpError = error instanceof HttpError ? error : prismaErrorToHttpError(error);
   return httpError && httpError.status < 500 ? httpError : undefined;
 }

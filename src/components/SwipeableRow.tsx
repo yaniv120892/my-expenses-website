@@ -6,12 +6,10 @@ import { Box, useTheme } from '@mui/material';
 const THRESHOLD = 80;
 
 type SwipeLeft =
-  | { onSwipeLeft: () => void; leftLabel: string }
-  | { onSwipeLeft?: never; leftLabel?: never };
+  { onSwipeLeft: () => void; leftLabel: string } | { onSwipeLeft?: never; leftLabel?: never };
 
 type SwipeRight =
-  | { onSwipeRight: () => void; rightLabel: string }
-  | { onSwipeRight?: never; rightLabel?: never };
+  { onSwipeRight: () => void; rightLabel: string } | { onSwipeRight?: never; rightLabel?: never };
 
 type SwipeableRowProps = {
   children: React.ReactNode;
@@ -107,18 +105,12 @@ export default function SwipeableRow({
   const physicalRight = isRtl ? 'left' : 'right';
 
   return (
-    <Box
-      sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}
-    >
+    <Box sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
       {showRight && (
-        <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>
-          {rightLabel}
-        </Box>
+        <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>{rightLabel}</Box>
       )}
       {showLeft && (
-        <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>
-          {leftLabel}
-        </Box>
+        <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>{leftLabel}</Box>
       )}
       <Box
         onTouchStart={handleTouchStart}

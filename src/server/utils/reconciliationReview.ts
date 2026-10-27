@@ -1,7 +1,4 @@
-import type {
-  ReconciliationPlanItem,
-  ReconciliationReviewHint,
-} from '@/shared/types/import';
+import type { ReconciliationPlanItem, ReconciliationReviewHint } from '@/shared/types/import';
 import type { Transaction } from '@/shared/types/transaction';
 import {
   dateDistance,
@@ -12,14 +9,7 @@ import {
 
 type CandidateTransaction = Pick<
   Transaction,
-  | 'id'
-  | 'description'
-  | 'value'
-  | 'currency'
-  | 'originalAmount'
-  | 'date'
-  | 'type'
-  | 'status'
+  'id' | 'description' | 'value' | 'currency' | 'originalAmount' | 'date' | 'type' | 'status'
 > & { bankDescriptionPrefix: string | null };
 
 // `candidates` may span many rows' match windows; this narrows them to the item's own.
@@ -39,9 +29,7 @@ export function deriveReviewHint(
   }
 }
 
-function unrelatedMergeHint(
-  item: ReconciliationPlanItem,
-): ReconciliationReviewHint | null {
+function unrelatedMergeHint(item: ReconciliationPlanItem): ReconciliationReviewHint | null {
   const isUnrelated =
     item.match !== null &&
     !item.match.matchedByBankDescriptionPrefix &&
@@ -85,8 +73,7 @@ function isCloser(
   // A placeholder fits by the prefix the user declared; its projected value is
   // no measure of how close it is.
   const placeholderFirst =
-    Number(isVariableAmountPlaceholder(best)) -
-    Number(isVariableAmountPlaceholder(candidate));
+    Number(isVariableAmountPlaceholder(best)) - Number(isVariableAmountPlaceholder(candidate));
   if (placeholderFirst !== 0) {
     return placeholderFirst < 0;
   }
@@ -95,8 +82,7 @@ function isCloser(
     item.value === null
       ? Math.abs(candidate.originalAmount - item.originalAmount) -
         Math.abs(best.originalAmount - item.originalAmount)
-      : Math.abs(candidate.value - item.value) -
-        Math.abs(best.value - item.value);
+      : Math.abs(candidate.value - item.value) - Math.abs(best.value - item.value);
   if (valueGap !== 0) {
     return valueGap < 0;
   }

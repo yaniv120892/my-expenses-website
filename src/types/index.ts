@@ -19,10 +19,7 @@ export type {
   TransactionSummary,
 } from '@/shared/types/transaction';
 
-export type TransactionFile = Omit<
-  SharedTransactionFile,
-  'createdAt' | 'updatedAt'
-> & {
+export type TransactionFile = Omit<SharedTransactionFile, 'createdAt' | 'updatedAt'> & {
   previewFileUrl: string;
   downloadableFileUrl: string;
   createdAt: string;
@@ -67,10 +64,7 @@ export interface TransactionFilters {
 
 export type ScheduleType = ScheduledTransactionDomain['scheduleType'];
 
-export type CreateScheduledTransactionInput = Omit<
-  CreateScheduledTransaction,
-  'userId'
->;
+export type CreateScheduledTransactionInput = Omit<CreateScheduledTransaction, 'userId'>;
 
 export type UpdateScheduledTransactionInput = UpdateScheduledTransaction;
 

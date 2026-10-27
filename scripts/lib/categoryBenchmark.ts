@@ -133,10 +133,7 @@ export function modelPrices(now: Date): Record<string, Price> {
   };
 }
 
-export function priceFor(
-  model: string,
-  prices: Record<string, Price>,
-): Price | undefined {
+export function priceFor(model: string, prices: Record<string, Price>): Price | undefined {
   const bareModel = model.startsWith(GATEWAY_MODEL_PREFIX)
     ? model.slice(GATEWAY_MODEL_PREFIX.length)
     : model;
@@ -168,18 +165,10 @@ export function summarize(
   const succeeded = decisions
     .map((decision, index) => ({ decision, sample: samples[index] }))
     .filter(({ decision }) => decision.error === null);
-  const scores = succeeded.map(({ decision, sample }) =>
-    scoreDecision(sample, decision),
-  );
-  const latencies = succeeded
-    .map(({ decision }) => decision.durationMs)
-    .sort((a, b) => a - b);
-  const inputTokens = sum(
-    succeeded.map(({ decision }) => decision.inputTokens ?? 0),
-  );
-  const outputTokens = sum(
-    succeeded.map(({ decision }) => decision.outputTokens ?? 0),
-  );
+  const scores = succeeded.map(({ decision, sample }) => scoreDecision(sample, decision));
+  const latencies = succeeded.map(({ decision }) => decision.durationMs).sort((a, b) => a - b);
+  const inputTokens = sum(succeeded.map(({ decision }) => decision.inputTokens ?? 0));
+  const outputTokens = sum(succeeded.map(({ decision }) => decision.outputTokens ?? 0));
   const runCostUsd = price
     ? (inputTokens * price.input + outputTokens * price.output) / 1_000_000
     : null;
@@ -188,18 +177,15 @@ export function summarize(
     model,
     decisions: decisions.length,
     succeeded: count,
-    exactAccuracy:
-      count === 0 ? 0 : scores.filter((s) => s.exact).length / count,
-    acceptableAccuracy:
-      count === 0 ? 0 : scores.filter((s) => s.acceptable).length / count,
+    exactAccuracy: count === 0 ? 0 : scores.filter((s) => s.exact).length / count,
+    acceptableAccuracy: count === 0 ? 0 : scores.filter((s) => s.acceptable).length / count,
     p50Ms: percentile(latencies, 0.5),
     p95Ms: percentile(latencies, 0.95),
     meanMs: count === 0 ? 0 : Math.round(sum(latencies) / count),
     inputTokens,
     outputTokens,
     runCostUsd,
-    costPer1000Usd:
-      runCostUsd === null || count === 0 ? null : (runCostUsd / count) * 1000,
+    costPer1000Usd: runCostUsd === null || count === 0 ? null : (runCostUsd / count) * 1000,
   };
 }
 
@@ -227,9 +213,7 @@ function parseOnly(value: string): Suggester {
 function parseRepeat(value: string): number {
   const repeat = Number(value);
   if (!Number.isInteger(repeat) || repeat < 1) {
-    throw new Error(
-      `--repeat must be a whole number of 1 or more (got "${value}")\n${USAGE}`,
-    );
+    throw new Error(`--repeat must be a whole number of 1 or more (got "${value}")\n${USAGE}`);
   }
   return repeat;
 }

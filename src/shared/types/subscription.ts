@@ -1,8 +1,4 @@
-import {
-  ScheduleType,
-  SubscriptionFrequency,
-  SubscriptionStatus,
-} from '@/generated/prisma/enums';
+import { ScheduleType, SubscriptionFrequency, SubscriptionStatus } from '@/generated/prisma/enums';
 
 export type SubscriptionEvidenceCharge = {
   date: string;

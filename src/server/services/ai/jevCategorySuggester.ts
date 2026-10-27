@@ -1,8 +1,5 @@
 import type { Experimental_EvaluationModel } from 'ai';
-import {
-  CategoryEvaluation,
-  CategorySuggester,
-} from '@/server/services/ai/aiProvider';
+import { CategoryEvaluation, CategorySuggester } from '@/server/services/ai/aiProvider';
 import { Category } from '@/shared/types/category';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
@@ -105,9 +102,7 @@ export class JevCategorySuggester implements CategorySuggester {
   public modelName(): string {
     return optionalEnv(
       'JEV_MODEL',
-      this.usesDirectRoute()
-        ? DEFAULT_TYPESAFE_JEV_MODEL
-        : DEFAULT_GATEWAY_JEV_MODEL,
+      this.usesDirectRoute() ? DEFAULT_TYPESAFE_JEV_MODEL : DEFAULT_GATEWAY_JEV_MODEL,
     );
   }
 

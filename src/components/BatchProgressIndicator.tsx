@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Collapse,
-  IconButton,
-  LinearProgress,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Collapse, IconButton, LinearProgress, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import { useT } from '@/i18n/useT';
@@ -48,30 +41,19 @@ export default function BatchProgressIndicator({
     return null;
   }
 
-  const severity =
-    result.failed === 0
-      ? 'success'
-      : result.succeeded === 0
-        ? 'error'
-        : 'warning';
+  const severity = result.failed === 0 ? 'success' : result.succeeded === 0 ? 'error' : 'warning';
 
   return (
     <Box sx={{ mb: 2 }}>
       <Alert
         severity={severity}
         action={
-          <IconButton
-            size="small"
-            onClick={onClose}
-            aria-label={t('imports.batch.dismiss')}
-          >
+          <IconButton size="small" onClick={onClose} aria-label={t('imports.batch.dismiss')}>
             <CloseIcon fontSize="small" />
           </IconButton>
         }
       >
-        <Typography variant="body2">
-          {resultSummary({ result, itemKind, t })}
-        </Typography>
+        <Typography variant="body2">{resultSummary({ result, itemKind, t })}</Typography>
         {result.errors.length > 0 && (
           <>
             <IconButton

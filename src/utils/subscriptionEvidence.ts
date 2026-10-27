@@ -1,8 +1,5 @@
 import { differenceInCalendarDays } from 'date-fns';
-import {
-  DetectedSubscription,
-  SubscriptionEvidenceCharge,
-} from '@/types/subscription';
+import { DetectedSubscription, SubscriptionEvidenceCharge } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
 import type { AppFormatter } from '@/i18n/useAppFormat';
 import type { T } from '@/i18n/useT.types';
@@ -15,18 +12,13 @@ export type ChargeWithGap = SubscriptionEvidenceCharge & {
 };
 
 /** Charges arrive newest first, so each row's predecessor is the next one. */
-export function withChargeGaps(
-  charges: SubscriptionEvidenceCharge[],
-): ChargeWithGap[] {
+export function withChargeGaps(charges: SubscriptionEvidenceCharge[]): ChargeWithGap[] {
   return charges.map((charge, index) => {
     const previous = charges[index + 1];
     return {
       ...charge,
       gapDays: previous
-        ? differenceInCalendarDays(
-            new Date(charge.date),
-            new Date(previous.date),
-          )
+        ? differenceInCalendarDays(new Date(charge.date), new Date(previous.date))
         : null,
     };
   });
@@ -43,9 +35,7 @@ export function buildEvidenceReasons({
   t: T;
   formatter: AppFormatter;
 }): string[] {
-  const frequencyLabel = formatter
-    .frequency(subscription.frequency)
-    .toLocaleLowerCase();
+  const frequencyLabel = formatter.frequency(subscription.frequency).toLocaleLowerCase();
 
   return [
     t('subscriptions.reason.matched', {

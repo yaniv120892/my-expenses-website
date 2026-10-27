@@ -191,17 +191,13 @@ describe('rematchImport', () => {
   it('reads the rows only after claiming the import', async () => {
     await run();
 
-    expect(
-      importRepo.transitionStatus.mock.invocationCallOrder[0],
-    ).toBeLessThan(
+    expect(importRepo.transitionStatus.mock.invocationCallOrder[0]).toBeLessThan(
       importedTxRepo.findByUserIdAndImportId.mock.invocationCallOrder[0],
     );
   });
 
   it('409s when nothing is pending, and hands the import back', async () => {
-    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([
-      row({ status: 'APPROVED' }),
-    ]);
+    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row({ status: 'APPROVED' })]);
     await expect(run()).rejects.toMatchObject({ status: 409 });
     expect(importRepo.transitionStatus.mock.calls).toEqual([
       ['imp-1', 'COMPLETED', 'REMATCHING'],
@@ -213,20 +209,12 @@ describe('rematchImport', () => {
   it('clears pending matches, re-matches, and returns to COMPLETED', async () => {
     await run();
 
-    expect(importRepo.transitionStatus.mock.calls[0]).toEqual([
-      'imp-1',
-      'COMPLETED',
-      'REMATCHING',
-    ]);
+    expect(importRepo.transitionStatus.mock.calls[0]).toEqual(['imp-1', 'COMPLETED', 'REMATCHING']);
     expect(prismaMock.importedTransaction.updateMany).toHaveBeenCalledWith({
       where: { importId: 'imp-1', userId: 'user-1', status: 'PENDING' },
       data: { matchingTransactionId: null },
     });
-    expect(importRepo.transitionStatus.mock.calls[1]).toEqual([
-      'imp-1',
-      'REMATCHING',
-      'COMPLETED',
-    ]);
+    expect(importRepo.transitionStatus.mock.calls[1]).toEqual(['imp-1', 'REMATCHING', 'COMPLETED']);
   });
 
   it('excludes transactions already claimed by non-pending rows', async () => {
@@ -244,51 +232,35 @@ describe('rematchImport', () => {
   });
 
   it("excludes transactions another import's pending rows claim", async () => {
-    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
-      'tx-other-import',
-    ]);
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue(['tx-other-import']);
 
     await run();
 
     const excluded = matchSingleTransaction.mock.calls[0][2] as Set<string>;
     expect([...excluded]).toEqual(['tx-other-import']);
-    expect(
-      prismaMock.importedTransaction.updateMany.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      importedTxRepo.findClaimedMatchingTransactionIds.mock
-        .invocationCallOrder[0],
+    expect(prismaMock.importedTransaction.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      importedTxRepo.findClaimedMatchingTransactionIds.mock.invocationCallOrder[0],
     );
   });
 
   it('a match found mid-run is excluded from later rows', async () => {
-    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([
-      row(),
-      row({ id: 'r2' }),
-    ]);
+    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row(), row({ id: 'r2' })]);
     matchSingleTransaction.mockResolvedValueOnce('tx-a');
 
     await run();
 
-    const secondExcluded = matchSingleTransaction.mock
-      .calls[1][2] as Set<string>;
+    const secondExcluded = matchSingleTransaction.mock.calls[1][2] as Set<string>;
     expect([...secondExcluded]).toEqual(['tx-a']);
   });
 
   it('one failing row does not abort the rest, and the import completes', async () => {
-    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([
-      row(),
-      row({ id: 'r2' }),
-    ]);
+    importedTxRepo.findByUserIdAndImportId.mockResolvedValue([row(), row({ id: 'r2' })]);
     matchSingleTransaction.mockRejectedValueOnce(new Error('boom'));
 
     await run();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(2);
-    expect(importRepo.transitionStatus.mock.calls[1]).toEqual([
-      'imp-1',
-      'REMATCHING',
-      'COMPLETED',
-    ]);
+    expect(importRepo.transitionStatus.mock.calls[1]).toEqual(['imp-1', 'REMATCHING', 'COMPLETED']);
   });
 
   describe('when it fails', () => {
@@ -314,9 +286,7 @@ describe('rematchImport', () => {
     });
 
     it('returns the import to COMPLETED, so a retry can re-match it', async () => {
-      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
-        new Error('db down'),
-      );
+      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(new Error('db down'));
 
       await expect(run()).rejects.toThrow('db down');
       expect(status).toBe('COMPLETED');
@@ -342,9 +312,7 @@ describe('rematchImport', () => {
     });
 
     it('keeps the re-match error when handing the import back fails too', async () => {
-      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(
-        new Error('db down'),
-      );
+      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(new Error('db down'));
       importRepo.transitionStatus
         .mockImplementationOnce(async () => {
           status = 'REMATCHING';
@@ -407,9 +375,7 @@ describe('processImport', () => {
   });
 
   it('a rejected submit marks the import FAILED and rethrows', async () => {
-    agentClient.submitExtractionRequest.mockRejectedValue(
-      new Error('agent down'),
-    );
+    agentClient.submitExtractionRequest.mockRejectedValue(new Error('agent down'));
     await expect(run()).rejects.toThrow('agent down');
     expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', extractionCompletedAt: null },
@@ -425,8 +391,7 @@ describe('processImport', () => {
 });
 
 describe('findPotentialMatchesForImport', () => {
-  const run = () =>
-    importService.findPotentialMatchesForImport('imp-1', 'user-1');
+  const run = () => importService.findPotentialMatchesForImport('imp-1', 'user-1');
 
   /**
    * The exclusion set is one mutable Set shared across calls, so it has to be
@@ -445,24 +410,17 @@ describe('findPotentialMatchesForImport', () => {
   };
 
   it('excludes transactions already claimed by another import', async () => {
-    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
-      'tx-taken',
-    ]);
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue(['tx-taken']);
     const seen = recordExclusions([]);
 
     await run();
 
-    expect(
-      importedTxRepo.findClaimedMatchingTransactionIds,
-    ).toHaveBeenCalledWith('user-1');
+    expect(importedTxRepo.findClaimedMatchingTransactionIds).toHaveBeenCalledWith('user-1');
     expect(seen[0]).toEqual(['tx-taken']);
   });
 
   it('never offers one transaction to two rows of the same import', async () => {
-    importedTxRepo.findByImportId.mockResolvedValue([
-      row({ id: 'r1' }),
-      row({ id: 'r2' }),
-    ]);
+    importedTxRepo.findByImportId.mockResolvedValue([row({ id: 'r1' }), row({ id: 'r2' })]);
     const seen = recordExclusions(['tx-1']);
 
     await run();
@@ -497,10 +455,7 @@ describe('findPotentialMatchesForImport', () => {
   });
 
   it('keeps matching the remaining rows when one row throws', async () => {
-    importedTxRepo.findByImportId.mockResolvedValue([
-      row({ id: 'r1' }),
-      row({ id: 'r2' }),
-    ]);
+    importedTxRepo.findByImportId.mockResolvedValue([row({ id: 'r1' }), row({ id: 'r2' })]);
     matchSingleTransaction.mockRejectedValueOnce(new Error('ai down'));
 
     await expect(run()).resolves.toBeUndefined();
@@ -554,10 +509,7 @@ describe('matchSingleTransaction', () => {
   it('stores the id the provider validated', async () => {
     findMatchingTransaction.mockResolvedValue('tx-b');
 
-    const matched = await service.matchSingleTransaction(
-      ambiguousRow(),
-      'user-1',
-    );
+    const matched = await service.matchSingleTransaction(ambiguousRow(), 'user-1');
 
     expect(matched).toBe('tx-b');
     expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
@@ -588,10 +540,7 @@ describe('matchSingleTransaction', () => {
   it('leaves the row unmatched when the provider reports none', async () => {
     findMatchingTransaction.mockResolvedValue(null);
 
-    const matched = await service.matchSingleTransaction(
-      ambiguousRow(),
-      'user-1',
-    );
+    const matched = await service.matchSingleTransaction(ambiguousRow(), 'user-1');
 
     expect(matched).toBeNull();
     expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
@@ -679,9 +628,7 @@ describe('matchSingleTransaction', () => {
       );
 
       expect(matched).toBe('tx-hand');
-      expect(findMatchingTransaction).toHaveBeenCalledWith(expect.anything(), [
-        handLogged,
-      ]);
+      expect(findMatchingTransaction).toHaveBeenCalledWith(expect.anything(), [handLogged]);
     });
 
     it('falls back to the placeholder when the model takes none of the others', async () => {
@@ -729,9 +676,7 @@ describe('matchSingleTransaction', () => {
     });
 
     it('matches by value again once approved', async () => {
-      findPotentialMatches.mockResolvedValue([
-        placeholder({ status: 'APPROVED' }),
-      ]);
+      findPotentialMatches.mockResolvedValue([placeholder({ status: 'APPROVED' })]);
 
       const matched = await service.matchSingleTransaction(
         row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
@@ -839,14 +784,9 @@ describe('buildReconciliationPlan', () => {
     importedTxRepo.findPendingByImportId.mockResolvedValue([
       pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
     ]);
-    findPotentialMatchesForCharges.mockResolvedValue([
-      candidateTransaction({ id: 'tx-bruno' }),
-    ]);
+    findPotentialMatchesForCharges.mockResolvedValue([candidateTransaction({ id: 'tx-bruno' })]);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.action).toBe('CREATE');
     expect(item.reviewHint).toMatchObject({
@@ -861,17 +801,10 @@ describe('buildReconciliationPlan', () => {
     importedTxRepo.findPendingByImportId.mockResolvedValue([
       pendingRow({ value: 470, date: new Date(2026, 5, 16) }),
     ]);
-    findPotentialMatchesForCharges.mockResolvedValue([
-      candidateTransaction({ id: 'tx-claimed' }),
-    ]);
-    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([
-      'tx-claimed',
-    ]);
+    findPotentialMatchesForCharges.mockResolvedValue([candidateTransaction({ id: 'tx-claimed' })]);
+    importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue(['tx-claimed']);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.reviewHint).toBeNull();
   });
@@ -884,10 +817,7 @@ describe('buildReconciliationPlan', () => {
       }),
     ]);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.action).toBe('MERGE');
     expect(item.reviewHint).toEqual({ reason: 'unrelated-merge' });
@@ -899,10 +829,7 @@ describe('buildReconciliationPlan', () => {
       pendingRow({ matchingTransaction: matchedTransaction }),
     ]);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.action).toBe('MERGE');
     expect(item.categoryId).toBe('category-1');
@@ -935,10 +862,7 @@ describe('buildReconciliationPlan', () => {
       }),
     ]);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.match?.matchedByBankDescriptionPrefix).toBe(true);
     expect(item.reviewHint).toBeNull();
@@ -951,10 +875,7 @@ describe('buildReconciliationPlan', () => {
       }),
     ]);
 
-    const [item] = await importService.buildReconciliationPlan(
-      'imp-1',
-      'user-1',
-    );
+    const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
     expect(item.match).not.toBeNull();
     expect(item.match?.approvesPendingTransaction).toBe(false);
@@ -965,26 +886,16 @@ describe('buildReconciliationPlan', () => {
 
     await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(importedTxRepo.findPendingByImportId).toHaveBeenCalledWith(
-      'imp-1',
-      'user-1',
-    );
+    expect(importedTxRepo.findPendingByImportId).toHaveBeenCalledWith('imp-1', 'user-1');
     expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
   });
 
   it('scopes an explicit selection to the same user', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([]);
 
-    await importService.buildReconciliationPlan('imp-1', 'user-1', [
-      'r1',
-      'r2',
-    ]);
+    await importService.buildReconciliationPlan('imp-1', 'user-1', ['r1', 'r2']);
 
-    expect(importedTxRepo.findPendingByIds).toHaveBeenCalledWith(
-      'imp-1',
-      ['r1', 'r2'],
-      'user-1',
-    );
+    expect(importedTxRepo.findPendingByIds).toHaveBeenCalledWith('imp-1', ['r1', 'r2'], 'user-1');
     expect(importedTxRepo.findPendingByImportId).not.toHaveBeenCalled();
   });
 });
@@ -993,11 +904,10 @@ describe('batchApproveImportedTransactions', () => {
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([pendingRow()]);
 
-    const result = await importService.batchApproveImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1', 'already-approved-elsewhere'],
-    );
+    const result = await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'already-approved-elsewhere',
+    ]);
 
     expect(result.total).toBe(2);
     expect(result.succeeded).toBe(1);
@@ -1020,24 +930,18 @@ describe('batchApproveImportedTransactions', () => {
       meta: { modelName: 'ImportedTransaction' },
     });
 
-    const result = await importService.batchApproveImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1', 'r2'],
-    );
+    const result = await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'r2',
+    ]);
 
     expect(result).toEqual({
       total: 2,
       succeeded: 1,
       failed: 1,
-      errors: [
-        { id: 'r1', error: 'Imported transaction is no longer pending' },
-      ],
+      errors: [{ id: 'r1', error: 'Imported transaction is no longer pending' }],
     });
-    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
-      ['created-1'],
-      'user-1',
-    );
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(['created-1'], 'user-1');
   });
 
   it('reports every id as succeeded when none are stale', async () => {
@@ -1046,11 +950,10 @@ describe('batchApproveImportedTransactions', () => {
       pendingRow({ id: 'r2' }),
     ]);
 
-    const result = await importService.batchApproveImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1', 'r2'],
-    );
+    const result = await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'r2',
+    ]);
 
     expect(result).toEqual({
       total: 2,
@@ -1066,11 +969,10 @@ describe('batchIgnoreImportedTransactions', () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([{ id: 'r1' }]);
     importedTxRepo.updateStatusBatch.mockResolvedValue(1);
 
-    const result = await importService.batchIgnoreImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1', 'already-approved-elsewhere'],
-    );
+    const result = await importService.batchIgnoreImportedTransactions('imp-1', 'user-1', [
+      'r1',
+      'already-approved-elsewhere',
+    ]);
 
     expect(result.total).toBe(2);
     expect(result.succeeded).toBe(1);
@@ -1081,25 +983,14 @@ describe('batchIgnoreImportedTransactions', () => {
         error: 'Not found, not pending, or not in this import',
       },
     ]);
-    expect(importedTxRepo.updateStatusBatch).toHaveBeenCalledWith(
-      ['r1'],
-      'user-1',
-      'IGNORED',
-    );
+    expect(importedTxRepo.updateStatusBatch).toHaveBeenCalledWith(['r1'], 'user-1', 'IGNORED');
   });
 
   it("ignores every currently-pending row when 'all' is requested", async () => {
-    importedTxRepo.findPendingByImportId.mockResolvedValue([
-      { id: 'r1' },
-      { id: 'r2' },
-    ]);
+    importedTxRepo.findPendingByImportId.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }]);
     importedTxRepo.updateStatusBatch.mockResolvedValue(2);
 
-    const result = await importService.batchIgnoreImportedTransactions(
-      'imp-1',
-      'user-1',
-      'all',
-    );
+    const result = await importService.batchIgnoreImportedTransactions('imp-1', 'user-1', 'all');
 
     expect(result).toEqual({
       total: 2,
@@ -1141,11 +1032,7 @@ describe('a batch applies the rows it already loaded', () => {
       }),
     ]);
 
-    const result = await importService.batchApproveImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1'],
-    );
+    const result = await importService.batchApproveImportedTransactions('imp-1', 'user-1', ['r1']);
 
     expect(result.succeeded).toBe(1);
     expect(importedTxRepo.findById).not.toHaveBeenCalled();
@@ -1156,10 +1043,7 @@ describe('a batch applies the rows it already loaded', () => {
     );
     expect(updateStatusOp).toHaveBeenCalledWith('r1', 'user-1', 'MERGED');
     expect(createTransactionOp).not.toHaveBeenCalled();
-    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
-      ['tx-1'],
-      'user-1',
-    );
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(['tx-1'], 'user-1');
   });
 
   it('learns a merge category under the statement description, not the hand-logged one', async () => {
@@ -1190,24 +1074,15 @@ describe('a batch applies the rows it already loaded', () => {
   });
 
   it('creates for an unmatched row and marks it approved', async () => {
-    importedTxRepo.findPendingByIds.mockResolvedValue([
-      loadedRow({ id: 'r1' }),
-    ]);
+    importedTxRepo.findPendingByIds.mockResolvedValue([loadedRow({ id: 'r1' })]);
 
-    const result = await importService.batchApproveImportedTransactions(
-      'imp-1',
-      'user-1',
-      ['r1'],
-    );
+    const result = await importService.batchApproveImportedTransactions('imp-1', 'user-1', ['r1']);
 
     expect(result.succeeded).toBe(1);
     expect(createTransactionOp).toHaveBeenCalledTimes(1);
     expect(markApprovedOp).toHaveBeenCalledWith('r1', 'user-1');
     expect(updateTransactionOp).not.toHaveBeenCalled();
-    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(
-      ['created-1'],
-      'user-1',
-    );
+    expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(['created-1'], 'user-1');
   });
 
   it('hands the whole batch to one notification call', async () => {
@@ -1217,11 +1092,7 @@ describe('a batch applies the rows it already loaded', () => {
       loadedRow({ id: 'r3' }),
     ]);
 
-    await importService.batchApproveImportedTransactions('imp-1', 'user-1', [
-      'r1',
-      'r2',
-      'r3',
-    ]);
+    await importService.batchApproveImportedTransactions('imp-1', 'user-1', ['r1', 'r2', 'r3']);
 
     expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledTimes(1);
     expect(txService.notifyTransactionCreatedSafe).not.toHaveBeenCalled();
@@ -1249,9 +1120,7 @@ describe('single-row approve, merge and ignore', () => {
   const ignore = () => importService.ignoreImportedTransaction('r1', 'user-1');
 
   it('409s for a row that is no longer pending, before writing', async () => {
-    importedTxRepo.findById.mockResolvedValue(
-      pendingRow({ status: 'APPROVED', deleted: false }),
-    );
+    importedTxRepo.findById.mockResolvedValue(pendingRow({ status: 'APPROVED', deleted: false }));
 
     await expect(approve()).rejects.toMatchObject({ status: 409 });
     await expect(merge()).rejects.toMatchObject({ status: 409 });
@@ -1323,9 +1192,7 @@ describe('single-row approve, merge and ignore', () => {
   });
 
   it('409s ignoring a row that is no longer pending, before writing', async () => {
-    importedTxRepo.findById.mockResolvedValue(
-      pendingRow({ status: 'IGNORED', deleted: false }),
-    );
+    importedTxRepo.findById.mockResolvedValue(pendingRow({ status: 'IGNORED', deleted: false }));
 
     await expect(ignore()).rejects.toMatchObject({ status: 409 });
     expect(importedTxRepo.updateStatus).not.toHaveBeenCalled();
@@ -1340,10 +1207,7 @@ describe('deleteImport', () => {
     await importService.deleteImport('imp-1', 'user-1');
 
     expect(importRepo.softDeleteOp).toHaveBeenCalledWith('imp-1', 'user-1');
-    expect(importedTxRepo.softDeleteByImportIdOp).toHaveBeenCalledWith(
-      'imp-1',
-      'user-1',
-    );
+    expect(importedTxRepo.softDeleteByImportIdOp).toHaveBeenCalledWith('imp-1', 'user-1');
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'deleteImport' },
       { op: 'deleteRows' },

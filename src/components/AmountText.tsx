@@ -36,8 +36,7 @@ export default function AmountText({
       sx={{
         fontWeight,
         whiteSpace: 'nowrap',
-        color:
-          type === 'INCOME' ? palette.charts.positive : palette.charts.negative,
+        color: type === 'INCOME' ? palette.charts.positive : palette.charts.negative,
       }}
     >
       {format === 'currency'
@@ -55,10 +54,7 @@ export default function AmountText({
   return (
     <Box sx={{ textAlign: 'right' }}>
       {amount}
-      <Typography
-        variant="caption"
-        sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}
-      >
+      <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
         {formatter.money(original.originalAmount, original.currency)}
       </Typography>
     </Box>

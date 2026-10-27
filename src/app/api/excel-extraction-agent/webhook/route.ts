@@ -8,10 +8,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid JSON body' },
-      { status: 400 },
-    );
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
   }
   const query = Object.fromEntries(req.nextUrl.searchParams.entries());
   const result = await processExcelExtractionWebhook(payload, query);

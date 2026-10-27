@@ -5,9 +5,7 @@ import {
   UpdateSubscriptionPayload,
 } from '../types/subscription';
 
-async function fetchSubscriptions(
-  status?: string,
-): Promise<SubscriptionSummary> {
+async function fetchSubscriptions(status?: string): Promise<SubscriptionSummary> {
   const params = status ? { status } : {};
   const res = await api.get('/api/subscriptions', { params });
   return res.data;
@@ -31,10 +29,7 @@ async function updateSubscription(
   return res.data;
 }
 
-async function convertToScheduled(
-  id: string,
-  categoryId?: string,
-): Promise<DetectedSubscription> {
+async function convertToScheduled(id: string, categoryId?: string): Promise<DetectedSubscription> {
   const res = await api.post(`/api/subscriptions/${id}/convert`, {
     ...(categoryId ? { categoryId } : {}),
   });

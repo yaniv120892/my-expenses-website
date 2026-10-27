@@ -1,12 +1,10 @@
 import { BatchResult } from '@/types/import';
 import type { T } from '@/i18n/useT.types';
 
-export type UploadItemStatus =
-  'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';
+export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';
 
 export type UploadItemError =
-  | { code: 'INVALID_PAYMENT_MONTH' }
-  | { code: 'REQUEST_FAILED'; message: string | null };
+  { code: 'INVALID_PAYMENT_MONTH' } | { code: 'REQUEST_FAILED'; message: string | null };
 
 export interface UploadItem {
   id: string;
@@ -54,9 +52,7 @@ export function isTerminal(status: UploadItemStatus): boolean {
 }
 
 function isSameFile(a: File, b: File): boolean {
-  return (
-    a.name === b.name && a.size === b.size && a.lastModified === b.lastModified
-  );
+  return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
 }
 
 export function planAddFiles(
@@ -66,10 +62,7 @@ export function planAddFiles(
   // A re-drop of a file already queued would otherwise create a second import
   // for the same statement.
   const fresh = files.filter(
-    (file) =>
-      !state.items.some(
-        (item) => item.status !== 'failed' && isSameFile(item.file, file),
-      ),
+    (file) => !state.items.some((item) => item.status !== 'failed' && isSameFile(item.file, file)),
   );
   // The cap is the queue's, not one drop's: several drops must not add up
   // past it.
@@ -142,9 +135,7 @@ export function uploadQueueReducer(
       return {
         ...state,
         items: state.items.map((item) =>
-          isTerminal(item.status)
-            ? item
-            : { ...item, paymentMonth: action.paymentMonth },
+          isTerminal(item.status) ? item : { ...item, paymentMonth: action.paymentMonth },
         ),
       };
 
@@ -158,9 +149,7 @@ export function uploadQueueReducer(
 
     case 'UPLOAD_PROGRESS':
       return mapItem(state, action.id, (item) =>
-        item.progress === action.progress
-          ? item
-          : { ...item, progress: action.progress },
+        item.progress === action.progress ? item : { ...item, progress: action.progress },
       );
 
     case 'UPLOAD_SUCCEEDED':
@@ -200,9 +189,7 @@ export function uploadQueueReducer(
 }
 
 export function selectIsRunning(state: UploadQueueState): boolean {
-  return state.items.some(
-    (item) => item.status === 'uploading' || item.status === 'processing',
-  );
+  return state.items.some((item) => item.status === 'uploading' || item.status === 'processing');
 }
 
 export function selectQueuedItems(state: UploadQueueState): UploadItem[] {
@@ -214,10 +201,7 @@ export function selectFailedItems(state: UploadQueueState): UploadItem[] {
 }
 
 export function selectIsDrained(state: UploadQueueState): boolean {
-  return (
-    state.items.length > 0 &&
-    state.items.every((item) => isTerminal(item.status))
-  );
+  return state.items.length > 0 && state.items.every((item) => isTerminal(item.status));
 }
 
 export function describeUploadError({
@@ -233,13 +217,7 @@ export function describeUploadError({
   return error?.message ?? t('imports.upload.importFailed');
 }
 
-export function toBatchResult({
-  state,
-  t,
-}: {
-  state: UploadQueueState;
-  t: T;
-}): BatchResult {
+export function toBatchResult({ state, t }: { state: UploadQueueState; t: T }): BatchResult {
   const failed = selectFailedItems(state);
 
   return {

@@ -20,11 +20,7 @@ export const POST = createHandler({
     },
   ],
   handler: async ({ body }) => {
-    const result = await authService.loginUser(
-      body.email,
-      body.username,
-      body.password,
-    );
+    const result = await authService.loginUser(body.email, body.username, body.password);
     if (result.error || !result.token) {
       return NextResponse.json(
         { success: false, error: result.error ?? 'Login failed' },

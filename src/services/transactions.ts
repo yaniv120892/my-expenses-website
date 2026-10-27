@@ -9,10 +9,7 @@ import {
   CategoryBreakdownItem,
   Category,
 } from '../types';
-import {
-  DEFAULT_TRANSACTION_SORT,
-  type TransactionSort,
-} from '@/shared/schemas/transactions';
+import { DEFAULT_TRANSACTION_SORT, type TransactionSort } from '@/shared/schemas/transactions';
 
 export const TRANSACTIONS_PAGE_SIZE = 50;
 
@@ -20,9 +17,7 @@ export const TRANSACTIONS_PAGE_SIZE = 50;
 // different rows than the list.
 function listFilters(params?: TransactionFilters) {
   return {
-    endDate: new Date(
-      new Date().setDate(new Date().getDate() + 7),
-    ).toISOString(),
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
     ...params,
   };
 }
@@ -99,10 +94,7 @@ export async function createTransaction(
   return res.data;
 }
 
-export async function updateTransaction(
-  id: string,
-  data: UpdateTransactionInput,
-): Promise<string> {
+export async function updateTransaction(id: string, data: UpdateTransactionInput): Promise<string> {
   const res = await api.put(`/api/transactions/${id}`, data);
   return res.data;
 }
@@ -121,10 +113,7 @@ export async function getPendingTransactions(): Promise<Transaction[]> {
   return res.data;
 }
 
-export async function updateTransactionStatus(
-  id: string,
-  status: string,
-): Promise<string> {
+export async function updateTransactionStatus(id: string, status: string): Promise<string> {
   const res = await api.patch(`/api/transactions/${id}/status`, { status });
   return res.data;
 }

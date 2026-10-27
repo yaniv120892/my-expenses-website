@@ -56,9 +56,7 @@ describe('initSentry', () => {
 
     initSentry();
 
-    expect(Sentry.init).toHaveBeenCalledWith(
-      expect.objectContaining({ tracesSampleRate: 0 }),
-    );
+    expect(Sentry.init).toHaveBeenCalledWith(expect.objectContaining({ tracesSampleRate: 0 }));
   });
 
   it('sends no cookies, request bodies, locals or user identity with an error', () => {

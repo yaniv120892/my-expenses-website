@@ -62,11 +62,7 @@ export function enumerateBuckets(
 }
 
 // Must agree with enumerateBuckets on every period, weekly included.
-export function countBuckets(
-  startDate: Date,
-  endDate: Date,
-  period: TrendPeriod,
-): number {
+export function countBuckets(startDate: Date, endDate: Date, period: TrendPeriod): number {
   switch (period) {
     case 'daily':
       return differenceInCalendarDays(endDate, startDate) + 1;

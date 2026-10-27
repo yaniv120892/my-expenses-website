@@ -13,8 +13,7 @@ const SORT_OPTIONS: TransactionSort[] = [
   { sortBy: 'category', sortOrder: 'desc' },
 ];
 
-const optionKey = ({ sortBy, sortOrder }: TransactionSort) =>
-  `${sortBy}-${sortOrder}` as const;
+const optionKey = ({ sortBy, sortOrder }: TransactionSort) => `${sortBy}-${sortOrder}` as const;
 
 export function TransactionSortSelect({
   value,

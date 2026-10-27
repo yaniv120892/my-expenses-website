@@ -32,11 +32,9 @@ afterEach(() => {
 describe('GeminiService against a stalled provider', () => {
   it('fails the one call at the timeout instead of hanging', async () => {
     let settled = false;
-    const pending = new GeminiService()
-      .suggestCategory('coffee', categories)
-      .finally(() => {
-        settled = true;
-      });
+    const pending = new GeminiService().suggestCategory('coffee', categories).finally(() => {
+      settled = true;
+    });
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
     expect(settled).toBe(false);

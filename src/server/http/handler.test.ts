@@ -1,22 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(
-  () => {
-    const calls: string[] = [];
-    return {
-      calls,
-      pingHeartbeat: vi.fn(() => {
-        calls.push('ping');
-      }),
-      loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
-      after: vi.fn(),
-      flushRemoteLogs: vi.fn(async () => {
-        calls.push('flush');
-      }),
-    };
-  },
-);
+const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(() => {
+  const calls: string[] = [];
+  return {
+    calls,
+    pingHeartbeat: vi.fn(() => {
+      calls.push('ping');
+    }),
+    loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+    after: vi.fn(),
+    flushRemoteLogs: vi.fn(async () => {
+      calls.push('flush');
+    }),
+  };
+});
 
 vi.mock('@/server/monitoring/heartbeat', () => ({ pingHeartbeat }));
 vi.mock('@/server/logging/betterStackStream', () => ({
@@ -120,9 +118,7 @@ describe('createHandler heartbeat', () => {
 
 describe('createHandler request log', () => {
   function requestLine(): Record<string, unknown> {
-    const call = loggerMock.info.mock.calls.find(
-      ([, msg]) => msg === 'request',
-    );
+    const call = loggerMock.info.mock.calls.find(([, msg]) => msg === 'request');
     return call?.[0] as Record<string, unknown>;
   }
 

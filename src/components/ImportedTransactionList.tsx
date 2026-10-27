@@ -82,11 +82,7 @@ function typeLabel({ type, t }: { type: string; t: T }): string {
   }
 }
 
-function TransactionDetails({
-  transaction,
-}: {
-  transaction: ImportedTransaction;
-}) {
+function TransactionDetails({ transaction }: { transaction: ImportedTransaction }) {
   const t = useT();
   const formatter = useAppFormat();
   return (
@@ -129,11 +125,7 @@ function AmountWarning({ transaction }: { transaction: ImportedTransaction }) {
   );
 }
 
-function MatchingDetails({
-  transaction,
-}: {
-  transaction: ImportedTransaction;
-}) {
+function MatchingDetails({ transaction }: { transaction: ImportedTransaction }) {
   const t = useT();
   const formatter = useAppFormat();
   if (!transaction.matchingTransaction) {
@@ -157,11 +149,8 @@ function MatchingDetails({
           alignItems: 'center',
         }}
       >
-        <Typography variant="body2">
-          {transaction.matchingTransaction.description}
-        </Typography>
-        {transaction.matchingTransaction.status ===
-          TransactionApprovalStatus.PENDING_APPROVAL && (
+        <Typography variant="body2">{transaction.matchingTransaction.description}</Typography>
+        {transaction.matchingTransaction.status === TransactionApprovalStatus.PENDING_APPROVAL && (
           <Tooltip title={t('imports.row.fromScheduled')}>
             <EventRepeatIcon fontSize="small" color="info" />
           </Tooltip>
@@ -324,12 +313,9 @@ function RowActions({
   );
 }
 
-const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
-  importId,
-}) => {
+const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ importId }) => {
   const t = useT();
-  const { data: transactions = [], isLoading } =
-    useImportedTransactionsQuery(importId);
+  const { data: transactions = [], isLoading } = useImportedTransactionsQuery(importId);
   const approveMutation = useApproveImportedTransactionMutation(importId);
   const mergeMutation = useMergeImportedTransactionMutation(importId);
   const ignoreMutation = useIgnoreImportedTransactionMutation(importId);
@@ -337,25 +323,17 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
   const theme = useTheme();
   const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<ImportedTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<ImportedTransaction | null>(null);
   const [formMode, setFormMode] = useState<'merge' | 'approve' | undefined>();
-  const [pendingOperations, setPendingOperations] = useState<
-    Record<string, string>
-  >({});
+  const [pendingOperations, setPendingOperations] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { showError, snackbarProps } = useErrorNotice();
   const { data: autoApproveRules = [] } = useAutoApproveRulesQuery();
-  const [statusFilter, setStatusFilter] = useState<string>(
-    ImportedTransactionStatus.PENDING,
-  );
+  const [statusFilter, setStatusFilter] = useState<string>(ImportedTransactionStatus.PENDING);
 
   const chartColors = (theme.vars ?? theme).palette.charts;
 
-  const activeTransactions = useMemo(
-    () => transactions.filter((t) => !t.deleted),
-    [transactions],
-  );
+  const activeTransactions = useMemo(() => transactions.filter((t) => !t.deleted), [transactions]);
   const filteredTransactions = useMemo(
     () =>
       statusFilter === 'ALL'
@@ -364,27 +342,16 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
     [activeTransactions, statusFilter],
   );
   const pendingTransactions = useMemo(
-    () =>
-      activeTransactions.filter(
-        (t) => t.status === ImportedTransactionStatus.PENDING,
-      ),
+    () => activeTransactions.filter((t) => t.status === ImportedTransactionStatus.PENDING),
     [activeTransactions],
   );
   const visiblePendingTransactions = useMemo(
-    () =>
-      filteredTransactions.filter(
-        (t) => t.status === ImportedTransactionStatus.PENDING,
-      ),
+    () => filteredTransactions.filter((t) => t.status === ImportedTransactionStatus.PENDING),
     [filteredTransactions],
   );
   // Rows leave view on a filter change or once decided; a batch must never act on them.
   const effectiveSelectedIds = useMemo(
-    () =>
-      new Set(
-        visiblePendingTransactions
-          .map((t) => t.id)
-          .filter((id) => selectedIds.has(id)),
-      ),
+    () => new Set(visiblePendingTransactions.map((t) => t.id).filter((id) => selectedIds.has(id))),
     [visiblePendingTransactions, selectedIds],
   );
   const expenseTransactions = useMemo(
@@ -610,10 +577,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
         <Stack spacing={2}>
           {sections.map((section) => (
             <Box key={section.label}>
-              <Typography
-                variant="subtitle2"
-                sx={{ ...sectionHeaderSx(section.color), mb: 1 }}
-              >
+              <Typography variant="subtitle2" sx={{ ...sectionHeaderSx(section.color), mb: 1 }}>
                 {section.label}
               </Typography>
               <Stack spacing={1}>
@@ -635,8 +599,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                         alignItems: 'flex-start',
                       }}
                     >
-                      {transaction.status ===
-                        ImportedTransactionStatus.PENDING && (
+                      {transaction.status === ImportedTransactionStatus.PENDING && (
                         <Checkbox
                           size="small"
                           sx={{ p: 0.5, mt: -0.25 }}
@@ -704,18 +667,14 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                   <Checkbox
                     indeterminate={
                       effectiveSelectedIds.size > 0 &&
-                      effectiveSelectedIds.size <
-                        visiblePendingTransactions.length
+                      effectiveSelectedIds.size < visiblePendingTransactions.length
                     }
                     checked={
                       visiblePendingTransactions.length > 0 &&
-                      effectiveSelectedIds.size ===
-                        visiblePendingTransactions.length
+                      effectiveSelectedIds.size === visiblePendingTransactions.length
                     }
                     onChange={(e) =>
-                      e.target.checked
-                        ? handleSelectAll()
-                        : handleClearSelection()
+                      e.target.checked ? handleSelectAll() : handleClearSelection()
                     }
                     slotProps={{
                       input: { 'aria-label': t('imports.row.selectAllRows') },
@@ -742,8 +701,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                       selected={effectiveSelectedIds.has(transaction.id)}
                     >
                       <TableCell padding="checkbox">
-                        {transaction.status ===
-                        ImportedTransactionStatus.PENDING ? (
+                        {transaction.status === ImportedTransactionStatus.PENDING ? (
                           <Checkbox
                             checked={effectiveSelectedIds.has(transaction.id)}
                             onChange={() => handleToggleSelect(transaction.id)}
@@ -809,8 +767,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({
                   exchangeRateSource: selectedTransaction.exchangeRateSource,
                   date: selectedTransaction.date,
                   type: selectedTransaction.type as 'EXPENSE' | 'INCOME',
-                  categoryId:
-                    selectedTransaction.matchingTransaction?.categoryId || '',
+                  categoryId: selectedTransaction.matchingTransaction?.categoryId || '',
                 }
               : null
         }

@@ -2,8 +2,7 @@ import type { TransactionSort } from '@/shared/schemas/transactions';
 
 export type TransactionStatus = 'APPROVED' | 'PENDING_APPROVAL';
 
-export type TransactionFileStatus =
-  'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
+export type TransactionFileStatus = 'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
 
 export interface TransactionFile {
   id: string;

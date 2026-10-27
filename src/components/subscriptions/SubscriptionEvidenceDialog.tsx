@@ -23,10 +23,7 @@ import { useIsCompact } from '@/hooks/useBreakpoints';
 import { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import {
-  buildEvidenceReasons,
-  withChargeGaps,
-} from '@/utils/subscriptionEvidence';
+import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';
 
 interface Props {
   open: boolean;
@@ -57,24 +54,14 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function SubscriptionEvidenceDialog({
-  open,
-  subscription,
-  onClose,
-}: Props) {
+export default function SubscriptionEvidenceDialog({ open, subscription, onClose }: Props) {
   const t = useT();
   const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const evidence = subscription?.detectionEvidence;
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle>
         {t('subscriptions.evidence.title', {
           name: subscription?.displayName ?? '',
@@ -83,9 +70,7 @@ export default function SubscriptionEvidenceDialog({
       <DialogContent>
         {subscription &&
           (!evidence ? (
-            <Alert severity="info">
-              {t('subscriptions.evidence.noEvidence')}
-            </Alert>
+            <Alert severity="info">{t('subscriptions.evidence.noEvidence')}</Alert>
           ) : (
             <Stack spacing={2.5} sx={{ mt: 1 }}>
               <Box>
@@ -176,12 +161,8 @@ export default function SubscriptionEvidenceDialog({
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>
-                          {t('subscriptions.evidence.column.date')}
-                        </TableCell>
-                        <TableCell>
-                          {t('subscriptions.evidence.column.description')}
-                        </TableCell>
+                        <TableCell>{t('subscriptions.evidence.column.date')}</TableCell>
+                        <TableCell>{t('subscriptions.evidence.column.description')}</TableCell>
                         <TableCell align="right">
                           {t('subscriptions.evidence.column.amount')}
                         </TableCell>
@@ -191,24 +172,20 @@ export default function SubscriptionEvidenceDialog({
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {withChargeGaps(evidence.recentCharges).map(
-                        (charge, index) => (
-                          <TableRow key={`${charge.date}-${index}`}>
-                            <TableCell>{formatter.day(charge.date)}</TableCell>
-                            <TableCell>{charge.description}</TableCell>
-                            <TableCell align="right">
-                              {formatter.currency(charge.amount)}
-                            </TableCell>
-                            <TableCell align="right">
-                              {charge.gapDays === null
-                                ? '—'
-                                : t('subscriptions.evidence.gapDays', {
-                                    count: charge.gapDays,
-                                  })}
-                            </TableCell>
-                          </TableRow>
-                        ),
-                      )}
+                      {withChargeGaps(evidence.recentCharges).map((charge, index) => (
+                        <TableRow key={`${charge.date}-${index}`}>
+                          <TableCell>{formatter.day(charge.date)}</TableCell>
+                          <TableCell>{charge.description}</TableCell>
+                          <TableCell align="right">{formatter.currency(charge.amount)}</TableCell>
+                          <TableCell align="right">
+                            {charge.gapDays === null
+                              ? '—'
+                              : t('subscriptions.evidence.gapDays', {
+                                  count: charge.gapDays,
+                                })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </Box>

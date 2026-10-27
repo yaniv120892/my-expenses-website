@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ClientOptions } from 'openai';
 
-const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(
-  () => ({
-    reportSwallowedError: vi.fn(),
-    hangingFetch: vi.fn(),
-    constructedWith: [] as unknown[],
-  }),
-);
+const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(() => ({
+  reportSwallowedError: vi.fn(),
+  hangingFetch: vi.fn(),
+  constructedWith: [] as unknown[],
+}));
 
 vi.mock('openai', async (importOriginal) => {
   const actual = await importOriginal<typeof import('openai')>();
@@ -61,9 +59,7 @@ describe('ChatGPTService request limits', () => {
     await vi.runAllTimersAsync();
     await pending;
 
-    expect(constructedWith).toEqual([
-      expect.objectContaining({ timeout: 30_000, maxRetries: 1 }),
-    ]);
+    expect(constructedWith).toEqual([expect.objectContaining({ timeout: 30_000, maxRetries: 1 })]);
   });
 
   it('does not build the client until a call is made', () => {
@@ -74,18 +70,14 @@ describe('ChatGPTService request limits', () => {
 
   it('fails a stalled call after the timeout and one retry instead of hanging', async () => {
     let settled = false;
-    const pending = new ChatGPTService()
-      .suggestCategory('coffee', categories)
-      .finally(() => {
-        settled = true;
-      });
+    const pending = new ChatGPTService().suggestCategory('coffee', categories).finally(() => {
+      settled = true;
+    });
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
     expect(settled).toBe(false);
 
-    await vi.advanceTimersByTimeAsync(
-      AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS,
-    );
+    await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS);
 
     expect(settled).toBe(true);
     await expect(pending).resolves.toBeNull();
@@ -106,10 +98,7 @@ describe('ChatGPTService.evaluateCategory', () => {
       }),
     );
 
-    const evaluation = await new ChatGPTService().evaluateCategory(
-      'coffee',
-      categories,
-    );
+    const evaluation = await new ChatGPTService().evaluateCategory('coffee', categories);
 
     expect(evaluation).toEqual({
       categoryId: 'cat-food',
@@ -125,10 +114,7 @@ describe('ChatGPTService.evaluateCategory', () => {
       jsonResponse(200, { choices: [], usage: { prompt_tokens: 140 } }),
     );
 
-    const evaluation = await new ChatGPTService().evaluateCategory(
-      'coffee',
-      categories,
-    );
+    const evaluation = await new ChatGPTService().evaluateCategory('coffee', categories);
 
     expect(evaluation).toMatchObject({ categoryId: null, categoryName: null });
   });
@@ -143,9 +129,7 @@ describe('ChatGPTService.evaluateCategory', () => {
     ).rejects.toBeInstanceOf(Error);
     expect(reportSwallowedError).not.toHaveBeenCalled();
 
-    await expect(
-      new ChatGPTService().suggestCategory('coffee', categories),
-    ).resolves.toBeNull();
+    await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
     expect(reportSwallowedError).toHaveBeenCalledTimes(1);
     hangingFetch.mockImplementation(stalledFetch);
   });

@@ -37,11 +37,7 @@ import { parseDayInput } from '@/utils/dateUtils';
 import { useT } from '@/i18n/useT';
 import { ALL_CATEGORIES } from './trendFilters';
 
-const SELECTABLE_PERIODS: readonly TrendPeriod[] = [
-  'weekly',
-  'monthly',
-  'yearly',
-];
+const SELECTABLE_PERIODS: readonly TrendPeriod[] = ['weekly', 'monthly', 'yearly'];
 
 interface TrendFiltersDialogProps extends TrendFilters {
   open: boolean;
@@ -72,18 +68,10 @@ export const TrendFiltersDialog = ({
   const [period, setPeriod] = useState(initialPeriod);
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
-  const [selectedCategory, setSelectedCategory] = useState(
-    initialSelectedCategory,
-  );
-  const [transactionType, setTransactionType] = useState(
-    initialTransactionType,
-  );
-  const [comparisonCategoryIds, setComparisonCategoryIds] = useState(
-    initialComparisonCategoryIds,
-  );
-  const [comparisonScope, setComparisonScope] = useState(
-    initialComparisonScope,
-  );
+  const [selectedCategory, setSelectedCategory] = useState(initialSelectedCategory);
+  const [transactionType, setTransactionType] = useState(initialTransactionType);
+  const [comparisonCategoryIds, setComparisonCategoryIds] = useState(initialComparisonCategoryIds);
+  const [comparisonScope, setComparisonScope] = useState(initialComparisonScope);
 
   useEffect(() => {
     if (open) {
@@ -116,9 +104,7 @@ export const TrendFiltersDialog = ({
     setPeriod(event.target.value);
   };
 
-  const handleStartDateChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const date = parseDayInput(event.target.value);
     if (date) {
       setStartDate(date);
@@ -136,9 +122,7 @@ export const TrendFiltersDialog = ({
     setSelectedCategory(event.target.value);
   };
 
-  const handleTransactionTypeChange = (
-    event: SelectChangeEvent<TransactionType>,
-  ) => {
+  const handleTransactionTypeChange = (event: SelectChangeEvent<TransactionType>) => {
     setTransactionType(event.target.value);
   };
 
@@ -154,9 +138,7 @@ export const TrendFiltersDialog = ({
     });
   };
 
-  const sortedCategories = [...categories].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
 
   const comparisonFields = (
     <>
@@ -164,9 +146,7 @@ export const TrendFiltersDialog = ({
         multiple
         options={sortedCategories}
         value={selectedComparisonCategories}
-        onChange={(_, value) =>
-          setComparisonCategoryIds(value.map((category) => category.id))
-        }
+        onChange={(_, value) => setComparisonCategoryIds(value.map((category) => category.id))}
         getOptionLabel={(category) => category.name}
         isOptionEqualToValue={(option, value) => option.id === value.id}
         getOptionDisabled={(option) =>
@@ -210,12 +190,8 @@ export const TrendFiltersDialog = ({
           }}
           aria-label={t('trends.dialog.scopeLabel')}
         >
-          <ToggleButton value="SUBTREE">
-            {t('trends.dialog.scope.subtree')}
-          </ToggleButton>
-          <ToggleButton value="EXACT">
-            {t('trends.dialog.scope.exact')}
-          </ToggleButton>
+          <ToggleButton value="SUBTREE">{t('trends.dialog.scope.subtree')}</ToggleButton>
+          <ToggleButton value="EXACT">{t('trends.dialog.scope.exact')}</ToggleButton>
         </ToggleButtonGroup>
         <FormHelperText>
           {comparisonScope === 'SUBTREE'
@@ -227,13 +203,7 @@ export const TrendFiltersDialog = ({
   );
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullWidth
-      maxWidth="sm"
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen}>
       <DialogTitle>
         {showComparisonFields
           ? t('trends.dialog.filterComparison')
@@ -258,11 +228,7 @@ export const TrendFiltersDialog = ({
 
           <FormControl fullWidth>
             <InputLabel>{t('trends.dialog.period')}</InputLabel>
-            <Select
-              value={period}
-              label={t('trends.dialog.period')}
-              onChange={handlePeriodChange}
-            >
+            <Select value={period} label={t('trends.dialog.period')} onChange={handlePeriodChange}>
               {SELECTABLE_PERIODS.map((option) => (
                 <MenuItem key={option} value={option}>
                   {t(`trends.period.${option}`)}
@@ -281,9 +247,7 @@ export const TrendFiltersDialog = ({
                 label={t('trends.dialog.category')}
                 onChange={handleCategoryChange}
               >
-                <MenuItem value={ALL_CATEGORIES}>
-                  {t('trends.allCategories')}
-                </MenuItem>
+                <MenuItem value={ALL_CATEGORIES}>{t('trends.allCategories')}</MenuItem>
                 {sortedCategories.map((category) => (
                   <MenuItem key={category.id} value={category.id}>
                     {category.name}

@@ -18,10 +18,7 @@ import {
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { TransactionFilters, TransactionType } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
-import {
-  DATE_RANGE_PRESETS,
-  matchDateRangePreset,
-} from '@/utils/dateRangePresets';
+import { DATE_RANGE_PRESETS, matchDateRangePreset } from '@/utils/dateRangePresets';
 import CategorySelect from '../CategorySelect';
 import { useT } from '@/i18n/useT';
 
@@ -80,12 +77,7 @@ export const TransactionFiltersDialog = ({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={loading ? undefined : onClose}
-      fullWidth
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth fullScreen={fullScreen}>
       <DialogTitle>
         <Stack
           direction="row"
@@ -171,13 +163,9 @@ export const TransactionFiltersDialog = ({
               fullWidth
               size="small"
               value={type ?? ''}
-              onChange={(_, next: TransactionType | '' | null) =>
-                setType(next || undefined)
-              }
+              onChange={(_, next: TransactionType | '' | null) => setType(next || undefined)}
             >
-              <ToggleButton value="">
-                {t('transactions.filters.any')}
-              </ToggleButton>
+              <ToggleButton value="">{t('transactions.filters.any')}</ToggleButton>
               <ToggleButton value="INCOME">{t('common.income')}</ToggleButton>
               <ToggleButton value="EXPENSE">{t('common.expense')}</ToggleButton>
             </ToggleButtonGroup>
@@ -205,9 +193,7 @@ export const TransactionFiltersDialog = ({
           variant="contained"
           onClick={handleApply}
           disabled={loading}
-          startIcon={
-            loading ? <CircularProgress size={18} color="inherit" /> : undefined
-          }
+          startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
         >
           {t('common.apply')}
         </Button>

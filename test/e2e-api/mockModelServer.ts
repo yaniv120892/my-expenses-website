@@ -80,10 +80,7 @@ export const CHUNK_DELAY_MS = 120;
 // reused id makes the stale result stand in for a fresh tool run.
 let toolCallSeq = 0;
 
-async function respond(
-  res: http.ServerResponse,
-  messages: ChatMessage[],
-): Promise<void> {
+async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promise<void> {
   // Only the *last* message decides the turn. Filtering the whole history for
   // tool messages looks equivalent but is not: with memory enabled the thread
   // replays earlier turns' tool results into every request, so the mock would
@@ -224,7 +221,5 @@ export function startMockModelServer(port: number): Promise<http.Server> {
     });
   });
 
-  return new Promise((resolve) =>
-    server.listen(port, '127.0.0.1', () => resolve(server)),
-  );
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }

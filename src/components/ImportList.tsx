@@ -75,12 +75,7 @@ type RowActionsProps = {
   isRematching: boolean;
 };
 
-function RowActions({
-  importItem,
-  onDeleteClick,
-  onRematchClick,
-  isRematching,
-}: RowActionsProps) {
+function RowActions({ importItem, onDeleteClick, onRematchClick, isRematching }: RowActionsProps) {
   const t = useT();
   return (
     <Stack
@@ -90,22 +85,21 @@ function RowActions({
         justifyContent: 'flex-end',
       }}
     >
-      {importItem.status === ImportStatus.COMPLETED &&
-        !importItem.isVerified && (
-          <IconButton
-            size="small"
-            color="primary"
-            disabled={isRematching}
-            aria-label={t('imports.list.rematch')}
-            title={t('imports.list.rematch')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onRematchClick(importItem);
-            }}
-          >
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        )}
+      {importItem.status === ImportStatus.COMPLETED && !importItem.isVerified && (
+        <IconButton
+          size="small"
+          color="primary"
+          disabled={isRematching}
+          aria-label={t('imports.list.rematch')}
+          title={t('imports.list.rematch')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRematchClick(importItem);
+          }}
+        >
+          <RefreshIcon fontSize="small" />
+        </IconButton>
+      )}
       <IconButton
         size="small"
         color="error"
@@ -141,9 +135,7 @@ function ExpandedContent({ importItem }: { importItem: Import }) {
           }}
         >
           {t('imports.list.mergedInto', {
-            fileName:
-              importItem.mergedIntoFileName ??
-              t('imports.list.mergedIntoUnknown'),
+            fileName: importItem.mergedIntoFileName ?? t('imports.list.mergedIntoUnknown'),
           })}
         </Typography>
       )}
@@ -156,10 +148,7 @@ type ImportListProps = {
   expandedImportId: string | null;
 };
 
-export default function ImportList({
-  onImportClick,
-  expandedImportId,
-}: ImportListProps) {
+export default function ImportList({ onImportClick, expandedImportId }: ImportListProps) {
   const t = useT();
   const formatter = useAppFormat();
   const { data: imports = [], isLoading } = useImportsQuery();
@@ -172,9 +161,7 @@ export default function ImportList({
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [paymentMonthFilter, setPaymentMonthFilter] = useState<string>('ALL');
   const [cardFilter, setCardFilter] = useState<string>('ALL');
-  const [isVerifiedFilter, setIsVerifiedFilter] = useState<
-    'ALL' | 'true' | 'false'
-  >('false');
+  const [isVerifiedFilter, setIsVerifiedFilter] = useState<'ALL' | 'true' | 'false'>('false');
 
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -182,9 +169,7 @@ export default function ImportList({
   const filterOptions = useMemo(() => {
     const paymentMonths = Array.from(
       new Set(
-        imports
-          .map((i) => i.paymentMonth)
-          .filter((month): month is string => Boolean(month)),
+        imports.map((i) => i.paymentMonth).filter((month): month is string => Boolean(month)),
       ),
     ).sort(comparePaymentMonths);
     const cards = Array.from(
@@ -202,19 +187,13 @@ export default function ImportList({
       if (statusFilter !== 'ALL' && imp.status !== statusFilter) {
         return false;
       }
-      if (
-        paymentMonthFilter !== 'ALL' &&
-        imp.paymentMonth !== paymentMonthFilter
-      ) {
+      if (paymentMonthFilter !== 'ALL' && imp.paymentMonth !== paymentMonthFilter) {
         return false;
       }
       if (cardFilter !== 'ALL' && imp.creditCardLastFourDigits !== cardFilter) {
         return false;
       }
-      if (
-        isVerifiedFilter !== 'ALL' &&
-        imp.isVerified !== (isVerifiedFilter === 'true')
-      ) {
+      if (isVerifiedFilter !== 'ALL' && imp.isVerified !== (isVerifiedFilter === 'true')) {
         return false;
       }
       return true;
@@ -224,8 +203,7 @@ export default function ImportList({
       let cmp = 0;
       switch (sortField) {
         case 'createdAt':
-          cmp =
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'paymentMonth':
           cmp = comparePaymentMonths(a.paymentMonth, b.paymentMonth);
@@ -338,9 +316,7 @@ export default function ImportList({
       >
         <ToggleButton value="ALL">{t('common.all')}</ToggleButton>
         <ToggleButton value="true">{t('imports.list.verified')}</ToggleButton>
-        <ToggleButton value="false">
-          {t('imports.list.notVerified')}
-        </ToggleButton>
+        <ToggleButton value="false">{t('imports.list.notVerified')}</ToggleButton>
       </ToggleButtonGroup>
     </Stack>
   );
@@ -356,9 +332,7 @@ export default function ImportList({
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setDeleteTarget(null)}>
-          {t('common.cancel')}
-        </Button>
+        <Button onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
         <Button
           variant="contained"
           color="error"
@@ -410,11 +384,8 @@ export default function ImportList({
                       >
                         {t('imports.list.cardAndMonth', {
                           card:
-                            importItem.creditCardLastFourDigits ||
-                            t('imports.list.notAvailable'),
-                          month:
-                            importItem.paymentMonth ||
-                            t('imports.list.notAvailable'),
+                            importItem.creditCardLastFourDigits || t('imports.list.notAvailable'),
+                          month: importItem.paymentMonth || t('imports.list.notAvailable'),
                         })}
                       </Typography>
                       <Typography
@@ -450,10 +421,7 @@ export default function ImportList({
                       size="small"
                     />
                     {importItem.isVerified ? (
-                      <CheckCircleOutlinedIcon
-                        color="success"
-                        fontSize="small"
-                      />
+                      <CheckCircleOutlinedIcon color="success" fontSize="small" />
                     ) : (
                       <CancelOutlinedIcon color="warning" fontSize="small" />
                     )}
@@ -461,9 +429,7 @@ export default function ImportList({
                     <RowActions
                       importItem={importItem}
                       onDeleteClick={setDeleteTarget}
-                      onRematchClick={(imp) =>
-                        rematchImportMutation.mutate(imp.id)
-                      }
+                      onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
                       isRematching={rematchImportMutation.isPending}
                     />
                   </Stack>
@@ -502,25 +468,17 @@ export default function ImportList({
             <TableRow>
               <TableCell sx={{ width: 48 }} />
               <TableCell>{t('imports.list.card')}</TableCell>
-              <TableCell
-                sortDirection={
-                  sortField === 'paymentMonth' ? sortDirection : false
-                }
-              >
+              <TableCell sortDirection={sortField === 'paymentMonth' ? sortDirection : false}>
                 <TableSortLabel
                   active={sortField === 'paymentMonth'}
-                  direction={
-                    sortField === 'paymentMonth' ? sortDirection : 'asc'
-                  }
+                  direction={sortField === 'paymentMonth' ? sortDirection : 'asc'}
                   onClick={() => handleSortClick('paymentMonth')}
                 >
                   {t('imports.list.paymentMonth')}
                 </TableSortLabel>
               </TableCell>
               <TableCell>{t('imports.list.fileName')}</TableCell>
-              <TableCell
-                sortDirection={sortField === 'status' ? sortDirection : false}
-              >
+              <TableCell sortDirection={sortField === 'status' ? sortDirection : false}>
                 <TableSortLabel
                   active={sortField === 'status'}
                   direction={sortField === 'status' ? sortDirection : 'asc'}
@@ -530,11 +488,7 @@ export default function ImportList({
                 </TableSortLabel>
               </TableCell>
               <TableCell align="center">{t('imports.list.verified')}</TableCell>
-              <TableCell
-                sortDirection={
-                  sortField === 'createdAt' ? sortDirection : false
-                }
-              >
+              <TableCell sortDirection={sortField === 'createdAt' ? sortDirection : false}>
                 <TableSortLabel
                   active={sortField === 'createdAt'}
                   direction={sortField === 'createdAt' ? sortDirection : 'asc'}
@@ -561,26 +515,17 @@ export default function ImportList({
                       {isExpanded ? (
                         <KeyboardArrowUpIcon fontSize="small" color="action" />
                       ) : (
-                        <KeyboardArrowDownIcon
-                          fontSize="small"
-                          color="action"
-                        />
+                        <KeyboardArrowDownIcon fontSize="small" color="action" />
                       )}
                     </TableCell>
                     <TableCell>
-                      {importItem.creditCardLastFourDigits ||
-                        t('imports.list.notAvailable')}
+                      {importItem.creditCardLastFourDigits || t('imports.list.notAvailable')}
                     </TableCell>
                     <TableCell>
-                      {importItem.paymentMonth ||
-                        t('imports.list.notAvailable')}
+                      {importItem.paymentMonth || t('imports.list.notAvailable')}
                     </TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        title={importItem.originalFileName}
-                      >
+                      <Typography variant="body2" noWrap title={importItem.originalFileName}>
                         {importItem.originalFileName}
                       </Typography>
                     </TableCell>
@@ -593,27 +538,18 @@ export default function ImportList({
                     </TableCell>
                     <TableCell align="center">
                       {importItem.isVerified ? (
-                        <CheckCircleOutlinedIcon
-                          color="success"
-                          fontSize="small"
-                        />
+                        <CheckCircleOutlinedIcon color="success" fontSize="small" />
                       ) : (
                         <CancelOutlinedIcon color="warning" fontSize="small" />
                       )}
                     </TableCell>
-                    <TableCell>
-                      {formatter.dateTime(importItem.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      {formatter.dateTime(importItem.updatedAt)}
-                    </TableCell>
+                    <TableCell>{formatter.dateTime(importItem.createdAt)}</TableCell>
+                    <TableCell>{formatter.dateTime(importItem.updatedAt)}</TableCell>
                     <TableCell align="right">
                       <RowActions
                         importItem={importItem}
                         onDeleteClick={setDeleteTarget}
-                        onRematchClick={(imp) =>
-                          rematchImportMutation.mutate(imp.id)
-                        }
+                        onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
                         isRematching={rematchImportMutation.isPending}
                       />
                     </TableCell>

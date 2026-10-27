@@ -71,9 +71,7 @@ export function registerInsightTools({
       annotations: READ_ONLY,
     },
     handler: async (input) =>
-      withCategoryNote(
-        await financeQueryService.comparePeriods({ userId, input }),
-      ),
+      withCategoryNote(await financeQueryService.comparePeriods({ userId, input })),
   });
 
   registerSafeTool({
@@ -88,9 +86,7 @@ export function registerInsightTools({
       annotations: READ_ONLY,
     },
     handler: async (input) =>
-      withCategoryNote(
-        await financeQueryService.describeSpendingTrends({ userId, input }),
-      ),
+      withCategoryNote(await financeQueryService.describeSpendingTrends({ userId, input })),
   });
 }
 

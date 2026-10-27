@@ -139,16 +139,11 @@ describe('summarize', () => {
       inputTokens: 1200,
     });
     expect(summary.runCostUsd).toBeCloseTo((1200 * 0.042) / 1_000_000, 12);
-    expect(summary.costPer1000Usd).toBeCloseTo(
-      ((1200 * 0.042) / 1_000_000 / 2) * 1000,
-      12,
-    );
+    expect(summary.costPer1000Usd).toBeCloseTo(((1200 * 0.042) / 1_000_000 / 2) * 1000, 12);
   });
 
   it('reports no cost for a model without a price', () => {
-    expect(
-      summarize('mystery', samples, decisions, undefined).runCostUsd,
-    ).toBeNull();
+    expect(summarize('mystery', samples, decisions, undefined).runCostUsd).toBeNull();
   });
 });
 
@@ -165,18 +160,12 @@ describe('percentile', () => {
 describe('prices', () => {
   it('strips the gateway prefix when looking a model up', () => {
     const prices = modelPrices(new Date('2026-09-20T00:00:00Z'));
-    expect(priceFor('openai/gpt-4-turbo', prices)).toEqual(
-      priceFor('gpt-4-turbo', prices),
-    );
+    expect(priceFor('openai/gpt-4-turbo', prices)).toEqual(priceFor('gpt-4-turbo', prices));
   });
 
   it('moves Gemini Flash off its introductory price in 2027', () => {
-    expect(
-      modelPrices(new Date('2026-12-31T00:00:00Z'))['gemini-3.6-flash'].input,
-    ).toBe(0.75);
-    expect(
-      modelPrices(new Date('2027-01-01T00:00:00Z'))['gemini-3.6-flash'].input,
-    ).toBe(1.5);
+    expect(modelPrices(new Date('2026-12-31T00:00:00Z'))['gemini-3.6-flash'].input).toBe(0.75);
+    expect(modelPrices(new Date('2027-01-01T00:00:00Z'))['gemini-3.6-flash'].input).toBe(1.5);
   });
 });
 

@@ -8,8 +8,7 @@ export function withVerifyFullSslMode(connectionString: string): string {
   }
   const url = new URL(connectionString);
   const sslMode = url.searchParams.get('sslmode');
-  const pgFollowsLibpqSemantics =
-    url.searchParams.get('uselibpqcompat') === 'true';
+  const pgFollowsLibpqSemantics = url.searchParams.get('uselibpqcompat') === 'true';
   const shouldPinVerifyFull =
     MODES_PG_VERIFIES_FULLY.has(sslMode ?? '') && !pgFollowsLibpqSemantics;
   if (!shouldPinVerifyFull) {

@@ -90,18 +90,15 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
   });
 
   it('skips the query when no charge can match', async () => {
-    const matches = await transactionRepository.findPotentialMatchesForCharges(
-      'user-1',
-      [
-        {
-          date: DAY,
-          type: TransactionType.EXPENSE,
-          value: null,
-          currency: null,
-          originalAmount: 25,
-        },
-      ],
-    );
+    const matches = await transactionRepository.findPotentialMatchesForCharges('user-1', [
+      {
+        date: DAY,
+        type: TransactionType.EXPENSE,
+        value: null,
+        currency: null,
+        originalAmount: 25,
+      },
+    ]);
 
     expect(matches).toEqual([]);
     expect(findMany).not.toHaveBeenCalled();

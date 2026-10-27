@@ -7,9 +7,7 @@ const { enforceRateLimits, signupUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/http/rateLimit', async () => ({
-  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>(
-    '@/server/http/rateLimit',
-  )),
+  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
 vi.mock('@/server/services/authService', () => ({ default: { signupUser } }));
@@ -51,9 +49,7 @@ describe('POST /api/auth/signup', () => {
     const perAddress = rules.find(
       (rule: { key: string }) => rule.key === 'signup:email:owner@example.com',
     );
-    const perHost = rules.find((rule: { key: string }) =>
-      rule.key.startsWith('signup:ip:'),
-    );
+    const perHost = rules.find((rule: { key: string }) => rule.key.startsWith('signup:ip:'));
     expect(perAddress).toBeDefined();
     // A stranger can spend the address's quota, so it must outlast one host's.
     expect(perAddress.limit).toBeGreaterThan(perHost.limit);

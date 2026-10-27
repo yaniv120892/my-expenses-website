@@ -1,10 +1,6 @@
 import { NextRequest } from 'next/server';
 import { deleteValue, getValue, setValue } from '@/server/redis';
-import {
-  InvalidTokenError,
-  TokenExpiredError,
-  verifyToken,
-} from '@/server/auth/tokens';
+import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
 export class AuthError extends Error {
@@ -28,25 +24,18 @@ export async function storeSession(
   await setValue(sessionKey(userId, token), '1', ttlSeconds, 'branch');
 }
 
-export async function invalidateSession(
-  userId: string,
-  token: string,
-): Promise<void> {
+export async function invalidateSession(userId: string, token: string): Promise<void> {
   await deleteValue(sessionKey(userId, token), 'branch');
 }
 
-async function isSessionActive(
-  userId: string,
-  token: string,
-): Promise<boolean> {
+async function isSessionActive(userId: string, token: string): Promise<boolean> {
   return (await getValue(sessionKey(userId, token), 'branch')) !== null;
 }
 
 export type Credential = { source: 'cookie' | 'bearer'; token: string };
 
 export function extractBearerToken(request: NextRequest): string | null {
-  const [scheme, token] =
-    request.headers.get('authorization')?.split(' ') ?? [];
+  const [scheme, token] = request.headers.get('authorization')?.split(' ') ?? [];
   const isBearer = scheme?.toLowerCase() === 'bearer' && !!token;
   return isBearer ? token : null;
 }

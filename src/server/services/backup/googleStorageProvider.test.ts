@@ -31,27 +31,27 @@ const SERVICE_ACCOUNT_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
 // CJS one the SDK calls, so the stub goes through googleapis' own re-export.
 function stubGoogleHttp(): SentRequest[] {
   const sent: SentRequest[] = [];
-  vi.spyOn(Common.Gaxios.prototype, 'request').mockImplementation(
-    async function respond(config = {}) {
-      const url = String(config.url);
-      if (!(url in RESPONSES)) {
-        throw new Error(`unexpected Google request: ${config.method} ${url}`);
-      }
-      const headers = new Headers(config.headers);
-      sent.push({
-        method: config.method ?? 'GET',
-        url,
-        headers,
-        params: config.params ?? {},
-        body: await readBody(config.data),
-      });
-      const data = RESPONSES[url];
-      return Object.assign(new Response(JSON.stringify(data)), {
-        config: { ...config, url: new URL(url), headers },
-        data,
-      });
-    },
-  );
+  vi.spyOn(Common.Gaxios.prototype, 'request').mockImplementation(async function respond(
+    config = {},
+  ) {
+    const url = String(config.url);
+    if (!(url in RESPONSES)) {
+      throw new Error(`unexpected Google request: ${config.method} ${url}`);
+    }
+    const headers = new Headers(config.headers);
+    sent.push({
+      method: config.method ?? 'GET',
+      url,
+      headers,
+      params: config.params ?? {},
+      body: await readBody(config.data),
+    });
+    const data = RESPONSES[url];
+    return Object.assign(new Response(JSON.stringify(data)), {
+      config: { ...config, url: new URL(url), headers },
+      data,
+    });
+  });
   return sent;
 }
 
@@ -102,12 +102,8 @@ describe('GoogleStorageProvider.uploadBackup', () => {
       uploadType: 'multipart',
       fields: 'id, webViewLink',
     });
-    expect(upload.headers.get('content-type')).toMatch(
-      /^multipart\/related; boundary=/,
-    );
-    expect(upload.body).toContain(
-      JSON.stringify({ name: 'backup.xlsx', parents: ['folder-1'] }),
-    );
+    expect(upload.headers.get('content-type')).toMatch(/^multipart\/related; boundary=/);
+    expect(upload.body).toContain(JSON.stringify({ name: 'backup.xlsx', parents: ['folder-1'] }));
     expect(upload.body).toMatch(/content-type: application\/vnd\.ms-excel/i);
     expect(upload.body).toContain('spreadsheet-bytes');
   });

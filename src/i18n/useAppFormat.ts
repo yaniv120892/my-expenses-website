@@ -7,11 +7,7 @@ import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import type { ExchangeRateSource } from '@/shared/types/transaction';
 import type { SubscriptionFrequency } from '@/types/subscription';
 import type { TrendPeriod } from '@/types/trends';
-import type {
-  DisplayedAmount,
-  Format,
-  ScheduleSummaryInput,
-} from './useAppFormat.types';
+import type { DisplayedAmount, Format, ScheduleSummaryInput } from './useAppFormat.types';
 import { useT } from './useT';
 import type { T } from './useT.types';
 
@@ -24,8 +20,7 @@ function toDate(value: string | Date): Date {
 }
 
 export function createAppFormatter({ format, t }: { format: Format; t: T }) {
-  const currency = (value: number) =>
-    format.currency({ value, currency: BASE_CURRENCY });
+  const currency = (value: number) => format.currency({ value, currency: BASE_CURRENCY });
   const day = (value: string | Date) =>
     format.date({ value: toDate(value), options: { dateStyle: 'medium' } });
 
@@ -44,8 +39,7 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
         value: points / 100,
         options: { ...ONE_DECIMAL, ...options },
       }),
-    megabytes: (value: number) =>
-      format.number({ value, options: ONE_DECIMAL }),
+    megabytes: (value: number) => format.number({ value, options: ONE_DECIMAL }),
     money: (amount: number, currencyCode: string) =>
       format.currency({ value: amount, currency: currencyCode }),
     day,
@@ -72,17 +66,10 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
       date.setDate(date.getDate() + ((dayOfWeek - 1) % 7));
       return format.date({ value: date, options: { weekday: 'long' } });
     },
-    dateRange: ({
-      start,
-      end,
-    }: {
-      start?: string | Date;
-      end?: string | Date;
-    }) => `${start ? day(start) : ''} – ${end ? day(end) : ''}`,
-    frequency: (frequency: SubscriptionFrequency) =>
-      t(`format.frequency.${frequency}`),
-    exchangeRateSource: (source: ExchangeRateSource) =>
-      t(`format.exchangeRateSource.${source}`),
+    dateRange: ({ start, end }: { start?: string | Date; end?: string | Date }) =>
+      `${start ? day(start) : ''} – ${end ? day(end) : ''}`,
+    frequency: (frequency: SubscriptionFrequency) => t(`format.frequency.${frequency}`),
+    exchangeRateSource: (source: ExchangeRateSource) => t(`format.exchangeRateSource.${source}`),
     trendDate: (date: string, period: TrendPeriod) => {
       switch (period) {
         case 'daily':

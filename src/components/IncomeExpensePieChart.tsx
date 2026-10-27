@@ -1,22 +1,12 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Paper,
-  Skeleton,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { TransactionType } from '@/types';
-import {
-  UNSELECTED_SLICE_OPACITY,
-  CLICKABLE_SLICE_SX,
-} from '@/components/chartStyles';
+import { UNSELECTED_SLICE_OPACITY, CLICKABLE_SLICE_SX } from '@/components/chartStyles';
 
 type PieDatum = {
   name: string;
@@ -136,9 +126,7 @@ export default function IncomeExpensePieChart({
                     startAngle={90}
                     endAngle={-270}
                     onClick={
-                      onSelectType
-                        ? (_, index) => onSelectType(pieData[index].type)
-                        : undefined
+                      onSelectType ? (_, index) => onSelectType(pieData[index].type) : undefined
                     }
                   >
                     {pieData.map((entry, idx) => (
@@ -146,9 +134,7 @@ export default function IncomeExpensePieChart({
                         key={entry.type}
                         fill={pieColors[idx % pieColors.length]}
                         fillOpacity={
-                          selectedType && selectedType !== entry.type
-                            ? UNSELECTED_SLICE_OPACITY
-                            : 1
+                          selectedType && selectedType !== entry.type ? UNSELECTED_SLICE_OPACITY : 1
                         }
                       />
                     ))}
@@ -165,10 +151,7 @@ export default function IncomeExpensePieChart({
                 }}
               >
                 {t('dashboard.incomeExpense.incomeLabel')}{' '}
-                <Box
-                  component="span"
-                  sx={{ color: charts.positive, fontWeight: 600 }}
-                >
+                <Box component="span" sx={{ color: charts.positive, fontWeight: 600 }}>
                   {formatter.currency(income)}
                 </Box>
               </Typography>
@@ -179,10 +162,7 @@ export default function IncomeExpensePieChart({
                 }}
               >
                 {t('dashboard.incomeExpense.expensesLabel')}{' '}
-                <Box
-                  component="span"
-                  sx={{ color: charts.negative, fontWeight: 600 }}
-                >
+                <Box component="span" sx={{ color: charts.negative, fontWeight: 600 }}>
                   {formatter.currency(expense)}
                 </Box>
               </Typography>

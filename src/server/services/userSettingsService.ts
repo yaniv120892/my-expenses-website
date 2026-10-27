@@ -4,10 +4,7 @@ import {
   type UserNotificationProvider,
 } from '@/generated/prisma/client';
 import userRepository from '@/server/repositories/userRepository';
-import type {
-  UpdateUserSettings,
-  UserSettingsView,
-} from '@/shared/types/userSettings';
+import type { UpdateUserSettings, UserSettingsView } from '@/shared/types/userSettings';
 
 class UserSettingsService {
   public getUsersRequiredDailySummary() {
@@ -22,9 +19,7 @@ class UserSettingsService {
     return userRepository.isCreateTransactionNotificationEnabled(userId);
   }
 
-  public async getUserSettings(
-    userId: string,
-  ): Promise<UserSettingsView | null> {
+  public async getUserSettings(userId: string): Promise<UserSettingsView | null> {
     const userSettings = await userRepository.getUserSettings(userId);
     if (!userSettings) {
       return null;
@@ -55,28 +50,19 @@ class UserSettingsService {
     return this.linkedChatId(await userRepository.findTelegramProvider(userId));
   }
 
-  public async updateUserSettings(
-    userId: string,
-    settings: UpdateUserSettings,
-  ) {
+  public async updateUserSettings(userId: string, settings: UpdateUserSettings) {
     await userRepository.updateNotificationPreferences({
       userId,
       notifications: settings.notifications,
     });
   }
 
-  private linkedChatId(
-    provider: UserNotificationProvider | null | undefined,
-  ): string | null {
+  private linkedChatId(provider: UserNotificationProvider | null | undefined): string | null {
     return provider?.enabled ? this.extractChatId(provider.data) : null;
   }
 
   private extractChatId(providerData: Prisma.JsonValue): string | null {
-    if (
-      providerData &&
-      typeof providerData === 'object' &&
-      'chatId' in providerData
-    ) {
+    if (providerData && typeof providerData === 'object' && 'chatId' in providerData) {
       const chatId = (providerData as { chatId: string }).chatId;
       return chatId ? String(chatId) : null;
     }

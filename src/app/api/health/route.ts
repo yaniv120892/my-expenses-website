@@ -8,8 +8,5 @@ export const dynamic = 'force-dynamic';
 export async function GET(): Promise<NextResponse> {
   // Bypasses createHandler, so it drains the remote log buffer itself.
   after(() => flushRemoteLogs());
-  return NextResponse.json(
-    { status: 'ok' },
-    { headers: { 'Cache-Control': 'no-store' } },
-  );
+  return NextResponse.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
 }

@@ -58,10 +58,7 @@ export function findExactNormalizedMatch(
  * charge is far too tight for a 2000 one.
  */
 export function matchValueTolerance(value: number): number {
-  return Math.max(
-    MINIMUM_VALUE_TOLERANCE,
-    Math.abs(value) * RELATIVE_VALUE_TOLERANCE,
-  );
+  return Math.max(MINIMUM_VALUE_TOLERANCE, Math.abs(value) * RELATIVE_VALUE_TOLERANCE);
 }
 
 /**
@@ -111,13 +108,8 @@ export function canMatch(window: MatchWindow): boolean {
 }
 
 /** The in-memory form of the bounds the candidate query applies in SQL. */
-export function isWithinMatchWindow(
-  window: MatchWindow,
-  candidate: MatchableCharge,
-): boolean {
-  return (
-    isWithinDateWindow(window, candidate) && isAmountInWindow(window, candidate)
-  );
+export function isWithinMatchWindow(window: MatchWindow, candidate: MatchableCharge): boolean {
+  return isWithinDateWindow(window, candidate) && isAmountInWindow(window, candidate);
 }
 
 export type MatchCandidate = MatchableCharge & {
@@ -140,10 +132,7 @@ export function matchCandidateFilter(
     if (isVariableAmountPlaceholder(candidate)) {
       return (
         isWithinDateWindow(window, candidate) &&
-        startsWithNormalizedPrefix(
-          normalizedDescription,
-          candidate.bankDescriptionPrefix,
-        )
+        startsWithNormalizedPrefix(normalizedDescription, candidate.bankDescriptionPrefix)
       );
     }
 
@@ -160,17 +149,11 @@ export function isVariableAmountPlaceholder<T extends MatchCandidate>(
   );
 }
 
-export function startsWithBankDescriptionPrefix(
-  description: string,
-  prefix: string,
-): boolean {
+export function startsWithBankDescriptionPrefix(description: string, prefix: string): boolean {
   return startsWithNormalizedPrefix(normalizeDescription(description), prefix);
 }
 
-export function dateDistance(
-  charge: MatchableCharge,
-  candidate: MatchableCharge,
-): number {
+export function dateDistance(charge: MatchableCharge, candidate: MatchableCharge): number {
   return Math.abs(candidate.date.getTime() - charge.date.getTime());
 }
 
@@ -179,9 +162,10 @@ export function dateDistance(
  * over `google`), then the one nearest in date. `placeholders` must not be
  * empty.
  */
-export function pickPlaceholder<
-  T extends MatchCandidate & { bankDescriptionPrefix: string },
->(charge: MatchableCharge, placeholders: T[]): T {
+export function pickPlaceholder<T extends MatchCandidate & { bankDescriptionPrefix: string }>(
+  charge: MatchableCharge,
+  placeholders: T[],
+): T {
   const prefixLength = (placeholder: T) =>
     normalizeDescription(placeholder.bankDescriptionPrefix).length;
   const longest = Math.max(...placeholders.map(prefixLength));
@@ -197,16 +181,11 @@ export function closestInDate<T extends MatchableCharge>(
   candidates: T[],
 ): T {
   return candidates.reduce((best, candidate) =>
-    dateDistance(charge, candidate) < dateDistance(charge, best)
-      ? candidate
-      : best,
+    dateDistance(charge, candidate) < dateDistance(charge, best) ? candidate : best,
   );
 }
 
-function startsWithNormalizedPrefix(
-  normalizedDescription: string,
-  prefix: string,
-): boolean {
+function startsWithNormalizedPrefix(normalizedDescription: string, prefix: string): boolean {
   const normalizedPrefix = normalizeDescription(prefix);
   return (
     normalizedPrefix.length >= MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH &&
@@ -214,10 +193,7 @@ function startsWithNormalizedPrefix(
   );
 }
 
-function isWithinDateWindow(
-  window: MatchWindow,
-  candidate: MatchableCharge,
-): boolean {
+function isWithinDateWindow(window: MatchWindow, candidate: MatchableCharge): boolean {
   const time = candidate.date.getTime();
   return (
     candidate.type === window.type &&
@@ -226,10 +202,7 @@ function isWithinDateWindow(
   );
 }
 
-function isAmountInWindow(
-  window: MatchWindow,
-  candidate: MatchableCharge,
-): boolean {
+function isAmountInWindow(window: MatchWindow, candidate: MatchableCharge): boolean {
   const valueFits =
     window.valueRange !== null &&
     candidate.value !== null &&
@@ -276,10 +249,7 @@ const MINIMUM_TRUNCATION_COVERAGE = 0.5;
  * the shorter one runs, since the extraction service shortens merchants
  * differently between runs.
  */
-export function isSameCharge(
-  left: ImportedCharge,
-  right: ImportedCharge,
-): boolean {
+export function isSameCharge(left: ImportedCharge, right: ImportedCharge): boolean {
   const sameAmountAndMoment =
     left.value === right.value &&
     left.currency === right.currency &&
@@ -314,14 +284,12 @@ function isTruncatedMerchantMatch(a: string, b: string): boolean {
 
   if (longer.startsWith(shorter)) {
     const endsOnWordBoundary = longer[shorter.length] === ' ';
-    const keepsMostOfTheWord =
-      shorter.length >= longer.length * MINIMUM_TRUNCATION_COVERAGE;
+    const keepsMostOfTheWord = shorter.length >= longer.length * MINIMUM_TRUNCATION_COVERAGE;
     return endsOnWordBoundary || keepsMostOfTheWord;
   }
 
   // A dropped leading word: a refund's "החזר X" comes back as "X".
-  const startsOnWordBoundary =
-    longer[longer.length - shorter.length - 1] === ' ';
+  const startsOnWordBoundary = longer[longer.length - shorter.length - 1] === ' ';
   return longer.endsWith(shorter) && startsOnWordBoundary;
 }
 

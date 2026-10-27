@@ -12,9 +12,7 @@ vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository,
 }));
 vi.mock('@/server/http/rateLimit', async () => ({
-  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>(
-    '@/server/http/rateLimit',
-  )),
+  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
 vi.mock('@/server/logging/logger', () => ({ default: logger }));
@@ -125,10 +123,7 @@ describe('POST /api/mcp authentication', () => {
   });
 
   it('does not accept a browser session cookie', async () => {
-    const response = await POST(
-      mcpRequest({ cookie: 'session=browser-jwt' }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ cookie: 'session=browser-jwt' }), ROUTE_CONTEXT);
 
     await expectJsonRpcRefusal({
       response,
@@ -151,14 +146,9 @@ describe('POST /api/mcp authentication', () => {
   });
 
   it('refuses a token without the AGENT scope with a JSON-RPC 403', async () => {
-    apiTokenRepository.findByHash.mockResolvedValue(
-      storedToken({ scopes: ['IMPORTS'] }),
-    );
+    apiTokenRepository.findByHash.mockResolvedValue(storedToken({ scopes: ['IMPORTS'] }));
 
-    const response = await POST(
-      mcpRequest({ authorization: `Bearer ${token}` }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ authorization: `Bearer ${token}` }), ROUTE_CONTEXT);
 
     await expectJsonRpcRefusal({ response, status: 403 });
   });
@@ -168,10 +158,7 @@ describe('POST /api/mcp authentication', () => {
       storedToken({ expiresAt: new Date(Date.now() - DAY_MS) }),
     );
 
-    const response = await POST(
-      mcpRequest({ authorization: `Bearer ${token}` }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ authorization: `Bearer ${token}` }), ROUTE_CONTEXT);
 
     await expectJsonRpcRefusal({
       response,
@@ -183,10 +170,7 @@ describe('POST /api/mcp authentication', () => {
   it('refuses a revoked token', async () => {
     apiTokenRepository.findByHash.mockResolvedValue(null);
 
-    const response = await POST(
-      mcpRequest({ authorization: `Bearer ${token}` }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ authorization: `Bearer ${token}` }), ROUTE_CONTEXT);
 
     await expectJsonRpcRefusal({
       response,
@@ -200,10 +184,7 @@ describe('POST /api/mcp authentication', () => {
       new HttpError(429, 'Too many requests. Try again later.'),
     );
 
-    const response = await POST(
-      mcpRequest({ authorization: `Bearer ${token}` }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ authorization: `Bearer ${token}` }), ROUTE_CONTEXT);
 
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({
@@ -218,10 +199,7 @@ describe('POST /api/mcp authentication', () => {
 
 describe('POST /api/mcp with an AGENT token', () => {
   it('initializes without a session, as a stateless server', async () => {
-    const response = await POST(
-      mcpRequest({ authorization: `Bearer ${token}` }),
-      ROUTE_CONTEXT,
-    );
+    const response = await POST(mcpRequest({ authorization: `Bearer ${token}` }), ROUTE_CONTEXT);
 
     expect(response.status).toBe(200);
     expect(response.headers.get('mcp-session-id')).toBeNull();

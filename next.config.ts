@@ -42,9 +42,7 @@ const nextConfig: NextConfig = {
 
 // A build without the token skips source maps it could not upload anyway.
 const canUploadSourceMaps = Boolean(
-  process.env.SENTRY_AUTH_TOKEN &&
-  process.env.SENTRY_ORG &&
-  process.env.SENTRY_PROJECT,
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
 );
 
 export default withSentryConfig(nextConfig, {

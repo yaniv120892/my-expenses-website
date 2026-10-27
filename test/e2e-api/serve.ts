@@ -28,9 +28,7 @@ async function main(): Promise<void> {
     return { user: stack.seeded.userA, password: SEED_PASSWORD };
   }
 
-  async function forExistingUser(
-    email: string,
-  ): Promise<{ user: SeededUser; password: string }> {
+  async function forExistingUser(email: string): Promise<{ user: SeededUser; password: string }> {
     const stack = await startStackForUser(ports, email);
     return { user: stack.user, password: '' };
   }

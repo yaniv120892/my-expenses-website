@@ -1,21 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(
-  () => ({
-    subRepo: {
-      getActiveForAllUsers: vi.fn(),
-      getByUserId: vi.fn(),
-      getById: vi.fn(),
-      update: vi.fn(),
-    },
-    prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
-    sendDailySummary: vi.fn(),
-    scheduledService: {
-      listScheduledTransactions: vi.fn(),
-      createScheduledTransaction: vi.fn(),
-    },
-  }),
-);
+const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(() => ({
+  subRepo: {
+    getActiveForAllUsers: vi.fn(),
+    getByUserId: vi.fn(),
+    getById: vi.fn(),
+    update: vi.fn(),
+  },
+  prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
+  sendDailySummary: vi.fn(),
+  scheduledService: {
+    listScheduledTransactions: vi.fn(),
+    createScheduledTransaction: vi.fn(),
+  },
+}));
 
 vi.mock('@/server/repositories/subscriptionRepository', () => ({
   default: subRepo,
@@ -24,12 +22,9 @@ vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/services/scheduledTransactionService', () => ({
   default: scheduledService,
 }));
-vi.mock(
-  '@/server/services/transactionNotification/transactionNotifierFactory',
-  () => ({
-    default: { getNotifier: () => ({ sendDailySummary }) },
-  }),
-);
+vi.mock('@/server/services/transactionNotification/transactionNotifierFactory', () => ({
+  default: { getNotifier: () => ({ sendDailySummary }) },
+}));
 
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 
@@ -63,11 +58,7 @@ const normalizeCurrency = (value: string) =>
   value.replace(/[\u200e\u200f]/g, '').replace(/\u00a0/g, ' ');
 
 const messageFor = (userId: string) =>
-  normalizeCurrency(
-    sendDailySummary.mock.calls.find(
-      (call) => call[1] === userId,
-    )?.[0] as string,
-  );
+  normalizeCurrency(sendDailySummary.mock.calls.find((call) => call[1] === userId)?.[0] as string);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -75,9 +66,10 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-03-15T12:00:00Z'));
   subRepo.getActiveForAllUsers.mockResolvedValue([]);
   subRepo.getByUserId.mockResolvedValue([]);
-  subRepo.update.mockImplementation(
-    async (id: string, _userId: string, data: Sub) => ({ id, ...data }),
-  );
+  subRepo.update.mockImplementation(async (id: string, _userId: string, data: Sub) => ({
+    id,
+    ...data,
+  }));
   scheduledService.listScheduledTransactions.mockResolvedValue([]);
   enable('user-1', 'user-2');
 });
@@ -127,17 +119,13 @@ describe('sendMonthlyAuditNotifications', () => {
   });
 
   it('skips users whose subs are neither confirmed nor detected', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
-      sub({ status: 'CANCELLED' }),
-    ]);
+    subRepo.getActiveForAllUsers.mockResolvedValue([sub({ status: 'CANCELLED' })]);
     await run();
     expect(sendDailySummary).not.toHaveBeenCalled();
   });
 
   it('detected-only omits the active block', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
-      sub({ status: 'DETECTED' }),
-    ]);
+    subRepo.getActiveForAllUsers.mockResolvedValue([sub({ status: 'DETECTED' })]);
     await run();
     expect(sendDailySummary).toHaveBeenCalledWith(
       [header, '', '1 new subscription detected — review in app'].join('\n'),
@@ -151,9 +139,7 @@ describe('sendMonthlyAuditNotifications', () => {
       sub({ id: 's2', status: 'DETECTED' }),
     ]);
     await run();
-    expect(sendDailySummary.mock.calls[0][0]).toContain(
-      '2 new subscriptions detected',
-    );
+    expect(sendDailySummary.mock.calls[0][0]).toContain('2 new subscriptions detected');
   });
 
   it('groups per user and queries prefs for every grouped id', async () => {
@@ -162,28 +148,21 @@ describe('sendMonthlyAuditNotifications', () => {
       sub({ id: 's2', userId: 'user-2', displayName: 'Spotify' }),
     ]);
     await run();
-    expect(prismaMock.userNotificationPreference.findMany).toHaveBeenCalledWith(
-      {
-        where: {
-          userId: { in: ['user-1', 'user-2'] },
-          subscriptionAudit: true,
-        },
+    expect(prismaMock.userNotificationPreference.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: { in: ['user-1', 'user-2'] },
+        subscriptionAudit: true,
       },
-    );
+    });
     expect(sendDailySummary).toHaveBeenCalledTimes(2);
     expect(sendDailySummary.mock.calls[1][1]).toBe('user-2');
   });
 
   it('one failing send does not stop the rest, but fails the run', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
-      sub(),
-      sub({ id: 's2', userId: 'user-2' }),
-    ]);
+    subRepo.getActiveForAllUsers.mockResolvedValue([sub(), sub({ id: 's2', userId: 'user-2' })]);
     sendDailySummary.mockRejectedValueOnce(new Error('telegram down'));
 
-    await expect(run()).rejects.toThrow(
-      'Subscription audit failed for 1 of 2 user(s)',
-    );
+    await expect(run()).rejects.toThrow('Subscription audit failed for 1 of 2 user(s)');
     expect(sendDailySummary).toHaveBeenCalledTimes(2);
   });
 
@@ -242,9 +221,7 @@ describe('updateSubscription', () => {
     await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
       averageAmount: 55,
     });
-    expect(updateArgs().nextExpectedDate).toEqual(
-      new Date('2026-04-04T00:00:00Z'),
-    );
+    expect(updateArgs().nextExpectedDate).toEqual(new Date('2026-04-04T00:00:00Z'));
   });
 
   it('honours an explicitly given next expected date', async () => {
@@ -253,9 +230,7 @@ describe('updateSubscription', () => {
       frequency: 'WEEKLY',
       nextExpectedDate: new Date('2026-05-01T00:00:00Z'),
     });
-    expect(updateArgs().nextExpectedDate).toEqual(
-      new Date('2026-05-01T00:00:00Z'),
-    );
+    expect(updateArgs().nextExpectedDate).toEqual(new Date('2026-05-01T00:00:00Z'));
   });
 
   // undefined reaches Prisma as "leave alone"; null is what clears a field.
@@ -287,9 +262,7 @@ describe('updateSubscription', () => {
 
   it('explains a frequency clash instead of leaking the Prisma error', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    subRepo.update.mockRejectedValue(
-      Object.assign(new Error('db'), { code: 'P2002' }),
-    );
+    subRepo.update.mockRejectedValue(Object.assign(new Error('db'), { code: 'P2002' }));
     await expect(
       subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
         frequency: 'WEEKLY',
@@ -315,8 +288,7 @@ describe('getSubscriptions', () => {
         annualCost: 999,
       }),
     ]);
-    const result =
-      await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions('user-1');
     expect(result).toMatchObject({
       activeCount: 1,
       detectedCount: 1,
@@ -335,8 +307,7 @@ describe('getSubscriptions', () => {
         scheduleType: 'MONTHLY',
       },
     ]);
-    const result =
-      await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions('user-1');
     expect(result.subscriptions[0].scheduleMatch).toMatchObject({
       id: 'sched-1',
       matchType: 'NAME_MATCH',
@@ -353,8 +324,7 @@ describe('getSubscriptions', () => {
         scheduleType: 'MONTHLY',
       },
     ]);
-    const result =
-      await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions('user-1');
     expect(result.subscriptions[0].scheduleMatch).toBeUndefined();
   });
 });
@@ -366,10 +336,7 @@ describe('convertToScheduledTransaction', () => {
     );
 
     await expect(
-      subscriptionDetectionService.convertToScheduledTransaction(
-        's1',
-        'user-1',
-      ),
+      subscriptionDetectionService.convertToScheduledTransaction('s1', 'user-1'),
     ).rejects.toMatchObject({ status: 409 });
     expect(scheduledService.createScheduledTransaction).not.toHaveBeenCalled();
   });

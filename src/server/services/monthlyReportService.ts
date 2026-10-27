@@ -38,9 +38,7 @@ interface MonthlyReport {
 }
 
 class MonthlyReportService {
-  public async sendMonthlyReportToAllUsers(
-    referenceDate: Date = new Date(),
-  ): Promise<void> {
+  public async sendMonthlyReportToAllUsers(referenceDate: Date = new Date()): Promise<void> {
     const userIds = await userSettingsService.getUsersRequiredMonthlyReport();
 
     let failed = 0;
@@ -58,9 +56,7 @@ class MonthlyReportService {
       'Monthly report run finished',
     );
     if (failed > 0) {
-      throw new Error(
-        `Monthly report failed for ${failed} of ${userIds.length} user(s)`,
-      );
+      throw new Error(`Monthly report failed for ${failed} of ${userIds.length} user(s)`);
     }
   }
 
@@ -104,11 +100,7 @@ class MonthlyReportService {
       };
     }
 
-    const report = this.buildReport(
-      transactions,
-      previousTransactions,
-      reportMonth,
-    );
+    const report = this.buildReport(transactions, previousTransactions, reportMonth);
 
     await emailService.send({
       to: userSettings.info.email,
@@ -120,10 +112,7 @@ class MonthlyReportService {
         ? [
             {
               filename: `transactions_${format(reportMonth, MONTH_FORMAT)}.csv`,
-              content: Buffer.from(
-                buildTransactionsCsvFile(transactions),
-                'utf8',
-              ),
+              content: Buffer.from(buildTransactionsCsvFile(transactions), 'utf8'),
               contentType: 'text/csv; charset=utf-8',
             },
           ]
@@ -139,10 +128,7 @@ class MonthlyReportService {
     };
   }
 
-  private getMonthTransactions(
-    userId: string,
-    month: Date,
-  ): Promise<Transaction[]> {
+  private getMonthTransactions(userId: string, month: Date): Promise<Transaction[]> {
     return transactionService.getAllTransactions({
       userId,
       status: 'APPROVED',
@@ -201,9 +187,7 @@ class MonthlyReportService {
       totals.set(categoryName, existing);
     }
 
-    return Array.from(totals.values()).sort(
-      (a, b) => b.expense - a.expense || b.income - a.income,
-    );
+    return Array.from(totals.values()).sort((a, b) => b.expense - a.expense || b.income - a.income);
   }
 
   private buildReportText(report: MonthlyReport): string {
@@ -298,9 +282,7 @@ class MonthlyReportService {
           </tr>
           <tr>
             <td style="padding: 8px;">Total expenses</td>
-            <td style="padding: 8px; text-align: right;">${formatCurrency(
-              report.totalExpense,
-            )}</td>
+            <td style="padding: 8px; text-align: right;">${formatCurrency(report.totalExpense)}</td>
           </tr>
           <tr>
             <td style="padding: 8px; background: #f4f4f4; font-weight: bold;">Net</td>
@@ -310,9 +292,7 @@ class MonthlyReportService {
           </tr>
           <tr>
             <td style="padding: 8px;">Spending vs previous month</td>
-            <td style="padding: 8px; text-align: right;">${this.formatChange(
-              report,
-            )}</td>
+            <td style="padding: 8px; text-align: right;">${this.formatChange(report)}</td>
           </tr>
         </table>
         <h3>By category</h3>
@@ -338,9 +318,7 @@ class MonthlyReportService {
       return 'about the same';
     }
     const direction = report.expenseTrend === 'up' ? 'more' : 'less';
-    return `${Math.abs(report.expenseChangePercentage).toFixed(
-      1,
-    )}% ${direction}`;
+    return `${Math.abs(report.expenseChangePercentage).toFixed(1)}% ${direction}`;
   }
 
   private escapeHtml(value: string): string {

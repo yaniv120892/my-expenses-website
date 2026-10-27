@@ -51,13 +51,7 @@ export default function ConvertToScheduledDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle>{t('subscriptions.convert.title')}</DialogTitle>
       <DialogContent>
         {subscription && (
@@ -121,11 +115,7 @@ export default function ConvertToScheduledDialog({
                 </Typography>
               </Box>
             </Stack>
-            <CategorySelect
-              value={categoryId}
-              onChange={setCategoryId}
-              required
-            />
+            <CategorySelect value={categoryId} onChange={setCategoryId} required />
           </>
         )}
       </DialogContent>
@@ -133,14 +123,8 @@ export default function ConvertToScheduledDialog({
         <Button onClick={onClose} disabled={isLoading}>
           {t('common.cancel')}
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!categoryId || isLoading}
-        >
-          {isLoading
-            ? t('subscriptions.convert.submitting')
-            : t('subscriptions.convert.submit')}
+        <Button variant="contained" onClick={handleSubmit} disabled={!categoryId || isLoading}>
+          {isLoading ? t('subscriptions.convert.submitting') : t('subscriptions.convert.submit')}
         </Button>
       </DialogActions>
     </Dialog>

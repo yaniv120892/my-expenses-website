@@ -1,10 +1,5 @@
 import { useRef } from 'react';
-import {
-  QueryClient,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { QueryClient, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
 import { CreateTransactionInput } from '@/types';
@@ -18,8 +13,7 @@ import {
 export const importKeys = {
   all: ['imports'] as const,
   lists: () => [...importKeys.all, 'list'] as const,
-  transactions: (importId: string) =>
-    [...importKeys.all, 'transactions', importId] as const,
+  transactions: (importId: string) => [...importKeys.all, 'transactions', importId] as const,
   allTransactions: () => [...importKeys.all, 'transactions'] as const,
   autoApproveRules: () => [...importKeys.all, 'auto-approve-rules'] as const,
 };
@@ -71,8 +65,7 @@ export const useIgnoreImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (transactionId: string) =>
-      importService.ignoreImportedTransaction(transactionId),
+    mutationFn: (transactionId: string) => importService.ignoreImportedTransaction(transactionId),
     onSuccess: () => {
       invalidateImportRows(queryClient, importId);
     },
@@ -119,8 +112,7 @@ export const useDeleteImportedTransactionMutation = (importId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (transactionId: string) =>
-      importService.deleteImportedTransaction(transactionId),
+    mutationFn: (transactionId: string) => importService.deleteImportedTransaction(transactionId),
     onSuccess: () => {
       invalidateImportRows(queryClient, importId);
     },
@@ -130,8 +122,7 @@ export const useDeleteImportedTransactionMutation = (importId: string) => {
 export const useBatchActionMutation = (importId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: BatchActionRequest) =>
-      importService.batchAction(request),
+    mutationFn: (request: BatchActionRequest) => importService.batchAction(request),
     onSuccess: () => {
       invalidateImportRows(queryClient, importId);
       invalidateTransactionData(queryClient);
@@ -159,9 +150,8 @@ export const useAutoApproveRulesQuery = () =>
 export const useCreateAutoApproveRuleMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (
-      data: Pick<AutoApproveRule, 'descriptionPattern' | 'categoryId' | 'type'>,
-    ) => importService.createAutoApproveRule(data),
+    mutationFn: (data: Pick<AutoApproveRule, 'descriptionPattern' | 'categoryId' | 'type'>) =>
+      importService.createAutoApproveRule(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: importKeys.autoApproveRules(),
@@ -173,13 +163,8 @@ export const useCreateAutoApproveRuleMutation = () => {
 export const useUpdateAutoApproveRuleMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      ruleId,
-      data,
-    }: {
-      ruleId: string;
-      data: Partial<AutoApproveRule>;
-    }) => importService.updateAutoApproveRule(ruleId, data),
+    mutationFn: ({ ruleId, data }: { ruleId: string; data: Partial<AutoApproveRule> }) =>
+      importService.updateAutoApproveRule(ruleId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: importKeys.autoApproveRules(),

@@ -56,10 +56,7 @@ describe('decideAutoMerge', () => {
   });
 
   it('leaves an update of unknown type for review', () => {
-    const decision = decideAutoMerge(
-      [dependency('actions/checkout', null)],
-      requiresCi,
-    );
+    const decision = decideAutoMerge([dependency('actions/checkout', null)], requiresCi);
 
     expect(decision).toEqual({
       merge: false,
@@ -68,10 +65,7 @@ describe('decideAutoMerge', () => {
   });
 
   it('leaves an unrecognised update type for review, even one naming an object key', () => {
-    const decision = decideAutoMerge(
-      [dependency('left-pad', 'toString')],
-      requiresCi,
-    );
+    const decision = decideAutoMerge([dependency('left-pad', 'toString')], requiresCi);
 
     expect(decision.merge).toBe(false);
   });
@@ -87,11 +81,7 @@ describe('decideAutoMerge', () => {
   });
 
   it('leaves a 0.0.x patch for review, since a caret range treats it as breaking', () => {
-    const preOnePatch = dependency(
-      'tiny-lib',
-      'version-update:semver-patch',
-      '0.0.4',
-    );
+    const preOnePatch = dependency('tiny-lib', 'version-update:semver-patch', '0.0.4');
 
     expect(decideAutoMerge([preOnePatch], requiresCi).merge).toBe(false);
   });
@@ -103,11 +93,7 @@ describe('decideAutoMerge', () => {
   });
 
   it('merges a v-prefixed action minor above 1.0', () => {
-    const action = dependency(
-      'actions/checkout',
-      'version-update:semver-minor',
-      'v7.0.0',
-    );
+    const action = dependency('actions/checkout', 'version-update:semver-minor', 'v7.0.0');
 
     expect(decideAutoMerge([action], requiresCi).merge).toBe(true);
   });
@@ -134,10 +120,7 @@ describe('decideAutoMerge', () => {
     ];
 
     expect(
-      decideAutoMerge(
-        [dependency('nodemailer', 'version-update:semver-patch')],
-        onlyChecks,
-      ),
+      decideAutoMerge([dependency('nodemailer', 'version-update:semver-patch')], onlyChecks),
     ).toEqual({
       merge: false,
       reason: 'base branch does not require: e2e',

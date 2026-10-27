@@ -1,15 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  LinearProgress,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Card, CardContent, LinearProgress, Stack, Typography, useTheme } from '@mui/material';
 import { MonthComparison, TopCategory } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
@@ -66,19 +58,11 @@ export function MonthHighlights({ comparison, categories }: Props) {
   const palette = (theme.vars ?? theme).palette;
   const { charts } = palette;
   const { currentMonth, previousMonth } = comparison;
-  const maxExpense = Math.max(
-    currentMonth.totalExpense,
-    previousMonth.totalExpense,
-    1,
-  );
+  const maxExpense = Math.max(currentMonth.totalExpense, previousMonth.totalExpense, 1);
 
-  const sortedByChange = [...categories].sort(
-    (a, b) => b.change.percentage - a.change.percentage,
-  );
+  const sortedByChange = [...categories].sort((a, b) => b.change.percentage - a.change.percentage);
   const biggestIncrease = sortedByChange.find((c) => c.change.trend === 'up');
-  const biggestDecrease = [...sortedByChange]
-    .reverse()
-    .find((c) => c.change.trend === 'down');
+  const biggestDecrease = [...sortedByChange].reverse().find((c) => c.change.trend === 'down');
 
   return (
     <Card sx={{ height: '100%' }}>
@@ -121,16 +105,12 @@ export function MonthHighlights({ comparison, categories }: Props) {
             >
               {t('dashboard.highlights.biggestIncrease')}
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, color: charts.negative }}
-            >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: charts.negative }}>
               {t('dashboard.highlights.categoryChange', {
                 category: biggestIncrease.categoryName,
-                change: formatter.percentagePoints(
-                  Math.abs(biggestIncrease.change.percentage),
-                  { signDisplay: 'always' },
-                ),
+                change: formatter.percentagePoints(Math.abs(biggestIncrease.change.percentage), {
+                  signDisplay: 'always',
+                }),
               })}
             </Typography>
           </Box>
@@ -146,15 +126,10 @@ export function MonthHighlights({ comparison, categories }: Props) {
             >
               {t('dashboard.highlights.biggestDecrease')}
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, color: charts.positive }}
-            >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: charts.positive }}>
               {t('dashboard.highlights.categoryChange', {
                 category: biggestDecrease.categoryName,
-                change: formatter.percentagePoints(
-                  biggestDecrease.change.percentage,
-                ),
+                change: formatter.percentagePoints(biggestDecrease.change.percentage),
               })}
             </Typography>
           </Box>

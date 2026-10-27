@@ -8,16 +8,10 @@ export type AggregationType =
   | 'list';
 
 // The aggregations SQL can answer exactly from grouped sums, with no row cap.
-export type TotalsAggregationType = Extract<
-  AggregationType,
-  'total' | 'average' | 'count'
->;
+export type TotalsAggregationType = Extract<AggregationType, 'total' | 'average' | 'count'>;
 
 // The aggregations that need the rows themselves (bounded by the read cap).
-export type RowAggregationType = Exclude<
-  AggregationType,
-  TotalsAggregationType
->;
+export type RowAggregationType = Exclude<AggregationType, TotalsAggregationType>;
 
 export interface AggregationResult {
   summary: string;

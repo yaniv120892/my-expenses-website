@@ -1,14 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(
-  () => ({
-    queryRaw: vi.fn(),
-    getValue: vi.fn(),
-    error: vi.fn(),
-    after: vi.fn(),
-    flushRemoteLogs: vi.fn(),
-  }),
-);
+const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(() => ({
+  queryRaw: vi.fn(),
+  getValue: vi.fn(),
+  error: vi.fn(),
+  after: vi.fn(),
+  flushRemoteLogs: vi.fn(),
+}));
 
 vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
 vi.mock('@/server/redis', () => ({ getValue }));
@@ -163,9 +161,7 @@ describe('result cache', () => {
   it('runs one check for concurrent calls that miss the cache', async () => {
     const responses = await Promise.all([GET(), GET(), GET()]);
 
-    expect(responses.map((response) => response.status)).toEqual([
-      200, 200, 200,
-    ]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(getValue).toHaveBeenCalledTimes(1);
   });

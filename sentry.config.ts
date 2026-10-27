@@ -11,9 +11,7 @@ export function initSentry(): void {
   Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
     environment:
-      process.env.NEXT_PUBLIC_VERCEL_ENV ??
-      process.env.VERCEL_ENV ??
-      process.env.NODE_ENV,
+      process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV,
     // Traces and Session Replay bill against their own quotas; only errors are
     // budgeted.
     tracesSampleRate: 0,
@@ -21,13 +19,7 @@ export function initSentry(): void {
   });
 }
 
-const IDENTIFYING_KEY_PATTERNS = [
-  'forwarded',
-  '-ip',
-  'remote-',
-  'via',
-  '-user',
-];
+const IDENTIFYING_KEY_PATTERNS = ['forwarded', '-ip', 'remote-', 'via', '-user'];
 
 // An unset `dataCollection` sends cookies (the session JWT), identifying
 // headers and every request body (passwords, transactions). Each category is

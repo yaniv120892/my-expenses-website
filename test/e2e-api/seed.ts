@@ -34,9 +34,7 @@ function directClient(): PrismaClient {
 }
 
 function mintToken(userId: string, expiresIn = '1h'): Promise<string> {
-  const secret = new TextEncoder().encode(
-    process.env.JWT_SECRET || 'e2e-test-secret',
-  );
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'e2e-test-secret');
   return new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -51,9 +49,7 @@ export function assertSeedTargetIsLocal(directUrl: string): void {
   try {
     host = new URL(directUrl).hostname;
   } catch {
-    throw new Error(
-      `DIRECT_URL is not a URL, refusing to seed: "${directUrl}"`,
-    );
+    throw new Error(`DIRECT_URL is not a URL, refusing to seed: "${directUrl}"`);
   }
   if (!LOCAL_DATABASE_HOSTS.includes(host)) {
     throw new Error(
@@ -64,17 +60,13 @@ export function assertSeedTargetIsLocal(directUrl: string): void {
 
 // Twelve hours rather than the seed's one: an import over many statements
 // outlives an hour.
-export async function sessionForExistingUser(
-  email: string,
-): Promise<SeededUser> {
+export async function sessionForExistingUser(email: string): Promise<SeededUser> {
   const prisma = directClient();
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new Error(
-        `No user with email ${email} in the database DIRECT_URL points at`,
-      );
+      throw new Error(`No user with email ${email} in the database DIRECT_URL points at`);
     }
     return {
       id: user.id,

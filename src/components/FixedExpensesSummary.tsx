@@ -62,13 +62,7 @@ export default function FixedExpensesSummary({
   );
 }
 
-function describeRemainingCharges({
-  count,
-  t,
-}: {
-  count: number;
-  t: T;
-}): string {
+function describeRemainingCharges({ count, t }: { count: number; t: T }): string {
   return count === 1
     ? t('dashboard.fixedExpenses.remaining.one')
     : t('dashboard.fixedExpenses.remaining.other', { count });
@@ -79,11 +73,7 @@ function SummaryCard({ title, value, caption }: SummaryCardProps) {
   return (
     <Card>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Typography
-          variant="body2"
-          gutterBottom
-          sx={{ color: 'text.secondary' }}
-        >
+        <Typography variant="body2" gutterBottom sx={{ color: 'text.secondary' }}>
           {title}
         </Typography>
         <Typography variant="h3" component="p">

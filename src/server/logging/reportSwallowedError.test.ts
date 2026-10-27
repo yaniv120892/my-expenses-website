@@ -22,10 +22,7 @@ describe('reportSwallowedError', () => {
 
     reportSwallowedError({ err, model: 'some-model' }, 'Gemini API error');
 
-    expect(loggerError).toHaveBeenCalledWith(
-      { err, model: 'some-model' },
-      'Gemini API error',
-    );
+    expect(loggerError).toHaveBeenCalledWith({ err, model: 'some-model' }, 'Gemini API error');
     expect(captureException).toHaveBeenCalledWith(err, {
       tags: { swallowedAt: 'Gemini API error' },
     });

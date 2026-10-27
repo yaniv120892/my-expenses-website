@@ -1,10 +1,7 @@
 import { addWeeks, addMonths, addYears } from 'date-fns';
 import { SubscriptionFrequency } from '@/types/subscription';
 
-export function toMonthlyAmount(
-  amount: number,
-  frequency: SubscriptionFrequency,
-): number {
+export function toMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
   switch (frequency) {
     case 'WEEKLY':
       return (amount * 52) / 12;
@@ -15,10 +12,7 @@ export function toMonthlyAmount(
   }
 }
 
-export function toAnnualAmount(
-  amount: number,
-  frequency: SubscriptionFrequency,
-): number {
+export function toAnnualAmount(amount: number, frequency: SubscriptionFrequency): number {
   switch (frequency) {
     case 'WEEKLY':
       return amount * 52;

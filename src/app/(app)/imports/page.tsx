@@ -106,10 +106,7 @@ export default function ImportsPage() {
         }
       />
 
-      <ImportList
-        onImportClick={handleImportClick}
-        expandedImportId={expandedImport}
-      />
+      <ImportList onImportClick={handleImportClick} expandedImportId={expandedImport} />
 
       <ClosableDialog
         open={isUploadOpen}

@@ -1,8 +1,5 @@
 import api from './api';
-import {
-  DashboardResponse,
-  DashboardInsightsResponse,
-} from '@/types/dashboard';
+import { DashboardResponse, DashboardInsightsResponse } from '@/types/dashboard';
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
   const res = await api.get('/api/dashboard');

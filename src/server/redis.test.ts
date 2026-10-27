@@ -116,9 +116,7 @@ describe('the wrappers namespace what they send to Redis', () => {
   it('prefixes a counter', async () => {
     const { incrementWithTtl } = await import('@/server/redis');
     await incrementWithTtl('rate:ip:1.2.3.4', 60);
-    expect(commands.incr).toHaveBeenCalledWith(
-      'preview:abcdef123456:rate:ip:1.2.3.4',
-    );
+    expect(commands.incr).toHaveBeenCalledWith('preview:abcdef123456:rate:ip:1.2.3.4');
   });
 
   it('sends branch-scoped keys under the branch namespace', async () => {
@@ -135,9 +133,7 @@ describe('the wrappers namespace what they send to Redis', () => {
     commands.getdel.mockReset().mockResolvedValue('user-1');
     const { takeValue } = await import('@/server/redis');
 
-    await expect(takeValue('telegramLinkCode:abc', 'branch')).resolves.toBe(
-      'user-1',
-    );
+    await expect(takeValue('telegramLinkCode:abc', 'branch')).resolves.toBe('user-1');
     expect(commands.getdel).toHaveBeenCalledExactlyOnceWith(
       `preview:${BRANCH}:telegramLinkCode:abc`,
     );

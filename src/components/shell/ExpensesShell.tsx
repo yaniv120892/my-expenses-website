@@ -15,11 +15,7 @@ import { useSession } from '@/hooks/useSession';
 import { useT } from '@/i18n/useT';
 import { logout } from '@/services/authClient';
 
-export default function ExpensesShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ExpensesShell({ children }: { children: React.ReactNode }) {
   const t = useT();
   const { data: session } = useSession();
   const { data: pending } = usePendingTransactionsQuery();

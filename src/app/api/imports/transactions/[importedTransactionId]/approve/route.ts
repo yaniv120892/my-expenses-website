@@ -7,17 +7,13 @@ export const POST = createHandler({
   apiTokenScope: 'IMPORTS',
   bodySchema: approveImportedTransactionSchema,
   handler: async ({ userId, body, params }) => {
-    await importService.approveImportedTransaction(
-      params.importedTransactionId,
-      userId,
-      {
-        description: body.description,
-        value: body.value,
-        date: body.date,
-        type: body.type,
-        categoryId: body.categoryId ?? null,
-      },
-    );
+    await importService.approveImportedTransaction(params.importedTransactionId, userId, {
+      description: body.description,
+      value: body.value,
+      date: body.date,
+      type: body.type,
+      categoryId: body.categoryId ?? null,
+    });
     return { success: true };
   },
 });

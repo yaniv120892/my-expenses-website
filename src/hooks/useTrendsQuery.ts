@@ -17,12 +17,9 @@ interface TrendParams {
 
 export const trendKeys = {
   all: ['trends'] as const,
-  overview: (params: TrendParams) =>
-    [...trendKeys.all, 'overview', params] as const,
-  categories: (params: TrendParams) =>
-    [...trendKeys.all, 'categories', params] as const,
-  comparison: (params: GetComparisonParams) =>
-    [...trendKeys.all, 'comparison', params] as const,
+  overview: (params: TrendParams) => [...trendKeys.all, 'overview', params] as const,
+  categories: (params: TrendParams) => [...trendKeys.all, 'categories', params] as const,
+  comparison: (params: GetComparisonParams) => [...trendKeys.all, 'comparison', params] as const,
 };
 
 export const useSpendingTrendsQuery = (params: TrendParams, enabled = true) => {
@@ -33,10 +30,7 @@ export const useSpendingTrendsQuery = (params: TrendParams, enabled = true) => {
   });
 };
 
-export const useCategorySpendingTrendsQuery = (
-  params: TrendParams,
-  enabled = true,
-) => {
+export const useCategorySpendingTrendsQuery = (params: TrendParams, enabled = true) => {
   return useQuery({
     queryKey: trendKeys.categories(params),
     queryFn: () => fetchCategorySpendingTrends(params),
@@ -44,10 +38,7 @@ export const useCategorySpendingTrendsQuery = (
   });
 };
 
-export const useCategoryComparisonQuery = (
-  params: GetComparisonParams,
-  enabled = true,
-) => {
+export const useCategoryComparisonQuery = (params: GetComparisonParams, enabled = true) => {
   return useQuery({
     queryKey: trendKeys.comparison(params),
     queryFn: () => fetchCategoryComparison(params),

@@ -1,8 +1,5 @@
 import { createHandler } from '@/server/http/handler';
-import {
-  createTransactionSchema,
-  getTransactionsSchema,
-} from '@/shared/schemas/transactions';
+import { createTransactionSchema, getTransactionsSchema } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
 import type { CreateTransactionResult } from '@/shared/types/transaction';
 import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
@@ -19,13 +16,12 @@ export const POST = createHandler({
   bodySchema: createTransactionSchema,
   status: 201,
   handler: async ({ userId, body }): Promise<CreateTransactionResult> => {
-    const { id, suggestedCategory } =
-      await transactionService.createTransaction({
-        ...body,
-        date: body.date ?? null,
-        categoryId: body.categoryId || null,
-        userId,
-      });
+    const { id, suggestedCategory } = await transactionService.createTransaction({
+      ...body,
+      date: body.date ?? null,
+      categoryId: body.categoryId || null,
+      userId,
+    });
     return { id, ...(suggestedCategory && { suggestedCategory }) };
   },
 });

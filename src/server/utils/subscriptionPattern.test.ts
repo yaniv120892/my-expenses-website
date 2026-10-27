@@ -32,8 +32,7 @@ const monthly = group([
   charge('2026-08-04'),
 ]);
 
-const analyze = (g: MerchantGroup) =>
-  analyzeMerchantPattern(g, ANALYZED_FROM, ANALYZED_TO);
+const analyze = (g: MerchantGroup) => analyzeMerchantPattern(g, ANALYZED_FROM, ANALYZED_TO);
 
 describe('analyzeMerchantPattern', () => {
   it('classifies an evenly spaced monthly charge', () => {
@@ -46,9 +45,7 @@ describe('analyzeMerchantPattern', () => {
   });
 
   it('needs at least three charges', () => {
-    expect(analyze(group([charge('2026-07-04'), charge('2026-08-04')]))).toBe(
-      null,
-    );
+    expect(analyze(group([charge('2026-07-04'), charge('2026-08-04')]))).toBe(null);
   });
 
   it('rejects spacing that varies more than the tolerance', () => {
@@ -96,9 +93,7 @@ describe('analyzeMerchantPattern', () => {
     expect(pattern!.merchantKey).toBe('netflix');
     expect(evidence.medianIntervalDays).toBe(31);
     expect(evidence.frequencyWindowDays).toEqual({ min: 25, max: 35 });
-    expect(evidence.intervalVariationRatio).toBeLessThanOrEqual(
-      evidence.intervalToleranceRatio,
-    );
+    expect(evidence.intervalVariationRatio).toBeLessThanOrEqual(evidence.intervalToleranceRatio);
     expect(evidence.minAmount).toBe(49.9);
     expect(evidence.maxAmount).toBe(49.9);
     expect(evidence.firstChargeDate).toBe('2026-05-04T00:00:00.000Z');

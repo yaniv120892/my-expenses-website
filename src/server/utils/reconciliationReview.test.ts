@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ReconciliationPlanItem } from '@/shared/types/import';
 import { deriveReviewHint } from './reconciliationReview';
 
-const createItem = (
-  over: Partial<ReconciliationPlanItem> = {},
-): ReconciliationPlanItem => ({
+const createItem = (over: Partial<ReconciliationPlanItem> = {}): ReconciliationPlanItem => ({
   importedTransactionId: 'r1',
   action: 'CREATE',
   description: 'אנימל שופ חנות חיות',
@@ -96,9 +94,7 @@ describe('deriveReviewHint for a CREATE', () => {
     });
 
     expect(
-      deriveReviewHint(createItem({ description: 'GOOGLE CLOUD EMEA' }), [
-        placeholder,
-      ]),
+      deriveReviewHint(createItem({ description: 'GOOGLE CLOUD EMEA' }), [placeholder]),
     ).toMatchObject({
       reason: 'unmatched-candidate',
       counterpart: { transactionId: 'google' },
@@ -107,18 +103,15 @@ describe('deriveReviewHint for a CREATE', () => {
   });
 
   it('names a fitting placeholder ahead of a candidate closer in value', () => {
-    const hint = deriveReviewHint(
-      createItem({ description: 'GOOGLE CLOUD EMEA', value: 40 }),
-      [
-        transaction({ id: 'grocery', value: 39.5 }),
-        transaction({
-          id: 'google',
-          value: 8,
-          status: 'PENDING_APPROVAL',
-          bankDescriptionPrefix: 'GOOGLE',
-        }),
-      ],
-    );
+    const hint = deriveReviewHint(createItem({ description: 'GOOGLE CLOUD EMEA', value: 40 }), [
+      transaction({ id: 'grocery', value: 39.5 }),
+      transaction({
+        id: 'google',
+        value: 8,
+        status: 'PENDING_APPROVAL',
+        bankDescriptionPrefix: 'GOOGLE',
+      }),
+    ]);
 
     expect(hint).toMatchObject({ counterpart: { transactionId: 'google' } });
   });

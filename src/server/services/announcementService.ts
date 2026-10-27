@@ -5,9 +5,7 @@ import logger from '@/server/logging/logger';
 
 class AnnouncementService {
   public async getForUser(userId: string): Promise<AnnouncementWithSeen[]> {
-    const acknowledged = new Set(
-      await announcementRepository.getAcknowledgedIds(userId),
-    );
+    const acknowledged = new Set(await announcementRepository.getAcknowledgedIds(userId));
 
     return ANNOUNCEMENTS.map((announcement) => ({
       ...announcement,

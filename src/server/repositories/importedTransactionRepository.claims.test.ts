@@ -17,10 +17,7 @@ describe('reads of pending rows skip the rows of a deleted import', () => {
   const where = () => findMany.mock.calls[0][0].where;
 
   it('in the claims a re-import must not be blocked by', async () => {
-    const claimed =
-      await importedTransactionRepository.findClaimedMatchingTransactionIds(
-        'user-1',
-      );
+    const claimed = await importedTransactionRepository.findClaimedMatchingTransactionIds('user-1');
 
     expect(claimed).toEqual(['tx-1']);
     expect(where()).toMatchObject({
@@ -31,20 +28,13 @@ describe('reads of pending rows skip the rows of a deleted import', () => {
   });
 
   it('in the rows a batch approves by id', async () => {
-    await importedTransactionRepository.findPendingByIds(
-      'imp-1',
-      ['r1'],
-      'user-1',
-    );
+    await importedTransactionRepository.findPendingByIds('imp-1', ['r1'], 'user-1');
 
     expect(where()).toMatchObject({ import: { deleted: false } });
   });
 
   it('in the rows a batch approves in full', async () => {
-    await importedTransactionRepository.findPendingByImportId(
-      'imp-1',
-      'user-1',
-    );
+    await importedTransactionRepository.findPendingByImportId('imp-1', 'user-1');
 
     expect(where()).toMatchObject({ import: { deleted: false } });
   });

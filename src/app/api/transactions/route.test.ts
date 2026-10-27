@@ -7,9 +7,7 @@ const { requireUser, transactionService } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/services/transactionService', () => ({
@@ -93,27 +91,24 @@ describe('POST /api/transactions', () => {
     ['zero', 0],
     ['a negative amount', -5],
     ['an empty string', ''],
-  ])(
-    'refuses %s as the value without creating anything',
-    async (_label, value) => {
-      const response = await POST(
-        new NextRequest('http://localhost/api/transactions', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            description: 'Coffee',
-            value,
-            type: 'EXPENSE',
-          }),
+  ])('refuses %s as the value without creating anything', async (_label, value) => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/transactions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Coffee',
+          value,
+          type: 'EXPENSE',
         }),
-        ROUTE_CONTEXT,
-      );
+      }),
+      ROUTE_CONTEXT,
+    );
 
-      expect(response.status).toBe(400);
-      expect(JSON.stringify(await response.json())).toContain(
-        'Amount must be a number from 0.01 to 10000000',
-      );
-      expect(transactionService.createTransaction).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toContain(
+      'Amount must be a number from 0.01 to 10000000',
+    );
+    expect(transactionService.createTransaction).not.toHaveBeenCalled();
+  });
 });

@@ -4,8 +4,7 @@ import transactionService from '@/server/services/transactionService';
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ userId, params }) =>
-    transactionService.getTransactionFiles(params.id, userId),
+  handler: async ({ userId, params }) => transactionService.getTransactionFiles(params.id, userId),
 });
 
 export const POST = createHandler({

@@ -27,9 +27,7 @@ import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNul
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
 export class GeminiService implements AIProvider {
-  private getGemini = lazy(
-    () => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')),
-  );
+  private getGemini = lazy(() => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')));
 
   public async generateContent(prompt: string): Promise<string> {
     try {
@@ -47,15 +45,11 @@ export class GeminiService implements AIProvider {
           },
         ],
       });
-      const content =
-        response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const content = response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
       logger.debug({ prompt }, 'Done generating content');
       return content || '';
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'Gemini API error',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'Gemini API error');
       return '';
     }
   }
@@ -87,10 +81,7 @@ export class GeminiService implements AIProvider {
 
       return analysis || null;
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'Gemini API error',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'Gemini API error');
       return null;
     }
   }
@@ -110,10 +101,7 @@ export class GeminiService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
-    logger.debug(
-      { expenseDescription },
-      'Start suggesting category for expense',
-    );
+    logger.debug({ expenseDescription }, 'Start suggesting category for expense');
     const response = await this.generativeModel().generateContent({
       systemInstruction: SUGGEST_CATEGORY_SYSTEM_PROMPT,
       contents: [
@@ -121,10 +109,7 @@ export class GeminiService implements AIProvider {
           role: 'user',
           parts: [
             {
-              text: buildSuggestCategoryPrompt(
-                expenseDescription,
-                categoryOptions,
-              ),
+              text: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
             },
           ],
         },
@@ -138,9 +123,7 @@ export class GeminiService implements AIProvider {
       {
         inputTokens: usage?.promptTokenCount ?? null,
         // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
-        outputTokens: usage
-          ? usage.totalTokenCount - usage.promptTokenCount
-          : null,
+        outputTokens: usage ? usage.totalTokenCount - usage.promptTokenCount : null,
       },
     );
     logger.debug(
@@ -172,10 +155,7 @@ export class GeminiService implements AIProvider {
             role: 'user',
             parts: [
               {
-                text: buildFindMatchingTransactionPrompt(
-                  importedCharge,
-                  potentialMatches,
-                ),
+                text: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
               },
             ],
           },
@@ -184,9 +164,7 @@ export class GeminiService implements AIProvider {
       });
 
       const result = resolveMatchedTransactionId(
-        this.cleanGeminiResponse(
-          response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
-        ),
+        this.cleanGeminiResponse(response.response?.candidates?.[0]?.content?.parts?.[0]?.text),
         potentialMatches,
       );
 
@@ -194,10 +172,7 @@ export class GeminiService implements AIProvider {
 
       return result;
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'Error finding matching transaction',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'Error finding matching transaction');
       return null;
     }
   }

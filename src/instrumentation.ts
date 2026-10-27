@@ -17,23 +17,15 @@ export async function register() {
 
 // Errors raised outside a createHandler route (server components, uncaught
 // route failures) reach Next here and would otherwise be logged unstructured.
-export const onRequestError: Instrumentation.onRequestError = async (
-  err,
-  request,
-  context,
-) => {
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
   const { default: logger } = await import('@/server/logging/logger');
-  logger.error(
-    { err, path: request.path, method: request.method },
-    'Unhandled request error',
-  );
+  logger.error({ err, path: request.path, method: request.method }, 'Unhandled request error');
 
   const Sentry = await import('@sentry/nextjs');
   Sentry.captureRequestError(err, request, context);
 
   // Last, so the batch includes everything logged above.
-  const { flushRemoteLogs } =
-    await import('@/server/logging/betterStackStream');
+  const { flushRemoteLogs } = await import('@/server/logging/betterStackStream');
   try {
     const { after } = await import('next/server');
     after(() => flushRemoteLogs());

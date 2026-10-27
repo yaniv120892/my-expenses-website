@@ -35,8 +35,7 @@ export const TransactionFiltersDisplay = ({
 }: TransactionFiltersDisplayProps) => {
   const t = useT();
   const formatter = useAppFormat();
-  const hasActiveFilters =
-    searchTerm || categoryId || type || startDate || endDate;
+  const hasActiveFilters = searchTerm || categoryId || type || startDate || endDate;
 
   const getCategoryName = (id: string) => {
     const category = categories.find((cat) => cat.id === id);

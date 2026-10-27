@@ -113,11 +113,7 @@ describe('choosing a file over the upload limit', () => {
 
     await userEvent.upload(fileInput(), pdfOfSize(MAX_UPLOAD_BYTES + 1));
 
-    expect(
-      await screen.findByText(
-        'scan.pdf is 4.1 MB, over the 4 MB upload limit.',
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText('scan.pdf is 4.1 MB, over the 4 MB upload limit.')).toBeTruthy();
     expect(setPendingFiles).not.toHaveBeenCalled();
   });
 

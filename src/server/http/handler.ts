@@ -19,10 +19,7 @@ import { optionalEnv, requireEnv } from '@/server/env';
 import { recordIdSchema } from '@/shared/schemas/common';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
-import {
-  JSON_RPC_ERROR_CODES,
-  jsonRpcErrorResponse,
-} from '@/server/http/jsonRpc';
+import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
 
 type AuthMode = 'session' | 'apiToken' | 'cron' | 'telegram' | 'public';
 
@@ -39,11 +36,7 @@ type ErrorDescription = { status: number; message: string; code?: string };
 
 const uuidRouteParamsSchema = z.record(z.string(), recordIdSchema);
 
-export interface HandlerContext<
-  TBody,
-  TQuery,
-  TParams = Record<string, string>,
-> {
+export interface HandlerContext<TBody, TQuery, TParams = Record<string, string>> {
   req: NextRequest;
   userId: string;
   body: TBody;
@@ -115,8 +108,7 @@ type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
 function toRoutePattern(path: string, params: Record<string, string>): string {
   return Object.entries(params).reduce(
-    (pattern, [name, value]) =>
-      value ? pattern.replace(`/${value}`, `/[${name}]`) : pattern,
+    (pattern, [name, value]) => (value ? pattern.replace(`/${value}`, `/[${name}]`) : pattern),
     path,
   );
 }
@@ -146,16 +138,12 @@ async function resolveAuth({
       // Only the Authorization header carries an API token: one in the
       // cookie would be a credential the browser attaches on its own.
       const credential = extractCredential(req);
-      const isApiTokenBearer =
-        credential?.source === 'bearer' && isApiToken(credential.token);
+      const isApiTokenBearer = credential?.source === 'bearer' && isApiToken(credential.token);
       if (!isApiTokenBearer) {
         return { userId: await requireUser(req) };
       }
       if (!options.apiTokenScope) {
-        throw new AuthError(
-          'API_TOKEN_NOT_ACCEPTED',
-          'This route does not accept an API token',
-        );
+        throw new AuthError('API_TOKEN_NOT_ACCEPTED', 'This route does not accept an API token');
       }
       return authenticateApiToken(credential.token, options.apiTokenScope);
     }
@@ -194,13 +182,7 @@ function bearerApiToken(request: NextRequest): string | null {
   return token && isApiToken(token) ? token : null;
 }
 
-function describeError({
-  err,
-  auth,
-}: {
-  err: unknown;
-  auth: AuthMode;
-}): ErrorDescription {
+function describeError({ err, auth }: { err: unknown; auth: AuthMode }): ErrorDescription {
   if (err instanceof AuthError) {
     return { status: 401, message: err.message, code: err.code };
   }
@@ -210,9 +192,7 @@ function describeError({
   if (err instanceof HttpError) {
     return { status: err.status, message: err.message };
   }
-  const prismaHttpError = MAPS_PRISMA_ERRORS[auth]
-    ? prismaErrorToHttpError(err)
-    : undefined;
+  const prismaHttpError = MAPS_PRISMA_ERRORS[auth] ? prismaErrorToHttpError(err) : undefined;
   if (prismaHttpError) {
     return describeError({ err: prismaHttpError, auth });
   }
@@ -256,9 +236,7 @@ function errorResponse({
 
 function toJsonRpcErrorCode(status: number): number {
   const isAuthFailure = status === 401 || status === 403;
-  return isAuthFailure
-    ? JSON_RPC_ERROR_CODES.UNAUTHORIZED
-    : JSON_RPC_ERROR_CODES.SERVER_ERROR;
+  return isAuthFailure ? JSON_RPC_ERROR_CODES.UNAUTHORIZED : JSON_RPC_ERROR_CODES.SERVER_ERROR;
 }
 
 export function createHandler<
@@ -267,10 +245,7 @@ export function createHandler<
   TResult = unknown,
   TParams = Record<string, string>,
 >(options: HandlerOptions<TBody, TQuery, TResult, TParams>) {
-  return async (
-    req: NextRequest,
-    routeContext: RouteContext,
-  ): Promise<Response> => {
+  return async (req: NextRequest, routeContext: RouteContext): Promise<Response> => {
     const requestId = crypto.randomUUID();
     const started = Date.now();
     const path = req.nextUrl.pathname;
@@ -296,9 +271,7 @@ export function createHandler<
         body = options.bodySchema.parse(raw);
       }
       const query = options.querySchema
-        ? options.querySchema.parse(
-            Object.fromEntries(req.nextUrl.searchParams.entries()),
-          )
+        ? options.querySchema.parse(Object.fromEntries(req.nextUrl.searchParams.entries()))
         : (undefined as TQuery);
 
       const handlerContext = { req, userId, body, query, params: parsedParams };
@@ -344,8 +317,7 @@ export function createHandler<
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.
-          const { notifyOpsAlert } =
-            await import('@/server/services/alertService');
+          const { notifyOpsAlert } = await import('@/server/services/alertService');
           await notifyOpsAlert({
             alertType: `5xx ${req.method} ${routePattern}`,
             title: `5xx on ${req.method} ${path}`,

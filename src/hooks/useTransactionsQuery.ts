@@ -1,9 +1,4 @@
-import {
-  useQuery,
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTransactionsPage,
   createTransaction,
@@ -34,8 +29,7 @@ export const transactionKeys = {
   // Prefix without the filters argument, so invalidation matches every
   // filtered summary query.
   summaries: () => [...transactionKeys.all, 'summary'] as const,
-  summary: (filters?: TransactionFilters) =>
-    [...transactionKeys.summaries(), filters] as const,
+  summary: (filters?: TransactionFilters) => [...transactionKeys.summaries(), filters] as const,
   categoryBreakdown: (filters?: TransactionFilters) =>
     [...transactionKeys.summaries(), 'categories', filters] as const,
 };
@@ -112,10 +106,7 @@ export const useTransactionsSummaryQuery = (filters?: TransactionFilters) => {
   });
 };
 
-export const useCategoryBreakdownQuery = (
-  filters: TransactionFilters,
-  enabled: boolean,
-) => {
+export const useCategoryBreakdownQuery = (filters: TransactionFilters, enabled: boolean) => {
   return useQuery<CategoryBreakdownItem[]>({
     queryKey: transactionKeys.categoryBreakdown(filters),
     queryFn: () => getCategoryBreakdown(filters),

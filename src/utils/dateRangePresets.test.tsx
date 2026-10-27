@@ -70,24 +70,19 @@ describe('matchDateRangePreset', () => {
 
   it('treats an unbounded range as all-time', () => {
     expect(matchDateRangePreset({}, NOW)).toBe('all-time');
-    expect(
-      matchDateRangePreset({ startDate: undefined, endDate: undefined }, NOW),
-    ).toBe('all-time');
+    expect(matchDateRangePreset({ startDate: undefined, endDate: undefined }, NOW)).toBe(
+      'all-time',
+    );
   });
 
   it('returns undefined for a hand-typed range matching no preset', () => {
     expect(
-      matchDateRangePreset(
-        { startDate: '2026-07-03', endDate: '2026-07-19' },
-        NOW,
-      ),
+      matchDateRangePreset({ startDate: '2026-07-03', endDate: '2026-07-19' }, NOW),
     ).toBeUndefined();
   });
 
   it('does not match a half-bounded range against a full preset', () => {
-    expect(
-      matchDateRangePreset({ startDate: '2026-07-01' }, NOW),
-    ).toBeUndefined();
+    expect(matchDateRangePreset({ startDate: '2026-07-01' }, NOW)).toBeUndefined();
   });
 });
 
@@ -99,14 +94,11 @@ describe('defaultDateRange', () => {
 });
 
 function describeIn(locale: Locale) {
-  const { result } = renderHook(
-    () => ({ t: useT(), formatter: useAppFormat() }),
-    {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
-      ),
-    },
-  );
+  const { result } = renderHook(() => ({ t: useT(), formatter: useAppFormat() }), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
+    ),
+  });
   return (range: DateRange) => describeDateRange({ range, ...result.current });
 }
 
@@ -122,9 +114,7 @@ describe('describeDateRange', () => {
   });
 
   it('spells out a span that is neither', () => {
-    expect(describeRange(rangeOf('last-3-months'))).toBe(
-      'May 1, 2026 – Jul 31, 2026',
-    );
+    expect(describeRange(rangeOf('last-3-months'))).toBe('May 1, 2026 – Jul 31, 2026');
   });
 
   it('handles an unbounded and a half-bounded range', () => {

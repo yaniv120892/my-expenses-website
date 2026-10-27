@@ -6,9 +6,7 @@ import userRepository from '@/server/repositories/userRepository';
 import { lazy } from '@/server/lib/lazy';
 
 class BackupService {
-  private getStorageProvider = lazy(() =>
-    BackupStorageProviderFactory.getProvider(),
-  );
+  private getStorageProvider = lazy(() => BackupStorageProviderFactory.getProvider());
 
   public async getUsersRequiredBackup() {
     const users = await userRepository.list({
@@ -28,11 +26,7 @@ class BackupService {
     const fileBuffer = Buffer.from(csv, 'utf8');
     const mimeType = 'text/csv';
     logger.debug({ fileName }, 'Uploading backup file');
-    return this.getStorageProvider().uploadBackup(
-      fileName,
-      fileBuffer,
-      mimeType,
-    );
+    return this.getStorageProvider().uploadBackup(fileName, fileBuffer, mimeType);
   }
 }
 

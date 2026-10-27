@@ -5,10 +5,7 @@ import {
   updateScheduledTransaction,
   deleteScheduledTransaction,
 } from '../services/scheduledTransactions';
-import {
-  CreateScheduledTransactionInput,
-  UpdateScheduledTransactionInput,
-} from '../types';
+import { CreateScheduledTransactionInput, UpdateScheduledTransactionInput } from '../types';
 
 export const scheduledTransactionKeys = {
   all: ['scheduledTransactions'] as const,
@@ -26,8 +23,7 @@ export const useCreateScheduledTransactionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateScheduledTransactionInput) =>
-      createScheduledTransaction(data),
+    mutationFn: (data: CreateScheduledTransactionInput) => createScheduledTransaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: scheduledTransactionKeys.lists(),
@@ -40,13 +36,8 @@ export const useUpdateScheduledTransactionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: UpdateScheduledTransactionInput;
-    }) => updateScheduledTransaction(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateScheduledTransactionInput }) =>
+      updateScheduledTransaction(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: scheduledTransactionKeys.lists(),

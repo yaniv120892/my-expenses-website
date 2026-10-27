@@ -19,11 +19,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  CategorySpendingTrend,
-  TransactionType,
-  TrendPeriod,
-} from '@/types/trends';
+import { CategorySpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
 import { TrendIcon } from './TrendIcon';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -31,10 +27,7 @@ import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
-import {
-  shouldReverseNewestFirstAxis,
-  valueAxisOrientation,
-} from './trendFilters';
+import { shouldReverseNewestFirstAxis, valueAxisOrientation } from './trendFilters';
 
 interface CategoryTrendCardProps {
   trend: CategorySpendingTrend;
@@ -57,9 +50,7 @@ export const CategoryTrendCard = ({
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
-    transactionType === 'EXPENSE'
-      ? palette.charts.negative
-      : palette.charts.positive;
+    transactionType === 'EXPENSE' ? palette.charts.negative : palette.charts.positive;
   const isExpense = transactionType === 'EXPENSE';
   const category = trend.categoryName;
   const pointLabel = (date: string) => formatter.trendDate(date, period);
@@ -67,23 +58,15 @@ export const CategoryTrendCard = ({
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <Box sx={{ display: 'flex' }}>
-        <CardActionArea
-          onClick={() => onExpand(trend.categoryId)}
-          sx={{ flex: 1 }}
-        >
+        <CardActionArea onClick={() => onExpand(trend.categoryId)} sx={{ flex: 1 }}>
           <CardContent>
-            <Typography
-              variant="h5"
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-            >
+            <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               {isExpense
                 ? t('trends.card.categorySpending', { category })
                 : t('trends.card.categoryIncome', { category })}
               <TrendIcon trend={trend.trend} />
             </Typography>
-            <Box
-              sx={{ display: 'flex', gap: { xs: 3, md: 6 }, flexWrap: 'wrap' }}
-            >
+            <Box sx={{ display: 'flex', gap: { xs: 3, md: 6 }, flexWrap: 'wrap' }}>
               <Box>
                 <Typography
                   variant="body2"
@@ -91,13 +74,9 @@ export const CategoryTrendCard = ({
                     color: 'text.secondary',
                   }}
                 >
-                  {isExpense
-                    ? t('trends.card.totalSpending')
-                    : t('trends.card.totalIncome')}
+                  {isExpense ? t('trends.card.totalSpending') : t('trends.card.totalIncome')}
                 </Typography>
-                <Typography variant="h5">
-                  {formatter.currency(trend.totalAmount)}
-                </Typography>
+                <Typography variant="h5">{formatter.currency(trend.totalAmount)}</Typography>
               </Box>
               <Box>
                 <Typography
@@ -108,10 +87,7 @@ export const CategoryTrendCard = ({
                 >
                   {t('trends.card.change')}
                 </Typography>
-                <ChangeFromPrevious
-                  percentageChange={trend.percentageChange}
-                  variant="h5"
-                />
+                <ChangeFromPrevious percentageChange={trend.percentageChange} variant="h5" />
               </Box>
             </Box>
           </CardContent>
@@ -119,11 +95,7 @@ export const CategoryTrendCard = ({
         <Box sx={{ display: 'flex', alignItems: 'center', px: 1 }}>
           <IconButton
             onClick={() => onExpand(trend.categoryId)}
-            aria-label={
-              isExpanded
-                ? t('trends.card.collapseChart')
-                : t('trends.card.expandChart')
-            }
+            aria-label={isExpanded ? t('trends.card.collapseChart') : t('trends.card.expandChart')}
           >
             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
@@ -165,11 +137,7 @@ export const CategoryTrendCard = ({
                 <Line
                   type="monotone"
                   dataKey="amount"
-                  name={
-                    isExpense
-                      ? t('trends.card.spending')
-                      : t('trends.card.income')
-                  }
+                  name={isExpense ? t('trends.card.spending') : t('trends.card.income')}
                   stroke={lineColor}
                   strokeWidth={2}
                   dot={{ r: 3 }}

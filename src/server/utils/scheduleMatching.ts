@@ -15,9 +15,7 @@ export interface IndexedSchedule {
 }
 
 /** Normalizes once per request so the per-subscription scan stays regex-free. */
-export function indexSchedules(
-  schedules: MatchableSchedule[],
-): IndexedSchedule[] {
+export function indexSchedules(schedules: MatchableSchedule[]): IndexedSchedule[] {
   return schedules.map((schedule) => ({
     schedule,
     merchantKey: normalizeMerchantName(schedule.description),

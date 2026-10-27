@@ -35,15 +35,11 @@ describe('selectNonDuplicateRows', () => {
   });
 
   it('keeps a row whose value differs', () => {
-    expect(selectNonDuplicateRows([row(50, 25)], [row(51, 25)])).toHaveLength(
-      1,
-    );
+    expect(selectNonDuplicateRows([row(50, 25)], [row(51, 25)])).toHaveLength(1);
   });
 
   it('keeps a row whose date differs', () => {
-    expect(selectNonDuplicateRows([row(50, 25)], [row(50, 26)])).toHaveLength(
-      1,
-    );
+    expect(selectNonDuplicateRows([row(50, 25)], [row(50, 26)])).toHaveLength(1);
   });
 
   it('keeps a refund that mirrors a charge of the same amount and day', () => {

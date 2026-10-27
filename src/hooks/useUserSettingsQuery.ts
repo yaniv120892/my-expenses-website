@@ -25,15 +25,11 @@ export const userSettingsKeys = {
 
 // While a link code is out, the bot can bind the chat at any moment, so the
 // settings are polled until they show the chat linked.
-export const useUserSettingsQuery = (
-  options: { awaitingTelegramLink?: boolean } = {},
-) => {
+export const useUserSettingsQuery = (options: { awaitingTelegramLink?: boolean } = {}) => {
   return useQuery({
     queryKey: userSettingsKeys.settings(),
     queryFn: getUserSettings,
-    refetchInterval: options.awaitingTelegramLink
-      ? TELEGRAM_LINK_POLL_MS
-      : false,
+    refetchInterval: options.awaitingTelegramLink ? TELEGRAM_LINK_POLL_MS : false,
   });
 };
 
@@ -57,8 +53,7 @@ export const useUnlinkTelegramMutation = () => {
 
   return useMutation({
     mutationFn: unlinkTelegram,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: userSettingsKeys.settings() }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userSettingsKeys.settings() }),
   });
 };
 
@@ -92,10 +87,7 @@ export const useTestMonthlyReportMutation = () => {
       } catch (error) {
         return {
           success: false,
-          message: describeApiError(
-            error,
-            t('settings.notifications.testReportFailed'),
-          ),
+          message: describeApiError(error, t('settings.notifications.testReportFailed')),
         };
       }
     },

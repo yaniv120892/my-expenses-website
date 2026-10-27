@@ -26,9 +26,7 @@ class ScheduledTransactionRepository {
     return scheduledTransaction.id;
   }
 
-  public async getAllScheduledTransactions(
-    userId: string,
-  ): Promise<ScheduledTransactionDomain[]> {
+  public async getAllScheduledTransactions(userId: string): Promise<ScheduledTransactionDomain[]> {
     const scheduledTransactions = await prisma.scheduledTransaction.findMany({
       where: {
         userId,
@@ -40,9 +38,7 @@ class ScheduledTransactionRepository {
     return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
   }
 
-  public async getDueScheduledTransactions(
-    date: Date,
-  ): Promise<ScheduledTransactionDomain[]> {
+  public async getDueScheduledTransactions(date: Date): Promise<ScheduledTransactionDomain[]> {
     const scheduledTransactions = await prisma.scheduledTransaction.findMany({
       where: {
         nextRunDate: { lte: date },
@@ -100,10 +96,7 @@ class ScheduledTransactionRepository {
     return scheduledTransaction.id;
   }
 
-  public async deleteScheduledTransaction(
-    id: string,
-    userId: string,
-  ): Promise<void> {
+  public async deleteScheduledTransaction(id: string, userId: string): Promise<void> {
     await prisma.scheduledTransaction.delete({ where: { id, userId } });
   }
 
@@ -121,9 +114,7 @@ class ScheduledTransactionRepository {
     return this.mapScheduledTransactionDbToDomain(scheduledTransaction);
   }
 
-  private mapScheduledTransactionDbToDomain(
-    db: ScheduledTransaction,
-  ): ScheduledTransactionDomain {
+  private mapScheduledTransactionDbToDomain(db: ScheduledTransaction): ScheduledTransactionDomain {
     return {
       id: db.id,
       description: db.description,

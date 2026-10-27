@@ -1,12 +1,7 @@
 'use client';
 
 import { Chip, Stack } from '@mui/material';
-import {
-  ComparisonScope,
-  TrendPeriod,
-  TransactionType,
-  TrendsView,
-} from '@/types/trends';
+import { ComparisonScope, TrendPeriod, TransactionType, TrendsView } from '@/types/trends';
 import { Category } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
@@ -46,8 +41,7 @@ export const TrendFiltersDisplay = ({
   const categoryName =
     selectedCategory === ALL_CATEGORIES
       ? t('trends.allCategories')
-      : categories.find((category) => category.id === selectedCategory)?.name ||
-        '';
+      : categories.find((category) => category.id === selectedCategory)?.name || '';
 
   // Compare mode spans both transaction types and its own category selection,
   // so the overview's type and single-category chips would be misleading.
@@ -66,9 +60,7 @@ export const TrendFiltersDisplay = ({
           dateRange,
         ]
       : [
-          transactionType === 'EXPENSE'
-            ? t('trends.type.expense')
-            : t('trends.type.income'),
+          transactionType === 'EXPENSE' ? t('trends.type.expense') : t('trends.type.income'),
           periodLabel,
           categoryName,
           dateRange,
@@ -85,13 +77,7 @@ export const TrendFiltersDisplay = ({
       }}
     >
       {labels.map((label) => (
-        <Chip
-          key={label}
-          label={label}
-          variant="outlined"
-          size="small"
-          onClick={onOpenFilters}
-        />
+        <Chip key={label} label={label} variant="outlined" size="small" onClick={onOpenFilters} />
       ))}
     </Stack>
   );
@@ -108,8 +94,8 @@ function comparisonCategoriesLabel({
 }): string {
   if (comparisonCategoryIds.length === 1) {
     return (
-      categories.find((category) => category.id === comparisonCategoryIds[0])
-        ?.name || t('trends.categoryCount.one')
+      categories.find((category) => category.id === comparisonCategoryIds[0])?.name ||
+      t('trends.categoryCount.one')
     );
   }
   return t('trends.categoryCount.other', {

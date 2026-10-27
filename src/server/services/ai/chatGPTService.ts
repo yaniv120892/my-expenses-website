@@ -49,10 +49,7 @@ export class ChatGPTService implements AIProvider {
 
       return response.choices[0].message?.content || 'No insights available.';
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return '';
     }
   }
@@ -67,8 +64,7 @@ export class ChatGPTService implements AIProvider {
         messages: [
           {
             role: 'system',
-            content:
-              'You are a financial assistant helping users analyze their expenses.',
+            content: 'You are a financial assistant helping users analyze their expenses.',
           },
           {
             role: 'user',
@@ -80,10 +76,7 @@ export class ChatGPTService implements AIProvider {
 
       return response.choices[0].message?.content || null;
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return null;
     }
   }
@@ -112,23 +105,16 @@ export class ChatGPTService implements AIProvider {
         },
         {
           role: 'user',
-          content: buildSuggestCategoryPrompt(
-            expenseDescription,
-            categoryOptions,
-          ),
+          content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
         },
       ],
       max_tokens: 50,
     });
 
-    return buildCategoryEvaluation(
-      response.choices[0]?.message?.content,
-      categoryOptions,
-      {
-        inputTokens: response.usage?.prompt_tokens ?? null,
-        outputTokens: response.usage?.completion_tokens ?? null,
-      },
-    );
+    return buildCategoryEvaluation(response.choices[0]?.message?.content, categoryOptions, {
+      inputTokens: response.usage?.prompt_tokens ?? null,
+      outputTokens: response.usage?.completion_tokens ?? null,
+    });
   }
 
   public async findMatchingTransaction(
@@ -149,25 +135,16 @@ export class ChatGPTService implements AIProvider {
           },
           {
             role: 'user',
-            content: buildFindMatchingTransactionPrompt(
-              importedCharge,
-              potentialMatches,
-            ),
+            content: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
           },
         ],
         temperature: 0,
         max_tokens: 50,
       });
 
-      return resolveMatchedTransactionId(
-        response.choices[0].message?.content,
-        potentialMatches,
-      );
+      return resolveMatchedTransactionId(response.choices[0].message?.content, potentialMatches);
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return null;
     }
   }

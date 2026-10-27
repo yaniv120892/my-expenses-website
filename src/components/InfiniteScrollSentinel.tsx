@@ -11,11 +11,7 @@ interface Props {
 
 // Re-armed whenever hasMore/loading change, so a fetch in flight cannot queue a
 // second request for the same page.
-export default function InfiniteScrollSentinel({
-  hasMore,
-  loading,
-  onLoadMore,
-}: Props) {
+export default function InfiniteScrollSentinel({ hasMore, loading, onLoadMore }: Props) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const onLoadMoreRef = useRef(onLoadMore);
   onLoadMoreRef.current = onLoadMore;
@@ -43,10 +39,7 @@ export default function InfiniteScrollSentinel({
   }
 
   return (
-    <Box
-      ref={sentinelRef}
-      sx={{ display: 'flex', justifyContent: 'center', py: 2 }}
-    >
+    <Box ref={sentinelRef} sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
       {loading && <CircularProgress size={24} />}
     </Box>
   );

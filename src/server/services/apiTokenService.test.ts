@@ -29,15 +29,11 @@ beforeEach(() => {
 
 describe('apiTokenService.create', () => {
   it('returns a prefixed token and stores only its hash', async () => {
-    const created = await apiTokenService.create(USER_ID, 'script', [
-      'IMPORTS',
-    ]);
+    const created = await apiTokenService.create(USER_ID, 'script', ['IMPORTS']);
 
     expect(created.token.startsWith('mxk_')).toBe(true);
     const stored = repository.create.mock.calls[0][0];
-    expect(stored.tokenHash).toBe(
-      createHash('sha256').update(created.token).digest('hex'),
-    );
+    expect(stored.tokenHash).toBe(createHash('sha256').update(created.token).digest('hex'));
     expect(JSON.stringify(stored)).not.toContain(created.token);
   });
 
@@ -53,11 +49,7 @@ describe('apiTokenService.create', () => {
     await apiTokenService.create(USER_ID, 'script', ['IMPORTS']);
 
     const { expiresAt } = repository.create.mock.calls[0][0];
-    expect(expiresAt.getTime()).toBeGreaterThanOrEqual(
-      addYears(before, 1).getTime(),
-    );
-    expect(expiresAt.getTime()).toBeLessThan(
-      addYears(before, 1).getTime() + 60_000,
-    );
+    expect(expiresAt.getTime()).toBeGreaterThanOrEqual(addYears(before, 1).getTime());
+    expect(expiresAt.getTime()).toBeLessThan(addYears(before, 1).getTime() + 60_000);
   });
 });

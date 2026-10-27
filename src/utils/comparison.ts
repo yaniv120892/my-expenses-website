@@ -1,10 +1,5 @@
 import { parseISO } from 'date-fns';
-import {
-  CategoryComparison,
-  ComparisonCell,
-  ComparisonMeasure,
-  TrendPeriod,
-} from '@/types/trends';
+import { CategoryComparison, ComparisonCell, ComparisonMeasure, TrendPeriod } from '@/types/trends';
 import { toDayString } from '@/shared/dates';
 import type { AppFormatter } from '@/i18n/useAppFormat';
 import type { T } from '@/i18n/useT.types';
@@ -15,10 +10,7 @@ type ComparisonBucketLabelInput = {
   formatter: AppFormatter;
 };
 
-export function selectMeasure(
-  cell: ComparisonCell,
-  measure: ComparisonMeasure,
-): number {
+export function selectMeasure(cell: ComparisonCell, measure: ComparisonMeasure): number {
   if (measure === 'income') {
     return cell.income;
   }
@@ -82,9 +74,7 @@ export function comparisonToCsv({
     selectMeasure(comparison.grandTotal, measure),
   ];
 
-  return [header, ...rows, totals]
-    .map((row) => row.map(escapeCsvValue).join(','))
-    .join('\n');
+  return [header, ...rows, totals].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
 }
 
 export function comparisonFileName(comparison: CategoryComparison): string {

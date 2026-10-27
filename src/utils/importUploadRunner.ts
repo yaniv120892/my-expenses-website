@@ -1,10 +1,6 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
 import { describeApiError } from '@/utils/api';
-import {
-  UploadItem,
-  UploadItemError,
-  UploadQueueAction,
-} from '@/utils/importUploadQueue';
+import { UploadItem, UploadItemError, UploadQueueAction } from '@/utils/importUploadQueue';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
@@ -57,11 +53,7 @@ export async function runUploadItem(
 
   dispatch({ type: 'UPLOAD_SUCCEEDED', id: item.id, fileUrl });
 
-  const created = await api.processImport(
-    fileUrl,
-    item.file.name,
-    paymentMonth,
-  );
+  const created = await api.processImport(fileUrl, item.file.name, paymentMonth);
 
   dispatch({ type: 'ITEM_SUCCEEDED', id: item.id, importId: created.id });
 }

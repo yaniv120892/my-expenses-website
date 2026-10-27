@@ -36,9 +36,7 @@ const run = () => trendService.getCategorySpendingTrends(request, 'user-1');
 
 // Current-period fetch is call 1; the previous-period fetch is call 2.
 const periods = (current: unknown[], previous: unknown[] = []) => {
-  txRepo.getTransactions
-    .mockResolvedValueOnce(current)
-    .mockResolvedValueOnce(previous);
+  txRepo.getTransactions.mockResolvedValueOnce(current).mockResolvedValueOnce(previous);
 };
 
 beforeEach(() => {
@@ -115,9 +113,7 @@ describe('getCategorySpendingTrends', () => {
   });
 
   it('skips an ancestor that is not a known top-level category', async () => {
-    buildCategoryParentMap.mockResolvedValue(
-      new Map([['child-food', 'top-unknown']]),
-    );
+    buildCategoryParentMap.mockResolvedValue(new Map([['child-food', 'top-unknown']]));
     periods([tx()]);
     expect(await run()).toEqual([]);
   });

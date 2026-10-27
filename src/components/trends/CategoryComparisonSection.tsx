@@ -12,11 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import {
-  COMPARISON_MEASURES,
-  CategoryComparison,
-  ComparisonMeasure,
-} from '@/types/trends';
+import { COMPARISON_MEASURES, CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { comparisonFileName, comparisonToCsv } from '@/utils/comparison';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
@@ -42,11 +38,7 @@ interface Props {
 
 const CROWDED_BUCKET_COUNT = 40;
 
-const MEASURE_TOGGLE_ORDER: readonly ComparisonMeasure[] = [
-  'net',
-  'expense',
-  'income',
-];
+const MEASURE_TOGGLE_ORDER: readonly ComparisonMeasure[] = ['net', 'expense', 'income'];
 
 export function CategoryComparisonSection({
   comparison,
@@ -194,11 +186,7 @@ export function CategoryComparisonSection({
           </Alert>
         )}
 
-        <ComparisonChart
-          comparison={comparison}
-          measure={measure}
-          mode={chartMode}
-        />
+        <ComparisonChart comparison={comparison} measure={measure} mode={chartMode} />
 
         <Stack sx={{ mt: 3 }}>
           <ComparisonTable comparison={comparison} measure={measure} />

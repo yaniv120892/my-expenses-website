@@ -10,9 +10,7 @@ async function getScheduledTransactions(): Promise<ScheduledTransaction[]> {
   return res.data;
 }
 
-async function createScheduledTransaction(
-  data: CreateScheduledTransactionInput,
-): Promise<string> {
+async function createScheduledTransaction(data: CreateScheduledTransactionInput): Promise<string> {
   const res = await api.post('/api/scheduled-transactions', data);
   return res.data;
 }

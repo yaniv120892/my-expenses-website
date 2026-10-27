@@ -165,9 +165,7 @@ describe('deleteTransaction', () => {
   it('deletes the remaining objects when one fails, and still succeeds', async () => {
     const storageError = new Error('SlowDown');
     send.mockImplementation(async (command) => {
-      const isFailingKey =
-        command instanceof DeleteObjectCommand &&
-        command.input.Key === FILE_KEY;
+      const isFailingKey = command instanceof DeleteObjectCommand && command.input.Key === FILE_KEY;
       if (isFailingKey) {
         throw storageError;
       }
@@ -191,9 +189,7 @@ describe('deleteTransaction', () => {
   });
 
   it('keeps every object when the row delete fails', async () => {
-    deleteTransaction.mockRejectedValue(
-      Object.assign(new Error('Not found'), { status: 404 }),
-    );
+    deleteTransaction.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404 }));
 
     await expect(
       transactionService.deleteTransaction(TRANSACTION_ID, 'other-user'),

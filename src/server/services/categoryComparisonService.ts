@@ -114,16 +114,14 @@ class CategoryComparisonService {
     seriesCount: number,
     request: GetCategoryComparisonRequest,
   ): ComparisonBucket[] {
-    const buckets = enumerateBuckets(
-      request.startDate,
-      request.endDate,
-      request.period,
-    ).map((bucket) => ({
-      key: bucket.key,
-      startDate: bucket.startDate.toISOString(),
-      cells: Array.from({ length: seriesCount }, emptyCell),
-      rowTotal: emptyCell(),
-    }));
+    const buckets = enumerateBuckets(request.startDate, request.endDate, request.period).map(
+      (bucket) => ({
+        key: bucket.key,
+        startDate: bucket.startDate.toISOString(),
+        cells: Array.from({ length: seriesCount }, emptyCell),
+        rowTotal: emptyCell(),
+      }),
+    );
 
     const bucketsByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
 

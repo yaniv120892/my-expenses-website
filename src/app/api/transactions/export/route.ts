@@ -2,10 +2,7 @@ import { createHandler } from '@/server/http/handler';
 import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 import { exportTransactionsSchema } from '@/shared/schemas/transactions';
 import transactionService from '@/server/services/transactionService';
-import {
-  buildTransactionsCsvFile,
-  transactionsCsvFileName,
-} from '@/server/utils/transactionCsv';
+import { buildTransactionsCsvFile, transactionsCsvFileName } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
 import { HttpError } from '@/server/http/errors';
 

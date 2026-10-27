@@ -7,10 +7,5 @@ export const POST = createHandler({
   apiTokenScope: 'IMPORTS',
   bodySchema: processImportSchema,
   handler: async ({ userId, body }) =>
-    importService.processImport(
-      body.fileUrl,
-      userId,
-      body.originalFileName,
-      body.paymentMonth,
-    ),
+    importService.processImport(body.fileUrl, userId, body.originalFileName, body.paymentMonth),
 });

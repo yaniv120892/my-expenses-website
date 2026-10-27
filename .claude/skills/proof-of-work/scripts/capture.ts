@@ -62,9 +62,7 @@ function parseArgs(argv: string[]): Options {
 
   // Repeatable, so a capture can walk into a dialog or a tab before shooting.
   const getAll = (flag: string): string[] =>
-    argv.flatMap((arg, i) =>
-      arg === flag && argv[i + 1] ? [argv[i + 1]] : [],
-    );
+    argv.flatMap((arg, i) => (arg === flag && argv[i + 1] ? [argv[i + 1]] : []));
 
   const route = get('--route');
   const name = get('--name');
@@ -99,10 +97,7 @@ async function shoot(
   if (token) {
     await signIn(page, token);
   }
-  await page.addInitScript(
-    (value: string) => window.localStorage.setItem('mui-mode', value),
-    mode,
-  );
+  await page.addInitScript((value: string) => window.localStorage.setItem('mui-mode', value), mode);
 
   await page.goto(`${BASE_URL}${opts.route}`);
   for (const selector of opts.clicks) {
@@ -129,9 +124,7 @@ async function shoot(
 async function capture(browser: Browser, opts: Options): Promise<void> {
   await Promise.all(
     opts.modes.flatMap((mode) =>
-      opts.viewports.map((viewportName) =>
-        shoot(browser, opts, mode, viewportName),
-      ),
+      opts.viewports.map((viewportName) => shoot(browser, opts, mode, viewportName)),
     ),
   );
 }
@@ -172,9 +165,7 @@ async function main(): Promise<void> {
   const executablePath = resolveChromium();
   await mkdir(OUT_DIR, { recursive: true });
 
-  const browser = await chromium.launch(
-    executablePath ? { executablePath } : {},
-  );
+  const browser = await chromium.launch(executablePath ? { executablePath } : {});
 
   try {
     await capture(browser, opts);

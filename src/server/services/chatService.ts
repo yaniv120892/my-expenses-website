@@ -1,16 +1,12 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { getFinancialAssistant } from '@/server/services/assistant/financialAssistant';
-import {
-  getThreadId,
-  isMemoryEnabled,
-} from '@/server/services/assistant/memory';
+import { getThreadId, isMemoryEnabled } from '@/server/services/assistant/memory';
 import { USER_ID_CONTEXT_KEY } from '@/server/services/assistant/tools';
 import type { ChatMessage } from '@/shared/schemas/chat';
 
 export type { ChatMessage };
 
-type OutgoingMessage =
-  { role: 'user'; content: string } | { role: 'assistant'; content: string };
+type OutgoingMessage = { role: 'user'; content: string } | { role: 'assistant'; content: string };
 
 class ChatService {
   public async streamChatResponse(

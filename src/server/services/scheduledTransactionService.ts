@@ -84,9 +84,7 @@ class ScheduledTransactionService {
     }
   }
 
-  public async createScheduledTransaction(
-    data: CreateScheduledTransaction,
-  ): Promise<string> {
+  public async createScheduledTransaction(data: CreateScheduledTransaction): Promise<string> {
     const nextRunDate = calculateNextRunDate(
       data.scheduleType,
       data.interval,
@@ -94,10 +92,7 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.createScheduledTransaction(
-      data,
-      nextRunDate,
-    );
+    return scheduledTransactionRepository.createScheduledTransaction(data, nextRunDate);
   }
 
   public async updateScheduledTransaction(
@@ -106,10 +101,7 @@ class ScheduledTransactionService {
     userId: string,
   ): Promise<string> {
     const oldScheduledTransaction =
-      await scheduledTransactionRepository.getScheduledTransactionById(
-        id,
-        userId,
-      );
+      await scheduledTransactionRepository.getScheduledTransactionById(id, userId);
     const nextRunDate = calculateNextRunDate(
       data.scheduleType,
       data.interval,
@@ -117,28 +109,15 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.updateScheduledTransaction(
-      id,
-      data,
-      userId,
-      nextRunDate,
-    );
+    return scheduledTransactionRepository.updateScheduledTransaction(id, data, userId, nextRunDate);
   }
 
-  public async listScheduledTransactions(
-    userId: string,
-  ): Promise<ScheduledTransactionDomain[]> {
+  public async listScheduledTransactions(userId: string): Promise<ScheduledTransactionDomain[]> {
     return scheduledTransactionRepository.getAllScheduledTransactions(userId);
   }
 
-  public async deleteScheduledTransaction(
-    id: string,
-    userId: string,
-  ): Promise<void> {
-    return scheduledTransactionRepository.deleteScheduledTransaction(
-      id,
-      userId,
-    );
+  public async deleteScheduledTransaction(id: string, userId: string): Promise<void> {
+    return scheduledTransactionRepository.deleteScheduledTransaction(id, userId);
   }
 }
 

@@ -124,10 +124,7 @@ export default function UploadQueueList({
               }}
             >
               {item.status === 'succeeded' ? (
-                <CheckCircleOutlineRoundedIcon
-                  fontSize="small"
-                  color="success"
-                />
+                <CheckCircleOutlineRoundedIcon fontSize="small" color="success" />
               ) : (
                 <Chip
                   size="small"
@@ -138,11 +135,7 @@ export default function UploadQueueList({
 
               {item.status === 'failed' && (
                 <Tooltip
-                  title={
-                    isRunning
-                      ? t('imports.upload.waitForBatch')
-                      : t('imports.upload.retry')
-                  }
+                  title={isRunning ? t('imports.upload.waitForBatch') : t('imports.upload.retry')}
                 >
                   <span>
                     <IconButton
@@ -194,9 +187,7 @@ export default function UploadQueueList({
 
           {(item.status === 'uploading' || item.status === 'processing') && (
             <LinearProgress
-              variant={
-                item.status === 'uploading' ? 'determinate' : 'indeterminate'
-              }
+              variant={item.status === 'uploading' ? 'determinate' : 'indeterminate'}
               value={item.progress}
               sx={{ mt: 1.5, borderRadius: 1 }}
             />

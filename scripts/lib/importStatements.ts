@@ -44,9 +44,7 @@ export function parseImportArguments(args: string[]): ImportArguments {
       throw new Error(`Unknown option ${arg}\n${USAGE}`);
     }
     if (directory !== undefined) {
-      throw new Error(
-        `Unexpected argument ${arg}; the script takes one directory\n${USAGE}`,
-      );
+      throw new Error(`Unexpected argument ${arg}; the script takes one directory\n${USAGE}`);
     }
     directory = arg;
   }
@@ -59,12 +57,8 @@ export function parseImportArguments(args: string[]): ImportArguments {
 }
 
 // `<issuer>-<last4>-<MM>-<YYYY>.xlsx`
-export function parseStatementName(
-  fileName: string,
-): ParsedStatementName | null {
-  const match = STATEMENT_NAME_PATTERN.exec(
-    basename(fileName, extname(fileName)),
-  );
+export function parseStatementName(fileName: string): ParsedStatementName | null {
+  const match = STATEMENT_NAME_PATTERN.exec(basename(fileName, extname(fileName)));
   if (!match) {
     return null;
   }
@@ -88,10 +82,7 @@ export function isLocalTarget(baseUrl: string): boolean {
 
 // A remote target's rows cannot be un-approved, so the answer has to be its
 // hostname — a typo'd flag minutes earlier must not be the only guard.
-export function commitConfirmation(
-  baseUrl: string,
-  totals: PlanTotals,
-): CommitConfirmation {
+export function commitConfirmation(baseUrl: string, totals: PlanTotals): CommitConfirmation {
   const summary = `Apply ${totals.merge} merge(s) and ${totals.create} create(s) to ${baseUrl}?`;
   if (isLocalTarget(baseUrl)) {
     return {
@@ -119,9 +110,7 @@ export function parseBaseUrl(value: string, usage: string): string {
     throw new Error(`--base-url is not a URL: "${value}"\n${usage}`);
   }
   if (!WEB_PROTOCOLS.includes(url.protocol)) {
-    throw new Error(
-      `--base-url is not a URL: "${value}" (expected http:// or https://)\n${usage}`,
-    );
+    throw new Error(`--base-url is not a URL: "${value}" (expected http:// or https://)\n${usage}`);
   }
   return url.origin;
 }

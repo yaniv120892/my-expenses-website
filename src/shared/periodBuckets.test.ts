@@ -23,9 +23,7 @@ describe('bucketKeyFor', () => {
 
 describe('enumerateBuckets', () => {
   it('returns empty when start is after end', () => {
-    expect(
-      enumerateBuckets(new Date(2026, 0, 2), new Date(2026, 0, 1), 'daily'),
-    ).toEqual([]);
+    expect(enumerateBuckets(new Date(2026, 0, 2), new Date(2026, 0, 1), 'daily')).toEqual([]);
   });
 
   it('returns a single bucket when start equals end', () => {
@@ -37,75 +35,41 @@ describe('enumerateBuckets', () => {
   });
 
   it('enumerates days across a month boundary', () => {
-    const keys = enumerateBuckets(
-      new Date(2026, 0, 30),
-      new Date(2026, 1, 2),
-      'daily',
-    ).map((b) => b.key);
-    expect(keys).toEqual([
-      '2026-01-30',
-      '2026-01-31',
-      '2026-02-01',
-      '2026-02-02',
-    ]);
+    const keys = enumerateBuckets(new Date(2026, 0, 30), new Date(2026, 1, 2), 'daily').map(
+      (b) => b.key,
+    );
+    expect(keys).toEqual(['2026-01-30', '2026-01-31', '2026-02-01', '2026-02-02']);
   });
 
   it('includes leap day when enumerating days in a leap February', () => {
-    const keys = enumerateBuckets(
-      new Date(2024, 1, 28),
-      new Date(2024, 2, 1),
-      'daily',
-    ).map((b) => b.key);
+    const keys = enumerateBuckets(new Date(2024, 1, 28), new Date(2024, 2, 1), 'daily').map(
+      (b) => b.key,
+    );
     expect(keys).toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
   });
 
   it('enumerates ISO weeks across a year boundary without key collisions', () => {
-    const buckets = enumerateBuckets(
-      new Date(2025, 11, 25),
-      new Date(2026, 0, 5),
-      'weekly',
-    );
-    expect(buckets.map((b) => b.key)).toEqual([
-      '2025-52',
-      '2026-01',
-      '2026-02',
-    ]);
+    const buckets = enumerateBuckets(new Date(2025, 11, 25), new Date(2026, 0, 5), 'weekly');
+    expect(buckets.map((b) => b.key)).toEqual(['2025-52', '2026-01', '2026-02']);
     expect(buckets[0].startDate).toEqual(new Date(2025, 11, 22));
     expect(buckets[1].startDate).toEqual(new Date(2025, 11, 29));
   });
 
   it('starts weekly buckets on Mondays, possibly before the range start', () => {
-    const buckets = enumerateBuckets(
-      new Date(2026, 2, 11),
-      new Date(2026, 2, 11),
-      'weekly',
-    );
+    const buckets = enumerateBuckets(new Date(2026, 2, 11), new Date(2026, 2, 11), 'weekly');
     expect(buckets).toHaveLength(1);
     expect(buckets[0].startDate.getDay()).toBe(1);
     expect(buckets[0].startDate).toEqual(new Date(2026, 2, 9));
   });
 
   it('enumerates months across a year boundary', () => {
-    const buckets = enumerateBuckets(
-      new Date(2025, 10, 15),
-      new Date(2026, 1, 3),
-      'monthly',
-    );
-    expect(buckets.map((b) => b.key)).toEqual([
-      '2025-11',
-      '2025-12',
-      '2026-01',
-      '2026-02',
-    ]);
+    const buckets = enumerateBuckets(new Date(2025, 10, 15), new Date(2026, 1, 3), 'monthly');
+    expect(buckets.map((b) => b.key)).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
     expect(buckets[0].startDate).toEqual(new Date(2025, 10, 1));
   });
 
   it('enumerates years anchored to January 1st', () => {
-    const buckets = enumerateBuckets(
-      new Date(2024, 5, 15),
-      new Date(2026, 0, 1),
-      'yearly',
-    );
+    const buckets = enumerateBuckets(new Date(2024, 5, 15), new Date(2026, 0, 1), 'yearly');
     expect(buckets.map((b) => b.key)).toEqual(['2024', '2025', '2026']);
     expect(buckets[2].startDate).toEqual(new Date(2026, 0, 1));
   });

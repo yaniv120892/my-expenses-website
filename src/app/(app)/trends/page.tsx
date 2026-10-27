@@ -5,12 +5,7 @@ import { Box, Button, Tab, Tabs } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { subMonths } from 'date-fns';
 import { PageHeader } from '@yaniv120892/my-ui';
-import {
-  ComparisonMeasure,
-  TRENDS_VIEWS,
-  TrendFilters,
-  TrendsView,
-} from '@/types/trends';
+import { ComparisonMeasure, TRENDS_VIEWS, TrendFilters, TrendsView } from '@/types/trends';
 import { OverallTrendCard } from '@/components/trends/OverallTrendCard';
 import { CategoryTrendCard } from '@/components/trends/CategoryTrendCard';
 import { CategoryComparisonSection } from '@/components/trends/CategoryComparisonSection';
@@ -40,26 +35,23 @@ export default function TrendsPage() {
     comparisonScope: 'SUBTREE',
   });
   const [measure, setMeasure] = useState<ComparisonMeasure>('net');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const isCompare = view === 'compare';
   const isAllCategories = filters.selectedCategory === ALL_CATEGORIES;
 
   const { data: categories = [] } = useCategoriesQuery();
-  const { data: overallTrend, isLoading: isOverallLoading } =
-    useSpendingTrendsQuery(
-      {
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        period: filters.period,
-        categoryId: isAllCategories ? undefined : filters.selectedCategory,
-        transactionType: filters.transactionType,
-      },
-      !isCompare,
-    );
+  const { data: overallTrend, isLoading: isOverallLoading } = useSpendingTrendsQuery(
+    {
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      period: filters.period,
+      categoryId: isAllCategories ? undefined : filters.selectedCategory,
+      transactionType: filters.transactionType,
+    },
+    !isCompare,
+  );
 
   const { data: categoryTrends = [], isLoading: isCategoryLoading } =
     useCategorySpendingTrendsQuery(

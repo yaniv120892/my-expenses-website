@@ -1,19 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { requireUser, redisStore, userRepository, telegramService } = vi.hoisted(
-  () => ({
-    requireUser: vi.fn(),
-    redisStore: new Map<string, { value: unknown; ttlSeconds: number }>(),
-    userRepository: { setTelegramChat: vi.fn() },
-    telegramService: { sendPlainMessage: vi.fn() },
-  }),
-);
+const { requireUser, redisStore, userRepository, telegramService } = vi.hoisted(() => ({
+  requireUser: vi.fn(),
+  redisStore: new Map<string, { value: unknown; ttlSeconds: number }>(),
+  userRepository: { setTelegramChat: vi.fn() },
+  telegramService: { sendPlainMessage: vi.fn() },
+}));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/redis', () => ({
@@ -110,9 +106,7 @@ describe('linking a Telegram chat with a one-time /start code', () => {
 
     const issued = await requestLinkCode();
 
-    expect(issued.deepLink).toBe(
-      `https://t.me/MyExpensesBot?start=${issued.code}`,
-    );
+    expect(issued.deepLink).toBe(`https://t.me/MyExpensesBot?start=${issued.code}`);
   });
 
   it('binds the chat the code arrives from to the user who issued it', async () => {

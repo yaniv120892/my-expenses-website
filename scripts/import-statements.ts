@@ -30,19 +30,12 @@ import {
   parseImportArguments,
   parseStatementName,
 } from './lib/importStatements';
-import {
-  cardFeeNotice,
-  describePlanItem,
-  reviewReminder,
-} from './lib/reconciliationTable';
+import { cardFeeNotice, describePlanItem, reviewReminder } from './lib/reconciliationTable';
 import type { ReconciliationPreviewItem } from '../src/shared/types/import';
 import type { BatchActionRequest, BatchResult } from '../src/types/import';
 import { Import, ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
-import {
-  exceedsUploadLimit,
-  uploadTooLargeMessage,
-} from '../src/shared/uploadLimits';
+import { exceedsUploadLimit, uploadTooLargeMessage } from '../src/shared/uploadLimits';
 
 class ApiError extends Error {
   constructor(
@@ -99,17 +92,13 @@ type PlannedImport = {
 };
 
 async function main(): Promise<void> {
-  const { directory, dryRun, baseUrl, resubmit } = parseImportArguments(
-    process.argv.slice(2),
-  );
+  const { directory, dryRun, baseUrl, resubmit } = parseImportArguments(process.argv.slice(2));
   const token = await resolveToken();
 
   const client = createApiClient(baseUrl, token);
   const statements = await collectStatements(directory);
   if (statements.length === 0) {
-    throw new Error(
-      `No ${IMPORTABLE_EXTENSIONS.join('/')} files found in ${directory}`,
-    );
+    throw new Error(`No ${IMPORTABLE_EXTENSIONS.join('/')} files found in ${directory}`);
   }
 
   reportTarget(baseUrl, dryRun);
@@ -120,9 +109,7 @@ async function main(): Promise<void> {
 
   const submitted: SubmittedStatement[] = [];
   for (const statement of statements) {
-    const recorded = resubmit
-      ? undefined
-      : recordedImport(manifest, baseUrl, statement.fileName);
+    const recorded = resubmit ? undefined : recordedImport(manifest, baseUrl, statement.fileName);
     if (recorded) {
       submitted.push({ statement, importId: recorded.importId, reused: true });
       console.log(
@@ -134,13 +121,7 @@ async function main(): Promise<void> {
     const importId = await submitStatement(client, statement);
     submitted.push({ statement, importId, reused: false });
     // Saved per file, so an interrupted run still knows what it uploaded.
-    manifest = withSubmission(
-      manifest,
-      baseUrl,
-      statement.fileName,
-      importId,
-      new Date(),
-    );
+    manifest = withSubmission(manifest, baseUrl, statement.fileName, importId, new Date());
     await saveManifest(manifestPath, manifest);
     console.log(`  submitted ${statement.fileName} -> ${importId}`);
   }
@@ -214,20 +195,12 @@ async function loadManifest(path: string): Promise<ImportManifest> {
   return parseManifest(text, path);
 }
 
-async function saveManifest(
-  path: string,
-  manifest: ImportManifest,
-): Promise<void> {
+async function saveManifest(path: string, manifest: ImportManifest): Promise<void> {
   await writeFile(path, serializeManifest(manifest), 'utf8');
 }
 
 function isMissingFile(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === 'ENOENT'
-  );
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
 // A plan that differs from the last preview means something wrote to the import
@@ -286,9 +259,7 @@ async function collectStatements(directory: string): Promise<Statement[]> {
   const entries = await readdir(directory);
 
   return entries
-    .filter((entry) =>
-      IMPORTABLE_EXTENSIONS.includes(extname(entry).toLowerCase()),
-    )
+    .filter((entry) => IMPORTABLE_EXTENSIONS.includes(extname(entry).toLowerCase()))
     .sort()
     .map((entry) => ({
       filePath: join(directory, entry),
@@ -321,10 +292,7 @@ function createApiClient(baseUrl: string, token: string) {
 
     const text = await response.text();
     if (!response.ok) {
-      throw new ApiError(
-        `${method} ${path} failed (${response.status}): ${text}`,
-        response.status,
-      );
+      throw new ApiError(`${method} ${path} failed (${response.status}): ${text}`, response.status);
     }
     if (!text) {
       throw new Error(`${method} ${path} returned an empty body`);
@@ -339,17 +307,13 @@ function createApiClient(baseUrl: string, token: string) {
       request<T>('POST', path, JSON.stringify(payload), {
         'Content-Type': 'application/json',
       }),
-    postForm: <T>(path: string, form: FormData) =>
-      request<T>('POST', path, form),
+    postForm: <T>(path: string, form: FormData) => request<T>('POST', path, form),
   };
 }
 
 type ApiClient = ReturnType<typeof createApiClient>;
 
-async function submitStatement(
-  client: ApiClient,
-  statement: Statement,
-): Promise<string> {
+async function submitStatement(client: ApiClient, statement: Statement): Promise<string> {
   const form = new FormData();
   const contents = await readFile(statement.filePath);
   if (exceedsUploadLimit(contents.byteLength)) {
@@ -362,29 +326,18 @@ async function submitStatement(
   }
   form.append('file', new Blob([contents]), statement.fileName);
 
-  const { fileUrl } = await client.postForm<{ fileUrl: string }>(
-    '/api/imports/upload',
-    form,
-  );
+  const { fileUrl } = await client.postForm<{ fileUrl: string }>('/api/imports/upload', form);
 
-  const created = await client.postJson<{ id: string }>(
-    '/api/imports/process',
-    {
-      fileUrl,
-      originalFileName: statement.fileName,
-      ...(statement.parsedName
-        ? { paymentMonth: statement.parsedName.paymentMonth }
-        : {}),
-    },
-  );
+  const created = await client.postJson<{ id: string }>('/api/imports/process', {
+    fileUrl,
+    originalFileName: statement.fileName,
+    ...(statement.parsedName ? { paymentMonth: statement.parsedName.paymentMonth } : {}),
+  });
 
   return created.id;
 }
 
-async function waitForImports(
-  client: ApiClient,
-  submittedIds: string[],
-): Promise<WaitedImports> {
+async function waitForImports(client: ApiClient, submittedIds: string[]): Promise<WaitedImports> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let interval = FIRST_POLL_INTERVAL_MS;
   const finalIdBySubmittedId = new Map(submittedIds.map((id) => [id, id]));
@@ -392,9 +345,7 @@ async function waitForImports(
 
   while (Date.now() < deadline) {
     const tracked = [...new Set(finalIdBySubmittedId.values())];
-    const records = await Promise.all(
-      tracked.map((id) => fetchImport(client, id)),
-    );
+    const records = await Promise.all(tracked.map((id) => fetchImport(client, id)));
 
     let stillRunning = 0;
     for (const record of records) {
@@ -441,10 +392,7 @@ function followMerge(
   );
 }
 
-async function fetchImport(
-  client: ApiClient,
-  importId: string,
-): Promise<ImportRecord | undefined> {
+async function fetchImport(client: ApiClient, importId: string): Promise<ImportRecord | undefined> {
   try {
     return await client.getJson<ImportRecord>(`/api/imports/${importId}`);
   } catch (error) {
@@ -472,9 +420,7 @@ function resolveTargets(
       const hint = reused
         ? `import ${importId} recorded in ${MANIFEST_FILE_NAME} no longer exists; run again with --resubmit to upload it afresh`
         : 'reconcile it from the imports page';
-      console.log(
-        `  could not locate the import for ${statement.fileName}; ${hint}`,
-      );
+      console.log(`  could not locate the import for ${statement.fileName}; ${hint}`);
       continue;
     }
     resolved.set(target.id, { importRecord: target });
@@ -487,17 +433,12 @@ function resolveTargets(
 function reportFailedImports(targets: ResolvedTarget[]): void {
   for (const { importRecord } of targets) {
     if (importRecord.status === ImportStatus.FAILED) {
-      console.log(
-        `  FAILED ${importRecord.originalFileName}: ${importRecord.error ?? ''}`,
-      );
+      console.log(`  FAILED ${importRecord.originalFileName}: ${importRecord.error ?? ''}`);
     }
   }
 }
 
-async function loadPlans(
-  client: ApiClient,
-  targets: ResolvedTarget[],
-): Promise<PlannedImport[]> {
+async function loadPlans(client: ApiClient, targets: ResolvedTarget[]): Promise<PlannedImport[]> {
   const completed = targets
     .map((target) => target.importRecord)
     .filter((record) => record.status === ImportStatus.COMPLETED);
@@ -516,9 +457,7 @@ function renderPlanTable(planned: PlannedImport[]): void {
   for (const { importRecord, plan } of planned) {
     const card = importRecord.creditCardLastFourDigits ?? '????';
     const month = importRecord.paymentMonth ?? '??/????';
-    console.log(
-      `\n=== ${importRecord.originalFileName} — card ${card}, ${month} ===`,
-    );
+    console.log(`\n=== ${importRecord.originalFileName} — card ${card}, ${month} ===`);
 
     if (plan.length === 0) {
       console.log('  (nothing pending)');
@@ -541,10 +480,7 @@ function countActions(planned: PlannedImport[]): {
   return { merge, create: items.length - merge };
 }
 
-async function commitPlans(
-  client: ApiClient,
-  planned: PlannedImport[],
-): Promise<void> {
+async function commitPlans(client: ApiClient, planned: PlannedImport[]): Promise<void> {
   for (const { importRecord, plan } of planned) {
     if (plan.length === 0) {
       continue;
@@ -562,9 +498,7 @@ async function commitPlans(
       body,
     );
 
-    console.log(
-      `${importRecord.originalFileName}: ${succeeded} applied, ${failed} failed`,
-    );
+    console.log(`${importRecord.originalFileName}: ${succeeded} applied, ${failed} failed`);
     for (const failure of errors) {
       console.log(`  ${failure.id}: ${failure.error}`);
     }

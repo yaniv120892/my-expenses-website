@@ -18,22 +18,11 @@ import {
   parseStatementSources,
 } from './lib/statementSources';
 
-const DEFAULT_SOURCES_PATH = join(
-  homedir(),
-  '.config',
-  'my-expenses',
-  'statement-sources.json',
-);
+const DEFAULT_SOURCES_PATH = join(homedir(), '.config', 'my-expenses', 'statement-sources.json');
 
 async function main(): Promise<void> {
-  const { sourcesPath, baseUrl } = parseDueArguments(
-    process.argv.slice(2),
-    DEFAULT_SOURCES_PATH,
-  );
-  const sources = parseStatementSources(
-    await readSourcesFile(sourcesPath),
-    sourcesPath,
-  );
+  const { sourcesPath, baseUrl } = parseDueArguments(process.argv.slice(2), DEFAULT_SOURCES_PATH);
+  const sources = parseStatementSources(await readSourcesFile(sourcesPath), sourcesPath);
   const imports = await fetchImports(baseUrl, await resolveToken());
   const today = israelDate(new Date());
   const { due, upcoming } = findDueStatements(sources, imports, today);
@@ -67,17 +56,12 @@ async function readSourcesFile(path: string): Promise<string> {
   }
 }
 
-async function fetchImports(
-  baseUrl: string,
-  token: string,
-): Promise<ImportSummary[]> {
+async function fetchImports(baseUrl: string, token: string): Promise<ImportSummary[]> {
   const response = await fetch(`${baseUrl}/api/imports`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    throw new Error(
-      `GET /api/imports failed (${response.status}): ${await response.text()}`,
-    );
+    throw new Error(`GET /api/imports failed (${response.status}): ${await response.text()}`);
   }
   return response.json();
 }
@@ -100,11 +84,7 @@ function describeDue(statement: DueStatement): string {
   return `${fileName}  (${card.holder}, billed ${billingDate})${partial}`;
 }
 
-function describeUpcoming({
-  card,
-  paymentMonth,
-  billingDate,
-}: UpcomingStatement): string {
+function describeUpcoming({ card, paymentMonth, billingDate }: UpcomingStatement): string {
   return `${billingDate}  ${card.issuer} ${card.last4} ${paymentMonth}  (${card.login})`;
 }
 

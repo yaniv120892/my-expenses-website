@@ -29,13 +29,7 @@ const Chat: React.FC = () => {
   const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const {
-    messages,
-    handleSendMessage,
-    isLoading,
-    isAwaitingFirstToken,
-    cancel,
-  } = useChat();
+  const { messages, handleSendMessage, isLoading, isAwaitingFirstToken, cancel } = useChat();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const fullScreen = useIsCompact();
   const isEmpty = messages.length === 0;
@@ -93,13 +87,7 @@ const Chat: React.FC = () => {
           <ChatBubbleOutlineRoundedIcon />
         </Fab>
       )}
-      <Dialog
-        open={isOpen}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={fullScreen}
-      >
+      <Dialog open={isOpen} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
         <DialogTitle
           sx={{
             display: 'flex',
@@ -111,12 +99,7 @@ const Chat: React.FC = () => {
           }}
         >
           {t('chat.title')}
-          <IconButton
-            onClick={handleClose}
-            aria-label={t('chat.close')}
-            size="small"
-            edge="end"
-          >
+          <IconButton onClick={handleClose} aria-label={t('chat.close')} size="small" edge="end">
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -155,16 +138,9 @@ const Chat: React.FC = () => {
                     p: 1.5,
                     mb: 1,
                     maxWidth: '80%',
-                    alignSelf:
-                      msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                    color:
-                      msg.sender === 'user'
-                        ? 'primary.contrastText'
-                        : 'text.primary',
-                    bgcolor:
-                      msg.sender === 'user'
-                        ? 'primary.main'
-                        : 'background.paper',
+                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    color: msg.sender === 'user' ? 'primary.contrastText' : 'text.primary',
+                    bgcolor: msg.sender === 'user' ? 'primary.main' : 'background.paper',
                     border: msg.sender === 'user' ? 'none' : 1,
                     borderColor: 'divider',
                     borderRadius: 2.5,

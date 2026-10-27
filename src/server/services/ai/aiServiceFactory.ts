@@ -18,9 +18,7 @@ class AIServiceFactory {
   }
 
   public static getCategorySuggester(): CategorySuggester {
-    const categorySuggester = optionalEnv(
-      'AI_CATEGORY_SUGGESTER',
-    ).toLowerCase();
+    const categorySuggester = optionalEnv('AI_CATEGORY_SUGGESTER').toLowerCase();
 
     switch (categorySuggester) {
       case 'jev':

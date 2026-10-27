@@ -37,14 +37,11 @@ describe('transactionRepository.getTransactionsList amount cursor', () => {
     expect(cursorWhere[0]).toEqual({ AND: [{ value: { lt: 12.5 } }] });
   });
 
-  it.each(['1e400', 'abc', ' '])(
-    'refuses %j with a 400 before querying',
-    async (amount) => {
-      await expect(listByAmount(amountCursor(amount))).rejects.toMatchObject({
-        status: 400,
-        message: 'Invalid cursor',
-      });
-      expect(findMany).not.toHaveBeenCalled();
-    },
-  );
+  it.each(['1e400', 'abc', ' '])('refuses %j with a 400 before querying', async (amount) => {
+    await expect(listByAmount(amountCursor(amount))).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid cursor',
+    });
+    expect(findMany).not.toHaveBeenCalled();
+  });
 });

@@ -119,10 +119,7 @@ export function withPreview(
   });
 }
 
-export function planDrift(
-  previewedRowIds: string[],
-  planRowIds: string[],
-): PlanDrift {
+export function planDrift(previewedRowIds: string[], planRowIds: string[]): PlanDrift {
   const previewed = new Set(previewedRowIds);
   const planned = new Set(planRowIds);
   return {
@@ -131,10 +128,7 @@ export function planDrift(
   };
 }
 
-function targetOf(
-  manifest: ImportManifest,
-  baseUrl: string,
-): ImportManifest['targets'][string] {
+function targetOf(manifest: ImportManifest, baseUrl: string): ImportManifest['targets'][string] {
   return manifest.targets[baseUrl] ?? { statements: {}, previews: {} };
 }
 

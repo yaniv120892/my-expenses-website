@@ -90,10 +90,7 @@ describe('notifyOpsAlert', () => {
       title: '5xx on GET /api/transactions',
     });
 
-    expect(incrementWithTtl).toHaveBeenCalledWith(
-      'ops-alert:5xx-get-api-transactions',
-      3600,
-    );
+    expect(incrementWithTtl).toHaveBeenCalledWith('ops-alert:5xx-get-api-transactions', 3600);
   });
 
   it('shares one quota across records on the same route pattern', async () => {
@@ -152,9 +149,7 @@ describe('notifyOpsAlert', () => {
   it('sends nothing when the rate-limit check itself fails', async () => {
     incrementWithTtl.mockRejectedValue(new Error('redis down'));
 
-    await expect(
-      notifyOpsAlert({ alertType: 'boom', title: 'boom' }),
-    ).resolves.toBeUndefined();
+    await expect(notifyOpsAlert({ alertType: 'boom', title: 'boom' })).resolves.toBeUndefined();
     expect(sendMessage).not.toHaveBeenCalled();
     expect(loggerError).toHaveBeenCalledTimes(1);
   });

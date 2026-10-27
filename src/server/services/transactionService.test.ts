@@ -76,11 +76,7 @@ describe('getAllTransactions', () => {
       userId: 'user-1',
     });
 
-    expect(transactions.map((transaction) => transaction.id)).toEqual([
-      't1',
-      't2',
-      't3',
-    ]);
+    expect(transactions.map((transaction) => transaction.id)).toEqual(['t1', 't2', 't3']);
     expect(getTransactionsList.mock.calls[0][0].cursor).toBeUndefined();
     expect(getTransactionsList.mock.calls[1][0].cursor).toBe('cursor-1');
   });
@@ -131,11 +127,7 @@ describe('category subtree resolution', () => {
       limit: 50,
     });
 
-    expect(listArgs().categoryIds).toEqual([
-      'cat-food',
-      'cat-groceries',
-      'cat-organic',
-    ]);
+    expect(listArgs().categoryIds).toEqual(['cat-food', 'cat-groceries', 'cat-organic']);
   });
 
   it('resolves a leaf category to itself', async () => {
@@ -221,9 +213,9 @@ describe('getCategoryBreakdown', () => {
   it('returns no slices when nothing matched', async () => {
     getAllCategories.mockResolvedValue([]);
     getCategoryTotals.mockResolvedValue([]);
-    await expect(
-      transactionService.getCategoryBreakdown({ userId: 'user-1' }),
-    ).resolves.toEqual([]);
+    await expect(transactionService.getCategoryBreakdown({ userId: 'user-1' })).resolves.toEqual(
+      [],
+    );
   });
 });
 
@@ -235,23 +227,15 @@ describe('getSuggestedCategory', () => {
   });
 
   it('normalizes the description before looking up a mapping', async () => {
-    await serviceInternals.getSuggestedCategory(
-      '  PiZZa  ',
-      'user-1',
-      CATEGORIES,
-    );
+    await serviceInternals.getSuggestedCategory('  PiZZa  ', 'user-1', CATEGORIES);
     expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
   });
 
   it.each([
-    [
-      'no mapping exists',
-      () => findByUserAndDescription.mockResolvedValue(null),
-    ],
+    ['no mapping exists', () => findByUserAndDescription.mockResolvedValue(null)],
     [
       'the mapped category no longer exists',
-      () =>
-        findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
+      () => findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
     ],
     [
       'the mapping lookup fails',
@@ -302,10 +286,7 @@ describe('attachFile', () => {
   });
 
   it.each([
-    [
-      'another transaction',
-      'transactions/22222222-2222-4222-8222-222222222222/uuid-x.pdf',
-    ],
+    ['another transaction', 'transactions/22222222-2222-4222-8222-222222222222/uuid-x.pdf'],
     ['a key outside the attachments prefix', 'imports/someone-else.xlsx'],
     ['a dot segment', `transactions/${TRANSACTION_ID}/../other/x.pdf`],
     ['the bare prefix', `transactions/${TRANSACTION_ID}/`],
@@ -316,10 +297,7 @@ describe('attachFile', () => {
 
   it('413s a file declared over 4 MB without storing it', async () => {
     await expect(
-      attach(
-        `transactions/${TRANSACTION_ID}/uuid-receipt.pdf`,
-        MAX_UPLOAD_BYTES + 1,
-      ),
+      attach(`transactions/${TRANSACTION_ID}/uuid-receipt.pdf`, MAX_UPLOAD_BYTES + 1),
     ).rejects.toMatchObject({
       status: 413,
       message: 'receipt.pdf is 4.1 MB, over the 4 MB upload limit.',

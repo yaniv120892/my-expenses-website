@@ -26,9 +26,7 @@ interface Props {
   onExplain: (subscription: DetectedSubscription) => void;
 }
 
-function frequencyColor(
-  frequency: string,
-): 'primary' | 'secondary' | 'warning' {
+function frequencyColor(frequency: string): 'primary' | 'secondary' | 'warning' {
   switch (frequency) {
     case 'WEEKLY':
       return 'warning';
@@ -41,9 +39,7 @@ function frequencyColor(
   }
 }
 
-function statusColor(
-  status: string,
-): 'default' | 'success' | 'warning' | 'error' {
+function statusColor(status: string): 'default' | 'success' | 'warning' | 'error' {
   switch (status) {
     case 'DETECTED':
       return 'warning';
@@ -119,21 +115,14 @@ export default function SubscriptionCard({
                 size="small"
               />
               <Chip
-                label={
-                  subscription.categoryName ??
-                  t('subscriptions.card.noCategory')
-                }
+                label={subscription.categoryName ?? t('subscriptions.card.noCategory')}
                 size="small"
                 variant="outlined"
                 color={subscription.categoryName ? 'default' : 'warning'}
               />
               {subscription.userEditedAt && (
                 <Tooltip title={t('subscriptions.card.editedHint')}>
-                  <Chip
-                    label={t('subscriptions.card.edited')}
-                    size="small"
-                    variant="outlined"
-                  />
+                  <Chip label={t('subscriptions.card.edited')} size="small" variant="outlined" />
                 </Tooltip>
               )}
             </Stack>
@@ -241,11 +230,7 @@ export default function SubscriptionCard({
         >
           {subscription.status === 'DETECTED' && (
             <>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => onConfirm(subscription.id)}
-              >
+              <Button variant="contained" size="small" onClick={() => onConfirm(subscription.id)}>
                 {t('subscriptions.card.confirm')}
               </Button>
               <Button
@@ -258,22 +243,14 @@ export default function SubscriptionCard({
               </Button>
             </>
           )}
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => onEdit(subscription)}
-          >
+          <Button variant="outlined" size="small" onClick={() => onEdit(subscription)}>
             {t('subscriptions.card.edit')}
           </Button>
           <Button size="small" onClick={() => onExplain(subscription)}>
             {t('subscriptions.card.explain')}
           </Button>
           {subscription.status !== 'DISMISSED' && !scheduleMatch && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => onConvert(subscription)}
-            >
+            <Button variant="outlined" size="small" onClick={() => onConvert(subscription)}>
               {t('subscriptions.card.convert')}
             </Button>
           )}

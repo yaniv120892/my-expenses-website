@@ -1,10 +1,7 @@
 import logger from '@/server/logging/logger';
 import { optionalEnv } from '@/server/env';
 import { incrementWithTtl } from '@/server/redis';
-import {
-  escapeMarkdown,
-  telegramService,
-} from '@/server/services/telegramService';
+import { escapeMarkdown, telegramService } from '@/server/services/telegramService';
 
 export interface OpsAlert {
   alertType: string;
@@ -63,10 +60,7 @@ export async function notifyOpsAlert(alert: OpsAlert): Promise<void> {
     return;
   }
   try {
-    const count = await incrementWithTtl(
-      quotaKey(alert.alertType),
-      WINDOW_SECONDS,
-    );
+    const count = await incrementWithTtl(quotaKey(alert.alertType), WINDOW_SECONDS);
     if (count > SUPPRESSION_NOTICE_COUNT) {
       return;
     }

@@ -38,9 +38,9 @@ describe('manifest round trip', () => {
   });
 
   it('rejects text that is not JSON, naming the file', () => {
-    expect(() =>
-      parseManifest('{nope', '/tmp/x/.import-statements.json'),
-    ).toThrow('/tmp/x/.import-statements.json is not valid JSON');
+    expect(() => parseManifest('{nope', '/tmp/x/.import-statements.json')).toThrow(
+      '/tmp/x/.import-statements.json is not valid JSON',
+    );
   });
 
   it('rejects JSON of another shape, naming the file', () => {
@@ -52,20 +52,10 @@ describe('manifest round trip', () => {
 
 describe('recordedImport', () => {
   it('keeps targets apart, so a rehearsal never stands in for production', () => {
-    const manifest = withSubmission(
-      emptyManifest(),
-      LOCAL,
-      'cal-1-01-2026.xlsx',
-      'imp-local',
-      AT,
-    );
+    const manifest = withSubmission(emptyManifest(), LOCAL, 'cal-1-01-2026.xlsx', 'imp-local', AT);
 
-    expect(
-      recordedImport(manifest, LOCAL, 'cal-1-01-2026.xlsx')?.importId,
-    ).toBe('imp-local');
-    expect(
-      recordedImport(manifest, SITE, 'cal-1-01-2026.xlsx'),
-    ).toBeUndefined();
+    expect(recordedImport(manifest, LOCAL, 'cal-1-01-2026.xlsx')?.importId).toBe('imp-local');
+    expect(recordedImport(manifest, SITE, 'cal-1-01-2026.xlsx')).toBeUndefined();
   });
 
   it('is undefined for a file never submitted', () => {
@@ -83,13 +73,7 @@ describe('recordedImport', () => {
 
 describe('withResolvedImport', () => {
   it('moves a file to the survivor after a merge, keeping submittedAt', () => {
-    const uploaded = withSubmission(
-      emptyManifest(),
-      LOCAL,
-      'a.xlsx',
-      'imp-new',
-      AT,
-    );
+    const uploaded = withSubmission(emptyManifest(), LOCAL, 'a.xlsx', 'imp-new', AT);
 
     const resolved = withResolvedImport(uploaded, LOCAL, 'a.xlsx', 'imp-old');
 
@@ -101,9 +85,7 @@ describe('withResolvedImport', () => {
 
   it('is a no-op for a file the manifest does not know', () => {
     const manifest = emptyManifest();
-    expect(withResolvedImport(manifest, LOCAL, 'a.xlsx', 'imp-1')).toBe(
-      manifest,
-    );
+    expect(withResolvedImport(manifest, LOCAL, 'a.xlsx', 'imp-1')).toBe(manifest);
   });
 });
 

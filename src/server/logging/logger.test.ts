@@ -41,15 +41,11 @@ function shippedMessages(): unknown[] {
 describe('logger remote shipping', () => {
   it('ships marked info, warns and errors, and drops plain info', async () => {
     const { default: logger } = await import('@/server/logging/logger');
-    const { flushRemoteLogs } =
-      await import('@/server/logging/betterStackStream');
+    const { flushRemoteLogs } = await import('@/server/logging/betterStackStream');
 
     logger.info({ userId: 'u1' }, 'plain info');
     logger.info({ path: '/api/summary/today', ship: true }, 'request');
-    logger.warn(
-      { envVar: 'BETTERSTACK_HEARTBEAT_X' },
-      'Heartbeat not configured',
-    );
+    logger.warn({ envVar: 'BETTERSTACK_HEARTBEAT_X' }, 'Heartbeat not configured');
 
     expect(batches).toHaveLength(0);
 

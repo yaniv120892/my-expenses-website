@@ -17,11 +17,7 @@ import {
 import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import {
-  formatBucketLabel,
-  selectMeasure,
-  seriesColor,
-} from '@/utils/comparison';
+import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 
 interface Props {
@@ -91,10 +87,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
                   </Typography>
                   <Typography variant="body2">
                     {formatter.currency(
-                      selectMeasure(
-                        comparison.buckets[bucketIndex].cells[index],
-                        measure,
-                      ),
+                      selectMeasure(comparison.buckets[bucketIndex].cells[index], measure),
                     )}
                   </Typography>
                 </Stack>
@@ -107,11 +100,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
   }
 
   return (
-    <TableContainer
-      component={Paper}
-      variant="outlined"
-      sx={{ maxHeight: 480, overflowX: 'auto' }}
-    >
+    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 480, overflowX: 'auto' }}>
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
@@ -150,10 +139,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
                 {bucketLabel(bucket)}
               </TableCell>
               {bucket.cells.map((cell, index) => (
-                <TableCell
-                  key={comparison.series[index].categoryId}
-                  align="right"
-                >
+                <TableCell key={comparison.series[index].categoryId} align="right">
                   {formatter.currency(selectMeasure(cell, measure))}
                 </TableCell>
               ))}
@@ -177,18 +163,12 @@ export function ComparisonTable({ comparison, measure }: Props) {
               {t('trends.compare.total')}
             </TableCell>
             {comparison.series.map((series) => (
-              <TableCell
-                key={series.categoryId}
-                align="right"
-                sx={{ fontWeight: 700 }}
-              >
+              <TableCell key={series.categoryId} align="right" sx={{ fontWeight: 700 }}>
                 {formatter.currency(selectMeasure(series.total, measure))}
               </TableCell>
             ))}
             <TableCell align="right" sx={{ fontWeight: 700 }}>
-              {formatter.currency(
-                selectMeasure(comparison.grandTotal, measure),
-              )}
+              {formatter.currency(selectMeasure(comparison.grandTotal, measure))}
             </TableCell>
           </TableRow>
         </TableFooter>

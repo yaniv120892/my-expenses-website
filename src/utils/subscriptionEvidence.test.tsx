@@ -8,10 +8,7 @@ import { useT } from '@/i18n/useT';
 import { DesignTestProvider } from '@/test/renderWithClient';
 import { DetectedSubscription } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
-import {
-  buildEvidenceReasons,
-  withChargeGaps,
-} from '@/utils/subscriptionEvidence';
+import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';
 
 const evidence = (over: Partial<SubscriptionDetectionEvidence> = {}) =>
   ({
@@ -48,14 +45,11 @@ function reasonsFor({
   over?: Partial<SubscriptionDetectionEvidence>;
   locale?: Locale;
 } = {}): string[] {
-  const { result } = renderHook(
-    () => ({ t: useT(), formatter: useAppFormat() }),
-    {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
-      ),
-    },
-  );
+  const { result } = renderHook(() => ({ t: useT(), formatter: useAppFormat() }), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <DesignTestProvider locale={locale}>{children}</DesignTestProvider>
+    ),
+  });
   return buildEvidenceReasons({
     subscription,
     evidence: evidence(over),

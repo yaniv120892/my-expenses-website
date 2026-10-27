@@ -49,15 +49,13 @@ describe('buildTransactionsCsv', () => {
       category: undefined as unknown as Transaction['category'],
     });
 
-    expect(buildTransactionsCsv([withoutCategory]).split('\n')[1]).toContain(
-      '""',
-    );
+    expect(buildTransactionsCsv([withoutCategory]).split('\n')[1]).toContain('""');
   });
 
   it('escapes quotes in a description', () => {
-    const lines = buildTransactionsCsv([
-      transaction({ description: 'Coffee, "large"' }),
-    ]).split('\n');
+    const lines = buildTransactionsCsv([transaction({ description: 'Coffee, "large"' })]).split(
+      '\n',
+    );
 
     expect(lines[1]).toContain('"Coffee, ""large"""');
   });
@@ -76,9 +74,7 @@ describe('buildTransactionsCsv', () => {
     ]).split('\n');
 
     expect(lines[1]).toContain('12.5,"EXPENSE","Food","ILS",12.5,"","",""');
-    expect(lines[2]).toContain(
-      '92.35,"EXPENSE","Food","USD",25,3.694,"2026-08-14","STATEMENT"',
-    );
+    expect(lines[2]).toContain('92.35,"EXPENSE","Food","USD",25,3.694,"2026-08-14","STATEMENT"');
   });
 
   it('returns a header-only file for no transactions', () => {
@@ -92,24 +88,18 @@ describe('buildTransactionsCsv', () => {
   it.each(['=SUM(A1)', '+1+1', '-1+1', '@SUM(A1)'])(
     'quotes %s as text so a spreadsheet cannot run it',
     (description) => {
-      const lines = buildTransactionsCsv([transaction({ description })]).split(
-        '\n',
-      );
+      const lines = buildTransactionsCsv([transaction({ description })]).split('\n');
 
       expect(lines[1]).toContain(`"'${description}"`);
     },
   );
 
   it('leaves an ordinary description alone', () => {
-    expect(buildTransactionsCsv([transaction()]).split('\n')[1]).toContain(
-      '"Coffee"',
-    );
+    expect(buildTransactionsCsv([transaction()]).split('\n')[1]).toContain('"Coffee"');
   });
 
   it('leaves the BOM to buildTransactionsCsvFile', () => {
-    expect(buildTransactionsCsv([transaction()]).startsWith(CSV_BOM)).toBe(
-      false,
-    );
+    expect(buildTransactionsCsv([transaction()]).startsWith(CSV_BOM)).toBe(false);
     expect(buildTransactionsCsvFile([transaction()])).toBe(
       `${CSV_BOM}${buildTransactionsCsv([transaction()])}`,
     );
@@ -124,9 +114,9 @@ describe('buildTransactionsBackupCsv', () => {
   });
 
   it('reproduces the description exactly as stored', () => {
-    const lines = buildTransactionsBackupCsv([
-      transaction({ description: '=SUM(A1)' }),
-    ]).split('\n');
+    const lines = buildTransactionsBackupCsv([transaction({ description: '=SUM(A1)' })]).split(
+      '\n',
+    );
 
     expect(lines[1]).toContain('"=SUM(A1)"');
   });
@@ -148,14 +138,12 @@ describe('transactionsCsvFileName', () => {
   });
 
   it('falls back to today when a bound is missing', () => {
-    expect(
-      transactionsCsvFileName({ endDate: new Date('2026-08-31') }, now),
-    ).toBe('transactions_2026-08-17.csv');
-    expect(
-      transactionsCsvFileName({ startDate: new Date('2026-08-01') }, now),
-    ).toBe('transactions_2026-08-17.csv');
-    expect(transactionsCsvFileName({}, now)).toBe(
+    expect(transactionsCsvFileName({ endDate: new Date('2026-08-31') }, now)).toBe(
       'transactions_2026-08-17.csv',
     );
+    expect(transactionsCsvFileName({ startDate: new Date('2026-08-01') }, now)).toBe(
+      'transactions_2026-08-17.csv',
+    );
+    expect(transactionsCsvFileName({}, now)).toBe('transactions_2026-08-17.csv');
   });
 });

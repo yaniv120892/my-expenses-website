@@ -16,11 +16,7 @@ import {
 import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
-import {
-  formatBucketLabel,
-  selectMeasure,
-  seriesColor,
-} from '@/utils/comparison';
+import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 import { valueAxisOrientation } from './trendFilters';
 

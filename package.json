@@ -63,7 +63,7 @@
     "ai": "^7.0.152",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
-    "content-disposition": "^2.0.1",
+    "content-disposition": "^3.0.0",
     "csv-parse": "^7.0.3",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",

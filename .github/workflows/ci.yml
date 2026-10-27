@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   checks:
-    uses: yaniv120892/dev-config/.github/workflows/node-ci.yml@v0.1.4
+    uses: yaniv120892/dev-config/.github/workflows/node-ci.yml@v0.1.6
     with:
       audit: true
       # The Sentry-wrapped build worker OOMs on Node's default ~2GB heap.

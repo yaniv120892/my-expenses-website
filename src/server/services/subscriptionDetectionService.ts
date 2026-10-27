@@ -17,7 +17,7 @@ import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
 import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
 import { escapeMarkdown } from '@/server/services/telegramService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import {
   nextExpectedDateAfter,
   roundToCents,

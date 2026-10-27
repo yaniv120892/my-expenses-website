@@ -1,6 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
 

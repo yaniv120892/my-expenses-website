@@ -6,7 +6,7 @@ import type { TrendDirection } from '@/server/utils/trendMath';
 import { classifyTrend } from '@/server/utils/trendMath';
 import { buildTransactionsCsvFile } from '@/server/utils/transactionCsv';
 import type { Transaction } from '@/shared/types/transaction';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { formatCurrency } from '@/utils/format';
 import { MONTH_FORMAT } from '@/shared/dates';
 

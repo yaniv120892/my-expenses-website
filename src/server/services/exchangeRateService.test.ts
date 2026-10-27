@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
 const { getValue, setValue } = vi.hoisted(() => ({
   getValue: vi.fn(),
   setValue: vi.fn(),
 }));
 vi.mock('@/server/redis', () => ({ getValue, setValue }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError: vi.fn(),
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError: vi.fn() },
 }));
 
 import exchangeRateService, { parsePublishedRates } from './exchangeRateService';

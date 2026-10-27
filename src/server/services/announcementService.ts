@@ -1,7 +1,7 @@
 import announcementRepository from '@/server/repositories/announcementRepository';
 import { ANNOUNCEMENTS, ANNOUNCEMENT_IDS } from '@/shared/announcements';
 import type { AnnouncementWithSeen } from '@/shared/types/announcement';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 class AnnouncementService {
   public async getForUser(userId: string): Promise<AnnouncementWithSeen[]> {

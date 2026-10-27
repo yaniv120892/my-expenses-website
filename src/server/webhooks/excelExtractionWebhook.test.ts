@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
 const {
   getRateToBase,
@@ -7,7 +8,7 @@ const {
   prismaMock,
   findPotentialMatchesForImport,
   extractWebhookParams,
-  reportSwallowedError,
+  reportError,
 } = vi.hoisted(() => ({
   getRateToBase: vi.fn(),
   importRepo: {
@@ -32,7 +33,7 @@ const {
   },
   findPotentialMatchesForImport: vi.fn(),
   extractWebhookParams: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
 }));
 
 vi.mock('@/server/utils/webhookAuth', () => ({
@@ -49,8 +50,9 @@ vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/services/exchangeRateService', () => ({
   default: { getRateToBase },
 }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 vi.mock('@/server/services/importService', () => ({
   importService: {
@@ -542,9 +544,11 @@ describe('completed extraction', () => {
 
     expect(response.status).toBe(500);
     expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith('imp-1', expect.any(String));
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ importId: 'imp-1' }),
-      'Error processing webhook',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'Error processing webhook',
+        context: expect.objectContaining({ importId: 'imp-1' }),
+      }),
     );
   });
 
@@ -672,7 +676,7 @@ describe('redelivered callbacks', () => {
       'COMPLETED',
     );
     expect(importRepo.transitionStatus).toHaveBeenCalledTimes(2);
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the survivor alone when the failing import was never merged', async () => {

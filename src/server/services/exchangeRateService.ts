@@ -1,8 +1,7 @@
 import { subDays } from 'date-fns';
 import { parse } from 'csv-parse/sync';
 import Decimal from 'decimal.js';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 import { getValue, setValue } from '@/server/redis';
 import { toDayString } from '@/shared/dates';
 import { toRateString } from '@/server/utils/money';
@@ -57,10 +56,11 @@ class ExchangeRateService {
       }
       return { rate: latest.rate, rateDate: latest.day };
     } catch (err) {
-      reportSwallowedError(
-        { err, currency, day: toDayString(date) },
-        'Failed to fetch exchange rate',
-      );
+      observability.reportError({
+        error: err,
+        where: 'Failed to fetch exchange rate',
+        context: { currency, day: toDayString(date) },
+      });
       return null;
     }
   }

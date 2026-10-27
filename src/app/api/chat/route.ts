@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createHandler } from '@/server/http/handler';
 import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
 
 export const runtime = 'nodejs';

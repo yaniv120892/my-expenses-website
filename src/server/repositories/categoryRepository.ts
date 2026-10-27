@@ -1,7 +1,7 @@
 import type { Category } from '@/shared/types/category';
 import prisma from '@/server/db/client';
 import { setValue, getValue } from '@/server/redis';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 const oneDayInSeconds = 24 * 60 * 60;
 

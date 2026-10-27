@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { incrementManyWithTtl } from '@/server/redis';
 import { HttpError } from '@/server/http/errors';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 
 export type RateLimitRule = {
   key: string;
@@ -40,7 +39,7 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
   } catch (error) {
     // Fail open so a Redis outage cannot take auth or chat down; reported so it
     // stays visible.
-    reportSwallowedError({ err: error }, 'Rate limit check failed; allowing the request');
+    observability.reportError({ error, where: 'Rate limit check failed; allowing the request' });
     return;
   }
   const tripped = rules.find((rule, index) => (counts[index] ?? 0) > rule.limit);

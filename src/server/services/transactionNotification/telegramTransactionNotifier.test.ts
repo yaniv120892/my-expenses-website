@@ -15,8 +15,8 @@ vi.mock('@/server/services/userSettingsService', () => ({
 vi.mock('@/server/utils/transactionUtils', () => ({
   formatTransaction: () => 'formatted',
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 import { TelegramTransactionNotifier } from '@/server/services/transactionNotification/telegramTransactionNotifier';

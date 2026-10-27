@@ -6,8 +6,7 @@ import type {
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { HttpError } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
 // A write names the transaction it touched, so the call's log line carries it.
 type ToolReply = string | { text: string; transactionId: string };
@@ -88,7 +87,11 @@ export function registerSafeTool({
         return toolFailure(clientError.message);
       }
       logCall({ outcome: 'server_error' });
-      reportSwallowedError({ err: error, userId: actor.userId, toolName: name }, 'MCP tool failed');
+      observability.reportError({
+        error,
+        where: 'MCP tool failed',
+        context: { userId: actor.userId, toolName: name },
+      });
       return toolFailure(NEUTRAL_FAILURE);
     }
   }

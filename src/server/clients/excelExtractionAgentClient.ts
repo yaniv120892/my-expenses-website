@@ -1,5 +1,5 @@
 import axios from 'axios';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv, requireSiteUrl } from '@/server/env';

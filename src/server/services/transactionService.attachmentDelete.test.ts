@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const {
@@ -8,7 +9,7 @@ const {
   markForDeletion,
   markDeleted,
   hasActiveFileWithKey,
-  reportSwallowedError,
+  reportError,
 } = vi.hoisted(() => ({
   deleteTransaction: vi.fn(),
   getTransactionItem: vi.fn(),
@@ -16,7 +17,7 @@ const {
   markForDeletion: vi.fn(),
   markDeleted: vi.fn(),
   hasActiveFileWithKey: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({
@@ -27,8 +28,9 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: { findById, markForDeletion, markDeleted, hasActiveFileWithKey },
 }));
 
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import transactionService from '@/server/services/transactionService';
@@ -97,14 +99,16 @@ describe('removeFile', () => {
 
     expect(markForDeletion).toHaveBeenCalledWith(FILE_ID);
     expect(markDeleted).not.toHaveBeenCalled();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: storageError,
-        fileKey: FILE_KEY,
-        transactionId: TRANSACTION_ID,
-        fileId: FILE_ID,
+        error: storageError,
+        where: expect.any(String),
+        context: expect.objectContaining({
+          fileKey: FILE_KEY,
+          transactionId: TRANSACTION_ID,
+          fileId: FILE_ID,
+        }),
       }),
-      expect.any(String),
     );
   });
 
@@ -117,10 +121,13 @@ describe('removeFile', () => {
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: markError, fileId: FILE_ID }),
-      'Deleted attachment object but failed to mark its file DELETED',
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: markError,
+        where: 'Deleted attachment object but failed to mark its file DELETED',
+        context: expect.objectContaining({ fileId: FILE_ID }),
+      }),
     );
   });
 
@@ -174,14 +181,13 @@ describe('deleteTransaction', () => {
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(2);
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: storageError,
-        fileKey: FILE_KEY,
-        transactionId: TRANSACTION_ID,
+        error: storageError,
+        where: expect.any(String),
+        context: expect.objectContaining({ fileKey: FILE_KEY, transactionId: TRANSACTION_ID }),
       }),
-      expect.any(String),
     );
   });
 

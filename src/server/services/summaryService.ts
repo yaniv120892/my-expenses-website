@@ -3,7 +3,7 @@ import userSettingsService from '@/server/services/userSettingsService';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { TransactionType } from '@/generated/prisma/client';
 import type { SummaryTransaction } from '@/server/utils/summaryMessage';
 import { formatSummaryMessage } from '@/server/utils/summaryMessage';

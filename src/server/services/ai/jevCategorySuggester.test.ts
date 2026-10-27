@@ -1,19 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
-const { evaluate, reportSwallowedError, createGateway, createTypeSafeAi, evaluationModel } =
-  vi.hoisted(() => ({
+const { evaluate, reportError, createGateway, createTypeSafeAi, evaluationModel } = vi.hoisted(
+  () => ({
     evaluate: vi.fn(),
-    reportSwallowedError: vi.fn(),
+    reportError: vi.fn(),
     createGateway: vi.fn(),
     createTypeSafeAi: vi.fn(),
     evaluationModel: vi.fn(),
-  }));
+  }),
+);
 
 vi.mock('ai', () => ({ experimental_evaluate: evaluate }));
 vi.mock('@ai-sdk/gateway', () => ({ createGateway }));
 vi.mock('@ai-sdk/typesafe-ai', () => ({ createTypeSafeAi }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
@@ -107,12 +110,11 @@ describe('JevCategorySuggester', () => {
     const suggester = new JevCategorySuggester();
 
     await expect(suggester.evaluateCategory('GETT', categories)).rejects.toThrow('gateway 503');
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
 
     await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      'Jev API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.any(Error), where: 'Jev API error' }),
     );
   });
 
@@ -149,13 +151,13 @@ describe('JevCategorySuggester', () => {
     expect(createGateway).not.toHaveBeenCalled();
 
     await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: expect.objectContaining({
+        error: expect.objectContaining({
           message: expect.stringContaining('AI_GATEWAY_API_KEY'),
         }),
+        where: 'Jev API error',
       }),
-      'Jev API error',
     );
   });
 });

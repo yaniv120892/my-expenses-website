@@ -1,6 +1,6 @@
 import { Memory } from '@mastra/memory';
 import { PostgresStore } from '@mastra/pg';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
 // Mastra creates and migrates its own `mastra` schema, so it wants the direct

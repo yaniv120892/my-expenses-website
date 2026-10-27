@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { requireEnv } from '@/server/env';
 
 export const WEBHOOK_TOKEN_EXPIRY_HOURS = 6;

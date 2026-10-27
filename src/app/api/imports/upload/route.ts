@@ -3,7 +3,7 @@ import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { buildImportObjectKey } from '@/server/utils/importObjectKey';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 

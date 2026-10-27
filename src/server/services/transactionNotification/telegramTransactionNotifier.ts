@@ -2,7 +2,7 @@ import type { TransactionNotifier } from '@/server/services/transactionNotificat
 import type { Transaction } from '@/shared/types/transaction';
 import { telegramService } from '@/server/services/telegramService';
 import { formatTransaction } from '@/server/utils/transactionUtils';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import userSettingsService from '@/server/services/userSettingsService';
 
 export class TelegramTransactionNotifier implements TransactionNotifier {

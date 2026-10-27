@@ -32,12 +32,9 @@ vi.mock('@/server/repositories/userRepository', () => ({
   default: userRepository,
 }));
 vi.mock('@/server/services/telegramService', () => ({ telegramService }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  observability: { scheduleOpsAlert: vi.fn(), flushRemoteLogs: vi.fn(), pingHeartbeat: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),

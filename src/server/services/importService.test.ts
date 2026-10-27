@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
 const {
   importRepo,
   importedTxRepo,
   prismaMock,
   agentClient,
-  reportSwallowedError,
+  reportError,
   findPotentialMatches,
   findPotentialMatchesForCharges,
   findMatchingTransaction,
@@ -41,7 +42,7 @@ const {
     $transaction: vi.fn(),
   },
   agentClient: { submitExtractionRequest: vi.fn() },
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
   findPotentialMatches: vi.fn(),
   findPotentialMatchesForCharges: vi.fn(),
   findMatchingTransaction: vi.fn(),
@@ -86,8 +87,9 @@ vi.mock('@/server/services/transactionService', () => ({ default: txService }));
 vi.mock('@/server/clients/excelExtractionAgentClient', () => ({
   excelExtractionAgentClient: agentClient,
 }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { importService } from '@/server/services/importService';
@@ -338,9 +340,11 @@ describe('rematchImport', () => {
         .mockRejectedValueOnce(new Error('still down'));
 
       await expect(run()).rejects.toThrow('db down');
-      expect(reportSwallowedError).toHaveBeenCalledWith(
-        expect.objectContaining({ importId: 'imp-1' }),
-        expect.any(String),
+      expect(reportError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.any(String),
+          context: expect.objectContaining({ importId: 'imp-1' }),
+        }),
       );
     });
   });

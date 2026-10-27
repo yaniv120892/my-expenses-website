@@ -1,12 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { logger, captureRequestError } = vi.hoisted(() => ({
-  logger: { error: vi.fn() },
-  captureRequestError: vi.fn(),
+const { onRequestErrorInPackage } = vi.hoisted(() => ({
+  onRequestErrorInPackage: vi.fn(),
 }));
 
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
-vi.mock('@sentry/nextjs', () => ({ captureRequestError }));
+vi.mock('@/server/observability', () => ({
+  observability: { onRequestError: onRequestErrorInPackage },
+}));
 
 import { onRequestError } from '@/instrumentation';
 
@@ -28,22 +28,24 @@ describe('onRequestError', () => {
     vi.clearAllMocks();
   });
 
-  it('logs the error with request metadata', async () => {
-    const err = new Error('boom');
-
-    await onRequestError(err, request, context);
-
-    expect(logger.error).toHaveBeenCalledWith(
-      { err, path: '/dashboard', method: 'GET' },
-      'Unhandled request error',
-    );
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('forwards the error to Sentry with the context Next supplies', async () => {
+  it('hands a Node.js request error to the observability package', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     const err = new Error('boom');
 
     await onRequestError(err, request, context);
 
-    expect(captureRequestError).toHaveBeenCalledWith(err, request, context);
+    expect(onRequestErrorInPackage).toHaveBeenCalledWith(err, request, context);
+  });
+
+  it('leaves an Edge request error alone, keeping pino out of the Edge bundle', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'edge');
+
+    await onRequestError(new Error('boom'), request, context);
+
+    expect(onRequestErrorInPackage).not.toHaveBeenCalled();
   });
 });

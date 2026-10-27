@@ -4,8 +4,7 @@ import {
   TransactionStatus,
   ImportedTransactionStatus,
 } from '@/generated/prisma/client';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 import { getErrorMessage } from '@/server/utils/errorUtils';
 import {
   importRepository,
@@ -741,7 +740,11 @@ class ImportService {
     try {
       await this.releaseRematch(importId);
     } catch (err) {
-      reportSwallowedError({ err, importId }, 'Failed to return a failed re-match to COMPLETED');
+      observability.reportError({
+        error: err,
+        where: 'Failed to return a failed re-match to COMPLETED',
+        context: { importId },
+      });
     }
   }
 

@@ -67,7 +67,7 @@ describe('PersonalAgentSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Give the agent access' }));
 
     await waitFor(() => expect(screen.getByLabelText('Token').textContent).toBe(PLAINTEXT_TOKEN));
-    expect(vi.mocked(createApiToken).mock.calls[0][0]).toEqual({
+    expect(vi.mocked(createApiToken).mock.calls[0]?.[0]).toEqual({
       name: 'Instinct',
       scopes: ['AGENT'],
     });
@@ -110,7 +110,7 @@ describe('PersonalAgentSettings', () => {
     expect(revokeApiToken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
 
-    await waitFor(() => expect(vi.mocked(revokeApiToken).mock.calls[0][0]).toBe('agent'));
+    await waitFor(() => expect(vi.mocked(revokeApiToken).mock.calls[0]?.[0]).toBe('agent'));
   });
 
   it('reads in Hebrew for a Hebrew-speaking user, briefing the agent in English', async () => {

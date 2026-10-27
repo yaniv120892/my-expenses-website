@@ -30,8 +30,8 @@ describe('enumerateBuckets', () => {
     const day = new Date(2026, 4, 20);
     const buckets = enumerateBuckets(day, day, 'daily');
     expect(buckets).toHaveLength(1);
-    expect(buckets[0].key).toBe('2026-05-20');
-    expect(buckets[0].startDate).toEqual(day);
+    expect(buckets[0]?.key).toBe('2026-05-20');
+    expect(buckets[0]?.startDate).toEqual(day);
   });
 
   it('enumerates days across a month boundary', () => {
@@ -51,26 +51,26 @@ describe('enumerateBuckets', () => {
   it('enumerates ISO weeks across a year boundary without key collisions', () => {
     const buckets = enumerateBuckets(new Date(2025, 11, 25), new Date(2026, 0, 5), 'weekly');
     expect(buckets.map((b) => b.key)).toEqual(['2025-52', '2026-01', '2026-02']);
-    expect(buckets[0].startDate).toEqual(new Date(2025, 11, 22));
-    expect(buckets[1].startDate).toEqual(new Date(2025, 11, 29));
+    expect(buckets[0]?.startDate).toEqual(new Date(2025, 11, 22));
+    expect(buckets[1]?.startDate).toEqual(new Date(2025, 11, 29));
   });
 
   it('starts weekly buckets on Mondays, possibly before the range start', () => {
     const buckets = enumerateBuckets(new Date(2026, 2, 11), new Date(2026, 2, 11), 'weekly');
     expect(buckets).toHaveLength(1);
-    expect(buckets[0].startDate.getDay()).toBe(1);
-    expect(buckets[0].startDate).toEqual(new Date(2026, 2, 9));
+    expect(buckets[0]?.startDate.getDay()).toBe(1);
+    expect(buckets[0]?.startDate).toEqual(new Date(2026, 2, 9));
   });
 
   it('enumerates months across a year boundary', () => {
     const buckets = enumerateBuckets(new Date(2025, 10, 15), new Date(2026, 1, 3), 'monthly');
     expect(buckets.map((b) => b.key)).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
-    expect(buckets[0].startDate).toEqual(new Date(2025, 10, 1));
+    expect(buckets[0]?.startDate).toEqual(new Date(2025, 10, 1));
   });
 
   it('enumerates years anchored to January 1st', () => {
     const buckets = enumerateBuckets(new Date(2024, 5, 15), new Date(2026, 0, 1), 'yearly');
     expect(buckets.map((b) => b.key)).toEqual(['2024', '2025', '2026']);
-    expect(buckets[2].startDate).toEqual(new Date(2026, 0, 1));
+    expect(buckets[2]?.startDate).toEqual(new Date(2026, 0, 1));
   });
 });

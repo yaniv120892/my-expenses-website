@@ -58,7 +58,7 @@ export type ImportedTransaction = {
   exchangeRate: number | null;
   exchangeRateSource: ExchangeRateSource | null;
   date: string;
-  type: string;
+  type: TransactionType;
   status: ImportedTransactionStatus;
   matchingTransactionId?: string;
   matchingTransaction?: MatchingTransaction;

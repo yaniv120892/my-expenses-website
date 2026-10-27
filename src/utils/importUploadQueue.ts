@@ -1,5 +1,6 @@
 import type { BatchResult } from '@/types/import';
 import type { T } from '@/i18n/useT.types';
+import { assertNever } from '@/utils/assertNever';
 
 export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';
 
@@ -185,6 +186,8 @@ export function uploadQueueReducer(
 
     case 'RESET':
       return initialUploadQueueState;
+    default:
+      return assertNever({ value: action, what: 'upload queue action' });
   }
 }
 

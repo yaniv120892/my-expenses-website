@@ -16,7 +16,7 @@ import {
 import type { CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
-import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
+import { cellAt, formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 import { valueAxisOrientation } from './trendFilters';
 
@@ -98,7 +98,10 @@ function buildChartRows({
       }),
     };
     comparison.series.forEach((series, index) => {
-      row[series.categoryId] = selectMeasure(bucket.cells[index], measure);
+      row[series.categoryId] = selectMeasure(
+        cellAt({ cells: bucket.cells, seriesIndex: index }),
+        measure,
+      );
     });
     return row;
   });

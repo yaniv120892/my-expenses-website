@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, redisStore, userRepository, telegramService } = vi.hoisted(() => ({
@@ -9,7 +11,7 @@ const { requireUser, redisStore, userRepository, telegramService } = vi.hoisted(
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/redis', () => ({
@@ -38,7 +40,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({
   betterStackStream: { write: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 

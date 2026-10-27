@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ClientOptions } from 'openai';
+import type * as OpenAIModule from 'openai';
 
-const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(() => ({
-  reportSwallowedError: vi.fn(),
-  hangingFetch: vi.fn(),
-  constructedWith: [] as unknown[],
-}));
+const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(() => {
+  const constructedWith: unknown[] = [];
+  return { reportSwallowedError: vi.fn(), hangingFetch: vi.fn(), constructedWith };
+});
 
 vi.mock('openai', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('openai')>();
+  const actual = await importOriginal<typeof OpenAIModule>();
   class RecordingOpenAI extends actual.default {
-    constructor(options: ClientOptions) {
+    public constructor(options: ClientOptions) {
       constructedWith.push(options);
       super({ ...options, fetch: hangingFetch });
     }
@@ -26,6 +26,7 @@ import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
 import { stalledFetch } from '@/test/stalledFetch';
+import { trackSettled } from '@/test/trackSettled';
 
 hangingFetch.mockImplementation(stalledFetch);
 
@@ -69,17 +70,16 @@ describe('ChatGPTService request limits', () => {
   });
 
   it('fails a stalled call after the timeout and one retry instead of hanging', async () => {
-    let settled = false;
-    const pending = new ChatGPTService().suggestCategory('coffee', categories).finally(() => {
-      settled = true;
-    });
+    const { pending, isSettled } = trackSettled(
+      new ChatGPTService().suggestCategory('coffee', categories),
+    );
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
-    expect(settled).toBe(false);
+    expect(isSettled()).toBe(false);
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS);
 
-    expect(settled).toBe(true);
+    expect(isSettled()).toBe(true);
     await expect(pending).resolves.toBeNull();
     expect(hangingFetch).toHaveBeenCalledTimes(2);
     expect(reportSwallowedError).toHaveBeenCalledWith(

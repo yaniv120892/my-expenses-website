@@ -22,7 +22,7 @@ export const PERIOD_FORMATS: Record<string, string> = {
 };
 
 export function bucketKeyFor(date: Date, period: string): string {
-  return format(date, PERIOD_FORMATS[period] ?? PERIOD_FORMATS.daily);
+  return format(date, PERIOD_FORMATS[period] ?? DAY_FORMAT);
 }
 
 // Dense, so a period with no transactions renders as zero instead of

@@ -66,7 +66,7 @@ describe('exchangeRateService.getRateToBase', () => {
     const quote = await exchangeRateService.getRateToBase('USD', new Date(2026, 9, 3));
 
     expect(quote).toEqual({ rate: '3.06000000', rateDate: '2026-10-02' });
-    const requested = new URL(String(fetchMock.mock.calls[0][0]));
+    const requested = new URL(String(fetchMock.mock.calls[0]?.[0]));
     expect(requested.pathname).toMatch(/RER_USD_ILS$/);
     expect(requested.searchParams.get('endperiod')).toBe('2026-10-03');
     expect(setValue).toHaveBeenCalledWith('fx:boi:USD:2026-10-03', quote, 86400);

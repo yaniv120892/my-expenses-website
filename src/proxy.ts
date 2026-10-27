@@ -8,8 +8,8 @@ const AUTH_PAGES = ['/login', '/signup', '/verify'];
 // Signature/expiry check only — the full Redis session check runs in every
 // API handler, keeping Redis off the page navigation hot path. A missing
 // JWT_SECRET throws (loud misconfiguration) instead of redirect-looping.
-async function hasValidToken(req: NextRequest): Promise<boolean> {
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
+async function hasValidToken(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
     return false;
   }
@@ -24,12 +24,12 @@ async function hasValidToken(req: NextRequest): Promise<boolean> {
   }
 }
 
-function isCrossOrigin(req: NextRequest): boolean {
-  const origin = req.headers.get('origin');
+function isCrossOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get('origin');
   if (!origin) {
     return false;
   }
-  const host = req.headers.get('host');
+  const host = request.headers.get('host');
   try {
     return new URL(origin).host !== host;
   } catch {
@@ -37,25 +37,25 @@ function isCrossOrigin(req: NextRequest): boolean {
   }
 }
 
-export async function proxy(req: NextRequest): Promise<NextResponse> {
-  const { pathname } = req.nextUrl;
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
 
   // CSRF defense-in-depth on top of SameSite=Lax cookies.
   if (pathname.startsWith('/api/')) {
-    if (req.method !== 'GET' && isCrossOrigin(req)) {
+    if (request.method !== 'GET' && isCrossOrigin(request)) {
       return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 });
     }
     return NextResponse.next();
   }
 
-  const authenticated = await hasValidToken(req);
+  const authenticated = await hasValidToken(request);
   const isAuthPage = AUTH_PAGES.some((page) => pathname.startsWith(page));
 
   if (!authenticated && !isAuthPage) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
   if (authenticated && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   return NextResponse.next();
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Accordion,
@@ -68,15 +68,36 @@ function FileThumbnail({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-/** Minting the URL in the render body leaked a blob per render, for the life of the document. */
-function PendingFileThumbnail({ file }: { file: File }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+/**
+ * An external store per file: subscribing mints the object URL and
+ * unsubscribing revokes it, so a remount (StrictMode included) gets a live URL
+ * and no render leaks one.
+ */
+function createObjectUrlStore(file: File) {
+  let objectUrl: string | null = null;
+  return {
+    subscribe(onChange: () => void): () => void {
+      const url = URL.createObjectURL(file);
+      objectUrl = url;
+      onChange();
+      return function revokeObjectUrl() {
+        URL.revokeObjectURL(url);
+        objectUrl = null;
+      };
+    },
+    getSnapshot(): string | null {
+      return objectUrl;
+    },
+  };
+}
 
-  useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+function getServerObjectUrl(): null {
+  return null;
+}
+
+function PendingFileThumbnail({ file }: { file: File }) {
+  const store = useMemo(() => createObjectUrlStore(file), [file]);
+  const objectUrl = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerObjectUrl);
 
   if (!objectUrl) {
     return null;
@@ -127,13 +148,7 @@ export default function TransactionAttachments({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: ALLOWED_TYPES.reduce(
-      (acc, type) => {
-        acc[type] = [];
-        return acc;
-      },
-      {} as Record<string, string[]>,
-    ),
+    accept: Object.fromEntries(ALLOWED_TYPES.map((type) => [type, []])),
     maxFiles: 1,
     disabled: false,
   });
@@ -310,9 +325,9 @@ export default function TransactionAttachments({
                   <b>{submitButtonLabel ?? t('transactions.form.submit.update')}</b>
                   {t('transactions.attachments.pendingHintAfter')}
                 </Typography>
-                {pendingFiles.map((file, idx) => (
+                {pendingFiles.map((file, fileIndex) => (
                   <Stack
-                    key={file.name + file.size + idx}
+                    key={file.name + file.size + fileIndex}
                     direction="row"
                     spacing={2}
                     sx={{
@@ -333,7 +348,7 @@ export default function TransactionAttachments({
                     </Typography>
                     <IconButton
                       aria-label={t('transactions.attachments.removePending')}
-                      onClick={() => handleRemovePending(idx)}
+                      onClick={() => handleRemovePending(fileIndex)}
                       size="small"
                     >
                       <DeleteIcon fontSize="small" />

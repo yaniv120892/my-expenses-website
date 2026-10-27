@@ -15,13 +15,14 @@ vi.mock('@/services/importService', () => ({
 import FileUpload from '@/components/FileUpload';
 import { renderWithClient } from '@/test/renderWithClient';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
+import { requireInput } from '@/test/dom';
 
 const csv = (name: string) =>
   new File(['date,amount'], name, { lastModified: 1, type: 'text/csv' });
 
 /** react-dropzone renders a hidden file input; selecting through it is the drop. */
 function fileInput(): HTMLInputElement {
-  return document.querySelector('input[type="file"]') as HTMLInputElement;
+  return requireInput(document.querySelector('input[type="file"]'));
 }
 
 afterEach(cleanup);

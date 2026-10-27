@@ -30,7 +30,7 @@ const onResult = vi.fn();
 
 function lastPollRequest(): boolean {
   const calls = useUserSettingsQuery.mock.calls;
-  return calls[calls.length - 1][0].awaitingTelegramLink;
+  return calls.at(-1)?.[0].awaitingTelegramLink;
 }
 
 beforeEach(() => {

@@ -65,7 +65,7 @@ describe('initSentry', () => {
     initSentry();
 
     const identifyingKeys = ['forwarded', '-ip', 'remote-', 'via', '-user'];
-    expect(vi.mocked(Sentry.init).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(Sentry.init).mock.calls[0]?.[0]).toMatchObject({
       dataCollection: {
         userInfo: false,
         cookies: false,

@@ -1,7 +1,7 @@
 import transactionService from '@/server/services/transactionService';
 import userSettingsService from '@/server/services/userSettingsService';
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
 import { TransactionType } from '@/generated/prisma/client';
@@ -9,10 +9,10 @@ import type { SummaryTransaction } from '@/server/utils/summaryMessage';
 import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
 class SummaryService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getAiService = lazy(() => aiServiceFactory.getAIService());
 
   public async sendTodaySummaryToAllUsers(): Promise<void> {
-    const notifier = TransactionNotifierFactory.getNotifier();
+    const notifier = transactionNotifierFactory.getNotifier();
     const users = await userSettingsService.getUsersRequiredDailySummary();
     let failed = 0;
     for (const userId of users) {
@@ -64,4 +64,5 @@ class SummaryService {
   }
 }
 
-export default new SummaryService();
+const summaryService = new SummaryService();
+export default summaryService;

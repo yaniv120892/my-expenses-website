@@ -4,7 +4,7 @@ import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
 export class AuthError extends Error {
-  constructor(
+  public constructor(
     public readonly code: string,
     message: string,
   ) {
@@ -40,21 +40,21 @@ export function extractBearerToken(request: NextRequest): string | null {
   return isBearer ? token : null;
 }
 
-export function extractCredential(req: NextRequest): Credential | null {
-  const cookieToken = req.cookies.get(SESSION_COOKIE)?.value;
+export function extractCredential(request: NextRequest): Credential | null {
+  const cookieToken = request.cookies.get(SESSION_COOKIE)?.value;
   if (cookieToken) {
     return { source: 'cookie', token: cookieToken };
   }
-  const bearerToken = extractBearerToken(req);
+  const bearerToken = extractBearerToken(request);
   return bearerToken ? { source: 'bearer', token: bearerToken } : null;
 }
 
-export function extractToken(req: NextRequest): string | null {
-  return extractCredential(req)?.token ?? null;
+export function extractToken(request: NextRequest): string | null {
+  return extractCredential(request)?.token ?? null;
 }
 
-export async function requireUser(req: NextRequest): Promise<string> {
-  const token = extractToken(req);
+export async function requireUser(request: NextRequest): Promise<string> {
+  const token = extractToken(request);
   if (!token) {
     throw new AuthError('AUTH_REQUIRED', 'Authentication required');
   }

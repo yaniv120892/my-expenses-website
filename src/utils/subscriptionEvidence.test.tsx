@@ -6,37 +6,17 @@ import type { Locale } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { DesignTestProvider } from '@/test/renderWithClient';
-import type { DetectedSubscription } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
+import { buildDetectedSubscription, buildDetectionEvidence } from '@/test/subscriptionFixtures';
 import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';
 
-const evidence = (over: Partial<SubscriptionDetectionEvidence> = {}) =>
-  ({
-    analyzedFrom: '2025-08-18T00:00:00.000Z',
-    analyzedTo: '2026-08-18T00:00:00.000Z',
-    chargeCount: 4,
-    firstChargeDate: '2026-05-04T00:00:00.000Z',
-    lastChargeDate: '2026-08-04T00:00:00.000Z',
-    medianIntervalDays: 31,
-    minIntervalDays: 30,
-    maxIntervalDays: 31,
-    intervalStdDevDays: 0.5,
-    intervalVariationRatio: 0.02,
-    intervalToleranceRatio: 0.3,
-    frequencyWindowDays: { min: 25, max: 35 },
-    minAmount: 49.9,
-    maxAmount: 49.9,
-    averageAmount: 49.9,
-    recentCharges: [],
-    olderChargeCount: 0,
-    ...over,
-  }) as SubscriptionDetectionEvidence;
+const evidence = buildDetectionEvidence;
 
-const subscription = {
+const subscription = buildDetectedSubscription({
   merchantName: 'netflix',
   frequency: 'MONTHLY',
   confidence: 0.98,
-} as DetectedSubscription;
+});
 
 function reasonsFor({
   over = {},

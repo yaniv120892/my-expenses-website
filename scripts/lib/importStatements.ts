@@ -58,12 +58,12 @@ export function parseImportArguments(args: string[]): ImportArguments {
 
 // `<issuer>-<last4>-<MM>-<YYYY>.xlsx`
 export function parseStatementName(fileName: string): ParsedStatementName | null {
-  const match = STATEMENT_NAME_PATTERN.exec(basename(fileName, extname(fileName)));
-  if (!match) {
+  const [, , cardLastFour, month, year] =
+    STATEMENT_NAME_PATTERN.exec(basename(fileName, extname(fileName))) ?? [];
+  if (cardLastFour === undefined || month === undefined || year === undefined) {
     return null;
   }
 
-  const [, , cardLastFour, month, year] = match;
   return { cardLastFour, paymentMonth: `${month}/${year}` };
 }
 

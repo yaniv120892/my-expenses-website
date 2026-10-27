@@ -38,7 +38,7 @@ function declaredScopes(path: string): string[] {
     .split(/^export const /m)
     .slice(1)
     .flatMap((handler) => {
-      const scope = SCOPE_DECLARATION.exec(handler)?.[1].trim();
+      const scope = SCOPE_DECLARATION.exec(handler)?.[1]?.trim();
       const method = handler.slice(0, handler.indexOf(' '));
       return scope ? [`${method} ${route} → ${scope}`] : [];
     });

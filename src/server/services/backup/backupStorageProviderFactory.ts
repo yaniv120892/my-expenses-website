@@ -3,8 +3,8 @@ import type { BackupStorageProvider } from '@/server/services/backup/backupStora
 import { BackupStorageProviderType } from '@/server/services/backup/backupStorageProvider';
 import { GoogleStorageProvider } from '@/server/services/backup/googleStorageProvider';
 
-class BackupStorageProviderFactory {
-  public static getProvider(): BackupStorageProvider {
+const backupStorageProviderFactory = {
+  getProvider(): BackupStorageProvider {
     const backupStorageProviderType =
       process.env.BACKUP_STORAGE_PROVIDER_TYPE || BackupStorageProviderType.AWS;
     switch (backupStorageProviderType) {
@@ -16,7 +16,7 @@ class BackupStorageProviderFactory {
         return new GoogleStorageProvider();
       }
     }
-  }
-}
+  },
+};
 
-export default BackupStorageProviderFactory;
+export default backupStorageProviderFactory;

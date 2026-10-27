@@ -77,7 +77,8 @@ type SnackbarSeverity = 'success' | 'error' | 'warning';
 type Props = {
   open: boolean;
   onCloseAction: () => void;
-  onSubmitAction: (data: CreateTransactionInput) => Promise<string | void>;
+  /** Resolves to the new transaction's id when it creates one. */
+  onSubmitAction: (data: CreateTransactionInput) => Promise<string> | Promise<void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: TransactionFormType | null;
   mode?: 'approve' | 'merge';
@@ -271,7 +272,8 @@ export default function TransactionForm({
         categoryId: form.categoryId === '' ? undefined : form.categoryId,
         date: dateToUse,
       };
-      const newId = await onSubmitAction(submitData);
+      const submitResult = await onSubmitAction(submitData);
+      const newId = typeof submitResult === 'string' ? submitResult : undefined;
       const transactionId = initialData ? initialData.id : newId;
       let attachmentFailure: string | null = null;
       if (initialData && filesToRemove.length > 0) {

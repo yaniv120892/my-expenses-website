@@ -9,7 +9,8 @@ import type {
   UpdateType,
 } from './autoMergePolicy.types';
 
-const REQUIRED_CHECKS = ['checks', 'e2e'];
+// A reusable workflow reports its check as "<caller job> / <called job>".
+const REQUIRED_CHECKS = ['checks / Quality gate', 'e2e'];
 
 const AUTO_MERGE_BY_UPDATE_TYPE = {
   'version-update:semver-major': false,

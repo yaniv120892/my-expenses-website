@@ -1,38 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import type { DetectedSubscription } from '@/types/subscription';
+import { buildDetectedSubscription } from '@/test/subscriptionFixtures';
 import { sortSubscriptions } from '@/utils/subscriptionSort';
 
-const sub = (over: Partial<DetectedSubscription>): DetectedSubscription =>
-  ({
-    id: 'id',
-    merchantName: 'merchant',
-    displayName: 'Merchant',
-    averageAmount: 10,
-    frequency: 'MONTHLY',
-    lastChargeDate: '2026-08-04T00:00:00.000Z',
-    nextExpectedDate: '2026-09-04T00:00:00.000Z',
-    annualCost: 120,
-    monthlyCost: 10,
-    status: 'DETECTED',
-    matchingDescriptions: [],
-    confidence: 0.9,
-    ...over,
-  }) as DetectedSubscription;
-
-const cheap = sub({
+const cheap = buildDetectedSubscription({
   id: 'cheap',
   displayName: 'Zebra',
   monthlyCost: 5,
   annualCost: 60,
 });
-const mid = sub({
+const mid = buildDetectedSubscription({
   id: 'mid',
   displayName: 'Apple',
   monthlyCost: 20,
   annualCost: 240,
   nextExpectedDate: '2026-08-20T00:00:00.000Z',
 });
-const yearlyBig = sub({
+const yearlyBig = buildDetectedSubscription({
   id: 'yearly',
   displayName: 'Mango',
   frequency: 'YEARLY',

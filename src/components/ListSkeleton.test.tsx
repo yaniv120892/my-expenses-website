@@ -11,8 +11,8 @@ describe('ListSkeleton', () => {
     renderWithClient(<ListSkeleton columns={['תיאור', 'סכום', 'פעולות']} alignEndCount={2} />);
     const headers = screen.getAllByRole('columnheader');
     expect(headers.map((header) => header.textContent)).toEqual(['תיאור', 'סכום', 'פעולות']);
-    expect(headers[0].className).not.toMatch(/alignRight/);
-    expect(headers[1].className).toMatch(/alignRight/);
-    expect(headers[2].className).toMatch(/alignRight/);
+    expect(headers[0]?.className).not.toMatch(/alignRight/);
+    expect(headers[1]?.className).toMatch(/alignRight/);
+    expect(headers[2]?.className).toMatch(/alignRight/);
   });
 });

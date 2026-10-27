@@ -87,7 +87,7 @@ export async function runUploadBatch(
 }
 
 export class InvalidPaymentMonthError extends Error {
-  constructor(raw: string) {
+  public constructor(raw: string) {
     super(`Payment month must be MM/YYYY (got "${raw}")`);
     this.name = 'InvalidPaymentMonthError';
   }

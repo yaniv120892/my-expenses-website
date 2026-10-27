@@ -32,7 +32,7 @@ export async function getTransactionsPage(
   cursor?: string,
   sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): Promise<TransactionsPage> {
-  const res = await api.get('/api/transactions', {
+  const response = await api.get('/api/transactions', {
     params: {
       ...listFilters(params),
       ...sort,
@@ -40,25 +40,25 @@ export async function getTransactionsPage(
       limit: TRANSACTIONS_PAGE_SIZE,
     },
   });
-  return res.data;
+  return response.data;
 }
 
 export async function getTransactionSummary(
   params?: TransactionFilters,
 ): Promise<TransactionSummary> {
-  const res = await api.get('/api/transactions/summary', {
+  const response = await api.get('/api/transactions/summary', {
     params: listFilters(params),
   });
-  return res.data;
+  return response.data;
 }
 
 export async function getCategoryBreakdown(
   params?: TransactionFilters,
 ): Promise<CategoryBreakdownItem[]> {
-  const res = await api.get('/api/transactions/summary/categories', {
+  const response = await api.get('/api/transactions/summary/categories', {
     params: listFilters(params),
   });
-  return res.data;
+  return response.data;
 }
 
 // Every row the filters match, not just the pages fetched so far.
@@ -66,14 +66,14 @@ export async function exportTransactionsCsv(
   params?: TransactionFilters,
   sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): Promise<{ blob: Blob; fileName: string }> {
-  const res = await api.get('/api/transactions/export', {
+  const response = await api.get('/api/transactions/export', {
     params: { ...listFilters(params), ...sort },
     responseType: 'blob',
   });
   return {
-    blob: res.data,
+    blob: response.data,
     fileName: filenameFromContentDisposition(
-      res.headers['content-disposition'],
+      response.headers['content-disposition'],
       'transactions.csv',
     ),
   };
@@ -90,13 +90,13 @@ export type CreateTransactionResponse = {
 export async function createTransaction(
   data: CreateTransactionInput,
 ): Promise<CreateTransactionResponse> {
-  const res = await api.post('/api/transactions', data);
-  return res.data;
+  const response = await api.post('/api/transactions', data);
+  return response.data;
 }
 
 export async function updateTransaction(id: string, data: UpdateTransactionInput): Promise<string> {
-  const res = await api.put(`/api/transactions/${id}`, data);
-  return res.data;
+  const response = await api.put(`/api/transactions/${id}`, data);
+  return response.data;
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
@@ -104,16 +104,16 @@ export async function deleteTransaction(id: string): Promise<void> {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  const res = await api.get('/api/categories');
-  return res.data;
+  const response = await api.get('/api/categories');
+  return response.data;
 }
 
 export async function getPendingTransactions(): Promise<Transaction[]> {
-  const res = await api.get('/api/transactions/pending');
-  return res.data;
+  const response = await api.get('/api/transactions/pending');
+  return response.data;
 }
 
 export async function updateTransactionStatus(id: string, status: string): Promise<string> {
-  const res = await api.patch(`/api/transactions/${id}/status`, { status });
-  return res.data;
+  const response = await api.patch(`/api/transactions/${id}/status`, { status });
+  return response.data;
 }

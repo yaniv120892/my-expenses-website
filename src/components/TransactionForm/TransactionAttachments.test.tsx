@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
+import { requireInput } from '@/test/dom';
 import { renderWithClient } from '@/test/renderWithClient';
 import TransactionAttachments from '@/components/TransactionForm/TransactionAttachments';
 
@@ -83,11 +84,7 @@ describe('removing one of several pending images', () => {
 
 describe('choosing a file over the upload limit', () => {
   function fileInput(): HTMLInputElement {
-    const input = document.querySelector('input[type="file"]');
-    if (!(input instanceof HTMLInputElement)) {
-      throw new Error('react-dropzone rendered no file input');
-    }
-    return input;
+    return requireInput(document.querySelector('input[type="file"]'));
   }
 
   function pdfOfSize(sizeInBytes: number) {

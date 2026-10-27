@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { formatCurrency, formatCurrencyPlain, translateToScheduleSummary } from '@/utils/format';
 
-const normalizeCurrency = (value: string) => value.replace(/[‎‏]/g, '').replace(/ /g, ' ');
+const normalizeCurrency = (value: string) =>
+  value.replace(/[\u200E\u200F]/g, '').replace(/\u00A0/g, ' ');
 
 describe('formatCurrency', () => {
   it('formats as ILS with two decimals', () => {

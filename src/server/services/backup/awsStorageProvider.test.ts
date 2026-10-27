@@ -5,7 +5,7 @@ vi.mock('@aws-sdk/client-s3', () => ({
   S3Client: class {
     public send = vi.fn();
   },
-  PutObjectCommand: class {},
+  PutObjectCommand: vi.fn(),
 }));
 
 describe('AwsStorageProvider.uploadBackup', () => {

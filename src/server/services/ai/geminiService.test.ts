@@ -86,9 +86,9 @@ describe('GeminiService model id', () => {
 
     await new GeminiService().analyzeExpenses('summary');
 
-    const { model } = getGenerativeModel.mock.calls[0][0];
-    expect(model).not.toBe('gemini-2.0-flash');
-    expect(model).toBe('gemini-3.6-flash');
+    const [options] = getGenerativeModel.mock.calls[0] ?? [];
+    expect(options?.model).not.toBe('gemini-2.0-flash');
+    expect(options?.model).toBe('gemini-3.6-flash');
   });
 
   it('honours GEMINI_MODEL so a retirement needs no deploy', async () => {
@@ -97,7 +97,7 @@ describe('GeminiService model id', () => {
 
     await new GeminiService().analyzeExpenses('summary');
 
-    expect(getGenerativeModel.mock.calls[0][0].model).toBe('gemini-9.9-flash');
+    expect(getGenerativeModel.mock.calls[0]?.[0].model).toBe('gemini-9.9-flash');
   });
 
   it('reads the override per call, not once at module load', async () => {
@@ -108,7 +108,7 @@ describe('GeminiService model id', () => {
     process.env.GEMINI_MODEL = 'gemini-switched';
     await service.analyzeExpenses('second');
 
-    expect(getGenerativeModel.mock.calls[1][0].model).toBe('gemini-switched');
+    expect(getGenerativeModel.mock.calls[1]?.[0].model).toBe('gemini-switched');
   });
 });
 
@@ -143,7 +143,9 @@ describe('GeminiService.evaluateCategory', () => {
 
     await new GeminiService().evaluateCategory('GETT', categories);
 
-    expect(generateContent.mock.calls[0][0].systemInstruction).toBe(SUGGEST_CATEGORY_SYSTEM_PROMPT);
+    expect(generateContent.mock.calls[0]?.[0].systemInstruction).toBe(
+      SUGGEST_CATEGORY_SYSTEM_PROMPT,
+    );
   });
 
   it('keeps an answer that names no offered category, without an id', async () => {

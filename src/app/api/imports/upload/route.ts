@@ -23,8 +23,8 @@ const getS3Client = lazy(
 export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
-  handler: async ({ req }) => {
-    const formData = await req.formData();
+  handler: async ({ request }) => {
+    const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
       throw new HttpError(400, 'No file provided');

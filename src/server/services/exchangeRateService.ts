@@ -120,13 +120,17 @@ export function parsePublishedRates(csv: string): PublishedRate[] {
   });
 
   return records
-    .filter((record) => Number(record.OBS_VALUE) > 0)
-    .map((record) => ({
-      day: record.TIME_PERIOD,
-      rate: toRateString(
-        new Decimal(record.OBS_VALUE).dividedBy(new Decimal(10).pow(Number(record.UNIT_MULT) || 0)),
-      ),
-    }))
+    .flatMap((record) => {
+      const day = record.TIME_PERIOD;
+      const observedValue = record.OBS_VALUE;
+      const isPublished =
+        day !== undefined && observedValue !== undefined && Number(observedValue) > 0;
+      if (!isPublished) {
+        return [];
+      }
+      const scale = new Decimal(10).pow(Number(record.UNIT_MULT) || 0);
+      return [{ day, rate: toRateString(new Decimal(observedValue).dividedBy(scale)) }];
+    })
     .sort((left, right) => left.day.localeCompare(right.day));
 }
 

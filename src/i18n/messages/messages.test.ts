@@ -47,7 +47,7 @@ describe('messages', () => {
       [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
     const hebrew: Record<string, string> = messages.he;
     const mismatched = Object.entries(messages.en)
-      .filter(([key, text]) => placeholders(text).join() !== placeholders(hebrew[key]).join())
+      .filter(([key, text]) => placeholders(text).join() !== placeholders(hebrew[key] ?? '').join())
       .map(([key]) => key);
     expect(mismatched).toEqual([]);
   });

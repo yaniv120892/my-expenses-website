@@ -35,6 +35,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         `Failed to send transaction notification, userId: ${userId} transactionId: ${transaction.id} error: ${JSON.stringify(
           err,
         )}`,
+        { cause: err },
       );
     }
   }
@@ -56,6 +57,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
       logger.error({ err, userId }, 'Failed to send daily summary');
       throw new Error(
         `Failed to send daily summary, userId: ${userId} error: ${JSON.stringify(err)}`,
+        { cause: err },
       );
     }
   }

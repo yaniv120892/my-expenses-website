@@ -40,11 +40,12 @@ const PASSWORD = 'correct horse';
 const store = new Map<string, unknown>();
 
 function mailedCode(callIndex: number): string {
-  const match = /Verification Code: (\d+)/.exec(send.mock.calls[callIndex][0].text);
-  if (!match) {
+  const [mail] = send.mock.calls[callIndex] ?? [];
+  const code = /Verification Code: (\d+)/.exec(mail?.text ?? '')?.[1];
+  if (!code) {
     throw new Error(`no code in mail ${callIndex}`);
   }
-  return match[1];
+  return code;
 }
 
 beforeEach(() => {
@@ -177,7 +178,7 @@ describe('signupUser', () => {
 
     await authService.signupUser(EMAIL, 'user', PASSWORD);
 
-    const [, , storedPassword] = users.createUser.mock.calls[0];
+    const [, , storedPassword] = users.createUser.mock.calls[0] ?? [];
     expect(await compare(PASSWORD, storedPassword)).toBe(false);
   });
 });
@@ -206,7 +207,7 @@ describe('signup squatting', () => {
       token: 'token',
     });
 
-    const [verifiedEmail, passwordHash] = users.verifyUser.mock.calls[0];
+    const [verifiedEmail, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
     expect(verifiedEmail).toBe(EMAIL);
     expect(await compare(PASSWORD, passwordHash)).toBe(true);
   });
@@ -218,7 +219,7 @@ describe('signup squatting', () => {
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(0))).toEqual({
       token: 'token',
     });
-    const [, passwordHash] = users.verifyUser.mock.calls[0];
+    const [, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
     expect(await compare(PASSWORD, passwordHash)).toBe(true);
     expect(await compare(SQUATTER_PASSWORD, passwordHash)).toBe(false);
   });
@@ -287,7 +288,7 @@ describe('verification email', () => {
 
     await authService.signupUser('a+tag@example.com', 'someone', PASSWORD);
 
-    const [{ text, html }] = send.mock.calls[0];
+    const [{ text, html }] = send.mock.calls[0] ?? [];
     const link = 'https://expenses.example/verify?email=a%2Btag%40example.com';
     expect(text).toContain(link);
     expect(html).toContain(`href="${link}"`);

@@ -32,7 +32,7 @@ describe('apiTokenService.create', () => {
     const created = await apiTokenService.create(USER_ID, 'script', ['IMPORTS']);
 
     expect(created.token.startsWith('mxk_')).toBe(true);
-    const stored = repository.create.mock.calls[0][0];
+    const stored = repository.create.mock.calls[0]?.[0];
     expect(stored.tokenHash).toBe(createHash('sha256').update(created.token).digest('hex'));
     expect(JSON.stringify(stored)).not.toContain(created.token);
   });
@@ -40,7 +40,7 @@ describe('apiTokenService.create', () => {
   it('stores each requested scope once', async () => {
     await apiTokenService.create(USER_ID, 'script', ['IMPORTS', 'IMPORTS']);
 
-    expect(repository.create.mock.calls[0][0].scopes).toEqual(['IMPORTS']);
+    expect(repository.create.mock.calls[0]?.[0].scopes).toEqual(['IMPORTS']);
   });
 
   it('expires the token a year out', async () => {
@@ -48,7 +48,8 @@ describe('apiTokenService.create', () => {
 
     await apiTokenService.create(USER_ID, 'script', ['IMPORTS']);
 
-    const { expiresAt } = repository.create.mock.calls[0][0];
+    const [createInput] = repository.create.mock.calls[0] ?? [];
+    const { expiresAt } = createInput;
     expect(expiresAt.getTime()).toBeGreaterThanOrEqual(addYears(before, 1).getTime());
     expect(expiresAt.getTime()).toBeLessThan(addYears(before, 1).getTime() + 60_000);
   });

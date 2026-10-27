@@ -283,6 +283,14 @@ class SubscriptionRepository {
   }
 }
 
+// The column is written only from a SubscriptionDetectionEvidence, so a JSON
+// object is that shape; null is a row detected before evidence was recorded.
+function isDetectionEvidence(
+  value: Prisma.JsonValue,
+): value is Prisma.JsonObject & SubscriptionDetectionEvidence {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
   return {
     id: db.id,
@@ -300,7 +308,7 @@ function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
     scheduledTransactionId: db.scheduledTransactionId ?? undefined,
     categoryId: db.categoryId ?? undefined,
     categoryName: db.category?.name ?? undefined,
-    detectionEvidence: (db.detectionEvidence as SubscriptionDetectionEvidence | null) ?? undefined,
+    detectionEvidence: isDetectionEvidence(db.detectionEvidence) ? db.detectionEvidence : undefined,
     userEditedAt: db.userEditedAt ?? undefined,
     confidence: db.confidence,
     createdAt: db.createdAt,
@@ -308,4 +316,5 @@ function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
   };
 }
 
-export default new SubscriptionRepository();
+const subscriptionRepository = new SubscriptionRepository();
+export default subscriptionRepository;

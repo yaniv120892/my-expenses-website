@@ -11,8 +11,8 @@ export const POST = createHandler({
   // The lookup matches either identifier, so each gets its own counter: keyed
   // on the email alone, a fresh email per request beside the victim's
   // username would leave only the per-IP limit.
-  rateLimit: ({ req, body }) => [
-    { key: `login:ip:${resolveClientIp(req)}`, ...RATE_LIMITS.login },
+  rateLimit: ({ request, body }) => [
+    { key: `login:ip:${resolveClientIp(request)}`, ...RATE_LIMITS.login },
     { key: `login:email:${body.email.toLowerCase()}`, ...RATE_LIMITS.login },
     {
       key: `login:username:${body.username.toLowerCase()}`,

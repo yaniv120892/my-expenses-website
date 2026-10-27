@@ -211,7 +211,7 @@ function laterMonth(first: string, second: string | undefined): string {
 // Runs one month past today's, whose billing day is always still ahead, so
 // every card yields its next statement to close.
 function* monthsThroughNext(firstMonth: string, today: string): Generator<string> {
-  const [todayYear, todayMonth] = today.split('-').map(Number);
+  const [todayYear, todayMonth] = splitNumbers({ value: today, separator: '-' });
   const lastIndex = todayYear * 12 + todayMonth;
   for (let index = monthIndex(firstMonth); index <= lastIndex; index++) {
     const month = String((index % 12) + 1).padStart(2, '0');
@@ -220,14 +220,30 @@ function* monthsThroughNext(firstMonth: string, today: string): Generator<string
 }
 
 function monthIndex(paymentMonth: string): number {
-  const [month, year] = paymentMonth.split('/').map(Number);
+  const [month, year] = splitNumbers({ value: paymentMonth, separator: '/' });
   return year * 12 + month - 1;
 }
 
 // A billing day past the month's end bills on its last day.
 function billingDateOf(paymentMonth: string, billingDay: number): string {
-  const [month, year] = paymentMonth.split('/').map(Number);
+  const [month, year] = splitNumbers({ value: paymentMonth, separator: '/' });
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const day = Math.min(billingDay, daysInMonth);
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function splitNumbers({
+  value,
+  separator,
+}: {
+  value: string;
+  separator: string;
+}): [number, number] {
+  const [first, second] = value.split(separator).map(Number);
+  const isTwoNumbers =
+    first !== undefined && second !== undefined && !Number.isNaN(first) && !Number.isNaN(second);
+  if (!isTwoNumbers) {
+    throw new Error(`expected two numbers separated by '${separator}' (value: ${value})`);
+  }
+  return [first, second];
 }

@@ -32,6 +32,7 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { firstInvocationOrder } from '@/test/mocks';
 
 const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
 const FILE_ID = '22222222-2222-4222-8222-222222222222';
@@ -75,16 +76,14 @@ describe('removeFile', () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
     expect(deletedKeys()).toEqual([{ Bucket: 'bucket', Key: FILE_KEY }]);
-    expect(markForDeletion.mock.invocationCallOrder[0]).toBeLessThan(
-      send.mock.invocationCallOrder[0],
-    );
+    expect(firstInvocationOrder(markForDeletion)).toBeLessThan(firstInvocationOrder(send));
     expect(markDeleted).toHaveBeenCalledWith(FILE_ID);
   });
 
   it('bounds the storage call with an abort signal', async () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
-    const [, options] = send.mock.calls[0];
+    const [, options] = send.mock.calls[0] ?? [];
     expect(options).toEqual({ abortSignal: expect.any(AbortSignal) });
   });
 
@@ -157,9 +156,7 @@ describe('deleteTransaction', () => {
       { Bucket: 'bucket', Key: FILE_KEY },
       { Bucket: 'bucket', Key: OTHER_KEY },
     ]);
-    expect(deleteTransaction.mock.invocationCallOrder[0]).toBeLessThan(
-      send.mock.invocationCallOrder[0],
-    );
+    expect(firstInvocationOrder(deleteTransaction)).toBeLessThan(firstInvocationOrder(send));
   });
 
   it('deletes the remaining objects when one fails, and still succeeds', async () => {

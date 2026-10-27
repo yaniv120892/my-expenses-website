@@ -77,10 +77,11 @@ class FinanceQueryService {
     const partials = categories.filter((category) =>
       category.name.toLowerCase().includes(lowerName),
     );
-    if (partials.length === 1) {
+    const [onlyPartial, ...otherPartials] = partials;
+    if (onlyPartial && otherPartials.length === 0) {
       return {
-        ids: collectCategorySubtree(categories, partials[0].id),
-        name: partials[0].name,
+        ids: collectCategorySubtree(categories, onlyPartial.id),
+        name: onlyPartial.name,
       };
     }
 

@@ -3,8 +3,8 @@ import type { AnnouncementWithSeen } from '@/shared/types/announcement';
 import { MAX_ACKNOWLEDGE_IDS } from '@/shared/schemas/announcements';
 
 export async function getAnnouncements(): Promise<AnnouncementWithSeen[]> {
-  const res = await api.get<{ announcements: AnnouncementWithSeen[] }>('/api/announcements');
-  return res.data.announcements;
+  const response = await api.get<{ announcements: AnnouncementWithSeen[] }>('/api/announcements');
+  return response.data.announcements;
 }
 
 // The route rejects a batch over MAX_ACKNOWLEDGE_IDS, and callers pass whatever
@@ -14,10 +14,10 @@ export async function acknowledgeAnnouncements(ids: string[]): Promise<string[]>
 
   for (let i = 0; i < ids.length; i += MAX_ACKNOWLEDGE_IDS) {
     const batch = ids.slice(i, i + MAX_ACKNOWLEDGE_IDS);
-    const res = await api.post<{ acknowledged: string[] }>('/api/announcements/acknowledge', {
+    const response = await api.post<{ acknowledged: string[] }>('/api/announcements/acknowledge', {
       ids: batch,
     });
-    acknowledged.push(...res.data.acknowledged);
+    acknowledged.push(...response.data.acknowledged);
   }
 
   return acknowledged;

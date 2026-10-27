@@ -1,7 +1,7 @@
 import type { ApiResponse } from '../types';
 
-function isApiResponseError(obj: unknown): obj is ApiResponse<unknown> {
-  return typeof obj === 'object' && obj !== null && 'success' in obj && 'error' in obj;
+function isApiResponseError(value: unknown): value is ApiResponse<unknown> {
+  return typeof value === 'object' && value !== null && 'success' in value && 'error' in value;
 }
 
 export function handleApiError(error: unknown, fallback = 'An unknown error occurred'): string {

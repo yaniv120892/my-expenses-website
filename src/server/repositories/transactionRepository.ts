@@ -64,6 +64,8 @@ type SortColumn = {
 
 type OrderedColumn = [SortColumn, SortOrder];
 
+type CursorKey = { column: SortColumn; direction: SortOrder; value: string };
+
 /**
  * startDate floors to the day's start and endDate widens to its end; callers
  * such as the daily summary rely on this.
@@ -151,18 +153,24 @@ function encodeCursor(ordering: OrderedColumn[], row: TransactionRow): string {
   return Buffer.from(JSON.stringify(values)).toString('base64url');
 }
 
-function decodeCursor(cursor: string, columnCount: number): string[] {
+function decodeCursor(cursor: string, ordering: OrderedColumn[]): CursorKey[] {
   let decoded: unknown;
   try {
     decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString());
   } catch {
     invalidCursor();
   }
-  const values = z.array(z.string()).length(columnCount).safeParse(decoded);
+  const values = z.array(z.string()).length(ordering.length).safeParse(decoded);
   if (!values.success) {
     invalidCursor();
   }
-  return values.data;
+  return ordering.map(([column, direction], index) => {
+    const value = values.data[index];
+    if (value === undefined) {
+      invalidCursor();
+    }
+    return { column, direction, value };
+  });
 }
 
 class TransactionRepository {
@@ -251,10 +259,11 @@ class TransactionRepository {
 
     const hasMore = transactions.length > filters.limit;
     const items = hasMore ? transactions.slice(0, filters.limit) : transactions;
+    const lastItem = hasMore ? items.at(-1) : undefined;
 
     return {
       items: items.map(this.mapToDomain),
-      nextCursor: hasMore ? encodeCursor(ordering, items[items.length - 1]) : null,
+      nextCursor: lastItem ? encodeCursor(ordering, lastItem) : null,
     };
   }
 
@@ -568,18 +577,17 @@ class TransactionRepository {
     if (!cursor) {
       return {};
     }
-    const values = decodeCursor(cursor, ordering.length);
+    const keys = decodeCursor(cursor, ordering);
     return {
-      OR: ordering.map(([column, direction], index) => ({
+      OR: keys.map(({ column, direction, value }, index) => ({
         AND: [
-          ...ordering
-            .slice(0, index)
-            .map(([earlier], earlierIndex) => earlier.where('equals', values[earlierIndex])),
-          column.where(direction === 'desc' ? 'lt' : 'gt', values[index]),
+          ...keys.slice(0, index).map((earlier) => earlier.column.where('equals', earlier.value)),
+          column.where(direction === 'desc' ? 'lt' : 'gt', value),
         ],
       })),
     };
   }
 }
 
-export default new TransactionRepository();
+const transactionRepository = new TransactionRepository();
+export default transactionRepository;

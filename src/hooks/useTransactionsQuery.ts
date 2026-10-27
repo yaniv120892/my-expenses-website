@@ -1,6 +1,8 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import {
   getTransactionsPage,
+  type TransactionsPage,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -20,6 +22,8 @@ import type {
 import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 import type { TransactionSort } from '@/shared/schemas/transactions';
 
+type TransactionsCursor = string | undefined;
+
 export const transactionKeys = {
   all: ['transactions'] as const,
   lists: () => [...transactionKeys.all, 'list'] as const,
@@ -38,10 +42,16 @@ export const useTransactionsInfiniteQuery = (
   filters: TransactionFilters,
   sort: TransactionSort,
 ) => {
-  return useInfiniteQuery({
+  return useInfiniteQuery<
+    TransactionsPage,
+    Error,
+    InfiniteData<TransactionsPage, TransactionsCursor>,
+    ReturnType<typeof transactionKeys.list>,
+    TransactionsCursor
+  >({
     queryKey: transactionKeys.list(filters, sort),
     queryFn: ({ pageParam }) => getTransactionsPage(filters, pageParam, sort),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 };

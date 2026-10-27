@@ -86,10 +86,11 @@ class DashboardRepository {
       description: t.description ?? '',
       value: t.value,
       date: t.date.toISOString(),
-      type: t.type as 'INCOME' | 'EXPENSE',
+      type: t.type,
       categoryName: t.category?.name ?? 'Uncategorized',
     }));
   }
 }
 
-export default new DashboardRepository();
+const dashboardRepository = new DashboardRepository();
+export default dashboardRepository;

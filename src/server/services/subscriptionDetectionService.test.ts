@@ -58,7 +58,7 @@ const normalizeCurrency = (value: string) =>
   value.replace(/[\u200e\u200f]/g, '').replace(/\u00a0/g, ' ');
 
 const messageFor = (userId: string) =>
-  normalizeCurrency(sendDailySummary.mock.calls.find((call) => call[1] === userId)?.[0] as string);
+  normalizeCurrency(String(sendDailySummary.mock.calls.find((call) => call[1] === userId)?.[0]));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -139,7 +139,7 @@ describe('sendMonthlyAuditNotifications', () => {
       sub({ id: 's2', status: 'DETECTED' }),
     ]);
     await run();
-    expect(sendDailySummary.mock.calls[0][0]).toContain('2 new subscriptions detected');
+    expect(sendDailySummary.mock.calls[0]?.[0]).toContain('2 new subscriptions detected');
   });
 
   it('groups per user and queries prefs for every grouped id', async () => {
@@ -155,7 +155,7 @@ describe('sendMonthlyAuditNotifications', () => {
       },
     });
     expect(sendDailySummary).toHaveBeenCalledTimes(2);
-    expect(sendDailySummary.mock.calls[1][1]).toBe('user-2');
+    expect(sendDailySummary.mock.calls[1]?.[1]).toBe('user-2');
   });
 
   it('one failing send does not stop the rest, but fails the run', async () => {
@@ -189,7 +189,19 @@ const stored = (over: Sub = {}) => ({
   ...over,
 });
 
-const updateArgs = () => subRepo.update.mock.calls[0][2] as Sub;
+const updateArgs = (): Sub => {
+  const updates: unknown = subRepo.update.mock.calls[0]?.[2];
+  if (!isSub(updates)) {
+    throw new Error(
+      `subscriptionRepository.update was not called with updates (got ${String(updates)})`,
+    );
+  }
+  return updates;
+};
+
+function isSub(value: unknown): value is Sub {
+  return typeof value === 'object' && value !== null;
+}
 
 describe('updateSubscription', () => {
   it('derives the annual cost from the new amount and frequency', async () => {
@@ -308,7 +320,7 @@ describe('getSubscriptions', () => {
       },
     ]);
     const result = await subscriptionDetectionService.getSubscriptions('user-1');
-    expect(result.subscriptions[0].scheduleMatch).toMatchObject({
+    expect(result.subscriptions[0]?.scheduleMatch).toMatchObject({
       id: 'sched-1',
       matchType: 'NAME_MATCH',
     });
@@ -325,7 +337,9 @@ describe('getSubscriptions', () => {
       },
     ]);
     const result = await subscriptionDetectionService.getSubscriptions('user-1');
-    expect(result.subscriptions[0].scheduleMatch).toBeUndefined();
+    const [subscription] = result.subscriptions;
+    expect(subscription).toBeDefined();
+    expect(subscription?.scheduleMatch).toBeUndefined();
   });
 });
 

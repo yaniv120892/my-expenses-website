@@ -25,22 +25,20 @@ function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
 
 /** The root plus every id beneath it. An unknown root is just itself. */
 function collectSubtree(childrenByParent: Map<string, string[]>, rootId: string): string[] {
-  const descendants: string[] = [];
-  const queue = [rootId];
+  const subtree = [rootId];
   const seen = new Set<string>([rootId]);
-  while (queue.length > 0) {
-    const currentId = queue.shift() as string;
-    descendants.push(currentId);
+  // Iterating an array visits the ids pushed during the loop, so this walks breadth-first.
+  for (const currentId of subtree) {
     for (const childId of childrenByParent.get(currentId) ?? []) {
       // Guards against a cycle from bad data looping forever.
       if (seen.has(childId)) {
         continue;
       }
       seen.add(childId);
-      queue.push(childId);
+      subtree.push(childId);
     }
   }
-  return descendants;
+  return subtree;
 }
 
 /**

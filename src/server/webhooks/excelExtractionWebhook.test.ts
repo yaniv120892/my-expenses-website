@@ -59,6 +59,7 @@ vi.mock('@/server/services/importService', () => ({
 }));
 
 import { processExcelExtractionWebhook } from '@/server/webhooks/excelExtractionWebhook';
+import { firstInvocationOrder } from '@/test/mocks';
 
 const CREATED_AT = new Date('2026-03-10T10:00:00.000Z');
 const OLDER = new Date('2026-03-10T09:00:00.000Z');
@@ -95,6 +96,14 @@ const storedRow = (id: string, description = 'Coffee') => ({
 });
 
 const run = (body: unknown) => processExcelExtractionWebhook(body, {});
+
+function createdRows() {
+  const [firstCall] = importedTxRepo.createMany.mock.calls;
+  if (!firstCall) {
+    throw new Error('createMany was not called');
+  }
+  return firstCall[0];
+}
 
 beforeEach(() => {
   // reset, not clear: a mockRejectedValue set by one case would otherwise
@@ -155,7 +164,7 @@ describe('completed extraction with currencies', () => {
   it('stores the statement conversion of a billed foreign charge', async () => {
     await run(payload([foreignRow({})]));
 
-    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    const [row] = createdRows();
     expect(row).toMatchObject({
       value: 92.35,
       currency: 'USD',
@@ -181,7 +190,7 @@ describe('completed extraction with currencies', () => {
       ]),
     );
 
-    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    const [row] = createdRows();
     expect(row).toMatchObject({
       value: null,
       currency: 'EUR',
@@ -201,7 +210,7 @@ describe('completed extraction with currencies', () => {
       ]),
     );
 
-    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    const [row] = createdRows();
     expect(row).toMatchObject({
       value: null,
       currency: null,
@@ -211,7 +220,7 @@ describe('completed extraction with currencies', () => {
   it('ignores a currency code it does not recognise rather than failing the import', async () => {
     await run(payload([foreignRow({ originalCurrency: 'ZZZ' })]));
 
-    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    const [row] = createdRows();
     expect(row).toMatchObject({ value: 92.35, currency: null });
   });
 
@@ -226,7 +235,7 @@ describe('completed extraction with currencies', () => {
       ]),
     );
 
-    const [row] = importedTxRepo.createMany.mock.calls[0][0];
+    const [row] = createdRows();
     expect(row).toMatchObject({
       value: null,
       currency: null,
@@ -237,10 +246,10 @@ describe('completed extraction with currencies', () => {
 
 describe('completed extraction', () => {
   it('no duplicate: inserts rows, matches, marks COMPLETED', async () => {
-    const res = await run(payload([tx()]));
-    expect(res.status).toBe(200);
+    const response = await run(payload([tx()]));
+    expect(response.status).toBe(200);
 
-    const rows = importedTxRepo.createMany.mock.calls[0][0];
+    const rows = createdRows();
     expect(rows).toEqual([
       {
         description: 'Coffee',
@@ -273,8 +282,8 @@ describe('completed extraction', () => {
         bankSourceType: 'BANK_CREDIT',
       },
     });
-    const updateOrder = prismaMock.import.update.mock.invocationCallOrder[0] ?? 0;
-    const findOrder = importRepo.findExisting.mock.invocationCallOrder[0] ?? 0;
+    const updateOrder = firstInvocationOrder(prismaMock.import.update);
+    const findOrder = firstInvocationOrder(importRepo.findExisting);
     expect(updateOrder).toBeLessThan(findOrder);
   });
 
@@ -394,8 +403,8 @@ describe('completed extraction', () => {
   it('inserts its own rows before looking for a duplicate', async () => {
     await run(payload([tx()]));
 
-    const insertOrder = importedTxRepo.createMany.mock.invocationCallOrder[0];
-    const findOrder = importRepo.findExisting.mock.invocationCallOrder[0];
+    const insertOrder = firstInvocationOrder(importedTxRepo.createMany);
+    const findOrder = firstInvocationOrder(importRepo.findExisting);
     expect(insertOrder).toBeLessThan(findOrder);
   });
 
@@ -418,7 +427,7 @@ describe('completed extraction', () => {
 
     await run(payload([tx(), tx('Tea')]));
 
-    const [scopeId] = importedTxRepo.filterDuplicates.mock.calls[0];
+    const [scopeId] = importedTxRepo.filterDuplicates.mock.calls[0] ?? [];
     expect(scopeId).toBe('imp-old');
 
     expect(importedTxRepo.moveToImportOps).toHaveBeenCalledWith(['row-1'], 'imp-old');
@@ -446,8 +455,8 @@ describe('completed extraction', () => {
     expect(prismaMock.import.delete).not.toHaveBeenCalled();
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith('imp-old', 'user-1');
     // The survivor is released only once the moved rows are matched.
-    const matchOrder = findPotentialMatchesForImport.mock.invocationCallOrder[0];
-    const releaseOrder = importRepo.transitionStatus.mock.invocationCallOrder[0];
+    const matchOrder = firstInvocationOrder(findPotentialMatchesForImport);
+    const releaseOrder = firstInvocationOrder(importRepo.transitionStatus);
     expect(matchOrder).toBeLessThan(releaseOrder);
     expect(importRepo.transitionStatus).toHaveBeenCalledWith('imp-old', 'REMATCHING', 'COMPLETED');
     expect(importRepo.updateStatus).not.toHaveBeenCalledWith('imp-1', 'COMPLETED');
@@ -463,7 +472,7 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(importedTxRepo.filterDuplicates.mock.calls[0][0]).toBe('imp-new');
+    expect(importedTxRepo.filterDuplicates.mock.calls[0]?.[0]).toBe('imp-new');
     expect(prismaMock.import.update).toHaveBeenCalledWith({
       where: { id: 'imp-1' },
       data: expect.objectContaining({
@@ -477,41 +486,41 @@ describe('completed extraction', () => {
 
   it('a failing match is swallowed and the import still finalizes', async () => {
     findPotentialMatchesForImport.mockRejectedValue(new Error('boom'));
-    const res = await run(payload([tx()]));
-    expect(res.status).toBe(200);
+    const response = await run(payload([tx()]));
+    expect(response.status).toBe(200);
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'COMPLETED');
   });
 
   it('a missing import record fails the webhook', async () => {
     importRepo.findById.mockResolvedValue(null);
     importRepo.findByExtractionRequestId.mockResolvedValue(null);
-    const res = await run(payload([tx()]));
-    expect(res.status).toBe(404);
+    const response = await run(payload([tx()]));
+    expect(response.status).toBe(404);
   });
 
   it('rawData defaults to an empty object', async () => {
     await run(payload([{ ...tx(), rawData: { a: 1 } }, tx('Tea')]));
-    const rows = importedTxRepo.createMany.mock.calls[0][0];
+    const rows = createdRows();
     expect(rows[0].rawData).toEqual({ a: 1 });
     expect(rows[1].rawData).toEqual({});
   });
 
   it('a COMPLETED payload with no result fails the import', async () => {
-    const res = await run({ requestId: 'req-1', status: 'COMPLETED' });
+    const response = await run({ requestId: 'req-1', status: 'COMPLETED' });
 
-    expect(res.status).toBe(400);
+    expect(response.status).toBe(400);
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'FAILED', expect.any(String));
   });
 
   it('one unreadable row fails the import rather than the request only', async () => {
-    const res = await run(payload([{ ...tx(), date: 'the fifth of August' } as never]));
+    const response = await run(payload([{ ...tx(), date: 'the fifth of August' }]));
 
-    expect(res.status).toBe(400);
+    expect(response.status).toBe(400);
     expect(importRepo.updateStatus).toHaveBeenCalledWith('imp-1', 'FAILED', expect.any(String));
   });
 
   it('accepts a non-padded date and absent card metadata', async () => {
-    const res = await run({
+    const response = await run({
       requestId: 'req-1',
       status: 'COMPLETED',
       result: {
@@ -520,8 +529,8 @@ describe('completed extraction', () => {
       },
     });
 
-    expect(res.status).toBe(200);
-    const rows = importedTxRepo.createMany.mock.calls[0][0];
+    expect(response.status).toBe(200);
+    const rows = createdRows();
     expect(rows[0].date).toEqual(new Date(2026, 7, 5));
     expect(importRepo.findExisting).not.toHaveBeenCalled();
   });
@@ -529,9 +538,9 @@ describe('completed extraction', () => {
   it('marks the import failed when processing throws', async () => {
     importedTxRepo.createMany.mockRejectedValue(new Error('insert failed'));
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(500);
+    expect(response.status).toBe(500);
     expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith('imp-1', expect.any(String));
     expect(reportSwallowedError).toHaveBeenCalledWith(
       expect.objectContaining({ importId: 'imp-1' }),
@@ -543,9 +552,9 @@ describe('completed extraction', () => {
     const body = payload([tx()]);
     body.result.metadata.bankSourceType = 'UNKNOWN';
 
-    const res = await run(body);
+    const response = await run(body);
 
-    expect(res.status).toBe(200);
+    expect(response.status).toBe(200);
     expect(prismaMock.import.update).toHaveBeenCalledWith({
       where: { id: 'imp-1' },
       data: expect.objectContaining({ bankSourceType: null }),
@@ -562,17 +571,17 @@ describe('callback resolution', () => {
       importId: 'imp-1',
     });
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(200);
+    expect(response.status).toBe(200);
     expect(importRepo.findByExtractionRequestId).not.toHaveBeenCalled();
     expect(importRepo.findById).toHaveBeenCalledWith('imp-1');
   });
 
   it('falls back to the requestId for callbacks issued without an importId', async () => {
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(200);
+    expect(response.status).toBe(200);
     expect(importRepo.findByExtractionRequestId).toHaveBeenCalledWith('req-1');
   });
 
@@ -583,9 +592,9 @@ describe('callback resolution', () => {
       createdAt: CREATED_AT,
     });
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(403);
+    expect(response.status).toBe(403);
     expect(importRepo.claimExtraction).not.toHaveBeenCalled();
   });
 });
@@ -594,9 +603,9 @@ describe('redelivered callbacks', () => {
   it('is a no-op when another callback already claimed the extraction', async () => {
     importRepo.claimExtraction.mockResolvedValue(false);
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(200);
+    expect(response.status).toBe(200);
     expect(importedTxRepo.createMany).not.toHaveBeenCalled();
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
     expect(prismaMock.import.delete).not.toHaveBeenCalled();
@@ -605,9 +614,9 @@ describe('redelivered callbacks', () => {
   it('marks FAILED but keeps the claim when processing throws', async () => {
     importedTxRepo.createMany.mockRejectedValue(new Error('insert exploded'));
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(500);
+    expect(response.status).toBe(500);
     expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith(
       'imp-1',
       'Processing the extraction result failed',
@@ -631,9 +640,9 @@ describe('redelivered callbacks', () => {
     importedTxRepo.findByImportId.mockResolvedValue([storedRow('row-1')]);
     importRepo.transitionStatus.mockRejectedValueOnce(new Error('db blip'));
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(500);
+    expect(response.status).toBe(500);
     expect(prismaMock.$transaction).toHaveBeenCalled();
     expect(importRepo.updateStatus).not.toHaveBeenCalledWith('imp-1', 'FAILED', expect.anything());
     expect(importRepo.markFailedIfProcessing).toHaveBeenCalledWith('imp-1', expect.any(String));
@@ -654,9 +663,9 @@ describe('redelivered callbacks', () => {
       mergedIntoImportId: 'imp-old',
     });
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(500);
+    expect(response.status).toBe(500);
     expect(importRepo.transitionStatus).toHaveBeenLastCalledWith(
       'imp-old',
       'REMATCHING',
@@ -676,17 +685,17 @@ describe('redelivered callbacks', () => {
       mergedIntoImportId: null,
     });
 
-    const res = await run(payload([tx()]));
+    const response = await run(payload([tx()]));
 
-    expect(res.status).toBe(500);
+    expect(response.status).toBe(500);
     expect(importRepo.transitionStatus).not.toHaveBeenCalled();
   });
 
   it('claims before doing any work', async () => {
     await run(payload([tx()]));
 
-    const claimOrder = importRepo.claimExtraction.mock.invocationCallOrder[0];
-    const insertOrder = importedTxRepo.createMany.mock.invocationCallOrder[0];
+    const claimOrder = firstInvocationOrder(importRepo.claimExtraction);
+    const insertOrder = firstInvocationOrder(importedTxRepo.createMany);
     expect(claimOrder).toBeLessThan(insertOrder);
   });
 });

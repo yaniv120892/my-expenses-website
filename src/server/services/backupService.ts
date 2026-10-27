@@ -1,12 +1,12 @@
 import transactionService from '@/server/services/transactionService';
 import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
 import logger from '@/server/logging/logger';
-import BackupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
+import backupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
 import userRepository from '@/server/repositories/userRepository';
 import { lazy } from '@/server/lib/lazy';
 
 class BackupService {
-  private getStorageProvider = lazy(() => BackupStorageProviderFactory.getProvider());
+  private getStorageProvider = lazy(() => backupStorageProviderFactory.getProvider());
 
   public async getUsersRequiredBackup() {
     const users = await userRepository.list({
@@ -30,4 +30,5 @@ class BackupService {
   }
 }
 
-export default new BackupService();
+const backupService = new BackupService();
+export default backupService;

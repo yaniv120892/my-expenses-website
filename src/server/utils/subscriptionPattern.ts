@@ -64,10 +64,12 @@ export type DetectedPattern = {
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
-  const middle = sorted.length / 2;
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[Math.floor(middle)];
+  const upperMiddle = sorted[Math.floor(sorted.length / 2)];
+  const lowerMiddle = sorted[Math.ceil(sorted.length / 2) - 1];
+  if (upperMiddle === undefined || lowerMiddle === undefined) {
+    throw new Error(`median needs at least one value (got ${values.length})`);
+  }
+  return (lowerMiddle + upperMiddle) / 2;
 }
 
 function standardDeviation(values: number[], center: number): number {
@@ -126,9 +128,19 @@ export function analyzeMerchantPattern(
 
   const charges = [...group.charges].sort((a, b) => a.date.getTime() - b.date.getTime());
 
+  const [firstCharge] = charges;
+  const lastCharge = charges.at(-1);
+  if (!firstCharge || !lastCharge) {
+    throw new Error(
+      `${group.merchantKey} has ${charges.length} charges, below the pattern minimum`,
+    );
+  }
+
   const intervals: number[] = [];
-  for (let i = 1; i < charges.length; i++) {
-    intervals.push((charges[i].date.getTime() - charges[i - 1].date.getTime()) / MS_PER_DAY);
+  let previousCharge = firstCharge;
+  for (const charge of charges.slice(1)) {
+    intervals.push((charge.date.getTime() - previousCharge.date.getTime()) / MS_PER_DAY);
+    previousCharge = charge;
   }
 
   const medianInterval = median(intervals);
@@ -146,14 +158,14 @@ export function analyzeMerchantPattern(
   const amounts = charges.map((charge) => charge.value);
   const descriptions = charges.map((charge) => charge.description);
   const averageAmount = amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
-  const lastChargeDate = charges[charges.length - 1].date;
+  const lastChargeDate = lastCharge.date;
   const confidence = Math.max(0, Math.min(1, 1 - variationRatio));
 
   const evidence: SubscriptionDetectionEvidence = {
     analyzedFrom: analyzedFrom.toISOString(),
     analyzedTo: analyzedTo.toISOString(),
     chargeCount: charges.length,
-    firstChargeDate: charges[0].date.toISOString(),
+    firstChargeDate: firstCharge.date.toISOString(),
     lastChargeDate: lastChargeDate.toISOString(),
     medianIntervalDays: Math.round(medianInterval * 10) / 10,
     minIntervalDays: Math.round(Math.min(...intervals) * 10) / 10,
@@ -171,7 +183,9 @@ export function analyzeMerchantPattern(
 
   return {
     merchantKey: group.merchantKey,
-    displayName: toDisplayName(mostCommon(descriptions.map((d) => d.trim())) ?? descriptions[0]),
+    displayName: toDisplayName(
+      mostCommon(descriptions.map((d) => d.trim())) ?? firstCharge.description,
+    ),
     frequency,
     averageAmount: roundToCents(averageAmount),
     lastChargeDate,

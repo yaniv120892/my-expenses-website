@@ -53,6 +53,7 @@ function ItemRow({
   onNavigate: (href: string) => void;
 }) {
   const Icon = ICONS[item.icon];
+  const { cta } = item;
 
   return (
     <Stack
@@ -105,9 +106,9 @@ function ItemRow({
         >
           {item.body}
         </Typography>
-        {item.cta && (
-          <Button size="small" onClick={() => onNavigate(item.cta!.href)} sx={{ mt: 0.75, ml: -1 }}>
-            {item.cta.label}
+        {cta && (
+          <Button size="small" onClick={() => onNavigate(cta.href)} sx={{ mt: 0.75, ml: -1 }}>
+            {cta.label}
           </Button>
         )}
       </Box>
@@ -126,7 +127,8 @@ export default function WhatsNewDialog({
   const fullScreen = useIsCompact();
   const router = useRouter();
 
-  if (announcements.length === 0) {
+  const [latest] = announcements;
+  if (!latest) {
     return null;
   }
 
@@ -151,7 +153,7 @@ export default function WhatsNewDialog({
       aria-labelledby="whats-new-title"
     >
       <DialogTitle id="whats-new-title" sx={{ pb: 0.5 }}>
-        {announcements[0].title}
+        {latest.title}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={3}>

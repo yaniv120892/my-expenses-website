@@ -91,13 +91,35 @@ vi.mock('@/server/logging/reportSwallowedError', () => ({
 }));
 
 import { importService } from '@/server/services/importService';
+import type { AIProvider } from '@/server/services/ai/aiProvider';
+import { firstInvocationOrder } from '@/test/mocks';
 
 // Matching is stubbed to keep these cases on orchestration; the real method has
 // its own describe below.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const service = importService as any;
+const originalMatchSingleTransaction = importService['matchSingleTransaction'];
 
 const matchSingleTransaction = vi.fn();
+
+type MatchInput = Parameters<(typeof importService)['matchSingleTransaction']>[0];
+
+const matchableRow = (over: Partial<MatchInput> = {}): MatchInput => ({
+  id: 'r1',
+  description: 'Coffee',
+  date: new Date(2026, 2, 7),
+  value: 10,
+  type: 'EXPENSE',
+  currency: 'ILS',
+  originalAmount: 10,
+  ...over,
+});
+
+function excludedIdsOfCall(callIndex: number): string[] {
+  const excluded: unknown = matchSingleTransaction.mock.calls[callIndex]?.[2];
+  if (!(excluded instanceof Set)) {
+    throw new Error(`matchSingleTransaction call ${callIndex} passed no exclusion set`);
+  }
+  return [...excluded].map(String);
+}
 
 const pendingRow = (over: Record<string, unknown> = {}) => ({
   id: 'r1',
@@ -144,7 +166,7 @@ beforeEach(() => {
   importedTxRepo.findByImportId.mockResolvedValue([row()]);
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
-  service.matchSingleTransaction = matchSingleTransaction;
+  importService['matchSingleTransaction'] = matchSingleTransaction;
   txService.prepareCreateTransaction.mockResolvedValue({ id: 'model' });
   prismaMock.$transaction.mockResolvedValue([{ id: 'created-1' }]);
 });
@@ -191,8 +213,8 @@ describe('rematchImport', () => {
   it('reads the rows only after claiming the import', async () => {
     await run();
 
-    expect(importRepo.transitionStatus.mock.invocationCallOrder[0]).toBeLessThan(
-      importedTxRepo.findByUserIdAndImportId.mock.invocationCallOrder[0],
+    expect(firstInvocationOrder(importRepo.transitionStatus)).toBeLessThan(
+      firstInvocationOrder(importedTxRepo.findByUserIdAndImportId),
     );
   });
 
@@ -227,19 +249,16 @@ describe('rematchImport', () => {
     await run();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
-    const excluded = matchSingleTransaction.mock.calls[0][2] as Set<string>;
-    expect([...excluded]).toEqual(['tx-taken']);
+    expect(excludedIdsOfCall(0)).toEqual(['tx-taken']);
   });
 
   it("excludes transactions another import's pending rows claim", async () => {
     importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue(['tx-other-import']);
 
     await run();
-
-    const excluded = matchSingleTransaction.mock.calls[0][2] as Set<string>;
-    expect([...excluded]).toEqual(['tx-other-import']);
-    expect(prismaMock.importedTransaction.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
-      importedTxRepo.findClaimedMatchingTransactionIds.mock.invocationCallOrder[0],
+    expect(excludedIdsOfCall(0)).toEqual(['tx-other-import']);
+    expect(firstInvocationOrder(prismaMock.importedTransaction.updateMany)).toBeLessThan(
+      firstInvocationOrder(importedTxRepo.findClaimedMatchingTransactionIds),
     );
   });
 
@@ -248,9 +267,7 @@ describe('rematchImport', () => {
     matchSingleTransaction.mockResolvedValueOnce('tx-a');
 
     await run();
-
-    const secondExcluded = matchSingleTransaction.mock.calls[1][2] as Set<string>;
-    expect([...secondExcluded]).toEqual(['tx-a']);
+    expect(excludedIdsOfCall(1)).toEqual(['tx-a']);
   });
 
   it('one failing row does not abort the rest, and the import completes', async () => {
@@ -438,7 +455,7 @@ describe('findPotentialMatchesForImport', () => {
     await run();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
-    expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r2' });
+    expect(matchSingleTransaction.mock.calls[0]?.[0]).toMatchObject({ id: 'r2' });
   });
 
   it('leaves an approved or ignored row alone even though it holds no match', async () => {
@@ -451,7 +468,7 @@ describe('findPotentialMatchesForImport', () => {
     await run();
 
     expect(matchSingleTransaction).toHaveBeenCalledTimes(1);
-    expect(matchSingleTransaction.mock.calls[0][0]).toMatchObject({ id: 'r3' });
+    expect(matchSingleTransaction.mock.calls[0]?.[0]).toMatchObject({ id: 'r3' });
   });
 
   it('keeps matching the remaining rows when one row throws', async () => {
@@ -487,15 +504,23 @@ describe('matchSingleTransaction', () => {
   ];
 
   // Spelled like neither candidate, so the model decides.
-  const ambiguousRow = () => row({ description: 'Coffee Shop' });
+  const ambiguousRow = () => matchableRow({ description: 'Coffee Shop' });
 
-  const originalGetAiProvider = service.getAiProvider;
+  const originalGetAiProvider = importService['getAiProvider'];
+  const matchingProvider: AIProvider = {
+    generateContent: vi.fn(),
+    analyzeExpenses: vi.fn(),
+    findMatchingTransaction,
+    suggestCategory: vi.fn(),
+    evaluateCategory: vi.fn(),
+    modelName: () => 'test-model',
+  };
 
   beforeEach(() => {
     // The file-level beforeEach stubs the method; this describe wants the
     // real one, with the provider stubbed at its instance getter instead.
-    delete service.matchSingleTransaction;
-    service.getAiProvider = () => ({ findMatchingTransaction });
+    importService['matchSingleTransaction'] = originalMatchSingleTransaction;
+    importService['getAiProvider'] = () => matchingProvider;
     findPotentialMatches.mockResolvedValue(candidates);
     prismaMock.importedTransaction.update.mockResolvedValue({});
   });
@@ -503,13 +528,13 @@ describe('matchSingleTransaction', () => {
   afterEach(() => {
     // Direct property assignment survives vi.clearAllMocks; restore so no
     // later describe inherits the override.
-    service.getAiProvider = originalGetAiProvider;
+    importService['getAiProvider'] = originalGetAiProvider;
   });
 
   it('stores the id the provider validated', async () => {
     findMatchingTransaction.mockResolvedValue('tx-b');
 
-    const matched = await service.matchSingleTransaction(ambiguousRow(), 'user-1');
+    const matched = await importService['matchSingleTransaction'](ambiguousRow(), 'user-1');
 
     expect(matched).toBe('tx-b');
     expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
@@ -521,8 +546,8 @@ describe('matchSingleTransaction', () => {
   it("gives the provider the row's amount, date and type, not just its description", async () => {
     findMatchingTransaction.mockResolvedValue(null);
 
-    await service.matchSingleTransaction(
-      row({ description: 'Coffee Shop', type: 'EXPENSE' }),
+    await importService['matchSingleTransaction'](
+      matchableRow({ description: 'Coffee Shop', type: 'EXPENSE' }),
       'user-1',
     );
 
@@ -540,14 +565,14 @@ describe('matchSingleTransaction', () => {
   it('leaves the row unmatched when the provider reports none', async () => {
     findMatchingTransaction.mockResolvedValue(null);
 
-    const matched = await service.matchSingleTransaction(ambiguousRow(), 'user-1');
+    const matched = await importService['matchSingleTransaction'](ambiguousRow(), 'user-1');
 
     expect(matched).toBeNull();
     expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
   });
 
   it('asks only for candidates of the same direction', async () => {
-    await service.matchSingleTransaction(row({ type: 'EXPENSE' }), 'user-1');
+    await importService['matchSingleTransaction'](matchableRow({ type: 'EXPENSE' }), 'user-1');
 
     expect(findPotentialMatches).toHaveBeenCalledWith(
       'user-1',
@@ -560,7 +585,7 @@ describe('matchSingleTransaction', () => {
   });
 
   it('claims an unambiguous spelling match without calling the provider', async () => {
-    const matched = await service.matchSingleTransaction(row(), 'user-1');
+    const matched = await importService['matchSingleTransaction'](matchableRow(), 'user-1');
 
     expect(matched).toBe('tx-a');
     expect(findMatchingTransaction).not.toHaveBeenCalled();
@@ -585,8 +610,8 @@ describe('matchSingleTransaction', () => {
     it('claims it at any amount when the prefix fits, without the provider', async () => {
       findPotentialMatches.mockResolvedValue([placeholder()]);
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
         'user-1',
       );
 
@@ -604,8 +629,8 @@ describe('matchSingleTransaction', () => {
         placeholder({ id: 'near', date: new Date(2026, 2, 6) }),
       ]);
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE', value: 3 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE', value: 3 }),
         'user-1',
       );
 
@@ -622,8 +647,8 @@ describe('matchSingleTransaction', () => {
       findPotentialMatches.mockResolvedValue([placeholder(), handLogged]);
       findMatchingTransaction.mockResolvedValue('tx-hand');
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
         'user-1',
       );
 
@@ -638,8 +663,8 @@ describe('matchSingleTransaction', () => {
       ]);
       findMatchingTransaction.mockResolvedValue(null);
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
         'user-1',
       );
 
@@ -656,8 +681,8 @@ describe('matchSingleTransaction', () => {
         }),
       ]);
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
         'user-1',
       );
 
@@ -669,7 +694,7 @@ describe('matchSingleTransaction', () => {
         placeholder({ value: 10, bankDescriptionPrefix: 'google' }),
       ]);
 
-      const matched = await service.matchSingleTransaction(row(), 'user-1');
+      const matched = await importService['matchSingleTransaction'](matchableRow(), 'user-1');
 
       expect(matched).toBeNull();
       expect(findMatchingTransaction).not.toHaveBeenCalled();
@@ -678,8 +703,8 @@ describe('matchSingleTransaction', () => {
     it('matches by value again once approved', async () => {
       findPotentialMatches.mockResolvedValue([placeholder({ status: 'APPROVED' })]);
 
-      const matched = await service.matchSingleTransaction(
-        row({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
+      const matched = await importService['matchSingleTransaction'](
+        matchableRow({ description: 'GOOGLE CLOUD EMEA', value: 101.98 }),
         'user-1',
       );
 
@@ -694,7 +719,7 @@ describe('matchSingleTransaction', () => {
     ]);
     findMatchingTransaction.mockResolvedValue('tx-b');
 
-    const matched = await service.matchSingleTransaction(row(), 'user-1');
+    const matched = await importService['matchSingleTransaction'](matchableRow(), 'user-1');
 
     expect(matched).toBe('tx-b');
     expect(findMatchingTransaction).toHaveBeenCalledTimes(1);
@@ -788,8 +813,8 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.action).toBe('CREATE');
-    expect(item.reviewHint).toMatchObject({
+    expect(item?.action).toBe('CREATE');
+    expect(item?.reviewHint).toMatchObject({
       reason: 'unmatched-candidate',
       counterpart: { transactionId: 'tx-bruno' },
       candidateCount: 1,
@@ -806,7 +831,7 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.reviewHint).toBeNull();
+    expect(item?.reviewHint).toBeNull();
   });
 
   it('flags an unrelated MERGE without querying for candidates', async () => {
@@ -819,8 +844,8 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.action).toBe('MERGE');
-    expect(item.reviewHint).toEqual({ reason: 'unrelated-merge' });
+    expect(item?.action).toBe('MERGE');
+    expect(item?.reviewHint).toEqual({ reason: 'unrelated-merge' });
     expect(findPotentialMatchesForCharges).not.toHaveBeenCalled();
   });
 
@@ -831,9 +856,9 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.action).toBe('MERGE');
-    expect(item.categoryId).toBe('category-1');
-    expect(item.match).toEqual({
+    expect(item?.action).toBe('MERGE');
+    expect(item?.categoryId).toBe('category-1');
+    expect(item?.match).toEqual({
       transactionId: 'tx-1',
       approvesPendingTransaction: true,
       matchedByBankDescriptionPrefix: false,
@@ -845,9 +870,9 @@ describe('buildReconciliationPlan', () => {
         date: new Date(2026, 2, 5),
       },
     });
-    expect(item.description).toBe('Coffee');
-    expect(item.value).toBe(12.5);
-    expect(item.date).toEqual(new Date(2026, 2, 7));
+    expect(item?.description).toBe('Coffee');
+    expect(item?.value).toBe(12.5);
+    expect(item?.date).toEqual(new Date(2026, 2, 7));
   });
 
   it('marks a merge its schedule declared by prefix, so the preview does not call it unrelated', async () => {
@@ -864,8 +889,8 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.match?.matchedByBankDescriptionPrefix).toBe(true);
-    expect(item.reviewHint).toBeNull();
+    expect(item?.match?.matchedByBankDescriptionPrefix).toBe(true);
+    expect(item?.reviewHint).toBeNull();
   });
 
   it('marks a merge onto an already approved transaction as no approval', async () => {
@@ -877,8 +902,8 @@ describe('buildReconciliationPlan', () => {
 
     const [item] = await importService.buildReconciliationPlan('imp-1', 'user-1');
 
-    expect(item.match).not.toBeNull();
-    expect(item.match?.approvesPendingTransaction).toBe(false);
+    expect(item?.match).not.toBeNull();
+    expect(item?.match?.approvesPendingTransaction).toBe(false);
   });
 
   it("asks only for this user's pending rows in the import", async () => {

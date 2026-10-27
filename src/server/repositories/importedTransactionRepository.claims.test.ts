@@ -14,7 +14,7 @@ describe('reads of pending rows skip the rows of a deleted import', () => {
     findMany.mockResolvedValue([{ matchingTransactionId: 'tx-1' }]);
   });
 
-  const where = () => findMany.mock.calls[0][0].where;
+  const where = () => findMany.mock.calls[0]?.[0].where;
 
   it('in the claims a re-import must not be blocked by', async () => {
     const claimed = await importedTransactionRepository.findClaimedMatchingTransactionIds('user-1');

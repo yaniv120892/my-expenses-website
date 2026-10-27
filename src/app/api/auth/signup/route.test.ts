@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as RateLimitModule from '@/server/http/rateLimit';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { enforceRateLimits, signupUser } = vi.hoisted(() => ({
@@ -7,7 +9,7 @@ const { enforceRateLimits, signupUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/http/rateLimit', async () => ({
-  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>('@/server/http/rateLimit')),
+  ...(await vi.importActual<typeof RateLimitModule>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
 vi.mock('@/server/services/authService', () => ({ default: { signupUser } }));
@@ -19,7 +21,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({
   betterStackStream: { write: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 
@@ -45,7 +47,7 @@ describe('POST /api/auth/signup', () => {
 
     await POST(request, { params: Promise.resolve(undefined) });
 
-    const [rules] = enforceRateLimits.mock.calls[0];
+    const [rules] = enforceRateLimits.mock.calls[0] ?? [];
     const perAddress = rules.find(
       (rule: { key: string }) => rule.key === 'signup:email:owner@example.com',
     );

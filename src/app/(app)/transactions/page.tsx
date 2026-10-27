@@ -68,13 +68,13 @@ function TransactionsPageContent() {
 
   // Left in the address bar, consumed params would restore abandoned filters on
   // a refresh. history rather than router, which would refetch the route.
+  // Read once: later filter edits must not re-run the cleanup.
+  const [arrivedWithParams] = useState(() => searchParams.toString() !== '');
   useEffect(() => {
-    if (searchParams.toString()) {
+    if (arrivedWithParams) {
       window.history.replaceState(null, '', '/transactions');
     }
-    // Mount-time only; later filter edits must not re-run it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [arrivedWithParams]);
 
   const {
     data,

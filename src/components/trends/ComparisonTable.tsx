@@ -17,7 +17,7 @@ import {
 import type { CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
+import { cellAt, formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 
 type Props = {
@@ -56,7 +56,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
   if (isMobile) {
     return (
       <Stack spacing={1.5}>
-        {comparison.buckets.map((bucket, bucketIndex) => (
+        {comparison.buckets.map((bucket) => (
           <Paper key={bucket.key} variant="outlined" sx={{ p: 1.5 }}>
             <Stack
               direction="row"
@@ -87,7 +87,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
                   </Typography>
                   <Typography variant="body2">
                     {formatter.currency(
-                      selectMeasure(comparison.buckets[bucketIndex].cells[index], measure),
+                      selectMeasure(cellAt({ cells: bucket.cells, seriesIndex: index }), measure),
                     )}
                   </Typography>
                 </Stack>
@@ -139,7 +139,7 @@ export function ComparisonTable({ comparison, measure }: Props) {
                 {bucketLabel(bucket)}
               </TableCell>
               {bucket.cells.map((cell, index) => (
-                <TableCell key={comparison.series[index].categoryId} align="right">
+                <TableCell key={comparison.series[index]?.categoryId ?? index} align="right">
                   {formatter.currency(selectMeasure(cell, measure))}
                 </TableCell>
               ))}

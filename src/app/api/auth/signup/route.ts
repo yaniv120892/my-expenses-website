@@ -9,8 +9,8 @@ export const POST = createHandler({
   bodySchema: signupSchema,
   // Every signup for a pending address mails it a code, so the address gets
   // its own counter or rotating IPs could flood its inbox.
-  rateLimit: ({ req, body }) => [
-    { key: `signup:ip:${resolveClientIp(req)}`, ...RATE_LIMITS.signup },
+  rateLimit: ({ request, body }) => [
+    { key: `signup:ip:${resolveClientIp(request)}`, ...RATE_LIMITS.signup },
     {
       key: `signup:email:${body.email.toLowerCase()}`,
       ...RATE_LIMITS.signupPerAddress,

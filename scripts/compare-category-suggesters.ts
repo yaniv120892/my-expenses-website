@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   printSummaries(summaries);
 
   if (options.outPath !== null) {
-    await writeReport(options, prices, summaries, runs);
+    await writeReport(options.outPath, options, prices, summaries, runs);
   }
   if (summaries.some((summary) => summary.succeeded === 0)) {
     process.exitCode = 1;
@@ -230,6 +230,7 @@ function printSummaries(summaries: Summary[]): void {
 }
 
 async function writeReport(
+  outPath: string,
   options: BenchmarkArguments,
   prices: ReturnType<typeof modelPrices>,
   summaries: Summary[],
@@ -242,8 +243,8 @@ async function writeReport(
     summaries,
     runs,
   };
-  await writeFile(options.outPath!, JSON.stringify(report, null, 2));
-  console.log(`\nWrote ${options.outPath}`);
+  await writeFile(outPath, JSON.stringify(report, null, 2));
+  console.log(`\nWrote ${outPath}`);
 }
 
 function progress(label: string, done: number, total: number): void {

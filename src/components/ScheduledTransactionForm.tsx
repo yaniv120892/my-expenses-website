@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Box,
   Button,
@@ -74,24 +75,27 @@ export default function ScheduledTransactionForm({
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        description: initialData.description,
-        value: initialData.value,
-        categoryId: initialData.categoryId,
-        type: initialData.type,
-        scheduleType: initialData.scheduleType,
-        interval: initialData.interval,
-        dayOfWeek: initialData.dayOfWeek,
-        dayOfMonth: initialData.dayOfMonth,
-        bankDescriptionPrefix: initialData.bankDescriptionPrefix,
-      });
-    } else {
-      setForm({ ...defaultForm });
-    }
-    setErrors({});
-  }, [initialData, open]);
+  useResetOnChange({
+    deps: [initialData, open],
+    reset: () => {
+      if (initialData) {
+        setForm({
+          description: initialData.description,
+          value: initialData.value,
+          categoryId: initialData.categoryId,
+          type: initialData.type,
+          scheduleType: initialData.scheduleType,
+          interval: initialData.interval,
+          dayOfWeek: initialData.dayOfWeek,
+          dayOfMonth: initialData.dayOfMonth,
+          bankDescriptionPrefix: initialData.bankDescriptionPrefix,
+        });
+      } else {
+        setForm({ ...defaultForm });
+      }
+      setErrors({});
+    },
+  });
 
   function getScheduleSummary() {
     return scheduleSummary({ schedule: form, t, formatter });

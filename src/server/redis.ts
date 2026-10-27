@@ -98,8 +98,8 @@ export async function incrementManyWithTtl(increments: CounterIncrement[]): Prom
     return [];
   }
   const client = getClient();
-  if (increments.length === 1) {
-    const only = increments[0];
+  const [only] = increments;
+  if (only && increments.length === 1) {
     return [await incrementWithTtl(only.key, only.ttlSeconds)];
   }
   const prefix = redisKeyPrefix();

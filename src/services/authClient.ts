@@ -4,7 +4,7 @@ export class AuthRequestError extends Error {
   public readonly status: number;
   public readonly serverMessage: string | null;
 
-  constructor({ status, serverMessage }: { status: number; serverMessage: string | null }) {
+  public constructor({ status, serverMessage }: { status: number; serverMessage: string | null }) {
     super(serverMessage ?? `Auth request failed with status ${status}`);
     this.name = 'AuthRequestError';
     this.status = status;

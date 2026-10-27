@@ -127,27 +127,27 @@ const Chat: React.FC = () => {
             {messages
               // While waiting on the first token the streaming bubble is still
               // empty; the spinner below stands in for it.
-              .filter((msg) => msg.text.length > 0 || msg.sender === 'user')
-              .map((msg, index) => (
+              .filter((message) => message.text.length > 0 || message.sender === 'user')
+              .map((message, index) => (
                 <Paper
                   key={index}
                   elevation={0}
                   data-testid="chat-message"
-                  data-sender={msg.sender}
+                  data-sender={message.sender}
                   sx={{
                     p: 1.5,
                     mb: 1,
                     maxWidth: '80%',
-                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                    color: msg.sender === 'user' ? 'primary.contrastText' : 'text.primary',
-                    bgcolor: msg.sender === 'user' ? 'primary.main' : 'background.paper',
-                    border: msg.sender === 'user' ? 'none' : 1,
+                    alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                    color: message.sender === 'user' ? 'primary.contrastText' : 'text.primary',
+                    bgcolor: message.sender === 'user' ? 'primary.main' : 'background.paper',
+                    border: message.sender === 'user' ? 'none' : 1,
                     borderColor: 'divider',
                     borderRadius: 2.5,
                   }}
                 >
                   <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {msg.text}
+                    {message.text}
                   </Typography>
                 </Paper>
               ))}

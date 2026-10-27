@@ -162,9 +162,9 @@ export function summarize(
   decisions: Decision[],
   price: Price | undefined,
 ): Summary {
-  const succeeded = decisions
-    .map((decision, index) => ({ decision, sample: samples[index] }))
-    .filter(({ decision }) => decision.error === null);
+  const succeeded = decisions.flatMap((decision, index) =>
+    decision.error === null ? [{ decision, sample: sampleFor({ samples, index, model }) }] : [],
+  );
   const scores = succeeded.map(({ decision, sample }) => scoreDecision(sample, decision));
   const latencies = succeeded.map(({ decision }) => decision.durationMs).sort((a, b) => a - b);
   const inputTokens = sum(succeeded.map(({ decision }) => decision.inputTokens ?? 0));
@@ -195,7 +195,25 @@ export function percentile(sorted: number[], fraction: number): number {
     return 0;
   }
   const rank = Math.ceil(sorted.length * fraction) - 1;
-  return sorted[Math.min(sorted.length - 1, Math.max(rank, 0))];
+  return sorted[Math.min(sorted.length - 1, Math.max(rank, 0))] ?? 0;
+}
+
+function sampleFor({
+  samples,
+  index,
+  model,
+}: {
+  samples: Sample[];
+  index: number;
+  model: string;
+}): Sample {
+  const sample = samples[index];
+  if (sample === undefined) {
+    throw new Error(
+      `${model} returned decision ${index} for ${samples.length} sample(s); decisions and samples must be parallel`,
+    );
+  }
+  return sample;
 }
 
 function sum(values: number[]): number {

@@ -7,6 +7,7 @@ import { DesignTestProvider } from '@/test/renderWithClient';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import {
+  cellAt,
   comparisonFileName,
   comparisonToCsv,
   formatBucketLabel,
@@ -77,6 +78,21 @@ describe('seriesColor', () => {
     expect(seriesColor(2, palette)).toBe('c');
     expect(seriesColor(3, palette)).toBe('a');
     expect(seriesColor(5, palette)).toBe('c');
+  });
+
+  it('renders an empty palette as no color rather than crashing the chart', () => {
+    expect(seriesColor(0, [])).toBe('');
+  });
+});
+
+describe('cellAt', () => {
+  it('returns the series cell of a dense bucket', () => {
+    const c = cell(100, 40);
+    expect(cellAt({ cells: [c], seriesIndex: 0 })).toBe(c);
+  });
+
+  it('fails loudly when the bucket is missing a series cell', () => {
+    expect(() => cellAt({ cells: [cell(1, 0)], seriesIndex: 1 })).toThrow('no cell for series 1');
   });
 });
 

@@ -38,11 +38,11 @@ export class GoogleStorageProvider implements BackupStorageProvider {
       mimeType,
       body: streamFromBuffer(fileContent),
     };
-    const res = await this.getDrive().files.create({
+    const createdFile = await this.getDrive().files.create({
       requestBody: fileMetadata,
       media,
       fields: 'id, webViewLink',
     });
-    return res.data.webViewLink || '';
+    return createdFile.data.webViewLink || '';
   }
 }

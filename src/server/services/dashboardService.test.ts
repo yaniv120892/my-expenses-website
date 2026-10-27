@@ -43,10 +43,10 @@ describe('dashboardService.getInsights', () => {
       INSIGHTS,
     );
 
-    expect(analyzeExpenses.mock.calls[0][0]).toContain(
+    expect(analyzeExpenses.mock.calls[0]?.[0]).toContain(
       `Write every insight and the summary in ${language}`,
     );
-    expect(getValue.mock.calls[0][0]).toContain(`:user-1:${locale}:`);
-    expect(setValue.mock.calls[0][0]).toContain(`:user-1:${locale}:`);
+    expect(getValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
+    expect(setValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
   });
 });

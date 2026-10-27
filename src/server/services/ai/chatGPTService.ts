@@ -47,7 +47,7 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 200,
       });
 
-      return response.choices[0].message?.content || 'No insights available.';
+      return this.firstChoiceContent(response) || 'No insights available.';
     } catch (err) {
       reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return '';
@@ -74,7 +74,7 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 200,
       });
 
-      return response.choices[0].message?.content || null;
+      return this.firstChoiceContent(response) || null;
     } catch (err) {
       reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return null;
@@ -142,7 +142,7 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 50,
       });
 
-      return resolveMatchedTransactionId(response.choices[0].message?.content, potentialMatches);
+      return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
     } catch (err) {
       reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
       return null;
@@ -151,5 +151,15 @@ export class ChatGPTService implements AIProvider {
 
   public modelName(): string {
     return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
+  }
+
+  private firstChoiceContent(
+    response: OpenAI.Chat.Completions.ChatCompletion,
+  ): string | null | undefined {
+    const [choice] = response.choices;
+    if (!choice) {
+      throw new Error(`OpenAI completion ${response.id} returned no choices`);
+    }
+    return choice.message?.content;
   }
 }

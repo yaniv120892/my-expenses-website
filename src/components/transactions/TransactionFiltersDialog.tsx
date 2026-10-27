@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Button,
   Chip,
@@ -44,15 +45,18 @@ export const TransactionFiltersDialog = ({
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setSearchTerm(initialFilters?.searchTerm || '');
-      setCategoryId(initialFilters?.categoryId || '');
-      setType(initialFilters?.type);
-      setStartDate(initialFilters?.startDate || '');
-      setEndDate(initialFilters?.endDate || '');
-    }
-  }, [initialFilters, open]);
+  useResetOnChange({
+    deps: [initialFilters, open],
+    reset: () => {
+      if (open) {
+        setSearchTerm(initialFilters?.searchTerm || '');
+        setCategoryId(initialFilters?.categoryId || '');
+        setType(initialFilters?.type);
+        setStartDate(initialFilters?.startDate || '');
+        setEndDate(initialFilters?.endDate || '');
+      }
+    },
+  });
 
   // One clock for the whole render, so every chip is measured against it.
   const now = new Date();

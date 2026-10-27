@@ -57,4 +57,5 @@ export class TransactionFileRepository {
   }
 }
 
-export default new TransactionFileRepository();
+const transactionFileRepository = new TransactionFileRepository();
+export default transactionFileRepository;

@@ -62,7 +62,10 @@ function parseArgs(argv: string[]): Options {
 
   // Repeatable, so a capture can walk into a dialog or a tab before shooting.
   const getAll = (flag: string): string[] =>
-    argv.flatMap((arg, i) => (arg === flag && argv[i + 1] ? [argv[i + 1]] : []));
+    argv.flatMap((arg, i) => {
+      const value = argv[i + 1];
+      return arg === flag && value ? [value] : [];
+    });
 
   const route = get('--route');
   const name = get('--name');

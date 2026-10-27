@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Dialog,
   DialogTitle,
@@ -37,11 +38,14 @@ export default function ConvertToScheduledDialog({
   const formatter = useAppFormat();
   const fullScreen = useIsCompact();
 
-  useEffect(() => {
-    if (open) {
-      setCategoryId(subscription?.categoryId ?? '');
-    }
-  }, [open, subscription]);
+  useResetOnChange({
+    deps: [open, subscription],
+    reset: () => {
+      if (open) {
+        setCategoryId(subscription?.categoryId ?? '');
+      }
+    },
+  });
 
   function handleSubmit() {
     if (!subscription || !categoryId) {

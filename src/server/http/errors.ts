@@ -1,7 +1,7 @@
 import type { ZodError } from 'zod';
 
 export class HttpError extends Error {
-  constructor(
+  public constructor(
     public readonly status: number,
     message: string,
   ) {

@@ -35,4 +35,5 @@ class AnnouncementService {
   }
 }
 
-export default new AnnouncementService();
+const announcementService = new AnnouncementService();
+export default announcementService;

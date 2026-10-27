@@ -24,7 +24,10 @@ describe('buildDownloadUrl', () => {
 
     await buildDownloadUrl('transactions/t/key.pdf', fileName);
 
-    const header = getSignedUrl.mock.calls[0][1].input.ResponseContentDisposition as string;
+    const header: unknown = getSignedUrl.mock.calls[0]?.[1].input.ResponseContentDisposition;
+    if (typeof header !== 'string') {
+      throw new Error(`expected a signed disposition header, got ${String(header)}`);
+    }
     expect(parse(header)).toEqual({
       type: 'attachment',
       parameters: expect.objectContaining({ filename: fileName }),

@@ -94,4 +94,5 @@ export class CategoryRepository {
   }
 }
 
-export default new CategoryRepository();
+const categoryRepository = new CategoryRepository();
+export default categoryRepository;

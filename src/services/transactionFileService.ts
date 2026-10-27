@@ -1,8 +1,8 @@
 import api from './api';
 
 export async function listFiles(transactionId: string) {
-  const res = await api.get(`/api/transactions/${transactionId}/attachments`);
-  return res.data;
+  const response = await api.get(`/api/transactions/${transactionId}/attachments`);
+  return response.data;
 }
 
 export async function attachFile(
@@ -25,6 +25,9 @@ export async function getPresignedUploadUrl(
   transactionId: string,
   file: { fileName: string; mimeType: string; fileSize: number },
 ) {
-  const res = await api.post(`/api/transactions/${transactionId}/attachments/presign-upload`, file);
-  return res.data;
+  const response = await api.post(
+    `/api/transactions/${transactionId}/attachments/presign-upload`,
+    file,
+  );
+  return response.data;
 }

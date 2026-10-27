@@ -7,7 +7,7 @@ import { DesignTestProvider } from '@/test/renderWithClient';
 import { scheduleSummary, useAppFormat } from './useAppFormat';
 import { useT } from './useT';
 
-const NON_BREAKING_OR_BIDI = /[‎‏  ]/g;
+const NON_BREAKING_OR_BIDI = /[\u200E\u200F\u00A0\u202F]/g;
 
 function formatterFor(locale: Locale = 'en') {
   const { result } = renderHook(() => ({ t: useT(), formatter: useAppFormat() }), {

@@ -1,5 +1,6 @@
 import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
+import { redirectToSessionExpired } from '@/utils/hardNavigate';
 
 export type StreamHandlers = {
   onDelta: (delta: string) => void;
@@ -21,7 +22,7 @@ export const streamMessage = async (
   });
 
   if (response.status === 401) {
-    window.location.href = '/login?reason=session-expired';
+    redirectToSessionExpired();
     return;
   }
 
@@ -53,17 +54,14 @@ export const streamMessage = async (
     }
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
+  let chunk = await reader.read();
+  while (!chunk.done) {
+    buffer += decoder.decode(chunk.value, { stream: true });
 
     const frames = buffer.split('\n\n');
     buffer = frames.pop() ?? '';
     frames.forEach(handleFrame);
+    chunk = await reader.read();
   }
 
   if (buffer.trim()) {

@@ -331,4 +331,5 @@ class MonthlyReportService {
   }
 }
 
-export default new MonthlyReportService();
+const monthlyReportService = new MonthlyReportService();
+export default monthlyReportService;

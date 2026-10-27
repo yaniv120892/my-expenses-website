@@ -65,9 +65,7 @@ test('assistant reply renders incrementally', async ({ page }) => {
   ).toBeGreaterThan(1);
 
   // Deltas append, never replace.
-  for (let i = 1; i < lengths.length; i++) {
-    expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
-  }
+  expect(lengths).toEqual([...lengths].sort((left, right) => left - right));
 
   await expect(reply.last()).toContainText('1,100.00');
   await expect(reply.last()).toContainText('26.83%');
@@ -85,10 +83,13 @@ test('a suggested prompt sends itself and clears the empty state', async ({ page
   await expect(prompts.first()).toBeVisible();
 
   const promptText = await prompts.first().textContent();
+  if (promptText === null) {
+    throw new Error('the suggested prompt has no text');
+  }
   await prompts.first().click();
 
   await expect(page.locator('[data-testid="chat-message"][data-sender="user"]')).toHaveText(
-    promptText!,
+    promptText,
   );
   await expect(prompts).toHaveCount(0);
 });

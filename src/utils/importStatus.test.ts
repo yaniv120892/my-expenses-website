@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Import } from '@/types/import';
-import { ImportStatus } from '@/types/import';
+import { ImportFileType, ImportStatus } from '@/types/import';
 import { hasActiveImports } from '@/utils/importStatus';
 
 const NOW = Date.parse('2026-08-17T12:00:00.000Z');
@@ -10,13 +10,13 @@ function buildImport(overrides: Partial<Import> = {}): Import {
     id: 'import-1',
     fileUrl: 'https://example.com/file.csv',
     originalFileName: 'file.csv',
-    importType: 'VISA_CREDIT',
+    importType: ImportFileType.VISA_CREDIT,
     status: ImportStatus.COMPLETED,
     createdAt: new Date(NOW).toISOString(),
     updatedAt: new Date(NOW).toISOString(),
     isVerified: false,
     ...overrides,
-  } as Import;
+  };
 }
 
 describe('hasActiveImports', () => {

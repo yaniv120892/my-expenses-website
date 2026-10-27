@@ -36,16 +36,16 @@ function check(name: string, ok: boolean, detail = ''): void {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function streamChat(
   token: string | null,
   text: string,
-  opts: { abortAfterFirstDelta?: boolean } = {},
+  options: { abortAfterFirstDelta?: boolean } = {},
 ): Promise<{ status: number; contentType: string; frames: Frame[] }> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ messages: [{ sender: 'user', text }] });
-    const req = http.request(
+    const request = http.request(
       {
         host: '127.0.0.1',
         port: APP_PORT,
@@ -57,18 +57,18 @@ function streamChat(
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       },
-      (res) => {
+      (response) => {
         const frames: Frame[] = [];
         let buffer = '';
         const started = Date.now();
         const finish = () =>
           resolve({
-            status: res.statusCode || 0,
-            contentType: String(res.headers['content-type'] || ''),
+            status: response.statusCode || 0,
+            contentType: String(response.headers['content-type'] || ''),
             frames,
           });
 
-        res.on('data', (chunk) => {
+        response.on('data', (chunk) => {
           buffer += chunk.toString();
           const parts = buffer.split('\n\n');
           buffer = parts.pop() || '';
@@ -80,8 +80,8 @@ function streamChat(
             try {
               const parsed = JSON.parse(line.slice(6));
               frames.push({ ...parsed, at: Date.now() - started });
-              if (opts.abortAfterFirstDelta && parsed.type === 'delta') {
-                req.destroy();
+              if (options.abortAfterFirstDelta && parsed.type === 'delta') {
+                request.destroy();
                 finish();
               }
             } catch {
@@ -90,18 +90,18 @@ function streamChat(
           }
         });
 
-        res.on('end', finish);
+        response.on('end', finish);
       },
     );
 
-    req.on('error', (err) => {
-      if (opts.abortAfterFirstDelta) {
+    request.on('error', (error) => {
+      if (options.abortAfterFirstDelta) {
         return;
       }
-      reject(err);
+      reject(error);
     });
-    req.write(body);
-    req.end();
+    request.write(body);
+    request.end();
   });
 }
 
@@ -109,8 +109,8 @@ async function waitForApp(timeoutMs = 120_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const res = await streamChat(null, 'ping');
-      if (res.status) {
+      const response = await streamChat(null, 'ping');
+      if (response.status) {
         return true;
       }
     } catch {
@@ -130,71 +130,86 @@ async function query<T = Record<string, unknown>>(
   });
   await client.connect();
   try {
-    const res = await client.query(sql, params);
-    return res.rows as T[];
+    const result = await client.query(sql, params);
+    const rows: T[] = result.rows;
+    return rows;
   } finally {
     await client.end();
   }
 }
 
-type ApiResult = {
+type ApiResult<TBody = unknown> = {
   status: number;
   headers: Headers;
-  body: unknown;
+  body: TBody | null;
 };
 
-async function api(
+// The type argument names the shape a check expects; the harness asserts on the values, so a
+// mismatched body fails the check rather than being validated here.
+async function api<TBody = unknown>(
   method: string,
   path: string,
-  opts: {
+  options: {
     token?: string;
     cookie?: string;
     body?: unknown;
     rawBody?: string;
     headers?: Record<string, string>;
   } = {},
-): Promise<ApiResult> {
-  const headers: Record<string, string> = { ...opts.headers };
-  if (opts.token) {
-    headers.Authorization = `Bearer ${opts.token}`;
+): Promise<ApiResult<TBody>> {
+  const headers: Record<string, string> = { ...options.headers };
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
   }
-  if (opts.cookie) {
-    headers.Cookie = opts.cookie;
+  if (options.cookie) {
+    headers.Cookie = options.cookie;
   }
   let body: string | undefined;
-  if (opts.rawBody !== undefined) {
-    body = opts.rawBody;
+  if (options.rawBody !== undefined) {
+    body = options.rawBody;
     headers['Content-Type'] = 'application/json';
-  } else if (opts.body !== undefined) {
-    body = JSON.stringify(opts.body);
+  } else if (options.body !== undefined) {
+    body = JSON.stringify(options.body);
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(`http://127.0.0.1:${APP_PORT}${path}`, {
+  const response = await fetch(`http://127.0.0.1:${APP_PORT}${path}`, {
     method,
     headers,
     body,
   });
-  const text = await res.text();
-  let parsed: unknown = null;
+  const text = await response.text();
+  let parsed: TBody | null = null;
   try {
     parsed = JSON.parse(text);
   } catch {
     /* non-JSON body */
   }
-  return { status: res.status, headers: res.headers, body: parsed };
+  return { status: response.status, headers: response.headers, body: parsed };
 }
 
 function errorCode(result: ApiResult): string | undefined {
-  return (result.body as { code?: string } | null)?.code;
+  const body = result.body;
+  if (typeof body !== 'object' || body === null || !('code' in body)) {
+    return undefined;
+  }
+  return typeof body.code === 'string' ? body.code : undefined;
 }
 
 async function redisGet(key: string): Promise<unknown> {
-  const res = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
+  const response = await fetch(`http://127.0.0.1:${SHIM_PORT}`, {
     method: 'POST',
     body: JSON.stringify(['get', key]),
   });
-  const parsed = (await res.json()) as { result: unknown };
+  const parsed: { result: unknown } = await response.json();
   return parsed.result;
+}
+
+function firstRow<T>({ rows, what }: { rows: T[]; what: string }): T {
+  const [row] = rows;
+  if (row === undefined) {
+    throw new Error(`expected a row for ${what}, got none`);
+  }
+  return row;
 }
 
 function preview(text: string, max = 160): string {
@@ -213,17 +228,20 @@ function textOf(frames: Frame[]): string {
 async function authLifecycleFlow(): Promise<void> {
   const email = 'login-flow@e2e.test';
   const password = 'e2e-login-password';
-  const [user] = await query<{ id: string }>(
-    `insert into "User" (id, username, email, password, verified)
+  const user = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "User" (id, username, email, password, verified)
      values (gen_random_uuid(), 'e2e-login-flow', $1, $2, true)
      returning id`,
-    [email, await hash(password, 10)],
-  );
+      [email, await hash(password, 10)],
+    ),
+    what: 'the login-flow user',
+  });
 
-  const login = await api('POST', '/api/auth/login', {
+  const login = await api<{ success?: boolean; token?: string }>('POST', '/api/auth/login', {
     body: { email, password },
   });
-  const loginBody = (login.body ?? {}) as { success?: boolean; token?: string };
+  const loginBody = login.body ?? {};
   const token = loginBody.token || '';
   const setCookie = login.headers.get('set-cookie') || '';
   check(
@@ -236,8 +254,8 @@ async function authLifecycleFlow(): Promise<void> {
   check('auth: login stores the redis session key', (await redisGet(sessionKey)) !== null);
 
   const cookie = `session=${token}`;
-  const me = await api('GET', '/api/auth/me', { cookie });
-  const meBody = (me.body ?? {}) as { email?: string };
+  const me = await api<{ email?: string }>('GET', '/api/auth/me', { cookie });
+  const meBody = me.body ?? {};
   check(
     'auth: me returns the logged-in user via cookie',
     me.status === 200 && meBody.email === email,
@@ -256,11 +274,12 @@ async function authLifecycleFlow(): Promise<void> {
 }
 
 async function transactionLifecycleFlow(token: string): Promise<void> {
-  const [category] = await query<{ id: string }>(
-    `select id from "Category" where name = 'Groceries'`,
-  );
+  const category = firstRow({
+    rows: await query<{ id: string }>(`select id from "Category" where name = 'Groceries'`),
+    what: 'the Groceries category',
+  });
 
-  const created = await api('POST', '/api/transactions', {
+  const created = await api<{ id?: string }>('POST', '/api/transactions', {
     token,
     body: {
       description: 'E2E lifecycle transaction',
@@ -271,7 +290,7 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
       date: '2026-08-02T12:00:00.000Z',
     },
   });
-  const txId = (created.body as { id?: string } | null)?.id || '';
+  const txId = created.body?.id || '';
   check(
     'transactions: POST creates and returns an id',
     created.status === 201 && txId.length > 0,
@@ -279,26 +298,24 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   );
 
   const listPath = '/api/transactions?limit=10&startDate=2026-08-01&endDate=2026-08-03';
-  const listItems = (res: ApiResult) =>
-    (res.body as { items?: { id: string }[] } | null)?.items ?? [];
-  const inList = (res: ApiResult) => listItems(res).some((t) => t.id === txId);
+  type TransactionList = { items?: { id: string }[] };
+  const listItems = (result: ApiResult<TransactionList>) => result.body?.items ?? [];
+  const inList = (result: ApiResult<TransactionList>) =>
+    listItems(result).some((t) => t.id === txId);
 
-  const list = await api('GET', listPath, { token });
+  const list = await api<TransactionList>('GET', listPath, { token });
   check(
     'transactions: created transaction appears in the list',
     list.status === 200 && inList(list),
     `status ${list.status}`,
   );
 
-  const summary = await api(
+  const summary = await api<{ totalExpense?: number; count?: number }>(
     'GET',
     '/api/transactions/summary?startDate=2026-08-01&endDate=2026-08-03',
     { token },
   );
-  const summaryBody = summary.body as {
-    totalExpense?: number;
-    count?: number;
-  } | null;
+  const summaryBody = summary.body;
   check(
     'transactions: summary reflects the new expense',
     summaryBody?.totalExpense === 123.45,
@@ -313,11 +330,17 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   // Upper-cased to prove the search is case-insensitive; the totals must narrow
   // with the paged list or the header describes rows the list never shows.
   const searchQuery = 'searchTerm=LIFECYCLE&startDate=2026-08-01&endDate=2026-08-03';
-  const searchedList = await api('GET', `/api/transactions?limit=10&${searchQuery}`, {
-    token,
-  });
-  const searchedSummary = await api('GET', `/api/transactions/summary?${searchQuery}`, { token });
-  const searchedCount = (searchedSummary.body as { count?: number } | null)?.count;
+  const searchedList = await api<TransactionList>(
+    'GET',
+    `/api/transactions?limit=10&${searchQuery}`,
+    { token },
+  );
+  const searchedSummary = await api<{ count?: number }>(
+    'GET',
+    `/api/transactions/summary?${searchQuery}`,
+    { token },
+  );
+  const searchedCount = searchedSummary.body?.count;
   check(
     'transactions: search narrows the list and the summary alike',
     listItems(searchedList).length === searchedCount && inList(searchedList),
@@ -328,7 +351,7 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     token,
     body: { status: 'PENDING_APPROVAL' },
   });
-  const listPending = await api('GET', listPath, { token });
+  const listPending = await api<TransactionList>('GET', listPath, { token });
   check(
     'transactions: PENDING_APPROVAL hides it from the approved list',
     pended.status === 200 && !inList(listPending),
@@ -339,7 +362,7 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
     token,
     body: { status: 'APPROVED' },
   });
-  const listApproved = await api('GET', listPath, { token });
+  const listApproved = await api<TransactionList>('GET', listPath, { token });
   check(
     'transactions: re-approval returns it to the list',
     approved.status === 200 && inList(listApproved),
@@ -347,7 +370,7 @@ async function transactionLifecycleFlow(token: string): Promise<void> {
   );
 
   const deleted = await api('DELETE', `/api/transactions/${txId}`, { token });
-  const listAfterDelete = await api('GET', listPath, { token });
+  const listAfterDelete = await api<TransactionList>('GET', listPath, { token });
   check(
     'transactions: DELETE removes it',
     deleted.status === 200 && !inList(listAfterDelete),
@@ -401,7 +424,7 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
   ];
   const createdIds: string[] = [];
   for (const row of rows) {
-    const created = await api('POST', '/api/transactions', {
+    const created = await api<{ id?: string }>('POST', '/api/transactions', {
       token,
       body: {
         description: row.description,
@@ -411,26 +434,28 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
         date: '2026-08-11T12:00:00.000Z',
       },
     });
-    createdIds.push((created.body as { id?: string } | null)?.id ?? '');
+    createdIds.push(created.body?.id ?? '');
   }
 
   const window = 'startDate=2026-08-10&endDate=2026-08-12';
   type Slice = { categoryName: string; amount: number; percentage: number };
-  const slicesOf = (res: ApiResult) =>
-    ((res.body as Slice[] | null) ?? []).map(
+  const slicesOf = (result: ApiResult<Slice[]>) =>
+    (result.body ?? []).map(
       ({ categoryName, amount, percentage }) => `${categoryName}:${amount}:${percentage}`,
     );
 
-  const expenses = await api('GET', `/api/transactions/summary/categories?type=EXPENSE&${window}`, {
-    token,
-  });
+  const expenses = await api<Slice[]>(
+    'GET',
+    `/api/transactions/summary/categories?type=EXPENSE&${window}`,
+    { token },
+  );
   check(
     'breakdown: expense slices are per category, largest first, with shares',
     expenses.status === 200 && slicesOf(expenses).join() === 'Rent:300:75,Groceries:100:25',
     `status ${expenses.status} ${slicesOf(expenses).join()}`,
   );
 
-  const searched = await api(
+  const searched = await api<Slice[]>(
     'GET',
     `/api/transactions/summary/categories?type=EXPENSE&searchTerm=MARKET&${window}`,
     { token },
@@ -441,9 +466,11 @@ async function transactionCategoryBreakdownFlow(token: string): Promise<void> {
     slicesOf(searched).join(),
   );
 
-  const income = await api('GET', `/api/transactions/summary/categories?type=INCOME&${window}`, {
-    token,
-  });
+  const income = await api<Slice[]>(
+    'GET',
+    `/api/transactions/summary/categories?type=INCOME&${window}`,
+    { token },
+  );
   check(
     'breakdown: the income split excludes expenses',
     slicesOf(income).join() === 'Groceries:1000:100',
@@ -493,13 +520,12 @@ async function walkTransactionPages(token: string, sortParams: string): Promise<
 
   for (let request = 0; request < MAX_PAGE_REQUESTS; request++) {
     const path = `/api/transactions?limit=3&${sortParams}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-    const res: ApiResult = await api('GET', path, { token });
-    const body = res.body as {
-      items: { id: string }[];
-      nextCursor: string | null;
-    } | null;
-    if (res.status !== 200 || !body) {
-      return { failure: `page ${request + 1} returned status ${res.status}` };
+    const page = await api<{ items: { id: string }[]; nextCursor: string | null }>('GET', path, {
+      token,
+    });
+    const body = page.body;
+    if (page.status !== 200 || !body) {
+      return { failure: `page ${request + 1} returned status ${page.status}` };
     }
     seen.push(...body.items.map((item) => item.id));
     if (!body.nextCursor) {
@@ -570,15 +596,21 @@ async function transactionCursorPagingFlow(token: string, userId: string): Promi
 }
 
 async function scheduledCronFlow(userId: string): Promise<void> {
-  const [category] = await query<{ id: string }>(`select id from "Category" where name = 'Rent'`);
+  const category = firstRow({
+    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
+    what: 'the Rent category',
+  });
   const description = 'E2E due schedule';
-  const [schedule] = await query<{ id: string }>(
-    `insert into "ScheduledTransaction"
+  const schedule = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "ScheduledTransaction"
        (id, description, value, type, "categoryId", "scheduleType", "userId", "nextRunDate")
      values (gen_random_uuid(), $1, 55, 'EXPENSE', $2, 'DAILY', $3, now() - interval '1 day')
      returning id`,
-    [description, category.id, userId],
-  );
+      [description, category.id, userId],
+    ),
+    what: 'the due schedule',
+  });
 
   const unauthed = await api('GET', '/api/scheduled-transactions/process');
   check(
@@ -596,11 +628,12 @@ async function scheduledCronFlow(userId: string): Promise<void> {
     `select status from "Transaction" where "userId" = $1 and description = $2`,
     [userId, description],
   );
+  const [firstTransaction] = txRows;
   check(
     'cron: due schedule created a PENDING_APPROVAL transaction',
-    txRows.length === 1 && txRows[0].status === 'PENDING_APPROVAL',
-    txRows.length
-      ? `${txRows.length} row(s), status ${txRows[0].status}`
+    txRows.length === 1 && firstTransaction?.status === 'PENDING_APPROVAL',
+    firstTransaction
+      ? `${txRows.length} row(s), status ${firstTransaction.status}`
       : 'no transaction created',
   );
 
@@ -613,14 +646,17 @@ async function scheduledCronFlow(userId: string): Promise<void> {
 
 async function stuckImportSweepFlow(userId: string): Promise<void> {
   const insertImport = async (status: string, ageHours: number) => {
-    const [row] = await query<{ id: string }>(
-      `insert into "Import"
+    const row = firstRow({
+      rows: await query<{ id: string }>(
+        `insert into "Import"
          (id, "userId", "fileUrl", "originalFileName", status, "createdAt", "updatedAt")
        values (gen_random_uuid(), $1, 'e2e/stuck.xlsx', 'stuck.xlsx', $2::"ImportStatus",
                now() - make_interval(hours => $3), now())
        returning id`,
-      [userId, status, ageHours],
-    );
+        [userId, status, ageHours],
+      ),
+      what: `a ${status} import`,
+    });
     return row.id;
   };
   const stuckId = await insertImport('PROCESSING', 7);
@@ -709,13 +745,12 @@ async function excelWebhookFlow(userId: string): Promise<void> {
     `status ${missingAuth.status}`,
   );
 
-  const badJson = await api('POST', '/api/excel-extraction-agent/webhook', {
+  const badJson = await api<{ error?: string }>('POST', '/api/excel-extraction-agent/webhook', {
     rawBody: '{not json',
   });
   check(
     'excel webhook: malformed JSON body gets 400',
-    badJson.status === 400 &&
-      (badJson.body as { error?: string } | null)?.error === 'Invalid JSON body',
+    badJson.status === 400 && badJson.body?.error === 'Invalid JSON body',
     `status ${badJson.status}`,
   );
 
@@ -792,8 +827,8 @@ function randomCardDigits(): string {
 }
 
 async function findImport(token: string, importId: string): Promise<ImportRecord | undefined> {
-  const listed = await api('GET', '/api/imports', { token });
-  const imports = Array.isArray(listed.body) ? (listed.body as ImportRecord[]) : [];
+  const listed = await api<ImportRecord[]>('GET', '/api/imports', { token });
+  const imports = Array.isArray(listed.body) ? listed.body : [];
   return imports.find((record) => record.id === importId);
 }
 
@@ -826,11 +861,11 @@ async function apiTokenFlow(sessionToken: string, otherUserSessionToken: string)
     `status ${unscoped.status}`,
   );
 
-  const created = await api('POST', '/api/api-tokens', {
+  const created = await api<{ id?: string; token?: string }>('POST', '/api/api-tokens', {
     token: sessionToken,
     body: { name: 'e2e statements script', scopes: ['IMPORTS'] },
   });
-  const { id, token } = (created.body ?? {}) as { id?: string; token?: string };
+  const { id, token } = created.body ?? {};
   check(
     'API tokens: a session creates one and sees its plaintext once',
     created.status === 201 && Boolean(token?.startsWith('mxk_')),
@@ -846,7 +881,7 @@ async function apiTokenFlow(sessionToken: string, otherUserSessionToken: string)
   );
   check(
     'API tokens: only a hash is stored',
-    Boolean(stored) && stored.tokenHash !== token && !stored.tokenHash.includes(token),
+    stored !== undefined && stored.tokenHash !== token && !stored.tokenHash.includes(token),
   );
 
   const listed = await api('GET', '/api/api-tokens', {
@@ -904,17 +939,14 @@ async function apiTokenFlow(sessionToken: string, otherUserSessionToken: string)
 }
 
 async function apiTokenRevocationFlow(sessionToken: string, apiToken: string): Promise<void> {
-  const listed = await api('GET', '/api/api-tokens', {
+  const listed = await api<{ id: string; lastUsedAt: string | null }[]>('GET', '/api/api-tokens', {
     token: sessionToken,
   });
-  const tokens = (listed.body ?? []) as {
-    id: string;
-    lastUsedAt: string | null;
-  }[];
+  const tokens = listed.body ?? [];
   const [used] = tokens;
   check(
     'API tokens: use is recorded',
-    tokens.length === 1 && used.lastUsedAt !== null,
+    tokens.length === 1 && used !== undefined && used.lastUsedAt !== null,
     `${tokens.length} tokens, lastUsedAt ${used?.lastUsedAt}`,
   );
   if (!used) {
@@ -955,11 +987,11 @@ async function importEncryptionFlow(token: string): Promise<void> {
 
   const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`;
 
-  const created = await api('POST', '/api/imports/process', {
+  const created = await api<{ id?: string }>('POST', '/api/imports/process', {
     token,
     body: { fileUrl, originalFileName },
   });
-  const importId = (created.body as { id?: string } | null)?.id;
+  const importId = created.body?.id;
   check(
     'imports: process accepts a file URL inside the imports bucket',
     created.status === 200 && Boolean(importId),
@@ -1017,16 +1049,16 @@ async function importMergeFlow(token: string): Promise<void> {
     originalFileName,
   };
 
-  const first = await api('POST', '/api/imports/process', { token, body });
-  const firstId = (first.body as { id?: string } | null)?.id;
+  const first = await api<{ id?: string }>('POST', '/api/imports/process', { token, body });
+  const firstId = first.body?.id;
   if (!firstId) {
     check('imports: merge flow could submit the first import', false, '');
     return;
   }
   await waitForImportCompletion(token, firstId);
 
-  const second = await api('POST', '/api/imports/process', { token, body });
-  const secondId = (second.body as { id?: string } | null)?.id;
+  const second = await api<{ id?: string }>('POST', '/api/imports/process', { token, body });
+  const secondId = second.body?.id;
   if (!secondId) {
     check('imports: merge flow could submit the second import', false, '');
     return;
@@ -1045,8 +1077,8 @@ async function importMergeFlow(token: string): Promise<void> {
     `status ${survivor?.status ?? 'never listed'}`,
   );
 
-  const byId = await api('GET', `/api/imports/${secondId}`, { token });
-  const byIdRecord = byId.body as ImportRecord | null;
+  const byId = await api<ImportRecord>('GET', `/api/imports/${secondId}`, { token });
+  const byIdRecord = byId.body;
   check(
     'imports: GET by id returns the merged import with its pointer',
     byId.status === 200 && byIdRecord?.mergedIntoImportId === firstId,
@@ -1078,7 +1110,10 @@ async function variableAmountPlaceholderFlow(
   }
   const digits = randomCardDigits();
   const description = `E2E variable ${digits}`;
-  const [category] = await query<{ id: string }>(`select id from "Category" where name = 'Rent'`);
+  const category = firstRow({
+    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
+    what: 'the Rent category',
+  });
 
   // Created without a prefix and given one after the cron has run, so the
   // check proves an edit reaches a pending transaction already projected.
@@ -1089,11 +1124,11 @@ async function variableAmountPlaceholderFlow(
     categoryId: category.id,
     scheduleType: 'DAILY',
   };
-  const created = await api('POST', '/api/scheduled-transactions', {
+  const created = await api<string>('POST', '/api/scheduled-transactions', {
     token: sessionToken,
     body: schedule,
   });
-  const scheduleId = created.body as string | null;
+  const scheduleId = created.body;
   if (created.status !== 201 || !scheduleId) {
     check('variable amount: the schedule was created', false, '');
     return;
@@ -1134,33 +1169,28 @@ async function variableAmountPlaceholderFlow(
   await query(`update "Transaction" set date = '2026-03-08' where id = $1`, [placeholder.id]);
 
   const originalFileName = `card-${digits}_05_2026.csv`;
-  const submitted = await api('POST', '/api/imports/process', {
+  const submitted = await api<{ id?: string }>('POST', '/api/imports/process', {
     token: apiToken,
     body: {
       fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
       originalFileName,
     },
   });
-  const importId = (submitted.body as { id?: string } | null)?.id;
+  const importId = submitted.body?.id;
   if (!importId) {
     check('variable amount: the import was submitted', false, '');
     return;
   }
   await waitForImportCompletion(apiToken, importId);
 
-  const preview = await api('GET', `/api/imports/${importId}/reconciliation-preview`, {
-    token: apiToken,
-  });
-  const [item] = Array.isArray(preview.body)
-    ? (preview.body as {
-        action: string;
-        value: number;
-        match: {
-          transactionId: string;
-          approvesPendingTransaction: boolean;
-        } | null;
-      }[])
-    : [];
+  const preview = await api<
+    {
+      action: string;
+      value: number;
+      match: { transactionId: string; approvesPendingTransaction: boolean } | null;
+    }[]
+  >('GET', `/api/imports/${importId}/reconciliation-preview`, { token: apiToken });
+  const [item] = Array.isArray(preview.body) ? preview.body : [];
   check(
     'variable amount: a 12.50 charge merges into the 40 placeholder its prefix names',
     item?.action === 'MERGE' &&
@@ -1236,7 +1266,9 @@ async function main(): Promise<void> {
   );
 
   const deltas = compare.frames.filter((f) => f.type === 'delta');
-  const spread = deltas.length ? deltas[deltas.length - 1].at - deltas[0].at : 0;
+  const firstDelta = deltas[0];
+  const lastDelta = deltas.at(-1);
+  const spread = firstDelta && lastDelta ? lastDelta.at - firstDelta.at : 0;
   // Half the mock's chunk gap: the property under test is only "these did not
   // arrive together", and 60ms sits far above timer jitter.
   const minSpread = CHUNK_DELAY_MS / 2;

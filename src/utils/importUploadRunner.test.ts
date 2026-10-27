@@ -49,8 +49,11 @@ describe('runUploadItem', () => {
 
     await runUploadItem(item(), api, recorder().dispatch);
 
-    const formData = vi.mocked(api.uploadImportFile).mock.calls[0][0];
-    const sent = formData.get('file') as File;
+    const formData = vi.mocked(api.uploadImportFile).mock.calls[0]?.[0];
+    const sent = formData?.get('file');
+    if (!(sent instanceof File)) {
+      throw new Error('the upload carried no file');
+    }
     expect(sent.name).toBe('card-1234.csv');
   });
 

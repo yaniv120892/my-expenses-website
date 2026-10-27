@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 
 type Props = {
@@ -13,8 +13,7 @@ type Props = {
 // second request for the same page.
 export default function InfiniteScrollSentinel({ hasMore, loading, onLoadMore }: Props) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const onLoadMoreRef = useRef(onLoadMore);
-  onLoadMoreRef.current = onLoadMore;
+  const loadMore = useEffectEvent(onLoadMore);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -24,8 +23,8 @@ export default function InfiniteScrollSentinel({ hasMore, loading, onLoadMore }:
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          onLoadMoreRef.current();
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
         }
       },
       { rootMargin: '200px' },

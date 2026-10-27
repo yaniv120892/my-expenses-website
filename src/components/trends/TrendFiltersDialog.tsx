@@ -26,7 +26,8 @@ import type { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { seriesColor } from '@/utils/comparison';
 import { isOneOf } from '@/utils/oneOf';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import { toDayString } from '@/shared/dates';
 import { parseDayInput } from '@/utils/dateUtils';
 import { useT } from '@/i18n/useT';
@@ -68,26 +69,29 @@ export const TrendFiltersDialog = ({
   const [comparisonCategoryIds, setComparisonCategoryIds] = useState(initialComparisonCategoryIds);
   const [comparisonScope, setComparisonScope] = useState(initialComparisonScope);
 
-  useEffect(() => {
-    if (open) {
-      setPeriod(initialPeriod);
-      setStartDate(initialStartDate);
-      setEndDate(initialEndDate);
-      setSelectedCategory(initialSelectedCategory);
-      setTransactionType(initialTransactionType);
-      setComparisonCategoryIds(initialComparisonCategoryIds);
-      setComparisonScope(initialComparisonScope);
-    }
-  }, [
-    open,
-    initialPeriod,
-    initialStartDate,
-    initialEndDate,
-    initialSelectedCategory,
-    initialTransactionType,
-    initialComparisonCategoryIds,
-    initialComparisonScope,
-  ]);
+  useResetOnChange({
+    deps: [
+      open,
+      initialPeriod,
+      initialStartDate,
+      initialEndDate,
+      initialSelectedCategory,
+      initialTransactionType,
+      initialComparisonCategoryIds,
+      initialComparisonScope,
+    ],
+    reset: () => {
+      if (open) {
+        setPeriod(initialPeriod);
+        setStartDate(initialStartDate);
+        setEndDate(initialEndDate);
+        setSelectedCategory(initialSelectedCategory);
+        setTransactionType(initialTransactionType);
+        setComparisonCategoryIds(initialComparisonCategoryIds);
+        setComparisonScope(initialComparisonScope);
+      }
+    },
+  });
 
   const categoriesById = new Map(categories.map((c) => [c.id, c]));
   const selectedComparisonCategories = comparisonCategoryIds

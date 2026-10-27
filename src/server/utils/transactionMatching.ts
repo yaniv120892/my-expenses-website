@@ -50,7 +50,8 @@ export function findExactNormalizedMatch(
     (candidate) => normalizeDescription(candidate.description) === normalized,
   );
 
-  return matches.length === 1 ? matches[0].id : null;
+  const [onlyMatch] = matches;
+  return onlyMatch && matches.length === 1 ? onlyMatch.id : null;
 }
 
 /**

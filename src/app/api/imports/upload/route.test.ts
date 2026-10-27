@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, send } = vi.hoisted(() => ({
@@ -7,7 +9,7 @@ const { requireUser, send } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@aws-sdk/client-s3', () => ({
@@ -15,7 +17,7 @@ vi.mock('@aws-sdk/client-s3', () => ({
     public send = send;
   },
   PutObjectCommand: class {
-    constructor(public readonly input: { Key: string }) {}
+    public constructor(public readonly input: { Key: string }) {}
   },
 }));
 vi.mock('@/server/logging/logger', () => ({
@@ -26,7 +28,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({
   betterStackStream: { write: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 
@@ -60,7 +62,7 @@ describe('POST /api/imports/upload', () => {
 
     expect(response.status).toBe(200);
     const { fileUrl } = await response.json();
-    const storedKey = send.mock.calls[0][0].input.Key;
+    const storedKey = send.mock.calls[0]?.[0].input.Key;
     expect(new URL(fileUrl).pathname).toBe(`/${storedKey}`);
   });
 

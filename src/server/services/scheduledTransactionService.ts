@@ -121,4 +121,5 @@ class ScheduledTransactionService {
   }
 }
 
-export default new ScheduledTransactionService();
+const scheduledTransactionService = new ScheduledTransactionService();
+export default scheduledTransactionService;

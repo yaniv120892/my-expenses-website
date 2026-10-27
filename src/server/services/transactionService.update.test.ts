@@ -85,7 +85,7 @@ describe('transactionService.updateTransaction', () => {
       'user-1',
     );
 
-    expect(updateTransaction.mock.calls[0][1].amount).toMatchObject({
+    expect(updateTransaction.mock.calls[0]?.[1].amount).toMatchObject({
       value: 111,
       originalAmount: 30,
       exchangeRateSource: 'BANK_OF_ISRAEL',

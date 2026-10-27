@@ -84,7 +84,7 @@ describe('useMultiFileImport', () => {
     });
 
     expect(result.current.items.map((i) => i.status)).toEqual(['succeeded', 'failed', 'succeeded']);
-    expect(result.current.items[1].error).toEqual({
+    expect(result.current.items[1]?.error).toEqual({
       code: 'REQUEST_FAILED',
       message: 'Unsupported file type',
     });
@@ -105,14 +105,14 @@ describe('useMultiFileImport', () => {
     await act(async () => {
       await result.current.start();
     });
-    expect(result.current.items[0].status).toBe('failed');
+    expect(result.current.items[0]?.status).toBe('failed');
     expect(uploadImportFile).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       result.current.retryItem('0');
     });
 
-    await waitFor(() => expect(result.current.items[0].status).toBe('succeeded'));
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('succeeded'));
     expect(uploadImportFile).toHaveBeenCalledTimes(1);
     expect(processImport).toHaveBeenCalledTimes(2);
   });

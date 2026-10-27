@@ -134,4 +134,5 @@ class ScheduledTransactionRepository {
   }
 }
 
-export default new ScheduledTransactionRepository();
+const scheduledTransactionRepository = new ScheduledTransactionRepository();
+export default scheduledTransactionRepository;

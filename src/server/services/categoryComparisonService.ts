@@ -139,7 +139,7 @@ class CategoryComparisonService {
 
       const seriesIndexes = seriesIndexesByCategoryId.get(row.categoryId) ?? [];
       for (const seriesIndex of seriesIndexes) {
-        addToCell(bucket.cells[seriesIndex], row.type, row.sum, row.count);
+        addToCell(this.cellAt({ bucket, seriesIndex }), row.type, row.sum, row.count);
       }
       // Counted once per row, so an overlapping selection does not inflate the
       // row total beyond the transactions that actually exist.
@@ -162,8 +162,24 @@ class CategoryComparisonService {
       categoryName: definition.category.name,
       scope,
       memberCategoryIds: definition.memberCategoryIds,
-      total: this.sumCells(buckets.map((bucket) => bucket.cells[seriesIndex])),
+      total: this.sumCells(buckets.map((bucket) => this.cellAt({ bucket, seriesIndex }))),
     }));
+  }
+
+  private cellAt({
+    bucket,
+    seriesIndex,
+  }: {
+    bucket: ComparisonBucket;
+    seriesIndex: number;
+  }): ComparisonCell {
+    const cell = bucket.cells[seriesIndex];
+    if (!cell) {
+      throw new Error(
+        `Bucket ${bucket.key} has no cell for series ${seriesIndex} (cells: ${bucket.cells.length})`,
+      );
+    }
+    return cell;
   }
 
   private sumCells(cells: ComparisonCell[]): ComparisonCell {
@@ -177,4 +193,5 @@ class CategoryComparisonService {
   }
 }
 
-export default new CategoryComparisonService();
+const categoryComparisonService = new CategoryComparisonService();
+export default categoryComparisonService;

@@ -25,8 +25,23 @@ export function selectMeasure(cell: ComparisonCell, measure: ComparisonMeasure):
   return cell.net;
 }
 
+/** A dense bucket holds one cell per series, so a series index always has a cell. */
+export function cellAt({
+  cells,
+  seriesIndex,
+}: {
+  cells: ComparisonCell[];
+  seriesIndex: number;
+}): ComparisonCell {
+  const cell = cells[seriesIndex];
+  if (!cell) {
+    throw new Error(`bucket has no cell for series ${seriesIndex} (cells: ${cells.length})`);
+  }
+  return cell;
+}
+
 export function seriesColor(index: number, palette: string[]): string {
-  return palette[index % palette.length];
+  return palette[index % palette.length] ?? '';
 }
 
 export function formatBucketLabel({

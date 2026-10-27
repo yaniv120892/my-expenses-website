@@ -140,8 +140,9 @@ describe('cardFeeNotice', () => {
 
   it('says nothing for a server that sends no cardHoldingFee', () => {
     const { cardHoldingFee: _omitted, ...withoutFlag } = item();
+    const fromOlderServer: ReconciliationPreviewItem[] = JSON.parse(JSON.stringify([withoutFlag]));
 
-    expect(cardFeeNotice([withoutFlag as ReconciliationPreviewItem])).toBeNull();
+    expect(cardFeeNotice(fromOlderServer)).toBeNull();
   });
 
   it('lists each fee row with its date, amount and description', () => {

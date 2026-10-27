@@ -211,8 +211,8 @@ class TrendService {
     // trend totals for heavy months.
     const transactions: Transaction[] = [];
     const perPage = 1000;
-    let page = 1;
-    for (;;) {
+    let isLastPage = false;
+    for (let page = 1; !isLastPage; page += 1) {
       const batch = await transactionRepository.getTransactions({
         startDate,
         endDate,
@@ -225,11 +225,9 @@ class TrendService {
         transactionType: transactionType || TransactionType.EXPENSE,
       });
       transactions.push(...batch);
-      if (batch.length < perPage) {
-        return transactions;
-      }
-      page += 1;
+      isLastPage = batch.length < perPage;
     }
+    return transactions;
   }
 
   private async fetchPreviousPeriodData(query: PeriodQuery) {
@@ -301,4 +299,5 @@ class TrendService {
   }
 }
 
-export default new TrendService();
+const trendService = new TrendService();
+export default trendService;

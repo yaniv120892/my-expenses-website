@@ -49,8 +49,8 @@ describe('importRepository.failStuckProcessing', () => {
 
     await importRepository.failStuckProcessing(cutoff, 'stuck');
 
-    const [{ where }] = updateMany.mock.calls[0];
-    expect(where.OR[1].extractionCompletedAt.lt).toEqual(new Date('2026-10-24T05:45:00Z'));
+    const where = updateMany.mock.calls[0]?.[0]?.where;
+    expect(where?.OR[1].extractionCompletedAt.lt).toEqual(new Date('2026-10-24T05:45:00Z'));
     vi.useRealTimers();
   });
 

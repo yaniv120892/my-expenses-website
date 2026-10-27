@@ -23,7 +23,7 @@ function asQueryString(params: Record<string, unknown>) {
 }
 
 function sentParams(): Record<string, unknown> {
-  return get.mock.calls[0][1].params;
+  return get.mock.calls[0]?.[1].params;
 }
 
 describe('getTransactionsPage', () => {
@@ -123,7 +123,7 @@ describe('exportTransactionsCsv', () => {
   it('asks for a blob so the CSV is not parsed as JSON', async () => {
     await exportTransactionsCsv({ startDate: '2026-08-01' });
 
-    expect(get.mock.calls[0][1].responseType).toBe('blob');
+    expect(get.mock.calls[0]?.[1].responseType).toBe('blob');
   });
 
   it('saves under the name the route chose', async () => {

@@ -2,14 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { constructStore } = vi.hoisted(() => ({ constructStore: vi.fn() }));
 
-vi.mock('@mastra/pg', () => ({
-  PostgresStore: class {
-    constructor(options: unknown) {
-      constructStore(options);
-    }
-  },
-}));
-vi.mock('@mastra/memory', () => ({ Memory: class {} }));
+vi.mock('@mastra/pg', () => ({ PostgresStore: constructStore }));
+vi.mock('@mastra/memory', () => ({ Memory: vi.fn() }));
 
 const DIRECT_URL = 'postgresql://user:pass@ep-x.neon.tech/neondb';
 

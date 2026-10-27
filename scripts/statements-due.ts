@@ -52,6 +52,7 @@ async function readSourcesFile(path: string): Promise<string> {
   } catch (error) {
     throw new Error(
       `Cannot read the statement sources file ${path} (${error instanceof Error ? error.message : error}); see .claude/skills/collect-statements/SKILL.md for its shape`,
+      { cause: error },
     );
   }
 }

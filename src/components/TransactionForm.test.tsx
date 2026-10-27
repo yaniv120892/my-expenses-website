@@ -9,6 +9,8 @@ import {
   renderWithClient,
 } from '@/test/renderWithClient';
 import TransactionForm from '@/components/TransactionForm';
+import type * as TransactionFilesQuery from '@/hooks/useTransactionFilesQuery';
+import { requireInput } from '@/test/dom';
 
 // The attachments panel fetches the edit row's files on render; the reset
 // rules under test never need the network.
@@ -31,7 +33,7 @@ vi.mock('@/components/TransactionForm/TransactionAttachments', () => ({
 }));
 
 vi.mock('@/hooks/useTransactionFilesQuery', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/hooks/useTransactionFilesQuery')>();
+  const actual = await importOriginal<typeof TransactionFilesQuery>();
   return {
     ...actual,
     useDirectS3UploadForAttachment: () => ({ upload }),
@@ -67,13 +69,15 @@ function EditHarness() {
 }
 
 function descriptionInput(): HTMLInputElement {
-  return screen.getByRole('textbox', {
-    name: /description/i,
-  }) as HTMLInputElement;
+  return requireInput(
+    screen.getByRole('textbox', {
+      name: /description/i,
+    }),
+  );
 }
 
-function valueInput(): HTMLElement {
-  return screen.getByRole('spinbutton', { name: /value/i });
+function valueInput(): HTMLInputElement {
+  return requireInput(screen.getByRole('spinbutton', { name: /value/i }));
 }
 
 type SubmitAction = React.ComponentProps<typeof TransactionForm>['onSubmitAction'];
@@ -255,7 +259,7 @@ describe('TransactionForm currency', () => {
       />,
     );
 
-    expect((valueInput() as HTMLInputElement).value).toBe('25');
+    expect(valueInput().value).toBe('25');
     expect(
       screen.getByText(/Original \$25\.00 = ₪92\.35 at 3\.694 \(card statement\)/),
     ).toBeTruthy();
@@ -263,7 +267,7 @@ describe('TransactionForm currency', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
 
-    const submitted = onSubmitAction.mock.calls[0][0];
+    const submitted = onSubmitAction.mock.calls[0]?.[0];
     expect(submitted).toMatchObject({ currency: 'USD', originalAmount: 25 });
     expect(submitted).not.toHaveProperty('value');
   });
@@ -285,7 +289,7 @@ describe('TransactionForm currency', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
 
-    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+    expect(onSubmitAction.mock.calls[0]?.[0]).toMatchObject({
       currency: 'USD',
       originalAmount: 25,
       value: 93.1,
@@ -317,7 +321,7 @@ describe('TransactionForm currency', () => {
     fireEvent.change(valueInput(), { target: { value: '90' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
-    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+    expect(onSubmitAction.mock.calls[0]?.[0]).toMatchObject({
       value: 90,
       currency: 'ILS',
     });

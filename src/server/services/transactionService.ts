@@ -1,4 +1,4 @@
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
 import type {
@@ -19,7 +19,7 @@ import type { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import logger from '@/server/logging/logger';
 import type { Category } from '@/shared/types/category';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import userSettingsService from '@/server/services/userSettingsService';
 import userCategoryMappingRepository from '@/server/repositories/userCategoryMappingRepository';
 import {
@@ -58,8 +58,8 @@ export type TransactionFileView = {
 };
 
 class TransactionService {
-  private getCategorySuggester = lazy(() => AIServiceFactory.getCategorySuggester());
-  private getTransactionNotifier = lazy(() => TransactionNotifierFactory.getNotifier());
+  private getCategorySuggester = lazy(() => aiServiceFactory.getCategorySuggester());
+  private getTransactionNotifier = lazy(() => transactionNotifierFactory.getNotifier());
 
   public async createTransaction(data: CreateTransaction): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
@@ -539,4 +539,5 @@ class TransactionService {
   }
 }
 
-export default new TransactionService();
+const transactionService = new TransactionService();
+export default transactionService;

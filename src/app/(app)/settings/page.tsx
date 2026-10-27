@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   Alert,
   Button,
@@ -21,7 +21,7 @@ import {
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { PageHeader } from '@yaniv120892/my-ui';
 import ApiTokenManager from '@/components/ApiTokenManager';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
@@ -78,16 +78,20 @@ function SettingsSection({ title, children }: { title: string; children: React.R
   );
 }
 
+function subscribeToNothing(): () => void {
+  return function unsubscribeFromNothing() {};
+}
+
 function AppearanceSection() {
   const t = useT();
   const { mode, setMode } = useColorScheme();
-  const [mounted, setMounted] = useState(false);
-
   // useColorScheme returns undefined mode before hydration; rendering the
-  // group only after mount avoids an uncontrolled-to-controlled flip.
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // group only after hydration avoids an uncontrolled-to-controlled flip.
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   return (
     <SettingsSection title={t('settings.appearance.title')}>
@@ -153,7 +157,7 @@ export default function SettingsPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const { control, handleSubmit, reset, watch, formState } = useForm({
+  const { control, handleSubmit, reset, formState } = useForm({
     defaultValues: {
       notifications: {
         createTransaction: false,
@@ -180,7 +184,7 @@ export default function SettingsPage() {
     }
   }, [settings, reset]);
 
-  const watchedValues = watch();
+  const monthlyReportEnabled = useWatch({ control, name: 'notifications.monthlyReport' });
   const isDirty = formState.isDirty;
 
   const handleTestMonthlyReport = async () => {
@@ -320,7 +324,7 @@ export default function SettingsPage() {
                     variant="outlined"
                     size="small"
                     onClick={handleTestMonthlyReport}
-                    disabled={reportTestLoading || !watchedValues.notifications.monthlyReport}
+                    disabled={reportTestLoading || !monthlyReportEnabled}
                     startIcon={
                       reportTestLoading ? <CircularProgress size={16} color="inherit" /> : null
                     }

@@ -6,7 +6,7 @@ import type {
 } from '@/server/repositories/subscriptionRepository';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import type {
   SubscriptionSummary,
   DetectedSubscriptionDomain,
@@ -257,7 +257,7 @@ class SubscriptionDetectionService {
     const byUser = groupByUser(await subscriptionRepository.getActiveForAllUsers());
     const enabledUserIds = await this.getAuditEnabledUserIds(Array.from(byUser.keys()));
 
-    const notifier = TransactionNotifierFactory.getNotifier();
+    const notifier = transactionNotifierFactory.getNotifier();
 
     let failed = 0;
     for (const [userId, subs] of byUser) {
@@ -357,4 +357,5 @@ class SubscriptionDetectionService {
   }
 }
 
-export default new SubscriptionDetectionService();
+const subscriptionDetectionService = new SubscriptionDetectionService();
+export default subscriptionDetectionService;

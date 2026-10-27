@@ -25,10 +25,11 @@ function ChartTooltip({
   payload?: { name: string; value: number }[];
 }) {
   const formatter = useAppFormat();
-  if (!active || !payload || !payload.length) {
+  const entry = payload?.[0];
+  if (!active || !entry) {
     return null;
   }
-  const { name, value } = payload[0];
+  const { name, value } = entry;
   return (
     <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>
       <Typography variant="caption">
@@ -84,6 +85,13 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
     value: category.amount,
   }));
 
+  function selectSlice(_slice: unknown, index: number) {
+    const category = categories[index];
+    if (category) {
+      onSelectCategory?.(category.categoryId);
+    }
+  }
+
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -119,11 +127,7 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   innerRadius={50}
                   stroke={palette.background.paper}
                   strokeWidth={2}
-                  onClick={
-                    onSelectCategory
-                      ? (_, index) => onSelectCategory(categories[index].categoryId)
-                      : undefined
-                  }
+                  onClick={onSelectCategory ? selectSlice : undefined}
                 >
                   {chartData.map((_, index) => (
                     <Cell key={index} fill={seriesColors[index % seriesColors.length]} />

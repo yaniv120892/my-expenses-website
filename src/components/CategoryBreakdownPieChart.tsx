@@ -62,6 +62,13 @@ export default function CategoryBreakdownPieChart({
   const hasSelectedSlice = items.some((item) => item.categoryId === selectedCategoryId);
   const isDimmed = (categoryId: string) => hasSelectedSlice && selectedCategoryId !== categoryId;
 
+  function selectSlice(_slice: unknown, index: number) {
+    const item = items[index];
+    if (item) {
+      onSelectCategory(item.categoryId);
+    }
+  }
+
   const renderBody = () => {
     if (loading) {
       return (
@@ -120,7 +127,7 @@ export default function CategoryBreakdownPieChart({
                 strokeWidth={2}
                 startAngle={90}
                 endAngle={-270}
-                onClick={(_, index) => onSelectCategory(items[index].categoryId)}
+                onClick={selectSlice}
               >
                 {items.map((item, index) => (
                   <Cell

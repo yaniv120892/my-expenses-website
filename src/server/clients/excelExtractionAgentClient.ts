@@ -12,7 +12,7 @@ export class ExcelExtractionAgentClient {
   private webhookBaseUrl: string;
   private serviceUrl: string;
 
-  constructor() {
+  public constructor() {
     this.serviceUrl = requireEnv('EXCEL_EXTRACTION_AGENT_URL');
     this.webhookBaseUrl = requireSiteUrl();
   }

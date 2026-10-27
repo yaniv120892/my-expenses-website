@@ -14,29 +14,11 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm audit --omit=dev --audit-level=critical
-      - run: npm run lint
-      - run: npx prettier --check .
-      - run: npm run typecheck
-      - run: npm test
-      - uses: actions/cache@v6
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
-          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
-      - run: npm run build
-        env:
-          # The Sentry-wrapped build worker OOMs on Node's default ~2GB heap.
-          NODE_OPTIONS: --max-old-space-size=4096
+    uses: yaniv120892/dev-config/.github/workflows/node-ci.yml@v0.1.4
+    with:
+      audit: true
+      # The Sentry-wrapped build worker OOMs on Node's default ~2GB heap.
+      build-node-options: --max-old-space-size=4096
 
   e2e:
     runs-on: ubuntu-latest

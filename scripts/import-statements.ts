@@ -38,7 +38,7 @@ import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
 import { exceedsUploadLimit, uploadTooLargeMessage } from '../src/shared/uploadLimits';
 
 class ApiError extends Error {
-  constructor(
+  public constructor(
     message: string,
     public readonly status: number,
   ) {

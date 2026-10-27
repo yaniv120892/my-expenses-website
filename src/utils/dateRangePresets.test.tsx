@@ -17,8 +17,13 @@ import {
 // Mid-month, mid-year, so a preset that leaked "today" as a bound would show.
 const NOW = new Date(2026, 6, 14);
 
-const rangeOf = (id: string, now: Date = NOW) =>
-  DATE_RANGE_PRESETS.find((preset) => preset.id === id)!.range(now);
+function rangeOf(id: string, now: Date = NOW) {
+  const preset = DATE_RANGE_PRESETS.find((candidate) => candidate.id === id);
+  if (!preset) {
+    throw new Error(`no date range preset named ${id}`);
+  }
+  return preset.range(now);
+}
 
 describe('DATE_RANGE_PRESETS', () => {
   it('covers whole calendar months, not a window ending today', () => {

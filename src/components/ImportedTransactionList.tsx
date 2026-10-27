@@ -45,6 +45,7 @@ import TransactionForm from './TransactionForm';
 import BatchActionToolbar from './BatchActionToolbar';
 import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
+import { omitKey } from '@/utils/omitKey';
 import { useErrorNotice } from '../hooks/useErrorNotice';
 import type { CreateTransactionInput } from '../types';
 import { useT } from '@/i18n/useT';
@@ -403,11 +404,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
     } catch (error) {
       showError(describeApiError(error, t('imports.row.ignoreFailed')));
     } finally {
-      setPendingOperations((prev) => {
-        const updated = { ...prev };
-        delete updated[transactionId];
-        return updated;
-      });
+      setPendingOperations((operations) => omitKey({ record: operations, key: transactionId }));
     }
   };
 
@@ -418,11 +415,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
     } catch (error) {
       showError(describeApiError(error, t('imports.row.deleteFailed')));
     } finally {
-      setPendingOperations((prev) => {
-        const updated = { ...prev };
-        delete updated[transactionId];
-        return updated;
-      });
+      setPendingOperations((operations) => omitKey({ record: operations, key: transactionId }));
     }
   };
 
@@ -454,11 +447,9 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
         });
       }
     } finally {
-      setPendingOperations((prev) => {
-        const updated = { ...prev };
-        delete updated[selectedTransaction.id];
-        return updated;
-      });
+      setPendingOperations((operations) =>
+        omitKey({ record: operations, key: selectedTransaction.id }),
+      );
     }
   };
 
@@ -763,7 +754,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
                   exchangeRate: selectedTransaction.exchangeRate,
                   exchangeRateSource: selectedTransaction.exchangeRateSource,
                   date: selectedTransaction.date,
-                  type: selectedTransaction.type as 'EXPENSE' | 'INCOME',
+                  type: selectedTransaction.type,
                   categoryId: selectedTransaction.matchingTransaction?.categoryId || '',
                 }
               : null

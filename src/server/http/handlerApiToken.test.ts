@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ApiTokensModule from '@/server/auth/apiTokens';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
@@ -8,11 +11,11 @@ const { authenticateApiToken, requireUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/apiTokens', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/apiTokens')>('@/server/auth/apiTokens')),
+  ...(await vi.importActual<typeof ApiTokensModule>('@/server/auth/apiTokens')),
   authenticateApiToken,
 }));
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>('@/server/auth/session')),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/logging/logger', () => ({
@@ -23,7 +26,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({
   betterStackStream: { write: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 

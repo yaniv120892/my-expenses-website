@@ -33,7 +33,7 @@ describe('transactionRepository.getTransactionsList amount cursor', () => {
   it('pages past a finite amount', async () => {
     await listByAmount(amountCursor('12.5'));
 
-    const cursorWhere = findMany.mock.calls[0][0].where.OR;
+    const cursorWhere = findMany.mock.calls[0]?.[0].where.OR;
     expect(cursorWhere[0]).toEqual({ AND: [{ value: { lt: 12.5 } }] });
   });
 

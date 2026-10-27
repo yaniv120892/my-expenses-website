@@ -14,6 +14,7 @@ import { usePendingTransactionsQuery } from '@/hooks/usePendingTransactionsQuery
 import { useSession } from '@/hooks/useSession';
 import { useT } from '@/i18n/useT';
 import { logout } from '@/services/authClient';
+import { hardNavigate } from '@/utils/hardNavigate';
 
 export default function ExpensesShell({ children }: { children: React.ReactNode }) {
   const t = useT();
@@ -67,7 +68,7 @@ export default function ExpensesShell({ children }: { children: React.ReactNode 
   // A full navigation, so the next user never sees this one's cached queries.
   async function handleLogout() {
     await logout();
-    window.location.assign('/login');
+    hardNavigate('/login');
   }
 
   return (

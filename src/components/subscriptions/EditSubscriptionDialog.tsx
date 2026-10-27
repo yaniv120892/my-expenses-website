@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Alert,
   Button,
@@ -81,11 +82,14 @@ export default function EditSubscriptionDialog({
   const fullScreen = useIsCompact();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  useEffect(() => {
-    if (open && subscription) {
-      setForm(toFormState(subscription));
-    }
-  }, [open, subscription]);
+  useResetOnChange({
+    deps: [open, subscription],
+    reset: () => {
+      if (open && subscription) {
+        setForm(toFormState(subscription));
+      }
+    },
+  });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));

@@ -21,7 +21,7 @@ import { notifyOpsAlert } from '@/server/services/alertService';
 const CHAT_ID = 'ops-chat-1';
 
 function sentMessages(): string[] {
-  return sendMessage.mock.calls.map((call) => call[1] as string);
+  return sendMessage.mock.calls.map((call) => String(call[1]));
 }
 
 describe('notifyOpsAlert', () => {
@@ -55,7 +55,7 @@ describe('notifyOpsAlert', () => {
     });
 
     expect(sendMessage).toHaveBeenCalledTimes(1);
-    const [chatId, message] = sendMessage.mock.calls[0];
+    const [chatId, message] = sendMessage.mock.calls[0] ?? [];
     expect(chatId).toBe(CHAT_ID);
     expect(message).toBe(
       [

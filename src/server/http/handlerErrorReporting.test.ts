@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { logger, captureException } = vi.hoisted(() => ({
@@ -12,7 +13,7 @@ vi.mock('@sentry/nextjs', () => ({ captureException }));
 // `after` throws outside a request scope, which is where these tests call the
 // handler.
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 

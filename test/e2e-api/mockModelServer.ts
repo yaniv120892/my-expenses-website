@@ -46,18 +46,14 @@ function textOf(content: unknown): string {
   }
   if (Array.isArray(content)) {
     return content
-      .map((part) =>
-        part && typeof part === 'object' && 'text' in part
-          ? String((part as { text: unknown }).text)
-          : '',
-      )
+      .map((part) => (part && typeof part === 'object' && 'text' in part ? String(part.text) : ''))
       .join(' ');
   }
   return '';
 }
 
-function sse(res: http.ServerResponse, payload: unknown): void {
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+function sse(response: http.ServerResponse, payload: unknown): void {
+  response.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 function chunk(delta: unknown, finish: string | null): unknown {
@@ -80,7 +76,7 @@ export const CHUNK_DELAY_MS = 120;
 // reused id makes the stale result stand in for a fresh tool run.
 let toolCallSeq = 0;
 
-async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promise<void> {
+async function respond(response: http.ServerResponse, messages: ChatMessage[]): Promise<void> {
   // Only the *last* message decides the turn. Filtering the whole history for
   // tool messages looks equivalent but is not: with memory enabled the thread
   // replays earlier turns' tool results into every request, so the mock would
@@ -90,7 +86,7 @@ async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promi
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   const question = textOf(lastUser?.content).toLowerCase();
 
-  res.writeHead(200, {
+  response.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
@@ -101,7 +97,7 @@ async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promi
     recording.toolCalls.push(call);
 
     sse(
-      res,
+      response,
       chunk(
         {
           role: 'assistant',
@@ -120,9 +116,9 @@ async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promi
         null,
       ),
     );
-    sse(res, chunk({}, 'tool_calls'));
-    res.write('data: [DONE]\n\n');
-    res.end();
+    sse(response, chunk({}, 'tool_calls'));
+    response.write('data: [DONE]\n\n');
+    response.end();
     return;
   }
 
@@ -141,13 +137,13 @@ async function respond(res: http.ServerResponse, messages: ChatMessage[]): Promi
   // verify both provenance and that deltas genuinely arrive over time.
   const parts = ['Here is what I found:\n', ...toolOutput.split('\n')];
   for (const part of parts) {
-    sse(res, chunk({ content: `${part}\n` }, null));
+    sse(response, chunk({ content: `${part}\n` }, null));
     await sleep(CHUNK_DELAY_MS);
   }
 
-  sse(res, chunk({}, 'stop'));
-  res.write('data: [DONE]\n\n');
-  res.end();
+  sse(response, chunk({}, 'stop'));
+  response.write('data: [DONE]\n\n');
+  response.end();
 }
 
 function pickTool(question: string): RecordedToolCall {
@@ -200,10 +196,10 @@ function pickTool(question: string): RecordedToolCall {
 }
 
 export function startMockModelServer(port: number): Promise<http.Server> {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer((request, response) => {
     let raw = '';
-    req.on('data', (c) => (raw += c));
-    req.on('end', async () => {
+    request.on('data', (c) => (raw += c));
+    request.on('end', async () => {
       try {
         const body = JSON.parse(raw || '{}');
         recording.requestCount += 1;
@@ -213,10 +209,10 @@ export function startMockModelServer(port: number): Promise<http.Server> {
             recording.toolsOffered.push(name);
           }
         }
-        await respond(res, body.messages || []);
+        await respond(response, body.messages || []);
       } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(error) }));
+        response.writeHead(500, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: String(error) }));
       }
     });
   });

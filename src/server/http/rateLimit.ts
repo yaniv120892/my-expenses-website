@@ -43,7 +43,7 @@ export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
     reportSwallowedError({ err: error }, 'Rate limit check failed; allowing the request');
     return;
   }
-  const tripped = rules.find((rule, index) => counts[index] > rule.limit);
+  const tripped = rules.find((rule, index) => (counts[index] ?? 0) > rule.limit);
   if (tripped) {
     // At warn so it ships, keeping an attack visible past runtime log
     // retention.

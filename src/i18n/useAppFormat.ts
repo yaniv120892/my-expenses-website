@@ -75,7 +75,7 @@ export function createAppFormatter({ format, t }: { format: Format; t: T }) {
         case 'daily':
           return day(date);
         case 'weekly':
-          return t('format.week', { week: date.split('-')[1] });
+          return t('format.week', { week: date.split('-')[1] ?? date });
         case 'monthly':
           return format.date({
             value: parseISO(`${date}-01`),

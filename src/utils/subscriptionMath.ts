@@ -1,5 +1,6 @@
 import { addWeeks, addMonths, addYears } from 'date-fns';
 import type { SubscriptionFrequency } from '@/types/subscription';
+import { assertNever } from '@/utils/assertNever';
 
 export function toMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
   switch (frequency) {
@@ -9,6 +10,8 @@ export function toMonthlyAmount(amount: number, frequency: SubscriptionFrequency
       return amount;
     case 'YEARLY':
       return amount / 12;
+    default:
+      return assertNever({ value: frequency, what: 'subscription frequency' });
   }
 }
 
@@ -20,6 +23,8 @@ export function toAnnualAmount(amount: number, frequency: SubscriptionFrequency)
       return amount * 12;
     case 'YEARLY':
       return amount;
+    default:
+      return assertNever({ value: frequency, what: 'subscription frequency' });
   }
 }
 
@@ -34,6 +39,8 @@ export function nextExpectedDateAfter(
       return addMonths(lastChargeDate, 1);
     case 'YEARLY':
       return addYears(lastChargeDate, 1);
+    default:
+      return assertNever({ value: frequency, what: 'subscription frequency' });
   }
 }
 

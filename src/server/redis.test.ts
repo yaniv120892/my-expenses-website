@@ -16,10 +16,8 @@ const commands = {
 };
 
 vi.mock('@upstash/redis', () => ({
-  Redis: class {
-    constructor() {
-      return commands;
-    }
+  Redis: function Redis() {
+    return commands;
   },
 }));
 

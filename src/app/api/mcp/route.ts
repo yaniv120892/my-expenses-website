@@ -12,7 +12,7 @@ export const POST = createHandler({
   apiTokenScope: 'AGENT',
   errorFormat: 'json-rpc',
   rateLimit: ({ userId }) => [{ key: `mcp:user:${userId}`, ...RATE_LIMITS.mcp }],
-  handler: async ({ req, userId }) => handleMcpRequest({ request: req, userId }),
+  handler: async ({ request, userId }) => handleMcpRequest({ request, userId }),
 });
 
 // Stateless: there is no server-to-client stream to open and no session to end.

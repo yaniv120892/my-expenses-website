@@ -6,6 +6,7 @@ import type {
 } from '@/shared/types/chat';
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
+import { assertNever } from '@/utils/assertNever';
 
 export type ComparisonPeriodTotals = {
   label: string;
@@ -108,6 +109,8 @@ class ChatAggregationService {
           },
           transactionCount: totals.count,
         };
+      default:
+        return assertNever({ value: aggregationType, what: 'totals aggregation type' });
     }
   }
 
@@ -124,6 +127,8 @@ class ChatAggregationService {
         return this.computeMinMax(transactions);
       case 'list':
         return this.formatList(transactions);
+      default:
+        return assertNever({ value: aggregationType, what: 'row aggregation type' });
     }
   }
 
@@ -172,17 +177,16 @@ class ChatAggregationService {
   }
 
   private computeMinMax(transactions: Transaction[]): AggregationResult {
-    if (transactions.length === 0) {
+    const sorted = [...transactions].sort((a, b) => b.value - a.value);
+    const [highest] = sorted;
+    const lowest = sorted.at(-1);
+    if (!highest || !lowest) {
       return {
         summary: 'No transactions found.',
         data: {},
         transactionCount: 0,
       };
     }
-
-    const sorted = [...transactions].sort((a, b) => b.value - a.value);
-    const highest = sorted[0];
-    const lowest = sorted[sorted.length - 1];
 
     return {
       summary: [
@@ -245,4 +249,5 @@ class ChatAggregationService {
   }
 }
 
-export default new ChatAggregationService();
+const chatAggregationService = new ChatAggregationService();
+export default chatAggregationService;

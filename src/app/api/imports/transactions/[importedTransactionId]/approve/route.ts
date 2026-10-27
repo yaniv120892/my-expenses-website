@@ -1,9 +1,11 @@
 import { createHandler } from '@/server/http/handler';
+import { importedTransactionIdParamsSchema } from '@/shared/schemas/common';
 import { approveImportedTransactionSchema } from '@/shared/schemas/imports';
 import { importService } from '@/server/services/importService';
 
 export const POST = createHandler({
   auth: 'session',
+  paramsSchema: importedTransactionIdParamsSchema,
   apiTokenScope: 'IMPORTS',
   bodySchema: approveImportedTransactionSchema,
   handler: async ({ userId, body, params }) => {

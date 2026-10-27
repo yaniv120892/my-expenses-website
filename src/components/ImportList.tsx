@@ -50,6 +50,7 @@ import EmptyState from './EmptyState';
 import ImportListSkeleton from './ImportListSkeleton';
 import { useT } from '@/i18n/useT';
 import { useAppFormat } from '@/i18n/useAppFormat';
+import { assertNever } from '@/utils/assertNever';
 
 type SortField = 'createdAt' | 'paymentMonth' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -201,7 +202,7 @@ export default function ImportList({ onImportClick, expandedImportId }: ImportLi
     });
 
     return [...result].sort((a, b) => {
-      let cmp = 0;
+      let cmp: number;
       switch (sortField) {
         case 'createdAt':
           cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -212,6 +213,8 @@ export default function ImportList({ onImportClick, expandedImportId }: ImportLi
         case 'status':
           cmp = a.status.localeCompare(b.status);
           break;
+        default:
+          return assertNever({ value: sortField, what: 'import sort field' });
       }
       return sortDirection === 'asc' ? cmp : -cmp;
     });

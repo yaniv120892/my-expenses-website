@@ -1,4 +1,4 @@
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import type {
@@ -25,7 +25,7 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
 class DashboardService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getAiService = lazy(() => aiServiceFactory.getAIService());
 
   public async getDashboard(userId: string): Promise<DashboardResponse> {
     const { currentYear, currentMonth, prevYear, prevMonth } = this.getMonthCursors();
@@ -208,4 +208,5 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   }
 }
 
-export default new DashboardService();
+const dashboardService = new DashboardService();
+export default dashboardService;

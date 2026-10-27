@@ -45,9 +45,7 @@ describe('buildTransactionsCsv', () => {
   });
 
   it('renders a missing category as an empty string', () => {
-    const withoutCategory = transaction({
-      category: undefined as unknown as Transaction['category'],
-    });
+    const withoutCategory = Object.assign(transaction(), { category: undefined });
 
     expect(buildTransactionsCsv([withoutCategory]).split('\n')[1]).toContain('""');
   });

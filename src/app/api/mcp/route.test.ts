@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as RateLimitModule from '@/server/http/rateLimit';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
@@ -12,7 +14,7 @@ vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository,
 }));
 vi.mock('@/server/http/rateLimit', async () => ({
-  ...(await vi.importActual<typeof import('@/server/http/rateLimit')>('@/server/http/rateLimit')),
+  ...(await vi.importActual<typeof RateLimitModule>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
 vi.mock('@/server/logging/logger', () => ({ default: logger }));
@@ -21,7 +23,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({
   betterStackStream: { write: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 

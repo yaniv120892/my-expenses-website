@@ -69,6 +69,13 @@ export default function IncomeExpensePieChart({
   const pieColors = [charts.positive, charts.negative];
   const total = income - expense;
 
+  function selectSlice(_slice: unknown, index: number) {
+    const slice = pieData[index];
+    if (slice) {
+      onSelectType?.(slice.type);
+    }
+  }
+
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
       {title && (
@@ -125,14 +132,12 @@ export default function IncomeExpensePieChart({
                     strokeWidth={2}
                     startAngle={90}
                     endAngle={-270}
-                    onClick={
-                      onSelectType ? (_, index) => onSelectType(pieData[index].type) : undefined
-                    }
+                    onClick={onSelectType ? selectSlice : undefined}
                   >
-                    {pieData.map((entry, idx) => (
+                    {pieData.map((entry, entryIndex) => (
                       <Cell
                         key={entry.type}
-                        fill={pieColors[idx % pieColors.length]}
+                        fill={pieColors[entryIndex % pieColors.length]}
                         fillOpacity={
                           selectedType && selectedType !== entry.type ? UNSELECTED_SLICE_OPACITY : 1
                         }

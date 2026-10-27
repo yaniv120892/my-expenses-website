@@ -48,4 +48,5 @@ class ChatService {
   }
 }
 
-export default new ChatService();
+const chatService = new ChatService();
+export default chatService;

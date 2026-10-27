@@ -64,7 +64,7 @@ describe('JevCategorySuggester', () => {
 
     await new JevCategorySuggester().suggestCategory('GETT', categories);
 
-    expect(evaluate.mock.calls[0][0].questions.category.criteria).toEqual({
+    expect(evaluate.mock.calls[0]?.[0].questions.category.criteria).toEqual({
       'Food & Drinks': null,
       'Eating out': null,
       Taxi: null,
@@ -77,7 +77,7 @@ describe('JevCategorySuggester', () => {
 
     await new JevCategorySuggester().suggestCategory('GETT', categories);
 
-    expect(evaluate.mock.calls[0][0].maxRetries).toBe(AI_REQUEST_LIMITS.maxRetries);
+    expect(evaluate.mock.calls[0]?.[0].maxRetries).toBe(AI_REQUEST_LIMITS.maxRetries);
     expect(timeout).toHaveBeenCalledWith(AI_REQUEST_LIMITS.timeoutMs);
   });
 

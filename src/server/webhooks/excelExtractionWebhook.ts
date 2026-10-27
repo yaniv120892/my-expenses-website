@@ -332,22 +332,38 @@ async function handleCompletedExtraction(
 }
 
 async function toImportedTransactionRows(result: ExtractionResult, importId: string) {
-  const rows = result.transactions.map((transaction) => {
-    // Extraction dates arrive as DD/MM/YYYY.
-    const [day, month, year] = transaction.date.split('/').map(Number);
-    return { ...transaction, date: new Date(year, month - 1, day) };
-  });
+  const rows = result.transactions.map((transaction) => ({
+    ...transaction,
+    date: parseExtractionDate(transaction.date),
+  }));
   const amounts = await importedAmountService.resolveExtractedAmounts(rows);
 
   return rows.map((row, index) => ({
     description: row.description,
-    ...toImportedAmountColumns(amounts[index]),
+    ...toImportedAmountColumns(amountForRow({ amounts, index })),
     date: row.date,
     type: row.type,
     rawData: row.rawData ?? {},
     matchingTransactionId: null,
     importId,
   }));
+}
+
+// Extraction dates arrive as DD/MM/YYYY, which the callback schema enforces.
+function parseExtractionDate(date: string): Date {
+  const [day, month, year] = date.split('/').map(Number);
+  if (day === undefined || month === undefined || year === undefined) {
+    throw new Error(`Extraction date is not DD/MM/YYYY: ${date}`);
+  }
+  return new Date(year, month - 1, day);
+}
+
+function amountForRow<T>({ amounts, index }: { amounts: T[]; index: number }): T {
+  const amount = amounts[index];
+  if (amount === undefined) {
+    throw new Error(`No resolved amount for extracted row ${index} of ${amounts.length}`);
+  }
+  return amount;
 }
 
 /**

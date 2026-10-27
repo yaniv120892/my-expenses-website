@@ -63,11 +63,12 @@ class UserSettingsService {
 
   private extractChatId(providerData: Prisma.JsonValue): string | null {
     if (providerData && typeof providerData === 'object' && 'chatId' in providerData) {
-      const chatId = (providerData as { chatId: string }).chatId;
+      const { chatId } = providerData;
       return chatId ? String(chatId) : null;
     }
     return null;
   }
 }
 
-export default new UserSettingsService();
+const userSettingsService = new UserSettingsService();
+export default userSettingsService;

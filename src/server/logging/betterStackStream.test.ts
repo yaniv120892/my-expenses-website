@@ -20,8 +20,8 @@ function settle(): Promise<void> {
 }
 
 function sentBatch(): Record<string, unknown>[] {
-  const body = fetchMock.mock.calls[0][1].body as string;
-  return JSON.parse(body);
+  const [, init] = fetchMock.mock.calls[0] ?? [];
+  return JSON.parse(String(init?.body));
 }
 
 describe('betterStackStream', () => {
@@ -42,7 +42,7 @@ describe('betterStackStream', () => {
     await flushRemoteLogs();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(SOURCE_URL);
     expect(init.method).toBe('POST');
     expect(init.headers.Authorization).toBe(`Bearer ${SOURCE_TOKEN}`);
@@ -68,9 +68,9 @@ describe('betterStackStream', () => {
     const batch = sentBatch();
     // 100 kept records plus the synthetic overflow notice.
     expect(batch).toHaveLength(101);
-    expect(batch[0].msg).toBe('record-30');
-    expect(batch[99].msg).toBe('record-129');
-    expect(batch[100].droppedRecords).toBe(30);
+    expect(batch[0]?.msg).toBe('record-30');
+    expect(batch[99]?.msg).toBe('record-129');
+    expect(batch[100]?.droppedRecords).toBe(30);
   });
 
   it('reports the dropped count only once', async () => {
@@ -129,6 +129,26 @@ describe('betterStackStream', () => {
     writeRecords(1, 50);
     await settle();
     fetchMock.mockClear();
+
+    await flushRemoteLogs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('flushes eagerly again once the previous eager flush has settled', async () => {
+    writeRecords(1, 50);
+    await settle();
+    fetchMock.mockClear();
+
+    writeRecords(1, 50);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await settle();
+  });
+
+  it('ignores a JSON line that is not an object', async () => {
+    betterStackStream.write('null\n');
+    betterStackStream.write('[50]\n');
 
     await flushRemoteLogs();
 

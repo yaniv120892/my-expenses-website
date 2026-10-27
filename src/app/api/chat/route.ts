@@ -17,7 +17,7 @@ export const POST = createHandler({
   auth: 'session',
   bodySchema: chatRequestSchema,
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
-  handler: async ({ req, body, userId }) => {
+  handler: async ({ request, body, userId }) => {
     logger.debug({ userId }, 'Start handle chat message');
 
     const stream = new ReadableStream<Uint8Array>({
@@ -26,7 +26,7 @@ export const POST = createHandler({
           const textStream = await chatService.streamChatResponse(
             body.messages,
             userId,
-            req.signal,
+            request.signal,
           );
 
           for await (const delta of textStream) {
@@ -36,7 +36,7 @@ export const POST = createHandler({
           controller.enqueue(sseFrame({ type: 'done' }));
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
-          if (!req.signal.aborted) {
+          if (!request.signal.aborted) {
             // createHandler already returned the 200 stream response, so this
             // failure reaches neither the error response nor onRequestError.
             logger.error({ err, userId }, 'Failed to handle chat message');

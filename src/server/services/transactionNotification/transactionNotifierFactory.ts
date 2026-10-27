@@ -2,8 +2,8 @@ import type { TransactionNotifier } from '@/server/services/transactionNotificat
 import { TransactionNotifierType } from '@/server/services/transactionNotification/transactionNotifier';
 import { TelegramTransactionNotifier } from '@/server/services/transactionNotification/telegramTransactionNotifier';
 
-class TransactionNotifierFactory {
-  public static getNotifier(): TransactionNotifier {
+const transactionNotifierFactory = {
+  getNotifier(): TransactionNotifier {
     const notifierType =
       process.env.TRANSACTION_CREATED_NOTIFIER_TYPE || TransactionNotifierType.TELEGRAM;
     switch (notifierType) {
@@ -11,7 +11,7 @@ class TransactionNotifierFactory {
       default:
         return new TelegramTransactionNotifier();
     }
-  }
-}
+  },
+};
 
-export default TransactionNotifierFactory;
+export default transactionNotifierFactory;

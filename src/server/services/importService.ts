@@ -20,13 +20,17 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { WEBHOOK_TOKEN_EXPIRY_HOURS, WEBHOOK_TOKEN_EXPIRY_MS } from '@/server/utils/webhookAuth';
-import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
+import {
+  getPrismaErrorCode,
+  getPrismaErrorModelName,
+  PRISMA_ERROR_CODES,
+} from '@/server/db/prismaErrors';
 import type {
   DatedImportedAmount,
   ReconciliationPlanItem,
@@ -52,8 +56,7 @@ import { isCardHoldingFee } from '@/shared/cardFees';
 // concurrent approve, merge, ignore or delete got there first.
 function throwOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    const { modelName } = (err as { meta?: { modelName?: unknown } }).meta ?? {};
-    throw modelName === 'Transaction'
+    throw getPrismaErrorModelName(err) === 'Transaction'
       ? new HttpError(404, 'Transaction not found')
       : new HttpError(409, 'Imported transaction is no longer pending');
   }
@@ -114,7 +117,7 @@ function assertUploadedImportUrl(fileUrl: string): void {
 const REMATCH_REQUIRES_COMPLETED_ERROR = 'Import must be in COMPLETED status to re-match';
 
 class ImportService {
-  private getAiProvider = lazy(() => AIServiceFactory.getAIService());
+  private getAiProvider = lazy(() => aiServiceFactory.getAIService());
 
   public async processImport(
     fileUrl: string,
@@ -753,9 +756,11 @@ class ImportService {
     pendingTransactions: ImportedTransactionWithMatch[],
   ): Promise<void> {
     const excludedTransactionIds = new Set(
-      allTransactions
-        .filter((t) => t.status !== ImportedTransactionStatus.PENDING && t.matchingTransactionId)
-        .map((t) => t.matchingTransactionId!),
+      allTransactions.flatMap((t) =>
+        t.status !== ImportedTransactionStatus.PENDING && t.matchingTransactionId
+          ? [t.matchingTransactionId]
+          : [],
+      ),
     );
 
     await prisma.importedTransaction.updateMany({

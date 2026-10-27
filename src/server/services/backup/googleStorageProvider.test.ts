@@ -87,11 +87,14 @@ describe('GoogleStorageProvider.uploadBackup', () => {
     ]);
 
     const [token, upload] = sent;
+    if (!token || !upload) {
+      throw new Error(`expected a token and an upload request, got ${sent.length} requests`);
+    }
     const assertion = new URLSearchParams(token.body).get('assertion') ?? '';
-    expect(assertion.split('.')).toHaveLength(3);
-    const claims: unknown = JSON.parse(
-      Buffer.from(assertion.split('.')[1], 'base64url').toString(),
-    );
+    const assertionParts = assertion.split('.');
+    expect(assertionParts).toHaveLength(3);
+    const [, payload = ''] = assertionParts;
+    const claims: unknown = JSON.parse(Buffer.from(payload, 'base64url').toString());
     expect(claims).toMatchObject({
       iss: SERVICE_ACCOUNT,
       scope: 'https://www.googleapis.com/auth/drive.file',

@@ -5,6 +5,7 @@ import { renderWithClient } from '@/test/renderWithClient';
 import ImportList from '@/components/ImportList';
 import type { Import } from '@/types/import';
 import { ImportFileType, ImportStatus } from '@/types/import';
+import { requireAt } from '@/test/dom';
 
 const importFor = (paymentMonth: string): Import => ({
   id: paymentMonth,
@@ -48,7 +49,7 @@ describe('ImportList payment month order', () => {
   it('lists filter options by date, year first', () => {
     renderWithClient(<ImportList onImportClick={vi.fn()} expandedImportId={null} />);
 
-    fireEvent.mouseDown(screen.getAllByRole('combobox')[1]);
+    fireEvent.mouseDown(requireAt({ elements: screen.getAllByRole('combobox'), index: 1 }));
 
     const options = within(screen.getByRole('listbox'))
       .getAllByRole('option')

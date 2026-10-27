@@ -219,7 +219,9 @@ export class ImportedTransactionRepository {
       select: { matchingTransactionId: true },
     });
 
-    return claimed.map((row) => row.matchingTransactionId!);
+    return claimed.flatMap(({ matchingTransactionId }) =>
+      matchingTransactionId === null ? [] : [matchingTransactionId],
+    );
   }
 
   public async filterDuplicates<T extends DuplicateComparable>(

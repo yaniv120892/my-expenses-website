@@ -37,8 +37,8 @@ export async function fetchSpendingTrends(params: GetTrendsParams): Promise<Spen
     ...(params.transactionType && { transactionType: params.transactionType }),
   };
 
-  const res = await api.get('/api/trends', { params: queryParams });
-  return res.data;
+  const response = await api.get('/api/trends', { params: queryParams });
+  return response.data;
 }
 
 export async function fetchCategorySpendingTrends(
@@ -53,8 +53,8 @@ export async function fetchCategorySpendingTrends(
     ...(params.transactionType && { transactionType: params.transactionType }),
   };
 
-  const res = await api.get('/api/trends/categories', { params: queryParams });
-  return res.data;
+  const response = await api.get('/api/trends/categories', { params: queryParams });
+  return response.data;
 }
 
 export async function fetchCategoryComparison(
@@ -71,6 +71,6 @@ export async function fetchCategoryComparison(
     ...(params.transactionType && { transactionType: params.transactionType }),
   };
 
-  const res = await api.get('/api/trends/comparison', { params: queryParams });
-  return res.data;
+  const response = await api.get('/api/trends/comparison', { params: queryParams });
+  return response.data;
 }

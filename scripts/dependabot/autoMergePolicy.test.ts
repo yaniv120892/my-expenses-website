@@ -7,7 +7,7 @@ const requiresCi: BranchRule[] = [
   {
     type: 'required_status_checks',
     parameters: {
-      required_status_checks: [{ context: 'checks' }, { context: 'e2e' }],
+      required_status_checks: [{ context: 'checks / Quality gate' }, { context: 'e2e' }],
     },
   },
 ];
@@ -107,7 +107,7 @@ describe('decideAutoMerge', () => {
 
     expect(decideAutoMerge(patch, [{ type: 'pull_request' }])).toEqual({
       merge: false,
-      reason: 'base branch does not require: checks, e2e',
+      reason: 'base branch does not require: checks / Quality gate, e2e',
     });
   });
 
@@ -115,7 +115,7 @@ describe('decideAutoMerge', () => {
     const onlyChecks: BranchRule[] = [
       {
         type: 'required_status_checks',
-        parameters: { required_status_checks: [{ context: 'checks' }] },
+        parameters: { required_status_checks: [{ context: 'checks / Quality gate' }] },
       },
     ];
 

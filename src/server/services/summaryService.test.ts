@@ -11,10 +11,6 @@ vi.mock('@/server/services/transactionService', () => ({
 import summaryService from '@/server/services/summaryService';
 import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
-// Private access keeps the test off the AI and notifier plumbing.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const service = summaryService as any;
-
 describe('getTodayTransactions', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -27,17 +23,18 @@ describe('getTodayTransactions', () => {
   });
 
   it('passes today for both bounds and lets the repository own the edges', async () => {
-    await service.getTodayTransactions('user-1');
+    await summaryService['getTodayTransactions']('user-1');
 
-    const { startDate, endDate } = getAllTransactions.mock.calls[0][0];
+    const [query] = getAllTransactions.mock.calls[0] ?? [];
+    const { startDate, endDate } = query;
     expect(startDate).toEqual(new Date('2026-08-25T21:00:00'));
     expect(endDate).toEqual(new Date('2026-08-25T21:00:00'));
   });
 
   it('asks for expenses only, since the message lists and totals them as expenses', async () => {
-    await service.getTodayTransactions('user-1');
+    await summaryService['getTodayTransactions']('user-1');
 
-    expect(getAllTransactions.mock.calls[0][0]).toMatchObject({
+    expect(getAllTransactions.mock.calls[0]?.[0]).toMatchObject({
       transactionType: 'EXPENSE',
     });
   });

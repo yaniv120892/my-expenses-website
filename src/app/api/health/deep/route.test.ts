@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as NextServerModule from 'next/server';
+import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
 
 const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
@@ -15,12 +17,12 @@ vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
 // `after` throws outside a request scope, which is where these tests call the
 // handler.
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after,
 }));
 
 // The route caches its outcome in module scope, so each test loads a fresh copy.
-let GET: typeof import('@/app/api/health/deep/route').GET;
+let GET: typeof DeepHealthRouteModule.GET;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -97,7 +99,7 @@ describe('deep check', () => {
     await GET();
 
     expect(after).toHaveBeenCalledTimes(1);
-    after.mock.calls[0][0]();
+    after.mock.calls[0]?.[0]();
     expect(flushRemoteLogs).toHaveBeenCalledTimes(1);
   });
 

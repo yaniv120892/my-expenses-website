@@ -1,8 +1,6 @@
+import type { Import, ImportedTransaction, TransactionType } from '@/generated/prisma/client';
 import {
-  Import,
-  ImportedTransaction,
   ImportStatus,
-  TransactionType,
   TransactionStatus,
   ImportedTransactionStatus,
 } from '@/generated/prisma/client';
@@ -29,12 +27,12 @@ import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { WEBHOOK_TOKEN_EXPIRY_HOURS, WEBHOOK_TOKEN_EXPIRY_MS } from '@/server/utils/webhookAuth';
 import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
-import {
+import type {
   DatedImportedAmount,
   ReconciliationPlanItem,
   ReconciliationPreviewItem,
-  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
+import { NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR } from '@/shared/types/import';
 import type { MatchCandidateTransaction } from '@/server/repositories/types';
 import {
   findExactNormalizedMatch,

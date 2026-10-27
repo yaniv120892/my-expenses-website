@@ -1,7 +1,5 @@
-import {
-  TransactionNotifierType,
-  TransactionNotifier,
-} from '@/server/services/transactionNotification/transactionNotifier';
+import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
+import { TransactionNotifierType } from '@/server/services/transactionNotification/transactionNotifier';
 import { TelegramTransactionNotifier } from '@/server/services/transactionNotification/telegramTransactionNotifier';
 
 class TransactionNotifierFactory {

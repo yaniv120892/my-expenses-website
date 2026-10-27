@@ -1,5 +1,10 @@
 import { parseISO } from 'date-fns';
-import { CategoryComparison, ComparisonCell, ComparisonMeasure, TrendPeriod } from '@/types/trends';
+import type {
+  CategoryComparison,
+  ComparisonCell,
+  ComparisonMeasure,
+  TrendPeriod,
+} from '@/types/trends';
 import { toDayString } from '@/shared/dates';
 import type { AppFormatter } from '@/i18n/useAppFormat';
 import type { T } from '@/i18n/useT.types';

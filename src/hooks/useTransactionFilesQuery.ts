@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { TransactionFile } from '../types';
+import type { TransactionFile } from '../types';
 import * as TransactionFileService from '../services/transactionFileService';
 import { useState } from 'react';
 

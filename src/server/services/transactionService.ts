@@ -1,7 +1,7 @@
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
-import {
+import type {
   CreateTransaction,
   CategoryBreakdownItem,
   CreatedTransaction,
@@ -15,10 +15,10 @@ import {
 } from '@/shared/types/transaction';
 import type { TransactionSort, UpdateTransactionRequest } from '@/shared/schemas/transactions';
 import currencyConversionService from '@/server/services/currencyConversionService';
-import { CreateTransactionDbModel } from '@/server/repositories/types';
+import type { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import logger from '@/server/logging/logger';
-import { Category } from '@/shared/types/category';
+import type { Category } from '@/shared/types/category';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import userSettingsService from '@/server/services/userSettingsService';
 import userCategoryMappingRepository from '@/server/repositories/userCategoryMappingRepository';

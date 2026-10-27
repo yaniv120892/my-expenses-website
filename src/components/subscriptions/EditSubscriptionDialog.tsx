@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
-import {
+import type {
   DetectedSubscription,
   SubscriptionFrequency,
   UpdateSubscriptionPayload,

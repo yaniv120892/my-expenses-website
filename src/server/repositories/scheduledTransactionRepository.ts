@@ -1,6 +1,6 @@
-import { ScheduledTransaction } from '@/generated/prisma/client';
+import type { ScheduledTransaction } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import {
+import type {
   CreateScheduledTransaction,
   UpdateScheduledTransaction,
   ScheduledTransactionDomain,

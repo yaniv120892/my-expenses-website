@@ -36,7 +36,8 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { Import, ImportStatus } from '../types/import';
+import type { Import } from '../types/import';
+import { ImportStatus } from '../types/import';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import {
   useImportsQuery,

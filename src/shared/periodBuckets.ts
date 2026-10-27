@@ -9,7 +9,7 @@ import {
   eachYearOfInterval,
   format,
 } from 'date-fns';
-import { TrendPeriod } from '@/shared/types/trends';
+import type { TrendPeriod } from '@/shared/types/trends';
 import { DAY_FORMAT, MONTH_FORMAT } from '@/shared/dates';
 
 // Weekly uses ISO week-year + ISO week ('RRRR-II') so year-boundary weeks

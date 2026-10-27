@@ -3,8 +3,8 @@
 import React from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { isForeignCurrency } from '@/shared/currency';
-import { TypographyProps } from '@mui/material/Typography';
-import { TransactionType } from '../types';
+import type { TypographyProps } from '@mui/material/Typography';
+import type { TransactionType } from '../types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 
 type Props = {

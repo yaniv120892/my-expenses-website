@@ -14,7 +14,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 import { describeApiError } from '@/utils/api';
 import { format } from 'date-fns';
 import DeleteIcon from '@mui/icons-material/Delete';

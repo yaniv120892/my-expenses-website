@@ -32,8 +32,8 @@ import {
 } from './lib/importStatements';
 import { cardFeeNotice, describePlanItem, reviewReminder } from './lib/reconciliationTable';
 import type { ReconciliationPreviewItem } from '../src/shared/types/import';
-import type { BatchActionRequest, BatchResult } from '../src/types/import';
-import { Import, ImportStatus } from '../src/types/import';
+import type { BatchActionRequest, BatchResult, Import } from '../src/types/import';
+import { ImportStatus } from '../src/types/import';
 import { ACTIVE_IMPORT_STATUSES } from '../src/utils/importStatus';
 import { exceedsUploadLimit, uploadTooLargeMessage } from '../src/shared/uploadLimits';
 

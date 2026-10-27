@@ -5,7 +5,7 @@ import { Box, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import { TransactionType } from '@/types';
+import type { TransactionType } from '@/types';
 import { UNSELECTED_SLICE_OPACITY, CLICKABLE_SLICE_SX } from '@/components/chartStyles';
 
 type PieDatum = {

@@ -10,7 +10,7 @@ import {
   exportTransactionsCsv,
 } from '@/services/transactions';
 import { downloadBlob } from '@/utils/download';
-import {
+import type {
   TransactionFilters,
   CreateTransactionInput,
   UpdateTransactionInput,

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useDropzone, FileRejection } from 'react-dropzone';
+import type { FileRejection } from 'react-dropzone';
+import { useDropzone } from 'react-dropzone';
 import { Alert, Box, Button, Snackbar, Stack, TextField, Typography } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import BatchProgressIndicator from '@/components/BatchProgressIndicator';

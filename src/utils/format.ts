@@ -1,5 +1,5 @@
-import { ScheduleType } from '../types';
-import { SubscriptionFrequency } from '../types/subscription';
+import type { ScheduleType } from '../types';
+import type { SubscriptionFrequency } from '../types/subscription';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 
 export const SUBSCRIPTION_FREQUENCIES: readonly SubscriptionFrequency[] = [

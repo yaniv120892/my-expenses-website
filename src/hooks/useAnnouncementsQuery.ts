@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { acknowledgeAnnouncements, getAnnouncements } from '@/services/announcementService';
-import { AnnouncementWithSeen } from '@/shared/types/announcement';
+import type { AnnouncementWithSeen } from '@/shared/types/announcement';
 
 export const announcementKeys = {
   all: ['announcements'] as const,

@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import CategorySelect from './CategorySelect';
 import { useUpdateTransactionMutation } from '../hooks/useTransactionsQuery';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 import { useT } from '@/i18n/useT';
 
 type CategoryConfirmationSnackbarProps = {

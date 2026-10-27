@@ -3,7 +3,7 @@ import logger from '@/server/logging/logger';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv, requireSiteUrl } from '@/server/env';
-import {
+import type {
   SubmitExtractionRequest,
   SubmitExtractionResponse,
 } from '@/server/clients/excelExtractionAgentClientTypes';

@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { recordIdSchema } from '@/shared/schemas/common';
-import {
+import type {
   Prisma,
-  TransactionType,
-  TransactionStatus,
   Transaction as PrismaTransaction,
   TransactionFile as PrismaTransactionFile,
   Category as PrismaCategory,
 } from '@/generated/prisma/client';
+import { TransactionType, TransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   canMatch,
@@ -15,7 +14,7 @@ import {
   type MatchWindow,
   matchWindow,
 } from '@/server/utils/transactionMatching';
-import {
+import type {
   TransactionFilters,
   Transaction,
   TransactionListFilters,
@@ -23,7 +22,7 @@ import {
   TransactionSummaryFilters,
   TransactionSummary,
 } from '@/shared/types/transaction';
-import {
+import type {
   CreateTransactionDbModel,
   MatchCandidateTransaction,
   UpdateTransactionDbModel,
@@ -261,7 +260,7 @@ class TransactionRepository {
 
   public async getPendingTransactions(userId: string): Promise<Transaction[]> {
     const transactions = await prisma.transaction.findMany({
-      where: { status: TransactionStatus.PENDING_APPROVAL, userId: userId },
+      where: { status: TransactionStatus.PENDING_APPROVAL, userId },
       include: { category: true },
       orderBy: { date: 'desc' },
     });

@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Card, CardContent, Typography } from '@mui/material';
-import { ScheduledTransaction } from '@/types';
+import type { ScheduledTransaction } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';

@@ -11,7 +11,7 @@ import { redisKeyPrefix } from '../../src/server/redis';
 import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { requireEnv } from '../../src/server/env';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
-import { ImportStatus } from '../../src/shared/types/import';
+import type { ImportStatus } from '../../src/shared/types/import';
 import {
   CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
   DIGITS_BEHIND_THAT_CIPHERTEXT,

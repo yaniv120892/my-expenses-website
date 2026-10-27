@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ScheduledTransaction } from '@/types';
+import type { ScheduledTransaction } from '@/types';
 import { forecastFixedExpenses, toMonthlyScheduledAmount } from '@/utils/scheduledForecast';
 
 const oct6 = new Date(2026, 9, 6, 12);

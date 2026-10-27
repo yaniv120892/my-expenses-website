@@ -14,7 +14,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import {
+import type {
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   ScheduleType,

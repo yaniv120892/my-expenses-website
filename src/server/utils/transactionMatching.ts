@@ -1,4 +1,5 @@
-import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
+import type { TransactionType } from '@/generated/prisma/client';
+import { TransactionStatus } from '@/generated/prisma/client';
 import { addDays, subDays } from 'date-fns';
 import { type DecimalInput, isSameMoney } from '@/server/utils/money';
 import { isForeignCurrency } from '@/shared/currency';

@@ -1,6 +1,6 @@
 import { endOfMonth, isAfter, max, startOfDay } from 'date-fns';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
-import { ScheduledTransaction } from '@/types';
+import type { ScheduledTransaction } from '@/types';
 import { roundToCents, toMonthlyAmount } from './subscriptionMath';
 
 const DAYS_PER_MONTH = 365 / 12;

@@ -1,4 +1,4 @@
-import { CategoryEvaluation } from '@/server/services/ai/aiProvider';
+import type { CategoryEvaluation } from '@/server/services/ai/aiProvider';
 import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 export async function suggestCategoryOrNull(

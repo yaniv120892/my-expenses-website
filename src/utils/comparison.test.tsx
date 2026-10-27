@@ -13,7 +13,7 @@ import {
   selectMeasure,
   seriesColor,
 } from '@/utils/comparison';
-import { CategoryComparison, ComparisonCell, ComparisonSeries } from '@/types/trends';
+import type { CategoryComparison, ComparisonCell, ComparisonSeries } from '@/types/trends';
 
 const cell = (income: number, expense: number): ComparisonCell => ({
   income,

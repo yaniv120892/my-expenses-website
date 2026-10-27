@@ -1,4 +1,4 @@
-import { Announcement } from '@/shared/types/announcement';
+import type { Announcement } from '@/shared/types/announcement';
 
 // Newest first. Ids are permanent: acknowledgements are keyed by them, so a
 // changed id re-shows the entry to everybody.

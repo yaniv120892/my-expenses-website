@@ -1,5 +1,5 @@
-import { SubscriptionFrequency } from '@/generated/prisma/client';
-import {
+import type { SubscriptionFrequency } from '@/generated/prisma/client';
+import type {
   SubscriptionDetectionEvidence,
   SubscriptionEvidenceCharge,
 } from '@/shared/types/subscription';

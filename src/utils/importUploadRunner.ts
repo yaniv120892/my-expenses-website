@@ -1,6 +1,6 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
 import { describeApiError } from '@/utils/api';
-import { UploadItem, UploadItemError, UploadQueueAction } from '@/utils/importUploadQueue';
+import type { UploadItem, UploadItemError, UploadQueueAction } from '@/utils/importUploadQueue';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 

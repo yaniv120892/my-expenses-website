@@ -1,4 +1,5 @@
-import { TransactionFile, TransactionFileStatus } from '@/generated/prisma/client';
+import type { TransactionFile } from '@/generated/prisma/client';
+import { TransactionFileStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 export class TransactionFileRepository {

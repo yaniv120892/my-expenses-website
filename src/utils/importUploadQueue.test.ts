@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTranslator } from '@yaniv120892/my-ui';
 import { messages } from '@/i18n/messages';
 import type { T } from '@/i18n/useT.types';
+import type { UploadQueueAction, UploadQueueState } from '@/utils/importUploadQueue';
 import {
   describeUploadError,
   initialUploadQueueState,
@@ -11,8 +12,6 @@ import {
   selectQueuedItems,
   toBatchResult,
   uploadQueueReducer,
-  UploadQueueAction,
-  UploadQueueState,
 } from '@/utils/importUploadQueue';
 
 const englishT: T = createTranslator({ locale: 'en', messages: messages.en });

@@ -1,8 +1,6 @@
 import { AwsStorageProvider } from '@/server/services/backup/awsStorageProvider';
-import {
-  BackupStorageProvider,
-  BackupStorageProviderType,
-} from '@/server/services/backup/backupStorageProvider';
+import type { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
+import { BackupStorageProviderType } from '@/server/services/backup/backupStorageProvider';
 import { GoogleStorageProvider } from '@/server/services/backup/googleStorageProvider';
 
 class BackupStorageProviderFactory {

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { incrementManyWithTtl } from '@/server/redis';
 import { HttpError } from '@/server/http/errors';
 import logger from '@/server/logging/logger';

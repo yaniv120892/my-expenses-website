@@ -1,6 +1,7 @@
-import { NotificationProvider, User } from '@/generated/prisma/client';
+import type { User } from '@/generated/prisma/client';
+import { NotificationProvider } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import { UserQuery } from '@/server/repositories/types';
+import type { UserQuery } from '@/server/repositories/types';
 
 class UserRepository {
   public async getUsersRequiredDailySummary() {
@@ -100,7 +101,7 @@ class UserRepository {
     };
   }) {
     await prisma.userNotificationPreference.upsert({
-      where: { userId: userId },
+      where: { userId },
       update: {
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
@@ -108,7 +109,7 @@ class UserRepository {
         monthlyReport: notifications.monthlyReport,
       },
       create: {
-        userId: userId,
+        userId,
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
         subscriptionAudit: notifications.subscriptionAudit,

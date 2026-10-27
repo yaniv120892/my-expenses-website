@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
-import { runUploadBatch, runUploadItem, UploadRunnerApi } from '@/utils/importUploadRunner';
+import type { UploadItem, UploadQueueAction } from '@/utils/importUploadQueue';
+import type { UploadRunnerApi } from '@/utils/importUploadRunner';
+import { runUploadBatch, runUploadItem } from '@/utils/importUploadRunner';
 
 function item(over: Partial<UploadItem> = {}): UploadItem {
   return {

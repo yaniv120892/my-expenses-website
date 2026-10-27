@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, RenderResult } from '@testing-library/react';
+import type { RenderResult } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { I18nProvider, createAppTheme, localeDirection, type Locale } from '@yaniv120892/my-ui';
 import { messages } from '@/i18n/messages';

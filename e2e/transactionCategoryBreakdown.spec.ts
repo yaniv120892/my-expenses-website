@@ -1,4 +1,5 @@
-import { test, expect, Route } from '@playwright/test';
+import type { Route } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signIn } from './helpers';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';

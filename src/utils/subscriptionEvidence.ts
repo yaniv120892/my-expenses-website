@@ -1,5 +1,5 @@
 import { differenceInCalendarDays } from 'date-fns';
-import { DetectedSubscription, SubscriptionEvidenceCharge } from '@/types/subscription';
+import type { DetectedSubscription, SubscriptionEvidenceCharge } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
 import type { AppFormatter } from '@/i18n/useAppFormat';
 import type { T } from '@/i18n/useT.types';

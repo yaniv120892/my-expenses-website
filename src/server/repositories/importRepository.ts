@@ -1,11 +1,10 @@
-import {
+import type {
   Prisma,
   Import,
   ImportFileType,
-  ImportStatus,
   ImportBankSourceType,
-  ImportedTransactionStatus,
 } from '@/generated/prisma/client';
+import { ImportStatus, ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 // Longer than the platform lets any function run, so a claim older than this

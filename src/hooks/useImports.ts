@@ -1,8 +1,9 @@
 import { useRef } from 'react';
-import { QueryClient, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
-import { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
-import { CreateTransactionInput } from '@/types';
+import type { Import, BatchActionRequest, AutoApproveRule } from '@/types/import';
+import type { CreateTransactionInput } from '@/types';
 import { invalidateTransactionData } from '@/hooks/queryInvalidation';
 import {
   hasActiveImports,

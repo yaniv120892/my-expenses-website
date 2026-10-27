@@ -1,4 +1,4 @@
-import { BatchResult } from '@/types/import';
+import type { BatchResult } from '@/types/import';
 import type { T } from '@/i18n/useT.types';
 
 export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'succeeded' | 'failed';

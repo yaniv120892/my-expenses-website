@@ -1,6 +1,6 @@
-import { Category } from '@/shared/types/category';
-import { Transaction } from '@/shared/types/transaction';
-import { CategoryEvaluation, ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
+import type { Category } from '@/shared/types/category';
+import type { Transaction } from '@/shared/types/transaction';
+import type { CategoryEvaluation, ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatAmountWithOriginal } from '@/utils/format';
 import logger from '@/server/logging/logger';

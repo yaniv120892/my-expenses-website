@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import type { GetComparisonParams } from '../services/trendService';
 import {
   fetchSpendingTrends,
   fetchCategorySpendingTrends,
   fetchCategoryComparison,
-  GetComparisonParams,
 } from '../services/trendService';
-import { TrendPeriod, TransactionType } from '@/types/trends';
+import type { TrendPeriod, TransactionType } from '@/types/trends';
 
 interface TrendParams {
   startDate?: Date;

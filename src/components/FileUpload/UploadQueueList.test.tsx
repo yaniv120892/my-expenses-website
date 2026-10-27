@@ -4,7 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UploadQueueList from '@/components/FileUpload/UploadQueueList';
 import { DesignTestProvider } from '@/test/renderWithClient';
-import { UploadItem } from '@/utils/importUploadQueue';
+import type { UploadItem } from '@/utils/importUploadQueue';
 
 afterEach(cleanup);
 

@@ -36,7 +36,7 @@ export default function ErrorFallback({ error, reset, minHeight, labels }: Props
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: minHeight,
+        minHeight,
         gap: 2,
       }}
     >

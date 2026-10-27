@@ -5,7 +5,8 @@ import TransactionNotifierFactory from '@/server/services/transactionNotificatio
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
 import { TransactionType } from '@/generated/prisma/client';
-import { formatSummaryMessage, SummaryTransaction } from '@/server/utils/summaryMessage';
+import type { SummaryTransaction } from '@/server/utils/summaryMessage';
+import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
 class SummaryService {
   private getAiService = lazy(() => AIServiceFactory.getAIService());

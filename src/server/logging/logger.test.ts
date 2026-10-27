@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer, Server } from 'node:http';
+import type { Server } from 'node:http';
+import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 // Pins the multistream level, which decides whether an info record reaches the

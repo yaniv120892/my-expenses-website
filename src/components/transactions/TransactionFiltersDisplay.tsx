@@ -2,7 +2,7 @@
 
 import { Chip, Button, Stack } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters, Category } from '@/types';
+import type { TransactionFilters, Category } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 

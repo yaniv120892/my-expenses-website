@@ -1,4 +1,4 @@
-import {
+import type {
   SubscriptionStatus,
   SubscriptionFrequency,
   DetectedSubscription,
@@ -6,7 +6,7 @@ import {
   Prisma,
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import {
+import type {
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
   SubscriptionDetectionEvidence,

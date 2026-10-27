@@ -1,7 +1,7 @@
 import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
-import {
+import type {
   DashboardResponse,
   DashboardInsightsResponse,
   MonthComparison,

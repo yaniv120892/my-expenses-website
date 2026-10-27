@@ -15,7 +15,7 @@ import { RecentTransactionsQuickView } from '@/components/dashboard/RecentTransa
 import { SubscriptionsCard } from '@/components/dashboard/SubscriptionsCard';
 import TransactionForm from '@/components/TransactionForm';
 import { PageHeader } from '@yaniv120892/my-ui';
-import { CreateTransactionInput } from '@/types';
+import type { CreateTransactionInput } from '@/types';
 import { useT } from '@/i18n/useT';
 
 export default function DashboardPage() {

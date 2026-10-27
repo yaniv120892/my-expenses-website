@@ -1,4 +1,4 @@
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 function isApiResponseError(obj: unknown): obj is ApiResponse<unknown> {
   return typeof obj === 'object' && obj !== null && 'success' in obj && 'error' in obj;

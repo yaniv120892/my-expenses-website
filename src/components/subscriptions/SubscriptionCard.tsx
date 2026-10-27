@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 

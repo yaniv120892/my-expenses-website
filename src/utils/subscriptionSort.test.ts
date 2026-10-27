@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 import { sortSubscriptions } from '@/utils/subscriptionSort';
 
 const sub = (over: Partial<DetectedSubscription>): DetectedSubscription =>

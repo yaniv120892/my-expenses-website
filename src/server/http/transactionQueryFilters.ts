@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { transactionFilterSchema } from '@/shared/schemas/transactions';
-import { TransactionSummaryFilters } from '@/shared/types/transaction';
+import type { z } from 'zod';
+import type { transactionFilterSchema } from '@/shared/schemas/transactions';
+import type { TransactionSummaryFilters } from '@/shared/types/transaction';
 
 type TransactionQuery = z.infer<typeof transactionFilterSchema>;
 

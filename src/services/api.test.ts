@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
+import { AxiosError } from 'axios';
 import api from '@/services/api';
 import { logout } from '@/services/authClient';
 

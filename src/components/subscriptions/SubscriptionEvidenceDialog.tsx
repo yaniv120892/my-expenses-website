@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useIsCompact } from '@/hooks/useBreakpoints';
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';

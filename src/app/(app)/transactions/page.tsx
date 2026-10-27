@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import { Transaction, TransactionFilters, CreateTransactionInput } from '@/types';
+import type { Transaction, TransactionFilters, CreateTransactionInput } from '@/types';
 import {
   DEFAULT_TRANSACTION_SORT,
   transactionFilterSchema,
@@ -34,7 +34,7 @@ import {
   useExportTransactionsCsvMutation,
   useCategoryBreakdownQuery,
 } from '@/hooks/useTransactionsQuery';
-import { CreateTransactionResponse } from '@/services/transactions';
+import type { CreateTransactionResponse } from '@/services/transactions';
 import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { describeApiError } from '@/utils/api';

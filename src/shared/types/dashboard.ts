@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
+import type { z } from 'zod';
+import type { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 
 export interface SubscriptionSnapshot {
   activeCount: number;

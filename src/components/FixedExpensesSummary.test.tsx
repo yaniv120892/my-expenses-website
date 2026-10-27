@@ -4,7 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import type { Locale } from '@yaniv120892/my-ui';
 import FixedExpensesSummary from '@/components/FixedExpensesSummary';
 import { DesignTestProvider } from '@/test/renderWithClient';
-import { ScheduledTransaction } from '@/types';
+import type { ScheduledTransaction } from '@/types';
 
 const OCTOBER_6 = new Date(2026, 9, 6, 12);
 

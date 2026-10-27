@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Box, Card, CardContent, LinearProgress, Stack, Typography, useTheme } from '@mui/material';
-import { MonthComparison, TopCategory } from '@/types/dashboard';
+import type { MonthComparison, TopCategory } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 

@@ -1,5 +1,5 @@
 import { subDays, subMonths } from 'date-fns';
-import {
+import type {
   GetSpendingTrendsRequest,
   SpendingTrend,
   CategorySpendingTrend,
@@ -11,7 +11,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import { buildCategoryParentMap } from '@/server/utils/categoryHierarchy';
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 import { classifyTrend } from '@/server/utils/trendMath';
 import { bucketKeyFor } from '@/shared/periodBuckets';
 

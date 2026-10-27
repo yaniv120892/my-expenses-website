@@ -1,6 +1,6 @@
 import announcementRepository from '@/server/repositories/announcementRepository';
 import { ANNOUNCEMENTS, ANNOUNCEMENT_IDS } from '@/shared/announcements';
-import { AnnouncementWithSeen } from '@/shared/types/announcement';
+import type { AnnouncementWithSeen } from '@/shared/types/announcement';
 import logger from '@/server/logging/logger';
 
 class AnnouncementService {

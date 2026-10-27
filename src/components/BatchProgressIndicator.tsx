@@ -6,7 +6,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
-import { BatchResult } from '../types/import';
+import type { BatchResult } from '../types/import';
 
 type BatchItemKind = 'transactions' | 'files';
 

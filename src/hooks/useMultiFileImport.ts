@@ -4,7 +4,8 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { importKeys } from '@/hooks/useImports';
-import { BatchResult } from '@/types/import';
+import type { BatchResult } from '@/types/import';
+import type { UploadItem } from '@/utils/importUploadQueue';
 import {
   initialUploadQueueState,
   MAX_CONCURRENT_UPLOADS,
@@ -16,9 +17,9 @@ import {
   toBatchResult,
   toQueuedItem,
   uploadQueueReducer,
-  UploadItem,
 } from '@/utils/importUploadQueue';
-import { runUploadBatch, UploadRunnerApi } from '@/utils/importUploadRunner';
+import type { UploadRunnerApi } from '@/utils/importUploadRunner';
+import { runUploadBatch } from '@/utils/importUploadRunner';
 import { useT } from '@/i18n/useT';
 
 interface UseMultiFileImportOptions {

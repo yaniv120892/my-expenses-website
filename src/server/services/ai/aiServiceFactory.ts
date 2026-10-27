@@ -1,7 +1,7 @@
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { GeminiService } from '@/server/services/ai/geminiService';
 import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
-import { AIProvider, CategorySuggester } from '@/server/services/ai/aiProvider';
+import type { AIProvider, CategorySuggester } from '@/server/services/ai/aiProvider';
 import { optionalEnv } from '@/server/env';
 
 class AIServiceFactory {

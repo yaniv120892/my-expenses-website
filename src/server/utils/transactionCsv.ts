@@ -1,6 +1,6 @@
 import { parse } from 'json2csv';
 import { CSV_BOM } from '@/shared/csv';
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 import { toDayString } from '@/shared/dates';
 
 // `value` stays the ILS amount, so a sheet summing that column still sums one

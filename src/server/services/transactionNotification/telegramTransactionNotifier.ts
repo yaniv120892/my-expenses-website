@@ -1,5 +1,5 @@
-import { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
-import { Transaction } from '@/shared/types/transaction';
+import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
+import type { Transaction } from '@/shared/types/transaction';
 import { telegramService } from '@/server/services/telegramService';
 import { formatTransaction } from '@/server/utils/transactionUtils';
 import logger from '@/server/logging/logger';

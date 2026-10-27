@@ -1,5 +1,5 @@
 import api from './api';
-import {
+import type {
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   UpdateScheduledTransactionInput,

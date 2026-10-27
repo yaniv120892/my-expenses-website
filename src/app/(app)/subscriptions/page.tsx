@@ -27,7 +27,7 @@ import {
   useConvertSubscriptionMutation,
   useUpdateSubscriptionMutation,
 } from '@/hooks/useSubscriptionsQuery';
-import {
+import type {
   DetectedSubscription,
   SubscriptionStatus,
   UpdateSubscriptionPayload,
@@ -35,11 +35,8 @@ import {
 import { describeApiError } from '@/utils/api';
 import { useErrorNotice } from '@/hooks/useErrorNotice';
 import { isOneOf } from '@/utils/oneOf';
-import {
-  SUBSCRIPTION_SORT_KEYS,
-  SubscriptionSortKey,
-  sortSubscriptions,
-} from '@/utils/subscriptionSort';
+import type { SubscriptionSortKey } from '@/utils/subscriptionSort';
+import { SUBSCRIPTION_SORT_KEYS, sortSubscriptions } from '@/utils/subscriptionSort';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 

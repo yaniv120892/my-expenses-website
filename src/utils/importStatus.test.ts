@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Import, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportStatus } from '@/types/import';
 import { hasActiveImports } from '@/utils/importStatus';
 
 const NOW = Date.parse('2026-08-17T12:00:00.000Z');

@@ -1,8 +1,8 @@
 'use client';
 
 import { Chip, Stack } from '@mui/material';
-import { ComparisonScope, TrendPeriod, TransactionType, TrendsView } from '@/types/trends';
-import { Category } from '@/types';
+import type { ComparisonScope, TrendPeriod, TransactionType, TrendsView } from '@/types/trends';
+import type { Category } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';

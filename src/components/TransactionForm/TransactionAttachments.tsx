@@ -23,7 +23,7 @@ import { MAX_UPLOAD_LABEL, exceedsUploadLimit, megabytesRoundedUp } from '@/shar
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
-import { TransactionFile } from '../../types';
+import type { TransactionFile } from '../../types';
 
 const ALLOWED_TYPES = [
   'image/jpeg',

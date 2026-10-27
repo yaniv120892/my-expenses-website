@@ -1,4 +1,4 @@
-import { Category } from '@/shared/types/category';
+import type { Category } from '@/shared/types/category';
 import prisma from '@/server/db/client';
 import { setValue, getValue } from '@/server/redis';
 import logger from '@/server/logging/logger';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import chatAggregationService from '@/server/services/chatAggregationService';
-import { Transaction, TransactionSummary, TransactionType } from '@/shared/types/transaction';
+import type { Transaction, TransactionSummary, TransactionType } from '@/shared/types/transaction';
 
 const tx = (
   value: number,

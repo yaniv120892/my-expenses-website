@@ -1,12 +1,12 @@
 import api from '@/services/api';
-import {
+import type {
   Import,
   ImportedTransaction,
   BatchActionRequest,
   BatchResult,
   AutoApproveRule,
 } from '../types/import';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 
 const UPLOAD_TIMEOUT_MS = 120000;
 

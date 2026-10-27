@@ -1,5 +1,6 @@
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_MOCK_PORT } from './ports';
-import { SEED_PASSWORD, SeededUser } from './seed';
+import type { SeededUser } from './seed';
+import { SEED_PASSWORD } from './seed';
 import { startStack, startStackForUser } from './stack';
 
 // Unlike run.ts, stays up so Playwright can drive the site against it.

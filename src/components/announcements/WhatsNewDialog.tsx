@@ -21,7 +21,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { useT } from '@/i18n/useT';
-import {
+import type {
   AnnouncementIcon,
   AnnouncementItem,
   AnnouncementWithSeen,

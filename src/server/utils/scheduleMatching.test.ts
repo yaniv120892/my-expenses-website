@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  findScheduleMatch,
-  indexSchedules,
-  MatchableSchedule,
-} from '@/server/utils/scheduleMatching';
+import type { MatchableSchedule } from '@/server/utils/scheduleMatching';
+import { findScheduleMatch, indexSchedules } from '@/server/utils/scheduleMatching';
 
 const schedule = (over: Partial<MatchableSchedule> = {}): MatchableSchedule => ({
   id: 'sched-1',

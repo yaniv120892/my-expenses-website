@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { pendingTransactionKeys } from '@/hooks/usePendingTransactionsQuery';
 import { transactionKeys } from '@/hooks/useTransactionsQuery';
 import { trendKeys } from '@/hooks/useTrendsQuery';

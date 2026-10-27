@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
 import { tokenTtlSeconds } from '@/server/auth/tokens';
 
 export const SESSION_COOKIE = 'session';

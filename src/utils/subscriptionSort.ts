@@ -1,4 +1,4 @@
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 
 type Comparator = (a: DetectedSubscription, b: DetectedSubscription) => number;
 

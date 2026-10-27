@@ -1,12 +1,13 @@
-import { SubscriptionStatus } from '@/generated/prisma/client';
+import type { SubscriptionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import subscriptionRepository, {
+import type {
   DetectionInput,
   SubscriptionAuditRow,
 } from '@/server/repositories/subscriptionRepository';
+import subscriptionRepository from '@/server/repositories/subscriptionRepository';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
-import {
+import type {
   SubscriptionSummary,
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
@@ -23,11 +24,8 @@ import {
   toAnnualAmount,
   toMonthlyAmount,
 } from '@/utils/subscriptionMath';
-import {
-  analyzeMerchantPattern,
-  MerchantCharge,
-  MerchantGroup,
-} from '@/server/utils/subscriptionPattern';
+import type { MerchantCharge, MerchantGroup } from '@/server/utils/subscriptionPattern';
+import { analyzeMerchantPattern } from '@/server/utils/subscriptionPattern';
 import { findScheduleMatch, indexSchedules } from '@/server/utils/scheduleMatching';
 import { formatCurrencyPlain } from '@/utils/format';
 

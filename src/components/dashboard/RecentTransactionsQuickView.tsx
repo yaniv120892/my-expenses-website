@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
-import { RecentTransaction } from '@/types/dashboard';
+import type { RecentTransaction } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import AmountText from '@/components/AmountText';

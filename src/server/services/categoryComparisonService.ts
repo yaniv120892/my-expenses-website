@@ -1,5 +1,5 @@
 import { TransactionType } from '@/generated/prisma/client';
-import {
+import type {
   CategoryComparison,
   ComparisonBucket,
   ComparisonCell,

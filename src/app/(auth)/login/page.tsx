@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
+import type { FormEvent } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material';

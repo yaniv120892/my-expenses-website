@@ -1,7 +1,7 @@
 import scheduledTransactionRepository from '@/server/repositories/scheduledTransactionRepository';
 import transactionService from '@/server/services/transactionService';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
-import {
+import type {
   CreateScheduledTransaction,
   UpdateScheduledTransaction,
   ScheduledTransactionDomain,

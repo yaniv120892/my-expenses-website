@@ -3,7 +3,7 @@
 import React from 'react';
 import { Box, ButtonBase, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { CategoryBreakdownItem } from '@/types';
+import type { CategoryBreakdownItem } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import {

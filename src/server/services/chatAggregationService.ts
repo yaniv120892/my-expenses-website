@@ -1,5 +1,9 @@
-import { Transaction, TransactionSummary } from '@/shared/types/transaction';
-import { AggregationResult, RowAggregationType, TotalsAggregationType } from '@/shared/types/chat';
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import type {
+  AggregationResult,
+  RowAggregationType,
+  TotalsAggregationType,
+} from '@/shared/types/chat';
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
 

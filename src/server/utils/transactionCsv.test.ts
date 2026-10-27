@@ -6,7 +6,7 @@ import {
   buildTransactionsCsvFile,
   transactionsCsvFileName,
 } from '@/server/utils/transactionCsv';
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 
 const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
   id: 'id-1',

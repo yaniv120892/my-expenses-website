@@ -1,5 +1,5 @@
-import { Category } from '@/shared/types/category';
-import { Transaction, TransactionType } from '@/shared/types/transaction';
+import type { Category } from '@/shared/types/category';
+import type { Transaction, TransactionType } from '@/shared/types/transaction';
 
 export interface ImportedChargeToMatch {
   description: string;

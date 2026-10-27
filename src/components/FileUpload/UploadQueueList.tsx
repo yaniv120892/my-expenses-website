@@ -14,12 +14,8 @@ import {
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
-import {
-  describeUploadError,
-  isTerminal,
-  UploadItem,
-  UploadItemStatus,
-} from '@/utils/importUploadQueue';
+import type { UploadItem, UploadItemStatus } from '@/utils/importUploadQueue';
+import { describeUploadError, isTerminal } from '@/utils/importUploadQueue';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';

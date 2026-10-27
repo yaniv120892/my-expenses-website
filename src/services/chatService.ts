@@ -1,4 +1,4 @@
-import { Message } from '@/hooks/useChat';
+import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
 
 export interface StreamHandlers {

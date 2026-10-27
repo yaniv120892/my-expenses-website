@@ -1,4 +1,4 @@
-import { SubscriptionScheduleMatch } from '@/shared/types/subscription';
+import type { SubscriptionScheduleMatch } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 
 export interface MatchableSchedule {

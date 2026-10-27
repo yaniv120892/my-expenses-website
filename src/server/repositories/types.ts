@@ -1,10 +1,10 @@
-import {
+import type {
   Transaction,
   TransactionAmount,
   TransactionType,
   TransactionStatus,
 } from '@/shared/types/transaction';
-import { ScheduleType } from '@/generated/prisma/client';
+import type { ScheduleType } from '@/generated/prisma/client';
 
 export interface CreateTransactionDbModel extends TransactionAmount {
   description: string;

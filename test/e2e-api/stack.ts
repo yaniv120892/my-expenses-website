@@ -1,9 +1,10 @@
-import http from 'http';
+import type http from 'http';
 import { startUpstashShim, seedKey } from './upstashShim';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { startMockModelServer } from './mockModelServer';
 import { startMockExtractionAgent } from './mockExtractionAgent';
-import { seed, sessionForExistingUser, SeededUser, SeedResult } from './seed';
+import type { SeededUser, SeedResult } from './seed';
+import { seed, sessionForExistingUser } from './seed';
 
 type Services = {
   shim: http.Server;

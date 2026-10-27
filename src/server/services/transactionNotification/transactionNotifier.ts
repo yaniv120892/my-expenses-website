@@ -1,4 +1,4 @@
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 
 export enum TransactionNotifierType {
   TELEGRAM = 'TELEGRAM',

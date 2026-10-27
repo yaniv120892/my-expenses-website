@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  analyzeMerchantPattern,
-  MerchantCharge,
-  MerchantGroup,
-} from '@/server/utils/subscriptionPattern';
+import type { MerchantCharge, MerchantGroup } from '@/server/utils/subscriptionPattern';
+import { analyzeMerchantPattern } from '@/server/utils/subscriptionPattern';
 
 const ANALYZED_FROM = new Date('2025-08-18T00:00:00Z');
 const ANALYZED_TO = new Date('2026-08-18T00:00:00Z');

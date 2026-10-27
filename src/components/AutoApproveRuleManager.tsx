@@ -30,8 +30,8 @@ import {
   useUpdateAutoApproveRuleMutation,
   useDeleteAutoApproveRuleMutation,
 } from '../hooks/useImports';
-import { AutoApproveRule } from '../types/import';
-import { TransactionType } from '../types';
+import type { AutoApproveRule } from '../types/import';
+import type { TransactionType } from '../types';
 import { TRANSACTION_TYPES } from '@/shared/types/transaction';
 import { isOneOf } from '@/utils/oneOf';
 import { useT } from '@/i18n/useT';

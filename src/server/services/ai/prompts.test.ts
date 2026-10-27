@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
+import type { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import {
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
   buildCategoryChoiceCriteria,
@@ -8,7 +8,7 @@ import {
   resolveMatchedTransactionId,
   resolveSuggestedCategoryId,
 } from '@/server/services/ai/prompts';
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 import { formatCurrencyPlain } from '@/utils/format';
 
 const match = (id: string): Transaction => ({

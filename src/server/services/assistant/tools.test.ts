@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
 const { getAllCategories, getTransactions, getTransactionsSummary } = vi.hoisted(() => ({
   getAllCategories: vi.fn(),

@@ -1,5 +1,6 @@
 'use client';
 
+import type { SelectChangeEvent } from '@mui/material';
 import {
   Autocomplete,
   Button,
@@ -16,18 +17,12 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  SelectChangeEvent,
   Box,
   useTheme,
 } from '@mui/material';
-import {
-  COMPARISON_SCOPES,
-  TrendPeriod,
-  TransactionType,
-  TrendFilters,
-  MAX_COMPARISON_SERIES,
-} from '@/types/trends';
-import { Category } from '@/types';
+import type { TrendPeriod, TransactionType, TrendFilters } from '@/types/trends';
+import { COMPARISON_SCOPES, MAX_COMPARISON_SERIES } from '@/types/trends';
+import type { Category } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { seriesColor } from '@/utils/comparison';
 import { isOneOf } from '@/utils/oneOf';

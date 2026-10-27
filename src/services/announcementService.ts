@@ -1,5 +1,5 @@
 import api from './api';
-import { AnnouncementWithSeen } from '@/shared/types/announcement';
+import type { AnnouncementWithSeen } from '@/shared/types/announcement';
 import { MAX_ACKNOWLEDGE_IDS } from '@/shared/schemas/announcements';
 
 export async function getAnnouncements(): Promise<AnnouncementWithSeen[]> {

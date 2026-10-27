@@ -4,7 +4,7 @@ import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithClient } from '@/test/renderWithClient';
 import PendingPage from '@/app/(app)/pending/page';
-import { Transaction } from '@/types';
+import type { Transaction } from '@/types';
 
 function renderPage() {
   return renderWithClient(<PendingPage />);

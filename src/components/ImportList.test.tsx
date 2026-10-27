@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { renderWithClient } from '@/test/renderWithClient';
 import ImportList from '@/components/ImportList';
-import { Import, ImportFileType, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportFileType, ImportStatus } from '@/types/import';
 
 const importFor = (paymentMonth: string): Import => ({
   id: paymentMonth,

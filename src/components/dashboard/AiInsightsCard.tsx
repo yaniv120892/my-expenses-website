@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import { DashboardInsightsResponse } from '@/types/dashboard';
+import type { DashboardInsightsResponse } from '@/types/dashboard';
 import { useT } from '@/i18n/useT';
 
 type Props = {

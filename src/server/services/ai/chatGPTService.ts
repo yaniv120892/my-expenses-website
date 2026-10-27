@@ -1,11 +1,11 @@
 import OpenAI from 'openai';
-import {
+import type {
   AIProvider,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
-import { Category } from '@/shared/types/category';
-import { Transaction } from '@/shared/types/transaction';
+import type { Category } from '@/shared/types/category';
+import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';

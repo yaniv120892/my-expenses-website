@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters, TransactionType } from '@/types';
+import type { TransactionFilters, TransactionType } from '@/types';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { DATE_RANGE_PRESETS, matchDateRangePreset } from '@/utils/dateRangePresets';
 import CategorySelect from '../CategorySelect';

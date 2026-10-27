@@ -10,7 +10,7 @@ import DeselectIcon from '@mui/icons-material/Deselect';
 import BatchConfirmDialog from './BatchConfirmDialog';
 import BatchProgressIndicator from './BatchProgressIndicator';
 import { useBatchActionMutation, useApplyAutoApproveRulesMutation } from '../hooks/useImports';
-import { BatchResult } from '../types/import';
+import type { BatchResult } from '../types/import';
 import { describeApiError } from '../utils/api';
 import { useT } from '@/i18n/useT';
 

@@ -14,7 +14,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { CategoryComparison, ComparisonMeasure } from '@/types/trends';
+import type { CategoryComparison, ComparisonMeasure } from '@/types/trends';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';

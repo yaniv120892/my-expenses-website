@@ -1,6 +1,6 @@
 import prisma from '@/server/db/client';
 import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
-import { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
+import type { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import { rollUpToNamedTopLevel } from '@/server/utils/categoryHierarchy';
 import type { NamedCategoryTotal } from '@/server/utils/categoryHierarchy.types';

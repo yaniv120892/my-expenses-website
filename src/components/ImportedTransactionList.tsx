@@ -39,17 +39,14 @@ import {
   useAutoApproveRulesQuery,
 } from '../hooks/useImports';
 import { useIsMobile } from '../hooks/useBreakpoints';
-import {
-  ImportedTransactionStatus,
-  ImportedTransaction,
-  TransactionApprovalStatus,
-} from '../types/import';
+import type { ImportedTransaction } from '../types/import';
+import { ImportedTransactionStatus, TransactionApprovalStatus } from '../types/import';
 import TransactionForm from './TransactionForm';
 import BatchActionToolbar from './BatchActionToolbar';
 import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
 import { useErrorNotice } from '../hooks/useErrorNotice';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
 import { useAppFormat } from '@/i18n/useAppFormat';

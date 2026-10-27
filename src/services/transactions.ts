@@ -1,6 +1,6 @@
 import api from './api';
 import { filenameFromContentDisposition } from '@/utils/download';
-import {
+import type {
   Transaction,
   CreateTransactionInput,
   UpdateTransactionInput,

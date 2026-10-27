@@ -1,4 +1,5 @@
-import { Import, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportStatus } from '@/types/import';
 
 export const ACTIVE_IMPORT_STATUSES: readonly ImportStatus[] = [
   ImportStatus.PENDING,

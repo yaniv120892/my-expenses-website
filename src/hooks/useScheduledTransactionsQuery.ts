@@ -5,7 +5,7 @@ import {
   updateScheduledTransaction,
   deleteScheduledTransaction,
 } from '../services/scheduledTransactions';
-import { CreateScheduledTransactionInput, UpdateScheduledTransactionInput } from '../types';
+import type { CreateScheduledTransactionInput, UpdateScheduledTransactionInput } from '../types';
 
 export const scheduledTransactionKeys = {
   all: ['scheduledTransactions'] as const,

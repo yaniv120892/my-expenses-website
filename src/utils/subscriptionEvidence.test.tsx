@@ -6,7 +6,7 @@ import type { Locale } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { DesignTestProvider } from '@/test/renderWithClient';
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 import type { SubscriptionDetectionEvidence } from '@/shared/types/subscription';
 import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';
 

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { processExcelExtractionWebhook } from '@/server/webhooks/excelExtractionWebhook';
 
 // Authentication is the HMAC token in the query string, verified inside the

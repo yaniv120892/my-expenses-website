@@ -1,9 +1,5 @@
-import {
-  Prisma,
-  ImportedTransaction,
-  TransactionType,
-  ImportedTransactionStatus,
-} from '@/generated/prisma/client';
+import type { Prisma, ImportedTransaction, TransactionType } from '@/generated/prisma/client';
+import { ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';

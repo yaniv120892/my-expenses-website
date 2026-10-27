@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-import { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
+import type { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv, requireEnv } from '@/server/env';
 

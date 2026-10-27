@@ -1,5 +1,5 @@
 import { addWeeks, addMonths, addYears } from 'date-fns';
-import { SubscriptionFrequency } from '@/types/subscription';
+import type { SubscriptionFrequency } from '@/types/subscription';
 
 export function toMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
   switch (frequency) {

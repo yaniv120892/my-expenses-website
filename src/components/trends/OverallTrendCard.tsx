@@ -11,8 +11,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
-import { Category } from '@/types';
+import type { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
+import type { Category } from '@/types';
 import { TrendIcon } from './TrendIcon';
 import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';

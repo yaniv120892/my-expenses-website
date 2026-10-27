@@ -19,7 +19,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { CategorySpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
+import type { CategorySpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
 import { TrendIcon } from './TrendIcon';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';

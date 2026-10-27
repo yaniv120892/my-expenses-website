@@ -42,7 +42,9 @@ Dependabot PR whose every dependency is a patch or minor
 while the base branch's ruleset requires the `checks` and `e2e` jobs; a major, a
 0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
 PR waits for a human, and a later push that fails the policy withdraws a queued
-auto-merge.
+auto-merge. Dependabot also raises `@yaniv120892/my-ui`'s release-tag
+bumps, and the policy judges them like any other dependency's — a patch of the
+shared design merges on green CI unreviewed.
 
 `npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
 app: database, migrations, mock services, and the dev server, blocking until

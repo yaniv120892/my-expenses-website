@@ -1,40 +1,4 @@
-import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
-import tseslint from 'typescript-eslint';
-import prettier from 'eslint-config-prettier';
+import { defineConfig } from 'eslint/config';
+import next from '@yaniv120892/dev-config/eslint/next';
 
-export default tseslint.config(
-  {
-    ignores: [
-      '.next/**',
-      'node_modules/**',
-      'public/**',
-      'next-env.d.ts',
-      'src/generated/**',
-      '.claude/**',
-    ],
-  },
-  ...nextCoreWebVitals,
-  ...tseslint.configs.recommended,
-  prettier,
-  {
-    // eslint-plugin-react detects the version through context.getFilename,
-    // which ESLint 10 removed; naming it skips the detection.
-    settings: { react: { version: '19' } },
-    rules: {
-      // React Compiler rules that eslint-config-next 16 turned on; the effects
-      // they flag predate them and are rewritten separately.
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
-      curly: ['error', 'all'],
-      '@typescript-eslint/array-type': ['error', { default: 'array' }],
-      '@typescript-eslint/explicit-member-accessibility': [
-        'error',
-        { accessibility: 'explicit', overrides: { constructors: 'no-public' } },
-      ],
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-    },
-  },
-);
+export default defineConfig({ ignores: ['public/**', 'src/generated/**'] }, next);

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
-const { reportSwallowedError } = vi.hoisted(() => ({
-  reportSwallowedError: vi.fn(),
+const { reportError } = vi.hoisted(() => ({
+  reportError: vi.fn(),
 }));
 
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
@@ -44,9 +46,8 @@ describe('GeminiService against a stalled provider', () => {
     expect(isSettled()).toBe(true);
     await expect(pending).resolves.toBeNull();
     expect(hangingFetch).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      'Gemini API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.any(Error), where: 'Gemini API error' }),
     );
   });
 });

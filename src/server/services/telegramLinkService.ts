@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { deleteValue, setValue, takeValue } from '@/server/redis';
 import { optionalEnv } from '@/server/env';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import userRepository from '@/server/repositories/userRepository';
 import userSettingsService from '@/server/services/userSettingsService';
 import { telegramService } from '@/server/services/telegramService';

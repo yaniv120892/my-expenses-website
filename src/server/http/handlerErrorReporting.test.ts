@@ -1,21 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
-const { logger, captureException } = vi.hoisted(() => ({
+const { logger, captureException, scheduleOpsAlert } = vi.hoisted(() => ({
   logger: { error: vi.fn(), info: vi.fn() },
   captureException: vi.fn(),
+  scheduleOpsAlert: vi.fn(),
 }));
 
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
+vi.mock('@/server/observability', () => ({ logger, observability: { scheduleOpsAlert } }));
 vi.mock('@sentry/nextjs', () => ({ captureException }));
-
-// `after` throws outside a request scope, which is where these tests call the
-// handler.
-vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof NextServerModule>('next/server')),
-  after: vi.fn(),
-}));
 
 import { z } from 'zod';
 import { createHandler } from '@/server/http/handler';
@@ -47,6 +40,43 @@ describe('createHandler error reporting', () => {
     expect(response.status).toBe(500);
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(err, expect.anything());
+  });
+
+  it('alerts the owner on a 500, counted per route pattern rather than per id', async () => {
+    const err = new Error('boom');
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw err;
+      },
+    });
+    const transactionId = '0b6f2c64-5d6f-4a43-9c55-6a1f7b3e2d10';
+
+    await handler(new NextRequest(`https://website.localhost/api/transactions/${transactionId}`), {
+      params: Promise.resolve({ id: transactionId }),
+    });
+
+    expect(scheduleOpsAlert).toHaveBeenCalledWith({
+      alertType: '5xx GET /api/transactions/[id]',
+      title: `5xx on GET /api/transactions/${transactionId}`,
+      error: err,
+      context: { requestId: expect.any(String) },
+    });
+  });
+
+  it('does not alert on a client error', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw new HttpError(404, 'Not found');
+      },
+    });
+
+    await handler(get(), routeContext);
+
+    expect(scheduleOpsAlert).not.toHaveBeenCalled();
   });
 
   it('does not report a client error', async () => {

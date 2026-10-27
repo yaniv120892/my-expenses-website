@@ -20,8 +20,11 @@ both the web UI and the API.
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
 - **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
   Gemini via `AI_PROVIDER`
-- **Observability**: pino → Better Stack logs, Sentry errors, Better Stack
-  heartbeats and uptime, Telegram 5xx alerts, Vercel Analytics + Speed Insights
+- **Observability**: the shared
+  [`@yaniv120892/observability`](https://github.com/yaniv120892/observability)
+  package — pino → Better Stack logs, Sentry errors, Better Stack heartbeats and
+  health routes, Telegram 5xx alerts — wired in `src/server/observability.ts`;
+  plus Vercel Analytics + Speed Insights
 
 ## Getting started
 
@@ -77,14 +80,10 @@ every `auth: 'cron'` route, seven lines a day, so a cron that ran and finished
 says so. Without it a successful run and a run killed mid-request both ship
 nothing, and the absence of logs means nothing at all.
 
-Records are buffered in memory (capped at 100, oldest dropped, with the dropped
-count reported in the next batch) and sent as one POST per request from a
-`next/server` `after` hook, which runs once the response is out and before the
-serverless instance freezes. Two cases do not wait for that hook, because a
-process that dies takes the whole buffer with it: an `error` record ships the
-moment it is logged (guarded, so a burst costs one extra POST rather than one
-per record), and `createHandler` flushes before pinging a heartbeat, the
-outbound call most likely to hang.
+The package buffers records and sends them from a `next/server` `after` hook
+once the response is out; an `error` record ships at once (see its README).
+`createHandler` also flushes before pinging a heartbeat, the outbound call most
+likely to hang.
 
 ## Cron heartbeats
 
@@ -130,11 +129,14 @@ only while no webhook is registered), then confirm it with the Bot API's own
 the caller's linked chat, never to an id in the request.
 
 The chat is deliberately separate from user notifications, and the send goes
-straight to `telegramService` rather than through the per-user notifier — an
+straight to the Bot API rather than through the per-user notifier — an
 ops alert must not depend on the database, since that is exactly what will be
-down. Alert text is Markdown-escaped before sending: `telegramService` posts
-with `parse_mode: 'Markdown'`, and an unescaped underscore, asterisk, bracket
-or backtick in an error message makes Telegram reject the send outright.
+down. Alerts go out as plain text, prefixed `[my-expenses-website]`: an
+underscore or asterisk in an error message would make Telegram reject a
+Markdown send outright. Every alert is also logged as `ops_alert` at warn, so it
+reaches Better Stack whether or not Telegram is configured. A 5xx that escapes
+`createHandler` (a server component, say) alerts the same way from
+`onRequestError`.
 
 Alerts are capped at **5 per hour per alert type**, where the type is the
 method plus the _route pattern_ — `/api/transactions/[id]`, not the concrete
@@ -142,7 +144,8 @@ id — so a storm across many records still trips one shared cap and Redis does
 not accumulate a key per record. The cap is counted with one `INCR` per alert (plus an `EXPIRE` on the first
 of each window),
 which keeps a 5xx storm inside the Upstash free tier's 500K monthly command
-budget. The alert that trips the cap is replaced by a one-off "further alerts
+budget. If Redis is down the cap falls back to a per-instance count, so the
+alert still goes out. The alert that trips the cap is replaced by a one-off "further alerts
 suppressed" notice, so the silence is never ambiguous. Sending is
 fire-and-forget in an `after` hook and never throws: a failed alert is logged
 and the response is unaffected.

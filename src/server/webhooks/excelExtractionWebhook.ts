@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 import { verifyWebhookToken, extractWebhookParams } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
@@ -220,10 +219,11 @@ export async function processExcelExtractionWebhook(
       body: { success: true, message: 'Webhook processed successfully' },
     };
   } catch (err) {
-    reportSwallowedError(
-      { err, requestId: payload?.requestId, importId },
-      'Error processing webhook',
-    );
+    observability.reportError({
+      error: err,
+      where: 'Error processing webhook',
+      context: { requestId: payload?.requestId, importId },
+    });
     // Only this callback moves an import out of PROCESSING and the service does
     // not retry, so a crash must fail the import. The claim stays taken because
     // a redelivery would insert every row again.
@@ -252,7 +252,11 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
     );
     await releaseMergeSurvivorOf(importId);
   } catch (err) {
-    reportSwallowedError({ err, importId }, 'Failed to recover the import after a webhook failure');
+    observability.reportError({
+      error: err,
+      where: 'Failed to recover the import after a webhook failure',
+      context: { importId },
+    });
   }
 }
 
@@ -527,7 +531,11 @@ async function findPotentialMatchesSafe(importId: string, userId: string): Promi
     await importService.findPotentialMatchesForImport(importId, userId);
   } catch (err) {
     // Matching is best-effort; the import itself already succeeded.
-    reportSwallowedError({ importId, err }, 'Error finding potential matches for import');
+    observability.reportError({
+      error: err,
+      where: 'Error finding potential matches for import',
+      context: { importId },
+    });
   }
 }
 

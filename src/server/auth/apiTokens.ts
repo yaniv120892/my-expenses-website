@@ -2,7 +2,7 @@ import { AuthError } from '@/server/auth/session';
 import { hashApiToken, isAuthenticApiToken } from '@/server/auth/apiTokenFormat';
 import { HttpError } from '@/server/http/errors';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
 // Settings shows last use by the day, so a script polling every few seconds

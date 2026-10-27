@@ -9,7 +9,7 @@ import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { observability } from '@/server/observability';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -49,7 +49,11 @@ export class ChatGPTService implements AIProvider {
 
       return this.firstChoiceContent(response) || 'No insights available.';
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return '';
     }
   }
@@ -76,7 +80,11 @@ export class ChatGPTService implements AIProvider {
 
       return this.firstChoiceContent(response) || null;
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }
@@ -144,7 +152,11 @@ export class ChatGPTService implements AIProvider {
 
       return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'ChatGPT API error');
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }

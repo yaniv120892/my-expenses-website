@@ -3,7 +3,7 @@ import type { Transaction } from '@/shared/types/transaction';
 import type { CategoryEvaluation, ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatAmountWithOriginal } from '@/utils/format';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 export function buildAnalyzeExpensesPrompt(expenseSummary: string, suffixPrompt?: string): string {
   return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;

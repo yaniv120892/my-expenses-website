@@ -1,6 +1,6 @@
 import { createHandler } from '@/server/http/handler';
 import monthlyReportService from '@/server/services/monthlyReportService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 
 export const POST = createHandler({

@@ -1,6 +1,6 @@
 import transactionService from '@/server/services/transactionService';
 import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import backupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
 import userRepository from '@/server/repositories/userRepository';
 import { lazy } from '@/server/lib/lazy';

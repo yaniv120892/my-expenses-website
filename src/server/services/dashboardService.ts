@@ -9,7 +9,7 @@ import type {
   PercentageChange,
   TopCategory,
 } from '@/shared/types/dashboard';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';

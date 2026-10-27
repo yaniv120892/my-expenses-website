@@ -12,7 +12,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import { buildCategoryDescendantMap } from '@/server/utils/categoryHierarchy';
 import { bucketKeyFor, enumerateBuckets } from '@/shared/periodBuckets';
 import { HttpError } from '@/server/http/errors';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 function emptyCell(): ComparisonCell {
   return { income: 0, expense: 0, net: 0, count: 0 };

@@ -5,8 +5,8 @@ const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn() }));
 vi.mock('nodemailer', () => ({
   default: { createTransport: () => ({ sendMail }) },
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { error: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { error: vi.fn() },
 }));
 
 import emailService from '@/server/services/emailService';

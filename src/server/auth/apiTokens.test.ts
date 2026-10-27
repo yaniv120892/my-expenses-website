@@ -9,7 +9,7 @@ const { repository, loggerMock } = vi.hoisted(() => ({
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository: repository,
 }));
-vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
+vi.mock('@/server/observability', () => ({ logger: loggerMock }));
 
 import { authenticateApiToken } from '@/server/auth/apiTokens';
 import { mintApiToken } from '@/server/auth/apiTokenFormat';

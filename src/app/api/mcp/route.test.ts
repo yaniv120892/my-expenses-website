@@ -17,11 +17,7 @@ vi.mock('@/server/http/rateLimit', async () => ({
   ...(await vi.importActual<typeof RateLimitModule>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
-}));
+vi.mock('@/server/observability', () => ({ logger }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),

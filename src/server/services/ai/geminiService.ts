@@ -5,13 +5,12 @@ import type {
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
-import logger from '@/server/logging/logger';
+import { logger, observability } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
 import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -50,7 +49,11 @@ export class GeminiService implements AIProvider {
       logger.debug({ prompt }, 'Done generating content');
       return content || '';
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'Gemini API error');
+      observability.reportError({
+        error: err,
+        where: 'Gemini API error',
+        context: { model: this.modelName() },
+      });
       return '';
     }
   }
@@ -82,7 +85,11 @@ export class GeminiService implements AIProvider {
 
       return analysis || null;
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'Gemini API error');
+      observability.reportError({
+        error: err,
+        where: 'Gemini API error',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }
@@ -173,7 +180,11 @@ export class GeminiService implements AIProvider {
 
       return result;
     } catch (err) {
-      reportSwallowedError({ err, model: this.modelName() }, 'Error finding matching transaction');
+      observability.reportError({
+        error: err,
+        where: 'Error finding matching transaction',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }

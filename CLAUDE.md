@@ -326,7 +326,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   read by the delete itself. `transactionService` deletes each object only after
   the database write, keeps one another `ACTIVE` row still names, and bounds the
   call at 5s. Storage is best effort: a failure is reported via
-  `reportSwallowedError` with its key, never fails the request, and leaves a
+  `observability.reportError` with its key, never fails the request, and leaves a
   removed row `MARKED_FOR_DELETION`. Only `transactionService` knows the
   keys, so a path that deletes transactions or files goes through it, and a
   database-level delete it does not drive orphans their objects.
@@ -366,7 +366,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   edit. Every tool is registered through `registerSafeTool`
   (`src/server/mcp/safeTool.ts`), so a tool never throws: a 4xx comes back as
   an `isError` result with its message, anything else is reported via
-  `reportSwallowedError` and returned neutrally, and each call logs one
+  `observability.reportError` and returned neutrally, and each call logs one
   `MCP tool call` line with its outcome (and, on a write, the transaction id).
   Every date an agent sends must be a real calendar day; an undated
   `add_transaction` — like any undated create
@@ -429,28 +429,30 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`: `positive` for money in, `negative` for money out).
-- **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. Outside
-  development records also ship to Better Stack through `pino.multistream`
-  (never a pino transport — its worker threads are unreliable on Vercel),
-  flushed from a `next/server` `after` hook, eagerly on `error`, and once more
-  before a cron's heartbeat ping. Warn and above ship, plus any record marked
-  `ship: true` — how a healthy cron's request line gets out. Unset
-  `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns shipping off. README "Log shipping".
+- **Observability** comes from the shared `@yaniv120892/observability`
+  package, wired once in `src/server/observability.ts` (`logger`,
+  `observability`); its README is the reference for shipping, Sentry, heartbeats
+  and alerts. Only app wiring lives here: the Redis `alertCounter`, the health
+  probes, and the call sites.
+- **Logging**: `logger` from `@/server/observability`, metadata object first:
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. `level` is a
+  label (`"warn"`) and every record carries `service`. Outside development
+  warn and above ship to Better Stack, plus any record marked `ship: true` —
+  how a healthy cron's request line gets out; `createHandler` also flushes
+  before a cron's heartbeat ping. Unset `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns
+  shipping off. README "Log shipping".
 - **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set;
   errors only, no tracing or replay, and no identifying request data — its
   `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
   forwarding headers, or user identity, which the SDK otherwise collects by
-  default. `sentry.config.ts` holds the single `Sentry.init`, run by
+  default. The package's `initSentry` holds the single `Sentry.init`, run by
   `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
-  (browser); `initSentry` takes no arguments
-  and reads `process.env` itself, since a constant-folded argument breaks the
-  browser bundle. `createHandler` reports every 5xx it turns an error into;
+  (browser). `createHandler` reports every 5xx it turns an error into;
   `onRequestError` covers what escapes a route; React boundaries report via
   `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
-  that catches an error and returns a fallback calls `reportSwallowedError`
-  (`src/server/logging/reportSwallowedError.ts`), not `logger.error`, so the
-  error outlives Better Stack's retention.
+  that catches an error and returns a fallback calls
+  `observability.reportError({ error, where, context })`, not `logger.error`,
+  so the error outlives Better Stack's retention; Sentry tags it `where`.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call

@@ -25,12 +25,8 @@ vi.mock('@/server/services/telegramService', () => ({ telegramService }));
 vi.mock('@/server/redis', () => ({
   incrementManyWithTtl: vi.fn(async (rules: unknown[]) => rules.map(() => 1)),
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),

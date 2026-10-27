@@ -7,7 +7,7 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['src/test/setup.ts'],
     // The shared UI package ships extensionless ESM imports for the bundler.
-    server: { deps: { inline: ['@yaniv120892/my-ui'] } },
+    server: { deps: { inline: ['@yaniv120892/my-ui', '@yaniv120892/observability'] } },
     typecheck: {
       enabled: true,
       include: ['src/**/*.test-d.ts'],

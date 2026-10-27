@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 import type { ClientOptions } from 'openai';
 import type * as OpenAIModule from 'openai';
 
-const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(() => {
+const { reportError, hangingFetch, constructedWith } = vi.hoisted(() => {
   const constructedWith: unknown[] = [];
-  return { reportSwallowedError: vi.fn(), hangingFetch: vi.fn(), constructedWith };
+  return { reportError: vi.fn(), hangingFetch: vi.fn(), constructedWith };
 });
 
 vi.mock('openai', async (importOriginal) => {
@@ -17,8 +18,9 @@ vi.mock('openai', async (importOriginal) => {
   }
   return { ...actual, default: RecordingOpenAI };
 });
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { APIConnectionTimeoutError } from 'openai';
@@ -82,9 +84,11 @@ describe('ChatGPTService request limits', () => {
     expect(isSettled()).toBe(true);
     await expect(pending).resolves.toBeNull();
     expect(hangingFetch).toHaveBeenCalledTimes(2);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(APIConnectionTimeoutError) }),
-      'ChatGPT API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.any(APIConnectionTimeoutError),
+        where: 'ChatGPT API error',
+      }),
     );
   });
 });
@@ -127,10 +131,10 @@ describe('ChatGPTService.evaluateCategory', () => {
     await expect(
       new ChatGPTService().evaluateCategory('coffee', categories),
     ).rejects.toBeInstanceOf(Error);
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
 
     await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledTimes(1);
     hangingFetch.mockImplementation(stalledFetch);
   });
 });

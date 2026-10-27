@@ -6,7 +6,7 @@ import type {
   UpdateScheduledTransaction,
   ScheduledTransactionDomain,
 } from '@/shared/types/scheduledTransaction';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 class ScheduledTransactionService {
   public async processDueScheduledTransactions(date: Date) {

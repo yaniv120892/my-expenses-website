@@ -18,12 +18,8 @@ vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),

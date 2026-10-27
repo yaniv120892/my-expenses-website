@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
-const { generateContent, reportSwallowedError } = vi.hoisted(() => ({
+const { generateContent, reportError } = vi.hoisted(() => ({
   generateContent: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
 }));
 
 const getGenerativeModel = vi.fn((params: { model: string }) => {
@@ -15,8 +16,9 @@ vi.mock('@google/generative-ai', () => ({
     public getGenerativeModel = getGenerativeModel;
   },
 }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
@@ -59,9 +61,8 @@ describe('GeminiService.analyzeExpenses', () => {
     const result = await new GeminiService().analyzeExpenses('summary');
 
     expect(result).toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: RETIRED_MODEL_ERROR }),
-      'Gemini API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ error: RETIRED_MODEL_ERROR, where: 'Gemini API error' }),
     );
   });
 
@@ -165,9 +166,9 @@ describe('GeminiService.evaluateCategory', () => {
     await expect(new GeminiService().evaluateCategory('GETT', categories)).rejects.toBe(
       RETIRED_MODEL_ERROR,
     );
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
 
     await expect(new GeminiService().suggestCategory('GETT', categories)).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv, requireEnv } from '@/server/env';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 export type EmailAttachment = {
   filename: string;

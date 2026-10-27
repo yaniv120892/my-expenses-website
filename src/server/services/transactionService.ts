@@ -17,7 +17,7 @@ import type { TransactionSort, UpdateTransactionRequest } from '@/shared/schemas
 import currencyConversionService from '@/server/services/currencyConversionService';
 import type { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
-import logger from '@/server/logging/logger';
+import { logger, observability } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import userSettingsService from '@/server/services/userSettingsService';
@@ -35,7 +35,6 @@ import { HttpError } from '@/server/http/errors';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { lazy } from '@/server/lib/lazy';
 import { toAppWallClock } from '@/shared/dates';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
 // cost that matters is the number of round trips.
@@ -408,7 +407,11 @@ class TransactionService {
         return mappedCategory.id;
       }
     } catch (err) {
-      reportSwallowedError({ err, userId }, 'Failed to check user category mapping');
+      observability.reportError({
+        error: err,
+        where: 'Failed to check user category mapping',
+        context: { userId },
+      });
     }
     return null;
   }
@@ -504,10 +507,11 @@ class TransactionService {
       }
       await deleteAttachmentObject(fileKey);
     } catch (err) {
-      reportSwallowedError(
-        { err, fileKey, transactionId, fileId },
-        'Failed to delete attachment object from storage',
-      );
+      observability.reportError({
+        error: err,
+        where: 'Failed to delete attachment object from storage',
+        context: { fileKey, transactionId, fileId },
+      });
       return;
     }
     if (!fileId) {
@@ -516,10 +520,11 @@ class TransactionService {
     try {
       await transactionFileRepository.markDeleted(fileId);
     } catch (err) {
-      reportSwallowedError(
-        { err, fileKey, transactionId, fileId },
-        'Deleted attachment object but failed to mark its file DELETED',
-      );
+      observability.reportError({
+        error: err,
+        where: 'Deleted attachment object but failed to mark its file DELETED',
+        context: { fileKey, transactionId, fileId },
+      });
     }
   }
 

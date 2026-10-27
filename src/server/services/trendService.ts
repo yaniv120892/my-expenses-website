@@ -6,7 +6,7 @@ import type {
   TrendPoint,
   CategoryTrendPoint,
 } from '@/shared/types/trends';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import { TransactionStatus, TransactionType } from '@/generated/prisma/client';

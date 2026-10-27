@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
-const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(() => {
+const { pingHeartbeat, loggerMock, flushRemoteLogs, calls } = vi.hoisted(() => {
   const calls: string[] = [];
   return {
     calls,
@@ -10,24 +9,15 @@ const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(
       calls.push('ping');
     }),
     loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
-    after: vi.fn(),
     flushRemoteLogs: vi.fn(async () => {
       calls.push('flush');
     }),
   };
 });
 
-vi.mock('@/server/monitoring/heartbeat', () => ({ pingHeartbeat }));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs,
-  betterStackStream: { write: vi.fn() },
-}));
-vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
-// `after` throws outside a request scope, which is where these tests call the
-// handler.
-vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof NextServerModule>('next/server')),
-  after,
+vi.mock('@/server/observability', () => ({
+  logger: loggerMock,
+  observability: { pingHeartbeat, flushRemoteLogs, scheduleOpsAlert: vi.fn() },
 }));
 
 import { createHandler } from '@/server/http/handler';

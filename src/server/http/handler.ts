@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import type { ZodType } from 'zod';
 import { z, ZodError } from 'zod';
-import logger from '@/server/logging/logger';
-import { flushRemoteLogs } from '@/server/logging/betterStackStream';
+import { logger, observability } from '@/server/observability';
 import {
   AuthError,
   extractBearerToken,
@@ -20,7 +19,6 @@ import type { RateLimitRule } from '@/server/http/rateLimit';
 import { enforceRateLimits } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { recordIdSchema } from '@/shared/schemas/common';
-import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
 import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
 import { assertNever } from '@/utils/assertNever';
@@ -329,15 +327,11 @@ export function createHandler(
         });
         // Raw params, not parsed: the replace must match the exact path text.
         const routePattern = toRoutePattern(path, params);
-        after(async () => {
-          // Dynamic import keeps the Telegram SDK out of every route's cold start.
-          const { notifyOpsAlert } = await import('@/server/services/alertService');
-          await notifyOpsAlert({
-            alertType: `5xx ${request.method} ${routePattern}`,
-            title: `5xx on ${request.method} ${path}`,
-            err,
-            context: { requestId, ...(userId && { userId }) },
-          });
+        observability.scheduleOpsAlert({
+          alertType: `5xx ${request.method} ${routePattern}`,
+          title: `5xx on ${request.method} ${path}`,
+          error: err,
+          context: { requestId, ...(userId && { userId }) },
         });
       }
     }
@@ -363,12 +357,10 @@ export function createHandler(
     if (options.heartbeatEnvVar && response.status < 400) {
       // Flushed before the ping, the call most likely to hang, so a run killed
       // there still leaves its request line.
-      await flushRemoteLogs();
-      await pingHeartbeat(options.heartbeatEnvVar);
+      await observability.flushRemoteLogs();
+      await observability.pingHeartbeat(options.heartbeatEnvVar);
     }
 
-    // Registered last so the batch includes anything the heartbeat ping logged.
-    after(() => flushRemoteLogs());
     return response;
   };
 }

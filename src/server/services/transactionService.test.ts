@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
 const {
   findByUserAndDescription,
@@ -6,7 +7,7 @@ const {
   getTransactionsSummary,
   getCategoryTotals,
   getAllCategories,
-  reportSwallowedError,
+  reportError,
   createTransactionFile,
 } = vi.hoisted(() => ({
   getCategoryTotals: vi.fn(),
@@ -14,7 +15,7 @@ const {
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
   createTransactionFile: vi.fn(),
 }));
 
@@ -34,8 +35,9 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: { create: createTransactionFile },
 }));
 
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import transactionService from '@/server/services/transactionService';
@@ -263,10 +265,11 @@ describe('getSuggestedCategory', () => {
     const err = new Error('db down');
     findByUserAndDescription.mockRejectedValue(err);
     await getSuggestedCategory();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      { err, userId: 'user-1' },
-      'Failed to check user category mapping',
-    );
+    expect(reportError).toHaveBeenCalledWith({
+      error: err,
+      where: 'Failed to check user category mapping',
+      context: { userId: 'user-1' },
+    });
   });
 
   it('returns null when the AI service has no answer', async () => {

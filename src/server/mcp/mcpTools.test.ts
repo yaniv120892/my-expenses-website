@@ -8,7 +8,7 @@ const {
   transactionRepository,
   transactionService,
   scheduledTransactionService,
-  reportSwallowedError,
+  reportError,
   logger,
 } = vi.hoisted(() => ({
   categoryRepository: { getAllCategories: vi.fn() },
@@ -25,7 +25,7 @@ const {
     getPendingTransactions: vi.fn(),
   },
   scheduledTransactionService: { listScheduledTransactions: vi.fn() },
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
@@ -41,10 +41,10 @@ vi.mock('@/server/services/transactionService', () => ({
 vi.mock('@/server/services/scheduledTransactionService', () => ({
   default: scheduledTransactionService,
 }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', () => ({
+  logger,
+  observability: { reportError },
 }));
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
 
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { HttpError } from '@/server/http/errors';
@@ -574,7 +574,7 @@ describe('add_transaction', () => {
 
     expect(outcome.isError).toBe(true);
     expect(outcome.text).toContain('No exchange rate is available for THB');
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown currency code before any write', async () => {
@@ -721,12 +721,11 @@ describe('unexpected failures', () => {
 
     expect(outcome.isError).toBe(true);
     expect(outcome.text).not.toContain('pooler');
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: USER_ID,
-        toolName: 'delete_transaction',
+        where: 'MCP tool failed',
+        context: expect.objectContaining({ userId: USER_ID, toolName: 'delete_transaction' }),
       }),
-      'MCP tool failed',
     );
   });
 });

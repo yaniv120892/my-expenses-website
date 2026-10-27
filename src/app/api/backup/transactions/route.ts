@@ -1,6 +1,6 @@
 import { createHandler } from '@/server/http/handler';
 import backupService from '@/server/services/backupService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 export const GET = createHandler({
   auth: 'cron',

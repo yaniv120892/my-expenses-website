@@ -1,7 +1,7 @@
 import { Api, type SendMessageParams } from 'node-telegram-bot-api';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 // Telegram parses these as Markdown entities; an unescaped one inside user
 // text (a merchant name, a description) makes the API reject the whole

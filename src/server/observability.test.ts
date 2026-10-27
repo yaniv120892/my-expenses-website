@@ -7,7 +7,7 @@ const { incrementWithTtl, captureException } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/redis', () => ({ incrementWithTtl }));
-vi.mock('@sentry/nextjs', () => ({ captureException }));
+vi.mock('@sentry/nextjs', () => ({ captureException, captureRequestError: vi.fn() }));
 
 let observability: typeof ObservabilityModule.observability;
 

@@ -71,7 +71,8 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 `src/test/renderWithClient.tsx`, which supplies the shared theme and English
 messages (`DesignTestProvider locale="he"` renders Hebrew). Keep DOM-free logic
 in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
-(`server.deps.inline`), and `src/test/setup.ts` stubs `next/navigation`, whose
+(`server.deps.inline`), as is `@yaniv120892/observability` so a spec's
+`@sentry/nextjs` mock reaches it, and `src/test/setup.ts` stubs `next/navigation`, whose
 `useRouter` its `I18nProvider` calls.
 `*.test-d.ts` type assertions run inside `npm test`.
 
@@ -453,9 +454,10 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   that catches an error and returns a fallback calls
   `observability.reportError({ error, where, context })`, not `logger.error`,
   so the error outlives Better Stack's retention; Sentry gets the `context` as
-  `extra` (secrets redacted) and its short primitive values as tags beside
-  `where`. `reportError` sets no Sentry user, so `createHandler` and the chat
-  stream keep their own `Sentry.captureException`, which attaches the user id.
+  `extra` (secrets redacted) and its short primitive values, ids included, as
+  tags beside `where` — so the ids a call site passes are searchable there.
+  `reportError` sets no Sentry user, so `createHandler` and the chat stream
+  keep their own `Sentry.captureException`, which attaches the user id.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call

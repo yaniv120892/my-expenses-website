@@ -2,14 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { constructStore } = vi.hoisted(() => ({ constructStore: vi.fn() }));
 
-vi.mock('@mastra/pg', () => ({
-  PostgresStore: class {
-    constructor(options: unknown) {
-      constructStore(options);
-    }
-  },
-}));
-vi.mock('@mastra/memory', () => ({ Memory: class {} }));
+vi.mock('@mastra/pg', () => ({ PostgresStore: constructStore }));
+vi.mock('@mastra/memory', () => ({ Memory: vi.fn() }));
 
 const DIRECT_URL = 'postgresql://user:pass@ep-x.neon.tech/neondb';
 
@@ -26,8 +20,7 @@ afterEach(() => {
 
 describe('getAssistantMemory', () => {
   it('hands its store the URL with sslmode pinned to verify-full', async () => {
-    const { getAssistantMemory } =
-      await import('@/server/services/assistant/memory');
+    const { getAssistantMemory } = await import('@/server/services/assistant/memory');
 
     expect(getAssistantMemory()).toBeDefined();
     expect(constructStore).toHaveBeenCalledWith(

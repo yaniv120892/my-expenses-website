@@ -3,8 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const fetchMock = vi.hoisted(() => vi.fn());
 vi.stubGlobal('fetch', fetchMock);
 
-const { betterStackStream, flushRemoteLogs } =
-  await import('./betterStackStream');
+const { betterStackStream, flushRemoteLogs } = await import('./betterStackStream');
 
 const SOURCE_URL = 'https://in.betterstack.example/v1/logs';
 const SOURCE_TOKEN = 'source-token';
@@ -12,9 +11,7 @@ const SOURCE_TOKEN = 'source-token';
 // Warn by default: error records flush eagerly, which is its own test below.
 function writeRecords(count: number, level = 40): void {
   for (let index = 0; index < count; index += 1) {
-    betterStackStream.write(
-      `${JSON.stringify({ level, msg: `record-${index}` })}\n`,
-    );
+    betterStackStream.write(`${JSON.stringify({ level, msg: `record-${index}` })}\n`);
   }
 }
 
@@ -23,8 +20,8 @@ function settle(): Promise<void> {
 }
 
 function sentBatch(): Record<string, unknown>[] {
-  const body = fetchMock.mock.calls[0][1].body as string;
-  return JSON.parse(body);
+  const [, init] = fetchMock.mock.calls[0] ?? [];
+  return JSON.parse(String(init?.body));
 }
 
 describe('betterStackStream', () => {
@@ -45,17 +42,13 @@ describe('betterStackStream', () => {
     await flushRemoteLogs();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(SOURCE_URL);
     expect(init.method).toBe('POST');
     expect(init.headers.Authorization).toBe(`Bearer ${SOURCE_TOKEN}`);
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(init.signal).toBeInstanceOf(AbortSignal);
-    expect(sentBatch().map((record) => record.msg)).toEqual([
-      'record-0',
-      'record-1',
-      'record-2',
-    ]);
+    expect(sentBatch().map((record) => record.msg)).toEqual(['record-0', 'record-1', 'record-2']);
   });
 
   it('empties the buffer so a second flush sends nothing', async () => {
@@ -75,9 +68,9 @@ describe('betterStackStream', () => {
     const batch = sentBatch();
     // 100 kept records plus the synthetic overflow notice.
     expect(batch).toHaveLength(101);
-    expect(batch[0].msg).toBe('record-30');
-    expect(batch[99].msg).toBe('record-129');
-    expect(batch[100].droppedRecords).toBe(30);
+    expect(batch[0]?.msg).toBe('record-30');
+    expect(batch[99]?.msg).toBe('record-129');
+    expect(batch[100]?.droppedRecords).toBe(30);
   });
 
   it('reports the dropped count only once', async () => {
@@ -88,9 +81,7 @@ describe('betterStackStream', () => {
     writeRecords(1);
     await flushRemoteLogs();
 
-    expect(
-      sentBatch().some((record) => record.droppedRecords !== undefined),
-    ).toBe(false);
+    expect(sentBatch().some((record) => record.droppedRecords !== undefined)).toBe(false);
   });
 
   it('drops an info record that is not marked for shipping', async () => {
@@ -102,9 +93,7 @@ describe('betterStackStream', () => {
   });
 
   it('ships an info record marked with ship', async () => {
-    betterStackStream.write(
-      `${JSON.stringify({ level: 30, ship: true, msg: 'request' })}\n`,
-    );
+    betterStackStream.write(`${JSON.stringify({ level: 30, ship: true, msg: 'request' })}\n`);
 
     await flushRemoteLogs();
 
@@ -140,6 +129,26 @@ describe('betterStackStream', () => {
     writeRecords(1, 50);
     await settle();
     fetchMock.mockClear();
+
+    await flushRemoteLogs();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('flushes eagerly again once the previous eager flush has settled', async () => {
+    writeRecords(1, 50);
+    await settle();
+    fetchMock.mockClear();
+
+    writeRecords(1, 50);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await settle();
+  });
+
+  it('ignores a JSON line that is not an object', async () => {
+    betterStackStream.write('null\n');
+    betterStackStream.write('[50]\n');
 
     await flushRemoteLogs();
 

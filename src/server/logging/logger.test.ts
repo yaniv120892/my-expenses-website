@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer, Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import type { Server } from 'node:http';
+import { createServer } from 'node:http';
 
 // Pins the multistream level, which decides whether an info record reaches the
 // stream at all.
@@ -8,18 +8,22 @@ const batches: Record<string, unknown>[][] = [];
 let server: Server;
 
 beforeAll(async () => {
-  server = createServer((req, res) => {
+  server = createServer((request, response) => {
     let body = '';
-    req.on('data', (chunk) => {
+    request.on('data', (chunk) => {
       body += chunk;
     });
-    req.on('end', () => {
+    request.on('end', () => {
       batches.push(JSON.parse(body));
-      res.writeHead(202).end();
+      response.writeHead(202).end();
     });
   });
   await new Promise<void>((resolve) => server.listen(0, resolve));
-  const { port } = server.address() as AddressInfo;
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error(`expected a TCP address, got ${String(address)}`);
+  }
+  const { port } = address;
   process.env.BETTERSTACK_SOURCE_URL = `http://127.0.0.1:${port}`;
   process.env.BETTERSTACK_SOURCE_TOKEN = 'test-token';
 });
@@ -41,15 +45,11 @@ function shippedMessages(): unknown[] {
 describe('logger remote shipping', () => {
   it('ships marked info, warns and errors, and drops plain info', async () => {
     const { default: logger } = await import('@/server/logging/logger');
-    const { flushRemoteLogs } =
-      await import('@/server/logging/betterStackStream');
+    const { flushRemoteLogs } = await import('@/server/logging/betterStackStream');
 
     logger.info({ userId: 'u1' }, 'plain info');
     logger.info({ path: '/api/summary/today', ship: true }, 'request');
-    logger.warn(
-      { envVar: 'BETTERSTACK_HEARTBEAT_X' },
-      'Heartbeat not configured',
-    );
+    logger.warn({ envVar: 'BETTERSTACK_HEARTBEAT_X' }, 'Heartbeat not configured');
 
     expect(batches).toHaveLength(0);
 
@@ -57,7 +57,7 @@ describe('logger remote shipping', () => {
     await settle();
 
     expect(batches).toHaveLength(1);
-    expect(batches[0].map((record) => record.msg)).toContain('Request failed');
+    expect(batches[0]?.map((record) => record.msg)).toContain('Request failed');
 
     await flushRemoteLogs();
     await settle();

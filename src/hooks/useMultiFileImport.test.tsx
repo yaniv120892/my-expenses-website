@@ -14,8 +14,7 @@ vi.mock('@/services/importService', () => ({
 import { useMultiFileImport } from '@/hooks/useMultiFileImport';
 import { createWrapper } from '@/test/renderWithClient';
 
-const file = (name: string) =>
-  new File(['content'], name, { lastModified: 1, type: 'text/csv' });
+const file = (name: string) => new File(['content'], name, { lastModified: 1, type: 'text/csv' });
 
 function setup(onAllSucceeded?: () => void) {
   return renderHook(() => useMultiFileImport({ onAllSucceeded }), {
@@ -42,14 +41,8 @@ describe('useMultiFileImport', () => {
       await result.current.start();
     });
 
-    expect(result.current.items.map((i) => i.status)).toEqual([
-      'succeeded',
-      'succeeded',
-    ]);
-    expect(result.current.items.map((i) => i.importId)).toEqual([
-      'import-a.csv',
-      'import-b.csv',
-    ]);
+    expect(result.current.items.map((i) => i.status)).toEqual(['succeeded', 'succeeded']);
+    expect(result.current.items.map((i) => i.importId)).toEqual(['import-a.csv', 'import-b.csv']);
     expect(processImport).toHaveBeenCalledTimes(2);
   });
 
@@ -61,30 +54,19 @@ describe('useMultiFileImport', () => {
       await result.current.start();
     });
 
-    expect(processImport).toHaveBeenCalledWith(
-      'https://s3/a.csv',
-      'a.csv',
-      '01/2024',
-    );
+    expect(processImport).toHaveBeenCalledWith('https://s3/a.csv', 'a.csv', '01/2024');
   });
 
   it('sends a per-row payment month edit', async () => {
     const { result } = setup();
 
-    act(() =>
-      result.current.addFiles([file('a.csv'), file('b.csv')], '01/2024'),
-    );
+    act(() => result.current.addFiles([file('a.csv'), file('b.csv')], '01/2024'));
     act(() => result.current.setPaymentMonth('1', '02/2024'));
     await act(async () => {
       await result.current.start();
     });
 
-    expect(processImport).toHaveBeenNthCalledWith(
-      2,
-      'https://s3/a.csv',
-      'b.csv',
-      '02/2024',
-    );
+    expect(processImport).toHaveBeenNthCalledWith(2, 'https://s3/a.csv', 'b.csv', '02/2024');
   });
 
   it('fails only the offending row and keeps the rest', async () => {
@@ -96,22 +78,13 @@ describe('useMultiFileImport', () => {
     });
     const { result } = setup();
 
-    act(() =>
-      result.current.addFiles(
-        [file('a.csv'), file('bad.csv'), file('c.csv')],
-        '',
-      ),
-    );
+    act(() => result.current.addFiles([file('a.csv'), file('bad.csv'), file('c.csv')], ''));
     await act(async () => {
       await result.current.start();
     });
 
-    expect(result.current.items.map((i) => i.status)).toEqual([
-      'succeeded',
-      'failed',
-      'succeeded',
-    ]);
-    expect(result.current.items[1].error).toEqual({
+    expect(result.current.items.map((i) => i.status)).toEqual(['succeeded', 'failed', 'succeeded']);
+    expect(result.current.items[1]?.error).toEqual({
       code: 'REQUEST_FAILED',
       message: 'Unsupported file type',
     });
@@ -132,16 +105,14 @@ describe('useMultiFileImport', () => {
     await act(async () => {
       await result.current.start();
     });
-    expect(result.current.items[0].status).toBe('failed');
+    expect(result.current.items[0]?.status).toBe('failed');
     expect(uploadImportFile).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       result.current.retryItem('0');
     });
 
-    await waitFor(() =>
-      expect(result.current.items[0].status).toBe('succeeded'),
-    );
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('succeeded'));
     expect(uploadImportFile).toHaveBeenCalledTimes(1);
     expect(processImport).toHaveBeenCalledTimes(2);
   });
@@ -214,10 +185,7 @@ describe('useMultiFileImport', () => {
     act(() => result.current.addFiles([file('a.csv'), file('b.csv')], ''));
     act(() => result.current.applyPaymentMonthToAll('03/2024'));
 
-    expect(result.current.items.map((i) => i.paymentMonth)).toEqual([
-      '03/2024',
-      '03/2024',
-    ]);
+    expect(result.current.items.map((i) => i.paymentMonth)).toEqual(['03/2024', '03/2024']);
   });
 
   it('starting with nothing queued does no work', async () => {

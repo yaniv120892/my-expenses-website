@@ -4,7 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UploadQueueList from '@/components/FileUpload/UploadQueueList';
 import { DesignTestProvider } from '@/test/renderWithClient';
-import { UploadItem } from '@/utils/importUploadQueue';
+import type { UploadItem } from '@/utils/importUploadQueue';
 
 afterEach(cleanup);
 
@@ -135,9 +135,7 @@ describe('UploadQueueList', () => {
       },
     );
 
-    expect(
-      screen.getByLabelText('Retry card-1234.csv').hasAttribute('disabled'),
-    ).toBe(true);
+    expect(screen.getByLabelText('Retry card-1234.csv').hasAttribute('disabled')).toBe(true);
   });
 
   it('removes a queued row on request', async () => {
@@ -159,9 +157,7 @@ describe('UploadQueueList', () => {
   it('locks the payment month once a row leaves the queue', () => {
     renderList([item({ id: '0', status: 'uploading' })]);
 
-    expect(
-      screen.getByLabelText(/Payment Month/).hasAttribute('disabled'),
-    ).toBe(true);
+    expect(screen.getByLabelText(/Payment Month/).hasAttribute('disabled')).toBe(true);
   });
 
   it('drops the payment month field for settled rows', () => {
@@ -201,9 +197,7 @@ describe('UploadQueueList', () => {
         onPaymentMonthChange={vi.fn()}
       />,
       {
-        wrapper: ({ children }) => (
-          <DesignTestProvider locale="he">{children}</DesignTestProvider>
-        ),
+        wrapper: ({ children }) => <DesignTestProvider locale="he">{children}</DesignTestProvider>,
       },
     );
 

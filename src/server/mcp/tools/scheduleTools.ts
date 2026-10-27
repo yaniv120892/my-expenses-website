@@ -2,10 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import transactionService from '@/server/services/transactionService';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import categoryRepository from '@/server/repositories/categoryRepository';
-import {
-  formatCurrencyPlain,
-  translateToScheduleSummary,
-} from '@/utils/format';
+import { formatCurrencyPlain, translateToScheduleSummary } from '@/utils/format';
 import { toDayString } from '@/shared/dates';
 import type { ScheduledTransactionDomain } from '@/shared/types/scheduledTransaction';
 import { READ_ONLY, registerSafeTool } from '@/server/mcp/safeTool';
@@ -58,9 +55,7 @@ export function registerScheduleTools({
       if (schedules.length === 0) {
         return 'No recurring transactions are scheduled.';
       }
-      const categoryNames = new Map(
-        categories.map((category) => [category.id, category.name]),
-      );
+      const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
       return schedules
         .map((schedule) =>
           describeSchedule({
@@ -91,8 +86,6 @@ function describeSchedule({
       schedule.dayOfWeek,
       schedule.dayOfMonth,
     ),
-    schedule.nextRunDate
-      ? `next ${toDayString(schedule.nextRunDate)}`
-      : 'no next run',
+    schedule.nextRunDate ? `next ${toDayString(schedule.nextRunDate)}` : 'no next run',
   ].join(' | ');
 }

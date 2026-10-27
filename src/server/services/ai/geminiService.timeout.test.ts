@@ -12,6 +12,7 @@ import { GeminiService } from '@/server/services/ai/geminiService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
 import { stalledFetch } from '@/test/stalledFetch';
+import { trackSettled } from '@/test/trackSettled';
 
 const categories: Category[] = [{ id: 'cat-food', name: 'Food' }];
 
@@ -31,19 +32,16 @@ afterEach(() => {
 
 describe('GeminiService against a stalled provider', () => {
   it('fails the one call at the timeout instead of hanging', async () => {
-    let settled = false;
-    const pending = new GeminiService()
-      .suggestCategory('coffee', categories)
-      .finally(() => {
-        settled = true;
-      });
+    const { pending, isSettled } = trackSettled(
+      new GeminiService().suggestCategory('coffee', categories),
+    );
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
-    expect(settled).toBe(false);
+    expect(isSettled()).toBe(false);
 
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(settled).toBe(true);
+    expect(isSettled()).toBe(true);
     await expect(pending).resolves.toBeNull();
     expect(hangingFetch).toHaveBeenCalledTimes(1);
     expect(reportSwallowedError).toHaveBeenCalledWith(

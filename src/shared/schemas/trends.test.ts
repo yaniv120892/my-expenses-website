@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  MAX_COMPARISON_SERIES,
-  getCategoryComparisonQuerySchema,
-} from '@/shared/schemas/trends';
+import { MAX_COMPARISON_SERIES, getCategoryComparisonQuerySchema } from '@/shared/schemas/trends';
 import { MAX_COMPARISON_SERIES as TYPES_MAX } from '@/shared/types/trends';
 import { CHART_SERIES } from '@yaniv120892/my-ui';
 
@@ -29,16 +26,12 @@ describe('comparison series bound', () => {
   });
 
   it('accepts a selection up to the bound', () => {
-    const result = getCategoryComparisonQuerySchema.safeParse(
-      query(MAX_COMPARISON_SERIES),
-    );
+    const result = getCategoryComparisonQuerySchema.safeParse(query(MAX_COMPARISON_SERIES));
     expect(result.success).toBe(true);
   });
 
   it('rejects a selection past the bound', () => {
-    const result = getCategoryComparisonQuerySchema.safeParse(
-      query(MAX_COMPARISON_SERIES + 1),
-    );
+    const result = getCategoryComparisonQuerySchema.safeParse(query(MAX_COMPARISON_SERIES + 1));
     expect(result.success).toBe(false);
   });
 });
@@ -53,25 +46,22 @@ describe('comparison range bound', () => {
 
   it('accepts a year of daily buckets', () => {
     expect(
-      getCategoryComparisonQuerySchema.safeParse(
-        range('2026-01-01', '2026-12-31', 'daily'),
-      ).success,
+      getCategoryComparisonQuerySchema.safeParse(range('2026-01-01', '2026-12-31', 'daily'))
+        .success,
     ).toBe(true);
   });
 
   it('rejects a century of daily buckets', () => {
     expect(
-      getCategoryComparisonQuerySchema.safeParse(
-        range('1900-01-01', '2026-12-31', 'daily'),
-      ).success,
+      getCategoryComparisonQuerySchema.safeParse(range('1900-01-01', '2026-12-31', 'daily'))
+        .success,
     ).toBe(false);
   });
 
   it('accepts the same range at a coarser period', () => {
     expect(
-      getCategoryComparisonQuerySchema.safeParse(
-        range('1900-01-01', '2026-12-31', 'yearly'),
-      ).success,
+      getCategoryComparisonQuerySchema.safeParse(range('1900-01-01', '2026-12-31', 'yearly'))
+        .success,
     ).toBe(true);
   });
 });

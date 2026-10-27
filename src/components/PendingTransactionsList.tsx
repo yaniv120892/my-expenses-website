@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import { Transaction } from '../types';
+import type { Transaction } from '../types';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
@@ -45,8 +45,7 @@ export default function PendingTransactionsList({
   const t = useT();
   const formatter = useAppFormat();
   const isMobile = useIsMobile();
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   function openDialog(transaction: Transaction) {
@@ -89,9 +88,7 @@ export default function PendingTransactionsList({
     <>
       {isMobile ? (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Stack
-            divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
-          >
+          <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
             {transactions.map((tx) => (
               <SwipeableRow
                 key={tx.id}
@@ -152,12 +149,8 @@ export default function PendingTransactionsList({
                 <TableCell>{t('pending.column.description')}</TableCell>
                 <TableCell>{t('pending.column.category')}</TableCell>
                 <TableCell>{t('pending.column.date')}</TableCell>
-                <TableCell align="right">
-                  {t('pending.column.amount')}
-                </TableCell>
-                <TableCell align="right">
-                  {t('pending.column.actions')}
-                </TableCell>
+                <TableCell align="right">{t('pending.column.amount')}</TableCell>
+                <TableCell align="right">{t('pending.column.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -168,15 +161,9 @@ export default function PendingTransactionsList({
                   onClick={() => openDialog(tx)}
                   sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
                 >
-                  <TableCell sx={{ fontWeight: 500 }}>
-                    {tx.description}
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {tx.category?.name}
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {formatter.day(tx.date)}
-                  </TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{formatter.day(tx.date)}</TableCell>
                   <TableCell align="right">
                     <AmountText type={tx.type} value={tx.value} original={tx} />
                   </TableCell>
@@ -223,9 +210,7 @@ export default function PendingTransactionsList({
       >
         {selectedTransaction && (
           <>
-            <DialogTitle sx={{ fontWeight: 600 }}>
-              {selectedTransaction.description}
-            </DialogTitle>
+            <DialogTitle sx={{ fontWeight: 600 }}>{selectedTransaction.description}</DialogTitle>
             <DialogContent>
               <Typography
                 sx={{

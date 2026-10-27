@@ -11,27 +11,23 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
-import { Category } from '@/types';
+import type { SpendingTrend, TransactionType, TrendPeriod } from '@/types/trends';
+import type { Category } from '@/types';
 import { TrendIcon } from './TrendIcon';
 import { localeDirection, useI18n } from '@yaniv120892/my-ui';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
-import {
-  ALL_CATEGORIES,
-  shouldReverseNewestFirstAxis,
-  valueAxisOrientation,
-} from './trendFilters';
+import { ALL_CATEGORIES, shouldReverseNewestFirstAxis, valueAxisOrientation } from './trendFilters';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
 
-interface OverallTrendCardProps {
+type OverallTrendCardProps = {
   trend: SpendingTrend;
   selectedCategory: string;
   categories: Category[];
   transactionType: TransactionType;
   period: TrendPeriod;
-}
+};
 
 export const OverallTrendCard = ({
   trend,
@@ -46,9 +42,7 @@ export const OverallTrendCard = ({
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const lineColor =
-    transactionType === 'EXPENSE'
-      ? palette.charts.negative
-      : palette.charts.positive;
+    transactionType === 'EXPENSE' ? palette.charts.negative : palette.charts.positive;
 
   const categoryName =
     selectedCategory !== ALL_CATEGORIES
@@ -79,10 +73,7 @@ export const OverallTrendCard = ({
   return (
     <Card variant="outlined" sx={{ mb: 3 }}>
       <CardContent>
-        <Typography
-          variant="h4"
-          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-        >
+        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {labels.title}
           <TrendIcon trend={trend.trend} />
         </Typography>
@@ -102,13 +93,9 @@ export const OverallTrendCard = ({
                 color: 'text.secondary',
               }}
             >
-              {isExpense
-                ? t('trends.card.totalSpending')
-                : t('trends.card.totalIncome')}
+              {isExpense ? t('trends.card.totalSpending') : t('trends.card.totalIncome')}
             </Typography>
-            <Typography variant="h4">
-              {formatter.currency(trend.totalAmount)}
-            </Typography>
+            <Typography variant="h4">{formatter.currency(trend.totalAmount)}</Typography>
           </Box>
           <Box>
             <Typography
@@ -119,10 +106,7 @@ export const OverallTrendCard = ({
             >
               {t('trends.card.change')}
             </Typography>
-            <ChangeFromPrevious
-              percentageChange={trend.percentageChange}
-              variant="h4"
-            />
+            <ChangeFromPrevious percentageChange={trend.percentageChange} variant="h4" />
           </Box>
         </Box>
         <Box sx={{ height: { xs: 240, md: 300 } }}>
@@ -145,10 +129,7 @@ export const OverallTrendCard = ({
               />
               <Tooltip
                 labelFormatter={(date) => pointLabel(String(date))}
-                formatter={(value) => [
-                  formatter.currency(Number(value)),
-                  t('trends.card.amount'),
-                ]}
+                formatter={(value) => [formatter.currency(Number(value)), t('trends.card.amount')]}
                 contentStyle={{
                   backgroundColor: palette.background.paper,
                   border: `1px solid ${palette.divider}`,

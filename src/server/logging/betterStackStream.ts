@@ -13,10 +13,10 @@ const buffer: LogRecord[] = [];
 let droppedRecords = 0;
 let eagerFlush: Promise<void> | null = null;
 
-interface ShippingConfig {
+type ShippingConfig = {
   url: string;
   token: string;
-}
+};
 
 function shippingConfig(): ShippingConfig | null {
   const url = optionalEnv('BETTERSTACK_SOURCE_URL');
@@ -40,9 +40,15 @@ function flushEagerly(): void {
   if (eagerFlush) {
     return;
   }
-  eagerFlush = flushRemoteLogs().finally(() => {
+  eagerFlush = flushThenRelease();
+}
+
+async function flushThenRelease(): Promise<void> {
+  try {
+    await flushRemoteLogs();
+  } finally {
     eagerFlush = null;
-  });
+  }
 }
 
 export const betterStackStream = {
@@ -50,13 +56,17 @@ export const betterStackStream = {
     if (!shippingConfig()) {
       return;
     }
-    let record: LogRecord;
+    let parsed: unknown;
     try {
-      record = JSON.parse(line) as LogRecord;
+      parsed = JSON.parse(line);
     } catch {
       // A record that will not parse is not worth failing a request over.
       return;
     }
+    if (!isLogRecord(parsed)) {
+      return;
+    }
+    const record = parsed;
     if (!shouldShip(record)) {
       return;
     }
@@ -102,4 +112,8 @@ export async function flushRemoteLogs(): Promise<void> {
     // Swallowed deliberately: logging the failure would feed this same buffer
     // and the next flush would fail the same way, forever.
   }
+}
+
+function isLogRecord(value: unknown): value is LogRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

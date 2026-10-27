@@ -3,10 +3,7 @@ import { Heebo } from 'next/font/google';
 import InitColorSchemeScript from '@mui/material/InitColorSchemeScript';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import {
-  commonMessages as sharedMessages,
-  DesignProvider,
-} from '@yaniv120892/my-ui';
+import { commonMessages as sharedMessages, DesignProvider } from '@yaniv120892/my-ui';
 import { getLocale, localeDirection } from '@yaniv120892/my-ui/server';
 import Providers from '@/components/Providers';
 import { APP_URLS } from '@/config/appUrls';
@@ -32,9 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   return (
     <html
@@ -45,11 +40,7 @@ export default async function RootLayout({
     >
       <body>
         <InitColorSchemeScript attribute="data" />
-        <DesignProvider
-          locale={locale}
-          messages={messages[locale]}
-          appUrls={APP_URLS}
-        >
+        <DesignProvider locale={locale} messages={messages[locale]} appUrls={APP_URLS}>
           <Providers>{children}</Providers>
         </DesignProvider>
         <Analytics />

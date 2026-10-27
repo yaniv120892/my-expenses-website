@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse, after } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { z, ZodType, ZodError } from 'zod';
+import type { ZodType } from 'zod';
+import { z, ZodError } from 'zod';
 import logger from '@/server/logging/logger';
 import { flushRemoteLogs } from '@/server/logging/betterStackStream';
 import {
@@ -14,15 +16,14 @@ import { authenticateApiToken } from '@/server/auth/apiTokens';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
-import { enforceRateLimits, RateLimitRule } from '@/server/http/rateLimit';
+import type { RateLimitRule } from '@/server/http/rateLimit';
+import { enforceRateLimits } from '@/server/http/rateLimit';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { recordIdSchema } from '@/shared/schemas/common';
 import { pingHeartbeat } from '@/server/monitoring/heartbeat';
 import { secretsEqual } from '@/server/utils/webhookAuth';
-import {
-  JSON_RPC_ERROR_CODES,
-  jsonRpcErrorResponse,
-} from '@/server/http/jsonRpc';
+import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
+import { assertNever } from '@/utils/assertNever';
 
 type AuthMode = 'session' | 'apiToken' | 'cron' | 'telegram' | 'public';
 
@@ -39,19 +40,15 @@ type ErrorDescription = { status: number; message: string; code?: string };
 
 const uuidRouteParamsSchema = z.record(z.string(), recordIdSchema);
 
-export interface HandlerContext<
-  TBody,
-  TQuery,
-  TParams = Record<string, string>,
-> {
-  req: NextRequest;
+export type HandlerContext<TBody, TQuery, TParams = Record<string, string>> = {
+  request: NextRequest;
   userId: string;
   body: TBody;
   query: TQuery;
   params: TParams;
-}
+};
 
-interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
+type BaseHandlerOptions<TBody, TQuery, TResult, TParams> = {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, unknown>;
@@ -59,7 +56,7 @@ interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   paramsSchema?: ZodType<TParams, unknown>;
   status?: number;
   handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
-}
+};
 
 type RateLimitResolver<TBody, TQuery, TParams = Record<string, string>> = (
   handlerContext: HandlerContext<TBody, TQuery, TParams>,
@@ -113,10 +110,11 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
 // A static route's params promise resolves to undefined, not an empty object.
 type RouteContext = { params: Promise<Record<string, string> | undefined> };
 
+type RouteHandler = (request: NextRequest, routeContext: RouteContext) => Promise<Response>;
+
 function toRoutePattern(path: string, params: Record<string, string>): string {
   return Object.entries(params).reduce(
-    (pattern, [name, value]) =>
-      value ? pattern.replace(`/${value}`, `/[${name}]`) : pattern,
+    (pattern, [name, value]) => (value ? pattern.replace(`/${value}`, `/[${name}]`) : pattern),
     path,
   );
 }
@@ -135,32 +133,29 @@ const MAPS_PRISMA_ERRORS = {
 } satisfies Record<AuthMode, boolean>;
 
 async function resolveAuth({
-  req,
+  request,
   options,
 }: {
-  req: NextRequest;
+  request: NextRequest;
   options: AuthOptions;
 }): Promise<AuthResult> {
-  switch (options.auth) {
+  const authMode = options.auth;
+  switch (authMode) {
     case 'session': {
       // Only the Authorization header carries an API token: one in the
       // cookie would be a credential the browser attaches on its own.
-      const credential = extractCredential(req);
-      const isApiTokenBearer =
-        credential?.source === 'bearer' && isApiToken(credential.token);
+      const credential = extractCredential(request);
+      const isApiTokenBearer = credential?.source === 'bearer' && isApiToken(credential.token);
       if (!isApiTokenBearer) {
-        return { userId: await requireUser(req) };
+        return { userId: await requireUser(request) };
       }
       if (!options.apiTokenScope) {
-        throw new AuthError(
-          'API_TOKEN_NOT_ACCEPTED',
-          'This route does not accept an API token',
-        );
+        throw new AuthError('API_TOKEN_NOT_ACCEPTED', 'This route does not accept an API token');
       }
       return authenticateApiToken(credential.token, options.apiTokenScope);
     }
     case 'apiToken': {
-      const token = bearerApiToken(req);
+      const token = bearerApiToken(request);
       if (!token) {
         throw new AuthError(
           'API_TOKEN_REQUIRED',
@@ -170,7 +165,7 @@ async function resolveAuth({
       return authenticateApiToken(token, options.apiTokenScope);
     }
     case 'cron': {
-      const authHeader = req.headers.get('authorization');
+      const authHeader = request.headers.get('authorization');
       if (!secretsEqual(authHeader, `Bearer ${requireEnv('CRON_SECRET')}`)) {
         throw new AuthError('CRON_AUTH_FAILED', 'Authentication required');
       }
@@ -178,7 +173,7 @@ async function resolveAuth({
     }
     case 'telegram': {
       const secret = optionalEnv('TELEGRAM_WEBHOOK_SECRET');
-      const header = req.headers.get('x-telegram-bot-api-secret-token');
+      const header = request.headers.get('x-telegram-bot-api-secret-token');
       if (!secret || !secretsEqual(header, secret)) {
         throw new AuthError('TELEGRAM_AUTH_FAILED', 'Authentication required');
       }
@@ -186,6 +181,8 @@ async function resolveAuth({
     }
     case 'public':
       return { userId: '' };
+    default:
+      return assertNever({ value: authMode, what: 'auth mode' });
   }
 }
 
@@ -194,13 +191,7 @@ function bearerApiToken(request: NextRequest): string | null {
   return token && isApiToken(token) ? token : null;
 }
 
-function describeError({
-  err,
-  auth,
-}: {
-  err: unknown;
-  auth: AuthMode;
-}): ErrorDescription {
+function describeError({ err, auth }: { err: unknown; auth: AuthMode }): ErrorDescription {
   if (err instanceof AuthError) {
     return { status: 401, message: err.message, code: err.code };
   }
@@ -210,9 +201,7 @@ function describeError({
   if (err instanceof HttpError) {
     return { status: err.status, message: err.message };
   }
-  const prismaHttpError = MAPS_PRISMA_ERRORS[auth]
-    ? prismaErrorToHttpError(err)
-    : undefined;
+  const prismaHttpError = MAPS_PRISMA_ERRORS[auth] ? prismaErrorToHttpError(err) : undefined;
   if (prismaHttpError) {
     return describeError({ err: prismaHttpError, auth });
   }
@@ -251,14 +240,14 @@ function errorResponse({
         : { message: error.message };
       return NextResponse.json(body, { status: error.status, headers });
     }
+    default:
+      return assertNever({ value: format, what: 'error format' });
   }
 }
 
 function toJsonRpcErrorCode(status: number): number {
   const isAuthFailure = status === 401 || status === 403;
-  return isAuthFailure
-    ? JSON_RPC_ERROR_CODES.UNAUTHORIZED
-    : JSON_RPC_ERROR_CODES.SERVER_ERROR;
+  return isAuthFailure ? JSON_RPC_ERROR_CODES.UNAUTHORIZED : JSON_RPC_ERROR_CODES.SERVER_ERROR;
 }
 
 export function createHandler<
@@ -266,42 +255,40 @@ export function createHandler<
   TQuery = unknown,
   TResult = unknown,
   TParams = Record<string, string>,
->(options: HandlerOptions<TBody, TQuery, TResult, TParams>) {
-  return async (
-    req: NextRequest,
-    routeContext: RouteContext,
-  ): Promise<Response> => {
+>(options: HandlerOptions<TBody, TQuery, TResult, TParams>): RouteHandler;
+// The implementation sees every schema output as `unknown`; the overload above is
+// what ties a route's schemas to the context its handler receives.
+export function createHandler(
+  options: HandlerOptions<unknown, unknown, unknown, unknown>,
+): RouteHandler {
+  return async (request: NextRequest, routeContext: RouteContext): Promise<Response> => {
     const requestId = crypto.randomUUID();
     const started = Date.now();
-    const path = req.nextUrl.pathname;
+    const path = request.nextUrl.pathname;
     let response: Response;
     let userId = '';
     let apiTokenId: string | undefined;
     let params: Record<string, string> = {};
 
     try {
-      ({ userId, apiTokenId } = await resolveAuth({ req, options }));
+      ({ userId, apiTokenId } = await resolveAuth({ request, options }));
       params = (routeContext ? await routeContext.params : undefined) ?? {};
-      const parsedParams = options.paramsSchema
-        ? options.paramsSchema.parse(params)
-        : (uuidRouteParamsSchema.parse(params) as TParams);
-      let body = undefined as TBody;
+      const parsedParams = (options.paramsSchema ?? uuidRouteParamsSchema).parse(params);
+      let body: unknown;
       if (options.bodySchema) {
         let raw: unknown;
         try {
-          raw = await req.json();
+          raw = await request.json();
         } catch {
           throw new HttpError(400, 'Invalid JSON body');
         }
         body = options.bodySchema.parse(raw);
       }
-      const query = options.querySchema
-        ? options.querySchema.parse(
-            Object.fromEntries(req.nextUrl.searchParams.entries()),
-          )
-        : (undefined as TQuery);
+      const query = options.querySchema?.parse(
+        Object.fromEntries(request.nextUrl.searchParams.entries()),
+      );
 
-      const handlerContext = { req, userId, body, query, params: parsedParams };
+      const handlerContext = { request, userId, body, query, params: parsedParams };
       if (options.rateLimit && options.rateLimit !== 'none') {
         await enforceRateLimits(options.rateLimit(handlerContext));
       }
@@ -344,11 +331,10 @@ export function createHandler<
         const routePattern = toRoutePattern(path, params);
         after(async () => {
           // Dynamic import keeps the Telegram SDK out of every route's cold start.
-          const { notifyOpsAlert } =
-            await import('@/server/services/alertService');
+          const { notifyOpsAlert } = await import('@/server/services/alertService');
           await notifyOpsAlert({
-            alertType: `5xx ${req.method} ${routePattern}`,
-            title: `5xx on ${req.method} ${path}`,
+            alertType: `5xx ${request.method} ${routePattern}`,
+            title: `5xx on ${request.method} ${path}`,
             err,
             context: { requestId, ...(userId && { userId }) },
           });
@@ -359,7 +345,7 @@ export function createHandler<
     logger.info(
       {
         requestId,
-        method: req.method,
+        method: request.method,
         path,
         status: response.status,
         durationMs: Date.now() - started,

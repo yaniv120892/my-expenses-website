@@ -2,11 +2,9 @@ import type { Dictionary, Messages } from '@yaniv120892/my-ui';
 
 const en = {
   'scheduled.title': 'Scheduled',
-  'scheduled.subtitle':
-    'Recurring transactions created automatically on schedule',
+  'scheduled.subtitle': 'Recurring transactions created automatically on schedule',
   'scheduled.add': 'Add scheduled',
-  'scheduled.loadFailed':
-    'Failed to load scheduled transactions. Please try again.',
+  'scheduled.loadFailed': 'Failed to load scheduled transactions. Please try again.',
   'scheduled.empty': 'No scheduled transactions found.',
   'scheduled.notAvailable': 'N/A',
   'scheduled.edit': 'Edit',
@@ -47,22 +45,15 @@ const en = {
   'scheduled.validation.typeRequired': 'Type is required',
   'scheduled.validation.categoryRequired': 'Category is required',
   'scheduled.validation.scheduleTypeRequired': 'Schedule type is required',
-  'scheduled.validation.prefixTooShort':
-    'Use at least {count} letters or digits',
+  'scheduled.validation.prefixTooShort': 'Use at least {count} letters or digits',
   'scheduled.validation.dayOfWeekRequired': 'Day of week is required',
   'scheduled.validation.dayOfMonthRequired': 'Day of month is required',
-  'scheduled.validation.dayOfWeekNotMonthly':
-    'Day of week is not valid for monthly schedule',
-  'scheduled.validation.dayOfWeekNotDaily':
-    'Day of week is not valid for daily schedule',
-  'scheduled.validation.dayOfMonthNotDaily':
-    'Day of month is not valid for daily schedule',
-  'scheduled.validation.monthOfYearNotDaily':
-    'Month of year is not valid for daily schedule',
-  'scheduled.validation.dayOfMonthNotWeekly':
-    'Day of month is not valid for weekly schedule',
-  'scheduled.validation.monthOfYearNotWeekly':
-    'Month of year is not valid for weekly schedule',
+  'scheduled.validation.dayOfWeekNotMonthly': 'Day of week is not valid for monthly schedule',
+  'scheduled.validation.dayOfWeekNotDaily': 'Day of week is not valid for daily schedule',
+  'scheduled.validation.dayOfMonthNotDaily': 'Day of month is not valid for daily schedule',
+  'scheduled.validation.monthOfYearNotDaily': 'Month of year is not valid for daily schedule',
+  'scheduled.validation.dayOfMonthNotWeekly': 'Day of month is not valid for weekly schedule',
+  'scheduled.validation.monthOfYearNotWeekly': 'Month of year is not valid for weekly schedule',
 } satisfies Messages;
 
 export const scheduledMessages: Dictionary<typeof en> = {
@@ -112,21 +103,14 @@ export const scheduledMessages: Dictionary<typeof en> = {
     'scheduled.validation.typeRequired': 'נא לבחור סוג',
     'scheduled.validation.categoryRequired': 'נא לבחור קטגוריה',
     'scheduled.validation.scheduleTypeRequired': 'נא לבחור תדירות',
-    'scheduled.validation.prefixTooShort':
-      'נא להזין לפחות {count} אותיות או ספרות',
+    'scheduled.validation.prefixTooShort': 'נא להזין לפחות {count} אותיות או ספרות',
     'scheduled.validation.dayOfWeekRequired': 'נא לבחור יום בשבוע',
     'scheduled.validation.dayOfMonthRequired': 'נא להזין יום בחודש',
-    'scheduled.validation.dayOfWeekNotMonthly':
-      'יום בשבוע לא מתאים לתדירות חודשית',
-    'scheduled.validation.dayOfWeekNotDaily':
-      'יום בשבוע לא מתאים לתדירות יומית',
-    'scheduled.validation.dayOfMonthNotDaily':
-      'יום בחודש לא מתאים לתדירות יומית',
-    'scheduled.validation.monthOfYearNotDaily':
-      'חודש בשנה לא מתאים לתדירות יומית',
-    'scheduled.validation.dayOfMonthNotWeekly':
-      'יום בחודש לא מתאים לתדירות שבועית',
-    'scheduled.validation.monthOfYearNotWeekly':
-      'חודש בשנה לא מתאים לתדירות שבועית',
+    'scheduled.validation.dayOfWeekNotMonthly': 'יום בשבוע לא מתאים לתדירות חודשית',
+    'scheduled.validation.dayOfWeekNotDaily': 'יום בשבוע לא מתאים לתדירות יומית',
+    'scheduled.validation.dayOfMonthNotDaily': 'יום בחודש לא מתאים לתדירות יומית',
+    'scheduled.validation.monthOfYearNotDaily': 'חודש בשנה לא מתאים לתדירות יומית',
+    'scheduled.validation.dayOfMonthNotWeekly': 'יום בחודש לא מתאים לתדירות שבועית',
+    'scheduled.validation.monthOfYearNotWeekly': 'חודש בשנה לא מתאים לתדירות שבועית',
   },
 };

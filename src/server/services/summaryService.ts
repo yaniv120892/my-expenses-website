@@ -1,20 +1,18 @@
 import transactionService from '@/server/services/transactionService';
 import userSettingsService from '@/server/services/userSettingsService';
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
 import logger from '@/server/logging/logger';
 import { TransactionType } from '@/generated/prisma/client';
-import {
-  formatSummaryMessage,
-  SummaryTransaction,
-} from '@/server/utils/summaryMessage';
+import type { SummaryTransaction } from '@/server/utils/summaryMessage';
+import { formatSummaryMessage } from '@/server/utils/summaryMessage';
 
 class SummaryService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getAiService = lazy(() => aiServiceFactory.getAIService());
 
   public async sendTodaySummaryToAllUsers(): Promise<void> {
-    const notifier = TransactionNotifierFactory.getNotifier();
+    const notifier = transactionNotifierFactory.getNotifier();
     const users = await userSettingsService.getUsersRequiredDailySummary();
     let failed = 0;
     for (const userId of users) {
@@ -32,9 +30,7 @@ class SummaryService {
       'Daily summary run finished',
     );
     if (failed > 0) {
-      throw new Error(
-        `Daily summary failed for ${failed} of ${users.length} user(s)`,
-      );
+      throw new Error(`Daily summary failed for ${failed} of ${users.length} user(s)`);
     }
   }
 
@@ -45,10 +41,7 @@ class SummaryService {
     }
 
     const transactionsTextForAiAnalyzer = transactions
-      .map(
-        (t) =>
-          `description:${t.description}, category: ${t.category?.name}, amount: ${t.value}`,
-      )
+      .map((t) => `description:${t.description}, category: ${t.category?.name}, amount: ${t.value}`)
       .join('\n');
     const aiInsights = await this.getAiService().analyzeExpenses(
       transactionsTextForAiAnalyzer,
@@ -58,9 +51,7 @@ class SummaryService {
     return formatSummaryMessage(transactions, total, aiInsights);
   }
 
-  private async getTodayTransactions(
-    userId: string,
-  ): Promise<SummaryTransaction[]> {
+  private async getTodayTransactions(userId: string): Promise<SummaryTransaction[]> {
     // One normalizer owns both bounds: the repository floors startDate to
     // startOfDay and widens endDate to endOfDay.
     const today = new Date();
@@ -73,4 +64,5 @@ class SummaryService {
   }
 }
 
-export default new SummaryService();
+const summaryService = new SummaryService();
+export default summaryService;

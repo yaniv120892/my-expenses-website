@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as NextServerModule from 'next/server';
 
 const { queryRaw, getValue, after, flushRemoteLogs } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
@@ -13,7 +14,7 @@ vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
 // `after` throws outside a request scope, which is where this test calls the
 // handler.
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after,
 }));
 
@@ -38,7 +39,7 @@ describe('shallow check', () => {
     await GET();
 
     expect(after).toHaveBeenCalledTimes(1);
-    after.mock.calls[0][0]();
+    after.mock.calls[0]?.[0]();
     expect(flushRemoteLogs).toHaveBeenCalledTimes(1);
   });
 });

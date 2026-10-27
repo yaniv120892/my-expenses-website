@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateTransactionForm } from './transactionFormValidation';
 import type { TransactionFormValues } from './transactionFormValidation.types';
-import {
-  createTransactionSchema,
-  updateTransactionSchema,
-} from '@/shared/schemas/transactions';
+import { createTransactionSchema, updateTransactionSchema } from '@/shared/schemas/transactions';
 import {
   approveImportedTransactionSchema,
   mergeImportedTransactionSchema,
@@ -12,9 +9,7 @@ import {
 
 const CATEGORY_ID = '11111111-1111-4111-8111-111111111111';
 
-function form(
-  overrides: Partial<TransactionFormValues> = {},
-): TransactionFormValues {
+function form(overrides: Partial<TransactionFormValues> = {}): TransactionFormValues {
   return {
     description: 'Coffee',
     value: 12,
@@ -36,12 +31,8 @@ function submitPayload(values: TransactionFormValues) {
 
 describe('validateTransactionForm', () => {
   it('accepts a complete form in both modes', () => {
-    expect(
-      validateTransactionForm({ form: form(), requireCategory: false }),
-    ).toEqual({});
-    expect(
-      validateTransactionForm({ form: form(), requireCategory: true }),
-    ).toEqual({});
+    expect(validateTransactionForm({ form: form(), requireCategory: false })).toEqual({});
+    expect(validateTransactionForm({ form: form(), requireCategory: true })).toEqual({});
   });
 
   it('reports the usual required fields', () => {
@@ -49,12 +40,7 @@ describe('validateTransactionForm', () => {
       form: form({ description: '', value: 0, type: '', date: '' }),
       requireCategory: false,
     });
-    expect(Object.keys(errors).sort()).toEqual([
-      'date',
-      'description',
-      'type',
-      'value',
-    ]);
+    expect(Object.keys(errors).sort()).toEqual(['date', 'description', 'type', 'value']);
   });
 
   it('rejects a non-numeric value', () => {
@@ -68,13 +54,10 @@ describe('validateTransactionForm', () => {
 
   it('holds the value to the server amount bounds', () => {
     const valueError = (value: number | string) =>
-      validateTransactionForm({ form: form({ value }), requireCategory: false })
-        .value;
+      validateTransactionForm({ form: form({ value }), requireCategory: false }).value;
 
     expect(valueError(0.004)).toBe('transactions.validation.valueNotPositive');
-    expect(valueError(10_000_001)).toBe(
-      'transactions.validation.valueNotPositive',
-    );
+    expect(valueError(10_000_001)).toBe('transactions.validation.valueNotPositive');
     expect(valueError('')).toBe('transactions.validation.valueNotPositive');
     expect(valueError(0.01)).toBeUndefined();
     expect(valueError('.5')).toBeUndefined();
@@ -98,24 +81,18 @@ describe('validateTransactionForm', () => {
     const cleared = form({ categoryId: '' });
 
     expect(
-      validateTransactionForm({ form: cleared, requireCategory: false })
-        .categoryId,
+      validateTransactionForm({ form: cleared, requireCategory: false }).categoryId,
     ).toBeUndefined();
-    expect(
-      validateTransactionForm({ form: cleared, requireCategory: true })
-        .categoryId,
-    ).toBe('transactions.validation.categoryRequired');
+    expect(validateTransactionForm({ form: cleared, requireCategory: true }).categoryId).toBe(
+      'transactions.validation.categoryRequired',
+    );
   });
 
   it('lets an uncategorized import through the approve schema', () => {
     const cleared = submitPayload(form({ categoryId: '' }));
 
-    expect(approveImportedTransactionSchema.safeParse(cleared).success).toBe(
-      true,
-    );
-    expect(mergeImportedTransactionSchema.safeParse(cleared).success).toBe(
-      false,
-    );
+    expect(approveImportedTransactionSchema.safeParse(cleared).success).toBe(true);
+    expect(mergeImportedTransactionSchema.safeParse(cleared).success).toBe(false);
   });
 
   it('only lets through payloads the matching API schema accepts', () => {

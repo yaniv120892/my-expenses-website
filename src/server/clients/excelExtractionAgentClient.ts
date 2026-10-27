@@ -3,7 +3,7 @@ import logger from '@/server/logging/logger';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv, requireSiteUrl } from '@/server/env';
-import {
+import type {
   SubmitExtractionRequest,
   SubmitExtractionResponse,
 } from '@/server/clients/excelExtractionAgentClientTypes';
@@ -12,7 +12,7 @@ export class ExcelExtractionAgentClient {
   private webhookBaseUrl: string;
   private serviceUrl: string;
 
-  constructor() {
+  public constructor() {
     this.serviceUrl = requireEnv('EXCEL_EXTRACTION_AGENT_URL');
     this.webhookBaseUrl = requireSiteUrl();
   }
@@ -22,11 +22,7 @@ export class ExcelExtractionAgentClient {
   ): Promise<SubmitExtractionResponse> {
     try {
       const timestamp = Date.now();
-      const token = generateWebhookToken(
-        request.userId,
-        timestamp,
-        request.importId,
-      );
+      const token = generateWebhookToken(request.userId, timestamp, request.importId);
 
       // importId rides along so the callback resolves without waiting for the
       // requestId this call is about to return to be persisted.
@@ -62,10 +58,7 @@ export class ExcelExtractionAgentClient {
         },
       });
 
-      const response = await client.post<SubmitExtractionResponse>(
-        '/api/extract',
-        payload,
-      );
+      const response = await client.post<SubmitExtractionResponse>('/api/extract', payload);
 
       logger.info(
         {
@@ -143,9 +136,7 @@ export class ExcelExtractionAgentClient {
 const getClient = lazy(() => new ExcelExtractionAgentClient());
 
 export const excelExtractionAgentClient = {
-  submitExtractionRequest(
-    request: SubmitExtractionRequest,
-  ): Promise<SubmitExtractionResponse> {
+  submitExtractionRequest(request: SubmitExtractionRequest): Promise<SubmitExtractionResponse> {
     return getClient().submitExtractionRequest(request);
   },
 };

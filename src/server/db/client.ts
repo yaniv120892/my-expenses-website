@@ -30,7 +30,8 @@ function getClient(): ExtendedPrismaClient {
 
 // Built on first use, so a missing DATABASE_URL fails the call rather than the
 // import.
-const prisma = new Proxy({} as ExtendedPrismaClient, {
+const lazyClientTarget: ExtendedPrismaClient = Object.create(Object.prototype);
+const prisma = new Proxy(lazyClientTarget, {
   get(_target, prop) {
     const client = getClient();
     const value = Reflect.get(client, prop);

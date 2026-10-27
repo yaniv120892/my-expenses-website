@@ -10,8 +10,6 @@ describe('buildImportObjectKey', () => {
   });
 
   it('replaces non-Latin names and slashes rather than keeping them raw', () => {
-    expect(buildImportObjectKey('../כרטיס/אשראי.xlsx', 'abc')).toBe(
-      'imports/abc-.._.xlsx',
-    );
+    expect(buildImportObjectKey('../כרטיס/אשראי.xlsx', 'abc')).toBe('imports/abc-.._.xlsx');
   });
 });

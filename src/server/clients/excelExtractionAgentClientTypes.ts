@@ -5,7 +5,7 @@ export enum ExcelExtractionRequestStatus {
   FAILED = 'FAILED',
 }
 
-export interface SubmitExtractionRequest {
+export type SubmitExtractionRequest = {
   fileUrl: string;
   filename: string;
   userId: string;
@@ -15,12 +15,12 @@ export interface SubmitExtractionRequest {
     maxRetries?: number;
     includeRawData?: boolean;
   };
-}
+};
 
-export interface SubmitExtractionResponse {
+export type SubmitExtractionResponse = {
   success: boolean;
   message: string;
   requestId: string;
   status: ExcelExtractionRequestStatus;
   timestamp: string;
-}
+};

@@ -16,10 +16,7 @@ export const TrendCardSkeleton = () => (
           <Skeleton variant="text" width="40%" height={32} />
         </Box>
       </Box>
-      <Skeleton
-        variant="rounded"
-        sx={{ height: { xs: 240, md: 300 }, mt: 2 }}
-      />
+      <Skeleton variant="rounded" sx={{ height: { xs: 240, md: 300 }, mt: 2 }} />
     </CardContent>
   </Card>
 );

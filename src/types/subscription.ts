@@ -30,18 +30,15 @@ export type DetectedSubscription = Omit<
   scheduleMatch?: ScheduleMatch;
 };
 
-export type SubscriptionSummary = Omit<
-  SharedSubscriptionSummary,
-  'subscriptions'
-> & {
+export type SubscriptionSummary = Omit<SharedSubscriptionSummary, 'subscriptions'> & {
   subscriptions: DetectedSubscription[];
 };
 
-export interface UpdateSubscriptionPayload {
+export type UpdateSubscriptionPayload = {
   displayName?: string;
   averageAmount?: number;
   frequency?: SubscriptionFrequency;
   lastChargeDate?: string;
   nextExpectedDate?: string;
   categoryId?: string | null;
-}
+};

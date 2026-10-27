@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReconciliationPreviewItem } from '../../src/shared/types/import';
-import {
-  cardFeeNotice,
-  describePlanItem,
-  reviewReminder,
-} from './reconciliationTable';
+import { cardFeeNotice, describePlanItem, reviewReminder } from './reconciliationTable';
 
 const counterpart = {
   transactionId: 'tx-1',
@@ -16,9 +12,7 @@ const counterpart = {
   status: 'APPROVED' as const,
 };
 
-const item = (
-  over: Partial<ReconciliationPreviewItem> = {},
-): ReconciliationPreviewItem => ({
+const item = (over: Partial<ReconciliationPreviewItem> = {}): ReconciliationPreviewItem => ({
   importedTransactionId: 'r1',
   action: 'CREATE',
   description: 'אנימל שופ חנות חיות',
@@ -34,10 +28,7 @@ const item = (
   ...over,
 });
 
-const merge = (
-  over: Partial<ReconciliationPreviewItem> = {},
-  approvesPendingTransaction = true,
-) =>
+const merge = (over: Partial<ReconciliationPreviewItem> = {}, approvesPendingTransaction = true) =>
   item({
     action: 'MERGE',
     description: 'Netflix',
@@ -58,9 +49,7 @@ const merge = (
 
 describe('describePlanItem', () => {
   it('prints an unflagged CREATE as before', () => {
-    expect(describePlanItem(item())).toBe(
-      'CREATE  2026-06-16     470.00  אנימל שופ חנות חיות',
-    );
+    expect(describePlanItem(item())).toBe('CREATE  2026-06-16     470.00  אנימל שופ חנות חיות');
   });
 
   it('marks a CREATE with an unmatched candidate and names it', () => {
@@ -151,10 +140,9 @@ describe('cardFeeNotice', () => {
 
   it('says nothing for a server that sends no cardHoldingFee', () => {
     const { cardHoldingFee: _omitted, ...withoutFlag } = item();
+    const fromOlderServer: ReconciliationPreviewItem[] = JSON.parse(JSON.stringify([withoutFlag]));
 
-    expect(
-      cardFeeNotice([withoutFlag as ReconciliationPreviewItem]),
-    ).toBeNull();
+    expect(cardFeeNotice(fromOlderServer)).toBeNull();
   });
 
   it('lists each fee row with its date, amount and description', () => {

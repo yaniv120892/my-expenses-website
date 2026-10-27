@@ -16,9 +16,7 @@ export default function WhatsNewLauncher() {
   const { mutate: acknowledge } = useAcknowledgeAnnouncementsMutation();
   const [open, setOpen] = useState(false);
 
-  const unseenCount = announcements.filter(
-    (announcement) => !announcement.seen,
-  ).length;
+  const unseenCount = announcements.filter((announcement) => !announcement.seen).length;
 
   if (announcements.length === 0) {
     return null;

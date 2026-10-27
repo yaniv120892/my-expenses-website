@@ -4,8 +4,7 @@ import scheduledTransactionService from '@/server/services/scheduledTransactionS
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ userId }) =>
-    scheduledTransactionService.listScheduledTransactions(userId),
+  handler: async ({ userId }) => scheduledTransactionService.listScheduledTransactions(userId),
 });
 
 export const POST = createHandler({

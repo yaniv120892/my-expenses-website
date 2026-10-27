@@ -1,16 +1,17 @@
-import { Transaction, TransactionSummary } from '@/shared/types/transaction';
-import {
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import type {
   AggregationResult,
   RowAggregationType,
   TotalsAggregationType,
 } from '@/shared/types/chat';
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
+import { assertNever } from '@/utils/assertNever';
 
-export interface ComparisonPeriodTotals {
+export type ComparisonPeriodTotals = {
   label: string;
   totals: TransactionSummary;
-}
+};
 
 class ChatAggregationService {
   /**
@@ -46,9 +47,7 @@ class ChatAggregationService {
       );
     } else {
       const percentChange = this.round((difference / totalA) * 100);
-      lines.push(
-        `Percentage change: ${this.formatPercentChange(percentChange)}`,
-      );
+      lines.push(`Percentage change: ${this.formatPercentChange(percentChange)}`);
       data.percentChange = percentChange;
     }
 
@@ -110,6 +109,8 @@ class ChatAggregationService {
           },
           transactionCount: totals.count,
         };
+      default:
+        return assertNever({ value: aggregationType, what: 'totals aggregation type' });
     }
   }
 
@@ -126,12 +127,12 @@ class ChatAggregationService {
         return this.computeMinMax(transactions);
       case 'list':
         return this.formatList(transactions);
+      default:
+        return assertNever({ value: aggregationType, what: 'row aggregation type' });
     }
   }
 
-  private computeCategoryBreakdown(
-    transactions: Transaction[],
-  ): AggregationResult {
+  private computeCategoryBreakdown(transactions: Transaction[]): AggregationResult {
     const byCategory = new Map<string, number>();
     for (const t of transactions) {
       const name = t.category.name;
@@ -158,21 +159,15 @@ class ChatAggregationService {
     };
   }
 
-  private computeMonthlyBreakdown(
-    transactions: Transaction[],
-  ): AggregationResult {
+  private computeMonthlyBreakdown(transactions: Transaction[]): AggregationResult {
     const byMonth = new Map<string, number>();
     for (const t of transactions) {
       const month = new Date(t.date).toISOString().slice(0, 7);
       byMonth.set(month, (byMonth.get(month) || 0) + t.value);
     }
 
-    const sorted = [...byMonth.entries()].sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    const lines = sorted.map(
-      ([month, amount]) => `  ${month}: ${formatCurrencyPlain(amount)}`,
-    );
+    const sorted = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const lines = sorted.map(([month, amount]) => `  ${month}: ${formatCurrencyPlain(amount)}`);
 
     return {
       summary: `Monthly breakdown:\n${lines.join('\n')}`,
@@ -182,17 +177,16 @@ class ChatAggregationService {
   }
 
   private computeMinMax(transactions: Transaction[]): AggregationResult {
-    if (transactions.length === 0) {
+    const sorted = [...transactions].sort((a, b) => b.value - a.value);
+    const [highest] = sorted;
+    const lowest = sorted.at(-1);
+    if (!highest || !lowest) {
       return {
         summary: 'No transactions found.',
         data: {},
         transactionCount: 0,
       };
     }
-
-    const sorted = [...transactions].sort((a, b) => b.value - a.value);
-    const highest = sorted[0];
-    const lowest = sorted[sorted.length - 1];
 
     return {
       summary: [
@@ -255,4 +249,5 @@ class ChatAggregationService {
   }
 }
 
-export default new ChatAggregationService();
+const chatAggregationService = new ChatAggregationService();
+export default chatAggregationService;

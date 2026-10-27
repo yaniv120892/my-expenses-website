@@ -9,10 +9,7 @@ const coreEnvSchema = z.object({
   CRON_SECRET: z.string().min(1),
   // A typo here, or the flag without a key, would silently keep the LLM
   // categorizing while the operator believes Jev is live, so boot fails instead.
-  AI_CATEGORY_SUGGESTER: z.preprocess(
-    lowercaseString,
-    z.enum(['', 'jev']).optional(),
-  ),
+  AI_CATEGORY_SUGGESTER: z.preprocess(lowercaseString, z.enum(['', 'jev']).optional()),
   TYPESAFE_AI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
 });
@@ -22,8 +19,7 @@ const envSchema = coreEnvSchema.refine(
     env.AI_CATEGORY_SUGGESTER !== 'jev' ||
     Boolean(env.TYPESAFE_AI_API_KEY || env.AI_GATEWAY_API_KEY),
   {
-    message:
-      'AI_CATEGORY_SUGGESTER=jev needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
+    message: 'AI_CATEGORY_SUGGESTER=jev needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
     path: ['AI_CATEGORY_SUGGESTER'],
   },
 );
@@ -47,9 +43,7 @@ export function optionalEnv(name: string, fallback = ''): string {
 }
 
 export function requireSiteUrl(): string {
-  return (
-    process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL')
-  );
+  return process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL');
 }
 
 // VERCEL_BRANCH_URL before VERCEL_URL because it survives a redeploy of the same

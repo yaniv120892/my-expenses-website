@@ -10,16 +10,13 @@ export const POST = createHandler({
   bodySchema: verifyLoginCodeSchema,
   // Per-email guessing is already capped by loginCodeAttempts in
   // authService; this stops one host hammering many emails.
-  rateLimit: ({ req }) => [
-    { key: `verify:ip:${resolveClientIp(req)}`, ...RATE_LIMITS.verify },
+  rateLimit: ({ request }) => [
+    { key: `verify:ip:${resolveClientIp(request)}`, ...RATE_LIMITS.verify },
   ],
   handler: async ({ body }) => {
     const result = await authService.verifyLoginCode(body.email, body.code);
     if (result.error || !result.token) {
-      return NextResponse.json(
-        { error: result.error ?? 'Verification failed' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: result.error ?? 'Verification failed' }, { status: 400 });
     }
     const response = NextResponse.json({ token: result.token });
     setSessionCookie(response, result.token);

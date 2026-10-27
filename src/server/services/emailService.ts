@@ -3,11 +3,11 @@ import { lazy } from '@/server/lib/lazy';
 import { optionalEnv, requireEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
 
-export interface EmailAttachment {
+export type EmailAttachment = {
   filename: string;
   content: Buffer;
   contentType: string;
-}
+};
 
 class EmailService {
   private getTransporter = lazy(() =>
@@ -48,9 +48,10 @@ class EmailService {
       // Body is deliberately not logged — report emails carry the user's
       // full transaction list.
       logger.error({ err, to, subject }, 'Failed to send email');
-      throw new Error('Failed to send email');
+      throw new Error('Failed to send email', { cause: err });
     }
   }
 }
 
-export default new EmailService();
+const emailService = new EmailService();
+export default emailService;

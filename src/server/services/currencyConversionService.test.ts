@@ -26,9 +26,7 @@ describe('currencyConversionService.resolveAmount', () => {
   });
 
   it('keeps an ILS amount sent the pre-currency way, with no rate', async () => {
-    expect(
-      await currencyConversionService.resolveAmount({ value: 120.5 }, DAY),
-    ).toEqual({
+    expect(await currencyConversionService.resolveAmount({ value: 120.5 }, DAY)).toEqual({
       value: 120.5,
       currency: 'ILS',
       originalAmount: 120.5,
@@ -65,10 +63,7 @@ describe('currencyConversionService.resolveAmount', () => {
     getRateToBase.mockResolvedValue(null);
 
     await expect(
-      currencyConversionService.resolveAmount(
-        { currency: 'USD', originalAmount: 10 },
-        DAY,
-      ),
+      currencyConversionService.resolveAmount({ currency: 'USD', originalAmount: 10 }, DAY),
     ).rejects.toMatchObject({
       status: 422,
       message: expect.stringContaining('No exchange rate is available for USD'),
@@ -160,10 +155,7 @@ describe('currencyConversionService.resolveAmount', () => {
 
   it('requires the original amount of a new foreign transaction', async () => {
     await expect(
-      currencyConversionService.resolveAmount(
-        { currency: 'USD', value: 30 },
-        DAY,
-      ),
+      currencyConversionService.resolveAmount({ currency: 'USD', value: 30 }, DAY),
     ).rejects.toMatchObject({
       status: 400,
       message: 'originalAmount is required for an amount in USD',

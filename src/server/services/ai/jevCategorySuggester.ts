@@ -1,9 +1,6 @@
 import type { Experimental_EvaluationModel } from 'ai';
-import {
-  CategoryEvaluation,
-  CategorySuggester,
-} from '@/server/services/ai/aiProvider';
-import { Category } from '@/shared/types/category';
+import type { CategoryEvaluation, CategorySuggester } from '@/server/services/ai/aiProvider';
+import type { Category } from '@/shared/types/category';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
@@ -15,9 +12,9 @@ import {
 } from '@/server/services/ai/prompts';
 import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
-interface JevProvider {
+type JevProvider = {
   evaluationModel(modelId: string): Experimental_EvaluationModel;
-}
+};
 
 // The same model has a different id on each route.
 const DEFAULT_GATEWAY_JEV_MODEL = 'typesafe-ai/jev';
@@ -105,9 +102,7 @@ export class JevCategorySuggester implements CategorySuggester {
   public modelName(): string {
     return optionalEnv(
       'JEV_MODEL',
-      this.usesDirectRoute()
-        ? DEFAULT_TYPESAFE_JEV_MODEL
-        : DEFAULT_GATEWAY_JEV_MODEL,
+      this.usesDirectRoute() ? DEFAULT_TYPESAFE_JEV_MODEL : DEFAULT_GATEWAY_JEV_MODEL,
     );
   }
 

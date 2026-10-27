@@ -23,8 +23,8 @@ const getS3Client = lazy(
 export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
-  handler: async ({ req }) => {
-    const formData = await req.formData();
+  handler: async ({ request }) => {
+    const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
       throw new HttpError(400, 'No file provided');
@@ -32,10 +32,7 @@ export const POST = createHandler({
 
     const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      throw new HttpError(
-        400,
-        `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
-      );
+      throw new HttpError(400, `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
     }
     assertWithinUploadLimit({ fileName: file.name, sizeInBytes: file.size });
 

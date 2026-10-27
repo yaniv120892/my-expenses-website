@@ -8,7 +8,7 @@ export const TRENDS_VIEWS = ['overview', 'compare'] as const;
 
 export type TrendsView = (typeof TRENDS_VIEWS)[number];
 
-export interface TrendFilters {
+export type TrendFilters = {
   period: TrendPeriod;
   startDate: Date;
   endDate: Date;
@@ -16,4 +16,4 @@ export interface TrendFilters {
   transactionType: TransactionType;
   comparisonCategoryIds: string[];
   comparisonScope: ComparisonScope;
-}
+};

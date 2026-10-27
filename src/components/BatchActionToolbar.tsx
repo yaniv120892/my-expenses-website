@@ -9,11 +9,8 @@ import SelectAllIcon from '@mui/icons-material/SelectAll';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import BatchConfirmDialog from './BatchConfirmDialog';
 import BatchProgressIndicator from './BatchProgressIndicator';
-import {
-  useBatchActionMutation,
-  useApplyAutoApproveRulesMutation,
-} from '../hooks/useImports';
-import { BatchResult } from '../types/import';
+import { useBatchActionMutation, useApplyAutoApproveRulesMutation } from '../hooks/useImports';
+import type { BatchResult } from '../types/import';
 import { describeApiError } from '../utils/api';
 import { useT } from '@/i18n/useT';
 
@@ -48,8 +45,7 @@ export default function BatchActionToolbar({
   const autoApproveMutation = useApplyAutoApproveRulesMutation(importId);
 
   const handleConfirm = async () => {
-    const transactionIds =
-      confirmDialog.scope === 'selected' ? selectedIds : undefined;
+    const transactionIds = confirmDialog.scope === 'selected' ? selectedIds : undefined;
 
     try {
       const result = await batchMutation.mutateAsync({
@@ -71,16 +67,13 @@ export default function BatchActionToolbar({
       const result = await autoApproveMutation.mutateAsync();
       setBatchResult(result);
     } catch (error) {
-      onErrorAction(
-        describeApiError(error, t('imports.batch.autoApproveFailed')),
-      );
+      onErrorAction(describeApiError(error, t('imports.batch.autoApproveFailed')));
     }
   };
 
   const isProcessing = batchMutation.isPending || autoApproveMutation.isPending;
   const hasSelection = selectedIds.length > 0;
-  const confirmCount =
-    confirmDialog.scope === 'selected' ? selectedIds.length : pendingCount;
+  const confirmCount = confirmDialog.scope === 'selected' ? selectedIds.length : pendingCount;
 
   if (pendingCount === 0) {
     return null;
@@ -109,9 +102,7 @@ export default function BatchActionToolbar({
           onClick={hasSelection ? onClearSelection : onSelectAll}
           sx={{ textTransform: 'none' }}
         >
-          {hasSelection
-            ? t('imports.batch.clear')
-            : t('imports.batch.selectAll')}
+          {hasSelection ? t('imports.batch.clear') : t('imports.batch.selectAll')}
         </Button>
 
         {hasSelection && (
@@ -128,9 +119,7 @@ export default function BatchActionToolbar({
           variant="contained"
           color="success"
           startIcon={<CheckIcon />}
-          onClick={() =>
-            setConfirmDialog({ open: true, action: 'approve', scope: 'all' })
-          }
+          onClick={() => setConfirmDialog({ open: true, action: 'approve', scope: 'all' })}
           disabled={isProcessing}
           sx={{ textTransform: 'none' }}
         >
@@ -164,9 +153,7 @@ export default function BatchActionToolbar({
           variant="contained"
           color="warning"
           startIcon={<CloseIcon />}
-          onClick={() =>
-            setConfirmDialog({ open: true, action: 'ignore', scope: 'all' })
-          }
+          onClick={() => setConfirmDialog({ open: true, action: 'ignore', scope: 'all' })}
           disabled={isProcessing}
           sx={{ textTransform: 'none' }}
         >

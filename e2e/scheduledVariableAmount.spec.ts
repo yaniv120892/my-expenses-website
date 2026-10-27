@@ -14,9 +14,7 @@ test('a schedule keeps its bank description prefix, and a blank one clears it', 
   await page.goto('/scheduled');
   await page.getByRole('button', { name: /add scheduled/i }).click();
   const dialog = page.getByRole('dialog');
-  await dialog
-    .getByRole('textbox', { name: /^description/i })
-    .fill(description);
+  await dialog.getByRole('textbox', { name: /^description/i }).fill(description);
   await dialog.getByRole('spinbutton', { name: /^value/i }).fill('8');
   await dialog.getByRole('textbox', { name: PREFIX_FIELD }).fill('GOOGLE');
   await dialog.getByRole('combobox', { name: 'Category' }).click();
@@ -32,14 +30,11 @@ test('a schedule keeps its bank description prefix, and a blank one clears it', 
   await expect(prefix).toHaveValue('GOOGLE');
 
   await prefix.fill('');
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Update' })
-    .click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Update' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.getByText(description).click();
-  await expect(
-    page.getByRole('dialog').getByRole('textbox', { name: PREFIX_FIELD }),
-  ).toHaveValue('');
+  await expect(page.getByRole('dialog').getByRole('textbox', { name: PREFIX_FIELD })).toHaveValue(
+    '',
+  );
 });

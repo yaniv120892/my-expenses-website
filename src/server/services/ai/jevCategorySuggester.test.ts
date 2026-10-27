@@ -1,18 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const {
-  evaluate,
-  reportSwallowedError,
-  createGateway,
-  createTypeSafeAi,
-  evaluationModel,
-} = vi.hoisted(() => ({
-  evaluate: vi.fn(),
-  reportSwallowedError: vi.fn(),
-  createGateway: vi.fn(),
-  createTypeSafeAi: vi.fn(),
-  evaluationModel: vi.fn(),
-}));
+const { evaluate, reportSwallowedError, createGateway, createTypeSafeAi, evaluationModel } =
+  vi.hoisted(() => ({
+    evaluate: vi.fn(),
+    reportSwallowedError: vi.fn(),
+    createGateway: vi.fn(),
+    createTypeSafeAi: vi.fn(),
+    evaluationModel: vi.fn(),
+  }));
 
 vi.mock('ai', () => ({ experimental_evaluate: evaluate }));
 vi.mock('@ai-sdk/gateway', () => ({ createGateway }));
@@ -69,7 +64,7 @@ describe('JevCategorySuggester', () => {
 
     await new JevCategorySuggester().suggestCategory('GETT', categories);
 
-    expect(evaluate.mock.calls[0][0].questions.category.criteria).toEqual({
+    expect(evaluate.mock.calls[0]?.[0].questions.category.criteria).toEqual({
       'Food & Drinks': null,
       'Eating out': null,
       Taxi: null,
@@ -82,19 +77,14 @@ describe('JevCategorySuggester', () => {
 
     await new JevCategorySuggester().suggestCategory('GETT', categories);
 
-    expect(evaluate.mock.calls[0][0].maxRetries).toBe(
-      AI_REQUEST_LIMITS.maxRetries,
-    );
+    expect(evaluate.mock.calls[0]?.[0].maxRetries).toBe(AI_REQUEST_LIMITS.maxRetries);
     expect(timeout).toHaveBeenCalledWith(AI_REQUEST_LIMITS.timeoutMs);
   });
 
   it('returns the shared record with Jev probability and token usage', async () => {
     evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-    const evaluation = await new JevCategorySuggester().evaluateCategory(
-      'GETT',
-      categories,
-    );
+    const evaluation = await new JevCategorySuggester().evaluateCategory('GETT', categories);
 
     expect(evaluation).toEqual({
       categoryId: 'cat-taxi',
@@ -106,10 +96,7 @@ describe('JevCategorySuggester', () => {
   });
 
   it('answers nothing without a call when no category is offered', async () => {
-    const evaluation = await new JevCategorySuggester().evaluateCategory(
-      'GETT',
-      [],
-    );
+    const evaluation = await new JevCategorySuggester().evaluateCategory('GETT', []);
 
     expect(evaluation.categoryId).toBeNull();
     expect(evaluate).not.toHaveBeenCalled();
@@ -119,14 +106,10 @@ describe('JevCategorySuggester', () => {
     evaluate.mockRejectedValue(new Error('gateway 503'));
     const suggester = new JevCategorySuggester();
 
-    await expect(
-      suggester.evaluateCategory('GETT', categories),
-    ).rejects.toThrow('gateway 503');
+    await expect(suggester.evaluateCategory('GETT', categories)).rejects.toThrow('gateway 503');
     expect(reportSwallowedError).not.toHaveBeenCalled();
 
-    await expect(
-      suggester.suggestCategory('GETT', categories),
-    ).resolves.toBeNull();
+    await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
     expect(reportSwallowedError).toHaveBeenCalledWith(
       expect.objectContaining({ err: expect.any(Error) }),
       'Jev API error',
@@ -148,19 +131,16 @@ describe('JevCategorySuggester', () => {
       other: createGateway,
       modelId: 'jev-latest',
     },
-  ])(
-    'calls the $route route with its own model id',
-    async ({ env, factory, other, modelId }) => {
-      Object.entries(env).forEach(([name, value]) => vi.stubEnv(name, value));
-      evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
+  ])('calls the $route route with its own model id', async ({ env, factory, other, modelId }) => {
+    Object.entries(env).forEach(([name, value]) => vi.stubEnv(name, value));
+    evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-      await new JevCategorySuggester().suggestCategory('GETT', categories);
+    await new JevCategorySuggester().suggestCategory('GETT', categories);
 
-      expect(factory).toHaveBeenCalledOnce();
-      expect(other).not.toHaveBeenCalled();
-      expect(evaluationModel).toHaveBeenCalledWith(modelId);
-    },
-  );
+    expect(factory).toHaveBeenCalledOnce();
+    expect(other).not.toHaveBeenCalled();
+    expect(evaluationModel).toHaveBeenCalledWith(modelId);
+  });
 
   it('reads no key until a call is made, then fails the call rather than the import', async () => {
     vi.stubEnv('AI_GATEWAY_API_KEY', '');
@@ -168,9 +148,7 @@ describe('JevCategorySuggester', () => {
     const suggester = new JevCategorySuggester();
     expect(createGateway).not.toHaveBeenCalled();
 
-    await expect(
-      suggester.suggestCategory('GETT', categories),
-    ).resolves.toBeNull();
+    await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
     expect(reportSwallowedError).toHaveBeenCalledWith(
       expect.objectContaining({
         err: expect.objectContaining({

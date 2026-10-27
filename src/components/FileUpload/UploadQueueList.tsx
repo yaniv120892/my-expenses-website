@@ -14,12 +14,8 @@ import {
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
-import {
-  describeUploadError,
-  isTerminal,
-  UploadItem,
-  UploadItemStatus,
-} from '@/utils/importUploadQueue';
+import type { UploadItem, UploadItemStatus } from '@/utils/importUploadQueue';
+import { describeUploadError, isTerminal } from '@/utils/importUploadQueue';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
@@ -124,10 +120,7 @@ export default function UploadQueueList({
               }}
             >
               {item.status === 'succeeded' ? (
-                <CheckCircleOutlineRoundedIcon
-                  fontSize="small"
-                  color="success"
-                />
+                <CheckCircleOutlineRoundedIcon fontSize="small" color="success" />
               ) : (
                 <Chip
                   size="small"
@@ -138,11 +131,7 @@ export default function UploadQueueList({
 
               {item.status === 'failed' && (
                 <Tooltip
-                  title={
-                    isRunning
-                      ? t('imports.upload.waitForBatch')
-                      : t('imports.upload.retry')
-                  }
+                  title={isRunning ? t('imports.upload.waitForBatch') : t('imports.upload.retry')}
                 >
                   <span>
                     <IconButton
@@ -194,9 +183,7 @@ export default function UploadQueueList({
 
           {(item.status === 'uploading' || item.status === 'processing') && (
             <LinearProgress
-              variant={
-                item.status === 'uploading' ? 'determinate' : 'indeterminate'
-              }
+              variant={item.status === 'uploading' ? 'determinate' : 'indeterminate'}
               value={item.progress}
               sx={{ mt: 1.5, borderRadius: 1 }}
             />

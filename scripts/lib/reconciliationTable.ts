@@ -13,9 +13,7 @@ export function describePlanItem(item: ReconciliationPreviewItem): string {
   const date = formatDate(item.date);
   const label = `${item.action}${item.reviewHint ? '?' : ''}`;
   const summary = `${label.padEnd(ACTION_COLUMN_WIDTH)}${date}  ${formatValue(item.value)}  ${item.description}${describeOriginal(item)}`;
-  const approves = item.match?.approvesPendingTransaction
-    ? ' (approves pending)'
-    : '';
+  const approves = item.match?.approvesPendingTransaction ? ' (approves pending)' : '';
   const details = [
     item.reviewHint ? `check: ${describeHint(item.reviewHint)}` : null,
     item.match ? describeMergeChanges(item, item.match, date) : null,
@@ -24,9 +22,7 @@ export function describePlanItem(item: ReconciliationPreviewItem): string {
   return [`${summary}${approves}`, ...details].join(CONTINUATION_INDENT);
 }
 
-export function reviewReminder(
-  items: ReconciliationPreviewItem[],
-): string | null {
+export function reviewReminder(items: ReconciliationPreviewItem[]): string | null {
   // A server deployed before hints existed omits the field rather than nulling it.
   const flagged = items.filter((item) => item.reviewHint).length;
   if (flagged === 0) {
@@ -39,9 +35,7 @@ export function reviewReminder(
  * The fee rows the plan carries, printed apart from the table: they are
  * ordinary CREATE/MERGE rows, and the point is that nobody spots them in it.
  */
-export function cardFeeNotice(
-  items: ReconciliationPreviewItem[],
-): string | null {
+export function cardFeeNotice(items: ReconciliationPreviewItem[]): string | null {
   // A server deployed before the flag existed omits the field rather than falsing it.
   const fees = items.filter((item) => item.cardHoldingFee);
   if (fees.length === 0) {
@@ -49,8 +43,7 @@ export function cardFeeNotice(
   }
 
   const rows = fees.map(
-    (item) =>
-      `  ${formatDate(item.date)}  ${formatValue(item.value)}  ${item.description}`,
+    (item) => `  ${formatDate(item.date)}  ${formatValue(item.value)}  ${item.description}`,
   );
   return [
     `${fees.length} row(s) are charges for holding the card, not spending; they can be cancelled by phoning the issuer:`,
@@ -63,8 +56,7 @@ function describeHint(hint: ReconciliationReviewHint): string {
     case 'unmatched-candidate': {
       const { description, value, date, status } = hint.counterpart;
       const approval = status === 'PENDING_APPROVAL' ? 'pending' : 'approved';
-      const others =
-        hint.candidateCount > 1 ? ` (+${hint.candidateCount - 1} more)` : '';
+      const others = hint.candidateCount > 1 ? ` (+${hint.candidateCount - 1} more)` : '';
       return `not matched to "${description}" ${value.toFixed(2)} on ${formatDate(date)} (${approval})${others}`;
     }
     case 'unrelated-merge':

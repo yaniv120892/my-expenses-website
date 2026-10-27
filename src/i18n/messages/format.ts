@@ -44,8 +44,7 @@ export const formatMessages: Dictionary<typeof en> = {
     'format.schedule.weekly.other': 'מתבצע כל {interval} שבועות ב{day}.',
     'format.schedule.weekly.missingDay': 'בחרו יום בשבוע.',
     'format.schedule.monthly.one': 'מתבצע כל חודש ב־{day} לחודש.',
-    'format.schedule.monthly.other':
-      'מתבצע כל {interval} חודשים ב־{day} לחודש.',
+    'format.schedule.monthly.other': 'מתבצע כל {interval} חודשים ב־{day} לחודש.',
     'format.schedule.monthly.missingDay': 'בחרו יום בחודש.',
   },
 };

@@ -1,12 +1,13 @@
-import { SubscriptionStatus } from '@/generated/prisma/client';
+import type { SubscriptionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import subscriptionRepository, {
+import type {
   DetectionInput,
   SubscriptionAuditRow,
 } from '@/server/repositories/subscriptionRepository';
+import subscriptionRepository from '@/server/repositories/subscriptionRepository';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
-import {
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import type {
   SubscriptionSummary,
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
@@ -14,10 +15,7 @@ import {
 } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 import { HttpError } from '@/server/http/errors';
-import {
-  getPrismaErrorCode,
-  PRISMA_ERROR_CODES,
-} from '@/server/db/prismaErrors';
+import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
 import { escapeMarkdown } from '@/server/services/telegramService';
 import logger from '@/server/logging/logger';
 import {
@@ -26,22 +24,14 @@ import {
   toAnnualAmount,
   toMonthlyAmount,
 } from '@/utils/subscriptionMath';
-import {
-  analyzeMerchantPattern,
-  MerchantCharge,
-  MerchantGroup,
-} from '@/server/utils/subscriptionPattern';
-import {
-  findScheduleMatch,
-  indexSchedules,
-} from '@/server/utils/scheduleMatching';
+import type { MerchantCharge, MerchantGroup } from '@/server/utils/subscriptionPattern';
+import { analyzeMerchantPattern } from '@/server/utils/subscriptionPattern';
+import { findScheduleMatch, indexSchedules } from '@/server/utils/scheduleMatching';
 import { formatCurrencyPlain } from '@/utils/format';
 
 const DETECTION_WINDOW_MONTHS = 12;
 
-function groupByUser(
-  subscriptions: SubscriptionAuditRow[],
-): Map<string, SubscriptionAuditRow[]> {
+function groupByUser(subscriptions: SubscriptionAuditRow[]): Map<string, SubscriptionAuditRow[]> {
   const byUser = new Map<string, SubscriptionAuditRow[]>();
   for (const sub of subscriptions) {
     const existing = byUser.get(sub.userId) || [];
@@ -94,9 +84,7 @@ function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    getPrismaErrorCode(error) === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT_VIOLATION
-  );
+  return getPrismaErrorCode(error) === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT_VIOLATION;
 }
 
 class SubscriptionDetectionService {
@@ -108,10 +96,7 @@ class SubscriptionDetectionService {
         await this.detectForUser(userId);
       } catch (error) {
         failed += 1;
-        logger.error(
-          { err: error, userId },
-          'Subscription detection failed for user',
-        );
+        logger.error({ err: error, userId }, 'Subscription detection failed for user');
       }
     }
 
@@ -120,9 +105,7 @@ class SubscriptionDetectionService {
       'Subscription detection run finished',
     );
     if (failed > 0) {
-      throw new Error(
-        `Subscription detection failed for ${failed} of ${userIds.length} user(s)`,
-      );
+      throw new Error(`Subscription detection failed for ${failed} of ${userIds.length} user(s)`);
     }
   }
 
@@ -203,9 +186,7 @@ class SubscriptionDetectionService {
       lastChargeDate.getTime() !== existing.lastChargeDate.getTime();
     const nextExpectedDate =
       input.nextExpectedDate ??
-      (rescheduled
-        ? nextExpectedDateAfter(lastChargeDate, frequency)
-        : existing.nextExpectedDate);
+      (rescheduled ? nextExpectedDateAfter(lastChargeDate, frequency) : existing.nextExpectedDate);
 
     try {
       return await subscriptionRepository.update(id, userId, {
@@ -250,48 +231,33 @@ class SubscriptionDetectionService {
       throw new HttpError(400, 'A category is required to schedule this');
     }
 
-    const scheduledId =
-      await scheduledTransactionService.createScheduledTransaction({
-        description: subscription.displayName,
-        value: subscription.averageAmount,
-        type: 'EXPENSE',
-        categoryId: targetCategoryId,
-        scheduleType: subscription.frequency,
-        userId,
-        dayOfMonth:
-          subscription.frequency === 'MONTHLY'
-            ? subscription.lastChargeDate.getDate()
-            : undefined,
-        // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
-        // getDay() is 0-based.
-        dayOfWeek:
-          subscription.frequency === 'WEEKLY'
-            ? subscription.lastChargeDate.getDay() + 1
-            : undefined,
-      });
-
-    return subscriptionRepository.linkScheduledTransaction(
-      id,
+    const scheduledId = await scheduledTransactionService.createScheduledTransaction({
+      description: subscription.displayName,
+      value: subscription.averageAmount,
+      type: 'EXPENSE',
+      categoryId: targetCategoryId,
+      scheduleType: subscription.frequency,
       userId,
-      scheduledId,
-    );
+      dayOfMonth:
+        subscription.frequency === 'MONTHLY' ? subscription.lastChargeDate.getDate() : undefined,
+      // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
+      // getDay() is 0-based.
+      dayOfWeek:
+        subscription.frequency === 'WEEKLY' ? subscription.lastChargeDate.getDay() + 1 : undefined,
+    });
+
+    return subscriptionRepository.linkScheduledTransaction(id, userId, scheduledId);
   }
 
-  public async getDashboardSnapshot(
-    userId: string,
-  ): Promise<SubscriptionDashboardSnapshot> {
+  public async getDashboardSnapshot(userId: string): Promise<SubscriptionDashboardSnapshot> {
     return subscriptionRepository.getSnapshotByUserId(userId);
   }
 
   public async sendMonthlyAuditNotifications(): Promise<void> {
-    const byUser = groupByUser(
-      await subscriptionRepository.getActiveForAllUsers(),
-    );
-    const enabledUserIds = await this.getAuditEnabledUserIds(
-      Array.from(byUser.keys()),
-    );
+    const byUser = groupByUser(await subscriptionRepository.getActiveForAllUsers());
+    const enabledUserIds = await this.getAuditEnabledUserIds(Array.from(byUser.keys()));
 
-    const notifier = TransactionNotifierFactory.getNotifier();
+    const notifier = transactionNotifierFactory.getNotifier();
 
     let failed = 0;
     for (const [userId, subs] of byUser) {
@@ -308,10 +274,7 @@ class SubscriptionDetectionService {
         await notifier.sendDailySummary(message, userId);
       } catch (error) {
         failed += 1;
-        logger.error(
-          { err: error, userId },
-          'Failed to send subscription audit for user',
-        );
+        logger.error({ err: error, userId }, 'Failed to send subscription audit for user');
       }
     }
 
@@ -320,15 +283,11 @@ class SubscriptionDetectionService {
       'Subscription audit run finished',
     );
     if (failed > 0) {
-      throw new Error(
-        `Subscription audit failed for ${failed} of ${byUser.size} user(s)`,
-      );
+      throw new Error(`Subscription audit failed for ${failed} of ${byUser.size} user(s)`);
     }
   }
 
-  private async getAuditEnabledUserIds(
-    userIds: string[],
-  ): Promise<Set<string>> {
+  private async getAuditEnabledUserIds(userIds: string[]): Promise<Set<string>> {
     const prefs = await prisma.userNotificationPreference.findMany({
       where: { userId: { in: userIds }, subscriptionAudit: true },
     });
@@ -398,4 +357,5 @@ class SubscriptionDetectionService {
   }
 }
 
-export default new SubscriptionDetectionService();
+const subscriptionDetectionService = new SubscriptionDetectionService();
+export default subscriptionDetectionService;

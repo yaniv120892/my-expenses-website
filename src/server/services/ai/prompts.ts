@@ -1,24 +1,17 @@
-import { Category } from '@/shared/types/category';
-import { Transaction } from '@/shared/types/transaction';
-import {
-  CategoryEvaluation,
-  ImportedChargeToMatch,
-} from '@/server/services/ai/aiProvider';
+import type { Category } from '@/shared/types/category';
+import type { Transaction } from '@/shared/types/transaction';
+import type { CategoryEvaluation, ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatAmountWithOriginal } from '@/utils/format';
 import logger from '@/server/logging/logger';
 
-export function buildAnalyzeExpensesPrompt(
-  expenseSummary: string,
-  suffixPrompt?: string,
-): string {
+export function buildAnalyzeExpensesPrompt(expenseSummary: string, suffixPrompt?: string): string {
   return `Analyze my recent expenses:\n\n${expenseSummary}, all expenses are in NIS, response in hebrew, no more than 2 sentences, add new line after each sentence, ${suffixPrompt}`;
 }
 
 export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
   'You are a financial assistant helping users categorize their expenses.';
-export const SUGGEST_CATEGORY_QUESTION =
-  'Which category does this expense belong to?';
+export const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
 
 export function buildSuggestCategoryPrompt(
   expenseDescription: string,
@@ -27,9 +20,7 @@ export function buildSuggestCategoryPrompt(
   return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
 }
 
-export function normalizeModelAnswer(
-  rawAnswer: string | null | undefined,
-): string | null {
+export function normalizeModelAnswer(rawAnswer: string | null | undefined): string | null {
   const answer = rawAnswer
     ?.trim()
     .replace(/^["']|["']$/g, '')
@@ -37,12 +28,8 @@ export function normalizeModelAnswer(
   return answer || null;
 }
 
-export function buildCategoryChoiceCriteria(
-  categoryOptions: Category[],
-): Record<string, null> {
-  return Object.fromEntries(
-    categoryOptions.map((category) => [category.name, null]),
-  );
+export function buildCategoryChoiceCriteria(categoryOptions: Category[]): Record<string, null> {
+  return Object.fromEntries(categoryOptions.map((category) => [category.name, null]));
 }
 
 export function resolveSuggestedCategoryId(
@@ -126,10 +113,7 @@ export function resolveMatchedTransactionId(
   }
   // At warn so it ships, keeping a match rate silently dropping to zero
   // diagnosable.
-  logger.warn(
-    { rawAnswer },
-    'Model answer did not name an offered match; treating as no match',
-  );
+  logger.warn({ rawAnswer }, 'Model answer did not name an offered match; treating as no match');
   return null;
 }
 

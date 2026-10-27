@@ -5,23 +5,23 @@ export type AnnouncementIcon =
 
 export type AnnouncementTag = 'New' | 'Improved';
 
-export interface AnnouncementItem {
+export type AnnouncementItem = {
   icon: AnnouncementIcon;
   tag?: AnnouncementTag;
   headline: string;
   body: string;
   cta?: { label: string; href: string };
-}
+};
 
-export interface Announcement {
+export type Announcement = {
   // Stable and never reused: acknowledgements are keyed by it.
   id: string;
   publishedAt: string;
   title: string;
   hook: string;
   items: AnnouncementItem[];
-}
+};
 
-export interface AnnouncementWithSeen extends Announcement {
+export type AnnouncementWithSeen = {
   seen: boolean;
-}
+} & Announcement;

@@ -38,18 +38,15 @@ describe('dashboardService.getInsights', () => {
   it.each([
     ['he', 'Hebrew'],
     ['en', 'English'],
-  ] as const)(
-    'asks for %s insights and caches them per locale',
-    async (locale, language) => {
-      await expect(
-        dashboardService.getInsights({ userId: 'user-1', locale }),
-      ).resolves.toEqual(INSIGHTS);
+  ] as const)('asks for %s insights and caches them per locale', async (locale, language) => {
+    await expect(dashboardService.getInsights({ userId: 'user-1', locale })).resolves.toEqual(
+      INSIGHTS,
+    );
 
-      expect(analyzeExpenses.mock.calls[0][0]).toContain(
-        `Write every insight and the summary in ${language}`,
-      );
-      expect(getValue.mock.calls[0][0]).toContain(`:user-1:${locale}:`);
-      expect(setValue.mock.calls[0][0]).toContain(`:user-1:${locale}:`);
-    },
-  );
+    expect(analyzeExpenses.mock.calls[0]?.[0]).toContain(
+      `Write every insight and the summary in ${language}`,
+    );
+    expect(getValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
+    expect(setValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
+  });
 });

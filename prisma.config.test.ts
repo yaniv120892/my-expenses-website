@@ -19,14 +19,8 @@ describe('prisma.config.ts', () => {
 
   beforeEach(() => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prisma-config-'));
-    fs.writeFileSync(
-      path.join(workDir, '.env'),
-      `DIRECT_URL=${DOT_ENV_DATABASE}\n`,
-    );
-    fs.writeFileSync(
-      path.join(workDir, 'other.env'),
-      `DIRECT_URL=${OTHER_FILE_DATABASE}\n`,
-    );
+    fs.writeFileSync(path.join(workDir, '.env'), `DIRECT_URL=${DOT_ENV_DATABASE}\n`);
+    fs.writeFileSync(path.join(workDir, 'other.env'), `DIRECT_URL=${OTHER_FILE_DATABASE}\n`);
     process.chdir(workDir);
     vi.stubEnv('DOTENV_PATH', path.join(workDir, 'other.env'));
     vi.stubEnv('DOTENV_OVERRIDE', 'true');

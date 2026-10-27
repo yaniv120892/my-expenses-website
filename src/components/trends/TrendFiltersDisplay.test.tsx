@@ -11,13 +11,7 @@ const CATEGORIES = [
   { id: 'category-rent', name: 'Rent' },
 ];
 
-function renderDisplay({
-  locale,
-  view,
-}: {
-  locale: Locale;
-  view: 'overview' | 'compare';
-}) {
+function renderDisplay({ locale, view }: { locale: Locale; view: 'overview' | 'compare' }) {
   return render(
     <DesignTestProvider locale={locale}>
       <TrendFiltersDisplay

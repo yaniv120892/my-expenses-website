@@ -35,10 +35,7 @@ const schedule = (id: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  scheduledRepo.getDueScheduledTransactions.mockResolvedValue([
-    schedule('s1'),
-    schedule('s2'),
-  ]);
+  scheduledRepo.getDueScheduledTransactions.mockResolvedValue([schedule('s1'), schedule('s2')]);
   scheduledRepo.claimDueRun.mockResolvedValue(true);
 });
 

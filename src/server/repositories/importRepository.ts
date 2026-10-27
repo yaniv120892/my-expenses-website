@@ -1,11 +1,10 @@
-import {
+import type {
   Prisma,
   Import,
   ImportFileType,
-  ImportStatus,
   ImportBankSourceType,
-  ImportedTransactionStatus,
 } from '@/generated/prisma/client';
+import { ImportStatus, ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 
 // Longer than the platform lets any function run, so a claim older than this
@@ -69,19 +68,14 @@ export class ImportRepository {
     });
   }
 
-  public async findByIdForUser(
-    id: string,
-    userId: string,
-  ): Promise<ImportWithPendingCount | null> {
+  public async findByIdForUser(id: string, userId: string): Promise<ImportWithPendingCount | null> {
     return prisma.import.findFirst({
       where: { id, userId, deleted: false },
       include: listItemInclude,
     });
   }
 
-  public async findByExtractionRequestId(
-    excelExtractionRequestId: string,
-  ): Promise<Import | null> {
+  public async findByExtractionRequestId(excelExtractionRequestId: string): Promise<Import | null> {
     return prisma.import.findUnique({
       where: { excelExtractionRequestId },
     });
@@ -141,10 +135,7 @@ export class ImportRepository {
    * Conditional, so a crash after this import was merged away or completed
    * leaves that status alone rather than overwriting it with FAILED.
    */
-  public async markFailedIfProcessing(
-    id: string,
-    error: string,
-  ): Promise<boolean> {
+  public async markFailedIfProcessing(id: string, error: string): Promise<boolean> {
     const failed = await prisma.import.updateMany({
       where: { id, status: ImportStatus.PROCESSING },
       data: { status: ImportStatus.FAILED, error },
@@ -179,10 +170,7 @@ export class ImportRepository {
    * claimed the extraction is left to finish unless its claim has outlived any
    * function.
    */
-  public async failStuckProcessing(
-    createdBefore: Date,
-    error: string,
-  ): Promise<StuckImportSweep> {
+  public async failStuckProcessing(createdBefore: Date, error: string): Promise<StuckImportSweep> {
     const stuck = await prisma.import.findMany({
       where: {
         status: ImportStatus.PROCESSING,
@@ -199,10 +187,7 @@ export class ImportRepository {
       where: {
         id: { in: importIds },
         status: ImportStatus.PROCESSING,
-        OR: [
-          { extractionCompletedAt: null },
-          { extractionCompletedAt: { lt: claimedBefore } },
-        ],
+        OR: [{ extractionCompletedAt: null }, { extractionCompletedAt: { lt: claimedBefore } }],
       },
       data: {
         status: ImportStatus.FAILED,
@@ -213,11 +198,7 @@ export class ImportRepository {
     return { importIds, failedCount: failed.count };
   }
 
-  public async updateStatus(
-    id: string,
-    status: ImportStatus,
-    error?: string,
-  ): Promise<Import> {
+  public async updateStatus(id: string, status: ImportStatus, error?: string): Promise<Import> {
     const data: Prisma.ImportUpdateInput = {
       status,
       ...(status === ImportStatus.COMPLETED && { completedAt: new Date() }),

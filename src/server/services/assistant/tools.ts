@@ -16,9 +16,7 @@ export const USER_ID_CONTEXT_KEY = 'userId';
  * The user id comes from the server-side request context, never the
  * inputSchema, so a prompt-injected message cannot read another user's data.
  */
-function requireUserId(context: {
-  requestContext?: { get: (key: string) => unknown };
-}): string {
+function requireUserId(context: { requestContext?: { get: (key: string) => unknown } }): string {
   const userId = context.requestContext?.get(USER_ID_CONTEXT_KEY);
 
   if (typeof userId !== 'string' || !userId) {

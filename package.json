@@ -5,6 +5,7 @@
   "engines": {
     "node": "22.x"
   },
+  "prettier": "@yaniv120892/dev-config/prettier",
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:local": "bash scripts/dev-local.sh",
@@ -15,6 +16,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:types": "vitest run --typecheck.only",
     "db:migrate": "prisma migrate deploy",
@@ -25,15 +27,6 @@
     "prepare": "husky",
     "categories:compare": "LOG_LEVEL=error tsx scripts/compare-category-suggesters.ts",
     "statements:due": "tsx scripts/statements-due.ts"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,css}": [
-      "prettier --write"
-    ]
   },
   "dependencies": {
     "@47ng/cloak": "^1.2.0",
@@ -84,7 +77,6 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.64.1",
     "@tanstack/react-query-devtools": "^5.104.5",
     "@testing-library/dom": "^10.4.1",
@@ -95,10 +87,10 @@
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@yaniv120892/dev-config": "github:yaniv120892/dev-config#v0.1.4",
     "dotenv": "^18.0.9",
     "eslint": "^10",
     "eslint-config-next": "16.4.3",
-    "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "jsdom": "^30.1.3",
     "lint-staged": "^17.6.0",
@@ -107,7 +99,6 @@
     "prisma": "^7.10.1",
     "tsx": "^4.19.0",
     "typescript": "^5",
-    "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5"
   },
   "overrides": {

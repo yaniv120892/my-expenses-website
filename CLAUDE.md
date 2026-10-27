@@ -17,6 +17,7 @@ npm run build            # prisma generate && next build
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
+npm run format:check     # prettier --check .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
 npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.ts)
 npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
@@ -27,9 +28,15 @@ npm run statements:due -- [--sources=<json>] [--base-url=<url>]   # closed state
 npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
 ```
 
-Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
-runs audit, lint, prettier, typecheck, unit tests and the build, and in a
-parallel job both e2e suites against a Postgres service container.
+ESLint, Prettier, tsconfig and lint-staged come from the shared
+`@yaniv120892/dev-config` package (pinned by tag in `package.json`);
+`eslint.config.mjs` and `tsconfig.json` only extend its `next` presets with this
+repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
+(`.github/workflows/ci.yml`) runs the `checks` job through dev-config's reusable
+`node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
+typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
+suites against a Postgres service container. Bump the tag in both places
+together.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
@@ -39,8 +46,8 @@ soon as an advisory lands, outside that schedule, cooldown and cap.
 `.github/workflows/dependabot-auto-merge.yml` queues a squash auto-merge on a
 Dependabot PR whose every dependency is a patch or minor
 (`scripts/dependabot/autoMergePolicy.ts`, read from the base branch), and only
-while the base branch's ruleset requires the `checks` and `e2e` jobs; a major, a
-0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
+while the base branch's ruleset requires the `checks / Quality gate` and `e2e`
+checks; a major, a 0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
 PR waits for a human, and a later push that fails the policy withdraws a queued
 auto-merge. Dependabot also raises `@yaniv120892/my-ui`'s release-tag
 bumps, and the policy judges them like any other dependency's — a patch of the
@@ -533,8 +540,9 @@ typing, env wiring, secrets), vendored from `yaniv120892/claude-config`; each
 loads by its `paths:` list. This file is what is true of _this_ system; the
 rules are how code gets written anywhere. Edit a rule upstream first, then
 re-vendor. The mechanically
-checkable ones (`curly`, `array-type`, `explicit-member-accessibility`) are
-enforced in `eslint.config.mjs`, so CI fails on them rather than review.
+checkable ones (braces, casts, `interface`, abbreviations, array syntax, member
+accessibility, promise chains) are enforced by the dev-config ESLint preset, so
+CI fails on them rather than review.
 
 So a PR that changes anything this file states — architecture, an invariant, a
 command, a route, a cron, a model — updates the matching section in the same

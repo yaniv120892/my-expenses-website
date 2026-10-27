@@ -23,12 +23,7 @@ export default function GlobalError({
   return (
     <html lang="en" dir="auto">
       <body>
-        <ErrorFallback
-          error={error}
-          reset={reset}
-          minHeight="100vh"
-          labels={LABELS}
-        />
+        <ErrorFallback error={error} reset={reset} minHeight="100vh" labels={LABELS} />
       </body>
     </html>
   );

@@ -7,10 +7,9 @@ export const POST = createHandler({
   auth: 'session',
   handler: async ({ userId }): Promise<TestMonthlyReportResult> => {
     try {
-      const outcome = await monthlyReportService.sendMonthlyReportForUser(
-        userId,
-        { sendWhenEmpty: true },
-      );
+      const outcome = await monthlyReportService.sendMonthlyReportForUser(userId, {
+        sendWhenEmpty: true,
+      });
       if (!outcome.sent || !outcome.recipient) {
         return { status: 'NOT_BUILT' };
       }
@@ -21,10 +20,7 @@ export const POST = createHandler({
         transactionCount: outcome.transactionCount,
       };
     } catch (error) {
-      logger.error(
-        { err: error, userId },
-        'Failed to send test monthly report',
-      );
+      logger.error({ err: error, userId }, 'Failed to send test monthly report');
       return { status: 'FAILED' };
     }
   },

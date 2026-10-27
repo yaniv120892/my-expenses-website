@@ -1,15 +1,12 @@
-import { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
-import { Transaction } from '@/shared/types/transaction';
+import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
+import type { Transaction } from '@/shared/types/transaction';
 import { telegramService } from '@/server/services/telegramService';
 import { formatTransaction } from '@/server/utils/transactionUtils';
 import logger from '@/server/logging/logger';
 import userSettingsService from '@/server/services/userSettingsService';
 
 export class TelegramTransactionNotifier implements TransactionNotifier {
-  public async notifyTransactionCreated(
-    transaction: Transaction,
-    userId: string,
-  ): Promise<void> {
+  public async notifyTransactionCreated(transaction: Transaction, userId: string): Promise<void> {
     try {
       logger.debug(
         { userId, transactionId: transaction.id },
@@ -38,14 +35,12 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         `Failed to send transaction notification, userId: ${userId} transactionId: ${transaction.id} error: ${JSON.stringify(
           err,
         )}`,
+        { cause: err },
       );
     }
   }
 
-  public async sendDailySummary(
-    dailySummary: string,
-    userId: string,
-  ): Promise<void> {
+  public async sendDailySummary(dailySummary: string, userId: string): Promise<void> {
     try {
       logger.debug({ userId }, 'Start sending daily summary to Telegram');
       const chatId = await this.getChatId(userId);
@@ -62,6 +57,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
       logger.error({ err, userId }, 'Failed to send daily summary');
       throw new Error(
         `Failed to send daily summary, userId: ${userId} error: ${JSON.stringify(err)}`,
+        { cause: err },
       );
     }
   }

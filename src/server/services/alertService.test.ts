@@ -21,7 +21,7 @@ import { notifyOpsAlert } from '@/server/services/alertService';
 const CHAT_ID = 'ops-chat-1';
 
 function sentMessages(): string[] {
-  return sendMessage.mock.calls.map((call) => call[1] as string);
+  return sendMessage.mock.calls.map((call) => String(call[1]));
 }
 
 describe('notifyOpsAlert', () => {
@@ -55,7 +55,7 @@ describe('notifyOpsAlert', () => {
     });
 
     expect(sendMessage).toHaveBeenCalledTimes(1);
-    const [chatId, message] = sendMessage.mock.calls[0];
+    const [chatId, message] = sendMessage.mock.calls[0] ?? [];
     expect(chatId).toBe(CHAT_ID);
     expect(message).toBe(
       [
@@ -90,10 +90,7 @@ describe('notifyOpsAlert', () => {
       title: '5xx on GET /api/transactions',
     });
 
-    expect(incrementWithTtl).toHaveBeenCalledWith(
-      'ops-alert:5xx-get-api-transactions',
-      3600,
-    );
+    expect(incrementWithTtl).toHaveBeenCalledWith('ops-alert:5xx-get-api-transactions', 3600);
   });
 
   it('shares one quota across records on the same route pattern', async () => {
@@ -152,9 +149,7 @@ describe('notifyOpsAlert', () => {
   it('sends nothing when the rate-limit check itself fails', async () => {
     incrementWithTtl.mockRejectedValue(new Error('redis down'));
 
-    await expect(
-      notifyOpsAlert({ alertType: 'boom', title: 'boom' }),
-    ).resolves.toBeUndefined();
+    await expect(notifyOpsAlert({ alertType: 'boom', title: 'boom' })).resolves.toBeUndefined();
     expect(sendMessage).not.toHaveBeenCalled();
     expect(loggerError).toHaveBeenCalledTimes(1);
   });

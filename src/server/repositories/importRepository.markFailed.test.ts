@@ -15,10 +15,7 @@ describe('importRepository.markFailedIfProcessing', () => {
   it('writes FAILED only over PROCESSING and reports whether it did', async () => {
     updateMany.mockResolvedValue({ count: 0 });
 
-    const failed = await importRepository.markFailedIfProcessing(
-      'imp-1',
-      'boom',
-    );
+    const failed = await importRepository.markFailedIfProcessing('imp-1', 'boom');
 
     expect(failed).toBe(false);
     expect(updateMany).toHaveBeenCalledWith({

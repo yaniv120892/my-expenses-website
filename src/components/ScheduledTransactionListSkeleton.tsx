@@ -4,11 +4,7 @@ import React from 'react';
 import ListSkeleton from './ListSkeleton';
 import { useT } from '@/i18n/useT';
 
-export default function ScheduledTransactionListSkeleton({
-  rows = 5,
-}: {
-  rows?: number;
-}) {
+export default function ScheduledTransactionListSkeleton({ rows = 5 }: { rows?: number }) {
   const t = useT();
   const columns = [
     t('scheduled.column.description'),

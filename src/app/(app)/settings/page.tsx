@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   Alert,
   Button,
@@ -21,7 +21,7 @@ import {
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { PageHeader } from '@yaniv120892/my-ui';
 import ApiTokenManager from '@/components/ApiTokenManager';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
@@ -65,13 +65,7 @@ const NOTIFICATION_FIELDS = [
   },
 ] as const;
 
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card variant="outlined">
       <CardContent>
@@ -84,16 +78,20 @@ function SettingsSection({
   );
 }
 
+function subscribeToNothing(): () => void {
+  return function unsubscribeFromNothing() {};
+}
+
 function AppearanceSection() {
   const t = useT();
   const { mode, setMode } = useColorScheme();
-  const [mounted, setMounted] = useState(false);
-
   // useColorScheme returns undefined mode before hydration; rendering the
-  // group only after mount avoids an uncontrolled-to-controlled flip.
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // group only after hydration avoids an uncontrolled-to-controlled flip.
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   return (
     <SettingsSection title={t('settings.appearance.title')}>
@@ -114,10 +112,7 @@ function AppearanceSection() {
             {t('settings.appearance.light')}
           </ToggleButton>
           <ToggleButton value="system">
-            <SettingsBrightnessOutlinedIcon
-              sx={{ mr: 0.75 }}
-              fontSize="small"
-            />
+            <SettingsBrightnessOutlinedIcon sx={{ mr: 0.75 }} fontSize="small" />
             {t('settings.appearance.system')}
           </ToggleButton>
           <ToggleButton value="dark">
@@ -162,7 +157,7 @@ export default function SettingsPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const { control, handleSubmit, reset, watch, formState } = useForm({
+  const { control, handleSubmit, reset, formState } = useForm({
     defaultValues: {
       notifications: {
         createTransaction: false,
@@ -189,7 +184,7 @@ export default function SettingsPage() {
     }
   }, [settings, reset]);
 
-  const watchedValues = watch();
+  const monthlyReportEnabled = useWatch({ control, name: 'notifications.monthlyReport' });
   const isDirty = formState.isDirty;
 
   const handleTestMonthlyReport = async () => {
@@ -238,9 +233,7 @@ export default function SettingsPage() {
     return (
       <>
         {header}
-        <Alert severity="error">
-          {error instanceof Error ? error.message : String(error)}
-        </Alert>
+        <Alert severity="error">{error instanceof Error ? error.message : String(error)}</Alert>
       </>
     );
   }
@@ -263,11 +256,7 @@ export default function SettingsPage() {
             variant="contained"
             onClick={handleSubmit(onSave)}
             disabled={!isDirty || saveLoading}
-            startIcon={
-              saveLoading ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : null
-            }
+            startIcon={saveLoading ? <CircularProgress size={16} color="inherit" /> : null}
           >
             {saveLoading ? t('common.saving') : t('common.save')}
           </Button>
@@ -335,14 +324,9 @@ export default function SettingsPage() {
                     variant="outlined"
                     size="small"
                     onClick={handleTestMonthlyReport}
-                    disabled={
-                      reportTestLoading ||
-                      !watchedValues.notifications.monthlyReport
-                    }
+                    disabled={reportTestLoading || !monthlyReportEnabled}
                     startIcon={
-                      reportTestLoading ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : null
+                      reportTestLoading ? <CircularProgress size={16} color="inherit" /> : null
                     }
                   >
                     {t('settings.notifications.sendNow')}
@@ -388,10 +372,7 @@ export default function SettingsPage() {
         onClose={() => setTestResult(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          severity={testResult?.success ? 'success' : 'error'}
-          sx={{ width: '100%' }}
-        >
+        <Alert severity={testResult?.success ? 'success' : 'error'} sx={{ width: '100%' }}>
           {testResult?.message}
         </Alert>
       </Snackbar>

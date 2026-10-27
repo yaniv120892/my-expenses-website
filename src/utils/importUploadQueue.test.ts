@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTranslator } from '@yaniv120892/my-ui';
 import { messages } from '@/i18n/messages';
 import type { T } from '@/i18n/useT.types';
+import type { UploadQueueAction, UploadQueueState } from '@/utils/importUploadQueue';
 import {
   describeUploadError,
   initialUploadQueueState,
@@ -11,8 +12,6 @@ import {
   selectQueuedItems,
   toBatchResult,
   uploadQueueReducer,
-  UploadQueueAction,
-  UploadQueueState,
 } from '@/utils/importUploadQueue';
 
 const englishT: T = createTranslator({ locale: 'en', messages: messages.en });
@@ -21,10 +20,7 @@ function file(name: string, lastModified = 1): File {
   return new File(['content'], name, { lastModified });
 }
 
-function reduce(
-  state: UploadQueueState,
-  ...actions: UploadQueueAction[]
-): UploadQueueState {
+function reduce(state: UploadQueueState, ...actions: UploadQueueAction[]): UploadQueueState {
   return actions.reduce(uploadQueueReducer, state);
 }
 
@@ -40,14 +36,9 @@ describe('uploadQueueReducer', () => {
   it('queues added files with the batch payment month', () => {
     const state = withFiles([file('a.csv'), file('b.csv')], '01/2024');
 
-    expect(state.items.map((item) => item.file.name)).toEqual([
-      'a.csv',
-      'b.csv',
-    ]);
+    expect(state.items.map((item) => item.file.name)).toEqual(['a.csv', 'b.csv']);
     expect(state.items.every((item) => item.status === 'queued')).toBe(true);
-    expect(state.items.every((item) => item.paymentMonth === '01/2024')).toBe(
-      true,
-    );
+    expect(state.items.every((item) => item.paymentMonth === '01/2024')).toBe(true);
   });
 
   it('keeps ids stable and unique after a removal', () => {
@@ -58,10 +49,7 @@ describe('uploadQueueReducer', () => {
     );
 
     expect(state.items.map((item) => item.id)).toEqual(['1', '2']);
-    expect(state.items.map((item) => item.file.name)).toEqual([
-      'b.csv',
-      'c.csv',
-    ]);
+    expect(state.items.map((item) => item.file.name)).toEqual(['b.csv', 'c.csv']);
   });
 
   it('skips a re-drop of a file already queued', () => {
@@ -72,10 +60,7 @@ describe('uploadQueueReducer', () => {
       paymentMonth: '',
     });
 
-    expect(state.items.map((item) => item.file.name)).toEqual([
-      'a.csv',
-      'b.csv',
-    ]);
+    expect(state.items.map((item) => item.file.name)).toEqual(['a.csv', 'b.csv']);
   });
 
   it('caps the queue across drops, not just within one', () => {
@@ -102,15 +87,14 @@ describe('uploadQueueReducer', () => {
       rejectedAsDuplicate: 1,
       rejectedAsFull: 3,
     });
-    expect(planAddFiles(state, [...drop(10), duplicate]).accepted).toHaveLength(
-      3,
-    );
+    expect(planAddFiles(state, [...drop(10), duplicate]).accepted).toHaveLength(3);
   });
 
   it('reports nothing turned away when the queue has room', () => {
-    expect(
-      planAddFiles(initialUploadQueueState, [file('a.csv')]),
-    ).toMatchObject({ rejectedAsDuplicate: 0, rejectedAsFull: 0 });
+    expect(planAddFiles(initialUploadQueueState, [file('a.csv')])).toMatchObject({
+      rejectedAsDuplicate: 0,
+      rejectedAsFull: 0,
+    });
   });
 
   it('ignores a progress update that does not move the bar', () => {
@@ -193,10 +177,7 @@ describe('uploadQueueReducer', () => {
       { type: 'REQUEUE', ids: ['1'] },
     );
 
-    expect(state.items.map((item) => item.status)).toEqual([
-      'succeeded',
-      'queued',
-    ]);
+    expect(state.items.map((item) => item.status)).toEqual(['succeeded', 'queued']);
   });
 
   it('applies a payment month to every item still in play', () => {
@@ -206,10 +187,7 @@ describe('uploadQueueReducer', () => {
       { type: 'APPLY_PAYMENT_MONTH_TO_ALL', paymentMonth: '02/2024' },
     );
 
-    expect(state.items.map((item) => item.paymentMonth)).toEqual([
-      '01/2024',
-      '02/2024',
-    ]);
+    expect(state.items.map((item) => item.paymentMonth)).toEqual(['01/2024', '02/2024']);
   });
 
   it('edits a single item payment month', () => {
@@ -219,10 +197,7 @@ describe('uploadQueueReducer', () => {
       paymentMonth: '03/2024',
     });
 
-    expect(state.items.map((item) => item.paymentMonth)).toEqual([
-      '01/2024',
-      '03/2024',
-    ]);
+    expect(state.items.map((item) => item.paymentMonth)).toEqual(['01/2024', '03/2024']);
   });
 });
 

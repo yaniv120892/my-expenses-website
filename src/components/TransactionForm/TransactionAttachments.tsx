@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Accordion,
@@ -19,15 +19,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import Image from 'next/image';
 import { downloadBlob } from '@/utils/download';
-import {
-  MAX_UPLOAD_LABEL,
-  exceedsUploadLimit,
-  megabytesRoundedUp,
-} from '@/shared/uploadLimits';
+import { MAX_UPLOAD_LABEL, exceedsUploadLimit, megabytesRoundedUp } from '@/shared/uploadLimits';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { useTransactionFilesQuery } from '../../hooks/useTransactionFilesQuery';
-import { TransactionFile } from '../../types';
+import type { TransactionFile } from '../../types';
 
 const ALLOWED_TYPES = [
   'image/jpeg',
@@ -72,15 +68,36 @@ function FileThumbnail({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-/** Minting the URL in the render body leaked a blob per render, for the life of the document. */
-function PendingFileThumbnail({ file }: { file: File }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+/**
+ * An external store per file: subscribing mints the object URL and
+ * unsubscribing revokes it, so a remount (StrictMode included) gets a live URL
+ * and no render leaks one.
+ */
+function createObjectUrlStore(file: File) {
+  let objectUrl: string | null = null;
+  return {
+    subscribe(onChange: () => void): () => void {
+      const url = URL.createObjectURL(file);
+      objectUrl = url;
+      onChange();
+      return function revokeObjectUrl() {
+        URL.revokeObjectURL(url);
+        objectUrl = null;
+      };
+    },
+    getSnapshot(): string | null {
+      return objectUrl;
+    },
+  };
+}
 
-  useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+function getServerObjectUrl(): null {
+  return null;
+}
+
+function PendingFileThumbnail({ file }: { file: File }) {
+  const store = useMemo(() => createObjectUrlStore(file), [file]);
+  const objectUrl = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerObjectUrl);
 
   if (!objectUrl) {
     return null;
@@ -100,8 +117,9 @@ export default function TransactionAttachments({
   const formatter = useAppFormat();
   const [error, setError] = useState<string | null>(null);
 
-  const { data: files = [], isLoading: isFilesLoading } =
-    useTransactionFilesQuery(transactionId || '');
+  const { data: files = [], isLoading: isFilesLoading } = useTransactionFilesQuery(
+    transactionId || '',
+  );
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -130,13 +148,7 @@ export default function TransactionAttachments({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: ALLOWED_TYPES.reduce(
-      (acc, type) => {
-        acc[type] = [];
-        return acc;
-      },
-      {} as Record<string, string[]>,
-    ),
+    accept: Object.fromEntries(ALLOWED_TYPES.map((type) => [type, []])),
     maxFiles: 1,
     disabled: false,
   });
@@ -162,15 +174,11 @@ export default function TransactionAttachments({
     );
   };
 
-  const downloadFile = async (
-    file: TransactionFile,
-    fileUrlOverride?: string,
-  ) => {
+  const downloadFile = async (file: TransactionFile, fileUrlOverride?: string) => {
     try {
-      const isMobile =
-        /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(
-          navigator.userAgent,
-        );
+      const isMobile = /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(
+        navigator.userAgent,
+      );
       const fileUrl = fileUrlOverride || file.previewFileUrl;
       if (isMobile) {
         window.open(fileUrl, '_blank');
@@ -186,10 +194,7 @@ export default function TransactionAttachments({
     }
   };
 
-  const attachedCount = Math.max(
-    0,
-    files.length - filesToRemove.length + pendingFiles.length,
-  );
+  const attachedCount = Math.max(0, files.length - filesToRemove.length + pendingFiles.length);
 
   return (
     <Box>
@@ -233,9 +238,7 @@ export default function TransactionAttachments({
             <Box sx={{ maxHeight: 220, overflowY: 'auto', mb: 2 }}>
               <Stack spacing={1}>
                 {isFilesLoading ? (
-                  <Typography variant="body2">
-                    {t('transactions.attachments.loading')}
-                  </Typography>
+                  <Typography variant="body2">{t('transactions.attachments.loading')}</Typography>
                 ) : files.length === 0 ? (
                   <Typography
                     variant="body2"
@@ -262,16 +265,9 @@ export default function TransactionAttachments({
                         }}
                       >
                         {file.mimeType.startsWith('image/') ? (
-                          <FileThumbnail
-                            src={file.previewFileUrl}
-                            alt={file.fileName}
-                          />
+                          <FileThumbnail src={file.previewFileUrl} alt={file.fileName} />
                         ) : (
-                          <Link
-                            href={file.previewFileUrl}
-                            target="_blank"
-                            rel="noopener"
-                          >
+                          <Link href={file.previewFileUrl} target="_blank" rel="noopener">
                             {file.fileName}
                           </Link>
                         )}
@@ -279,9 +275,7 @@ export default function TransactionAttachments({
                           variant="body2"
                           sx={{
                             flex: 1,
-                            textDecoration: markedForRemoval
-                              ? 'line-through'
-                              : 'none',
+                            textDecoration: markedForRemoval ? 'line-through' : 'none',
                           }}
                         >
                           {file.fileName}
@@ -300,9 +294,7 @@ export default function TransactionAttachments({
                         <IconButton
                           aria-label={t('transactions.attachments.download')}
                           size="small"
-                          onClick={() =>
-                            downloadFile(file, file.downloadableFileUrl)
-                          }
+                          onClick={() => downloadFile(file, file.downloadableFileUrl)}
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>
@@ -330,14 +322,12 @@ export default function TransactionAttachments({
                     sx={{ mr: 0.5, verticalAlign: 'middle' }}
                   />
                   {t('transactions.attachments.pendingHintBefore')}{' '}
-                  <b>
-                    {submitButtonLabel ?? t('transactions.form.submit.update')}
-                  </b>
+                  <b>{submitButtonLabel ?? t('transactions.form.submit.update')}</b>
                   {t('transactions.attachments.pendingHintAfter')}
                 </Typography>
-                {pendingFiles.map((file, idx) => (
+                {pendingFiles.map((file, fileIndex) => (
                   <Stack
-                    key={file.name + file.size + idx}
+                    key={file.name + file.size + fileIndex}
                     direction="row"
                     spacing={2}
                     sx={{
@@ -349,24 +339,16 @@ export default function TransactionAttachments({
                       p: 1,
                     }}
                   >
-                    {file.type.startsWith('image/') && (
-                      <PendingFileThumbnail file={file} />
-                    )}
-                    <Typography
-                      variant="body2"
-                      sx={{ flex: 1, fontStyle: 'italic' }}
-                    >
+                    {file.type.startsWith('image/') && <PendingFileThumbnail file={file} />}
+                    <Typography variant="body2" sx={{ flex: 1, fontStyle: 'italic' }}>
                       {file.name}{' '}
-                      <Box
-                        component="span"
-                        sx={{ fontWeight: 500, ml: 1, opacity: 0.7 }}
-                      >
+                      <Box component="span" sx={{ fontWeight: 500, ml: 1, opacity: 0.7 }}>
                         {t('transactions.attachments.willUpload')}
                       </Box>
                     </Typography>
                     <IconButton
                       aria-label={t('transactions.attachments.removePending')}
-                      onClick={() => handleRemovePending(idx)}
+                      onClick={() => handleRemovePending(fileIndex)}
                       size="small"
                     >
                       <DeleteIcon fontSize="small" />
@@ -376,11 +358,7 @@ export default function TransactionAttachments({
               </Stack>
             </Box>
           )}
-          <Snackbar
-            open={!!error}
-            autoHideDuration={6000}
-            onClose={() => setError(null)}
-          >
+          <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
             <Alert severity="error" onClose={() => setError(null)}>
               {error}
             </Alert>

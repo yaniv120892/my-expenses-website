@@ -19,8 +19,20 @@ const PRISMA_HTTP_MAPPINGS: Record<string, PrismaHttpMapping | undefined> = {
 // Structural rather than instanceof: the error crosses an extended-client
 // boundary, where the P#### code is the stable contract.
 export function getPrismaErrorCode(error: unknown): string | undefined {
-  const code = (error as { code?: unknown } | null)?.code;
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
   return typeof code === 'string' && /^P\d{4}$/.test(code) ? code : undefined;
+}
+
+export function getPrismaErrorModelName(error: unknown): unknown {
+  if (typeof error !== 'object' || error === null || !('meta' in error)) {
+    return undefined;
+  }
+  const { meta } = error;
+  if (typeof meta !== 'object' || meta === null || !('modelName' in meta)) {
+    return undefined;
+  }
+  return meta.modelName;
 }
 
 export function prismaErrorToHttpError(error: unknown): HttpError | undefined {

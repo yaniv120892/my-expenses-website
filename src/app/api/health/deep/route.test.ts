@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as NextServerModule from 'next/server';
+import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
 
-const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(
-  () => ({
-    queryRaw: vi.fn(),
-    getValue: vi.fn(),
-    error: vi.fn(),
-    after: vi.fn(),
-    flushRemoteLogs: vi.fn(),
-  }),
-);
+const { queryRaw, getValue, error, after, flushRemoteLogs } = vi.hoisted(() => ({
+  queryRaw: vi.fn(),
+  getValue: vi.fn(),
+  error: vi.fn(),
+  after: vi.fn(),
+  flushRemoteLogs: vi.fn(),
+}));
 
 vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
 vi.mock('@/server/redis', () => ({ getValue }));
@@ -17,12 +17,12 @@ vi.mock('@/server/logging/betterStackStream', () => ({ flushRemoteLogs }));
 // `after` throws outside a request scope, which is where these tests call the
 // handler.
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after,
 }));
 
 // The route caches its outcome in module scope, so each test loads a fresh copy.
-let GET: typeof import('@/app/api/health/deep/route').GET;
+let GET: typeof DeepHealthRouteModule.GET;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -99,7 +99,7 @@ describe('deep check', () => {
     await GET();
 
     expect(after).toHaveBeenCalledTimes(1);
-    after.mock.calls[0][0]();
+    after.mock.calls[0]?.[0]();
     expect(flushRemoteLogs).toHaveBeenCalledTimes(1);
   });
 
@@ -163,9 +163,7 @@ describe('result cache', () => {
   it('runs one check for concurrent calls that miss the cache', async () => {
     const responses = await Promise.all([GET(), GET(), GET()]);
 
-    expect(responses.map((response) => response.status)).toEqual([
-      200, 200, 200,
-    ]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(getValue).toHaveBeenCalledTimes(1);
   });

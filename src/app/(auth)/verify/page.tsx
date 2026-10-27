@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
+import type { FormEvent } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Button, Stack, TextField } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
@@ -26,19 +27,13 @@ function VerifyForm() {
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(
-        authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }),
-      );
+      setError(authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }));
       setSubmitting(false);
     }
   }
 
   return (
-    <AuthCard
-      app="expenses"
-      title={t('auth.verify.title')}
-      subtitle={t('auth.verify.subtitle')}
-    >
+    <AuthCard app="expenses" title={t('auth.verify.title')} subtitle={t('auth.verify.subtitle')}>
       <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
@@ -65,13 +60,7 @@ function VerifyForm() {
           }}
           fullWidth
         />
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={submitting}
-          fullWidth
-        >
+        <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
           {submitting ? t('auth.verify.submitting') : t('auth.verify.submit')}
         </Button>
       </Stack>

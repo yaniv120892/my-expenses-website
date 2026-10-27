@@ -1,13 +1,9 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, RenderResult } from '@testing-library/react';
+import type { RenderResult } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
-import {
-  I18nProvider,
-  createAppTheme,
-  localeDirection,
-  type Locale,
-} from '@yaniv120892/my-ui';
+import { I18nProvider, createAppTheme, localeDirection, type Locale } from '@yaniv120892/my-ui';
 import { messages } from '@/i18n/messages';
 
 /** Retries off so a rejected mutation surfaces immediately in tests. */
@@ -26,10 +22,7 @@ export function DesignTestProvider({
   locale?: Locale;
 }) {
   return (
-    <ThemeProvider
-      theme={createAppTheme(localeDirection(locale))}
-      defaultMode="light"
-    >
+    <ThemeProvider theme={createAppTheme(localeDirection(locale))} defaultMode="light">
       <I18nProvider locale={locale} messages={messages[locale]}>
         {children}
       </I18nProvider>

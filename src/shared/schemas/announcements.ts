@@ -8,6 +8,4 @@ export const acknowledgeAnnouncementsSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(MAX_ACKNOWLEDGE_IDS),
 });
 
-export type AcknowledgeAnnouncementsRequest = z.infer<
-  typeof acknowledgeAnnouncementsSchema
->;
+export type AcknowledgeAnnouncementsRequest = z.infer<typeof acknowledgeAnnouncementsSchema>;

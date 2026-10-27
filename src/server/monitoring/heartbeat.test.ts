@@ -14,12 +14,12 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('fetch', fetchMock);
-  process.env[ENV_VAR] = HEARTBEAT_URL;
+  vi.stubEnv(ENV_VAR, HEARTBEAT_URL);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete process.env[ENV_VAR];
+  vi.unstubAllEnvs();
 });
 
 describe('pingHeartbeat', () => {
@@ -29,13 +29,15 @@ describe('pingHeartbeat', () => {
     await pingHeartbeat(ENV_VAR);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(HEARTBEAT_URL);
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      HEARTBEAT_URL,
+      expect.objectContaining({ method: 'POST' }),
+    );
     expect(warn).not.toHaveBeenCalled();
   });
 
   it('warns when the env var is unset so the no-op is not silent', async () => {
-    delete process.env[ENV_VAR];
+    vi.stubEnv(ENV_VAR, undefined);
 
     await pingHeartbeat(ENV_VAR);
 
@@ -49,10 +51,7 @@ describe('pingHeartbeat', () => {
 
     await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(
-      { envVar: ENV_VAR, status: 503 },
-      expect.any(String),
-    );
+    expect(warn).toHaveBeenCalledWith({ envVar: ENV_VAR, status: 503 }, expect.any(String));
   });
 
   it('swallows a rejected fetch and warns with the error', async () => {
@@ -61,9 +60,6 @@ describe('pingHeartbeat', () => {
 
     await expect(pingHeartbeat(ENV_VAR)).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(
-      { err, envVar: ENV_VAR },
-      expect.any(String),
-    );
+    expect(warn).toHaveBeenCalledWith({ err, envVar: ENV_VAR }, expect.any(String));
   });
 });

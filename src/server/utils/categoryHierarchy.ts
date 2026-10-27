@@ -5,10 +5,10 @@ import type {
   NamedCategoryTotal,
 } from '@/server/utils/categoryHierarchy.types';
 
-export interface CategoryNode {
+export type CategoryNode = {
   id: string;
   parentId?: string | null;
-}
+};
 
 function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
   const childrenByParent = new Map<string, string[]>();
@@ -24,58 +24,43 @@ function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
 }
 
 /** The root plus every id beneath it. An unknown root is just itself. */
-function collectSubtree(
-  childrenByParent: Map<string, string[]>,
-  rootId: string,
-): string[] {
-  const descendants: string[] = [];
-  const queue = [rootId];
+function collectSubtree(childrenByParent: Map<string, string[]>, rootId: string): string[] {
+  const subtree = [rootId];
   const seen = new Set<string>([rootId]);
-  while (queue.length > 0) {
-    const currentId = queue.shift() as string;
-    descendants.push(currentId);
+  // Iterating an array visits the ids pushed during the loop, so this walks breadth-first.
+  for (const currentId of subtree) {
     for (const childId of childrenByParent.get(currentId) ?? []) {
       // Guards against a cycle from bad data looping forever.
       if (seen.has(childId)) {
         continue;
       }
       seen.add(childId);
-      queue.push(childId);
+      subtree.push(childId);
     }
   }
-  return descendants;
+  return subtree;
 }
 
 /**
  * Every category id to itself plus all its descendants, for callers that must
  * keep sibling categories distinct.
  */
-export function buildDescendantMap(
-  categories: CategoryNode[],
-): Map<string, string[]> {
+export function buildDescendantMap(categories: CategoryNode[]): Map<string, string[]> {
   const childrenByParent = buildChildrenIndex(categories);
   const descendantMap = new Map<string, string[]>();
   for (const category of categories) {
-    descendantMap.set(
-      category.id,
-      collectSubtree(childrenByParent, category.id),
-    );
+    descendantMap.set(category.id, collectSubtree(childrenByParent, category.id));
   }
   return descendantMap;
 }
 
 /** Walks from the one root instead of building the whole map. */
-export async function expandCategoryToSubtree(
-  categoryId: string,
-): Promise<string[]> {
+export async function expandCategoryToSubtree(categoryId: string): Promise<string[]> {
   const categories = await categoryRepository.getAllCategories();
   return collectCategorySubtree(categories, categoryId);
 }
 
-export function collectCategorySubtree(
-  categories: CategoryNode[],
-  rootId: string,
-): string[] {
+export function collectCategorySubtree(categories: CategoryNode[], rootId: string): string[] {
   return collectSubtree(buildChildrenIndex(categories), rootId);
 }
 
@@ -83,9 +68,7 @@ export function collectCategorySubtree(
  * Maps every category id to its top-level ancestor (itself when top-level).
  * A cycle from bad data stops the walk at the last id before the repeat.
  */
-export function buildParentMap(
-  categories: CategoryNode[],
-): Map<string, string> {
+export function buildParentMap(categories: CategoryNode[]): Map<string, string> {
   const parentById = new Map<string, string>();
   for (const category of categories) {
     if (category.parentId) {
@@ -109,9 +92,7 @@ export function buildParentMap(
   return parentMap;
 }
 
-export async function buildCategoryDescendantMap(): Promise<
-  Map<string, string[]>
-> {
+export async function buildCategoryDescendantMap(): Promise<Map<string, string[]>> {
   return buildDescendantMap(await categoryRepository.getAllCategories());
 }
 
@@ -139,9 +120,7 @@ export function rollUpToNamedTopLevel(
   totals: CategoryTotal[],
   categories: NamedCategoryNode[],
 ): NamedCategoryTotal[] {
-  const nameById = new Map(
-    categories.map((category) => [category.id, category.name]),
-  );
+  const nameById = new Map(categories.map((category) => [category.id, category.name]));
   return rollUpToTopLevel(totals, buildParentMap(categories)).map((total) => ({
     ...total,
     categoryName: nameById.get(total.categoryId) ?? 'Unknown',

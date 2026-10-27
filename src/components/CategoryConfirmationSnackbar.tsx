@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import CategorySelect from './CategorySelect';
 import { useUpdateTransactionMutation } from '../hooks/useTransactionsQuery';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 import { useT } from '@/i18n/useT';
 
 type CategoryConfirmationSnackbarProps = {
@@ -35,9 +35,7 @@ export default function CategoryConfirmationSnackbar({
 }: CategoryConfirmationSnackbarProps) {
   const t = useT();
   const [changingCategory, setChangingCategory] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    suggestedCategory.id,
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState(suggestedCategory.id);
   const updateMutation = useUpdateTransactionMutation();
   const { description } = transactionInput;
 
@@ -97,24 +95,14 @@ export default function CategoryConfirmationSnackbar({
         </Alert>
       </Snackbar>
 
-      <Dialog
-        open={changingCategory}
-        onClose={handleDialogClose}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>
-          {t('transactions.categoryConfirmation.dialogTitle')}
-        </DialogTitle>
+      <Dialog open={changingCategory} onClose={handleDialogClose} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('transactions.categoryConfirmation.dialogTitle')}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" sx={{ mb: 2 }}>
               {description}
             </Typography>
-            <CategorySelect
-              value={selectedCategoryId}
-              onChange={setSelectedCategoryId}
-            />
+            <CategorySelect value={selectedCategoryId} onChange={setSelectedCategoryId} />
             {updateMutation.isError && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {updateMutation.error instanceof Error

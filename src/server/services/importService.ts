@@ -1,8 +1,6 @@
+import type { Import, ImportedTransaction, TransactionType } from '@/generated/prisma/client';
 import {
-  Import,
-  ImportedTransaction,
   ImportStatus,
-  TransactionType,
   TransactionStatus,
   ImportedTransactionStatus,
 } from '@/generated/prisma/client';
@@ -22,25 +20,23 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
-import {
-  WEBHOOK_TOKEN_EXPIRY_HOURS,
-  WEBHOOK_TOKEN_EXPIRY_MS,
-} from '@/server/utils/webhookAuth';
+import { WEBHOOK_TOKEN_EXPIRY_HOURS, WEBHOOK_TOKEN_EXPIRY_MS } from '@/server/utils/webhookAuth';
 import {
   getPrismaErrorCode,
+  getPrismaErrorModelName,
   PRISMA_ERROR_CODES,
 } from '@/server/db/prismaErrors';
-import {
+import type {
   DatedImportedAmount,
   ReconciliationPlanItem,
   ReconciliationPreviewItem,
-  NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR,
 } from '@/shared/types/import';
+import { NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR } from '@/shared/types/import';
 import type { MatchCandidateTransaction } from '@/server/repositories/types';
 import {
   findExactNormalizedMatch,
@@ -51,10 +47,7 @@ import {
   type MatchableCharge,
 } from '@/server/utils/transactionMatching';
 import importedAmountService from '@/server/services/importedAmountService';
-import {
-  fromAmountColumns,
-  fromImportedAmountColumns,
-} from '@/server/repositories/amountColumns';
+import { fromAmountColumns, fromImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { toMoneyNumber } from '@/server/utils/money';
 import { deriveReviewHint } from '@/server/utils/reconciliationReview';
 import { isCardHoldingFee } from '@/shared/cardFees';
@@ -63,9 +56,7 @@ import { isCardHoldingFee } from '@/shared/cardFees';
 // concurrent approve, merge, ignore or delete got there first.
 function throwOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-    const { modelName } =
-      (err as { meta?: { modelName?: unknown } }).meta ?? {};
-    throw modelName === 'Transaction'
+    throw getPrismaErrorModelName(err) === 'Transaction'
       ? new HttpError(404, 'Transaction not found')
       : new HttpError(409, 'Imported transaction is no longer pending');
   }
@@ -74,35 +65,34 @@ function throwOnMissingRow(err: unknown): never {
 
 // A requested id a concurrent action already handled, reported as a failure
 // rather than silently dropped from the count.
-const STALE_TRANSACTION_ID_ERROR =
-  'Not found, not pending, or not in this import';
+const STALE_TRANSACTION_ID_ERROR = 'Not found, not pending, or not in this import';
 
 const STUCK_IMPORT_ERROR = `Extraction did not report back within ${WEBHOOK_TOKEN_EXPIRY_HOURS} hours. Delete this import and upload the statement again.`;
 
-interface BatchResult {
+type BatchResult = {
   total: number;
   succeeded: number;
   failed: number;
   errors: { id: string; error: string }[];
-}
+};
 
 // `value` is an ILS amount the user typed; absent, the row's own stands.
-interface ApproveImportedTransactionData {
+type ApproveImportedTransactionData = {
   description: string;
   value?: number;
   date: Date;
   type: TransactionType;
   categoryId: string | null;
-}
+};
 
-interface MergeImportedTransactionData {
+type MergeImportedTransactionData = {
   description: string;
   value?: number;
   date: Date;
   type: TransactionType;
   // Absent means keep the matched transaction's existing category.
   categoryId?: string;
-}
+};
 
 type MatchableTransaction = MatchableCharge & {
   id: string;
@@ -124,11 +114,10 @@ function assertUploadedImportUrl(fileUrl: string): void {
   }
 }
 
-const REMATCH_REQUIRES_COMPLETED_ERROR =
-  'Import must be in COMPLETED status to re-match';
+const REMATCH_REQUIRES_COMPLETED_ERROR = 'Import must be in COMPLETED status to re-match';
 
 class ImportService {
-  private getAiProvider = lazy(() => AIServiceFactory.getAIService());
+  private getAiProvider = lazy(() => aiServiceFactory.getAIService());
 
   public async processImport(
     fileUrl: string,
@@ -159,17 +148,9 @@ class ImportService {
         excelExtractionRequestId: null,
       });
 
-      logger.info(
-        { importId: importRecord.id, userId },
-        'Created import record',
-      );
+      logger.info({ importId: importRecord.id, userId }, 'Created import record');
 
-      await this.submitExtraction(
-        importRecord.id,
-        fileUrl,
-        originalFileName,
-        userId,
-      );
+      await this.submitExtraction(importRecord.id, fileUrl, originalFileName, userId);
 
       return importRecord;
     } catch (error) {
@@ -186,18 +167,17 @@ class ImportService {
     userId: string,
   ): Promise<void> {
     try {
-      const extractionResponse =
-        await excelExtractionAgentClient.submitExtractionRequest({
-          fileUrl,
-          filename: originalFileName,
-          userId,
-          importId,
-          options: {
-            confidenceThreshold: 0.7,
-            maxRetries: 3,
-            includeRawData: false,
-          },
-        });
+      const extractionResponse = await excelExtractionAgentClient.submitExtractionRequest({
+        fileUrl,
+        filename: originalFileName,
+        userId,
+        importId,
+        options: {
+          confidenceThreshold: 0.7,
+          maxRetries: 3,
+          includeRawData: false,
+        },
+      });
 
       logger.info(
         { importId, extractionRequestId: extractionResponse.requestId },
@@ -206,15 +186,9 @@ class ImportService {
 
       // The signed callback may already have completed or merged the import, so
       // only the request id is recorded, and only while the import still waits.
-      await this.recordExtractionRequestId(
-        importId,
-        extractionResponse.requestId,
-      );
+      await this.recordExtractionRequestId(importId, extractionResponse.requestId);
     } catch (error) {
-      logger.error(
-        { importId, err: error },
-        'Failed to submit extraction request',
-      );
+      logger.error({ importId, err: error }, 'Failed to submit extraction request');
 
       await this.failUnprocessedImport(
         importId,
@@ -236,10 +210,7 @@ class ImportService {
   }
 
   /** No-op once a callback has claimed the import, or if it merged away. */
-  private async failUnprocessedImport(
-    importId: string,
-    error: string,
-  ): Promise<void> {
+  private async failUnprocessedImport(importId: string, error: string): Promise<void> {
     await prisma.import.updateMany({
       where: { id: importId, extractionCompletedAt: null },
       data: { status: ImportStatus.FAILED, error },
@@ -248,11 +219,10 @@ class ImportService {
 
   public async failStuckImports(now: Date = new Date()) {
     const createdBefore = new Date(now.getTime() - WEBHOOK_TOKEN_EXPIRY_MS);
-    const { importIds, failedCount } =
-      await importRepository.failStuckProcessing(
-        createdBefore,
-        STUCK_IMPORT_ERROR,
-      );
+    const { importIds, failedCount } = await importRepository.failStuckProcessing(
+      createdBefore,
+      STUCK_IMPORT_ERROR,
+    );
     if (failedCount > 0) {
       logger.warn(
         { importIds, failedCount, createdBefore },
@@ -270,10 +240,7 @@ class ImportService {
   }
 
   public async getImport(importId: string, userId: string) {
-    const importRecord = await importRepository.findByIdForUser(
-      importId,
-      userId,
-    );
+    const importRecord = await importRepository.findByIdForUser(importId, userId);
     if (!importRecord) {
       throw new HttpError(404, 'Import not found');
     }
@@ -290,10 +257,7 @@ class ImportService {
   }
 
   public async getImportedTransactions(importId: string, userId: string) {
-    const rows = await importedTransactionRepository.findByUserIdAndImportId(
-      userId,
-      importId,
-    );
+    const rows = await importedTransactionRepository.findByUserIdAndImportId(userId, importId);
     // Decimal columns would serialize as strings; the client reads numbers.
     return rows.map((row) => ({
       ...row,
@@ -312,10 +276,7 @@ class ImportService {
   ) {
     const record = await this.loadOwnedRow(importedTransactionId, userId);
     const notifyTransactionId = await this.applyCreate(record, transactionData);
-    await transactionService.notifyTransactionCreatedSafe(
-      notifyTransactionId,
-      userId,
-    );
+    await transactionService.notifyTransactionCreatedSafe(notifyTransactionId, userId);
   }
 
   public async mergeImportedTransaction(
@@ -326,10 +287,7 @@ class ImportService {
     const record = await this.loadOwnedRow(importedTransactionId, userId);
     const notifyTransactionId = await this.applyMerge(record, transactionData);
     if (notifyTransactionId) {
-      await transactionService.notifyTransactionCreatedSafe(
-        notifyTransactionId,
-        userId,
-      );
+      await transactionService.notifyTransactionCreatedSafe(notifyTransactionId, userId);
     }
   }
 
@@ -337,19 +295,14 @@ class ImportService {
     importedTransactionId: string,
     userId: string,
   ): Promise<ImportedTransactionWithMatch> {
-    const record = await importedTransactionRepository.findById(
-      importedTransactionId,
-    );
+    const record = await importedTransactionRepository.findById(importedTransactionId);
 
     if (!record || record.userId !== userId || record.deleted) {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
     if (record.status !== ImportedTransactionStatus.PENDING) {
-      throw new HttpError(
-        409,
-        `Imported transaction is already ${record.status}`,
-      );
+      throw new HttpError(409, `Imported transaction is already ${record.status}`);
     }
 
     return record;
@@ -420,8 +373,7 @@ class ImportService {
       });
     }
 
-    const approveMatch =
-      matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
+    const approveMatch = matchingTransaction.status === TransactionStatus.PENDING_APPROVAL;
     const amount = importedAmountService.resolveApprovedAmount(
       this.toImportedAmountAt(record),
       transactionData.value,
@@ -455,17 +407,10 @@ class ImportService {
     return approveMatch ? matchingTransactionId : null;
   }
 
-  public async ignoreImportedTransaction(
-    importedTransactionId: string,
-    userId: string,
-  ) {
+  public async ignoreImportedTransaction(importedTransactionId: string, userId: string) {
     await this.loadOwnedRow(importedTransactionId, userId);
     await importedTransactionRepository
-      .updateStatus(
-        importedTransactionId,
-        userId,
-        ImportedTransactionStatus.IGNORED,
-      )
+      .updateStatus(importedTransactionId, userId, ImportedTransactionStatus.IGNORED)
       .catch(throwOnMissingRow);
   }
 
@@ -478,14 +423,8 @@ class ImportService {
     ]);
   }
 
-  public async deleteImportedTransaction(
-    importedTransactionId: string,
-    userId: string,
-  ) {
-    await importedTransactionRepository.softDelete(
-      importedTransactionId,
-      userId,
-    );
+  public async deleteImportedTransaction(importedTransactionId: string, userId: string) {
+    await importedTransactionRepository.softDelete(importedTransactionId, userId);
   }
 
   /** Writes nothing; batchApproveImportedTransactions commits the same plan. */
@@ -494,18 +433,9 @@ class ImportService {
     userId: string,
     transactionIds: string[] | 'all' = 'all',
   ): Promise<ReconciliationPreviewItem[]> {
-    const { pending } = await this.loadPendingSelection(
-      importId,
-      userId,
-      transactionIds,
-    );
-    const plan = pending.map((transaction) =>
-      this.toReconciliationPlanItem(transaction),
-    );
-    const candidates = await this.findUnclaimedCandidatesForCreates(
-      plan,
-      userId,
-    );
+    const { pending } = await this.loadPendingSelection(importId, userId, transactionIds);
+    const plan = pending.map((transaction) => this.toReconciliationPlanItem(transaction));
+    const candidates = await this.findUnclaimedCandidatesForCreates(plan, userId);
 
     return plan.map((item) => ({
       ...item,
@@ -561,10 +491,7 @@ class ImportService {
     };
   }
 
-  public async applyAutoApproveRules(
-    importId: string,
-    userId: string,
-  ): Promise<BatchResult> {
+  public async applyAutoApproveRules(importId: string, userId: string): Promise<BatchResult> {
     const [{ pending: pendingTransactions }, rules] = await Promise.all([
       this.loadPendingSelection(importId, userId, 'all'),
       autoApproveRuleRepository.findActiveByUserId(userId),
@@ -576,9 +503,7 @@ class ImportService {
         (rule) =>
           rule.type === record.type &&
           rule.descriptionPattern.trim() !== '' &&
-          record.description
-            .toLowerCase()
-            .includes(rule.descriptionPattern.toLowerCase()),
+          record.description.toLowerCase().includes(rule.descriptionPattern.toLowerCase()),
       );
 
       if (!matchingRule) {
@@ -603,10 +528,7 @@ class ImportService {
     missingIds: string[];
   }> {
     if (transactionIds === 'all') {
-      const pending = await importedTransactionRepository.findPendingByImportId(
-        importId,
-        userId,
-      );
+      const pending = await importedTransactionRepository.findPendingByImportId(importId, userId);
       return { pending, missingIds: [] };
     }
 
@@ -661,10 +583,8 @@ class ImportService {
       match: match
         ? {
             transactionId: match.id,
-            approvesPendingTransaction:
-              match.status === TransactionStatus.PENDING_APPROVAL,
-            matchedByBankDescriptionPrefix:
-              this.isMatchedByBankDescriptionPrefix(transaction),
+            approvesPendingTransaction: match.status === TransactionStatus.PENDING_APPROVAL,
+            matchedByBankDescriptionPrefix: this.isMatchedByBankDescriptionPrefix(transaction),
             before: {
               description: match.description,
               value: match.value,
@@ -677,9 +597,7 @@ class ImportService {
     };
   }
 
-  private isMatchedByBankDescriptionPrefix(
-    transaction: ImportedTransactionWithMatch,
-  ): boolean {
+  private isMatchedByBankDescriptionPrefix(transaction: ImportedTransactionWithMatch): boolean {
     const match = transaction.matchingTransaction;
     const prefix = match?.scheduledTransaction?.bankDescriptionPrefix;
     return (
@@ -722,18 +640,12 @@ class ImportService {
       }
     }
 
-    await transactionService.notifyTransactionsCreatedSafe(
-      notifyTransactionIds,
-      userId,
-    );
+    await transactionService.notifyTransactionsCreatedSafe(notifyTransactionIds, userId);
 
     return result;
   }
 
-  private async applyPlannedRow({
-    record,
-    item,
-  }: PlannedRow): Promise<string | null> {
+  private async applyPlannedRow({ record, item }: PlannedRow): Promise<string | null> {
     const payload = {
       description: item.description,
       date: item.date,
@@ -758,11 +670,7 @@ class ImportService {
 
   public async rematchImport(importId: string, userId: string): Promise<void> {
     const importRecord = await importRepository.findById(importId);
-    if (
-      !importRecord ||
-      importRecord.userId !== userId ||
-      importRecord.deleted
-    ) {
+    if (!importRecord || importRecord.userId !== userId || importRecord.deleted) {
       throw new HttpError(404, 'Import not found');
     }
 
@@ -792,15 +700,11 @@ class ImportService {
     }
   }
 
-  private async rematchClaimedImport(
-    importId: string,
-    userId: string,
-  ): Promise<void> {
-    const allTransactions =
-      await importedTransactionRepository.findByUserIdAndImportId(
-        userId,
-        importId,
-      );
+  private async rematchClaimedImport(importId: string, userId: string): Promise<void> {
+    const allTransactions = await importedTransactionRepository.findByUserIdAndImportId(
+      userId,
+      importId,
+    );
 
     const pendingTransactions = allTransactions.filter(
       (t) => t.status === ImportedTransactionStatus.PENDING,
@@ -810,12 +714,7 @@ class ImportService {
       throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
-    await this.rematchPendingTransactions(
-      importId,
-      userId,
-      allTransactions,
-      pendingTransactions,
-    );
+    await this.rematchPendingTransactions(importId, userId, allTransactions, pendingTransactions);
 
     logger.info(
       { importId, pendingCount: pendingTransactions.length },
@@ -842,10 +741,7 @@ class ImportService {
     try {
       await this.releaseRematch(importId);
     } catch (err) {
-      reportSwallowedError(
-        { err, importId },
-        'Failed to return a failed re-match to COMPLETED',
-      );
+      reportSwallowedError({ err, importId }, 'Failed to return a failed re-match to COMPLETED');
     }
   }
 
@@ -860,13 +756,11 @@ class ImportService {
     pendingTransactions: ImportedTransactionWithMatch[],
   ): Promise<void> {
     const excludedTransactionIds = new Set(
-      allTransactions
-        .filter(
-          (t) =>
-            t.status !== ImportedTransactionStatus.PENDING &&
-            t.matchingTransactionId,
-        )
-        .map((t) => t.matchingTransactionId!),
+      allTransactions.flatMap((t) =>
+        t.status !== ImportedTransactionStatus.PENDING && t.matchingTransactionId
+          ? [t.matchingTransactionId]
+          : [],
+      ),
     );
 
     await prisma.importedTransaction.updateMany({
@@ -879,9 +773,7 @@ class ImportService {
     });
 
     const claimedElsewhere =
-      await importedTransactionRepository.findClaimedMatchingTransactionIds(
-        userId,
-      );
+      await importedTransactionRepository.findClaimedMatchingTransactionIds(userId);
     for (const transactionId of claimedElsewhere) {
       excludedTransactionIds.add(transactionId);
     }
@@ -912,23 +804,16 @@ class ImportService {
           excludedTransactionIds.add(matchedId);
         }
       } catch (error) {
-        logger.error(
-          { transactionId: transaction.id, err: error },
-          errorMessage,
-        );
+        logger.error({ transactionId: transaction.id, err: error }, errorMessage);
       }
     }
   }
 
-  public async findPotentialMatchesForImport(
-    importId: string,
-    userId: string,
-  ): Promise<void> {
+  public async findPotentialMatchesForImport(importId: string, userId: string): Promise<void> {
     try {
       logger.info({ importId, userId }, 'Finding potential matches for import');
 
-      const importedTransactions =
-        await importedTransactionRepository.findByImportId(importId);
+      const importedTransactions = await importedTransactionRepository.findByImportId(importId);
 
       logger.info(
         { importId, count: importedTransactions.length },
@@ -936,20 +821,14 @@ class ImportService {
       );
 
       const excludedTransactionIds = new Set(
-        await importedTransactionRepository.findClaimedMatchingTransactionIds(
-          userId,
-        ),
+        await importedTransactionRepository.findClaimedMatchingTransactionIds(userId),
       );
 
       // Rows merged in from a duplicate import keep the match they already
       // hold, and rows already approved or ignored are decided.
       await this.matchSequentially(
         importedTransactions
-          .filter(
-            (t) =>
-              t.status === ImportedTransactionStatus.PENDING &&
-              !t.matchingTransactionId,
-          )
+          .filter((t) => t.status === ImportedTransactionStatus.PENDING && !t.matchingTransactionId)
           .map((row) => this.toMatchable(row)),
         userId,
         excludedTransactionIds,
@@ -958,10 +837,7 @@ class ImportService {
 
       logger.info({ importId }, 'Completed finding potential matches');
     } catch (error) {
-      logger.error(
-        { importId, err: error },
-        'Error finding potential matches for import',
-      );
+      logger.error({ importId, err: error }, 'Error finding potential matches for import');
       throw error;
     }
   }
@@ -971,10 +847,7 @@ class ImportService {
     userId: string,
     excludedIds?: Set<string>,
   ): Promise<string | null> {
-    const matches = await transactionRepository.findPotentialMatches(
-      userId,
-      transaction,
-    );
+    const matches = await transactionRepository.findPotentialMatches(userId, transaction);
 
     const isCandidate = matchCandidateFilter(transaction);
     const availableMatches = matches.filter(
@@ -985,10 +858,7 @@ class ImportService {
       return null;
     }
 
-    const exactMatchId = findExactNormalizedMatch(
-      transaction.description,
-      availableMatches,
-    );
+    const exactMatchId = findExactNormalizedMatch(transaction.description, availableMatches);
     if (exactMatchId) {
       await this.claimMatch(transaction.id, exactMatchId);
       return exactMatchId;
@@ -998,14 +868,10 @@ class ImportService {
     // model judges only the other candidates; a placeholder takes the row when
     // none of them does, so a charge already logged by hand is not doubled.
     const placeholders = availableMatches.filter(isVariableAmountPlaceholder);
-    const otherCandidates = availableMatches.filter(
-      (match) => !isVariableAmountPlaceholder(match),
-    );
+    const otherCandidates = availableMatches.filter((match) => !isVariableAmountPlaceholder(match));
     const matchingTransactionId =
       (await this.findModelMatch(transaction, otherCandidates)) ??
-      (placeholders.length > 0
-        ? pickPlaceholder(transaction, placeholders).id
-        : null);
+      (placeholders.length > 0 ? pickPlaceholder(transaction, placeholders).id : null);
 
     if (matchingTransactionId) {
       await this.claimMatch(transaction.id, matchingTransactionId);
@@ -1025,10 +891,7 @@ class ImportService {
     // Re-applied so "never an invented id" is structural rather than a contract
     // a future provider could forget.
     return resolveMatchedTransactionId(
-      await this.getAiProvider().findMatchingTransaction(
-        transaction,
-        candidates,
-      ),
+      await this.getAiProvider().findMatchingTransaction(transaction, candidates),
       candidates,
     );
   }

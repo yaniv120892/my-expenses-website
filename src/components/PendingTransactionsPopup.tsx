@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import NotificationSnackbar from './NotificationSnackbar';
 import { usePendingTransactionsQuery } from '../hooks/usePendingTransactionsQuery';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import { useT } from '@/i18n/useT';
 
 const STORAGE_KEY = 'pendingTransactionsSeenDate';
@@ -14,18 +15,23 @@ function getTodayKey() {
 export default function PendingTransactionsPopup() {
   const t = useT();
   const { data: pendingTransactions = [] } = usePendingTransactionsQuery();
+  const pendingCount = pendingTransactions.length;
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (pendingTransactions.length > 0) {
-      const today = getTodayKey();
-      const seenDate = localStorage.getItem(STORAGE_KEY);
-      if (seenDate !== today) {
+  useResetOnChange({
+    deps: [pendingCount],
+    reset: () => {
+      if (pendingCount > 0 && localStorage.getItem(STORAGE_KEY) !== getTodayKey()) {
         setOpen(true);
-        localStorage.setItem(STORAGE_KEY, today);
       }
+    },
+  });
+
+  useEffect(() => {
+    if (open) {
+      localStorage.setItem(STORAGE_KEY, getTodayKey());
     }
-  }, [pendingTransactions.length]);
+  }, [open]);
 
   const handleClose = () => setOpen(false);
 

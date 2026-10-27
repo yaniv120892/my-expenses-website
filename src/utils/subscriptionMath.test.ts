@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  nextExpectedDateAfter,
-  toAnnualAmount,
-  toMonthlyAmount,
-} from '@/utils/subscriptionMath';
+import { nextExpectedDateAfter, toAnnualAmount, toMonthlyAmount } from '@/utils/subscriptionMath';
 
 describe('toMonthlyAmount', () => {
   it('returns the amount unchanged for MONTHLY', () => {
@@ -24,12 +20,8 @@ describe('toMonthlyAmount', () => {
 
   it('keeps relative ordering across frequencies for the same amount', () => {
     const amount = 30;
-    expect(toMonthlyAmount(amount, 'WEEKLY')).toBeGreaterThan(
-      toMonthlyAmount(amount, 'MONTHLY'),
-    );
-    expect(toMonthlyAmount(amount, 'MONTHLY')).toBeGreaterThan(
-      toMonthlyAmount(amount, 'YEARLY'),
-    );
+    expect(toMonthlyAmount(amount, 'WEEKLY')).toBeGreaterThan(toMonthlyAmount(amount, 'MONTHLY'));
+    expect(toMonthlyAmount(amount, 'MONTHLY')).toBeGreaterThan(toMonthlyAmount(amount, 'YEARLY'));
   });
 
   it('handles fractional amounts without rounding', () => {
@@ -47,10 +39,7 @@ describe('toAnnualAmount', () => {
 
   it('round-trips against toMonthlyAmount', () => {
     for (const frequency of ['WEEKLY', 'MONTHLY', 'YEARLY'] as const) {
-      expect(toAnnualAmount(30, frequency) / 12).toBeCloseTo(
-        toMonthlyAmount(30, frequency),
-        10,
-      );
+      expect(toAnnualAmount(30, frequency) / 12).toBeCloseTo(toMonthlyAmount(30, frequency), 10);
     }
   });
 });
@@ -59,17 +48,11 @@ describe('nextExpectedDateAfter', () => {
   const last = new Date('2026-01-31T00:00:00Z');
 
   it('advances by one period of the frequency', () => {
-    expect(nextExpectedDateAfter(last, 'WEEKLY')).toEqual(
-      new Date('2026-02-07T00:00:00Z'),
-    );
-    expect(nextExpectedDateAfter(last, 'YEARLY')).toEqual(
-      new Date('2027-01-31T00:00:00Z'),
-    );
+    expect(nextExpectedDateAfter(last, 'WEEKLY')).toEqual(new Date('2026-02-07T00:00:00Z'));
+    expect(nextExpectedDateAfter(last, 'YEARLY')).toEqual(new Date('2027-01-31T00:00:00Z'));
   });
 
   it('clamps a month-end date to the shorter month', () => {
-    expect(nextExpectedDateAfter(last, 'MONTHLY')).toEqual(
-      new Date('2026-02-28T00:00:00Z'),
-    );
+    expect(nextExpectedDateAfter(last, 'MONTHLY')).toEqual(new Date('2026-02-28T00:00:00Z'));
   });
 });

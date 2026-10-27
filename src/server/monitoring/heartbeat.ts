@@ -19,10 +19,7 @@ export async function pingHeartbeat(envVar: string): Promise<void> {
       signal: AbortSignal.timeout(PING_TIMEOUT_MS),
     });
     if (!response.ok) {
-      logger.warn(
-        { envVar, status: response.status },
-        'Heartbeat ping was rejected',
-      );
+      logger.warn({ envVar, status: response.status }, 'Heartbeat ping was rejected');
     }
   } catch (err) {
     logger.warn({ err, envVar }, 'Heartbeat ping failed');

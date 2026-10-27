@@ -3,11 +3,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: [
-      'src/**/*.test.{ts,tsx}',
-      'scripts/**/*.test.ts',
-      'prisma.config.test.ts',
-    ],
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts', 'prisma.config.test.ts'],
     environment: 'node',
     setupFiles: ['src/test/setup.ts'],
     // The shared UI package ships extensionless ESM imports for the bundler.

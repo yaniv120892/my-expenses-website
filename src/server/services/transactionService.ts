@@ -1,7 +1,7 @@
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
-import {
+import type {
   CreateTransaction,
   CategoryBreakdownItem,
   CreatedTransaction,
@@ -13,16 +13,13 @@ import {
   TransactionStatus,
   TransactionFile,
 } from '@/shared/types/transaction';
-import type {
-  TransactionSort,
-  UpdateTransactionRequest,
-} from '@/shared/schemas/transactions';
+import type { TransactionSort, UpdateTransactionRequest } from '@/shared/schemas/transactions';
 import currencyConversionService from '@/server/services/currencyConversionService';
-import { CreateTransactionDbModel } from '@/server/repositories/types';
+import type { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import logger from '@/server/logging/logger';
-import { Category } from '@/shared/types/category';
-import TransactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
+import type { Category } from '@/shared/types/category';
+import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import userSettingsService from '@/server/services/userSettingsService';
 import userCategoryMappingRepository from '@/server/repositories/userCategoryMappingRepository';
 import {
@@ -32,10 +29,7 @@ import {
   getPresignedUploadUrl,
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
-import {
-  expandCategoryToSubtree,
-  rollUpToNamedTopLevel,
-} from '@/server/utils/categoryHierarchy';
+import { expandCategoryToSubtree, rollUpToNamedTopLevel } from '@/server/utils/categoryHierarchy';
 import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
@@ -54,35 +48,25 @@ type CategoryMappingChange = {
   categoryId: string;
 };
 
-export interface TransactionFileView {
+export type TransactionFileView = {
   id: string;
   fileName: string;
   previewFileUrl: string;
   downloadableFileUrl: string;
   fileSize: number;
   mimeType: string;
-}
+};
 
 class TransactionService {
-  private getCategorySuggester = lazy(() =>
-    AIServiceFactory.getCategorySuggester(),
-  );
-  private getTransactionNotifier = lazy(() =>
-    TransactionNotifierFactory.getNotifier(),
-  );
+  private getCategorySuggester = lazy(() => aiServiceFactory.getCategorySuggester());
+  private getTransactionNotifier = lazy(() => transactionNotifierFactory.getNotifier());
 
-  public async createTransaction(
-    data: CreateTransaction,
-  ): Promise<CreatedTransaction> {
+  public async createTransaction(data: CreateTransaction): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
     const transactionModel = await this.prepareCreateTransaction(data);
-    const transaction =
-      await transactionRepository.createTransaction(transactionModel);
+    const transaction = await transactionRepository.createTransaction(transactionModel);
 
-    await this.notifyTransactionCreatedSafe(
-      transaction.id,
-      transactionModel.userId,
-    );
+    await this.notifyTransactionCreatedSafe(transaction.id, transactionModel.userId);
 
     return {
       id: transaction.id,
@@ -102,8 +86,7 @@ class TransactionService {
     // wall-clock time in the UTC fields, not the server's instant.
     const date = data.date || toAppWallClock(new Date());
     const [amount, resolved] = await Promise.all([
-      data.resolvedAmount ??
-        currencyConversionService.resolveAmount(data, date),
+      data.resolvedAmount ?? currencyConversionService.resolveAmount(data, date),
       this.updateCategory(data),
     ]);
     await this.validateCreateTransaction(resolved);
@@ -128,9 +111,7 @@ class TransactionService {
    * Filtering by a parent category covers the transactions filed on its
    * children.
    */
-  private async resolveCategoryFilter<T extends TransactionSummaryFilters>(
-    filters: T,
-  ): Promise<T> {
+  private async resolveCategoryFilter<T extends TransactionSummaryFilters>(filters: T): Promise<T> {
     if (!filters.categoryId) {
       return filters;
     }
@@ -140,18 +121,14 @@ class TransactionService {
     };
   }
 
-  private listResolved(
-    filters: TransactionListFilters,
-  ): Promise<TransactionListPage> {
+  private listResolved(filters: TransactionListFilters): Promise<TransactionListPage> {
     return transactionRepository.getTransactionsList({
       ...filters,
       status: filters.status || 'APPROVED',
     });
   }
 
-  public async getTransactionsList(
-    filters: TransactionListFilters,
-  ): Promise<TransactionListPage> {
+  public async getTransactionsList(filters: TransactionListFilters): Promise<TransactionListPage> {
     return this.listResolved(await this.resolveCategoryFilter(filters));
   }
 
@@ -192,11 +169,7 @@ class TransactionService {
     status: TransactionStatus,
     userId: string,
   ): Promise<string> {
-    const transactionId = await transactionRepository.updateTransactionStatus(
-      id,
-      status,
-      userId,
-    );
+    const transactionId = await transactionRepository.updateTransactionStatus(id, status, userId);
     if (status === 'APPROVED') {
       await this.notifyTransactionCreatedSafe(transactionId, userId);
     }
@@ -232,9 +205,7 @@ class TransactionService {
       }),
       categoryRepository.getAllCategories(),
     ]);
-    const slices = rollUpToNamedTopLevel(totals, categories).filter(
-      (slice) => slice.amount > 0,
-    );
+    const slices = rollUpToNamedTopLevel(totals, categories).filter((slice) => slice.amount > 0);
     const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
     return slices.map((slice) => ({
       ...slice,
@@ -251,11 +222,7 @@ class TransactionService {
     if (!existing) {
       throw new HttpError(404, 'Transaction not found');
     }
-    const amount = await currencyConversionService.resolveAmount(
-      data,
-      data.date,
-      existing,
-    );
+    const amount = await currencyConversionService.resolveAmount(data, data.date, existing);
     const updated = await transactionRepository.updateTransaction(
       id,
       {
@@ -276,9 +243,7 @@ class TransactionService {
     return updated;
   }
 
-  public async learnCategoryMappingSafe(
-    change: CategoryMappingChange,
-  ): Promise<void> {
+  public async learnCategoryMappingSafe(change: CategoryMappingChange): Promise<void> {
     if (change.previousCategoryId === change.categoryId) {
       return;
     }
@@ -292,9 +257,7 @@ class TransactionService {
         descriptionPattern,
         change.categoryId,
       );
-      logger.debug(
-        `Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`,
-      );
+      logger.debug(`Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`);
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
     }
@@ -303,9 +266,7 @@ class TransactionService {
   public async deleteTransaction(id: string, userId: string): Promise<void> {
     const fileKeys = await transactionRepository.deleteTransaction(id, userId);
     await Promise.all(
-      fileKeys.map((fileKey) =>
-        this.deleteAttachmentObjectSafe({ fileKey, transactionId: id }),
-      ),
+      fileKeys.map((fileKey) => this.deleteAttachmentObjectSafe({ fileKey, transactionId: id })),
     );
   }
 
@@ -324,10 +285,7 @@ class TransactionService {
       sizeInBytes: fileData.fileSize,
     });
     if (!isAttachmentKeyForTransaction(fileData.fileKey, transactionId)) {
-      throw new HttpError(
-        400,
-        `fileKey was not issued for transaction ${transactionId}`,
-      );
+      throw new HttpError(400, `fileKey was not issued for transaction ${transactionId}`);
     }
 
     await this.assertTransactionExists(transactionId, userId);
@@ -346,16 +304,12 @@ class TransactionService {
   ): Promise<TransactionFileView[]> {
     await this.assertTransactionExists(transactionId, userId);
 
-    const files =
-      await transactionFileRepository.findByTransactionId(transactionId);
+    const files = await transactionFileRepository.findByTransactionId(transactionId);
 
     return Promise.all(
       files.map(async (file) => {
         const previewFileUrl = await buildPreviewUrl(file.fileKey);
-        const downloadableFileUrl = await buildDownloadUrl(
-          file.fileKey,
-          file.fileName,
-        );
+        const downloadableFileUrl = await buildDownloadUrl(file.fileKey, file.fileName);
         return {
           id: file.id,
           fileName: file.fileName,
@@ -368,18 +322,12 @@ class TransactionService {
     );
   }
 
-  public async removeFile(
-    transactionId: string,
-    fileId: string,
-    userId: string,
-  ): Promise<void> {
+  public async removeFile(transactionId: string, fileId: string, userId: string): Promise<void> {
     await this.assertTransactionExists(transactionId, userId);
     const file = await this.assertTransactionFileExists(fileId, transactionId);
 
     await transactionFileRepository.markForDeletion(fileId);
-    logger.debug(
-      `File ${fileId} marked for deletion from transaction ${transactionId}`,
-    );
+    logger.debug(`File ${fileId} marked for deletion from transaction ${transactionId}`);
     await this.deleteAttachmentObjectSafe({
       fileKey: file.fileKey,
       transactionId,
@@ -400,20 +348,14 @@ class TransactionService {
     return getPresignedUploadUrl({ transactionId, ...file });
   }
 
-  private async validateCreateTransaction(
-    data: CreateTransaction,
-  ): Promise<void> {
+  private async validateCreateTransaction(data: CreateTransaction): Promise<void> {
     const category = await categoryRepository.getCategoryById(data.categoryId);
     if (!category) {
-      throw new CustomValidationError(
-        `Category with id ${data.categoryId} not found`,
-      );
+      throw new CustomValidationError(`Category with id ${data.categoryId} not found`);
     }
   }
 
-  private async updateCategory(
-    transaction: CreateTransaction,
-  ): Promise<CreateTransaction> {
+  private async updateCategory(transaction: CreateTransaction): Promise<CreateTransaction> {
     if (transaction.categoryId) {
       return transaction;
     }
@@ -454,33 +396,24 @@ class TransactionService {
     categories: Category[],
   ): Promise<string | null> {
     try {
-      const mapping =
-        await userCategoryMappingRepository.findByUserAndDescription(
-          userId,
-          this.toDescriptionPattern(description),
-        );
+      const mapping = await userCategoryMappingRepository.findByUserAndDescription(
+        userId,
+        this.toDescriptionPattern(description),
+      );
       const mappedCategory = mapping
         ? categories.find((c) => c.id === mapping.categoryId)
         : undefined;
       if (mappedCategory) {
-        logger.debug(
-          `User mapping found for expense: ${description} -> ${mappedCategory.name}`,
-        );
+        logger.debug(`User mapping found for expense: ${description} -> ${mappedCategory.name}`);
         return mappedCategory.id;
       }
     } catch (err) {
-      reportSwallowedError(
-        { err, userId },
-        'Failed to check user category mapping',
-      );
+      reportSwallowedError({ err, userId }, 'Failed to check user category mapping');
     }
     return null;
   }
 
-  public async notifyTransactionCreatedSafe(
-    transactionId: string,
-    userId: string,
-  ) {
+  public async notifyTransactionCreatedSafe(transactionId: string, userId: string) {
     await this.notifyTransactionsCreatedSafe([transactionId], userId);
   }
 
@@ -488,10 +421,7 @@ class TransactionService {
    * Notifies each transaction on its own, so one failure cannot silence the
    * rest.
    */
-  public async notifyTransactionsCreatedSafe(
-    transactionIds: string[],
-    userId: string,
-  ) {
+  public async notifyTransactionsCreatedSafe(transactionIds: string[], userId: string) {
     if (transactionIds.length === 0) {
       return;
     }
@@ -499,9 +429,7 @@ class TransactionService {
     let isNotificationEnabled: boolean;
     try {
       isNotificationEnabled =
-        await userSettingsService.isCreateTransactionNotificationEnabled(
-          userId,
-        );
+        await userSettingsService.isCreateTransactionNotificationEnabled(userId);
     } catch (error) {
       logger.error(
         { err: error, userId },
@@ -522,10 +450,7 @@ class TransactionService {
     }
   }
 
-  private async notifyOneTransactionCreatedSafe(
-    transactionId: string,
-    userId: string,
-  ) {
+  private async notifyOneTransactionCreatedSafe(transactionId: string, userId: string) {
     try {
       const transaction = await this.getTransactionItem(transactionId, userId);
       if (!transaction) {
@@ -542,15 +467,9 @@ class TransactionService {
         return;
       }
 
-      await this.getTransactionNotifier().notifyTransactionCreated(
-        transaction,
-        userId,
-      );
+      await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
     } catch (error) {
-      logger.error(
-        { err: error, transactionId },
-        'Failed to notify transaction created',
-      );
+      logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
     }
   }
 
@@ -579,8 +498,7 @@ class TransactionService {
     fileId?: string;
   }): Promise<void> {
     try {
-      const isStillAttached =
-        await transactionFileRepository.hasActiveFileWithKey(fileKey);
+      const isStillAttached = await transactionFileRepository.hasActiveFileWithKey(fileKey);
       if (isStillAttached) {
         return;
       }
@@ -621,4 +539,5 @@ class TransactionService {
   }
 }
 
-export default new TransactionService();
+const transactionService = new TransactionService();
+export default transactionService;

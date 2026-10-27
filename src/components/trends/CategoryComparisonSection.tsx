@@ -12,25 +12,19 @@ import {
   Typography,
 } from '@mui/material';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import {
-  COMPARISON_MEASURES,
-  CategoryComparison,
-  ComparisonMeasure,
-} from '@/types/trends';
+import type { CategoryComparison, ComparisonMeasure } from '@/types/trends';
+import { COMPARISON_MEASURES } from '@/types/trends';
 import { comparisonFileName, comparisonToCsv } from '@/utils/comparison';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { downloadCsv } from '@/utils/download';
 import { isOneOf } from '@/utils/oneOf';
 import { TrendCardSkeleton } from '@/components/trends/TrendSkeleton';
-import {
-  COMPARISON_CHART_MODES,
-  ComparisonChart,
-  ComparisonChartMode,
-} from '@/components/trends/ComparisonChart';
+import type { ComparisonChartMode } from '@/components/trends/ComparisonChart';
+import { COMPARISON_CHART_MODES, ComparisonChart } from '@/components/trends/ComparisonChart';
 import { ComparisonTable } from '@/components/trends/ComparisonTable';
 
-interface Props {
+type Props = {
   comparison?: CategoryComparison;
   isLoading: boolean;
   isError: boolean;
@@ -38,15 +32,11 @@ interface Props {
   measure: ComparisonMeasure;
   onMeasureChange: (measure: ComparisonMeasure) => void;
   onOpenFilters: () => void;
-}
+};
 
 const CROWDED_BUCKET_COUNT = 40;
 
-const MEASURE_TOGGLE_ORDER: readonly ComparisonMeasure[] = [
-  'net',
-  'expense',
-  'income',
-];
+const MEASURE_TOGGLE_ORDER: readonly ComparisonMeasure[] = ['net', 'expense', 'income'];
 
 export function CategoryComparisonSection({
   comparison,
@@ -194,11 +184,7 @@ export function CategoryComparisonSection({
           </Alert>
         )}
 
-        <ComparisonChart
-          comparison={comparison}
-          measure={measure}
-          mode={chartMode}
-        />
+        <ComparisonChart comparison={comparison} measure={measure} mode={chartMode} />
 
         <Stack sx={{ mt: 3 }}>
           <ComparisonTable comparison={comparison} measure={measure} />

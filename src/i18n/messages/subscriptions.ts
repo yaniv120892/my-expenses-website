@@ -23,14 +23,12 @@ const en = {
   'subscriptions.sort.NEXT_CHARGE': 'Next charge — soonest first',
   'subscriptions.sort.NAME': 'Name — A to Z',
   'subscriptions.card.noCategory': 'No category',
-  'subscriptions.card.editedHint':
-    'You edited these figures; detection no longer overwrites them',
+  'subscriptions.card.editedHint': 'You edited these figures; detection no longer overwrites them',
   'subscriptions.card.edited': 'Edited',
   'subscriptions.card.costs': '{monthly}/mo · {annual}/yr',
   'subscriptions.card.nextExpected': 'Next expected: {date}',
   'subscriptions.card.alreadyScheduled': 'Already scheduled',
-  'subscriptions.card.looksScheduled':
-    'Looks scheduled already as "{description}"',
+  'subscriptions.card.looksScheduled': 'Looks scheduled already as "{description}"',
   'subscriptions.card.confidence': 'Confidence',
   'subscriptions.card.confirm': 'Confirm',
   'subscriptions.card.dismiss': 'Dismiss',
@@ -72,8 +70,7 @@ const en = {
   'subscriptions.evidence.column.gap': 'Gap',
   'subscriptions.evidence.gapDays': '{count}d',
   'subscriptions.evidence.olderCharges.one': '1 older charge also matched.',
-  'subscriptions.evidence.olderCharges.other':
-    '{count} older charges also matched.',
+  'subscriptions.evidence.olderCharges.other': '{count} older charges also matched.',
   'subscriptions.evidence.userEdited':
     'You edited these figures on {date}. Detection keeps refreshing the charges above but no longer overwrites your amount, frequency or name.',
   'subscriptions.reason.matched':
@@ -83,8 +80,7 @@ const en = {
   'subscriptions.reason.spacing':
     'The spacing varies by {days} days ({ratio} of the typical gap) — detection rejects anything above {tolerance}.',
   'subscriptions.reason.sameAmount': 'Every charge was {amount}.',
-  'subscriptions.reason.amountRange':
-    'Charges ranged from {min} to {max}, averaging {average}.',
+  'subscriptions.reason.amountRange': 'Charges ranged from {min} to {max}, averaging {average}.',
   'subscriptions.reason.confidence': 'That gives a confidence of {confidence}.',
 } satisfies Messages;
 
@@ -113,14 +109,12 @@ export const subscriptionsMessages: Dictionary<typeof en> = {
     'subscriptions.sort.NEXT_CHARGE': 'החיוב הבא — הקרוב ביותר קודם',
     'subscriptions.sort.NAME': 'שם — לפי סדר האלפבית',
     'subscriptions.card.noCategory': 'ללא קטגוריה',
-    'subscriptions.card.editedHint':
-      'ערכת את הנתונים האלה, והזיהוי האוטומטי כבר לא דורס אותם',
+    'subscriptions.card.editedHint': 'ערכת את הנתונים האלה, והזיהוי האוטומטי כבר לא דורס אותם',
     'subscriptions.card.edited': 'נערך',
     'subscriptions.card.costs': '{monthly} לחודש · {annual} לשנה',
     'subscriptions.card.nextExpected': 'החיוב הצפוי הבא: {date}',
     'subscriptions.card.alreadyScheduled': 'כבר מוגדר כתנועה קבועה',
-    'subscriptions.card.looksScheduled':
-      'נראה שכבר מוגדר כתנועה קבועה בשם ״{description}״',
+    'subscriptions.card.looksScheduled': 'נראה שכבר מוגדר כתנועה קבועה בשם ״{description}״',
     'subscriptions.card.confidence': 'רמת ודאות',
     'subscriptions.card.confirm': 'אישור',
     'subscriptions.card.dismiss': 'דחייה',
@@ -162,8 +156,7 @@ export const subscriptionsMessages: Dictionary<typeof en> = {
     'subscriptions.evidence.column.gap': 'מרווח',
     'subscriptions.evidence.gapDays': '{count} ימ׳',
     'subscriptions.evidence.olderCharges.one': 'גם חיוב ישן אחד נוסף הותאם.',
-    'subscriptions.evidence.olderCharges.other':
-      'גם {count} חיובים ישנים נוספים הותאמו.',
+    'subscriptions.evidence.olderCharges.other': 'גם {count} חיובים ישנים נוספים הותאמו.',
     'subscriptions.evidence.userEdited':
       'ערכת את הנתונים האלה ב־{date}. הזיהוי ממשיך לרענן את החיובים שלמעלה, אבל כבר לא דורס את הסכום, התדירות או השם שקבעת.',
     'subscriptions.reason.matched':
@@ -173,8 +166,7 @@ export const subscriptionsMessages: Dictionary<typeof en> = {
     'subscriptions.reason.spacing':
       'המרווחים משתנים ב־{days} ימים ({ratio} מהמרווח האופייני) — הזיהוי פוסל כל מה שמעל {tolerance}.',
     'subscriptions.reason.sameAmount': 'כל חיוב היה בסך {amount}.',
-    'subscriptions.reason.amountRange':
-      'החיובים נעו בין {min} ל־{max}, ובממוצע {average}.',
+    'subscriptions.reason.amountRange': 'החיובים נעו בין {min} ל־{max}, ובממוצע {average}.',
     'subscriptions.reason.confidence': 'מכאן רמת ודאות של {confidence}.',
   },
 };

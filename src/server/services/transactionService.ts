@@ -48,14 +48,14 @@ type CategoryMappingChange = {
   categoryId: string;
 };
 
-export interface TransactionFileView {
+export type TransactionFileView = {
   id: string;
   fileName: string;
   previewFileUrl: string;
   downloadableFileUrl: string;
   fileSize: number;
   mimeType: string;
-}
+};
 
 class TransactionService {
   private getCategorySuggester = lazy(() => AIServiceFactory.getCategorySuggester());

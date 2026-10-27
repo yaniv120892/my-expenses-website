@@ -34,13 +34,13 @@ import { ALL_CATEGORIES } from './trendFilters';
 
 const SELECTABLE_PERIODS: readonly TrendPeriod[] = ['weekly', 'monthly', 'yearly'];
 
-interface TrendFiltersDialogProps extends TrendFilters {
+type TrendFiltersDialogProps = {
   open: boolean;
   onClose: () => void;
   onApply: (filters: TrendFilters) => void;
   categories: Category[];
   showComparisonFields: boolean;
-}
+} & TrendFilters;
 
 export const TrendFiltersDialog = ({
   open,

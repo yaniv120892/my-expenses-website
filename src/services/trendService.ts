@@ -9,22 +9,22 @@ import type {
 import api from './api';
 import { toDayString } from '@/shared/dates';
 
-interface GetTrendsParams {
+type GetTrendsParams = {
   startDate?: Date;
   endDate?: Date;
   period: TrendPeriod;
   categoryId?: string;
   transactionType?: TransactionType;
-}
+};
 
-export interface GetComparisonParams {
+export type GetComparisonParams = {
   startDate: Date;
   endDate: Date;
   period: TrendPeriod;
   categoryIds: string[];
   scope: ComparisonScope;
   transactionType?: TransactionType;
-}
+};
 
 export async function fetchSpendingTrends(params: GetTrendsParams): Promise<SpendingTrend> {
   const queryParams = {

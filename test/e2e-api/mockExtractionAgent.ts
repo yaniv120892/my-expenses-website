@@ -10,12 +10,12 @@ const CALLBACK_DELAY_MS = 150;
 // limitation.
 let callbackChain: Promise<void> = Promise.resolve();
 
-export interface ExtractionRequestRecord {
+export type ExtractionRequestRecord = {
   fileUrl: string;
   filename: string;
   userId: string;
   webhookUrl: string;
-}
+};
 
 let requests: ExtractionRequestRecord[] = [];
 let requestCounter = 0;

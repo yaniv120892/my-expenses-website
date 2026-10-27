@@ -20,10 +20,10 @@ import { useT } from '@/i18n/useT';
 import { formatBucketLabel, selectMeasure, seriesColor } from '@/utils/comparison';
 import { useIsMobile } from '@/hooks/useBreakpoints';
 
-interface Props {
+type Props = {
   comparison: CategoryComparison;
   measure: ComparisonMeasure;
-}
+};
 
 function SeriesDot({ color }: { color: string }) {
   return (

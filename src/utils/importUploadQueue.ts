@@ -6,7 +6,7 @@ export type UploadItemStatus = 'queued' | 'uploading' | 'processing' | 'succeede
 export type UploadItemError =
   { code: 'INVALID_PAYMENT_MONTH' } | { code: 'REQUEST_FAILED'; message: string | null };
 
-export interface UploadItem {
+export type UploadItem = {
   id: string;
   file: File;
   paymentMonth: string;
@@ -16,12 +16,12 @@ export interface UploadItem {
   fileUrl?: string;
   importId?: string;
   error?: UploadItemError;
-}
+};
 
-export interface UploadQueueState {
+export type UploadQueueState = {
   items: UploadItem[];
   nextSeq: number;
-}
+};
 
 export type UploadQueueAction =
   | { type: 'ADD_FILES'; files: File[]; paymentMonth: string }

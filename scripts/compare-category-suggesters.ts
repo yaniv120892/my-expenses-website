@@ -30,15 +30,15 @@ const GATEWAY_OPENAI_BASE_URL = 'https://ai-gateway.vercel.sh/v1';
 // A key that is wrong fails every row the same way; three in a row is enough.
 const CONSECUTIVE_ERRORS_TO_ABORT = 3;
 
-interface NamedSuggester {
+type NamedSuggester = {
   label: string;
   suggester: CategorySuggester;
-}
+};
 
-interface Run {
+type Run = {
   model: string;
   decisions: Decision[];
-}
+};
 
 async function main(): Promise<void> {
   const options = parseBenchmarkArguments(process.argv.slice(2));

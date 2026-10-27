@@ -21,13 +21,13 @@ import type { T } from '@/i18n/useT.types';
 import { ALL_CATEGORIES, shouldReverseNewestFirstAxis, valueAxisOrientation } from './trendFilters';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
 
-interface OverallTrendCardProps {
+type OverallTrendCardProps = {
   trend: SpendingTrend;
   selectedCategory: string;
   categories: Category[];
   transactionType: TransactionType;
   period: TrendPeriod;
-}
+};
 
 export const OverallTrendCard = ({
   trend,

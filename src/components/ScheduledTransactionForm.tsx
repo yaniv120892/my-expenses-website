@@ -34,13 +34,13 @@ import {
 import { scheduleSummary, useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   open: boolean;
   onCloseAction: () => void;
   onSubmitAction: (data: CreateScheduledTransactionInput) => Promise<void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: ScheduledTransaction | null;
-}
+};
 
 const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   description: '',

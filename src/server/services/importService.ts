@@ -66,30 +66,30 @@ const STALE_TRANSACTION_ID_ERROR = 'Not found, not pending, or not in this impor
 
 const STUCK_IMPORT_ERROR = `Extraction did not report back within ${WEBHOOK_TOKEN_EXPIRY_HOURS} hours. Delete this import and upload the statement again.`;
 
-interface BatchResult {
+type BatchResult = {
   total: number;
   succeeded: number;
   failed: number;
   errors: { id: string; error: string }[];
-}
+};
 
 // `value` is an ILS amount the user typed; absent, the row's own stands.
-interface ApproveImportedTransactionData {
+type ApproveImportedTransactionData = {
   description: string;
   value?: number;
   date: Date;
   type: TransactionType;
   categoryId: string | null;
-}
+};
 
-interface MergeImportedTransactionData {
+type MergeImportedTransactionData = {
   description: string;
   value?: number;
   date: Date;
   type: TransactionType;
   // Absent means keep the matched transaction's existing category.
   categoryId?: string;
-}
+};
 
 type MatchableTransaction = MatchableCharge & {
   id: string;

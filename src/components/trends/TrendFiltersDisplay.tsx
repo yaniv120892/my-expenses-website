@@ -8,7 +8,7 @@ import { useT } from '@/i18n/useT';
 import type { T } from '@/i18n/useT.types';
 import { ALL_CATEGORIES } from './trendFilters';
 
-interface TrendFiltersDisplayProps {
+type TrendFiltersDisplayProps = {
   period: TrendPeriod;
   startDate: Date;
   endDate: Date;
@@ -19,7 +19,7 @@ interface TrendFiltersDisplayProps {
   view: TrendsView;
   categories: Category[];
   onOpenFilters: () => void;
-}
+};
 
 export const TrendFiltersDisplay = ({
   period,

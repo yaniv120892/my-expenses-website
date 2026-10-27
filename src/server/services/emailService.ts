@@ -3,11 +3,11 @@ import { lazy } from '@/server/lib/lazy';
 import { optionalEnv, requireEnv } from '@/server/env';
 import logger from '@/server/logging/logger';
 
-export interface EmailAttachment {
+export type EmailAttachment = {
   filename: string;
   content: Buffer;
   contentType: string;
-}
+};
 
 class EmailService {
   private getTransporter = lazy(() =>

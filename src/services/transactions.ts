@@ -22,10 +22,10 @@ function listFilters(params?: TransactionFilters) {
   };
 }
 
-export interface TransactionsPage {
+export type TransactionsPage = {
   items: Transaction[];
   nextCursor: string | null;
-}
+};
 
 export async function getTransactionsPage(
   params?: TransactionFilters,
@@ -79,13 +79,13 @@ export async function exportTransactionsCsv(
   };
 }
 
-export interface CreateTransactionResponse {
+export type CreateTransactionResponse = {
   id: string;
   suggestedCategory?: {
     id: string;
     name: string;
   };
-}
+};
 
 export async function createTransaction(
   data: CreateTransactionInput,

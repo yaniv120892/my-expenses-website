@@ -24,7 +24,7 @@ import type { ComparisonChartMode } from '@/components/trends/ComparisonChart';
 import { COMPARISON_CHART_MODES, ComparisonChart } from '@/components/trends/ComparisonChart';
 import { ComparisonTable } from '@/components/trends/ComparisonTable';
 
-interface Props {
+type Props = {
   comparison?: CategoryComparison;
   isLoading: boolean;
   isError: boolean;
@@ -32,7 +32,7 @@ interface Props {
   measure: ComparisonMeasure;
   onMeasureChange: (measure: ComparisonMeasure) => void;
   onOpenFilters: () => void;
-}
+};
 
 const CROWDED_BUCKET_COUNT = 40;
 

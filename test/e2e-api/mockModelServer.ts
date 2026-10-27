@@ -3,17 +3,17 @@ import http from 'http';
 // A scripted OpenAI-compatible model: every request is recorded, so a check can
 // assert which tools ran and that reported figures came from the tool result.
 
-export interface RecordedToolCall {
+export type RecordedToolCall = {
   name: string;
   args: unknown;
-}
+};
 
-export interface McpRecording {
+export type McpRecording = {
   requestCount: number;
   toolCalls: RecordedToolCall[];
   toolResults: string[];
   toolsOffered: string[];
-}
+};
 
 const emptyRecording = (): McpRecording => ({
   requestCount: 0,
@@ -34,11 +34,11 @@ export function resetRecording(): void {
   recording = emptyRecording();
 }
 
-interface ChatMessage {
+type ChatMessage = {
   role: string;
   content?: unknown;
   tool_calls?: unknown[];
-}
+};
 
 function textOf(content: unknown): string {
   if (typeof content === 'string') {

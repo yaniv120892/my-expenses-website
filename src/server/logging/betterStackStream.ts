@@ -13,10 +13,10 @@ const buffer: LogRecord[] = [];
 let droppedRecords = 0;
 let eagerFlush: Promise<void> | null = null;
 
-interface ShippingConfig {
+type ShippingConfig = {
   url: string;
   token: string;
-}
+};
 
 function shippingConfig(): ShippingConfig | null {
   const url = optionalEnv('BETTERSTACK_SOURCE_URL');

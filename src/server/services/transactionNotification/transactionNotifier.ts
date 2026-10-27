@@ -4,7 +4,7 @@ export enum TransactionNotifierType {
   TELEGRAM = 'TELEGRAM',
 }
 
-export interface TransactionNotifier {
+export type TransactionNotifier = {
   notifyTransactionCreated(transaction: Transaction, userId: string): Promise<void>;
   sendDailySummary(dailySummary: string, userId: string): Promise<void>;
-}
+};

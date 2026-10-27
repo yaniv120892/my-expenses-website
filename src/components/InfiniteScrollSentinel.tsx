@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 
-interface Props {
+type Props = {
   hasMore: boolean;
   loading: boolean;
   onLoadMore: () => void;
-}
+};
 
 // Re-armed whenever hasMore/loading change, so a fetch in flight cannot queue a
 // second request for the same page.

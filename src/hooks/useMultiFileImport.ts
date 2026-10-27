@@ -22,11 +22,11 @@ import type { UploadRunnerApi } from '@/utils/importUploadRunner';
 import { runUploadBatch } from '@/utils/importUploadRunner';
 import { useT } from '@/i18n/useT';
 
-interface UseMultiFileImportOptions {
+type UseMultiFileImportOptions = {
   onAllSucceeded?: () => void;
-}
+};
 
-export interface UseMultiFileImportResult {
+export type UseMultiFileImportResult = {
   items: UploadItem[];
   isRunning: boolean;
   summary: BatchResult | null;
@@ -41,7 +41,7 @@ export interface UseMultiFileImportResult {
   retryItem: (id: string) => void;
   retryAllFailed: () => void;
   reset: () => void;
-}
+};
 
 const uploadRunnerApi: UploadRunnerApi = {
   uploadImportFile: (formData, onProgress) => importService.uploadImportFile(formData, onProgress),

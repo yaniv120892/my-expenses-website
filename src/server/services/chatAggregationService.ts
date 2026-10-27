@@ -7,10 +7,10 @@ import type {
 import { formatAmountWithOriginal, formatCurrencyPlain } from '@/utils/format';
 import { toUtcDayString } from '@/shared/dates';
 
-export interface ComparisonPeriodTotals {
+export type ComparisonPeriodTotals = {
   label: string;
   totals: TransactionSummary;
-}
+};
 
 class ChatAggregationService {
   /**

@@ -13,8 +13,8 @@ export type TotalsAggregationType = Extract<AggregationType, 'total' | 'average'
 // The aggregations that need the rows themselves (bounded by the read cap).
 export type RowAggregationType = Exclude<AggregationType, TotalsAggregationType>;
 
-export interface AggregationResult {
+export type AggregationResult = {
   summary: string;
   data: Record<string, number | string>;
   transactionCount: number;
-}
+};

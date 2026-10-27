@@ -4,7 +4,7 @@ import type { UploadItem, UploadItemError, UploadQueueAction } from '@/utils/imp
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
-export interface UploadRunnerApi {
+export type UploadRunnerApi = {
   uploadImportFile(
     formData: FormData,
     onProgress?: (progress: number) => void,
@@ -14,7 +14,7 @@ export interface UploadRunnerApi {
     originalFileName: string,
     paymentMonth?: string,
   ): Promise<{ id: string }>;
-}
+};
 
 export type UploadDispatch = (action: UploadQueueAction) => void;
 

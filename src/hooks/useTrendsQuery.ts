@@ -7,13 +7,13 @@ import {
 } from '../services/trendService';
 import type { TrendPeriod, TransactionType } from '@/types/trends';
 
-interface TrendParams {
+type TrendParams = {
   startDate?: Date;
   endDate?: Date;
   period: TrendPeriod;
   categoryId?: string;
   transactionType?: TransactionType;
-}
+};
 
 export const trendKeys = {
   all: ['trends'] as const,

@@ -17,14 +17,14 @@ import type { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   subscription: DetectedSubscription;
   onConfirm: (id: string) => void;
   onDismiss: (id: string) => void;
   onConvert: (subscription: DetectedSubscription) => void;
   onEdit: (subscription: DetectedSubscription) => void;
   onExplain: (subscription: DetectedSubscription) => void;
-}
+};
 
 function frequencyColor(frequency: string): 'primary' | 'secondary' | 'warning' {
   switch (frequency) {

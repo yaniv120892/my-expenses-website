@@ -22,12 +22,12 @@ const execFileAsync = promisify(execFile);
 
 const APP_PORT = Number(process.env.PORT || 3000);
 
-interface Frame {
+type Frame = {
   at: number;
   type: string;
   value?: string;
   message?: string;
-}
+};
 
 const results: { name: string; ok: boolean; detail: string }[] = [];
 
@@ -137,11 +137,11 @@ async function query<T = Record<string, unknown>>(
   }
 }
 
-interface ApiResult {
+type ApiResult = {
   status: number;
   headers: Headers;
   body: unknown;
-}
+};
 
 async function api(
   method: string,
@@ -780,12 +780,12 @@ async function excelWebhookFlow(userId: string): Promise<void> {
   }
 }
 
-interface ImportRecord {
+type ImportRecord = {
   id: string;
   status: ImportStatus;
   creditCardLastFourDigits: string | null;
   mergedIntoImportId?: string | null;
-}
+};
 
 function randomCardDigits(): string {
   return String(Math.floor(1000 + Math.random() * 9000));

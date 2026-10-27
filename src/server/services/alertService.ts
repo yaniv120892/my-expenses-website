@@ -3,12 +3,12 @@ import { optionalEnv } from '@/server/env';
 import { incrementWithTtl } from '@/server/redis';
 import { escapeMarkdown, telegramService } from '@/server/services/telegramService';
 
-export interface OpsAlert {
+export type OpsAlert = {
   alertType: string;
   title: string;
   err?: unknown;
   context?: Record<string, string | number | undefined>;
-}
+};
 
 const ALERTS_PER_HOUR = 5;
 const SUPPRESSION_NOTICE_COUNT = ALERTS_PER_HOUR + 1;

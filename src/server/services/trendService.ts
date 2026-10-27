@@ -24,12 +24,12 @@ type PeriodQuery = {
   categoryIds?: string[];
 };
 
-interface CategoryTrendData {
+type CategoryTrendData = {
   points: CategoryTrendPoint[];
   totalAmount: number;
   categoryName: string;
   childCategories: Set<string>;
-}
+};
 
 class TrendService {
   public async getSpendingTrends(

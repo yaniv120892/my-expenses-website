@@ -12,9 +12,9 @@ import {
 } from '@/server/services/ai/prompts';
 import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
-interface JevProvider {
+type JevProvider = {
   evaluationModel(modelId: string): Experimental_EvaluationModel;
-}
+};
 
 // The same model has a different id on each route.
 const DEFAULT_GATEWAY_JEV_MODEL = 'typesafe-ai/jev';

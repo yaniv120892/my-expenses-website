@@ -5,10 +5,10 @@ import type {
   NamedCategoryTotal,
 } from '@/server/utils/categoryHierarchy.types';
 
-export interface CategoryNode {
+export type CategoryNode = {
   id: string;
   parentId?: string | null;
-}
+};
 
 function buildChildrenIndex(categories: CategoryNode[]): Map<string, string[]> {
   const childrenByParent = new Map<string, string[]>();

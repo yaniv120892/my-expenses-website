@@ -10,14 +10,14 @@ import logger from '@/server/logging/logger';
 import { formatCurrency } from '@/utils/format';
 import { MONTH_FORMAT } from '@/shared/dates';
 
-interface CategoryTotal {
+type CategoryTotal = {
   categoryName: string;
   income: number;
   expense: number;
   count: number;
-}
+};
 
-export interface MonthlyReportOutcome {
+export type MonthlyReportOutcome = {
   sent: boolean;
   monthLabel: string;
   /** `MONTH_FORMAT`, for a caller that labels the month in its own language. */
@@ -25,9 +25,9 @@ export interface MonthlyReportOutcome {
   transactionCount: number;
   recipient?: string;
   reason?: 'NO_SETTINGS' | 'NO_TRANSACTIONS';
-}
+};
 
-interface MonthlyReport {
+type MonthlyReport = {
   monthLabel: string;
   totalIncome: number;
   totalExpense: number;
@@ -36,7 +36,7 @@ interface MonthlyReport {
   expenseChangePercentage: number;
   expenseTrend: TrendDirection;
   categories: CategoryTotal[];
-}
+};
 
 class MonthlyReportService {
   public async sendMonthlyReportToAllUsers(referenceDate: Date = new Date()): Promise<void> {

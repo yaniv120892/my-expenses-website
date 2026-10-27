@@ -12,16 +12,16 @@ import { withVerifyFullSslMode } from '@/server/db/sslMode';
 // Hashed, so a local run can sign in through the login form.
 export const SEED_PASSWORD = 'local-dev-password';
 
-export interface SeededUser {
+export type SeededUser = {
   id: string;
   email: string;
   token: string;
-}
+};
 
-export interface SeedResult {
+export type SeedResult = {
   userA: SeededUser;
   userB: SeededUser;
-}
+};
 
 // Deliberately carries no encryption extension, so what it writes is whatever
 // it was handed.

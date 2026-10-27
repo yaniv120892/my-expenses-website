@@ -1,18 +1,18 @@
 import type { SubscriptionScheduleMatch } from '@/shared/types/subscription';
 import { normalizeMerchantName } from '@/server/utils/merchantNormalizer';
 
-export interface MatchableSchedule {
+export type MatchableSchedule = {
   id: string;
   description: string;
   value: number;
   scheduleType: SubscriptionScheduleMatch['scheduleType'];
   nextRunDate?: Date | null;
-}
+};
 
-export interface IndexedSchedule {
+export type IndexedSchedule = {
   schedule: MatchableSchedule;
   merchantKey: string;
-}
+};
 
 /** Normalizes once per request so the per-subscription scan stays regex-free. */
 export function indexSchedules(schedules: MatchableSchedule[]): IndexedSchedule[] {

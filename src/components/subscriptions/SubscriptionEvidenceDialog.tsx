@@ -25,11 +25,11 @@ import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { buildEvidenceReasons, withChargeGaps } from '@/utils/subscriptionEvidence';
 
-interface Props {
+type Props = {
   open: boolean;
   subscription: DetectedSubscription | null;
   onClose: () => void;
-}
+};
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (

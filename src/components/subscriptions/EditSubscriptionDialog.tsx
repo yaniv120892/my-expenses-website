@@ -26,23 +26,23 @@ import { useT } from '@/i18n/useT';
 import { toMonthlyAmount, toAnnualAmount } from '@/utils/subscriptionMath';
 import { isOneOf } from '@/utils/oneOf';
 
-interface Props {
+type Props = {
   open: boolean;
   subscription: DetectedSubscription | null;
   onClose: () => void;
   onSave: (id: string, payload: UpdateSubscriptionPayload) => void;
   isLoading: boolean;
   error?: string;
-}
+};
 
-interface FormState {
+type FormState = {
   displayName: string;
   amount: string;
   frequency: SubscriptionFrequency;
   lastChargeDate: string;
   nextExpectedDate: string;
   categoryId: string;
-}
+};
 
 function toDateInput(value: string): string {
   return new Date(value).toISOString().slice(0, 10);

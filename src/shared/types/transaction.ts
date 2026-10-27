@@ -4,7 +4,7 @@ export type TransactionStatus = 'APPROVED' | 'PENDING_APPROVAL';
 
 export type TransactionFileStatus = 'ACTIVE' | 'MARKED_FOR_DELETION' | 'DELETED';
 
-export interface TransactionFile {
+export type TransactionFile = {
   id: string;
   transactionId: string;
   fileName: string;
@@ -14,7 +14,7 @@ export interface TransactionFile {
   status: TransactionFileStatus;
   createdAt: Date;
   updatedAt: Date;
-}
+};
 
 export type ExchangeRateSource = 'STATEMENT' | 'BANK_OF_ISRAEL' | 'MANUAL';
 
@@ -39,7 +39,7 @@ export type TransactionAmountInput = {
   exchangeRate?: number;
 };
 
-export interface CreateTransaction extends TransactionAmountInput {
+export type CreateTransaction = {
   description: string;
   /** Set by a caller that already decided the conversion, such as an import. */
   resolvedAmount?: TransactionAmount;
@@ -49,9 +49,9 @@ export interface CreateTransaction extends TransactionAmountInput {
   status?: TransactionStatus;
   scheduledTransactionId?: string;
   userId: string;
-}
+} & TransactionAmountInput;
 
-export interface TransactionSummaryFilters {
+export type TransactionSummaryFilters = {
   startDate?: Date;
   endDate?: Date;
   categoryId?: string;
@@ -64,12 +64,12 @@ export interface TransactionSummaryFilters {
   searchTerm?: string;
   status?: TransactionStatus;
   userId: string;
-}
+};
 
-export interface TransactionFilters extends TransactionSummaryFilters {
+export type TransactionFilters = {
   page: number;
   perPage: number;
-}
+} & TransactionSummaryFilters;
 
 // The cursor is opaque; only the repository that issued it may decode it.
 export type TransactionListFilters = TransactionSummaryFilters &
@@ -78,16 +78,16 @@ export type TransactionListFilters = TransactionSummaryFilters &
     limit: number;
   };
 
-export interface TransactionListPage {
+export type TransactionListPage = {
   items: Transaction[];
   nextCursor: string | null;
-}
+};
 
-export interface TransactionItem {
+export type TransactionItem = {
   id: string;
-}
+};
 
-export interface Transaction extends TransactionAmount {
+export type Transaction = {
   id: string;
   description: string;
   date: Date;
@@ -98,15 +98,15 @@ export interface Transaction extends TransactionAmount {
     name: string;
   };
   files?: TransactionFile[];
-}
+} & TransactionAmount;
 
-export interface TransactionSummary {
+export type TransactionSummary = {
   totalIncome: number;
   totalExpense: number;
   count: number;
   incomeCount: number;
   expenseCount: number;
-}
+};
 
 /** One top-level category's share of the filtered rows' total. */
 export type CategoryBreakdownItem = {
@@ -116,13 +116,13 @@ export type CategoryBreakdownItem = {
   percentage: number;
 };
 
-export interface CreateTransactionResult {
+export type CreateTransactionResult = {
   id: string;
   suggestedCategory?: {
     id: string;
     name: string;
   };
-}
+};
 
 /** The server-side result, carrying the stored row so no caller re-reads it. */
 export type CreatedTransaction = CreateTransactionResult & {

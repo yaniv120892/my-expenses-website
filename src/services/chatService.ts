@@ -1,11 +1,11 @@
 import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
 
-export interface StreamHandlers {
+export type StreamHandlers = {
   onDelta: (delta: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
-}
+};
 
 // Bypasses the shared axios client, which buffers the whole response body.
 export const streamMessage = async (

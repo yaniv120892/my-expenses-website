@@ -13,10 +13,10 @@ import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 
-export interface WebhookResult {
+export type WebhookResult = {
   status: number;
   body: { success: boolean; message?: string; error?: string };
-}
+};
 
 // Enough to find the import this callback is about, and nothing more: the
 // result is validated separately, after the import is in hand, so a shape

@@ -36,14 +36,14 @@ const ICONS: Record<AnnouncementIcon, typeof AutoAwesomeRoundedIcon> = {
   sparkle: AutoAwesomeRoundedIcon,
 };
 
-interface Props {
+type Props = {
   open: boolean;
   announcements: AnnouncementWithSeen[];
   // When true the only way out is the action button — no Escape, no backdrop.
   requireAcknowledgement: boolean;
   onAcknowledge: () => void;
   onClose: () => void;
-}
+};
 
 function ItemRow({
   item,

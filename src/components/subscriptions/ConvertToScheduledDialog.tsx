@@ -17,13 +17,13 @@ import type { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   open: boolean;
   subscription: DetectedSubscription | null;
   onClose: () => void;
   onConvert: (id: string, categoryId: string) => void;
   isLoading: boolean;
-}
+};
 
 export default function ConvertToScheduledDialog({
   open,

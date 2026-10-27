@@ -24,11 +24,11 @@ export const COMPARISON_CHART_MODES = ['grouped', 'stacked', 'lines'] as const;
 
 export type ComparisonChartMode = (typeof COMPARISON_CHART_MODES)[number];
 
-interface Props {
+type Props = {
   comparison: CategoryComparison;
   measure: ComparisonMeasure;
   mode: ComparisonChartMode;
-}
+};
 
 function ChartTooltip({
   active,

@@ -18,7 +18,7 @@ type DetectedSubscriptionRow = DetectedSubscription & {
   category?: Pick<Category, 'id' | 'name'> | null;
 };
 
-export interface DetectionInput {
+export type DetectionInput = {
   userId: string;
   merchantName: string;
   displayName: string;
@@ -31,28 +31,28 @@ export interface DetectionInput {
   confidence: number;
   categoryId?: string;
   detectionEvidence: SubscriptionDetectionEvidence;
-}
+};
 
 export type UpdateSubscriptionFields = UpdateSubscriptionInput & {
   annualCost?: number;
 };
 
-interface ExistingDetectionRow {
+type ExistingDetectionRow = {
   id: string;
   frequency: SubscriptionFrequency;
   status: SubscriptionStatus;
   userEditedAt: Date | null;
-}
+};
 
 /** What buildAuditMessage needs; the evidence blob would dwarf it. */
-export interface SubscriptionAuditRow {
+export type SubscriptionAuditRow = {
   userId: string;
   displayName: string;
   averageAmount: number;
   frequency: SubscriptionFrequency;
   annualCost: number;
   status: SubscriptionStatus;
-}
+};
 
 const withCategory = {
   category: { select: { id: true, name: true } },

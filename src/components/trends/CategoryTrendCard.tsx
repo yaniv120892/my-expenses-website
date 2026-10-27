@@ -29,13 +29,13 @@ import { useT } from '@/i18n/useT';
 import { ChangeFromPrevious } from './ChangeFromPrevious';
 import { shouldReverseNewestFirstAxis, valueAxisOrientation } from './trendFilters';
 
-interface CategoryTrendCardProps {
+type CategoryTrendCardProps = {
   trend: CategorySpendingTrend;
   transactionType: TransactionType;
   period: TrendPeriod;
   isExpanded: boolean;
   onExpand: (categoryId: string) => void;
-}
+};
 
 export const CategoryTrendCard = ({
   trend,

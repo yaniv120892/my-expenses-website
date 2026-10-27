@@ -39,15 +39,15 @@ type ErrorDescription = { status: number; message: string; code?: string };
 
 const uuidRouteParamsSchema = z.record(z.string(), recordIdSchema);
 
-export interface HandlerContext<TBody, TQuery, TParams = Record<string, string>> {
+export type HandlerContext<TBody, TQuery, TParams = Record<string, string>> = {
   req: NextRequest;
   userId: string;
   body: TBody;
   query: TQuery;
   params: TParams;
-}
+};
 
-interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
+type BaseHandlerOptions<TBody, TQuery, TResult, TParams> = {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, unknown>;
@@ -55,7 +55,7 @@ interface BaseHandlerOptions<TBody, TQuery, TResult, TParams> {
   paramsSchema?: ZodType<TParams, unknown>;
   status?: number;
   handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
-}
+};
 
 type RateLimitResolver<TBody, TQuery, TParams = Record<string, string>> = (
   handlerContext: HandlerContext<TBody, TQuery, TParams>,

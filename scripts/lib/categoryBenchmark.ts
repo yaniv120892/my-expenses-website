@@ -10,12 +10,12 @@ export const GATEWAY_MODEL_PREFIX = 'openai/';
 
 export type Suggester = 'jev' | 'llm';
 
-export interface BenchmarkArguments {
+export type BenchmarkArguments = {
   samplesPath: string;
   outPath: string | null;
   only: Suggester | null;
   repeat: number;
-}
+};
 
 const suggesterSchema = z.enum(['jev', 'llm']);
 
@@ -90,7 +90,7 @@ export function toCategories(names: string[]): Category[] {
   return names.map((name, index) => ({ id: `cat-${index}`, name }));
 }
 
-export interface Decision {
+export type Decision = {
   /** The model's normalized answer, kept even when it names no offered category. */
   answer: string | null;
   categoryId: string | null;
@@ -99,12 +99,12 @@ export interface Decision {
   outputTokens: number | null;
   probability: number | null;
   error: string | null;
-}
+};
 
-export interface Score {
+export type Score = {
   exact: boolean;
   acceptable: boolean;
-}
+};
 
 export function scoreDecision(sample: Sample, decision: Decision): Score {
   const chosen = decision.categoryId === null ? null : decision.answer;
@@ -114,10 +114,10 @@ export function scoreDecision(sample: Sample, decision: Decision): Score {
   };
 }
 
-export interface Price {
+export type Price = {
   input: number;
   output: number;
-}
+};
 
 /** USD per million tokens, list prices; edit when they move. */
 export function modelPrices(now: Date): Record<string, Price> {
@@ -140,7 +140,7 @@ export function priceFor(model: string, prices: Record<string, Price>): Price | 
   return prices[bareModel];
 }
 
-export interface Summary {
+export type Summary = {
   model: string;
   decisions: number;
   /** Decisions that got an answer; accuracy, latency and cost are over these. */
@@ -154,7 +154,7 @@ export interface Summary {
   outputTokens: number;
   runCostUsd: number | null;
   costPer1000Usd: number | null;
-}
+};
 
 export function summarize(
   model: string,

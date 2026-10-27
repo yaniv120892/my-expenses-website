@@ -13,11 +13,11 @@ const MAX_EVIDENCE_CHARGES = 12;
 // which date-fns' whole-day helpers would round away.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-interface FrequencyWindow {
+type FrequencyWindow = {
   frequency: SubscriptionFrequency;
   min: number;
   max: number;
-}
+};
 
 const FREQUENCY_WINDOWS: FrequencyWindow[] = [
   { frequency: 'WEEKLY', min: 5, max: 9 },
@@ -36,19 +36,19 @@ function frequencyWindow(frequency: SubscriptionFrequency): {
   return { min: window.min, max: window.max };
 }
 
-export interface MerchantCharge {
+export type MerchantCharge = {
   description: string;
   value: number;
   date: Date;
   categoryId?: string;
-}
+};
 
-export interface MerchantGroup {
+export type MerchantGroup = {
   merchantKey: string;
   charges: MerchantCharge[];
-}
+};
 
-export interface DetectedPattern {
+export type DetectedPattern = {
   merchantKey: string;
   displayName: string;
   frequency: SubscriptionFrequency;
@@ -60,7 +60,7 @@ export interface DetectedPattern {
   confidence: number;
   categoryId?: string;
   evidence: SubscriptionDetectionEvidence;
-}
+};
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);

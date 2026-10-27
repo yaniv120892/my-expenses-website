@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ObservabilityModule from '@/server/observability';
 
-const { incrementWithTtl } = vi.hoisted(() => ({ incrementWithTtl: vi.fn() }));
+const { incrementWithTtl, captureException } = vi.hoisted(() => ({
+  incrementWithTtl: vi.fn(),
+  captureException: vi.fn(),
+}));
 
 vi.mock('@/server/redis', () => ({ incrementWithTtl }));
+vi.mock('@sentry/nextjs', () => ({ captureException }));
 
 let observability: typeof ObservabilityModule.observability;
 
@@ -17,6 +21,7 @@ beforeEach(async () => {
     vi.fn(async () => new Response('{}')),
   );
   incrementWithTtl.mockReset();
+  captureException.mockReset();
   ({ observability } = await import('@/server/observability'));
 });
 
@@ -42,5 +47,22 @@ describe('ops alert cap', () => {
     await observability.notifyOpsAlert({ alertType: '5xx GET /api/transactions', title: 'boom' });
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('reportError', () => {
+  it('hands Sentry the context as extra and tags before it returns', () => {
+    const error = new Error('tool blew up');
+
+    observability.reportError({
+      error,
+      where: 'MCP tool failed',
+      context: { userId: 'user-1', toolName: 'add_transaction', token: 'mxk_secret' },
+    });
+
+    expect(captureException).toHaveBeenCalledWith(error, {
+      tags: { userId: 'user-1', toolName: 'add_transaction', where: 'MCP tool failed' },
+      extra: { userId: 'user-1', toolName: 'add_transaction', token: '[redacted]' },
+    });
   });
 });

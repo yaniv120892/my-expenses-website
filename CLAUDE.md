@@ -452,7 +452,10 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
   that catches an error and returns a fallback calls
   `observability.reportError({ error, where, context })`, not `logger.error`,
-  so the error outlives Better Stack's retention; Sentry tags it `where`.
+  so the error outlives Better Stack's retention; Sentry gets the `context` as
+  `extra` (secrets redacted) and its short primitive values as tags beside
+  `where`. `reportError` sets no Sentry user, so `createHandler` and the chat
+  stream keep their own `Sentry.captureException`, which attaches the user id.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call

@@ -103,11 +103,7 @@ describe('removeFile', () => {
       expect.objectContaining({
         error: storageError,
         where: expect.any(String),
-        context: expect.objectContaining({
-          fileKey: FILE_KEY,
-          transactionId: TRANSACTION_ID,
-          fileId: FILE_ID,
-        }),
+        context: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
       }),
     );
   });
@@ -186,7 +182,7 @@ describe('deleteTransaction', () => {
       expect.objectContaining({
         error: storageError,
         where: expect.any(String),
-        context: expect.objectContaining({ fileKey: FILE_KEY, transactionId: TRANSACTION_ID }),
+        context: expect.objectContaining({ transactionId: TRANSACTION_ID }),
       }),
     );
   });

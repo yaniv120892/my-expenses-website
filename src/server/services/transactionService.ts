@@ -507,10 +507,13 @@ class TransactionService {
       }
       await deleteAttachmentObject(fileKey);
     } catch (err) {
+      // The key ends with the uploaded file's name, so only the log carries it,
+      // for whoever cleans up the orphan; Sentry gets the record ids.
+      logger.warn({ fileKey, transactionId, fileId }, 'Attachment object left in storage');
       observability.reportError({
         error: err,
         where: 'Failed to delete attachment object from storage',
-        context: { fileKey, transactionId, fileId },
+        context: { transactionId, fileId },
       });
       return;
     }
@@ -523,7 +526,7 @@ class TransactionService {
       observability.reportError({
         error: err,
         where: 'Deleted attachment object but failed to mark its file DELETED',
-        context: { fileKey, transactionId, fileId },
+        context: { transactionId, fileId },
       });
     }
   }

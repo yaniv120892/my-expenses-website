@@ -38,16 +38,9 @@ describe('buildDownloadUrl', () => {
 
 describe('buildAttachmentKey', () => {
   it('keeps no part of the file name, only the id and the lowercased extension', () => {
-    const key = buildAttachmentKey('t', 'Leumi statement March.XLSX', 'id');
-
-    expect(key).toBe('transactions/t/id.xlsx');
-    for (const part of ['Leumi', 'statement', 'March']) {
-      expect(key.toLowerCase()).not.toContain(part.toLowerCase());
-    }
-  });
-
-  it('builds a bare id for a name without an extension', () => {
-    expect(buildAttachmentKey('t', 'receipt', 'id')).toBe('transactions/t/id');
+    expect(buildAttachmentKey('t', 'Leumi statement March.XLSX', 'id')).toBe(
+      'transactions/t/id.xlsx',
+    );
   });
 });
 

@@ -507,7 +507,7 @@ class TransactionService {
       }
       await deleteAttachmentObject(fileKey);
     } catch (err) {
-      // The key ends with the uploaded file's name and the error can quote it,
+      // An older key ends with the uploaded file's name and the error can quote it,
       // so both go only to the log, where the orphan is found and cleaned up.
       logger.warn({ err, fileKey, transactionId, fileId }, 'Attachment object left in storage');
       observability.reportError({

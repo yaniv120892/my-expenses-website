@@ -99,7 +99,7 @@ export function isAttachmentKeyForTransaction(fileKey: string, transactionId: st
 }
 
 export function buildAttachmentKey(transactionId: string, fileName: string, id: string): string {
-  return `${attachmentKeyPrefix(transactionId)}${buildStorageObjectName(fileName, id)}`;
+  return `${attachmentKeyPrefix(transactionId)}${buildStorageObjectName({ fileName, id })}`;
 }
 
 function attachmentKeyPrefix(transactionId: string): string {

@@ -7,9 +7,10 @@ describe('buildStorageObjectName', () => {
     ['march.2026.PDF', 'id.pdf'],
     ['.hidden', 'id'],
     ['scan.פדף', 'id'],
+    ['../כרטיס/אשראי #1 10%?.csv', 'id.csv'],
     ['photo.j p g', 'id'],
     ['archive.averyverylongextension', 'id'],
   ])('builds %j as %j', (fileName, expected) => {
-    expect(buildStorageObjectName(fileName, 'id')).toBe(expected);
+    expect(buildStorageObjectName({ fileName, id: 'id' })).toBe(expected);
   });
 });

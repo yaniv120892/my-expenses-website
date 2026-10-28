@@ -448,7 +448,10 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   errors only, no tracing or replay, and no identifying request data — its
   `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
   forwarding headers, or user identity, which the SDK otherwise collects by
-  default. The package's `initSentry` holds the single `Sentry.init`, run by
+  default. Outgoing request breadcrumbs keep only the URL's origin, method and
+  status, so an S3 call's key (which ends with the file name) never reaches
+  Sentry, and no URL keeps its query string; `src/instrumentation.test.ts`
+  pins this. The package's `initSentry` holds the single `Sentry.init`, run by
   `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
   (browser). `createHandler` reports every 5xx it turns an error into;
   `onRequestError` covers what escapes a route; React boundaries report via

@@ -101,7 +101,7 @@ describe('removeFile', () => {
     expect(markDeleted).not.toHaveBeenCalled();
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: storageError,
+        error: expect.objectContaining({ message: 'Attachment object delete failed: Error' }),
         where: expect.any(String),
         context: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
       }),
@@ -122,7 +122,7 @@ describe('removeFile', () => {
       expect.objectContaining({
         error: markError,
         where: 'Deleted attachment object but failed to mark its file DELETED',
-        context: expect.objectContaining({ fileId: FILE_ID }),
+        context: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
       }),
     );
   });
@@ -180,9 +180,9 @@ describe('deleteTransaction', () => {
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: storageError,
+        error: expect.objectContaining({ message: 'Attachment object delete failed: Error' }),
         where: expect.any(String),
-        context: expect.objectContaining({ transactionId: TRANSACTION_ID }),
+        context: { transactionId: TRANSACTION_ID },
       }),
     );
   });

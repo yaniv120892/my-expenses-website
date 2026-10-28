@@ -327,10 +327,12 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   the database write, keeps one another `ACTIVE` row still names, and bounds the
   call at 5s. Storage is best effort: a failure logs a warning carrying the key,
   so the orphan can be found and removed, is reported via
-  `observability.reportError` with only the transaction and file ids, never
-  fails the request, and leaves a removed row `MARKED_FOR_DELETION`. Only `transactionService` knows the
-  keys, so a path that deletes transactions or files goes through it, and a
-  database-level delete it does not drive orphans their objects.
+  `observability.reportError` with no key or file name (a storage error can
+  quote one), never fails the request, and leaves a removed row
+  `MARKED_FOR_DELETION`. Only
+  `transactionService` knows the keys, so a path that deletes transactions or
+  files goes through it, and a database-level delete it does not drive orphans
+  their objects.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

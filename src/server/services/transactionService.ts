@@ -507,11 +507,11 @@ class TransactionService {
       }
       await deleteAttachmentObject(fileKey);
     } catch (err) {
-      // The key ends with the uploaded file's name, so only the log carries it,
-      // for whoever cleans up the orphan; Sentry gets the record ids.
-      logger.warn({ fileKey, transactionId, fileId }, 'Attachment object left in storage');
+      // The key ends with the uploaded file's name and the error can quote it,
+      // so both go only to the log, where the orphan is found and cleaned up.
+      logger.warn({ err, fileKey, transactionId, fileId }, 'Attachment object left in storage');
       observability.reportError({
-        error: err,
+        error: this.toNameOnlyError(err),
         where: 'Failed to delete attachment object from storage',
         context: { transactionId, fileId },
       });
@@ -529,6 +529,11 @@ class TransactionService {
         context: { transactionId, fileId },
       });
     }
+  }
+
+  private toNameOnlyError(err: unknown): Error {
+    const errorName = err instanceof Error ? err.name : typeof err;
+    return new Error(`Attachment object delete failed: ${errorName}`);
   }
 
   private async assertTransactionFileExists(

@@ -49,7 +49,13 @@ function loggedRecords(): Record<string, unknown>[] {
 }
 
 function sentryPayload(): string {
-  return JSON.stringify(captureException.mock.calls.map(([, captureContext]) => captureContext));
+  return JSON.stringify(
+    captureException.mock.calls.map(([error, captureContext]) => ({
+      message: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      captureContext,
+    })),
+  );
 }
 
 beforeEach(() => {
@@ -59,7 +65,11 @@ beforeEach(() => {
   process.env.TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID = 'key';
   process.env.TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY = 'secret';
   process.env.TRANSACTION_ATTACHMENT_S3_BUCKET_NAME = 'bucket';
-  send.mockRejectedValue(new Error('AccessDenied'));
+  send.mockRejectedValue(
+    Object.assign(new Error(`Not authorized to perform s3:DeleteObject on bucket/${FILE_KEY}`), {
+      name: 'AccessDenied',
+    }),
+  );
   getTransactionItem.mockResolvedValue({ id: TRANSACTION_ID });
   findById.mockResolvedValue({ id: FILE_ID, transactionId: TRANSACTION_ID, fileKey: FILE_KEY });
   markForDeletion.mockResolvedValue({});
@@ -77,10 +87,13 @@ describe('a failed attachment-object delete', () => {
   it('keeps the file name out of Sentry and the key in the log when removing a file', async () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
-    expect(captureException).toHaveBeenCalledWith(expect.any(Error), {
-      tags: expect.objectContaining({ transactionId: TRANSACTION_ID, fileId: FILE_ID }),
-      extra: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
-    });
+    expect(captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Attachment object delete failed: AccessDenied' }),
+      {
+        tags: expect.objectContaining({ transactionId: TRANSACTION_ID, fileId: FILE_ID }),
+        extra: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
+      },
+    );
     expect(sentryPayload()).not.toContain(FILE_NAME);
     expect(loggedRecords()).toContainEqual(
       expect.objectContaining({ fileKey: FILE_KEY, transactionId: TRANSACTION_ID }),

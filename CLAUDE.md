@@ -325,11 +325,14 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   object is gone; deleting a transaction returns the keys its cascade dropped,
   read by the delete itself. `transactionService` deletes each object only after
   the database write, keeps one another `ACTIVE` row still names, and bounds the
-  call at 5s. Storage is best effort: a failure is reported via
-  `observability.reportError` with its key, never fails the request, and leaves a
-  removed row `MARKED_FOR_DELETION`. Only `transactionService` knows the
-  keys, so a path that deletes transactions or files goes through it, and a
-  database-level delete it does not drive orphans their objects.
+  call at 5s. Storage is best effort: a failure logs a warning carrying the key,
+  so the orphan can be found and removed, is reported via
+  `observability.reportError` with no key or file name (a storage error can
+  quote one), never fails the request, and leaves a removed row
+  `MARKED_FOR_DELETION`. Only
+  `transactionService` knows the keys, so a path that deletes transactions or
+  files goes through it, and a database-level delete it does not drive orphans
+  their objects.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -454,7 +457,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `observability.reportError({ error, where, context })`, not `logger.error`,
   so the error outlives Better Stack's retention; Sentry gets the `context` as
   `extra` and its short values as tags beside `where`, so the ids a call site
-  passes are searchable there.
+  passes are searchable there. Only ids and fixed labels go in `context` —
+  never a file name, an attachment key (it ends with one), an email or free
+  text; what a human needs beyond the ids goes in a separate `logger` line.
   `reportError` sets no Sentry user, so `createHandler` and the chat stream
   keep their own `Sentry.captureException`, which attaches the user id.
 - **Who reports a mutation's outcome is per component, not per prop name.**

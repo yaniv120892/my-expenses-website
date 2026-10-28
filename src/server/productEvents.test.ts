@@ -78,7 +78,15 @@ import { POST as processImport } from '@/app/api/imports/process/route';
 import { POST as chat } from '@/app/api/chat/route';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { signToken } from '@/server/auth/tokens';
+import { SESSION_COOKIE } from '@/server/auth/cookies';
 import TransactionsLayout from '@/app/(app)/transactions/layout';
+import DashboardLayout from '@/app/(app)/dashboard/layout';
+import PendingLayout from '@/app/(app)/pending/layout';
+import ScheduledLayout from '@/app/(app)/scheduled/layout';
+import SubscriptionsLayout from '@/app/(app)/subscriptions/layout';
+import ImportsLayout from '@/app/(app)/imports/layout';
+import TrendsLayout from '@/app/(app)/trends/layout';
+import SettingsLayout from '@/app/(app)/settings/layout';
 
 type SentEvent = {
   event: string;
@@ -250,7 +258,7 @@ describe('product events', () => {
     expect(await sentEvents()).toEqual([]);
   });
 
-  it('records a statement import', async () => {
+  it('records a statement uploaded for extraction', async () => {
     importService.processImport.mockResolvedValue({ id: 'import-1' });
 
     await processImport(
@@ -265,10 +273,10 @@ describe('product events', () => {
       ROUTE_CONTEXT,
     );
 
-    expect((await sentEvents()).map(({ event }) => event)).toEqual(['statement_imported']);
+    expect((await sentEvents()).map(({ event }) => event)).toEqual(['statement_uploaded']);
   });
 
-  it('records a message to the assistant', async () => {
+  it('records a message once the assistant has answered it', async () => {
     chatService.streamChatResponse.mockResolvedValue((async function* noReply() {})());
 
     const response = await chat(
@@ -281,6 +289,21 @@ describe('product events', () => {
     await response.text();
 
     expect((await sentEvents()).map(({ event }) => event)).toEqual(['assistant_message_sent']);
+  });
+
+  it('records no assistant message when the reply fails', async () => {
+    chatService.streamChatResponse.mockRejectedValue(new Error('model unavailable'));
+
+    const response = await chat(
+      jsonRequest({
+        path: '/api/chat',
+        body: { messages: [{ sender: 'user', text: 'How much did I spend?' }] },
+      }),
+      ROUTE_CONTEXT,
+    );
+    await response.text();
+
+    expect(await sentEvents()).toEqual([]);
   });
 
   it('records the agent’s tool call and the transaction it added, on the agent channel', async () => {
@@ -309,22 +332,54 @@ describe('product events', () => {
     ]);
   });
 
-  it('records a page view for the signed-in user when the page is entered', async () => {
-    requestCookies.set('session', await signToken(USER_ID));
+  it.each([
+    ['update_transaction', { id: TRANSACTION_ID, description: 'Tea' }, 'transaction_updated'],
+    ['delete_transaction', { id: TRANSACTION_ID }, 'transaction_deleted'],
+  ])('records the agent’s %s on the agent channel', async (tool, toolArguments, event) => {
+    categoryRepository.getAllCategories.mockResolvedValue([]);
+    transactionService.getTransactionItem.mockResolvedValue(AGENT_TRANSACTION);
+    transactionService.updateTransaction.mockResolvedValue(AGENT_TRANSACTION);
+    transactionService.deleteTransaction.mockResolvedValue(undefined);
+    const agent = await connectAgent();
 
-    await TransactionsLayout({ children: null });
+    await agent.callTool({ name: tool, arguments: toolArguments });
 
-    expect(await sentEvents()).toEqual([
-      expect.objectContaining({
-        event: 'page_viewed',
-        distinct_id: `my-expenses-website:${USER_ID}`,
-        properties: expect.objectContaining({ page: 'transactions' }),
-      }),
+    expect(
+      (await sentEvents()).map(({ event: name, properties }) => [name, properties.channel]),
+    ).toEqual([
+      [event, 'agent'],
+      ['agent_tool_called', undefined],
     ]);
   });
 
+  it.each([
+    ['dashboard', DashboardLayout],
+    ['transactions', TransactionsLayout],
+    ['pending', PendingLayout],
+    ['scheduled', ScheduledLayout],
+    ['subscriptions', SubscriptionsLayout],
+    ['imports', ImportsLayout],
+    ['trends', TrendsLayout],
+    ['settings', SettingsLayout],
+  ])(
+    'records a %s page view for the signed-in user when the page is entered',
+    async (page, Layout) => {
+      requestCookies.set(SESSION_COOKIE, await signToken(USER_ID));
+
+      await Layout({ children: null });
+
+      expect(await sentEvents()).toEqual([
+        expect.objectContaining({
+          event: 'page_viewed',
+          distinct_id: `my-expenses-website:${USER_ID}`,
+          properties: expect.objectContaining({ page }),
+        }),
+      ]);
+    },
+  );
+
   it('renders the page without a page view when the session token does not verify', async () => {
-    requestCookies.set('session', 'not-a-jwt');
+    requestCookies.set(SESSION_COOKIE, 'not-a-jwt');
 
     await expect(TransactionsLayout({ children: 'page' })).resolves.toBe('page');
 

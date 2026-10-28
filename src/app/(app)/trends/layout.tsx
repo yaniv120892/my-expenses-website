@@ -1,6 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function TrendsLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('trends');
-  return children;
-}
+export default pageViewLayout('trends');

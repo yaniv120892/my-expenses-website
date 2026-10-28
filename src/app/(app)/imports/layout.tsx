@@ -1,6 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function ImportsLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('imports');
-  return children;
-}
+export default pageViewLayout('imports');

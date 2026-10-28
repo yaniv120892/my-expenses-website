@@ -10,7 +10,7 @@ export const PUT = createHandler({
   bodySchema: updateTransactionSchema,
   handler: async ({ userId, body, params }) => {
     await transactionService.updateTransaction(params.id, body, userId);
-    captureProductEvent(userId, { event: 'transaction_updated', properties: { channel: 'web' } });
+    captureProductEvent({ userId, event: 'transaction_updated', properties: { channel: 'web' } });
   },
 });
 
@@ -19,6 +19,6 @@ export const DELETE = createHandler({
   paramsSchema: idParamsSchema,
   handler: async ({ userId, params }) => {
     await transactionService.deleteTransaction(params.id, userId);
-    captureProductEvent(userId, { event: 'transaction_deleted', properties: { channel: 'web' } });
+    captureProductEvent({ userId, event: 'transaction_deleted', properties: { channel: 'web' } });
   },
 });

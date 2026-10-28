@@ -20,7 +20,6 @@ export const POST = createHandler({
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
   handler: async ({ request, body, userId }) => {
     logger.debug({ userId }, 'Start handle chat message');
-    captureProductEvent(userId, { event: 'assistant_message_sent' });
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -36,6 +35,7 @@ export const POST = createHandler({
           }
 
           controller.enqueue(sseFrame({ type: 'done' }));
+          captureProductEvent({ userId, event: 'assistant_message_sent' });
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
           if (!request.signal.aborted) {

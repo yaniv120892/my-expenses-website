@@ -1,14 +1,13 @@
 import { logger, observability } from '@/server/observability';
-import type { ProductEvent } from '@/server/productEvents.types';
+import type { UserProductEvent } from '@/server/productEvents.types';
 
-/**
- * The one way the app records a product event. `userId` is the internal user id; no event
- * carries an email, a name, an amount or a description.
- */
-export function captureProductEvent(userId: string, productEvent: ProductEvent): void {
+export function captureProductEvent(userEvent: UserProductEvent): void {
   try {
-    observability.captureEvent({ userId, ...productEvent });
+    observability.captureEvent(userEvent);
   } catch (error) {
-    logger.warn({ err: error, userId, event: productEvent.event }, 'Product event not captured');
+    logger.warn(
+      { err: error, userId: userEvent.userId, event: userEvent.event },
+      'Product event not captured',
+    );
   }
 }

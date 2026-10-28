@@ -14,7 +14,7 @@ export const POST = createHandler({
       body.originalFileName,
       body.paymentMonth,
     );
-    captureProductEvent(userId, { event: 'statement_imported' });
+    captureProductEvent({ userId, event: 'statement_uploaded' });
     return result;
   },
 });

@@ -72,7 +72,8 @@ export function registerSafeTool({
         },
         'MCP tool call',
       );
-      captureProductEvent(actor.userId, {
+      captureProductEvent({
+        userId: actor.userId,
         event: 'agent_tool_called',
         properties: { tool: name, outcome },
       });

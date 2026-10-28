@@ -23,7 +23,7 @@ export const POST = createHandler({
       categoryId: body.categoryId || null,
       userId,
     });
-    captureProductEvent(userId, { event: 'transaction_created', properties: { channel: 'web' } });
+    captureProductEvent({ userId, event: 'transaction_created', properties: { channel: 'web' } });
     return { id, ...(suggestedCategory && { suggestedCategory }) };
   },
 });

@@ -1,8 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function ScheduledLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('scheduled');
-  return children;
-}
+export default pageViewLayout('scheduled');

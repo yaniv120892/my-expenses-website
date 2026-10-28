@@ -1,6 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function PendingLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('pending');
-  return children;
-}
+export default pageViewLayout('pending');

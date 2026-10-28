@@ -28,7 +28,7 @@ export const POST = createHandler({
         { status: 400 },
       );
     }
-    captureProductEvent(result.userId, { event: 'logged_in' });
+    captureProductEvent({ userId: result.userId, event: 'logged_in' });
     const response = NextResponse.json({ success: true, token: result.token });
     setSessionCookie(response, result.token);
     return response;

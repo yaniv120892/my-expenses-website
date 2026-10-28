@@ -92,7 +92,8 @@ export function registerTransactionTools({
         categoryId: (await resolveCategoryId(input.categoryName)) ?? null,
         userId,
       });
-      captureProductEvent(userId, {
+      captureProductEvent({
+        userId,
         event: 'transaction_created',
         properties: { channel: 'agent' },
       });
@@ -135,7 +136,8 @@ export function registerTransactionTools({
         },
         userId,
       );
-      captureProductEvent(userId, {
+      captureProductEvent({
+        userId,
         event: 'transaction_updated',
         properties: { channel: 'agent' },
       });
@@ -165,7 +167,8 @@ export function registerTransactionTools({
     handler: async (input) => {
       const existing = await requireTransaction({ id: input.id, userId });
       await transactionService.deleteTransaction(existing.id, userId);
-      captureProductEvent(userId, {
+      captureProductEvent({
+        userId,
         event: 'transaction_deleted',
         properties: { channel: 'agent' },
       });

@@ -1,8 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function SubscriptionsLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('subscriptions');
-  return children;
-}
+export default pageViewLayout('subscriptions');

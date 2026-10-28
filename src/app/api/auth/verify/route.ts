@@ -19,7 +19,7 @@ export const POST = createHandler({
     if (result.error || !result.token) {
       return NextResponse.json({ error: result.error ?? 'Verification failed' }, { status: 400 });
     }
-    captureProductEvent(result.userId, { event: 'signed_up' });
+    captureProductEvent({ userId: result.userId, event: 'signed_up' });
     const response = NextResponse.json({ token: result.token });
     setSessionCookie(response, result.token);
     return response;

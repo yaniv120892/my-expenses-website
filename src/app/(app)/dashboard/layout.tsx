@@ -1,8 +1,3 @@
-import { recordPageView } from '@/server/pageViews';
+import { pageViewLayout } from '@/server/pageViews';
 
-export default async function DashboardLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  await recordPageView('dashboard');
-  return children;
-}
+export default pageViewLayout('dashboard');

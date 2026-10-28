@@ -469,16 +469,13 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   (`src/server/productEvents.ts`), server-side only, after the action has
   succeeded; the package sends them once the response is out and never throws,
   and `POSTHOG_PROJECT_KEY` unset turns them off. The catalog is the
-  `ProductEvent` union (`productEvents.types.ts`): `signed_up` (verify),
-  `logged_in`, `page_viewed` (`page`), `transaction_created`/`_updated`/
-  `_deleted` (`channel`: `web` from the REST routes, `agent` from the MCP
-  tools), `statement_imported`, `assistant_message_sent` and
-  `agent_tool_called` (`tool`, `outcome`, from `registerSafeTool`). The user is
-  the internal user id; a property is a fixed label, never an email, name,
-  amount, merchant or description. A page view is recorded by the page's own
-  `layout.tsx` through `recordPageView` (`src/server/pageViews.ts`), so a
-  search-param change on the page is not another view, and it checks only the
-  JWT signature, as the proxy does. A new event is a new member of the union.
+  `ProductEvent` union (`productEvents.types.ts`); a new event is a new member.
+  The user is the internal user id, and a property is a fixed label, never an
+  email, name, amount, merchant or description. A transaction write carries
+  `channel`: `web` from the REST routes, `agent` from the MCP tools. A page view
+  is recorded by the page's own `layout.tsx`, built by `pageViewLayout`
+  (`src/server/pageViews.ts`), so a search-param change is not another view; it
+  checks only the JWT signature, as the proxy does.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call

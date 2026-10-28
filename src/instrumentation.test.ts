@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { createServer, type Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { onRequestErrorInPackage } = vi.hoisted(() => ({
@@ -52,54 +53,46 @@ describe('onRequestError', () => {
 });
 
 describe('register', () => {
-  const S3_ORIGIN = 'https://receipts.s3.eu-west-1.amazonaws.com';
+  let storage: Server;
+
+  beforeEach(async () => {
+    storage = createServer((_request, response) => {
+      response.statusCode = 204;
+      response.end();
+    });
+    await new Promise<void>((resolve) => storage.listen(0, '127.0.0.1', resolve));
+  });
 
   afterEach(async () => {
+    Sentry.getIsolationScope().clearBreadcrumbs();
     await Sentry.close();
+    storage.close();
     vi.unstubAllEnvs();
   });
 
-  it('sends Sentry an outgoing request breadcrumb with only its origin', async () => {
+  it('keeps only the origin of an outgoing request in its Sentry breadcrumb', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', 'https://public@o0.ingest.sentry.io/0');
     await register();
-    const sentEvents = captureSentEvents();
+    const origin = originOf(storage);
 
-    Sentry.addBreadcrumb({
-      type: 'http',
-      category: 'http',
-      data: {
-        url: `${S3_ORIGIN}/transactions/1111/abc-bank-statement-march.pdf`,
-        'http.method': 'DELETE',
-        'url.query': 'X-Amz-Signature=abc123',
-        status_code: 204,
-      },
+    await fetch(`${origin}/transactions/1111/abc-bank-statement-march.pdf?X-Amz-Signature=abc123`, {
+      method: 'DELETE',
     });
-    Sentry.captureException(new Error('attachment delete failed'));
-    await Sentry.flush();
 
-    expect(sentEvents).toEqual([
+    expect(Sentry.getIsolationScope().getScopeData().breadcrumbs).toContainEqual(
       expect.objectContaining({
-        breadcrumbs: [
-          expect.objectContaining({
-            category: 'http',
-            data: { url: S3_ORIGIN, 'http.method': 'DELETE', status_code: 204 },
-          }),
-        ],
+        category: 'http',
+        data: { url: origin, 'http.request.method': 'DELETE', status_code: 204 },
       }),
-    ]);
+    );
   });
 });
 
-function captureSentEvents(): Sentry.Event[] {
-  const client = Sentry.getClient();
-  const transport = client?.getTransport();
-  if (!client || !transport) {
-    throw new Error('register() did not initialise Sentry');
+function originOf(server: Server): string {
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error(`Expected a TCP address, got ${address}`);
   }
-  vi.spyOn(transport, 'send').mockResolvedValue({ statusCode: 200 });
-  const sentEvents: Sentry.Event[] = [];
-  client.on('beforeSendEvent', (event) => {
-    sentEvents.push(event);
-  });
-  return sentEvents;
+  return `http://127.0.0.1:${address.port}`;
 }

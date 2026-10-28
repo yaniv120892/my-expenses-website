@@ -43,7 +43,7 @@ vi.mock('@/server/services/scheduledTransactionService', () => ({
 }));
 vi.mock('@/server/observability', () => ({
   logger,
-  observability: { reportError },
+  observability: { reportError, captureEvent: vi.fn() },
 }));
 
 import { createMcpServer } from '@/server/mcp/createMcpServer';

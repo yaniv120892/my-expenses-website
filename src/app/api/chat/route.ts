@@ -4,6 +4,7 @@ import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
 import { logger } from '@/server/observability';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
+import { captureProductEvent } from '@/server/productEvents';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ export const POST = createHandler({
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
   handler: async ({ request, body, userId }) => {
     logger.debug({ userId }, 'Start handle chat message');
+    captureProductEvent(userId, { event: 'assistant_message_sent' });
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {

@@ -17,6 +17,7 @@ vi.mock('@/server/services/transactionService', () => ({
 }));
 vi.mock('@/server/observability', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  observability: { captureEvent: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),

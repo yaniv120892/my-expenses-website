@@ -15,6 +15,7 @@ import {
 } from '@/server/mcp/toolSchemas';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
 import { READ_ONLY, registerSafeTool } from '@/server/mcp/safeTool';
+import { captureProductEvent } from '@/server/productEvents';
 import { describeTransaction, describeTransactions } from '@/server/mcp/transactionText';
 
 type UpdateTransactionInput = ShapeOutput<typeof updateTransactionShape>;
@@ -91,6 +92,10 @@ export function registerTransactionTools({
         categoryId: (await resolveCategoryId(input.categoryName)) ?? null,
         userId,
       });
+      captureProductEvent(userId, {
+        event: 'transaction_created',
+        properties: { channel: 'agent' },
+      });
       return {
         text: `Added: ${describeTransaction(transaction)}`,
         transactionId: transaction.id,
@@ -130,6 +135,10 @@ export function registerTransactionTools({
         },
         userId,
       );
+      captureProductEvent(userId, {
+        event: 'transaction_updated',
+        properties: { channel: 'agent' },
+      });
       return {
         text: `Updated: ${describeTransaction(updated)}`,
         transactionId: updated.id,
@@ -156,6 +165,10 @@ export function registerTransactionTools({
     handler: async (input) => {
       const existing = await requireTransaction({ id: input.id, userId });
       await transactionService.deleteTransaction(existing.id, userId);
+      captureProductEvent(userId, {
+        event: 'transaction_deleted',
+        properties: { channel: 'agent' },
+      });
       return {
         text: `Deleted: ${describeTransaction(existing)}`,
         transactionId: existing.id,

@@ -50,7 +50,7 @@ export default withSentryConfig(nextConfig, {
   release: { create: canUploadSourceMaps },
   widenClientFileUpload: true,
   // Tracing is off everywhere, so its SDK code is dead weight in the bundle;
-  // re-enabling `tracesSampleRate` means dropping this flag too.
+  // re-enabling tracing means dropping this flag too.
   bundleSizeOptimizations: {
     excludeTracing: true,
     excludeDebugStatements: true,

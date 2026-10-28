@@ -6,10 +6,10 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
-import path from 'path';
 import { create as contentDisposition } from 'content-disposition';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
+import { buildStorageObjectName } from '@/server/utils/storageObjectName';
 
 const getS3Client = lazy(
   () =>
@@ -99,8 +99,7 @@ export function isAttachmentKeyForTransaction(fileKey: string, transactionId: st
 }
 
 export function buildAttachmentKey(transactionId: string, fileName: string, id: string): string {
-  const { name, ext } = path.parse(fileName);
-  return `${attachmentKeyPrefix(transactionId)}${id}-${name}${ext}`;
+  return `${attachmentKeyPrefix(transactionId)}${buildStorageObjectName(fileName, id)}`;
 }
 
 function attachmentKeyPrefix(transactionId: string): string {

@@ -333,6 +333,13 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `transactionService` knows the keys, so a path that deletes transactions or
   files goes through it, and a database-level delete it does not drive orphans
   their objects.
+- **An S3 key never holds the user's file name.** Import and attachment keys
+  are a random id plus the lowercased extension
+  (`src/server/utils/storageObjectName.ts`), since a key is logged and travels
+  in URLs; the name lives in `Import.originalFileName` and
+  `TransactionFile.fileName`, and the extraction service gets it as
+  `filename`. Objects uploaded before keep their name-bearing keys, which every
+  read, validation and delete still accepts.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -449,8 +456,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
   forwarding headers, or user identity, which the SDK otherwise collects by
   default. Outgoing request breadcrumbs keep only the URL's origin, method,
-  status and body sizes, so an S3 call's key (which ends with the file name)
-  never reaches Sentry, and no URL keeps its query string;
+  status and body sizes, so an S3 call's key (an older one ends with the file
+  name) never reaches Sentry, and no URL keeps its query string;
   `src/instrumentation.test.ts` pins this for the server init. The package's `initSentry` holds the single `Sentry.init`, run by
   `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
   (browser). `createHandler` reports every 5xx it turns an error into;
@@ -461,7 +468,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   so the error outlives Better Stack's retention; Sentry gets the `context` as
   `extra` and its short values as tags beside `where`, so the ids a call site
   passes are searchable there. Only ids and fixed labels go in `context` —
-  never a file name, an attachment key (it ends with one), an email or free
+  never a file name, an attachment key (an older one ends with one), an email or free
   text; what a human needs beyond the ids goes in a separate `logger` line.
   `reportError` sets no Sentry user, so `createHandler` and the chat stream
   keep their own `Sentry.captureException`, which attaches the user id.

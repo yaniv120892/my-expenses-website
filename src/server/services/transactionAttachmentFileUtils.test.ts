@@ -7,6 +7,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl }));
 import {
   buildAttachmentKey,
   buildDownloadUrl,
+  isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 
 beforeEach(() => {
@@ -36,13 +37,34 @@ describe('buildDownloadUrl', () => {
 });
 
 describe('buildAttachmentKey', () => {
-  it('keeps a name without an extension as it is', () => {
-    expect(buildAttachmentKey('t', 'receipt', 'id')).toBe('transactions/t/id-receipt');
+  it('keeps no part of the file name, only the id and the lowercased extension', () => {
+    const key = buildAttachmentKey('t', 'Leumi statement March.XLSX', 'id');
+
+    expect(key).toBe('transactions/t/id.xlsx');
+    for (const part of ['Leumi', 'statement', 'March']) {
+      expect(key.toLowerCase()).not.toContain(part.toLowerCase());
+    }
   });
 
-  it('keeps every dot of a multi-dot name', () => {
-    expect(buildAttachmentKey('t', 'march.2026.pdf', 'id')).toBe(
-      'transactions/t/id-march.2026.pdf',
+  it('builds a bare id for a name without an extension', () => {
+    expect(buildAttachmentKey('t', 'receipt', 'id')).toBe('transactions/t/id');
+  });
+});
+
+describe('isAttachmentKeyForTransaction', () => {
+  it('accepts a key built now', () => {
+    expect(isAttachmentKeyForTransaction(buildAttachmentKey('t', 'receipt.pdf', 'id'), 't')).toBe(
+      true,
     );
+  });
+
+  it('still accepts a key from before, which ended with the file name', () => {
+    expect(isAttachmentKeyForTransaction('transactions/t/id-receipt march.pdf', 't')).toBe(true);
+  });
+
+  it("refuses another transaction's key", () => {
+    expect(
+      isAttachmentKeyForTransaction(buildAttachmentKey('other', 'receipt.pdf', 'id'), 't'),
+    ).toBe(false);
   });
 });

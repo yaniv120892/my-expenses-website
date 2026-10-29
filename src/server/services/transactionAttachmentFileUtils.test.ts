@@ -7,6 +7,8 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl }));
 import {
   buildAttachmentKey,
   buildDownloadUrl,
+  buildPreviewUrl,
+  isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 
 beforeEach(() => {
@@ -24,25 +26,54 @@ describe('buildDownloadUrl', () => {
 
     await buildDownloadUrl('transactions/t/key.pdf', fileName);
 
-    const header: unknown = getSignedUrl.mock.calls[0]?.[1].input.ResponseContentDisposition;
-    if (typeof header !== 'string') {
-      throw new Error(`expected a signed disposition header, got ${String(header)}`);
-    }
-    expect(parse(header)).toEqual({
+    expect(signedDisposition()).toEqual({
       type: 'attachment',
       parameters: expect.objectContaining({ filename: fileName }),
     });
   });
 });
 
+function signedDisposition(): unknown {
+  const header: unknown = getSignedUrl.mock.calls[0]?.[1].input.ResponseContentDisposition;
+  if (typeof header !== 'string') {
+    throw new Error(`expected a signed disposition header, got ${String(header)}`);
+  }
+  return parse(header);
+}
+
+describe('buildPreviewUrl', () => {
+  it('signs the stored file name inline, since the key no longer carries it', async () => {
+    await buildPreviewUrl({ key: 'transactions/t/uuid.pdf', fileName: 'receipt march.pdf' });
+
+    expect(signedDisposition()).toEqual({
+      type: 'inline',
+      parameters: expect.objectContaining({ filename: 'receipt march.pdf' }),
+    });
+  });
+});
+
 describe('buildAttachmentKey', () => {
-  it('keeps a name without an extension as it is', () => {
-    expect(buildAttachmentKey('t', 'receipt', 'id')).toBe('transactions/t/id-receipt');
+  it('keeps no part of the file name, only the id and the lowercased extension', () => {
+    expect(buildAttachmentKey('t', 'Leumi statement March.XLSX', 'id')).toBe(
+      'transactions/t/id.xlsx',
+    );
+  });
+});
+
+describe('isAttachmentKeyForTransaction', () => {
+  it('accepts a key built now', () => {
+    expect(isAttachmentKeyForTransaction(buildAttachmentKey('t', 'receipt.pdf', 'id'), 't')).toBe(
+      true,
+    );
   });
 
-  it('keeps every dot of a multi-dot name', () => {
-    expect(buildAttachmentKey('t', 'march.2026.pdf', 'id')).toBe(
-      'transactions/t/id-march.2026.pdf',
-    );
+  it('still accepts a key from before, which ended with the file name', () => {
+    expect(isAttachmentKeyForTransaction('transactions/t/id-receipt march.pdf', 't')).toBe(true);
+  });
+
+  it("refuses another transaction's key", () => {
+    expect(
+      isAttachmentKeyForTransaction(buildAttachmentKey('other', 'receipt.pdf', 'id'), 't'),
+    ).toBe(false);
   });
 });

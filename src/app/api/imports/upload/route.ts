@@ -5,6 +5,7 @@ import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { logger } from '@/server/observability';
 import { buildImportObjectKey } from '@/server/utils/importObjectKey';
+import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
@@ -30,8 +31,7 @@ export const POST = createHandler({
       throw new HttpError(400, 'No file provided');
     }
 
-    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
+    if (!ALLOWED_EXTENSIONS.includes(keySafeExtension(file.name))) {
       throw new HttpError(400, `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
     }
     assertWithinUploadLimit({ fileName: file.name, sizeInBytes: file.size });

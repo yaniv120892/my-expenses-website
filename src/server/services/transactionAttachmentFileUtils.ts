@@ -6,10 +6,10 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
-import path from 'path';
 import { create as contentDisposition } from 'content-disposition';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
+import { buildStorageObjectName } from '@/server/utils/storageObjectName';
 
 const getS3Client = lazy(
   () =>
@@ -22,10 +22,20 @@ const getS3Client = lazy(
     }),
 );
 
-export async function buildPreviewUrl(key: string, expiresInSeconds = 600) {
+/** Signs the stored file name inline, since a new key no longer carries it for a browser's save-as. */
+export async function buildPreviewUrl({
+  key,
+  fileName,
+  expiresInSeconds = 600,
+}: {
+  key: string;
+  fileName: string;
+  expiresInSeconds?: number;
+}) {
   const command = new GetObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
+    ResponseContentDisposition: contentDisposition(fileName, { type: 'inline' }),
   });
   return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,
@@ -99,8 +109,7 @@ export function isAttachmentKeyForTransaction(fileKey: string, transactionId: st
 }
 
 export function buildAttachmentKey(transactionId: string, fileName: string, id: string): string {
-  const { name, ext } = path.parse(fileName);
-  return `${attachmentKeyPrefix(transactionId)}${id}-${name}${ext}`;
+  return `${attachmentKeyPrefix(transactionId)}${buildStorageObjectName({ fileName, id })}`;
 }
 
 function attachmentKeyPrefix(transactionId: string): string {

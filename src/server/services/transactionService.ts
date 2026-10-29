@@ -294,7 +294,15 @@ class TransactionService {
       ...fileData,
     });
 
-    logger.debug({ transactionId, fileData }, 'File attached to transaction');
+    logger.debug(
+      {
+        transactionId,
+        fileKey: fileData.fileKey,
+        fileSize: fileData.fileSize,
+        mimeType: fileData.mimeType,
+      },
+      'File attached to transaction',
+    );
   }
 
   public async getTransactionFiles(
@@ -307,7 +315,10 @@ class TransactionService {
 
     return Promise.all(
       files.map(async (file) => {
-        const previewFileUrl = await buildPreviewUrl(file.fileKey);
+        const previewFileUrl = await buildPreviewUrl({
+          key: file.fileKey,
+          fileName: file.fileName,
+        });
         const downloadableFileUrl = await buildDownloadUrl(file.fileKey, file.fileName);
         return {
           id: file.id,
@@ -507,7 +518,7 @@ class TransactionService {
       }
       await deleteAttachmentObject(fileKey);
     } catch (err) {
-      // The key ends with the uploaded file's name and the error can quote it,
+      // An older key ends with the uploaded file's name and the error can quote it,
       // so both go only to the log, where the orphan is found and cleaned up.
       logger.warn({ err, fileKey, transactionId, fileId }, 'Attachment object left in storage');
       observability.reportError({

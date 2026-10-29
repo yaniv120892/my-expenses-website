@@ -5,6 +5,7 @@ import {
   ImportedTransactionStatus,
 } from '@/generated/prisma/client';
 import { logger, observability } from '@/server/observability';
+import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { getErrorMessage } from '@/server/utils/errorUtils';
 import {
   importRepository,
@@ -130,8 +131,7 @@ class ImportService {
       logger.info(
         {
           userId,
-          originalFileName,
-          fileUrl: fileUrl.substring(0, 100),
+          fileExtension: keySafeExtension(originalFileName),
         },
         'Starting import with excel extraction agent',
       );

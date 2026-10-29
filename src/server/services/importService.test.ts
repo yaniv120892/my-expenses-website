@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import type * as ObservabilityModule from '@/server/observability';
 
 const {
@@ -411,17 +411,19 @@ describe('processImport', () => {
     expect(agentClient.submitExtractionRequest).not.toHaveBeenCalled();
   });
 
-  it('logs the extension, never the file name', async () => {
+  it('logs the extension, never the file name, even from an older name-bearing key', async () => {
     const info = vi.spyOn(logger, 'info');
+    onTestFinished(() => info.mockRestore());
+    const olderUrl =
+      'https://bucket.s3.us-east-1.amazonaws.com/imports/uuid-Leumi_statement_March.xlsx';
 
-    await importService.processImport(url, 'user-1', 'Leumi statement March.xlsx', '03/2026');
+    await importService.processImport(olderUrl, 'user-1', 'Leumi statement March.xlsx', '03/2026');
 
     expect(JSON.stringify(info.mock.calls)).not.toMatch(/Leumi|statement|March/);
     expect(info).toHaveBeenCalledWith(
       expect.objectContaining({ fileExtension: '.xlsx' }),
       'Starting import with excel extraction agent',
     );
-    info.mockRestore();
   });
 });
 

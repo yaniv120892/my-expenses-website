@@ -62,6 +62,27 @@ describe('POST /api/imports/upload', () => {
     expect(new URL(fileUrl).pathname).toBe(`/${storedKey}`);
   });
 
+  it.each([
+    ['Visa March.XLSX', 200, /^imports\/[0-9a-f-]+\.xlsx$/],
+    ['.xlsx', 400, undefined],
+  ])(
+    'stores %j only under a key ending with the extension it was accepted for',
+    async (name, status, key) => {
+      const form = new FormData();
+      form.append('file', new File(['x'], name));
+
+      const response = await POST(
+        new NextRequest('http://localhost/api/imports/upload', { method: 'POST', body: form }),
+        ROUTE_CONTEXT,
+      );
+
+      expect(response.status).toBe(status);
+      expect(send.mock.calls[0]?.[0].input.Key).toEqual(
+        key ? expect.stringMatching(key) : undefined,
+      );
+    },
+  );
+
   function uploadOfSize(sizeInBytes: number) {
     const form = new FormData();
     form.append('file', new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'));

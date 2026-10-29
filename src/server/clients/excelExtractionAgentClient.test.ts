@@ -8,7 +8,7 @@ let post: MockInstance<typeof axios.Axios.prototype.post>;
 
 function submit() {
   return new ExcelExtractionAgentClient().submitExtractionRequest({
-    fileUrl: 'https://bucket.s3.us-east-1.amazonaws.com/imports/id.xlsx',
+    fileUrl: 'https://bucket.s3.us-east-1.amazonaws.com/imports/uuid-Leumi_statement_March.xlsx',
     filename: FILE_NAME,
     userId: 'user-1',
     importId: 'imp-1',
@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe('submitExtractionRequest', () => {
-  it('sends the file name but logs only its extension', async () => {
+  it('sends the file name but logs only its extension, even from an older name-bearing key', async () => {
     post.mockResolvedValue({ data: { requestId: 'req-1', status: 'PENDING' } });
 
     await submit();

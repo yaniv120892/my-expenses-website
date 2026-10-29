@@ -338,8 +338,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   (`src/server/utils/storageObjectName.ts`), since a key is logged and travels
   in URLs; the name lives in `Import.originalFileName` and
   `TransactionFile.fileName`, and the extraction service gets it as
-  `filename`. Objects uploaded before keep their name-bearing keys, which every
-  read, validation and delete still accepts.
+  `filename`. Attachments uploaded before keep their name-bearing keys, which
+  validation, preview, download and delete still accept; import objects are
+  never deleted, and an old import URL still passes the bucket-prefix check.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require

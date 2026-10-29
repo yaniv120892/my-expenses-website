@@ -315,7 +315,7 @@ class TransactionService {
 
     return Promise.all(
       files.map(async (file) => {
-        const previewFileUrl = await buildPreviewUrl(file.fileKey);
+        const previewFileUrl = await buildPreviewUrl(file.fileKey, file.fileName);
         const downloadableFileUrl = await buildDownloadUrl(file.fileKey, file.fileName);
         return {
           id: file.id,

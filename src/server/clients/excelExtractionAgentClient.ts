@@ -46,7 +46,6 @@ export class ExcelExtractionAgentClient {
           importId: request.importId,
           fileExtension: keySafeExtension(request.filename),
           userId: request.userId,
-          fileUrl: request.fileUrl.substring(0, 100),
           webhookUrlPreview: this.webhookBaseUrl,
         },
         'Submitting extraction request',

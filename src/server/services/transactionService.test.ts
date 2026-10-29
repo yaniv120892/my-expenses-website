@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import type * as ObservabilityModule from '@/server/observability';
 
 const {
@@ -303,6 +303,7 @@ describe('attachFile', () => {
 
   it('logs the key and size, never the file name', async () => {
     const debug = vi.spyOn(logger, 'debug');
+    onTestFinished(() => debug.mockRestore());
     const fileKey = `transactions/${TRANSACTION_ID}/uuid.pdf`;
 
     await attach(fileKey);
@@ -312,7 +313,6 @@ describe('attachFile', () => {
       { transactionId: TRANSACTION_ID, fileKey, fileSize: 10, mimeType: 'application/pdf' },
       'File attached to transaction',
     );
-    debug.mockRestore();
   });
 
   it.each([

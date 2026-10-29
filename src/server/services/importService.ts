@@ -132,7 +132,6 @@ class ImportService {
         {
           userId,
           fileExtension: keySafeExtension(originalFileName),
-          fileUrl: fileUrl.substring(0, 100),
         },
         'Starting import with excel extraction agent',
       );

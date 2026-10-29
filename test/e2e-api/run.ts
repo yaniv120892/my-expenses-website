@@ -10,6 +10,7 @@ import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT, EXTRACTION_MOCK_PORT } from './p
 import { redisKeyPrefix } from '../../src/server/redis';
 import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { requireEnv } from '../../src/server/env';
+import { buildImportObjectKey } from '../../src/server/utils/importObjectKey';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
 import type { ImportStatus } from '../../src/shared/types/import';
 import {
@@ -985,7 +986,7 @@ async function importEncryptionFlow(token: string): Promise<void> {
     return;
   }
 
-  const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`;
+  const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${buildImportObjectKey(originalFileName, crypto.randomUUID())}`;
 
   const created = await api<{ id?: string }>('POST', '/api/imports/process', {
     token,
@@ -1044,6 +1045,7 @@ async function importMergeFlow(token: string): Promise<void> {
   }
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_04_2026.csv`;
+  // An import key from before keys dropped the file name still has to be accepted.
   const body = {
     fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
     originalFileName,

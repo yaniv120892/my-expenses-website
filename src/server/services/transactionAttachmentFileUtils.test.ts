@@ -7,6 +7,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl }));
 import {
   buildAttachmentKey,
   buildDownloadUrl,
+  buildPreviewUrl,
   isAttachmentKeyForTransaction,
 } from '@/server/services/transactionAttachmentFileUtils';
 
@@ -25,13 +26,28 @@ describe('buildDownloadUrl', () => {
 
     await buildDownloadUrl('transactions/t/key.pdf', fileName);
 
-    const header: unknown = getSignedUrl.mock.calls[0]?.[1].input.ResponseContentDisposition;
-    if (typeof header !== 'string') {
-      throw new Error(`expected a signed disposition header, got ${String(header)}`);
-    }
-    expect(parse(header)).toEqual({
+    expect(signedDisposition()).toEqual({
       type: 'attachment',
       parameters: expect.objectContaining({ filename: fileName }),
+    });
+  });
+});
+
+function signedDisposition(): unknown {
+  const header: unknown = getSignedUrl.mock.calls[0]?.[1].input.ResponseContentDisposition;
+  if (typeof header !== 'string') {
+    throw new Error(`expected a signed disposition header, got ${String(header)}`);
+  }
+  return parse(header);
+}
+
+describe('buildPreviewUrl', () => {
+  it('signs the stored file name inline, since the key no longer carries it', async () => {
+    await buildPreviewUrl('transactions/t/uuid.pdf', 'receipt march.pdf');
+
+    expect(signedDisposition()).toEqual({
+      type: 'inline',
+      parameters: expect.objectContaining({ filename: 'receipt march.pdf' }),
     });
   });
 });

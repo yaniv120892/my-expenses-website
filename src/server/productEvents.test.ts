@@ -18,6 +18,8 @@ const {
   fetchMock,
 } = vi.hoisted(() => {
   vi.stubEnv('POSTHOG_PROJECT_KEY', 'phc_test');
+  // The package sends product events from production only.
+  vi.stubEnv('VERCEL_ENV', 'production');
   vi.stubEnv('JWT_SECRET', 'product-events-test-secret');
   // The analytics client takes the global fetch when it is built, at import.
   const fetchMock = vi.fn(async (..._: Parameters<typeof fetch>) => new Response('{}'));
@@ -177,7 +179,7 @@ describe('product events', () => {
         event: 'logged_in',
         distinct_id: `my-expenses-website:${USER_ID}`,
         timestamp: expect.any(String),
-        properties: { app: 'my-expenses-website', environment: 'test' },
+        properties: { app: 'my-expenses-website', environment: 'production' },
       },
     ]);
   });
@@ -239,7 +241,7 @@ describe('product events', () => {
       ID_CONTEXT,
     );
 
-    const webWrite = { channel: 'web', app: 'my-expenses-website', environment: 'test' };
+    const webWrite = { channel: 'web', app: 'my-expenses-website', environment: 'production' };
     expect((await sentEvents()).map(({ event, properties }) => [event, properties])).toEqual([
       ['transaction_created', webWrite],
       ['transaction_updated', webWrite],

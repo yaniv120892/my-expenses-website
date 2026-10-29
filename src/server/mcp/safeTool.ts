@@ -8,6 +8,8 @@ import { HttpError } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { logger, observability } from '@/server/observability';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
+import type { ToolOutcome } from '@/server/mcp/safeTool.types';
+import { captureProductEvent } from '@/server/productEvents';
 // A write names the transaction it touched, so the call's log line carries it.
 type ToolReply = string | { text: string; transactionId: string };
 
@@ -23,8 +25,6 @@ type SafeToolRegistration<TShape extends ZodRawShapeCompat> = {
   };
   handler: (input: ShapeOutput<TShape>) => Promise<ToolReply>;
 };
-
-type ToolOutcome = 'ok' | 'client_error' | 'server_error';
 
 const NEUTRAL_FAILURE = 'Something went wrong in My Expenses. Try again in a moment.';
 
@@ -55,13 +55,13 @@ export function registerSafeTool({
 }: SafeToolRegistration<ZodRawShapeCompat>): void {
   async function handlesToolErrors(input: ShapeOutput<ZodRawShapeCompat>): Promise<CallToolResult> {
     const started = Date.now();
-    const logCall = ({
+    const recordCall = ({
       outcome,
       transactionId,
     }: {
       outcome: ToolOutcome;
       transactionId?: string;
-    }) =>
+    }) => {
       logger.info(
         {
           userId: actor.userId,
@@ -72,21 +72,27 @@ export function registerSafeTool({
         },
         'MCP tool call',
       );
+      captureProductEvent({
+        userId: actor.userId,
+        event: 'agent_tool_called',
+        properties: { tool: name, outcome },
+      });
+    };
     try {
       const reply = await handler(input);
       if (typeof reply === 'string') {
-        logCall({ outcome: 'ok' });
+        recordCall({ outcome: 'ok' });
         return toolSuccess(reply);
       }
-      logCall({ outcome: 'ok', transactionId: reply.transactionId });
+      recordCall({ outcome: 'ok', transactionId: reply.transactionId });
       return toolSuccess(reply.text);
     } catch (error) {
       const clientError = toClientError(error);
       if (clientError) {
-        logCall({ outcome: 'client_error' });
+        recordCall({ outcome: 'client_error' });
         return toolFailure(clientError.message);
       }
-      logCall({ outcome: 'server_error' });
+      recordCall({ outcome: 'server_error' });
       observability.reportError({
         error,
         where: 'MCP tool failed',

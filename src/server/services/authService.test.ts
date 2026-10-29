@@ -205,6 +205,7 @@ describe('signup squatting', () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(1))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
 
     const [verifiedEmail, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
@@ -218,6 +219,7 @@ describe('signup squatting', () => {
 
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(0))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
     const [, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
     expect(await compare(PASSWORD, passwordHash)).toBe(true);
@@ -235,6 +237,7 @@ describe('signup squatting', () => {
     });
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(3))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
   });
 
@@ -276,6 +279,7 @@ describe('a code issued before codes carried a password', () => {
 
     expect(await authService.verifyLoginCode(EMAIL, '123456')).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
     expect(users.verifyUser).toHaveBeenCalledWith(EMAIL, null);
   });

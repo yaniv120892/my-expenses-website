@@ -3,6 +3,7 @@ import { createTransactionSchema, getTransactionsSchema } from '@/shared/schemas
 import transactionService from '@/server/services/transactionService';
 import type { CreateTransactionResult } from '@/shared/types/transaction';
 import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
+import { captureProductEvent } from '@/server/productEvents';
 
 export const GET = createHandler({
   auth: 'session',
@@ -22,6 +23,7 @@ export const POST = createHandler({
       categoryId: body.categoryId || null,
       userId,
     });
+    captureProductEvent({ userId, event: 'transaction_created', properties: { channel: 'web' } });
     return { id, ...(suggestedCategory && { suggestedCategory }) };
   },
 });

@@ -17,7 +17,10 @@ vi.mock('@/server/http/rateLimit', async () => ({
   ...(await vi.importActual<typeof RateLimitModule>('@/server/http/rateLimit')),
   enforceRateLimits,
 }));
-vi.mock('@/server/observability', () => ({ logger }));
+vi.mock('@/server/observability', () => ({
+  logger,
+  observability: { captureEvent: vi.fn() },
+}));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),

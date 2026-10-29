@@ -465,6 +465,17 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   text; what a human needs beyond the ids goes in a separate `logger` line.
   `reportError` sets no Sentry user, so `createHandler` and the chat stream
   keep their own `Sentry.captureException`, which attaches the user id.
+- **Product events** go to PostHog through `captureProductEvent`
+  (`src/server/productEvents.ts`), server-side only, after the action has
+  succeeded; the package sends them once the response is out and never throws,
+  and `POSTHOG_PROJECT_KEY` unset turns them off. The catalog is the
+  `ProductEvent` union (`productEvents.types.ts`); a new event is a new member.
+  The user is the internal user id, and a property is a fixed label, never an
+  email, name, amount, merchant or description. A transaction write carries
+  `channel`: `web` from the REST routes, `agent` from the MCP tools. A page view
+  is recorded by the page's own `layout.tsx`, built by `pageViewLayout`
+  (`src/server/pageViews.ts`), so a search-param change is not another view; it
+  checks only the JWT signature, as the proxy does.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call

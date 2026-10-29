@@ -6,12 +6,10 @@ import { Box, useTheme } from '@mui/material';
 const THRESHOLD = 80;
 
 type SwipeLeft =
-  | { onSwipeLeft: () => void; leftLabel: string }
-  | { onSwipeLeft?: never; leftLabel?: never };
+  { onSwipeLeft: () => void; leftLabel: string } | { onSwipeLeft?: never; leftLabel?: never };
 
 type SwipeRight =
-  | { onSwipeRight: () => void; rightLabel: string }
-  | { onSwipeRight?: never; rightLabel?: never };
+  { onSwipeRight: () => void; rightLabel: string } | { onSwipeRight?: never; rightLabel?: never };
 
 type SwipeableRowProps = {
   children: React.ReactNode;
@@ -33,23 +31,31 @@ export default function SwipeableRow({
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);
   const startY = useRef(0);
-  const isDragging = useRef(false);
+  // The ref gates the touch handlers synchronously; the state only drives the rendered transition.
+  const isTouching = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
   const isHorizontal = useRef<boolean | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    startY.current = e.touches[0].clientY;
-    isDragging.current = true;
+    const touch = e.touches[0];
+    if (!touch) {
+      return;
+    }
+    startX.current = touch.clientX;
+    startY.current = touch.clientY;
+    isTouching.current = true;
+    setIsDragging(true);
     isHorizontal.current = null;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current) {
+    const touch = e.touches[0];
+    if (!isTouching.current || !touch) {
       return;
     }
 
-    const dx = e.touches[0].clientX - startX.current;
-    const dy = e.touches[0].clientY - startY.current;
+    const dx = touch.clientX - startX.current;
+    const dy = touch.clientY - startY.current;
 
     if (isHorizontal.current === null) {
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
@@ -67,10 +73,11 @@ export default function SwipeableRow({
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) {
+    if (!isTouching.current) {
       return;
     }
-    isDragging.current = false;
+    isTouching.current = false;
+    setIsDragging(false);
 
     if (offsetX > THRESHOLD && onSwipeRight) {
       onSwipeRight();
@@ -107,18 +114,12 @@ export default function SwipeableRow({
   const physicalRight = isRtl ? 'left' : 'right';
 
   return (
-    <Box
-      sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}
-    >
+    <Box sx={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
       {showRight && (
-        <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>
-          {rightLabel}
-        </Box>
+        <Box sx={{ ...actionSx, [physicalLeft]: 0, bgcolor: rightColor }}>{rightLabel}</Box>
       )}
       {showLeft && (
-        <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>
-          {leftLabel}
-        </Box>
+        <Box sx={{ ...actionSx, [physicalRight]: 0, bgcolor: leftColor }}>{leftLabel}</Box>
       )}
       <Box
         onTouchStart={handleTouchStart}
@@ -128,7 +129,7 @@ export default function SwipeableRow({
           position: 'relative',
           zIndex: 1,
           transform: `translateX(${offsetX}px)`,
-          transition: isDragging.current ? 'none' : 'transform 0.25s ease-out',
+          transition: isDragging ? 'none' : 'transform 0.25s ease-out',
           willChange: 'transform',
           bgcolor: 'background.paper',
         }}

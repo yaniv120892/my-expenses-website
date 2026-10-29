@@ -26,9 +26,7 @@ export default function CategorySelect({
 }: CategorySelectProps) {
   const t = useT();
   const { data: categories = [] } = useCategoriesQuery();
-  const sortedCategories = [...categories].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Autocomplete

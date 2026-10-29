@@ -1,15 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ScheduledTransaction } from '@/types';
-import {
-  forecastFixedExpenses,
-  toMonthlyScheduledAmount,
-} from '@/utils/scheduledForecast';
+import type { ScheduledTransaction } from '@/types';
+import { forecastFixedExpenses, toMonthlyScheduledAmount } from '@/utils/scheduledForecast';
 
 const oct6 = new Date(2026, 9, 6, 12);
 
-function scheduled(
-  overrides: Partial<ScheduledTransaction>,
-): ScheduledTransaction {
+function scheduled(overrides: Partial<ScheduledTransaction>): ScheduledTransaction {
   return {
     id: 'id',
     description: 'Rent',
@@ -32,9 +27,10 @@ describe('toMonthlyScheduledAmount', () => {
     ['DAILY', undefined, (100 * 365) / 12],
     ['CUSTOM', 10, (100 * 365) / 120],
   ] as const)('%s every %s', (scheduleType, interval, expected) => {
-    expect(
-      toMonthlyScheduledAmount(scheduled({ scheduleType, interval })),
-    ).toBeCloseTo(expected, 6);
+    expect(toMonthlyScheduledAmount(scheduled({ scheduleType, interval }))).toBeCloseTo(
+      expected,
+      6,
+    );
   });
 });
 
@@ -65,10 +61,7 @@ describe('forecastFixedExpenses', () => {
   });
 
   it('ignores scheduled income', () => {
-    const forecast = forecastFixedExpenses(
-      [scheduled({ type: 'INCOME', value: 20000 })],
-      oct6,
-    );
+    const forecast = forecastFixedExpenses([scheduled({ type: 'INCOME', value: 20000 })], oct6);
 
     expect(forecast).toEqual({
       expenseCount: 0,
@@ -124,10 +117,7 @@ describe('forecastFixedExpenses', () => {
   });
 
   it('skips a schedule with no next run date', () => {
-    const forecast = forecastFixedExpenses(
-      [scheduled({ nextRunDate: undefined })],
-      oct6,
-    );
+    const forecast = forecastFixedExpenses([scheduled({ nextRunDate: undefined })], oct6);
 
     expect(forecast.remainingCount).toBe(0);
     expect(forecast.monthlyTotal).toBe(100);

@@ -11,6 +11,5 @@ export const POST = createHandler({
   auth: 'session',
   bodySchema: createApiTokenSchema,
   status: 201,
-  handler: async ({ userId, body }) =>
-    apiTokenService.create(userId, body.name, body.scopes),
+  handler: async ({ userId, body }) => apiTokenService.create(userId, body.name, body.scopes),
 });

@@ -1,5 +1,5 @@
 import categoryRepository from '@/server/repositories/categoryRepository';
-import { Category } from '@/shared/types/category';
+import type { Category } from '@/shared/types/category';
 
 export class CategoryService {
   public async list(): Promise<Category[]> {
@@ -11,4 +11,5 @@ export class CategoryService {
   }
 }
 
-export default new CategoryService();
+const categoryService = new CategoryService();
+export default categoryService;

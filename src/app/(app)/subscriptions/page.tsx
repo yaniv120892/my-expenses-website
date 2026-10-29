@@ -27,7 +27,7 @@ import {
   useConvertSubscriptionMutation,
   useUpdateSubscriptionMutation,
 } from '@/hooks/useSubscriptionsQuery';
-import {
+import type {
   DetectedSubscription,
   SubscriptionStatus,
   UpdateSubscriptionPayload,
@@ -35,21 +35,14 @@ import {
 import { describeApiError } from '@/utils/api';
 import { useErrorNotice } from '@/hooks/useErrorNotice';
 import { isOneOf } from '@/utils/oneOf';
-import {
-  SUBSCRIPTION_SORT_KEYS,
-  SubscriptionSortKey,
-  sortSubscriptions,
-} from '@/utils/subscriptionSort';
+import type { SubscriptionSortKey } from '@/utils/subscriptionSort';
+import { SUBSCRIPTION_SORT_KEYS, sortSubscriptions } from '@/utils/subscriptionSort';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
 type FilterTab = 'ALL' | SubscriptionStatus;
 
-const STATUS_TABS: SubscriptionStatus[] = [
-  'DETECTED',
-  'CONFIRMED',
-  'DISMISSED',
-];
+const STATUS_TABS: SubscriptionStatus[] = ['DETECTED', 'CONFIRMED', 'DISMISSED'];
 
 type DialogTarget = {
   kind: 'convert' | 'edit' | 'explain';
@@ -131,19 +124,14 @@ export default function SubscriptionsPage() {
     return (
       <>
         <PageHeader title={t('subscriptions.title')} />
-        <Alert severity="error">
-          {describeApiError(error, t('subscriptions.loadFailed'))}
-        </Alert>
+        <Alert severity="error">{describeApiError(error, t('subscriptions.loadFailed'))}</Alert>
       </>
     );
   }
 
   return (
     <>
-      <PageHeader
-        title={t('subscriptions.title')}
-        subtitle={t('subscriptions.subtitle')}
-      />
+      <PageHeader title={t('subscriptions.title')} subtitle={t('subscriptions.subtitle')} />
 
       {isLoading || !data ? (
         <Box sx={{ display: 'grid', gap: 2 }}>
@@ -210,11 +198,7 @@ export default function SubscriptionsPage() {
             >
               <Tab label={t('subscriptions.tab.ALL')} value="ALL" />
               {STATUS_TABS.map((status) => (
-                <Tab
-                  key={status}
-                  label={t(`subscriptions.status.${status}`)}
-                  value={status}
-                />
+                <Tab key={status} label={t(`subscriptions.status.${status}`)} value={status} />
               ))}
             </Tabs>
             <TextField
@@ -266,13 +250,9 @@ export default function SubscriptionsPage() {
                       onError: reportFailure(t('subscriptions.dismissFailed')),
                     })
                   }
-                  onConvert={(s) =>
-                    setDialog({ kind: 'convert', subscription: s })
-                  }
+                  onConvert={(s) => setDialog({ kind: 'convert', subscription: s })}
                   onEdit={(s) => setDialog({ kind: 'edit', subscription: s })}
-                  onExplain={(s) =>
-                    setDialog({ kind: 'explain', subscription: s })
-                  }
+                  onExplain={(s) => setDialog({ kind: 'explain', subscription: s })}
                 />
               ))}
             </Box>
@@ -292,11 +272,7 @@ export default function SubscriptionsPage() {
             onClose={closeDialog}
             onSave={handleSave}
             isLoading={updateMutation.isPending}
-            error={
-              updateMutation.error instanceof Error
-                ? updateMutation.error.message
-                : undefined
-            }
+            error={updateMutation.error instanceof Error ? updateMutation.error.message : undefined}
           />
 
           <SubscriptionEvidenceDialog

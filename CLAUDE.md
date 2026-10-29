@@ -17,6 +17,7 @@ npm run build            # prisma generate && next build
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint .
 npm run format           # prettier --write .
+npm run format:check     # prettier --check .
 npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
 npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.ts)
 npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
@@ -27,9 +28,15 @@ npm run statements:due -- [--sources=<json>] [--base-url=<url>]   # closed state
 npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
 ```
 
-Pre-commit runs lint-staged + typecheck (husky). CI (`.github/workflows/ci.yml`)
-runs audit, lint, prettier, typecheck, unit tests and the build, and in a
-parallel job both e2e suites against a Postgres service container.
+ESLint, Prettier, tsconfig and lint-staged come from the shared
+`@yaniv120892/dev-config` package (pinned by tag in `package.json`);
+`eslint.config.mjs` and `tsconfig.json` only extend its `next` presets with this
+repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
+(`.github/workflows/ci.yml`) runs the `checks` job through dev-config's reusable
+`node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
+typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
+suites against a Postgres service container. Bump the tag in both places
+together.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
@@ -39,8 +46,8 @@ soon as an advisory lands, outside that schedule, cooldown and cap.
 `.github/workflows/dependabot-auto-merge.yml` queues a squash auto-merge on a
 Dependabot PR whose every dependency is a patch or minor
 (`scripts/dependabot/autoMergePolicy.ts`, read from the base branch), and only
-while the base branch's ruleset requires the `checks` and `e2e` jobs; a major, a
-0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
+while the base branch's ruleset requires the `checks / Quality gate` and `e2e`
+checks; a major, a 0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
 PR waits for a human, and a later push that fails the policy withdraws a queued
 auto-merge. Dependabot also raises `@yaniv120892/my-ui`'s release-tag
 bumps, and the policy judges them like any other dependency's — a patch of the
@@ -64,7 +71,7 @@ Vitest runs on `node`; a component or hook test opts into a DOM with a
 `src/test/renderWithClient.tsx`, which supplies the shared theme and English
 messages (`DesignTestProvider locale="he"` renders Hebrew). Keep DOM-free logic
 in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
-(`server.deps.inline`), and `src/test/setup.ts` stubs `next/navigation`, whose
+(`server.deps.inline`), as is `@yaniv120892/observability`, and `src/test/setup.ts` stubs `next/navigation`, whose
 `useRouter` its `I18nProvider` calls.
 `*.test-d.ts` type assertions run inside `npm test`.
 
@@ -318,11 +325,22 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   object is gone; deleting a transaction returns the keys its cascade dropped,
   read by the delete itself. `transactionService` deletes each object only after
   the database write, keeps one another `ACTIVE` row still names, and bounds the
-  call at 5s. Storage is best effort: a failure is reported via
-  `reportSwallowedError` with its key, never fails the request, and leaves a
-  removed row `MARKED_FOR_DELETION`. Only `transactionService` knows the
-  keys, so a path that deletes transactions or files goes through it, and a
-  database-level delete it does not drive orphans their objects.
+  call at 5s. Storage is best effort: a failure logs a warning carrying the key,
+  so the orphan can be found and removed, is reported via
+  `observability.reportError` with no key or file name (a storage error can
+  quote one), never fails the request, and leaves a removed row
+  `MARKED_FOR_DELETION`. Only
+  `transactionService` knows the keys, so a path that deletes transactions or
+  files goes through it, and a database-level delete it does not drive orphans
+  their objects.
+- **An S3 key never holds the user's file name.** Import and attachment keys
+  are a random id plus the lowercased extension
+  (`src/server/utils/storageObjectName.ts`), since a key is logged and travels
+  in URLs; the name lives in `Import.originalFileName` and
+  `TransactionFile.fileName`, and the extraction service gets it as
+  `filename`. Attachments uploaded before keep their name-bearing keys, which
+  validation, preview, download and delete still accept; import objects are
+  never deleted, and an old import URL still passes the bucket-prefix check.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it). API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
@@ -359,7 +377,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   edit. Every tool is registered through `registerSafeTool`
   (`src/server/mcp/safeTool.ts`), so a tool never throws: a 4xx comes back as
   an `isError` result with its message, anything else is reported via
-  `reportSwallowedError` and returned neutrally, and each call logs one
+  `observability.reportError` and returned neutrally, and each call logs one
   `MCP tool call` line with its outcome (and, on a write, the transaction id).
   Every date an agent sends must be a real calendar day; an undated
   `add_transaction` — like any undated create
@@ -422,28 +440,50 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 - **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
   custom properties, no global utility classes, no hardcoded hex in
   components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`: `positive` for money in, `negative` for money out).
-- **Logging**: pino (`src/server/logging/logger.ts`), metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. Outside
-  development records also ship to Better Stack through `pino.multistream`
-  (never a pino transport — its worker threads are unreliable on Vercel),
-  flushed from a `next/server` `after` hook, eagerly on `error`, and once more
-  before a cron's heartbeat ping. Warn and above ship, plus any record marked
-  `ship: true` — how a healthy cron's request line gets out. Unset
-  `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns shipping off. README "Log shipping".
+- **Observability** comes from the shared `@yaniv120892/observability`
+  package, wired once in `src/server/observability.ts` (`logger`,
+  `observability`); its README is the reference for shipping, Sentry, heartbeats
+  and alerts. Only app wiring lives here: the Redis `alertCounter`, the health
+  probes, and the call sites.
+- **Logging**: `logger` from `@/server/observability`, metadata object first:
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. `level` is a
+  label (`"warn"`) and every record carries `service`. Outside development
+  warn and above ship to Better Stack, plus any record marked `ship: true` —
+  how a healthy cron's request line gets out; `createHandler` also flushes
+  before a cron's heartbeat ping. Unset `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns
+  shipping off. README "Log shipping".
 - **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set;
   errors only, no tracing or replay, and no identifying request data — its
   `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
   forwarding headers, or user identity, which the SDK otherwise collects by
-  default. `sentry.config.ts` holds the single `Sentry.init`, run by
+  default. Outgoing request breadcrumbs keep only the URL's origin, method,
+  status and body sizes, so an S3 call's key (an older one ends with the file
+  name) never reaches Sentry, and no URL keeps its query string;
+  `src/instrumentation.test.ts` pins this for the server init. The package's `initSentry` holds the single `Sentry.init`, run by
   `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
-  (browser); `initSentry` takes no arguments
-  and reads `process.env` itself, since a constant-folded argument breaks the
-  browser bundle. `createHandler` reports every 5xx it turns an error into;
+  (browser). `createHandler` reports every 5xx it turns an error into;
   `onRequestError` covers what escapes a route; React boundaries report via
   `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
-  that catches an error and returns a fallback calls `reportSwallowedError`
-  (`src/server/logging/reportSwallowedError.ts`), not `logger.error`, so the
-  error outlives Better Stack's retention.
+  that catches an error and returns a fallback calls
+  `observability.reportError({ error, where, context })`, not `logger.error`,
+  so the error outlives Better Stack's retention; Sentry gets the `context` as
+  `extra` and its short values as tags beside `where`, so the ids a call site
+  passes are searchable there. Only ids and fixed labels go in `context` —
+  never a file name, an attachment key (an older one ends with one), an email or free
+  text; what a human needs beyond the ids goes in a separate `logger` line.
+  `reportError` sets no Sentry user, so `createHandler` and the chat stream
+  keep their own `Sentry.captureException`, which attaches the user id.
+- **Product events** go to PostHog through `captureProductEvent`
+  (`src/server/productEvents.ts`), server-side only, after the action has
+  succeeded; the package sends them once the response is out and never throws,
+  and `POSTHOG_PROJECT_KEY` unset turns them off. The catalog is the
+  `ProductEvent` union (`productEvents.types.ts`); a new event is a new member.
+  The user is the internal user id, and a property is a fixed label, never an
+  email, name, amount, merchant or description. A transaction write carries
+  `channel`: `web` from the REST routes, `agent` from the MCP tools. A page view
+  is recorded by the page's own `layout.tsx`, built by `pageViewLayout`
+  (`src/server/pageViews.ts`), so a search-param change is not another view; it
+  checks only the JWT signature, as the proxy does.
 - **Who reports a mutation's outcome is per component, not per prop name.**
   `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
   `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call
@@ -533,8 +573,9 @@ typing, env wiring, secrets), vendored from `yaniv120892/claude-config`; each
 loads by its `paths:` list. This file is what is true of _this_ system; the
 rules are how code gets written anywhere. Edit a rule upstream first, then
 re-vendor. The mechanically
-checkable ones (`curly`, `array-type`, `explicit-member-accessibility`) are
-enforced in `eslint.config.mjs`, so CI fails on them rather than review.
+checkable ones (braces, casts, `interface`, abbreviations, array syntax, member
+accessibility, promise chains) are enforced by the dev-config ESLint preset, so
+CI fails on them rather than review.
 
 So a PR that changes anything this file states — architecture, an invariant, a
 command, a route, a cron, a model — updates the matching section in the same

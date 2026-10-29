@@ -1,11 +1,8 @@
 import { AuthError } from '@/server/auth/session';
-import {
-  hashApiToken,
-  isAuthenticApiToken,
-} from '@/server/auth/apiTokenFormat';
+import { hashApiToken, isAuthenticApiToken } from '@/server/auth/apiTokenFormat';
 import { HttpError } from '@/server/http/errors';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 
 // Settings shows last use by the day, so a script polling every few seconds
@@ -30,14 +27,10 @@ export async function authenticateApiToken(
     throw new AuthError('API_TOKEN_EXPIRED', 'API token expired');
   }
   if (!record.scopes.includes(requiredScope)) {
-    throw new HttpError(
-      403,
-      `This API token does not have the ${requiredScope} scope`,
-    );
+    throw new HttpError(403, `This API token does not have the ${requiredScope} scope`);
   }
   const isUseStale =
-    !record.lastUsedAt ||
-    now.getTime() - record.lastUsedAt.getTime() >= LAST_USED_RESOLUTION_MS;
+    !record.lastUsedAt || now.getTime() - record.lastUsedAt.getTime() >= LAST_USED_RESOLUTION_MS;
   if (isUseStale) {
     await recordUse(record.id, now);
   }

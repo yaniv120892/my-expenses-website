@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  recordIdSchema,
-  scheduleTypeSchema,
-  transactionTypeSchema,
-} from './common';
+import { recordIdSchema, scheduleTypeSchema, transactionTypeSchema } from './common';
 import {
   isUsableBankDescriptionPrefix,
   MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
@@ -40,8 +36,7 @@ const scheduledTransactionBaseSchema = z.object({
   monthOfYear: z.coerce.number().optional(),
   // A blank field clears the prefix, so the form can send what it shows.
   bankDescriptionPrefix: z.preprocess(
-    (value) =>
-      typeof value === 'string' && value.trim() === '' ? undefined : value,
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z
       .string()
       .trim()
@@ -53,10 +48,11 @@ const scheduledTransactionBaseSchema = z.object({
   ),
 });
 
-export const createScheduledTransactionSchema =
-  scheduledTransactionBaseSchema.refine(hasValidScheduledCombination, {
+export const createScheduledTransactionSchema = scheduledTransactionBaseSchema.refine(
+  hasValidScheduledCombination,
+  {
     message: scheduledCombinationMessage,
-  });
+  },
+);
 
-export const updateScheduledTransactionSchema =
-  createScheduledTransactionSchema;
+export const updateScheduledTransactionSchema = createScheduledTransactionSchema;

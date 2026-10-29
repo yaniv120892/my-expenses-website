@@ -14,7 +14,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { CreateTransactionInput } from '../types';
+import type { CreateTransactionInput } from '../types';
 import { describeApiError } from '@/utils/api';
 import { format } from 'date-fns';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -29,15 +29,8 @@ import {
 } from '@/hooks/useTransactionFilesQuery';
 import { validateTransactionForm } from '@/utils/transactionFormValidation';
 import { DAY_TIME_FORMAT, toDayString } from '@/shared/dates';
-import {
-  BASE_CURRENCY,
-  isForeignCurrency,
-  SELECTABLE_CURRENCIES,
-} from '@/shared/currency';
-import type {
-  ExchangeRateSource,
-  TransactionAmountInput,
-} from '@/shared/types/transaction';
+import { BASE_CURRENCY, isForeignCurrency, SELECTABLE_CURRENCIES } from '@/shared/currency';
+import type { ExchangeRateSource, TransactionAmountInput } from '@/shared/types/transaction';
 import type { TransactionFormErrors } from '@/utils/transactionFormValidation.types';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
@@ -84,7 +77,8 @@ type SnackbarSeverity = 'success' | 'error' | 'warning';
 type Props = {
   open: boolean;
   onCloseAction: () => void;
-  onSubmitAction: (data: CreateTransactionInput) => Promise<string | void>;
+  /** Resolves to the new transaction's id when it creates one. */
+  onSubmitAction: (data: CreateTransactionInput) => Promise<string> | Promise<void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: TransactionFormType | null;
   mode?: 'approve' | 'merge';
@@ -110,22 +104,15 @@ function freshDefaultForm(): FormValues {
  * field is ILS there; elsewhere it is in the transaction's own currency, and
  * the ILS field starts empty so an untouched edit keeps its conversion.
  */
-function toFormValues(
-  initialData: TransactionFormType,
-  confirmsImportedRow: boolean,
-): FormValues {
+function toFormValues(initialData: TransactionFormType, confirmsImportedRow: boolean): FormValues {
   const foreignCurrency =
-    !confirmsImportedRow &&
-    initialData.currency &&
-    isForeignCurrency(initialData.currency)
+    !confirmsImportedRow && initialData.currency && isForeignCurrency(initialData.currency)
       ? initialData.currency
       : null;
   return {
     id: initialData.id,
     description: initialData.description,
-    value: foreignCurrency
-      ? (initialData.originalAmount ?? '')
-      : (initialData.value ?? ''),
+    value: foreignCurrency ? (initialData.originalAmount ?? '') : (initialData.value ?? ''),
     currency: foreignCurrency ?? BASE_CURRENCY,
     baseValue: '',
     categoryId: initialData.categoryId || '',
@@ -205,21 +192,16 @@ export default function TransactionForm({
   const formatter = useAppFormat();
   const fullScreen = useIsCompact();
   const confirmsImportedRow = mode !== undefined;
-  const conversionNote = initialData
-    ? describeConversion({ initialData, t, formatter })
-    : null;
+  const conversionNote = initialData ? describeConversion({ initialData, t, formatter }) : null;
   const [form, setForm] = useState<FormValues>(() =>
-    initialData
-      ? toFormValues(initialData, confirmsImportedRow)
-      : freshDefaultForm(),
+    initialData ? toFormValues(initialData, confirmsImportedRow) : freshDefaultForm(),
   );
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [errors, setErrors] = useState<TransactionFormErrors>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] =
-    useState<SnackbarSeverity>('success');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<SnackbarSeverity>('success');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
 
@@ -232,11 +214,7 @@ export default function TransactionForm({
   const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
   if (appliedResetKey !== resetKey) {
     setAppliedResetKey(resetKey);
-    setForm(
-      initialData
-        ? toFormValues(initialData, confirmsImportedRow)
-        : freshDefaultForm(),
-    );
+    setForm(initialData ? toFormValues(initialData, confirmsImportedRow) : freshDefaultForm());
     setErrors({});
     setPendingFiles([]);
     setFilesToRemove([]);
@@ -258,10 +236,7 @@ export default function TransactionForm({
     return format(new Date(), DAY_TIME_FORMAT);
   };
 
-  const showSnackbar = (
-    message: string,
-    severity: SnackbarSeverity = 'success',
-  ) => {
+  const showSnackbar = (message: string, severity: SnackbarSeverity = 'success') => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
@@ -297,7 +272,8 @@ export default function TransactionForm({
         categoryId: form.categoryId === '' ? undefined : form.categoryId,
         date: dateToUse,
       };
-      const newId = await onSubmitAction(submitData);
+      const submitResult = await onSubmitAction(submitData);
+      const newId = typeof submitResult === 'string' ? submitResult : undefined;
       const transactionId = initialData ? initialData.id : newId;
       let attachmentFailure: string | null = null;
       if (initialData && filesToRemove.length > 0) {
@@ -329,24 +305,16 @@ export default function TransactionForm({
       // Not a failed save, but it goes through the snackbar: closing the dialog
       // unmounts the alert that also carries it.
       if (attachmentFailure) {
-        showSnackbar(
-          t('transactions.form.saved', { failure: attachmentFailure }),
-          'warning',
-        );
+        showSnackbar(t('transactions.form.saved', { failure: attachmentFailure }), 'warning');
       } else {
         showSnackbar(
-          initialData
-            ? t('transactions.form.updated')
-            : t('transactions.form.created'),
+          initialData ? t('transactions.form.updated') : t('transactions.form.created'),
           'success',
         );
       }
       onCloseAction();
     } catch (err) {
-      showSnackbar(
-        describeApiError(err, t('transactions.form.saveFailed')),
-        'error',
-      );
+      showSnackbar(describeApiError(err, t('transactions.form.saveFailed')), 'error');
     } finally {
       setIsLoadingUpdate(false);
     }
@@ -360,10 +328,7 @@ export default function TransactionForm({
         showSnackbar(t('transactions.form.deleted'), 'success');
         onCloseAction();
       } catch (err) {
-        showSnackbar(
-          describeApiError(err, t('transactions.form.deleteFailed')),
-          'error',
-        );
+        showSnackbar(describeApiError(err, t('transactions.form.deleteFailed')), 'error');
       } finally {
         setIsLoadingDelete(false);
       }
@@ -377,9 +342,7 @@ export default function TransactionForm({
     if (mode === 'merge') {
       return t('transactions.form.title.merge');
     }
-    return initialData
-      ? t('transactions.form.title.edit')
-      : t('transactions.form.title.new');
+    return initialData ? t('transactions.form.title.edit') : t('transactions.form.title.new');
   };
 
   const getSubmitButtonText = () => {
@@ -471,10 +434,7 @@ export default function TransactionForm({
               />
             )}
             {conversionNote && (
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.secondary', mt: -1 }}
-              >
+              <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
                 {conversionNote}
               </Typography>
             )}
@@ -487,10 +447,7 @@ export default function TransactionForm({
               fullWidth
             />
             {form.categoryId === '' && !requireCategory && (
-              <Typography
-                variant="caption"
-                sx={{ color: 'warning.main', mt: -1 }}
-              >
+              <Typography variant="caption" sx={{ color: 'warning.main', mt: -1 }}>
                 {t('transactions.form.aiCategoryHint')}
               </Typography>
             )}
@@ -527,20 +484,14 @@ export default function TransactionForm({
             />
           </Stack>
         </DialogContent>
-        <DialogActions
-          sx={{ px: 3, pb: 2.5, pt: 1, justifyContent: 'space-between' }}
-        >
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, justifyContent: 'space-between' }}>
           {initialData && onDeleteAction ? (
             <Button
               color="error"
               onClick={handleDelete}
               disabled={busy}
               startIcon={
-                isLoadingDelete ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <DeleteIcon />
-                )
+                isLoadingDelete ? <CircularProgress size={18} color="inherit" /> : <DeleteIcon />
               }
             >
               {t('common.delete')}
@@ -557,11 +508,7 @@ export default function TransactionForm({
               onClick={handleSubmit}
               disabled={busy}
               startIcon={
-                isLoadingUpdate ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <SaveIcon />
-                )
+                isLoadingUpdate ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />
               }
             >
               {getSubmitButtonText()}

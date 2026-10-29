@@ -1,15 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogProps,
-  DialogTitle,
-  IconButton,
-  Stack,
-} from '@mui/material';
+import type { DialogProps } from '@mui/material';
+import { Button, Dialog, DialogContent, DialogTitle, IconButton, Stack } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
@@ -106,10 +99,7 @@ export default function ImportsPage() {
         }
       />
 
-      <ImportList
-        onImportClick={handleImportClick}
-        expandedImportId={expandedImport}
-      />
+      <ImportList onImportClick={handleImportClick} expandedImportId={expandedImport} />
 
       <ClosableDialog
         open={isUploadOpen}

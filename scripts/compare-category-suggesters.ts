@@ -30,15 +30,15 @@ const GATEWAY_OPENAI_BASE_URL = 'https://ai-gateway.vercel.sh/v1';
 // A key that is wrong fails every row the same way; three in a row is enough.
 const CONSECUTIVE_ERRORS_TO_ABORT = 3;
 
-interface NamedSuggester {
+type NamedSuggester = {
   label: string;
   suggester: CategorySuggester;
-}
+};
 
-interface Run {
+type Run = {
   model: string;
   decisions: Decision[];
-}
+};
 
 async function main(): Promise<void> {
   const options = parseBenchmarkArguments(process.argv.slice(2));
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   printSummaries(summaries);
 
   if (options.outPath !== null) {
-    await writeReport(options, prices, summaries, runs);
+    await writeReport(options.outPath, options, prices, summaries, runs);
   }
   if (summaries.some((summary) => summary.succeeded === 0)) {
     process.exitCode = 1;
@@ -81,18 +81,14 @@ async function loadSamples(path: string): Promise<SampleFile> {
   const raw = await readFile(resolve(path), 'utf8');
   const parsed = sampleFileSchema.safeParse(JSON.parse(raw));
   if (!parsed.success) {
-    throw new Error(
-      `${path} is not a valid sample file: ${parsed.error.message}`,
-    );
+    throw new Error(`${path} is not a valid sample file: ${parsed.error.message}`);
   }
   return parsed.data;
 }
 
 function jevSuggester(): CategorySuggester {
   if (!process.env.TYPESAFE_AI_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
-    throw new Error(
-      'The Jev side needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY',
-    );
+    throw new Error('The Jev side needs TYPESAFE_AI_API_KEY or AI_GATEWAY_API_KEY');
   }
   return new JevCategorySuggester();
 }
@@ -101,9 +97,7 @@ function llmSuggester(): CategorySuggester {
   const suggester = AIServiceFactory.getAIService();
   if (suggester instanceof GeminiService) {
     if (!process.env.GEMINI_API_KEY) {
-      throw new Error(
-        'AI_PROVIDER=gemini needs GEMINI_API_KEY for the LLM side',
-      );
+      throw new Error('AI_PROVIDER=gemini needs GEMINI_API_KEY for the LLM side');
     }
     return suggester;
   }
@@ -144,10 +138,7 @@ async function runSuggester(
     const startedAt = Date.now();
     let decision: Decision;
     try {
-      const evaluation = await suggester.evaluateCategory(
-        sample.description,
-        categories,
-      );
+      const evaluation = await suggester.evaluateCategory(sample.description, categories);
       decision = {
         answer: evaluation.categoryName,
         categoryId: evaluation.categoryId,
@@ -173,9 +164,7 @@ async function runSuggester(
     decisions.push(decision);
     progress(label, decisions.length, samples.length);
     if (consecutiveErrors >= CONSECUTIVE_ERRORS_TO_ABORT) {
-      process.stderr.write(
-        `\n${label}: stopping after ${consecutiveErrors} consecutive errors\n`,
-      );
+      process.stderr.write(`\n${label}: stopping after ${consecutiveErrors} consecutive errors\n`);
       break;
     }
   }
@@ -188,9 +177,7 @@ function printDecisions(samples: Sample[], runs: Run[]): void {
   console.log(`| --- | --- |${runs.map(() => ' --- |').join('')}`);
   samples.forEach((sample, index) => {
     const cells = runs.map((run) => mark(sample, run.decisions[index]));
-    console.log(
-      `| ${sample.description} | ${sample.expected[0]} | ${cells.join(' | ')} |`,
-    );
+    console.log(`| ${sample.description} | ${sample.expected[0]} | ${cells.join(' | ')} |`);
   });
 }
 
@@ -203,23 +190,15 @@ function mark(sample: Sample, decision: Decision | undefined): string {
   }
   const score = scoreDecision(sample, decision);
   const verdict = score.exact ? '✓' : score.acceptable ? '~' : '✗';
-  const answer =
-    decision.categoryId === null
-      ? `${decision.answer ?? '(none)'}?`
-      : decision.answer;
-  const probability =
-    decision.probability === null
-      ? ''
-      : ` p=${decision.probability.toFixed(2)}`;
+  const answer = decision.categoryId === null ? `${decision.answer ?? '(none)'}?` : decision.answer;
+  const probability = decision.probability === null ? '' : ` p=${decision.probability.toFixed(2)}`;
   return `${verdict} ${answer}${probability}`;
 }
 
 function printErrors(runs: Run[]): void {
   runs.forEach((run) => {
     const messages = new Set(
-      run.decisions.flatMap((decision) =>
-        decision.error === null ? [] : [decision.error],
-      ),
+      run.decisions.flatMap((decision) => (decision.error === null ? [] : [decision.error])),
     );
     if (messages.size > 0) {
       console.log(`\nErrors from ${run.model}:`);
@@ -239,16 +218,11 @@ const SUMMARY_ROWS: [string, (summary: Summary) => string][] = [
   ['input tokens', (summary) => String(summary.inputTokens)],
   ['output tokens', (summary) => String(summary.outputTokens)],
   ['cost this run (USD)', (summary) => money(summary.runCostUsd)],
-  [
-    'cost per 1,000 decisions (USD)',
-    (summary) => money(summary.costPer1000Usd),
-  ],
+  ['cost per 1,000 decisions (USD)', (summary) => money(summary.costPer1000Usd)],
 ];
 
 function printSummaries(summaries: Summary[]): void {
-  console.log(
-    `\n| metric | ${summaries.map((summary) => summary.model).join(' | ')} |`,
-  );
+  console.log(`\n| metric | ${summaries.map((summary) => summary.model).join(' | ')} |`);
   console.log(`| --- |${summaries.map(() => ' --- |').join('')}`);
   SUMMARY_ROWS.forEach(([label, cell]) => {
     console.log(`| ${label} | ${summaries.map(cell).join(' | ')} |`);
@@ -256,6 +230,7 @@ function printSummaries(summaries: Summary[]): void {
 }
 
 async function writeReport(
+  outPath: string,
   options: BenchmarkArguments,
   prices: ReturnType<typeof modelPrices>,
   summaries: Summary[],
@@ -268,8 +243,8 @@ async function writeReport(
     summaries,
     runs,
   };
-  await writeFile(options.outPath!, JSON.stringify(report, null, 2));
-  console.log(`\nWrote ${options.outPath}`);
+  await writeFile(outPath, JSON.stringify(report, null, 2));
+  console.log(`\nWrote ${outPath}`);
 }
 
 function progress(label: string, done: number, total: number): void {

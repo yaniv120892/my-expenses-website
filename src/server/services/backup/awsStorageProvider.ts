@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
+import type { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 

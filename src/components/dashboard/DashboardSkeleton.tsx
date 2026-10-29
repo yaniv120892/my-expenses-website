@@ -43,12 +43,7 @@ export function DashboardSkeleton() {
           }}
         >
           <Skeleton variant="text" width={160} height={24} sx={{ mb: 2 }} />
-          <Skeleton
-            variant="circular"
-            width={200}
-            height={200}
-            sx={{ mx: 'auto' }}
-          />
+          <Skeleton variant="circular" width={200} height={200} sx={{ mx: 'auto' }} />
         </Paper>
         <Paper
           sx={{
@@ -61,13 +56,7 @@ export function DashboardSkeleton() {
         >
           <Skeleton variant="text" width={120} height={24} sx={{ mb: 2 }} />
           {[1, 2, 3].map((i) => (
-            <Skeleton
-              key={i}
-              variant="text"
-              width="90%"
-              height={20}
-              sx={{ mb: 1 }}
-            />
+            <Skeleton key={i} variant="text" width="90%" height={20} sx={{ mb: 1 }} />
           ))}
         </Paper>
       </Box>
@@ -89,12 +78,7 @@ export function DashboardSkeleton() {
           }}
         >
           <Skeleton variant="text" width={180} height={24} sx={{ mb: 2 }} />
-          <Skeleton
-            variant="rectangular"
-            width="100%"
-            height={80}
-            sx={{ borderRadius: 1 }}
-          />
+          <Skeleton variant="rectangular" width="100%" height={80} sx={{ borderRadius: 1 }} />
         </Paper>
         <Paper
           sx={{
@@ -107,13 +91,7 @@ export function DashboardSkeleton() {
         >
           <Skeleton variant="text" width={160} height={24} sx={{ mb: 2 }} />
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton
-              key={i}
-              variant="text"
-              width="100%"
-              height={20}
-              sx={{ mb: 1 }}
-            />
+            <Skeleton key={i} variant="text" width="100%" height={20} sx={{ mb: 1 }} />
           ))}
         </Paper>
       </Box>

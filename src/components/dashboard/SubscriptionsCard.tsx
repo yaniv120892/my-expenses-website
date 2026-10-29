@@ -1,16 +1,9 @@
 'use client';
 
 import React from 'react';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Button,
-  Badge,
-} from '@mui/material';
+import { Card, CardContent, Typography, Box, Button, Badge } from '@mui/material';
 import RepeatIcon from '@mui/icons-material/Repeat';
-import { SubscriptionSnapshot } from '@/types/dashboard';
+import type { SubscriptionSnapshot } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
@@ -26,12 +19,7 @@ export function SubscriptionsCard({ subscriptions, onViewAll }: Props) {
     return null;
   }
 
-  const {
-    activeCount,
-    totalMonthlyEstimate,
-    totalAnnualEstimate,
-    detectedCount,
-  } = subscriptions;
+  const { activeCount, totalMonthlyEstimate, totalAnnualEstimate, detectedCount } = subscriptions;
 
   return (
     <Card

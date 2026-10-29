@@ -1,8 +1,4 @@
-import type {
-  TransactionAmount,
-  TransactionStatus,
-  TransactionType,
-} from './transaction';
+import type { TransactionAmount, TransactionStatus, TransactionType } from './transaction';
 
 /**
  * An imported row's amount. `value` (ILS) is null until it is known — a
@@ -106,5 +102,4 @@ export type ReconciliationPreviewItem = ReconciliationPlanItem & {
 
 // The benign 409 rematchImport throws when another call already re-matched the
 // survivor's rows, shared so callers match this exact text rather than a copy.
-export const NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR =
-  'No pending transactions to re-match';
+export const NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR = 'No pending transactions to re-match';

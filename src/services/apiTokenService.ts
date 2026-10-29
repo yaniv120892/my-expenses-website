@@ -1,9 +1,5 @@
 import api from './api';
-import type {
-  ApiTokenScope,
-  ApiTokenSummary,
-  CreatedApiToken,
-} from '@/types/apiToken';
+import type { ApiTokenScope, ApiTokenSummary, CreatedApiToken } from '@/types/apiToken';
 
 export async function getApiTokens(): Promise<ApiTokenSummary[]> {
   const response = await api.get('/api/api-tokens');

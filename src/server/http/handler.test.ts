@@ -1,34 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { pingHeartbeat, loggerMock, after, flushRemoteLogs, calls } = vi.hoisted(
-  () => {
-    const calls: string[] = [];
-    return {
-      calls,
-      pingHeartbeat: vi.fn(() => {
-        calls.push('ping');
-      }),
-      loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
-      after: vi.fn(),
-      flushRemoteLogs: vi.fn(async () => {
-        calls.push('flush');
-      }),
-    };
-  },
-);
+const { pingHeartbeat, loggerMock, flushRemoteLogs, calls } = vi.hoisted(() => {
+  const calls: string[] = [];
+  return {
+    calls,
+    pingHeartbeat: vi.fn(() => {
+      calls.push('ping');
+    }),
+    loggerMock: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+    flushRemoteLogs: vi.fn(async () => {
+      calls.push('flush');
+    }),
+  };
+});
 
-vi.mock('@/server/monitoring/heartbeat', () => ({ pingHeartbeat }));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs,
-  betterStackStream: { write: vi.fn() },
-}));
-vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
-// `after` throws outside a request scope, which is where these tests call the
-// handler.
-vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
-  after,
+vi.mock('@/server/observability', () => ({
+  logger: loggerMock,
+  observability: { pingHeartbeat, flushRemoteLogs, scheduleOpsAlert: vi.fn() },
 }));
 
 import { createHandler } from '@/server/http/handler';
@@ -120,10 +109,11 @@ describe('createHandler heartbeat', () => {
 
 describe('createHandler request log', () => {
   function requestLine(): Record<string, unknown> {
-    const call = loggerMock.info.mock.calls.find(
-      ([, msg]) => msg === 'request',
-    );
-    return call?.[0] as Record<string, unknown>;
+    const call = loggerMock.info.mock.calls.find(([, message]) => message === 'request');
+    if (!call) {
+      throw new Error('no request line was logged');
+    }
+    return call[0];
   }
 
   it('marks a cron request line for shipping', async () => {

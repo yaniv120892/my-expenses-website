@@ -1,5 +1,7 @@
 import axios from 'axios';
+import { z } from 'zod';
 import { logout } from './authClient';
+import { redirectToSessionExpired } from '@/utils/hardNavigate';
 
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
@@ -8,11 +10,17 @@ const api = axios.create();
 // Blob.
 async function serverMessage(data: unknown): Promise<string | null> {
   try {
-    const body = data instanceof Blob ? JSON.parse(await data.text()) : data;
-    return (body as { message?: string })?.message ?? null;
+    const body: unknown = data instanceof Blob ? JSON.parse(await data.text()) : data;
+    return messageField(body);
   } catch {
     return null;
   }
+}
+
+const messageBodySchema = z.object({ message: z.string() });
+
+function messageField(body: unknown): string | null {
+  return messageBodySchema.safeParse(body).data?.message ?? null;
 }
 
 let expiringSession: Promise<void> | null = null;
@@ -21,12 +29,17 @@ let expiringSession: Promise<void> | null = null;
 // would bounce /login straight back into the app until it is cleared. Requests
 // that 401 together share the one logout and redirect.
 function expireSession(): Promise<void> {
-  expiringSession ??= logout()
-    .catch(() => undefined)
-    .then(() => {
-      window.location.href = '/login?reason=session-expired';
-    });
+  expiringSession ??= logoutAndRedirect();
   return expiringSession;
+}
+
+async function logoutAndRedirect(): Promise<void> {
+  try {
+    await logout();
+  } catch {
+    // A failed logout must not keep the user on a page whose session is gone.
+  }
+  redirectToSessionExpired();
 }
 
 api.interceptors.response.use(

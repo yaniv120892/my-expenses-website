@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 
-export interface Session {
+export type Session = {
   userId: string;
   email: string | null;
-}
+};
 
 export function useSession() {
   return useQuery<Session>({

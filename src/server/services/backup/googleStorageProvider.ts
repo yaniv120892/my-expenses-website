@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-import { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
+import type { BackupStorageProvider } from '@/server/services/backup/backupStorageProvider';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv, requireEnv } from '@/server/env';
 
@@ -38,11 +38,11 @@ export class GoogleStorageProvider implements BackupStorageProvider {
       mimeType,
       body: streamFromBuffer(fileContent),
     };
-    const res = await this.getDrive().files.create({
+    const createdFile = await this.getDrive().files.create({
       requestBody: fileMetadata,
       media,
       fields: 'id, webViewLink',
     });
-    return res.data.webViewLink || '';
+    return createdFile.data.webViewLink || '';
   }
 }

@@ -9,16 +9,8 @@ export const POST = createHandler({
   handler: async ({ userId, body }) => {
     const transactionIds = body.transactionIds || 'all';
     if (body.action === 'approve') {
-      return importService.batchApproveImportedTransactions(
-        body.importId,
-        userId,
-        transactionIds,
-      );
+      return importService.batchApproveImportedTransactions(body.importId, userId, transactionIds);
     }
-    return importService.batchIgnoreImportedTransactions(
-      body.importId,
-      userId,
-      transactionIds,
-    );
+    return importService.batchIgnoreImportedTransactions(body.importId, userId, transactionIds);
   },
 });

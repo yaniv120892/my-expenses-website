@@ -21,20 +21,12 @@ export function toMoneyNumber(amount: DecimalInput): number {
 }
 
 /** originalAmount × rate, rounded once, at the end, to whole agorot. */
-export function convertAmount(
-  originalAmount: DecimalInput,
-  rate: DecimalInput,
-): number {
+export function convertAmount(originalAmount: DecimalInput, rate: DecimalInput): number {
   return toMoneyNumber(toDecimal(originalAmount).times(toDecimal(rate)));
 }
 
-export function impliedRate(
-  convertedAmount: DecimalInput,
-  originalAmount: DecimalInput,
-): string {
-  return toRateString(
-    toDecimal(convertedAmount).dividedBy(toDecimal(originalAmount)),
-  );
+export function impliedRate(convertedAmount: DecimalInput, originalAmount: DecimalInput): string {
+  return toRateString(toDecimal(convertedAmount).dividedBy(toDecimal(originalAmount)));
 }
 
 export function isSameMoney(left: DecimalInput, right: DecimalInput): boolean {
@@ -46,8 +38,6 @@ function toDecimal(value: DecimalInput): Decimal {
     return value;
   }
   return new Decimal(
-    typeof value === 'number' || typeof value === 'string'
-      ? value
-      : value.toString(),
+    typeof value === 'number' || typeof value === 'string' ? value : value.toString(),
   );
 }

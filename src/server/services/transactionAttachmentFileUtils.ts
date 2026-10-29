@@ -6,10 +6,10 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
-import path from 'path';
 import { create as contentDisposition } from 'content-disposition';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
+import { buildStorageObjectName } from '@/server/utils/storageObjectName';
 
 const getS3Client = lazy(
   () =>
@@ -17,28 +17,32 @@ const getS3Client = lazy(
       region: requireEnv('TRANSACTION_ATTACHMENT_S3_REGION'),
       credentials: {
         accessKeyId: requireEnv('TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID'),
-        secretAccessKey: requireEnv(
-          'TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY',
-        ),
+        secretAccessKey: requireEnv('TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY'),
       },
     }),
 );
 
-export async function buildPreviewUrl(key: string, expiresInSeconds = 600) {
+/** Signs the stored file name inline, since a new key no longer carries it for a browser's save-as. */
+export async function buildPreviewUrl({
+  key,
+  fileName,
+  expiresInSeconds = 600,
+}: {
+  key: string;
+  fileName: string;
+  expiresInSeconds?: number;
+}) {
   const command = new GetObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
+    ResponseContentDisposition: contentDisposition(fileName, { type: 'inline' }),
   });
   return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,
   });
 }
 
-export async function buildDownloadUrl(
-  key: string,
-  filename: string,
-  expiresInSeconds = 600,
-) {
+export async function buildDownloadUrl(key: string, filename: string, expiresInSeconds = 600) {
   const command = new GetObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
@@ -98,28 +102,14 @@ export async function deleteAttachmentObject(key: string): Promise<void> {
  * segments are refused because a URL client normalizes them, which would
  * climb out of the prefix.
  */
-export function isAttachmentKeyForTransaction(
-  fileKey: string,
-  transactionId: string,
-): boolean {
+export function isAttachmentKeyForTransaction(fileKey: string, transactionId: string): boolean {
   const prefix = attachmentKeyPrefix(transactionId);
-  const hasDotSegment = fileKey
-    .split('/')
-    .some((segment) => segment === '.' || segment === '..');
-  return (
-    fileKey.startsWith(prefix) &&
-    fileKey.length > prefix.length &&
-    !hasDotSegment
-  );
+  const hasDotSegment = fileKey.split('/').some((segment) => segment === '.' || segment === '..');
+  return fileKey.startsWith(prefix) && fileKey.length > prefix.length && !hasDotSegment;
 }
 
-export function buildAttachmentKey(
-  transactionId: string,
-  fileName: string,
-  id: string,
-): string {
-  const { name, ext } = path.parse(fileName);
-  return `${attachmentKeyPrefix(transactionId)}${id}-${name}${ext}`;
+export function buildAttachmentKey(transactionId: string, fileName: string, id: string): string {
+  return `${attachmentKeyPrefix(transactionId)}${buildStorageObjectName({ fileName, id })}`;
 }
 
 function attachmentKeyPrefix(transactionId: string): string {

@@ -10,7 +10,5 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return (
-    <TranslatedErrorFallback error={error} reset={reset} minHeight="40vh" />
-  );
+  return <TranslatedErrorFallback error={error} reset={reset} minHeight="40vh" />;
 }

@@ -9,12 +9,7 @@ type Props = {
   onAction?: () => void;
 };
 
-export default function EmptyState({
-  message,
-  icon,
-  actionLabel,
-  onAction,
-}: Props) {
+export default function EmptyState({ message, icon, actionLabel, onAction }: Props) {
   return (
     <Fade in>
       <Stack
@@ -27,9 +22,7 @@ export default function EmptyState({
           px: 2,
         }}
       >
-        {icon || (
-          <InfoOutlinedIcon sx={{ fontSize: 44, color: 'text.secondary' }} />
-        )}
+        {icon || <InfoOutlinedIcon sx={{ fontSize: 44, color: 'text.secondary' }} />}
         <Typography
           sx={{
             color: 'text.secondary',

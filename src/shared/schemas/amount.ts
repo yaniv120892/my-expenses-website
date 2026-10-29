@@ -19,10 +19,7 @@ export const strictPositiveAmountSchema = z
 
 // Form fields arrive as text. Only plain decimal text becomes a number: a
 // blank field, `true` or `[5]` is refused rather than coerced to 0, 1 or 5.
-export const positiveAmountSchema = z.preprocess(
-  numericTextToNumber,
-  strictPositiveAmountSchema,
-);
+export const positiveAmountSchema = z.preprocess(numericTextToNumber, strictPositiveAmountSchema);
 
 // A rate has no cent floor (a weak currency's rate is well under 0.01).
 export const positiveRateSchema = z.preprocess(

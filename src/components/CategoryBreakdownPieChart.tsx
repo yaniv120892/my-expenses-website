@@ -1,17 +1,9 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  ButtonBase,
-  Paper,
-  Skeleton,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, ButtonBase, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { CategoryBreakdownItem } from '@/types';
+import type { CategoryBreakdownItem } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import {
@@ -48,8 +40,7 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
         <Box component="span" sx={{ fontWeight: 600 }}>
           {item.categoryName}:
         </Box>{' '}
-        {formatter.currency(item.amount)} (
-        {formatter.percentagePoints(item.percentage)})
+        {formatter.currency(item.amount)} ({formatter.percentagePoints(item.percentage)})
       </Typography>
     </Paper>
   );
@@ -68,11 +59,15 @@ export default function CategoryBreakdownPieChart({
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const seriesColors = palette.charts.series;
-  const hasSelectedSlice = items.some(
-    (item) => item.categoryId === selectedCategoryId,
-  );
-  const isDimmed = (categoryId: string) =>
-    hasSelectedSlice && selectedCategoryId !== categoryId;
+  const hasSelectedSlice = items.some((item) => item.categoryId === selectedCategoryId);
+  const isDimmed = (categoryId: string) => hasSelectedSlice && selectedCategoryId !== categoryId;
+
+  function selectSlice(_slice: unknown, index: number) {
+    const item = items[index];
+    if (item) {
+      onSelectCategory(item.categoryId);
+    }
+  }
 
   const renderBody = () => {
     if (loading) {
@@ -132,17 +127,13 @@ export default function CategoryBreakdownPieChart({
                 strokeWidth={2}
                 startAngle={90}
                 endAngle={-270}
-                onClick={(_, index) =>
-                  onSelectCategory(items[index].categoryId)
-                }
+                onClick={selectSlice}
               >
                 {items.map((item, index) => (
                   <Cell
                     key={item.categoryId}
                     fill={seriesColors[index % seriesColors.length]}
-                    fillOpacity={
-                      isDimmed(item.categoryId) ? UNSELECTED_SLICE_OPACITY : 1
-                    }
+                    fillOpacity={isDimmed(item.categoryId) ? UNSELECTED_SLICE_OPACITY : 1}
                   />
                 ))}
               </Pie>
@@ -150,10 +141,7 @@ export default function CategoryBreakdownPieChart({
             </PieChart>
           </ResponsiveContainer>
         </Box>
-        <Stack
-          spacing={0.75}
-          sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 420 }}
-        >
+        <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 420 }}>
           {items.map((item, index) => (
             <ButtonBase
               key={item.categoryId}

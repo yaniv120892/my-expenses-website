@@ -1,7 +1,7 @@
-import AIServiceFactory from '@/server/services/ai/aiServiceFactory';
+import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
-import {
+import type {
   DashboardResponse,
   DashboardInsightsResponse,
   MonthComparison,
@@ -9,7 +9,7 @@ import {
   PercentageChange,
   TopCategory,
 } from '@/shared/types/dashboard';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
@@ -25,11 +25,10 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
 class DashboardService {
-  private getAiService = lazy(() => AIServiceFactory.getAIService());
+  private getAiService = lazy(() => aiServiceFactory.getAIService());
 
   public async getDashboard(userId: string): Promise<DashboardResponse> {
-    const { currentYear, currentMonth, prevYear, prevMonth } =
-      this.getMonthCursors();
+    const { currentYear, currentMonth, prevYear, prevMonth } = this.getMonthCursors();
 
     const [
       currentMonthSummary,
@@ -41,26 +40,13 @@ class DashboardService {
     ] = await Promise.all([
       dashboardRepository.getMonthSummary(userId, currentYear, currentMonth),
       dashboardRepository.getMonthSummary(userId, prevYear, prevMonth),
-      dashboardRepository.getTopCategoriesForMonth(
-        userId,
-        currentYear,
-        currentMonth,
-        7,
-      ),
-      dashboardRepository.getTopCategoriesForMonth(
-        userId,
-        prevYear,
-        prevMonth,
-        7,
-      ),
+      dashboardRepository.getTopCategoriesForMonth(userId, currentYear, currentMonth, 7),
+      dashboardRepository.getTopCategoriesForMonth(userId, prevYear, prevMonth, 7),
       dashboardRepository.getRecentTransactions(userId, 5),
       subscriptionDetectionService.getDashboardSnapshot(userId),
     ]);
 
-    const monthComparison = this.buildMonthComparison(
-      currentMonthSummary,
-      previousMonthSummary,
-    );
+    const monthComparison = this.buildMonthComparison(currentMonthSummary, previousMonthSummary);
     const topCategories = this.mergeTopCategories(
       topCategoriesCurrent,
       topCategoriesPrevious,
@@ -98,25 +84,14 @@ class DashboardService {
       logger.error({ err: error }, 'Failed to read dashboard insights cache');
     }
 
-    const { currentYear, currentMonth, prevYear, prevMonth } =
-      this.getMonthCursors(now);
+    const { currentYear, currentMonth, prevYear, prevMonth } = this.getMonthCursors(now);
 
     try {
-      const [currentMonthSummary, previousMonthSummary, topCategories] =
-        await Promise.all([
-          dashboardRepository.getMonthSummary(
-            userId,
-            currentYear,
-            currentMonth,
-          ),
-          dashboardRepository.getMonthSummary(userId, prevYear, prevMonth),
-          dashboardRepository.getTopCategoriesForMonth(
-            userId,
-            currentYear,
-            currentMonth,
-            7,
-          ),
-        ]);
+      const [currentMonthSummary, previousMonthSummary, topCategories] = await Promise.all([
+        dashboardRepository.getMonthSummary(userId, currentYear, currentMonth),
+        dashboardRepository.getMonthSummary(userId, prevYear, prevMonth),
+        dashboardRepository.getTopCategoriesForMonth(userId, currentYear, currentMonth, 7),
+      ]);
 
       const result = await this.generateAiInsights({
         currentMonth: currentMonthSummary,
@@ -126,16 +101,9 @@ class DashboardService {
       });
       if (result) {
         try {
-          await setValue(
-            cacheKey,
-            JSON.stringify(result),
-            INSIGHTS_CACHE_TTL_SECONDS,
-          );
+          await setValue(cacheKey, JSON.stringify(result), INSIGHTS_CACHE_TTL_SECONDS);
         } catch (cacheError) {
-          logger.error(
-            { err: cacheError },
-            'Failed to cache dashboard insights',
-          );
+          logger.error({ err: cacheError }, 'Failed to cache dashboard insights');
         }
       }
       return result;
@@ -155,32 +123,17 @@ class DashboardService {
     };
   }
 
-  private calculatePercentageChange(
-    current: number,
-    previous: number,
-  ): PercentageChange {
+  private calculatePercentageChange(current: number, previous: number): PercentageChange {
     return { amount: current - previous, ...classifyTrend(current, previous) };
   }
 
-  private buildMonthComparison(
-    current: MonthSummary,
-    previous: MonthSummary,
-  ): MonthComparison {
+  private buildMonthComparison(current: MonthSummary, previous: MonthSummary): MonthComparison {
     return {
       currentMonth: current,
       previousMonth: previous,
-      incomeChange: this.calculatePercentageChange(
-        current.totalIncome,
-        previous.totalIncome,
-      ),
-      expenseChange: this.calculatePercentageChange(
-        current.totalExpense,
-        previous.totalExpense,
-      ),
-      savingsChange: this.calculatePercentageChange(
-        current.savings,
-        previous.savings,
-      ),
+      incomeChange: this.calculatePercentageChange(current.totalIncome, previous.totalIncome),
+      expenseChange: this.calculatePercentageChange(current.totalExpense, previous.totalExpense),
+      savingsChange: this.calculatePercentageChange(current.savings, previous.savings),
     };
   }
 
@@ -193,12 +146,8 @@ class DashboardService {
 
     return current.map((cat) => {
       const previousMonthAmount = previousMap.get(cat.categoryId) ?? 0;
-      const percentage =
-        totalExpense === 0 ? 0 : (cat.amount / totalExpense) * 100;
-      const change = this.calculatePercentageChange(
-        cat.amount,
-        previousMonthAmount,
-      );
+      const percentage = totalExpense === 0 ? 0 : (cat.amount / totalExpense) * 100;
+      const change = this.calculatePercentageChange(cat.amount, previousMonthAmount);
 
       return {
         categoryId: cat.categoryId,
@@ -259,4 +208,5 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   }
 }
 
-export default new DashboardService();
+const dashboardService = new DashboardService();
+export default dashboardService;

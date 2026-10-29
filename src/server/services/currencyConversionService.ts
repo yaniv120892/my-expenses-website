@@ -12,10 +12,7 @@ import {
 } from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY } from '@/shared/currency';
 import { toDayString } from '@/shared/dates';
-import type {
-  TransactionAmount,
-  TransactionAmountInput,
-} from '@/shared/types/transaction';
+import type { TransactionAmount, TransactionAmountInput } from '@/shared/types/transaction';
 
 type ExistingAmount = TransactionAmount & { date: Date };
 
@@ -31,42 +28,18 @@ class CurrencyConversionService {
       return baseAmount(this.baseCurrencyValue(input));
     }
 
-    const originalAmount = this.foreignOriginalAmount(
-      input,
-      currency,
-      existing,
-    );
+    const originalAmount = this.foreignOriginalAmount(input, currency, existing);
 
     if (input.exchangeRate !== undefined) {
-      return givenRateAmount(
-        originalAmount,
-        currency,
-        input.exchangeRate,
-        date,
-      );
+      return givenRateAmount(originalAmount, currency, input.exchangeRate, date);
     }
 
-    if (
-      existing &&
-      this.keepsExistingConversion(
-        input,
-        currency,
-        originalAmount,
-        date,
-        existing,
-      )
-    ) {
+    if (existing && this.keepsExistingConversion(input, currency, originalAmount, date, existing)) {
       return pickAmountFields(existing);
     }
 
     if (input.value !== undefined) {
-      return impliedRateAmount(
-        input.value,
-        originalAmount,
-        currency,
-        date,
-        'MANUAL',
-      );
+      return impliedRateAmount(input.value, originalAmount, currency, date, 'MANUAL');
     }
 
     const quote = await exchangeRateService.getRateToBase(currency, date);
@@ -98,9 +71,7 @@ class CurrencyConversionService {
     if (existing?.currency === currency) {
       return existing.originalAmount;
     }
-    throw new CustomValidationError(
-      `originalAmount is required for an amount in ${currency}`,
-    );
+    throw new CustomValidationError(`originalAmount is required for an amount in ${currency}`);
   }
 
   private keepsExistingConversion(
@@ -114,8 +85,7 @@ class CurrencyConversionService {
       existing.currency === currency &&
       isSameMoney(existing.originalAmount, originalAmount) &&
       isSameDay(existing.date, date);
-    const valueUnchanged =
-      input.value === undefined || isSameMoney(input.value, existing.value);
+    const valueUnchanged = input.value === undefined || isSameMoney(input.value, existing.value);
     return sameCharge && valueUnchanged;
   }
 }

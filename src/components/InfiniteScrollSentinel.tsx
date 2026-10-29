@@ -1,24 +1,19 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 
-interface Props {
+type Props = {
   hasMore: boolean;
   loading: boolean;
   onLoadMore: () => void;
-}
+};
 
 // Re-armed whenever hasMore/loading change, so a fetch in flight cannot queue a
 // second request for the same page.
-export default function InfiniteScrollSentinel({
-  hasMore,
-  loading,
-  onLoadMore,
-}: Props) {
+export default function InfiniteScrollSentinel({ hasMore, loading, onLoadMore }: Props) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const onLoadMoreRef = useRef(onLoadMore);
-  onLoadMoreRef.current = onLoadMore;
+  const loadMore = useEffectEvent(onLoadMore);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -28,8 +23,8 @@ export default function InfiniteScrollSentinel({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          onLoadMoreRef.current();
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
         }
       },
       { rootMargin: '200px' },
@@ -43,10 +38,7 @@ export default function InfiniteScrollSentinel({
   }
 
   return (
-    <Box
-      ref={sentinelRef}
-      sx={{ display: 'flex', justifyContent: 'center', py: 2 }}
-    >
+    <Box ref={sentinelRef} sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
       {loading && <CircularProgress size={24} />}
     </Box>
   );

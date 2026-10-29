@@ -3,9 +3,7 @@ import { signIn } from './helpers';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
 
-test('an API token is shown once, then revoked through the dialog', async ({
-  page,
-}) => {
+test('an API token is shown once, then revoked through the dialog', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
   const name = `e2e token ${Date.now()}`;
 
@@ -30,7 +28,5 @@ test('an API token is shown once, then revoked through the dialog', async ({
   await expect(dialog).toContainText(name);
   await dialog.getByRole('button', { name: 'Revoke' }).click();
 
-  await expect(page.getByRole('row', { name: new RegExp(name) })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole('row', { name: new RegExp(name) })).toHaveCount(0);
 });

@@ -21,18 +21,13 @@ export function cardDigitsEncryption(encryptionKey: string) {
     name: 'card-digits-encryption',
     query: {
       import: {
-        create: ({ args, query }) =>
-          query({ ...args, data: encrypt(args.data) }),
-        createMany: ({ args, query }) =>
-          query({ ...args, data: encryptEach(args.data, encrypt) }),
+        create: ({ args, query }) => query({ ...args, data: encrypt(args.data) }),
+        createMany: ({ args, query }) => query({ ...args, data: encryptEach(args.data, encrypt) }),
         createManyAndReturn: ({ args, query }) =>
           query({ ...args, data: encryptEach(args.data, encrypt) }),
-        update: ({ args, query }) =>
-          query({ ...args, data: encrypt(args.data) }),
-        updateMany: ({ args, query }) =>
-          query({ ...args, data: encrypt(args.data) }),
-        updateManyAndReturn: ({ args, query }) =>
-          query({ ...args, data: encrypt(args.data) }),
+        update: ({ args, query }) => query({ ...args, data: encrypt(args.data) }),
+        updateMany: ({ args, query }) => query({ ...args, data: encrypt(args.data) }),
+        updateManyAndReturn: ({ args, query }) => query({ ...args, data: encrypt(args.data) }),
         upsert: ({ args, query }) =>
           query({
             ...args,
@@ -73,10 +68,7 @@ export function encryptCardDigitsInput<Input extends CardDigitsInput>(
 }
 
 // A value that is not a cloak string was never encrypted; it reads back as is.
-export function decryptCardDigits(
-  stored: string | null,
-  key: ParsedCloakKey,
-): string | null {
+export function decryptCardDigits(stored: string | null, key: ParsedCloakKey): string | null {
   if (stored === null || !parseCloakedString(stored)) {
     return stored;
   }

@@ -38,14 +38,10 @@ export default function BatchConfirmDialog({
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose}>
       <DialogTitle>
-        {isApprove
-          ? t('imports.batch.confirmApproveTitle')
-          : t('imports.batch.confirmIgnoreTitle')}
+        {isApprove ? t('imports.batch.confirmApproveTitle') : t('imports.batch.confirmIgnoreTitle')}
       </DialogTitle>
       <DialogContent>
-        <DialogContentText>
-          {confirmationText({ action, count, t })}
-        </DialogContentText>
+        <DialogContentText>{confirmationText({ action, count, t })}</DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isLoading}>

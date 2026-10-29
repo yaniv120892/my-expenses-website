@@ -9,11 +9,7 @@ type Props = {
   minHeight: string;
 };
 
-export default function TranslatedErrorFallback({
-  error,
-  reset,
-  minHeight,
-}: Props) {
+export default function TranslatedErrorFallback({ error, reset, minHeight }: Props) {
   const t = useT();
   return (
     <ErrorFallback

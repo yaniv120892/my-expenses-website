@@ -19,12 +19,7 @@ type Props = {
 };
 
 /** Takes its text as props: the global error page renders outside the i18n provider. */
-export default function ErrorFallback({
-  error,
-  reset,
-  minHeight,
-  labels,
-}: Props) {
+export default function ErrorFallback({ error, reset, minHeight, labels }: Props) {
   useEffect(() => {
     // A `digest` means Next redacted a server error that `onRequestError`
     // already reported with its real stack.
@@ -41,7 +36,7 @@ export default function ErrorFallback({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: minHeight,
+        minHeight,
         gap: 2,
       }}
     >

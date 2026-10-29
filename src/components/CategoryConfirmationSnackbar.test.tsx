@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithClient } from '@/test/renderWithClient';
 import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
 import { updateTransaction } from '@/services/transactions';
-import { CreateTransactionInput } from '@/types';
+import type { CreateTransactionInput } from '@/types';
 
 vi.mock('@/services/transactions', () => ({
   updateTransaction: vi.fn(),

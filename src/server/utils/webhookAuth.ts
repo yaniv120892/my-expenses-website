@@ -1,10 +1,9 @@
 import crypto from 'crypto';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { requireEnv } from '@/server/env';
 
 export const WEBHOOK_TOKEN_EXPIRY_HOURS = 6;
-export const WEBHOOK_TOKEN_EXPIRY_MS =
-  WEBHOOK_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000;
+export const WEBHOOK_TOKEN_EXPIRY_MS = WEBHOOK_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000;
 
 function getWebhookSecret(): string {
   return requireEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET');
@@ -14,16 +13,10 @@ function getWebhookSecret(): string {
 // still verify. Tokens expire after WEBHOOK_TOKEN_EXPIRY_MS, so the unbound
 // branch is dead that long after rollout and both `importId?` parameters can be
 // required.
-export function generateWebhookToken(
-  userId: string,
-  timestamp: number,
-  importId?: string,
-): string {
+export function generateWebhookToken(userId: string, timestamp: number, importId?: string): string {
   const secret = getWebhookSecret();
 
-  const payload = importId
-    ? `${userId}:${timestamp}:${importId}`
-    : `${userId}:${timestamp}`;
+  const payload = importId ? `${userId}:${timestamp}:${importId}` : `${userId}:${timestamp}`;
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(payload);
   const token = hmac.digest('base64url');
@@ -67,10 +60,7 @@ export function verifyWebhookToken(
   }
 
   if (age < 0) {
-    logger.warn(
-      { userId, timestamp, now },
-      'Webhook token timestamp is in the future',
-    );
+    logger.warn({ userId, timestamp, now }, 'Webhook token timestamp is in the future');
     return false;
   }
 
@@ -92,10 +82,7 @@ export function verifyWebhookToken(
 
     return isValid;
   } catch (err) {
-    logger.error(
-      { err, userId, timestamp, importId },
-      'Error verifying webhook token',
-    );
+    logger.error({ err, userId, timestamp, importId }, 'Error verifying webhook token');
     return false;
   }
 }
@@ -105,10 +92,7 @@ export function verifyWebhookToken(
  * timingSafeEqual throws on it and the length of a secret is not the secret.
  * An empty expected value never matches, so an unset secret cannot authorize.
  */
-export function secretsEqual(
-  provided: string | null,
-  expected: string,
-): boolean {
+export function secretsEqual(provided: string | null, expected: string): boolean {
   if (!provided || !expected) {
     return false;
   }

@@ -1,9 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  createApiToken,
-  getApiTokens,
-  revokeApiToken,
-} from '@/services/apiTokenService';
+import { createApiToken, getApiTokens, revokeApiToken } from '@/services/apiTokenService';
 
 export const apiTokenKeys = {
   all: ['apiTokens'] as const,

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  fitChatHistory,
-  MAX_CHAT_MESSAGES,
-  MAX_CHAT_MESSAGE_LENGTH,
-} from '@/utils/chatHistory';
+import { fitChatHistory, MAX_CHAT_MESSAGES, MAX_CHAT_MESSAGE_LENGTH } from '@/utils/chatHistory';
 
 describe('fitChatHistory', () => {
   it('keeps a short history untouched', () => {
@@ -20,7 +16,7 @@ describe('fitChatHistory', () => {
 
     const [fitted] = fitChatHistory([{ sender: 'bot', text: long }]);
 
-    expect(fitted.text).toHaveLength(MAX_CHAT_MESSAGE_LENGTH);
+    expect(fitted?.text).toHaveLength(MAX_CHAT_MESSAGE_LENGTH);
   });
 
   it('keeps only the newest messages once the cap is reached', () => {
@@ -32,9 +28,7 @@ describe('fitChatHistory', () => {
     const fitted = fitChatHistory(messages);
 
     expect(fitted).toHaveLength(MAX_CHAT_MESSAGES);
-    expect(fitted[0].text).toBe('message 10');
-    expect(fitted[fitted.length - 1].text).toBe(
-      `message ${MAX_CHAT_MESSAGES + 9}`,
-    );
+    expect(fitted[0]?.text).toBe('message 10');
+    expect(fitted[fitted.length - 1]?.text).toBe(`message ${MAX_CHAT_MESSAGES + 9}`);
   });
 });

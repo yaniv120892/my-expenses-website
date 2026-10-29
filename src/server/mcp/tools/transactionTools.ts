@@ -6,10 +6,7 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import { toAppWallClock } from '@/shared/dates';
-import type {
-  Transaction,
-  TransactionAmountInput,
-} from '@/shared/types/transaction';
+import type { Transaction, TransactionAmountInput } from '@/shared/types/transaction';
 import {
   addTransactionShape,
   deleteTransactionShape,
@@ -18,10 +15,8 @@ import {
 } from '@/server/mcp/toolSchemas';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
 import { READ_ONLY, registerSafeTool } from '@/server/mcp/safeTool';
-import {
-  describeTransaction,
-  describeTransactions,
-} from '@/server/mcp/transactionText';
+import { captureProductEvent } from '@/server/productEvents';
+import { describeTransaction, describeTransactions } from '@/server/mcp/transactionText';
 
 type UpdateTransactionInput = ShapeOutput<typeof updateTransactionShape>;
 
@@ -53,8 +48,11 @@ export function registerTransactionTools({
       annotations: READ_ONLY,
     },
     handler: async ({ limit, ...filters }) => {
-      const { transactions, hasMore } =
-        await financeQueryService.findTransactions({ userId, filters, limit });
+      const { transactions, hasMore } = await financeQueryService.findTransactions({
+        userId,
+        filters,
+        limit,
+      });
       const lines = describeTransactions({
         transactions,
         emptyText: 'No transactions match those filters.',
@@ -93,6 +91,11 @@ export function registerTransactionTools({
         }),
         categoryId: (await resolveCategoryId(input.categoryName)) ?? null,
         userId,
+      });
+      captureProductEvent({
+        userId,
+        event: 'transaction_created',
+        properties: { channel: 'agent' },
       });
       return {
         text: `Added: ${describeTransaction(transaction)}`,
@@ -133,6 +136,11 @@ export function registerTransactionTools({
         },
         userId,
       );
+      captureProductEvent({
+        userId,
+        event: 'transaction_updated',
+        properties: { channel: 'agent' },
+      });
       return {
         text: `Updated: ${describeTransaction(updated)}`,
         transactionId: updated.id,
@@ -159,6 +167,11 @@ export function registerTransactionTools({
     handler: async (input) => {
       const existing = await requireTransaction({ id: input.id, userId });
       await transactionService.deleteTransaction(existing.id, userId);
+      captureProductEvent({
+        userId,
+        event: 'transaction_deleted',
+        properties: { channel: 'agent' },
+      });
       return {
         text: `Deleted: ${describeTransaction(existing)}`,
         transactionId: existing.id,
@@ -167,21 +180,13 @@ export function registerTransactionTools({
   });
 }
 
-function toTransactionDate({
-  day,
-  fallback,
-}: {
-  day: string | undefined;
-  fallback: Date;
-}): Date {
+function toTransactionDate({ day, fallback }: { day: string | undefined; fallback: Date }): Date {
   return day ? new Date(day) : fallback;
 }
 
 // The resolved subtree is rooted at the named category itself, which is the
 // one a transaction gets filed under.
-async function resolveCategoryId(
-  categoryName: string | undefined,
-): Promise<string | undefined> {
+async function resolveCategoryId(categoryName: string | undefined): Promise<string | undefined> {
   const category = await financeQueryService.resolveCategory(categoryName);
   return category?.ids[0];
 }
@@ -195,21 +200,14 @@ async function requireTransaction({
 }): Promise<Transaction> {
   const transaction = await transactionService.getTransactionItem(id, userId);
   if (!transaction) {
-    throw new HttpError(
-      404,
-      `No transaction with id ${id}. Use find_transactions to look it up.`,
-    );
+    throw new HttpError(404, `No transaction with id ${id}. Use find_transactions to look it up.`);
   }
   return transaction;
 }
 
 // The conversion itself stays with currencyConversionService; this only says
 // which of its inputs the agent stated.
-function toAmountInput({
-  amount,
-  currency,
-  ilsAmount,
-}: AgentAmountInput): TransactionAmountInput {
+function toAmountInput({ amount, currency, ilsAmount }: AgentAmountInput): TransactionAmountInput {
   if (!isForeignCurrency(currency)) {
     if (ilsAmount !== undefined) {
       throw new CustomValidationError(
@@ -230,19 +228,15 @@ function toUpdatedAmountInput({
   input: UpdateTransactionInput;
   existing: Transaction;
 }): TransactionAmountInput {
-  const changesCurrency =
-    input.currency !== undefined && input.currency !== existing.currency;
-  const lacksAmountInNewCurrency =
-    changesCurrency && input.amount === undefined;
+  const changesCurrency = input.currency !== undefined && input.currency !== existing.currency;
+  const lacksAmountInNewCurrency = changesCurrency && input.amount === undefined;
   if (lacksAmountInNewCurrency) {
     throw new CustomValidationError(
       `Changing the currency from ${existing.currency} to ${input.currency} needs the amount in ${input.currency}`,
     );
   }
   const changesAmount =
-    input.amount !== undefined ||
-    changesCurrency ||
-    input.ilsAmount !== undefined;
+    input.amount !== undefined || changesCurrency || input.ilsAmount !== undefined;
   if (!changesAmount) {
     return {
       currency: existing.currency,

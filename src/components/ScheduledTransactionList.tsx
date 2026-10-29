@@ -13,7 +13,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { ScheduledTransaction, Category } from '../types';
+import type { ScheduledTransaction, Category } from '../types';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
@@ -44,9 +44,7 @@ export default function ScheduledTransactionList({
   }
 
   function nextRun(schedule: ScheduledTransaction) {
-    return schedule.nextRunDate
-      ? formatter.day(schedule.nextRunDate)
-      : t('scheduled.notAvailable');
+    return schedule.nextRunDate ? formatter.day(schedule.nextRunDate) : t('scheduled.notAvailable');
   }
 
   if (!scheduledTransactions.length) {
@@ -56,9 +54,7 @@ export default function ScheduledTransactionList({
   if (isMobile) {
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Stack
-          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
-        >
+        <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
           {scheduledTransactions.map((tx) => (
             <SwipeableRow
               key={tx.id}
@@ -141,15 +137,9 @@ export default function ScheduledTransactionList({
               sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
             >
               <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>
-                {categoryName(tx.categoryId)}
-              </TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>
-                {summary(tx)}
-              </TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>
-                {nextRun(tx)}
-              </TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{categoryName(tx.categoryId)}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{summary(tx)}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{nextRun(tx)}</TableCell>
               <TableCell align="right">
                 <AmountText type={tx.type} value={tx.value} />
               </TableCell>

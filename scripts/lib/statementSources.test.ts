@@ -14,10 +14,7 @@ function sources(
   startMonth = '08/2026',
   closedCards: Record<string, unknown>[] = [],
 ): StatementSources {
-  return parseStatementSources(
-    JSON.stringify({ startMonth, cards, closedCards }),
-    'sources.json',
-  );
+  return parseStatementSources(JSON.stringify({ startMonth, cards, closedCards }), 'sources.json');
 }
 
 const calCard = {
@@ -41,14 +38,8 @@ function imported(
   };
 }
 
-function dueFiles(
-  sourceList: StatementSources,
-  imports: ImportSummary[],
-  today: string,
-): string[] {
-  return findDueStatements(sourceList, imports, today).due.map(
-    (statement) => statement.fileName,
-  );
+function dueFiles(sourceList: StatementSources, imports: ImportSummary[], today: string): string[] {
+  return findDueStatements(sourceList, imports, today).due.map((statement) => statement.fileName);
 }
 
 describe('findDueStatements', () => {
@@ -69,10 +60,7 @@ describe('findDueStatements', () => {
 
   it('holds back a month until its billing day', () => {
     const report = findDueStatements(sources([calCard]), [], '2026-10-14');
-    expect(report.due.map((statement) => statement.paymentMonth)).toEqual([
-      '08/2026',
-      '09/2026',
-    ]);
+    expect(report.due.map((statement) => statement.paymentMonth)).toEqual(['08/2026', '09/2026']);
     expect(report.upcoming).toEqual([
       expect.objectContaining({
         paymentMonth: '10/2026',
@@ -91,11 +79,7 @@ describe('findDueStatements', () => {
 
   it('re-lists a month imported before it closed, naming when', () => {
     const imports = [imported('10/2026', '2026-10-10T06:00:00Z')];
-    const report = findDueStatements(
-      sources([calCard], '10/2026'),
-      imports,
-      '2026-10-16',
-    );
+    const report = findDueStatements(sources([calCard], '10/2026'), imports, '2026-10-16');
     expect(report.due).toEqual([
       expect.objectContaining({
         paymentMonth: '10/2026',
@@ -107,9 +91,7 @@ describe('findDueStatements', () => {
   it('dates an import by the Israeli calendar day', () => {
     // 22:30 UTC on the 14th is already the 15th in Israel.
     const imports = [imported('10/2026', '2026-10-14T22:30:00Z')];
-    expect(
-      dueFiles(sources([calCard], '10/2026'), imports, '2026-10-16'),
-    ).toEqual([]);
+    expect(dueFiles(sources([calCard], '10/2026'), imports, '2026-10-16')).toEqual([]);
   });
 
   it('ignores a failed import but counts a merged one', () => {
@@ -151,23 +133,17 @@ describe('findDueStatements', () => {
 
 describe('parseStatementSources', () => {
   it('rejects a card listed twice', () => {
-    expect(() => sources([calCard, calCard])).toThrow(
-      'card 1111 is listed twice',
-    );
+    expect(() => sources([calCard, calCard])).toThrow('card 1111 is listed twice');
   });
 
   it('rejects an active card that is also listed as closed', () => {
     expect(() =>
-      sources([calCard], '08/2026', [
-        { issuer: 'cal', last4: '1111', holder: 'self' },
-      ]),
+      sources([calCard], '08/2026', [{ issuer: 'cal', last4: '1111', holder: 'self' }]),
     ).toThrow('card 1111 is listed twice');
   });
 
   it('names the offending field', () => {
-    expect(() => sources([{ ...calCard, billingDay: 40 }])).toThrow(
-      'cards.0.billingDay',
-    );
+    expect(() => sources([{ ...calCard, billingDay: 40 }])).toThrow('cards.0.billingDay');
   });
 });
 
@@ -192,8 +168,6 @@ describe('parseDueArguments', () => {
   });
 
   it('rejects anything else', () => {
-    expect(() => parseDueArguments(['--dry-run'], '/x')).toThrow(
-      'Unexpected argument --dry-run',
-    );
+    expect(() => parseDueArguments(['--dry-run'], '/x')).toThrow('Unexpected argument --dry-run');
   });
 });

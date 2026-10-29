@@ -17,9 +17,7 @@ describe('getPresignedUploadUrl', () => {
       fileSize: 1234,
     });
 
-    const signedHeaders = new URL(uploadUrl).searchParams.get(
-      'X-Amz-SignedHeaders',
-    );
+    const signedHeaders = new URL(uploadUrl).searchParams.get('X-Amz-SignedHeaders');
     expect(signedHeaders?.split(';')).toContain('content-length');
   });
 });

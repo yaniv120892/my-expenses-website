@@ -1,15 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useI18n, type Locale } from '@yaniv120892/my-ui';
-import {
-  fetchDashboard,
-  fetchDashboardInsights,
-} from '../services/dashboardService';
+import { fetchDashboard, fetchDashboardInsights } from '../services/dashboardService';
 
 export const dashboardKeys = {
   all: ['dashboard'] as const,
   overview: () => [...dashboardKeys.all, 'overview'] as const,
-  insights: (locale: Locale) =>
-    [...dashboardKeys.all, 'insights', locale] as const,
+  insights: (locale: Locale) => [...dashboardKeys.all, 'insights', locale] as const,
 };
 
 export const useDashboardQuery = () => {

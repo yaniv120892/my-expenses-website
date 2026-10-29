@@ -41,6 +41,7 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { logger } from '@/server/observability';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
 import type { CreateTransaction } from '@/shared/types/transaction';
@@ -298,6 +299,20 @@ describe('attachFile', () => {
     await attach(`transactions/${TRANSACTION_ID}/uuid-receipt.pdf`);
 
     expect(createTransactionFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs the key and size, never the file name', async () => {
+    const debug = vi.spyOn(logger, 'debug');
+    const fileKey = `transactions/${TRANSACTION_ID}/uuid.pdf`;
+
+    await attach(fileKey);
+
+    expect(JSON.stringify(debug.mock.calls)).not.toContain('receipt');
+    expect(debug).toHaveBeenCalledWith(
+      { transactionId: TRANSACTION_ID, fileKey, fileSize: 10, mimeType: 'application/pdf' },
+      'File attached to transaction',
+    );
+    debug.mockRestore();
   });
 
   it.each([

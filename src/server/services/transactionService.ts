@@ -294,7 +294,15 @@ class TransactionService {
       ...fileData,
     });
 
-    logger.debug({ transactionId, fileData }, 'File attached to transaction');
+    logger.debug(
+      {
+        transactionId,
+        fileKey: fileData.fileKey,
+        fileSize: fileData.fileSize,
+        mimeType: fileData.mimeType,
+      },
+      'File attached to transaction',
+    );
   }
 
   public async getTransactionFiles(

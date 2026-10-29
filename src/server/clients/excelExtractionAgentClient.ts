@@ -2,6 +2,7 @@ import axios from 'axios';
 import { logger } from '@/server/observability';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
+import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { requireEnv, requireSiteUrl } from '@/server/env';
 import type {
   SubmitExtractionRequest,
@@ -42,7 +43,8 @@ export class ExcelExtractionAgentClient {
 
       logger.info(
         {
-          filename: request.filename,
+          importId: request.importId,
+          fileExtension: keySafeExtension(request.filename),
           userId: request.userId,
           fileUrl: request.fileUrl.substring(0, 100),
           webhookUrlPreview: this.webhookBaseUrl,
@@ -74,7 +76,7 @@ export class ExcelExtractionAgentClient {
       logger.error(
         {
           err: this.formatError(error),
-          filename: request.filename,
+          importId: request.importId,
           userId: request.userId,
         },
         'Failed to submit extraction request',

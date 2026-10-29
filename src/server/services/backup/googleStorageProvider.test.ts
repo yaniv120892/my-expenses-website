@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from 'crypto';
 import { Readable } from 'stream';
 import { text } from 'stream/consumers';
-import { type Common, google } from 'googleapis';
+import { Common } from 'googleapis';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GoogleStorageProvider } from '@/server/services/backup/googleStorageProvider';
 
@@ -27,14 +27,13 @@ const SERVICE_ACCOUNT_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
   .privateKey.export({ type: 'pkcs8', format: 'pem' })
   .toString();
 
-// The installed tree can hold several gaxios copies (a direct import resolves
-// the ESM build; google-auth-library may nest its own), so the stub targets the
-// class the JWT client actually sends through.
+// A direct `gaxios` import resolves its ESM build, a different class from the
+// CJS one the SDK calls, so the stub goes through googleapis' own re-export.
 function stubGoogleHttp(): SentRequest[] {
   const sent: SentRequest[] = [];
-  const { transporter } = new google.auth.JWT({});
-  const transporterPrototype: typeof Common.Gaxios.prototype = Object.getPrototypeOf(transporter);
-  vi.spyOn(transporterPrototype, 'request').mockImplementation(async function respond(config = {}) {
+  vi.spyOn(Common.Gaxios.prototype, 'request').mockImplementation(async function respond(
+    config = {},
+  ) {
     const url = String(config.url);
     if (!(url in RESPONSES)) {
       throw new Error(`unexpected Google request: ${config.method} ${url}`);

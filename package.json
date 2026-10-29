@@ -105,6 +105,9 @@
   "overrides": {
     "prisma": {
       "mysql2": "^3.22.0"
+    },
+    "openai": {
+      "google-auth-library": "^11.0.0"
     }
   }
 }

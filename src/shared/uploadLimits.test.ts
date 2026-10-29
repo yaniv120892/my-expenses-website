@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  MAX_UPLOAD_BYTES,
-  exceedsUploadLimit,
-  uploadTooLargeMessage,
-} from '@/shared/uploadLimits';
+import { MAX_UPLOAD_BYTES, exceedsUploadLimit, uploadTooLargeMessage } from '@/shared/uploadLimits';
 
 describe('exceedsUploadLimit', () => {
   it('holds the limit at 4 MB, under the ~4.5 MB a function accepts', () => {

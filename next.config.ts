@@ -42,9 +42,7 @@ const nextConfig: NextConfig = {
 
 // A build without the token skips source maps it could not upload anyway.
 const canUploadSourceMaps = Boolean(
-  process.env.SENTRY_AUTH_TOKEN &&
-  process.env.SENTRY_ORG &&
-  process.env.SENTRY_PROJECT,
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
 );
 
 export default withSentryConfig(nextConfig, {
@@ -52,7 +50,7 @@ export default withSentryConfig(nextConfig, {
   release: { create: canUploadSourceMaps },
   widenClientFileUpload: true,
   // Tracing is off everywhere, so its SDK code is dead weight in the bundle;
-  // re-enabling `tracesSampleRate` means dropping this flag too.
+  // re-enabling tracing means dropping this flag too.
   bundleSizeOptimizations: {
     excludeTracing: true,
     excludeDebugStatements: true,

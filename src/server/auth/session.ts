@@ -1,14 +1,10 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { deleteValue, getValue, setValue } from '@/server/redis';
-import {
-  InvalidTokenError,
-  TokenExpiredError,
-  verifyToken,
-} from '@/server/auth/tokens';
+import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
 export class AuthError extends Error {
-  constructor(
+  public constructor(
     public readonly code: string,
     message: string,
   ) {
@@ -28,44 +24,37 @@ export async function storeSession(
   await setValue(sessionKey(userId, token), '1', ttlSeconds, 'branch');
 }
 
-export async function invalidateSession(
-  userId: string,
-  token: string,
-): Promise<void> {
+export async function invalidateSession(userId: string, token: string): Promise<void> {
   await deleteValue(sessionKey(userId, token), 'branch');
 }
 
-async function isSessionActive(
-  userId: string,
-  token: string,
-): Promise<boolean> {
+async function isSessionActive(userId: string, token: string): Promise<boolean> {
   return (await getValue(sessionKey(userId, token), 'branch')) !== null;
 }
 
 export type Credential = { source: 'cookie' | 'bearer'; token: string };
 
 export function extractBearerToken(request: NextRequest): string | null {
-  const [scheme, token] =
-    request.headers.get('authorization')?.split(' ') ?? [];
+  const [scheme, token] = request.headers.get('authorization')?.split(' ') ?? [];
   const isBearer = scheme?.toLowerCase() === 'bearer' && !!token;
   return isBearer ? token : null;
 }
 
-export function extractCredential(req: NextRequest): Credential | null {
-  const cookieToken = req.cookies.get(SESSION_COOKIE)?.value;
+export function extractCredential(request: NextRequest): Credential | null {
+  const cookieToken = request.cookies.get(SESSION_COOKIE)?.value;
   if (cookieToken) {
     return { source: 'cookie', token: cookieToken };
   }
-  const bearerToken = extractBearerToken(req);
+  const bearerToken = extractBearerToken(request);
   return bearerToken ? { source: 'bearer', token: bearerToken } : null;
 }
 
-export function extractToken(req: NextRequest): string | null {
-  return extractCredential(req)?.token ?? null;
+export function extractToken(request: NextRequest): string | null {
+  return extractCredential(request)?.token ?? null;
 }
 
-export async function requireUser(req: NextRequest): Promise<string> {
-  const token = extractToken(req);
+export async function requireUser(request: NextRequest): Promise<string> {
+  const token = extractToken(request);
   if (!token) {
     throw new AuthError('AUTH_REQUIRED', 'Authentication required');
   }

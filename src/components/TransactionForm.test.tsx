@@ -9,6 +9,8 @@ import {
   renderWithClient,
 } from '@/test/renderWithClient';
 import TransactionForm from '@/components/TransactionForm';
+import type * as TransactionFilesQuery from '@/hooks/useTransactionFilesQuery';
+import { requireInput } from '@/test/dom';
 
 // The attachments panel fetches the edit row's files on render; the reset
 // rules under test never need the network.
@@ -21,15 +23,9 @@ const upload = vi.fn();
 // The real panel adds pending files through react-dropzone; this stub is the
 // smallest seam that lets a test put one into TransactionForm's own state.
 vi.mock('@/components/TransactionForm/TransactionAttachments', () => ({
-  default: ({
-    setPendingFiles,
-  }: {
-    setPendingFiles: (files: File[]) => void;
-  }) => (
+  default: ({ setPendingFiles }: { setPendingFiles: (files: File[]) => void }) => (
     <button
-      onClick={() =>
-        setPendingFiles([new File(['x'], 'receipt.png', { type: 'image/png' })])
-      }
+      onClick={() => setPendingFiles([new File(['x'], 'receipt.png', { type: 'image/png' })])}
     >
       stub-add-pending-file
     </button>
@@ -37,8 +33,7 @@ vi.mock('@/components/TransactionForm/TransactionAttachments', () => ({
 }));
 
 vi.mock('@/hooks/useTransactionFilesQuery', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@/hooks/useTransactionFilesQuery')>();
+  const actual = await importOriginal<typeof TransactionFilesQuery>();
   return {
     ...actual,
     useDirectS3UploadForAttachment: () => ({ upload }),
@@ -74,18 +69,18 @@ function EditHarness() {
 }
 
 function descriptionInput(): HTMLInputElement {
-  return screen.getByRole('textbox', {
-    name: /description/i,
-  }) as HTMLInputElement;
+  return requireInput(
+    screen.getByRole('textbox', {
+      name: /description/i,
+    }),
+  );
 }
 
-function valueInput(): HTMLElement {
-  return screen.getByRole('spinbutton', { name: /value/i });
+function valueInput(): HTMLInputElement {
+  return requireInput(screen.getByRole('spinbutton', { name: /value/i }));
 }
 
-type SubmitAction = React.ComponentProps<
-  typeof TransactionForm
->['onSubmitAction'];
+type SubmitAction = React.ComponentProps<typeof TransactionForm>['onSubmitAction'];
 
 describe('TransactionForm reset rules', () => {
   it('populates from initialData on first mount', () => {
@@ -172,10 +167,7 @@ describe('TransactionForm reset rules', () => {
 });
 
 describe('TransactionForm submit failure reporting', () => {
-  function renderCreateForm(
-    onSubmitAction: SubmitAction,
-    onCloseAction: () => void,
-  ) {
+  function renderCreateForm(onSubmitAction: SubmitAction, onCloseAction: () => void) {
     renderWithClient(
       <TransactionForm
         open
@@ -212,9 +204,7 @@ describe('TransactionForm submit failure reporting', () => {
     const onCloseAction = vi.fn();
     renderCreateForm(async () => 'new-id', onCloseAction);
 
-    expect(
-      await screen.findByText('Transaction created successfully'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Transaction created successfully')).toBeTruthy();
     expect(onCloseAction).toHaveBeenCalled();
   });
 });
@@ -239,9 +229,7 @@ describe('TransactionForm attachment failure reporting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(
-      await screen.findByText(
-        /Transaction saved\. Uploading an attachment failed\./,
-      ),
+      await screen.findByText(/Transaction saved\. Uploading an attachment failed\./),
     ).toBeTruthy();
     expect(screen.queryByText('Failed to save transaction')).toBeNull();
     expect(screen.queryByText(/created successfully/i)).toBeNull();
@@ -271,17 +259,15 @@ describe('TransactionForm currency', () => {
       />,
     );
 
-    expect((valueInput() as HTMLInputElement).value).toBe('25');
+    expect(valueInput().value).toBe('25');
     expect(
-      screen.getByText(
-        /Original \$25\.00 = ₪92\.35 at 3\.694 \(card statement\)/,
-      ),
+      screen.getByText(/Original \$25\.00 = ₪92\.35 at 3\.694 \(card statement\)/),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
 
-    const submitted = onSubmitAction.mock.calls[0][0];
+    const submitted = onSubmitAction.mock.calls[0]?.[0];
     expect(submitted).toMatchObject({ currency: 'USD', originalAmount: 25 });
     expect(submitted).not.toHaveProperty('value');
   });
@@ -297,14 +283,13 @@ describe('TransactionForm currency', () => {
       />,
     );
 
-    fireEvent.change(
-      screen.getByRole('spinbutton', { name: /amount charged in ils/i }),
-      { target: { value: '93.10' } },
-    );
+    fireEvent.change(screen.getByRole('spinbutton', { name: /amount charged in ils/i }), {
+      target: { value: '93.10' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
 
-    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+    expect(onSubmitAction.mock.calls[0]?.[0]).toMatchObject({
       currency: 'USD',
       originalAmount: 25,
       value: 93.1,
@@ -330,15 +315,13 @@ describe('TransactionForm currency', () => {
 
     expect(screen.getByText(/No exchange rate was available/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(
-      await screen.findByText('Value must be greater than 0'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Value must be greater than 0')).toBeTruthy();
     expect(onSubmitAction).not.toHaveBeenCalled();
 
     fireEvent.change(valueInput(), { target: { value: '90' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await vi.waitFor(() => expect(onSubmitAction).toHaveBeenCalled());
-    expect(onSubmitAction.mock.calls[0][0]).toMatchObject({
+    expect(onSubmitAction.mock.calls[0]?.[0]).toMatchObject({
       value: 90,
       currency: 'ILS',
     });
@@ -351,11 +334,7 @@ describe('TransactionForm in Hebrew', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
         <DesignTestProvider locale="he">
-          <TransactionForm
-            open
-            onCloseAction={() => {}}
-            onSubmitAction={onSubmitAction}
-          />
+          <TransactionForm open onCloseAction={() => {}} onSubmitAction={onSubmitAction} />
         </DesignTestProvider>
       </QueryClientProvider>,
     );

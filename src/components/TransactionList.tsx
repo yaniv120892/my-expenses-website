@@ -13,7 +13,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Transaction } from '../types';
+import type { Transaction } from '../types';
 import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
@@ -57,11 +57,7 @@ function MobileRow({
         </Typography>
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-        <AmountText
-          type={transaction.type}
-          value={transaction.value}
-          original={transaction}
-        />
+        <AmountText type={transaction.type} value={transaction.value} original={transaction} />
         <Typography
           variant="caption"
           sx={{
@@ -93,9 +89,7 @@ export default function TransactionList({
   if (isMobile) {
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Stack
-          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
-        >
+        <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
           {transactions.map((tx) => (
             <SwipeableRow
               key={tx.id}
@@ -131,9 +125,7 @@ export default function TransactionList({
               sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
             >
               <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>
-                {tx.category?.name}
-              </TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
                 {formatter.day(new Date(tx.date))}
               </TableCell>

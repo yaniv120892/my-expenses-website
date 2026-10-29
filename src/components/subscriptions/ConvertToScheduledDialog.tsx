@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Dialog,
   DialogTitle,
@@ -13,17 +14,17 @@ import {
 } from '@mui/material';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
-import { DetectedSubscription } from '@/types/subscription';
+import type { DetectedSubscription } from '@/types/subscription';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   open: boolean;
   subscription: DetectedSubscription | null;
   onClose: () => void;
   onConvert: (id: string, categoryId: string) => void;
   isLoading: boolean;
-}
+};
 
 export default function ConvertToScheduledDialog({
   open,
@@ -37,11 +38,14 @@ export default function ConvertToScheduledDialog({
   const formatter = useAppFormat();
   const fullScreen = useIsCompact();
 
-  useEffect(() => {
-    if (open) {
-      setCategoryId(subscription?.categoryId ?? '');
-    }
-  }, [open, subscription]);
+  useResetOnChange({
+    deps: [open, subscription],
+    reset: () => {
+      if (open) {
+        setCategoryId(subscription?.categoryId ?? '');
+      }
+    },
+  });
 
   function handleSubmit() {
     if (!subscription || !categoryId) {
@@ -51,13 +55,7 @@ export default function ConvertToScheduledDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle>{t('subscriptions.convert.title')}</DialogTitle>
       <DialogContent>
         {subscription && (
@@ -121,11 +119,7 @@ export default function ConvertToScheduledDialog({
                 </Typography>
               </Box>
             </Stack>
-            <CategorySelect
-              value={categoryId}
-              onChange={setCategoryId}
-              required
-            />
+            <CategorySelect value={categoryId} onChange={setCategoryId} required />
           </>
         )}
       </DialogContent>
@@ -133,14 +127,8 @@ export default function ConvertToScheduledDialog({
         <Button onClick={onClose} disabled={isLoading}>
           {t('common.cancel')}
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!categoryId || isLoading}
-        >
-          {isLoading
-            ? t('subscriptions.convert.submitting')
-            : t('subscriptions.convert.submit')}
+        <Button variant="contained" onClick={handleSubmit} disabled={!categoryId || isLoading}>
+          {isLoading ? t('subscriptions.convert.submitting') : t('subscriptions.convert.submit')}
         </Button>
       </DialogActions>
     </Dialog>

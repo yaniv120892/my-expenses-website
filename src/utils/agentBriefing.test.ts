@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AGENT_TOKEN_PLACEHOLDER,
-  buildAgentBriefing,
-} from '@/utils/agentBriefing';
+import { AGENT_TOKEN_PLACEHOLDER, buildAgentBriefing } from '@/utils/agentBriefing';
 import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
 
 const MCP_URL = 'https://expenses.example/api/mcp';

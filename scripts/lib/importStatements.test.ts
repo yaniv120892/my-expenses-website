@@ -35,10 +35,7 @@ describe('commitConfirmation', () => {
   });
 
   it('requires the hostname typed back for a remote target', () => {
-    const confirmation = commitConfirmation(
-      'https://expenses.example.com',
-      totals,
-    );
+    const confirmation = commitConfirmation('https://expenses.example.com', totals);
     expect(confirmation.prompt).toContain('https://expenses.example.com');
     expect(confirmation.prompt).toContain('expenses.example.com');
     expect(confirmation.accepts('y')).toBe(false);
@@ -59,18 +56,12 @@ describe('parseImportArguments', () => {
   });
 
   it('reads --resubmit', () => {
-    expect(
-      parseImportArguments(['/tmp/statements', '--resubmit']).resubmit,
-    ).toBe(true);
+    expect(parseImportArguments(['/tmp/statements', '--resubmit']).resubmit).toBe(true);
   });
 
   it('reads --dry-run and --base-url in any order', () => {
     expect(
-      parseImportArguments([
-        '--base-url=https://example.com/',
-        '/tmp/statements',
-        '--dry-run',
-      ]),
+      parseImportArguments(['--base-url=https://example.com/', '/tmp/statements', '--dry-run']),
     ).toEqual({
       directory: '/tmp/statements',
       dryRun: true,
@@ -80,27 +71,23 @@ describe('parseImportArguments', () => {
   });
 
   it('rejects a bare --base-url instead of taking its value as the directory', () => {
-    expect(() =>
-      parseImportArguments(['--base-url', 'https://example.com', '/tmp/x']),
-    ).toThrow('Unknown option --base-url');
+    expect(() => parseImportArguments(['--base-url', 'https://example.com', '/tmp/x'])).toThrow(
+      'Unknown option --base-url',
+    );
   });
 
   it('rejects an unknown option', () => {
-    expect(() => parseImportArguments(['/tmp/x', '--dryrun'])).toThrow(
-      'Unknown option --dryrun',
-    );
+    expect(() => parseImportArguments(['/tmp/x', '--dryrun'])).toThrow('Unknown option --dryrun');
   });
 
   it('rejects a second positional argument', () => {
-    expect(() => parseImportArguments(['/tmp/x', '/tmp/y'])).toThrow(
-      'Unexpected argument /tmp/y',
-    );
+    expect(() => parseImportArguments(['/tmp/x', '/tmp/y'])).toThrow('Unexpected argument /tmp/y');
   });
 
   it('rejects a base url that is not a url', () => {
-    expect(() =>
-      parseImportArguments(['/tmp/x', '--base-url=localhost:3000']),
-    ).toThrow('--base-url is not a URL');
+    expect(() => parseImportArguments(['/tmp/x', '--base-url=localhost:3000'])).toThrow(
+      '--base-url is not a URL',
+    );
   });
 
   it('requires a directory', () => {

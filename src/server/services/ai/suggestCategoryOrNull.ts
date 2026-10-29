@@ -1,5 +1,5 @@
-import { CategoryEvaluation } from '@/server/services/ai/aiProvider';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import type { CategoryEvaluation } from '@/server/services/ai/aiProvider';
+import { observability } from '@/server/observability';
 
 export async function suggestCategoryOrNull(
   evaluate: () => Promise<CategoryEvaluation>,
@@ -10,7 +10,7 @@ export async function suggestCategoryOrNull(
     const evaluation = await evaluate();
     return evaluation.categoryId;
   } catch (err) {
-    reportSwallowedError({ err, model }, errorMessage);
+    observability.reportError({ error: err, where: errorMessage, context: { model } });
     return null;
   }
 }

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
 const {
   findByUserAndDescription,
@@ -6,7 +7,7 @@ const {
   getTransactionsSummary,
   getCategoryTotals,
   getAllCategories,
-  reportSwallowedError,
+  reportError,
   createTransactionFile,
 } = vi.hoisted(() => ({
   getCategoryTotals: vi.fn(),
@@ -14,7 +15,7 @@ const {
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
   createTransactionFile: vi.fn(),
 }));
 
@@ -34,31 +35,38 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: { create: createTransactionFile },
 }));
 
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { logger } from '@/server/observability';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
+import type { CreateTransaction } from '@/shared/types/transaction';
+import type { CategorySuggester } from '@/server/services/ai/aiProvider';
 
-const CATEGORIES = [
+const CATEGORIES: Category[] = [
   { id: 'cat-food', name: 'Food' },
   { id: 'cat-rent', name: 'Rent' },
-] as Category[];
+];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const serviceInternals = transactionService as any;
 const suggestCategory = vi.fn();
+const categorySuggester: CategorySuggester = {
+  suggestCategory,
+  evaluateCategory: vi.fn(),
+  modelName: () => 'test-model',
+};
 
 const getSuggestedCategory = () =>
-  serviceInternals.getSuggestedCategory('Pizza', 'user-1', CATEGORIES);
+  transactionService['getSuggestedCategory']('Pizza', 'user-1', CATEGORIES);
 
 beforeEach(() => {
   vi.clearAllMocks();
   findByUserAndDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
-  serviceInternals.getCategorySuggester = () => ({ suggestCategory });
+  transactionService['getCategorySuggester'] = () => categorySuggester;
 });
 
 describe('getAllTransactions', () => {
@@ -76,13 +84,10 @@ describe('getAllTransactions', () => {
       userId: 'user-1',
     });
 
-    expect(transactions.map((transaction) => transaction.id)).toEqual([
-      't1',
-      't2',
-      't3',
-    ]);
-    expect(getTransactionsList.mock.calls[0][0].cursor).toBeUndefined();
-    expect(getTransactionsList.mock.calls[1][0].cursor).toBe('cursor-1');
+    expect(transactions.map((transaction) => transaction.id)).toEqual(['t1', 't2', 't3']);
+    expect(getTransactionsList).toHaveBeenCalled();
+    expect(getTransactionsList.mock.calls[0]?.[0].cursor).toBeUndefined();
+    expect(getTransactionsList.mock.calls[1]?.[0].cursor).toBe('cursor-1');
   });
 
   it('carries the caller filters and the approved default into the walk', async () => {
@@ -112,7 +117,13 @@ describe('category subtree resolution', () => {
     { id: 'cat-organic', parentId: 'cat-groceries' },
     { id: 'cat-rent', parentId: null },
   ];
-  const listArgs = (call = 0) => getTransactionsList.mock.calls[call][0];
+  const listArgs = (call = 0) => {
+    const [args] = getTransactionsList.mock.calls[call] ?? [];
+    if (!args) {
+      throw new Error(`getTransactionsList call ${call} never happened`);
+    }
+    return args;
+  };
 
   beforeEach(() => {
     getAllCategories.mockResolvedValue(CATEGORY_TREE);
@@ -131,11 +142,7 @@ describe('category subtree resolution', () => {
       limit: 50,
     });
 
-    expect(listArgs().categoryIds).toEqual([
-      'cat-food',
-      'cat-groceries',
-      'cat-organic',
-    ]);
+    expect(listArgs().categoryIds).toEqual(['cat-food', 'cat-groceries', 'cat-organic']);
   });
 
   it('resolves a leaf category to itself', async () => {
@@ -164,7 +171,7 @@ describe('category subtree resolution', () => {
       categoryId: 'cat-groceries',
     });
 
-    expect(getTransactionsSummary.mock.calls[0][0].categoryIds).toEqual([
+    expect(getTransactionsSummary.mock.calls[0]?.[0].categoryIds).toEqual([
       'cat-groceries',
       'cat-organic',
     ]);
@@ -221,9 +228,9 @@ describe('getCategoryBreakdown', () => {
   it('returns no slices when nothing matched', async () => {
     getAllCategories.mockResolvedValue([]);
     getCategoryTotals.mockResolvedValue([]);
-    await expect(
-      transactionService.getCategoryBreakdown({ userId: 'user-1' }),
-    ).resolves.toEqual([]);
+    await expect(transactionService.getCategoryBreakdown({ userId: 'user-1' })).resolves.toEqual(
+      [],
+    );
   });
 });
 
@@ -235,23 +242,15 @@ describe('getSuggestedCategory', () => {
   });
 
   it('normalizes the description before looking up a mapping', async () => {
-    await serviceInternals.getSuggestedCategory(
-      '  PiZZa  ',
-      'user-1',
-      CATEGORIES,
-    );
+    await transactionService['getSuggestedCategory']('  PiZZa  ', 'user-1', CATEGORIES);
     expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
   });
 
   it.each([
-    [
-      'no mapping exists',
-      () => findByUserAndDescription.mockResolvedValue(null),
-    ],
+    ['no mapping exists', () => findByUserAndDescription.mockResolvedValue(null)],
     [
       'the mapped category no longer exists',
-      () =>
-        findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
+      () => findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
     ],
     [
       'the mapping lookup fails',
@@ -267,10 +266,11 @@ describe('getSuggestedCategory', () => {
     const err = new Error('db down');
     findByUserAndDescription.mockRejectedValue(err);
     await getSuggestedCategory();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      { err, userId: 'user-1' },
-      'Failed to check user category mapping',
-    );
+    expect(reportError).toHaveBeenCalledWith({
+      error: err,
+      where: 'Failed to check user category mapping',
+      context: { userId: 'user-1' },
+    });
   });
 
   it('returns null when the AI service has no answer', async () => {
@@ -290,7 +290,7 @@ describe('attachFile', () => {
     });
 
   beforeEach(() => {
-    serviceInternals.getTransactionItem = vi.fn().mockResolvedValue({
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue({
       id: TRANSACTION_ID,
     });
   });
@@ -301,11 +301,22 @@ describe('attachFile', () => {
     expect(createTransactionFile).toHaveBeenCalledTimes(1);
   });
 
+  it('logs the key and size, never the file name', async () => {
+    const debug = vi.spyOn(logger, 'debug');
+    onTestFinished(() => debug.mockRestore());
+    const fileKey = `transactions/${TRANSACTION_ID}/uuid.pdf`;
+
+    await attach(fileKey);
+
+    expect(JSON.stringify(debug.mock.calls)).not.toContain('receipt');
+    expect(debug).toHaveBeenCalledWith(
+      { transactionId: TRANSACTION_ID, fileKey, fileSize: 10, mimeType: 'application/pdf' },
+      'File attached to transaction',
+    );
+  });
+
   it.each([
-    [
-      'another transaction',
-      'transactions/22222222-2222-4222-8222-222222222222/uuid-x.pdf',
-    ],
+    ['another transaction', 'transactions/22222222-2222-4222-8222-222222222222/uuid-x.pdf'],
     ['a key outside the attachments prefix', 'imports/someone-else.xlsx'],
     ['a dot segment', `transactions/${TRANSACTION_ID}/../other/x.pdf`],
     ['the bare prefix', `transactions/${TRANSACTION_ID}/`],
@@ -316,10 +327,7 @@ describe('attachFile', () => {
 
   it('413s a file declared over 4 MB without storing it', async () => {
     await expect(
-      attach(
-        `transactions/${TRANSACTION_ID}/uuid-receipt.pdf`,
-        MAX_UPLOAD_BYTES + 1,
-      ),
+      attach(`transactions/${TRANSACTION_ID}/uuid-receipt.pdf`, MAX_UPLOAD_BYTES + 1),
     ).rejects.toMatchObject({
       status: 413,
       message: 'receipt.pdf is 4.1 MB, over the 4 MB upload limit.',
@@ -342,7 +350,7 @@ describe('getPresignedUploadUrl', () => {
     process.env.TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID = 'key';
     process.env.TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY = 'secret';
     process.env.TRANSACTION_ATTACHMENT_S3_BUCKET_NAME = 'bucket';
-    serviceInternals.getTransactionItem = vi.fn().mockResolvedValue({
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue({
       id: TRANSACTION_ID,
     });
   });
@@ -370,11 +378,11 @@ describe('prepareCreateTransaction', () => {
     vi.useFakeTimers();
     // 00:30 on the 26th in Israel (UTC+3).
     vi.setSystemTime(new Date('2026-08-25T21:30:00Z'));
-    serviceInternals.updateCategory = async (data: object) => ({
+    transactionService['updateCategory'] = async (data: CreateTransaction) => ({
       ...data,
       categoryId: 'cat-food',
     });
-    serviceInternals.validateCreateTransaction = async () => undefined;
+    transactionService['validateCreateTransaction'] = async () => undefined;
 
     const model = await transactionService.prepareCreateTransaction({
       description: 'Falafel',

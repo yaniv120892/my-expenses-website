@@ -9,7 +9,5 @@ export const GET = createHandler({
   querySchema: getTransactionsSummarySchema,
   status: 201,
   handler: async ({ userId, query }) =>
-    transactionService.getTransactionsSummary(
-      toTransactionFilters(query, userId),
-    ),
+    transactionService.getTransactionsSummary(toTransactionFilters(query, userId)),
 });

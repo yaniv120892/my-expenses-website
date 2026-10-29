@@ -8,17 +8,11 @@ describe('ListSkeleton', () => {
   afterEach(cleanup);
 
   it('shows the headers it is given and aligns the trailing ones to the end', () => {
-    renderWithClient(
-      <ListSkeleton columns={['תיאור', 'סכום', 'פעולות']} alignEndCount={2} />,
-    );
+    renderWithClient(<ListSkeleton columns={['תיאור', 'סכום', 'פעולות']} alignEndCount={2} />);
     const headers = screen.getAllByRole('columnheader');
-    expect(headers.map((header) => header.textContent)).toEqual([
-      'תיאור',
-      'סכום',
-      'פעולות',
-    ]);
-    expect(headers[0].className).not.toMatch(/alignRight/);
-    expect(headers[1].className).toMatch(/alignRight/);
-    expect(headers[2].className).toMatch(/alignRight/);
+    expect(headers.map((header) => header.textContent)).toEqual(['תיאור', 'סכום', 'פעולות']);
+    expect(headers[0]?.className).not.toMatch(/alignRight/);
+    expect(headers[1]?.className).toMatch(/alignRight/);
+    expect(headers[2]?.className).toMatch(/alignRight/);
   });
 });

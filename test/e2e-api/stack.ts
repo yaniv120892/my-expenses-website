@@ -1,9 +1,10 @@
-import http from 'http';
+import type http from 'http';
 import { startUpstashShim, seedKey } from './upstashShim';
 import { redisKeyPrefix } from '../../src/server/redis';
 import { startMockModelServer } from './mockModelServer';
 import { startMockExtractionAgent } from './mockExtractionAgent';
-import { seed, sessionForExistingUser, SeededUser, SeedResult } from './seed';
+import type { SeededUser, SeedResult } from './seed';
+import { seed, sessionForExistingUser } from './seed';
 
 type Services = {
   shim: http.Server;
@@ -33,10 +34,7 @@ export async function startStack(ports: StackPorts): Promise<Stack> {
   return { ...services, seeded };
 }
 
-export async function startStackForUser(
-  ports: StackPorts,
-  email: string,
-): Promise<UserStack> {
+export async function startStackForUser(ports: StackPorts, email: string): Promise<UserStack> {
   const services = await startServices(ports);
   const user = await sessionForExistingUser(email);
   plantSession(user);
@@ -48,9 +46,7 @@ async function startServices(ports: StackPorts): Promise<Services> {
   const shim = await startUpstashShim(ports.shim);
   const mock = await startMockModelServer(ports.mock);
   const extraction =
-    ports.extraction === null
-      ? null
-      : await startMockExtractionAgent(ports.extraction);
+    ports.extraction === null ? null : await startMockExtractionAgent(ports.extraction);
 
   return {
     shim,
@@ -67,8 +63,5 @@ async function startServices(ports: StackPorts): Promise<Services> {
 }
 
 function plantSession(user: SeededUser): void {
-  seedKey(
-    `${redisKeyPrefix('branch')}session:${user.id}:${user.token}`,
-    JSON.stringify('1'),
-  );
+  seedKey(`${redisKeyPrefix('branch')}session:${user.id}:${user.token}`, JSON.stringify('1'));
 }

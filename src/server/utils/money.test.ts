@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  convertAmount,
-  impliedRate,
-  isSameMoney,
-  toMoneyNumber,
-  toMoneyString,
-} from './money';
+import { convertAmount, impliedRate, isSameMoney, toMoneyNumber, toMoneyString } from './money';
 
 describe('money', () => {
   it('converts without binary floating-point drift', () => {

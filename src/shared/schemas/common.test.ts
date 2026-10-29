@@ -6,10 +6,7 @@ import {
   updateTransactionSchema,
 } from './transactions';
 import { createScheduledTransactionSchema } from './scheduledTransactions';
-import {
-  convertSubscriptionSchema,
-  updateSubscriptionSchema,
-} from './subscriptions';
+import { convertSubscriptionSchema, updateSubscriptionSchema } from './subscriptions';
 import { getCategoryComparisonQuerySchema } from './trends';
 
 // Seeded by migration 20250512053843_add_categories; its version nibble is 6
@@ -37,31 +34,15 @@ describe('recordIdSchema', () => {
 
   it.each([
     ['createTransactionSchema', createTransactionSchema, expenseFields],
-    [
-      'updateTransactionSchema',
-      updateTransactionSchema,
-      { ...expenseFields, date: '2026-01-01' },
-    ],
-    [
-      'getTransactionsSchema',
-      getTransactionsSchema,
-      { categoryId: SEEDED_CATEGORY_ID },
-    ],
+    ['updateTransactionSchema', updateTransactionSchema, { ...expenseFields, date: '2026-01-01' }],
+    ['getTransactionsSchema', getTransactionsSchema, { categoryId: SEEDED_CATEGORY_ID }],
     [
       'createScheduledTransactionSchema',
       createScheduledTransactionSchema,
       { ...expenseFields, scheduleType: 'MONTHLY', dayOfMonth: 2 },
     ],
-    [
-      'convertSubscriptionSchema',
-      convertSubscriptionSchema,
-      { categoryId: SEEDED_CATEGORY_ID },
-    ],
-    [
-      'updateSubscriptionSchema',
-      updateSubscriptionSchema,
-      { categoryId: SEEDED_CATEGORY_ID },
-    ],
+    ['convertSubscriptionSchema', convertSubscriptionSchema, { categoryId: SEEDED_CATEGORY_ID }],
+    ['updateSubscriptionSchema', updateSubscriptionSchema, { categoryId: SEEDED_CATEGORY_ID }],
     [
       'getCategoryComparisonQuerySchema',
       getCategoryComparisonQuerySchema,

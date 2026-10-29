@@ -30,18 +30,14 @@ describe('categoryRepository.getCategoryById', () => {
   it('returns a cached category', async () => {
     getValueMock.mockResolvedValue(groceries);
 
-    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(
-      groceries,
-    );
+    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(groceries);
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
   it('parses a legacy double-stringified entry', async () => {
     getValueMock.mockResolvedValue(JSON.stringify(groceries));
 
-    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(
-      groceries,
-    );
+    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(groceries);
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
@@ -51,9 +47,7 @@ describe('categoryRepository.getCategoryById', () => {
     getValueMock.mockResolvedValue('null');
     findUniqueMock.mockResolvedValue(null);
 
-    await expect(
-      categoryRepository.getCategoryById('unknown'),
-    ).resolves.toBeNull();
+    await expect(categoryRepository.getCategoryById('unknown')).resolves.toBeNull();
     expect(findUniqueMock).toHaveBeenCalledOnce();
   });
 
@@ -61,9 +55,7 @@ describe('categoryRepository.getCategoryById', () => {
     getValueMock.mockResolvedValue(null);
     findUniqueMock.mockResolvedValue(null);
 
-    await expect(
-      categoryRepository.getCategoryById('unknown'),
-    ).resolves.toBeNull();
+    await expect(categoryRepository.getCategoryById('unknown')).resolves.toBeNull();
     expect(vi.mocked(setValue)).not.toHaveBeenCalled();
   });
 
@@ -84,9 +76,7 @@ describe('categoryRepository.getCategoryById', () => {
     getValueMock.mockRejectedValue(new Error('redis down'));
     findUniqueMock.mockResolvedValue(groceries);
 
-    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(
-      groceries,
-    );
+    await expect(categoryRepository.getCategoryById('cat-1')).resolves.toEqual(groceries);
   });
 });
 
@@ -98,9 +88,7 @@ describe('categoryRepository list caches', () => {
   it('getAllCategories parses a legacy double-stringified entry', async () => {
     getValueMock.mockResolvedValue(JSON.stringify([groceries]));
 
-    await expect(categoryRepository.getAllCategories()).resolves.toEqual([
-      groceries,
-    ]);
+    await expect(categoryRepository.getAllCategories()).resolves.toEqual([groceries]);
     expect(vi.mocked(prisma.category.findMany)).not.toHaveBeenCalled();
   });
 

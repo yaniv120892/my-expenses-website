@@ -1,11 +1,7 @@
 import { addYears } from 'date-fns';
 import { hashApiToken, mintApiToken } from '@/server/auth/apiTokenFormat';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
-import type {
-  ApiTokenScope,
-  ApiTokenSummary,
-  CreatedApiToken,
-} from '@/shared/types/apiToken';
+import type { ApiTokenScope, ApiTokenSummary, CreatedApiToken } from '@/shared/types/apiToken';
 
 export class ApiTokenService {
   public async create(

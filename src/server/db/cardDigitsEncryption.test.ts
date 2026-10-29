@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseKeySync } from '@47ng/cloak';
-import {
-  decryptCardDigits,
-  encryptCardDigitsInput,
-} from '@/server/db/cardDigitsEncryption';
+import { decryptCardDigits, encryptCardDigitsInput } from '@/server/db/cardDigitsEncryption';
 import {
   CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
   DIGITS_BEHIND_THAT_CIPHERTEXT,
@@ -21,9 +18,7 @@ describe('card digits encryption', () => {
 
     expect(written.creditCardLastFourDigits).toMatch(/^v1\.aesgcm256\./);
     expect(written.paymentMonth).toBe('2026-03');
-    expect(decryptCardDigits(written.creditCardLastFourDigits, key)).toBe(
-      '1234',
-    );
+    expect(decryptCardDigits(written.creditCardLastFourDigits, key)).toBe('1234');
   });
 
   it('decrypts a value prisma-field-encryption stored', () => {
@@ -33,19 +28,16 @@ describe('card digits encryption', () => {
   });
 
   it('passes null and a never-encrypted value through', () => {
-    expect(
-      encryptCardDigitsInput({ creditCardLastFourDigits: null }, key),
-    ).toEqual({ creditCardLastFourDigits: null });
+    expect(encryptCardDigitsInput({ creditCardLastFourDigits: null }, key)).toEqual({
+      creditCardLastFourDigits: null,
+    });
     expect(decryptCardDigits(null, key)).toBeNull();
     expect(decryptCardDigits('5678', key)).toBe('5678');
   });
 
   it('refuses an update operator it would otherwise store as plain text', () => {
     expect(() =>
-      encryptCardDigitsInput(
-        { creditCardLastFourDigits: { set: '1234' } },
-        key,
-      ),
+      encryptCardDigitsInput({ creditCardLastFourDigits: { set: '1234' } }, key),
     ).toThrow(/plain string/);
   });
 });

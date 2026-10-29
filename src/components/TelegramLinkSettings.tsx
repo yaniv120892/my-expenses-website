@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Chip,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import {
   useCreateTelegramLinkCodeMutation,
@@ -44,19 +37,13 @@ export default function TelegramLinkSettings({
 
   // A first link shows up as `linked` turning true; a relink replaces a chat
   // that was already linked, so it has no such signal and waits for "Done".
-  const linkedByThisCode =
-    issuedCode !== null && !issuedCode.issuedWhileLinked && linked;
+  const linkedByThisCode = issuedCode !== null && !issuedCode.issuedWhileLinked && linked;
   const awaitingLink =
-    issuedCode !== null &&
-    !issuedCode.issuedWhileLinked &&
-    !issuedCode.expired &&
-    !linked;
+    issuedCode !== null && !issuedCode.issuedWhileLinked && !issuedCode.expired && !linked;
   useUserSettingsQuery({ awaitingTelegramLink: awaitingLink });
   const visibleCode = linkedByThisCode ? null : issuedCode;
 
-  const issuedCodeLifetimeMs = issuedCode
-    ? issuedCode.expiresInSeconds * 1000
-    : null;
+  const issuedCodeLifetimeMs = issuedCode ? issuedCode.expiresInSeconds * 1000 : null;
   useEffect(() => {
     if (issuedCodeLifetimeMs === null) {
       return;
@@ -70,15 +57,11 @@ export default function TelegramLinkSettings({
 
   const handleCreateCode = () => {
     createCodeMutation.mutate(undefined, {
-      onSuccess: (code) =>
-        setIssuedCode({ ...code, issuedWhileLinked: linked, expired: false }),
+      onSuccess: (code) => setIssuedCode({ ...code, issuedWhileLinked: linked, expired: false }),
       onError: (error) =>
         onResult({
           success: false,
-          message: describeApiError(
-            error,
-            t('settings.telegram.createCodeFailed'),
-          ),
+          message: describeApiError(error, t('settings.telegram.createCodeFailed')),
         }),
     });
   };
@@ -101,9 +84,7 @@ export default function TelegramLinkSettings({
     const result = await testMutation.mutateAsync();
     onResult({
       success: result.success,
-      message: result.success
-        ? t('settings.telegram.testSent')
-        : result.message,
+      message: result.success ? t('settings.telegram.testSent') : result.message,
     });
   };
 
@@ -131,9 +112,7 @@ export default function TelegramLinkSettings({
             onClick={handleTest}
             disabled={testMutation.isPending}
             startIcon={
-              testMutation.isPending ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : null
+              testMutation.isPending ? <CircularProgress size={16} color="inherit" /> : null
             }
           >
             {t('settings.telegram.test')}
@@ -163,19 +142,13 @@ export default function TelegramLinkSettings({
         <Alert
           severity="info"
           action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => setIssuedCode(null)}
-            >
+            <Button color="inherit" size="small" onClick={() => setIssuedCode(null)}>
               {t('settings.telegram.done')}
             </Button>
           }
         >
           {visibleCode.expired ? (
-            <Typography variant="body2">
-              {t('settings.telegram.codeExpired')}
-            </Typography>
+            <Typography variant="body2">{t('settings.telegram.codeExpired')}</Typography>
           ) : (
             <Stack spacing={1}>
               <Typography variant="body2">
@@ -183,10 +156,7 @@ export default function TelegramLinkSettings({
                   minutes: Math.round(visibleCode.expiresInSeconds / 60),
                 })}
               </Typography>
-              <CopyableText
-                label={t('settings.telegram.command')}
-                value={visibleCode.command}
-              />
+              <CopyableText label={t('settings.telegram.command')} value={visibleCode.command} />
               {visibleCode.deepLink && (
                 <Button
                   variant="outlined"

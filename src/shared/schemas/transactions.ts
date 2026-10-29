@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  recordIdSchema,
-  transactionStatusSchema,
-  transactionTypeSchema,
-} from './common';
+import { recordIdSchema, transactionStatusSchema, transactionTypeSchema } from './common';
 import { currencyCodeSchema } from '@/shared/currency';
 import { positiveAmountSchema, positiveRateSchema } from './amount';
 
@@ -21,8 +17,7 @@ function requireAnAmount(
   amount: { value?: number; originalAmount?: number },
   context: z.RefinementCtx,
 ) {
-  const hasNoAmount =
-    amount.value === undefined && amount.originalAmount === undefined;
+  const hasNoAmount = amount.value === undefined && amount.originalAmount === undefined;
   if (hasNoAmount) {
     context.addIssue({
       code: 'custom',
@@ -80,9 +75,7 @@ export type TransactionSort = z.infer<typeof transactionSortSchema>;
 export type SortOrder = TransactionSort['sortOrder'];
 export const DEFAULT_TRANSACTION_SORT = transactionSortSchema.parse({});
 
-export const exportTransactionsSchema = transactionFilterSchema.extend(
-  transactionSortSchema.shape,
-);
+export const exportTransactionsSchema = transactionFilterSchema.extend(transactionSortSchema.shape);
 
 export const getTransactionsSchema = transactionFilterSchema.extend({
   ...transactionSortSchema.shape,

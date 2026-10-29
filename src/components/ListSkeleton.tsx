@@ -38,9 +38,7 @@ export default function ListSkeleton({
   if (isMobile) {
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Stack
-          divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}
-        >
+        <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
           {[...Array(rows)].map((_, index) => (
             <Box
               key={index}
@@ -75,10 +73,7 @@ export default function ListSkeleton({
         <TableHead>
           <TableRow>
             {columns.map((column, index) => (
-              <TableCell
-                key={column}
-                align={isEndAligned(index) ? 'right' : 'inherit'}
-              >
+              <TableCell key={column} align={isEndAligned(index) ? 'right' : 'inherit'}>
                 {column}
               </TableCell>
             ))}
@@ -90,16 +85,9 @@ export default function ListSkeleton({
               {columns.map((column, columnIndex) => {
                 const alignRight = isEndAligned(columnIndex);
                 return (
-                  <TableCell
-                    key={column}
-                    align={alignRight ? 'right' : 'inherit'}
-                  >
+                  <TableCell key={column} align={alignRight ? 'right' : 'inherit'}>
                     <Skeleton
-                      width={
-                        columnIndex === 0
-                          ? LEADING_COLUMN_WIDTH
-                          : DEFAULT_COLUMN_WIDTH
-                      }
+                      width={columnIndex === 0 ? LEADING_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH}
                       sx={alignRight ? { ml: 'auto' } : undefined}
                     />
                   </TableCell>

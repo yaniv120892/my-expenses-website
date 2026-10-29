@@ -52,16 +52,13 @@ export default function PersonalAgentSettings() {
   const revokeMutation = useRevokeApiTokenMutation();
   const [name, setName] = useState(DEFAULT_AGENT_NAME);
   const [shownToken, setShownToken] = useState<ShownToken | null>(null);
-  const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
-    null,
-  );
+  const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(null);
   const mcpUrl = `${useSiteOrigin()}${MCP_PATH}`;
 
   const agentTokens = (tokens ?? []).filter(isAgentOnlyToken);
   const now = new Date();
   const revokeLabels = {
-    title: (tokenName: string) =>
-      t('settings.agent.revokeTitle', { name: tokenName }),
+    title: (tokenName: string) => t('settings.agent.revokeTitle', { name: tokenName }),
     consequence: t('settings.agent.revokeConsequence'),
     cancel: t('common.back'),
     confirm: t('settings.agent.remove'),
@@ -71,8 +68,7 @@ export default function PersonalAgentSettings() {
     createMutation.mutate(
       { name: name.trim(), scopes: ['AGENT'] },
       {
-        onSuccess: (created) =>
-          setShownToken({ id: created.id, token: created.token }),
+        onSuccess: (created) => setShownToken({ id: created.id, token: created.token }),
       },
     );
   };
@@ -80,8 +76,7 @@ export default function PersonalAgentSettings() {
   // A revoked token must not stay on screen, or in the briefing, as if usable.
   const handleConfirmRevoke = (token: ApiTokenSummary) => {
     revokeMutation.mutate(token.id, {
-      onSuccess: () =>
-        setShownToken((shown) => (shown?.id === token.id ? null : shown)),
+      onSuccess: () => setShownToken((shown) => (shown?.id === token.id ? null : shown)),
     });
     setPendingRevoke(null);
   };
@@ -105,20 +100,13 @@ export default function PersonalAgentSettings() {
           onClick={handleCreate}
           disabled={!name.trim() || createMutation.isPending}
         >
-          {createMutation.isPending ? (
-            <CircularProgress size={20} />
-          ) : (
-            t('settings.agent.create')
-          )}
+          {createMutation.isPending ? <CircularProgress size={20} /> : t('settings.agent.create')}
         </Button>
       </Stack>
 
       {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(
-            createMutation.error,
-            t('settings.agent.createFailed'),
-          )}
+          {describeApiError(createMutation.error, t('settings.agent.createFailed'))}
         </Alert>
       )}
 
@@ -127,10 +115,7 @@ export default function PersonalAgentSettings() {
           <Typography variant="body2" sx={{ mb: 1 }}>
             {t('settings.agent.copyTokenNow')}
           </Typography>
-          <CopyableText
-            label={t('settings.agent.token')}
-            value={shownToken.token}
-          />
+          <CopyableText label={t('settings.agent.token')} value={shownToken.token} />
         </Alert>
       )}
 
@@ -160,9 +145,7 @@ export default function PersonalAgentSettings() {
         <List dense disablePadding>
           {EXAMPLE_REQUEST_KEYS.map((key) => (
             <ListItem key={key} disableGutters>
-              <ListItemText
-                primary={t('settings.agent.exampleQuote', { request: t(key) })}
-              />
+              <ListItemText primary={t('settings.agent.exampleQuote', { request: t(key) })} />
             </ListItem>
           ))}
         </List>
@@ -170,23 +153,16 @@ export default function PersonalAgentSettings() {
 
       {revokeMutation.error && (
         <Alert severity="error">
-          {describeApiError(
-            revokeMutation.error,
-            t('settings.agent.revokeFailed'),
-          )}
+          {describeApiError(revokeMutation.error, t('settings.agent.revokeFailed'))}
         </Alert>
       )}
       {isLoading && <CircularProgress size={24} />}
       {error && (
-        <Alert severity="error">
-          {describeApiError(error, t('settings.agent.loadFailed'))}
-        </Alert>
+        <Alert severity="error">{describeApiError(error, t('settings.agent.loadFailed'))}</Alert>
       )}
       {agentTokens.length > 0 && (
         <Box>
-          <Typography variant="subtitle2">
-            {t('settings.agent.activeTitle')}
-          </Typography>
+          <Typography variant="subtitle2">{t('settings.agent.activeTitle')}</Typography>
           <List dense disablePadding>
             {agentTokens.map((token) => (
               <ListItem

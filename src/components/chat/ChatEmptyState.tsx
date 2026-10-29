@@ -25,11 +25,7 @@ export default function ChatEmptyState({ onSelectPrompt }: Props) {
     <Stack spacing={1} sx={{ my: 'auto' }}>
       <EmptyState
         message={t('chat.emptyState')}
-        icon={
-          <AutoAwesomeRoundedIcon
-            sx={{ fontSize: 44, color: 'text.secondary' }}
-          />
-        }
+        icon={<AutoAwesomeRoundedIcon sx={{ fontSize: 44, color: 'text.secondary' }} />}
       />
       <Stack
         direction="row"

@@ -2,21 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import {
-  Transaction,
-  TransactionFilters,
-  CreateTransactionInput,
-} from '@/types';
+import type { Transaction, TransactionFilters, CreateTransactionInput } from '@/types';
 import {
   DEFAULT_TRANSACTION_SORT,
   transactionFilterSchema,
@@ -45,7 +34,7 @@ import {
   useExportTransactionsCsvMutation,
   useCategoryBreakdownQuery,
 } from '@/hooks/useTransactionsQuery';
-import { CreateTransactionResponse } from '@/services/transactions';
+import type { CreateTransactionResponse } from '@/services/transactions';
 import { defaultDateRange, describeDateRange } from '@/utils/dateRangePresets';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { describeApiError } from '@/utils/api';
@@ -66,11 +55,8 @@ function TransactionsPageContent() {
     ...defaultDateRange(),
     // Both validated: the params are cleared right after this, so a malformed
     // one would 400 every query with no chip left to clear.
-    categoryId: filterShape.categoryId.safeParse(
-      searchParams.get('categoryId') ?? undefined,
-    ).data,
-    type: filterShape.type.safeParse(searchParams.get('type') ?? undefined)
-      .data,
+    categoryId: filterShape.categoryId.safeParse(searchParams.get('categoryId') ?? undefined).data,
+    type: filterShape.type.safeParse(searchParams.get('type') ?? undefined).data,
   }));
   const [sort, setSort] = useState<TransactionSort>(DEFAULT_TRANSACTION_SORT);
   const [error, setError] = useState<string | null>(null);
@@ -82,13 +68,13 @@ function TransactionsPageContent() {
 
   // Left in the address bar, consumed params would restore abandoned filters on
   // a refresh. history rather than router, which would refetch the route.
+  // Read once: later filter edits must not re-run the cleanup.
+  const [arrivedWithParams] = useState(() => searchParams.toString() !== '');
   useEffect(() => {
-    if (searchParams.toString()) {
+    if (arrivedWithParams) {
       window.history.replaceState(null, '', '/transactions');
     }
-    // Mount-time only; later filter edits must not re-run it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [arrivedWithParams]);
 
   const {
     data,
@@ -98,10 +84,7 @@ function TransactionsPageContent() {
     isFetchingNextPage,
     fetchNextPage,
   } = useTransactionsInfiniteQuery(filters, sort);
-  const transactions = useMemo(
-    () => data?.pages.flatMap((page) => page.items) ?? [],
-    [data],
-  );
+  const transactions = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
   const { data: categories = [] } = useCategoriesQuery();
   const { data: summary } = useTransactionsSummaryQuery(filters);
   // Each chart ignores the filter it drives: filtering a chart by its own
@@ -120,10 +103,7 @@ function TransactionsPageContent() {
     data: categoryBreakdown = [],
     isLoading: categoryBreakdownLoading,
     isError: categoryBreakdownFailed,
-  } = useCategoryBreakdownQuery(
-    { ...filters, categoryId: undefined },
-    !!filters.type,
-  );
+  } = useCategoryBreakdownQuery({ ...filters, categoryId: undefined }, !!filters.type);
 
   const createMutation = useCreateTransactionMutation();
   const updateMutation = useUpdateTransactionMutation();
@@ -135,9 +115,7 @@ function TransactionsPageContent() {
       { filters, sort },
       {
         onError: (exportError) =>
-          setError(
-            describeApiError(exportError, t('transactions.page.exportFailed')),
-          ),
+          setError(describeApiError(exportError, t('transactions.page.exportFailed'))),
       },
     );
 
@@ -148,8 +126,7 @@ function TransactionsPageContent() {
 
   // Must not catch: the form reports the outcome.
   const handleCreate = async (data: CreateTransactionInput) => {
-    const result: CreateTransactionResponse =
-      await createMutation.mutateAsync(data);
+    const result: CreateTransactionResponse = await createMutation.mutateAsync(data);
     if (result.suggestedCategory) {
       setCategoryConfirmation({
         transactionId: result.id,
@@ -234,8 +211,7 @@ function TransactionsPageContent() {
           onSelectCategory={(categoryId) =>
             setFilters((prev) => ({
               ...prev,
-              categoryId:
-                prev.categoryId === categoryId ? undefined : categoryId,
+              categoryId: prev.categoryId === categoryId ? undefined : categoryId,
             }))
           }
         />
@@ -254,15 +230,9 @@ function TransactionsPageContent() {
           {...filters}
           onOpenFilters={() => setFiltersDialogOpen(true)}
           categories={categories}
-          onResetSearch={() =>
-            setFilters((prev) => ({ ...prev, searchTerm: undefined }))
-          }
-          onResetCategory={() =>
-            setFilters((prev) => ({ ...prev, categoryId: undefined }))
-          }
-          onResetType={() =>
-            setFilters((prev) => ({ ...prev, type: undefined }))
-          }
+          onResetSearch={() => setFilters((prev) => ({ ...prev, searchTerm: undefined }))}
+          onResetCategory={() => setFilters((prev) => ({ ...prev, categoryId: undefined }))}
+          onResetType={() => setFilters((prev) => ({ ...prev, type: undefined }))}
           onResetDateRange={() =>
             setFilters((prev) => ({
               ...prev,
@@ -296,10 +266,7 @@ function TransactionsPageContent() {
                 })}
               </Typography>
             )}
-            <TransactionList
-              transactions={transactions}
-              onEditAction={handleEdit}
-            />
+            <TransactionList transactions={transactions} onEditAction={handleEdit} />
             <InfiniteScrollSentinel
               hasMore={hasNextPage}
               loading={isFetchingNextPage}
@@ -315,9 +282,7 @@ function TransactionsPageContent() {
           setFormOpen(false);
           setEditTx(null);
         }}
-        onSubmitAction={
-          editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate
-        }
+        onSubmitAction={editTx ? (data) => handleUpdate(editTx.id, data) : handleCreate}
         onDeleteAction={deleteTransaction}
         initialData={
           editTx

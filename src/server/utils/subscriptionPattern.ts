@@ -1,14 +1,10 @@
-import { SubscriptionFrequency } from '@/generated/prisma/client';
-import {
+import type { SubscriptionFrequency } from '@/generated/prisma/client';
+import type {
   SubscriptionDetectionEvidence,
   SubscriptionEvidenceCharge,
 } from '@/shared/types/subscription';
 import { toDisplayName } from '@/server/utils/merchantNormalizer';
-import {
-  nextExpectedDateAfter,
-  roundToCents,
-  toAnnualAmount,
-} from '@/utils/subscriptionMath';
+import { nextExpectedDateAfter, roundToCents, toAnnualAmount } from '@/utils/subscriptionMath';
 
 export const MIN_CHARGES_FOR_PATTERN = 3;
 export const INTERVAL_TOLERANCE_RATIO = 0.3;
@@ -17,11 +13,11 @@ const MAX_EVIDENCE_CHARGES = 12;
 // which date-fns' whole-day helpers would round away.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-interface FrequencyWindow {
+type FrequencyWindow = {
   frequency: SubscriptionFrequency;
   min: number;
   max: number;
-}
+};
 
 const FREQUENCY_WINDOWS: FrequencyWindow[] = [
   { frequency: 'WEEKLY', min: 5, max: 9 },
@@ -33,28 +29,26 @@ function frequencyWindow(frequency: SubscriptionFrequency): {
   min: number;
   max: number;
 } {
-  const window = FREQUENCY_WINDOWS.find(
-    (candidate) => candidate.frequency === frequency,
-  );
+  const window = FREQUENCY_WINDOWS.find((candidate) => candidate.frequency === frequency);
   if (!window) {
     throw new Error(`No interval window defined for frequency ${frequency}`);
   }
   return { min: window.min, max: window.max };
 }
 
-export interface MerchantCharge {
+export type MerchantCharge = {
   description: string;
   value: number;
   date: Date;
   categoryId?: string;
-}
+};
 
-export interface MerchantGroup {
+export type MerchantGroup = {
   merchantKey: string;
   charges: MerchantCharge[];
-}
+};
 
-export interface DetectedPattern {
+export type DetectedPattern = {
   merchantKey: string;
   displayName: string;
   frequency: SubscriptionFrequency;
@@ -66,20 +60,21 @@ export interface DetectedPattern {
   confidence: number;
   categoryId?: string;
   evidence: SubscriptionDetectionEvidence;
-}
+};
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
-  const middle = sorted.length / 2;
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[Math.floor(middle)];
+  const upperMiddle = sorted[Math.floor(sorted.length / 2)];
+  const lowerMiddle = sorted[Math.ceil(sorted.length / 2) - 1];
+  if (upperMiddle === undefined || lowerMiddle === undefined) {
+    throw new Error(`median needs at least one value (got ${values.length})`);
+  }
+  return (lowerMiddle + upperMiddle) / 2;
 }
 
 function standardDeviation(values: number[], center: number): number {
   const variance =
-    values.reduce((sum, value) => sum + Math.pow(value - center, 2), 0) /
-    values.length;
+    values.reduce((sum, value) => sum + Math.pow(value - center, 2), 0) / values.length;
   return Math.sqrt(variance);
 }
 
@@ -104,18 +99,14 @@ function mostCommon<T>(values: (T | undefined)[]): T | undefined {
   return winner;
 }
 
-export function classifyFrequency(
-  medianDays: number,
-): SubscriptionFrequency | null {
+export function classifyFrequency(medianDays: number): SubscriptionFrequency | null {
   const match = FREQUENCY_WINDOWS.find(
     (window) => medianDays >= window.min && medianDays <= window.max,
   );
   return match ? match.frequency : null;
 }
 
-function toEvidenceCharges(
-  charges: MerchantCharge[],
-): SubscriptionEvidenceCharge[] {
+function toEvidenceCharges(charges: MerchantCharge[]): SubscriptionEvidenceCharge[] {
   return charges
     .slice(-MAX_EVIDENCE_CHARGES)
     .reverse()
@@ -135,15 +126,21 @@ export function analyzeMerchantPattern(
     return null;
   }
 
-  const charges = [...group.charges].sort(
-    (a, b) => a.date.getTime() - b.date.getTime(),
-  );
+  const charges = [...group.charges].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const [firstCharge] = charges;
+  const lastCharge = charges.at(-1);
+  if (!firstCharge || !lastCharge) {
+    throw new Error(
+      `${group.merchantKey} has ${charges.length} charges, below the pattern minimum`,
+    );
+  }
 
   const intervals: number[] = [];
-  for (let i = 1; i < charges.length; i++) {
-    intervals.push(
-      (charges[i].date.getTime() - charges[i - 1].date.getTime()) / MS_PER_DAY,
-    );
+  let previousCharge = firstCharge;
+  for (const charge of charges.slice(1)) {
+    intervals.push((charge.date.getTime() - previousCharge.date.getTime()) / MS_PER_DAY);
+    previousCharge = charge;
   }
 
   const medianInterval = median(intervals);
@@ -160,16 +157,15 @@ export function analyzeMerchantPattern(
 
   const amounts = charges.map((charge) => charge.value);
   const descriptions = charges.map((charge) => charge.description);
-  const averageAmount =
-    amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
-  const lastChargeDate = charges[charges.length - 1].date;
+  const averageAmount = amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
+  const lastChargeDate = lastCharge.date;
   const confidence = Math.max(0, Math.min(1, 1 - variationRatio));
 
   const evidence: SubscriptionDetectionEvidence = {
     analyzedFrom: analyzedFrom.toISOString(),
     analyzedTo: analyzedTo.toISOString(),
     chargeCount: charges.length,
-    firstChargeDate: charges[0].date.toISOString(),
+    firstChargeDate: firstCharge.date.toISOString(),
     lastChargeDate: lastChargeDate.toISOString(),
     medianIntervalDays: Math.round(medianInterval * 10) / 10,
     minIntervalDays: Math.round(Math.min(...intervals) * 10) / 10,
@@ -188,7 +184,7 @@ export function analyzeMerchantPattern(
   return {
     merchantKey: group.merchantKey,
     displayName: toDisplayName(
-      mostCommon(descriptions.map((d) => d.trim())) ?? descriptions[0],
+      mostCommon(descriptions.map((d) => d.trim())) ?? firstCharge.description,
     ),
     frequency,
     averageAmount: roundToCents(averageAmount),

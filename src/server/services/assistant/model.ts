@@ -7,7 +7,19 @@ const DEFAULT_GEMINI_MODEL: ModelRouterId = 'google/gemini-2.5-flash';
 
 function modelId(fallback: ModelRouterId): ModelRouterId {
   const override = process.env.ASSISTANT_MODEL_ID;
-  return override ? (override as ModelRouterId) : fallback;
+  if (!override) {
+    return fallback;
+  }
+  if (!isModelRouterId(override)) {
+    throw new Error(
+      `ASSISTANT_MODEL_ID must be "<provider>/<model>" (ASSISTANT_MODEL_ID: ${override})`,
+    );
+  }
+  return override;
+}
+
+function isModelRouterId(value: string): value is ModelRouterId {
+  return value.includes('/');
 }
 
 /**

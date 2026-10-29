@@ -8,13 +8,11 @@ export const AGENT_TOOL_GUIDE = [
   },
   {
     name: 'find_transactions',
-    purpose:
-      'individual transactions with their ids, by date, category, type or text',
+    purpose: 'individual transactions with their ids, by date, category, type or text',
   },
   {
     name: 'summarize_transactions',
-    purpose:
-      'a total, average, count, or breakdown by category or month, computed server-side',
+    purpose: 'a total, average, count, or breakdown by category or month, computed server-side',
   },
   {
     name: 'compare_periods',
@@ -34,8 +32,7 @@ export const AGENT_TOOL_GUIDE = [
   },
   {
     name: 'add_transaction',
-    purpose:
-      'record an expense or income; the category is picked for you if you leave it out',
+    purpose: 'record an expense or income; the category is picked for you if you leave it out',
   },
   {
     name: 'update_transaction',

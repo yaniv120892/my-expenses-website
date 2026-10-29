@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 
-const { generateContent, reportSwallowedError } = vi.hoisted(() => ({
+const { generateContent, reportError } = vi.hoisted(() => ({
   generateContent: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
 }));
 
 const getGenerativeModel = vi.fn((params: { model: string }) => {
@@ -15,8 +16,9 @@ vi.mock('@google/generative-ai', () => ({
     public getGenerativeModel = getGenerativeModel;
   },
 }));
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
@@ -59,18 +61,15 @@ describe('GeminiService.analyzeExpenses', () => {
     const result = await new GeminiService().analyzeExpenses('summary');
 
     expect(result).toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: RETIRED_MODEL_ERROR }),
-      'Gemini API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ error: RETIRED_MODEL_ERROR, where: 'Gemini API error' }),
     );
   });
 
   it('returns null when the provider answers with no content', async () => {
     generateContent.mockResolvedValue({ response: { candidates: [] } });
 
-    await expect(new GeminiService().analyzeExpenses('summary')).resolves.toBe(
-      null,
-    );
+    await expect(new GeminiService().analyzeExpenses('summary')).resolves.toBe(null);
   });
 
   it('returns the analysis when the call succeeds', async () => {
@@ -88,9 +87,9 @@ describe('GeminiService model id', () => {
 
     await new GeminiService().analyzeExpenses('summary');
 
-    const { model } = getGenerativeModel.mock.calls[0][0];
-    expect(model).not.toBe('gemini-2.0-flash');
-    expect(model).toBe('gemini-3.6-flash');
+    const [options] = getGenerativeModel.mock.calls[0] ?? [];
+    expect(options?.model).not.toBe('gemini-2.0-flash');
+    expect(options?.model).toBe('gemini-3.6-flash');
   });
 
   it('honours GEMINI_MODEL so a retirement needs no deploy', async () => {
@@ -99,7 +98,7 @@ describe('GeminiService model id', () => {
 
     await new GeminiService().analyzeExpenses('summary');
 
-    expect(getGenerativeModel.mock.calls[0][0].model).toBe('gemini-9.9-flash');
+    expect(getGenerativeModel.mock.calls[0]?.[0].model).toBe('gemini-9.9-flash');
   });
 
   it('reads the override per call, not once at module load', async () => {
@@ -110,7 +109,7 @@ describe('GeminiService model id', () => {
     process.env.GEMINI_MODEL = 'gemini-switched';
     await service.analyzeExpenses('second');
 
-    expect(getGenerativeModel.mock.calls[1][0].model).toBe('gemini-switched');
+    expect(getGenerativeModel.mock.calls[1]?.[0].model).toBe('gemini-switched');
   });
 });
 
@@ -129,10 +128,7 @@ describe('GeminiService.evaluateCategory', () => {
       }),
     );
 
-    const evaluation = await new GeminiService().evaluateCategory(
-      'GETT',
-      categories,
-    );
+    const evaluation = await new GeminiService().evaluateCategory('GETT', categories);
 
     expect(evaluation).toEqual({
       categoryId: 'cat-taxi',
@@ -148,7 +144,7 @@ describe('GeminiService.evaluateCategory', () => {
 
     await new GeminiService().evaluateCategory('GETT', categories);
 
-    expect(generateContent.mock.calls[0][0].systemInstruction).toBe(
+    expect(generateContent.mock.calls[0]?.[0].systemInstruction).toBe(
       SUGGEST_CATEGORY_SYSTEM_PROMPT,
     );
   });
@@ -156,10 +152,7 @@ describe('GeminiService.evaluateCategory', () => {
   it('keeps an answer that names no offered category, without an id', async () => {
     generateContent.mockResolvedValue(textResponse('Transportation'));
 
-    const evaluation = await new GeminiService().evaluateCategory(
-      'GETT',
-      categories,
-    );
+    const evaluation = await new GeminiService().evaluateCategory('GETT', categories);
 
     expect(evaluation).toMatchObject({
       categoryId: null,
@@ -170,14 +163,12 @@ describe('GeminiService.evaluateCategory', () => {
   it('rejects on provider failure where suggestCategory swallows', async () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
-    await expect(
-      new GeminiService().evaluateCategory('GETT', categories),
-    ).rejects.toBe(RETIRED_MODEL_ERROR);
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    await expect(new GeminiService().evaluateCategory('GETT', categories)).rejects.toBe(
+      RETIRED_MODEL_ERROR,
+    );
+    expect(reportError).not.toHaveBeenCalled();
 
-    await expect(
-      new GeminiService().suggestCategory('GETT', categories),
-    ).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    await expect(new GeminiService().suggestCategory('GETT', categories)).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,7 @@
 
 import { Chip, Button, Stack } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { TransactionFilters, Category } from '@/types';
+import type { TransactionFilters, Category } from '@/types';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
@@ -35,8 +35,7 @@ export const TransactionFiltersDisplay = ({
 }: TransactionFiltersDisplayProps) => {
   const t = useT();
   const formatter = useAppFormat();
-  const hasActiveFilters =
-    searchTerm || categoryId || type || startDate || endDate;
+  const hasActiveFilters = searchTerm || categoryId || type || startDate || endDate;
 
   const getCategoryName = (id: string) => {
     const category = categories.find((cat) => cat.id === id);

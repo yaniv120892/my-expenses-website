@@ -9,7 +9,7 @@ const { repository, loggerMock } = vi.hoisted(() => ({
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository: repository,
 }));
-vi.mock('@/server/logging/logger', () => ({ default: loggerMock }));
+vi.mock('@/server/observability', () => ({ logger: loggerMock }));
 
 import { authenticateApiToken } from '@/server/auth/apiTokens';
 import { mintApiToken } from '@/server/auth/apiTokenFormat';
@@ -53,21 +53,18 @@ describe('authenticateApiToken', () => {
     expect(repository.findByHash).toHaveBeenCalledWith(
       createHash('sha256').update(token).digest('hex'),
     );
-    expect(repository.markUsed).toHaveBeenCalledWith(
-      'token-id',
-      expect.any(Date),
-    );
+    expect(repository.markUsed).toHaveBeenCalledWith('token-id', expect.any(Date));
   });
 
   it('refuses a forged token without a database lookup', async () => {
     const forged = `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`;
 
-    await expect(authenticateApiToken(forged, 'IMPORTS')).rejects.toMatchObject(
-      { code: 'INVALID_API_TOKEN' },
-    );
-    await expect(
-      authenticateApiToken('mxk_garbage', 'IMPORTS'),
-    ).rejects.toMatchObject({ code: 'INVALID_API_TOKEN' });
+    await expect(authenticateApiToken(forged, 'IMPORTS')).rejects.toMatchObject({
+      code: 'INVALID_API_TOKEN',
+    });
+    await expect(authenticateApiToken('mxk_garbage', 'IMPORTS')).rejects.toMatchObject({
+      code: 'INVALID_API_TOKEN',
+    });
     expect(repository.findByHash).not.toHaveBeenCalled();
   });
 
@@ -110,9 +107,7 @@ describe('authenticateApiToken', () => {
   });
 
   it('rejects an expired token without recording a use', async () => {
-    repository.findByHash.mockResolvedValue(
-      storedToken({ expiresAt: new Date(Date.now() - 1) }),
-    );
+    repository.findByHash.mockResolvedValue(storedToken({ expiresAt: new Date(Date.now() - 1) }));
 
     await expect(authenticateApiToken(token, 'IMPORTS')).rejects.toMatchObject({
       code: 'API_TOKEN_EXPIRED',

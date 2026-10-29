@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, userRepository, telegramService } = vi.hoisted(() => ({
@@ -13,9 +15,7 @@ const { requireUser, userRepository, telegramService } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/repositories/userRepository', () => ({
@@ -25,15 +25,11 @@ vi.mock('@/server/services/telegramService', () => ({ telegramService }));
 vi.mock('@/server/redis', () => ({
   incrementManyWithTtl: vi.fn(async (rules: unknown[]) => rules.map(() => 1)),
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 
@@ -87,9 +83,7 @@ describe('PUT /api/user/settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(
-      userRepository.updateNotificationPreferences,
-    ).toHaveBeenCalledExactlyOnceWith({
+    expect(userRepository.updateNotificationPreferences).toHaveBeenCalledExactlyOnceWith({
       userId: 'user-1',
       notifications: NOTIFICATIONS,
     });

@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import chatAggregationService from '@/server/services/chatAggregationService';
-import {
-  Transaction,
-  TransactionSummary,
-  TransactionType,
-} from '@/shared/types/transaction';
+import type { Transaction, TransactionSummary, TransactionType } from '@/shared/types/transaction';
 
 const tx = (
   value: number,
@@ -25,9 +21,7 @@ const tx = (
   category: { id: 'c1', name: categoryName },
 });
 
-function totalsOf(
-  overrides: Partial<TransactionSummary> = {},
-): TransactionSummary {
+function totalsOf(overrides: Partial<TransactionSummary> = {}): TransactionSummary {
   return {
     totalIncome: 0,
     totalExpense: 0,
@@ -86,11 +80,7 @@ describe('aggregateFromTotals', () => {
     );
 
     expect(summary).toBe(
-      [
-        'Total Income: 300.00 ₪',
-        'Total Expenses: 120.00 ₪',
-        'Net: 180.00 ₪',
-      ].join('\n'),
+      ['Total Income: 300.00 ₪', 'Total Expenses: 120.00 ₪', 'Net: 180.00 ₪'].join('\n'),
     );
   });
 
@@ -111,10 +101,7 @@ describe('aggregateFromTotals', () => {
   });
 
   it('reports the empty average without dividing by zero', () => {
-    const { summary } = chatAggregationService.aggregateFromTotals(
-      totalsOf(),
-      'average',
-    );
+    const { summary } = chatAggregationService.aggregateFromTotals(totalsOf(), 'average');
 
     expect(summary).toBe('No transactions found to calculate an average.');
   });
@@ -142,10 +129,7 @@ describe('aggregate', () => {
   });
 
   it('emits no directionality marks for the model to quote back', () => {
-    const { summary } = chatAggregationService.aggregate(
-      [tx(1234.5)],
-      'breakdown_by_category',
-    );
+    const { summary } = chatAggregationService.aggregate([tx(1234.5)], 'breakdown_by_category');
 
     expect(summary).not.toMatch(/[\u200e\u200f\u00a0]/);
   });
@@ -184,10 +168,7 @@ describe('aggregate over mixed currencies', () => {
   });
 
   it('lists a foreign charge with its original amount beside the ILS one', () => {
-    const { summary } = chatAggregationService.aggregate(
-      [usdCharge, eurRefund],
-      'list',
-    );
+    const { summary } = chatAggregationService.aggregate([usdCharge, eurRefund], 'list');
 
     expect(summary).toContain('Amazon | $25.00 · 92.35 ₪');
     expect(summary).toContain('Hotel refund | €10.00 · 40.10 ₪');

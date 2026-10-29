@@ -1,40 +1,38 @@
-import { NotificationProvider, User } from '@/generated/prisma/client';
+import type { User } from '@/generated/prisma/client';
+import { NotificationProvider } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import { UserQuery } from '@/server/repositories/types';
+import type { UserQuery } from '@/server/repositories/types';
 
 class UserRepository {
   public async getUsersRequiredDailySummary() {
-    const userNotificationPreferences =
-      await prisma.userNotificationPreference.findMany({
-        where: {
-          dailySummary: true,
-        },
-        select: {
-          userId: true,
-        },
-      });
+    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
+      where: {
+        dailySummary: true,
+      },
+      select: {
+        userId: true,
+      },
+    });
     return userNotificationPreferences.map((user) => user.userId);
   }
 
   public async getUsersRequiredMonthlyReport() {
-    const userNotificationPreferences =
-      await prisma.userNotificationPreference.findMany({
-        where: {
-          monthlyReport: true,
-        },
-        select: {
-          userId: true,
-        },
-      });
+    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
+      where: {
+        monthlyReport: true,
+      },
+      select: {
+        userId: true,
+      },
+    });
     return userNotificationPreferences.map((user) => user.userId);
   }
 
   public async isCreateTransactionNotificationEnabled(userId: string) {
-    const notificationPreference =
-      await prisma.userNotificationPreference.findUnique({
-        where: { userId },
-        select: { createTransaction: true },
-      });
+    const notificationPreference = await prisma.userNotificationPreference.findUnique({
+      where: { userId },
+      select: { createTransaction: true },
+    });
 
     return notificationPreference?.createTransaction ?? false;
   }
@@ -43,20 +41,13 @@ class UserRepository {
     return prisma.user.findUnique({ where: { id: userId } });
   }
 
-  public async findByEmailOrUsername(
-    email: string,
-    username: string,
-  ): Promise<User | null> {
+  public async findByEmailOrUsername(email: string, username: string): Promise<User | null> {
     return prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
   }
 
-  public async createUser(
-    email: string,
-    username: string,
-    hashedPassword: string,
-  ): Promise<User> {
+  public async createUser(email: string, username: string, hashedPassword: string): Promise<User> {
     return prisma.user.create({
       data: { email, username, password: hashedPassword, verified: false },
     });
@@ -66,10 +57,7 @@ class UserRepository {
     return prisma.user.findUnique({ where: { email } });
   }
 
-  public async verifyUser(
-    email: string,
-    passwordHash: string | null,
-  ): Promise<User> {
+  public async verifyUser(email: string, passwordHash: string | null): Promise<User> {
     return prisma.user.update({
       where: { email },
       data: { verified: true, password: passwordHash ?? undefined },
@@ -113,7 +101,7 @@ class UserRepository {
     };
   }) {
     await prisma.userNotificationPreference.upsert({
-      where: { userId: userId },
+      where: { userId },
       update: {
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
@@ -121,7 +109,7 @@ class UserRepository {
         monthlyReport: notifications.monthlyReport,
       },
       create: {
-        userId: userId,
+        userId,
         createTransaction: notifications.createTransaction,
         dailySummary: notifications.dailySummary,
         subscriptionAudit: notifications.subscriptionAudit,
@@ -138,13 +126,7 @@ class UserRepository {
     });
   }
 
-  public async setTelegramChat({
-    userId,
-    chatId,
-  }: {
-    userId: string;
-    chatId: string | null;
-  }) {
+  public async setTelegramChat({ userId, chatId }: { userId: string; chatId: string | null }) {
     const provider = {
       enabled: chatId !== null,
       data: chatId === null ? {} : { chatId },
@@ -174,4 +156,5 @@ class UserRepository {
   }
 }
 
-export default new UserRepository();
+const userRepository = new UserRepository();
+export default userRepository;

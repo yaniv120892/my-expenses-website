@@ -6,7 +6,7 @@ const { constructPrismaClient, constructAdapter } = vi.hoisted(() => ({
 }));
 
 class FakePrismaClient {
-  constructor(options: unknown) {
+  public constructor(options: unknown) {
     constructPrismaClient(options);
   }
 
@@ -24,7 +24,7 @@ class FakePrismaClient {
 }
 
 class FakePrismaPg {
-  constructor(options: unknown) {
+  public constructor(public readonly options: unknown) {
     constructAdapter(options);
   }
 }

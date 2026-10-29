@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { recordIdSchema } from '@/shared/schemas/common';
-import {
+import type {
   Prisma,
-  TransactionType,
-  TransactionStatus,
   Transaction as PrismaTransaction,
   TransactionFile as PrismaTransactionFile,
   Category as PrismaCategory,
 } from '@/generated/prisma/client';
+import { TransactionType, TransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import {
   canMatch,
@@ -15,7 +14,7 @@ import {
   type MatchWindow,
   matchWindow,
 } from '@/server/utils/transactionMatching';
-import {
+import type {
   TransactionFilters,
   Transaction,
   TransactionListFilters,
@@ -23,32 +22,23 @@ import {
   TransactionSummaryFilters,
   TransactionSummary,
 } from '@/shared/types/transaction';
-import {
+import type {
   CreateTransactionDbModel,
   MatchCandidateTransaction,
   UpdateTransactionDbModel,
 } from '@/server/repositories/types';
 import { endOfDay, startOfDay } from 'date-fns';
 import { HttpError } from '@/server/http/errors';
-import {
-  getPrismaErrorCode,
-  PRISMA_ERROR_CODES,
-} from '@/server/db/prismaErrors';
+import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
 import type { CategoryTotal } from '@/server/utils/categoryHierarchy.types';
-import {
-  fromAmountColumns,
-  toAmountColumns,
-} from '@/server/repositories/amountColumns';
+import { fromAmountColumns, toAmountColumns } from '@/server/repositories/amountColumns';
 import {
   DEFAULT_TRANSACTION_SORT,
   type SortOrder,
   type TransactionSort,
 } from '@/shared/schemas/transactions';
 
-const MATCHABLE_STATUSES = [
-  TransactionStatus.APPROVED,
-  TransactionStatus.PENDING_APPROVAL,
-];
+const MATCHABLE_STATUSES = [TransactionStatus.APPROVED, TransactionStatus.PENDING_APPROVAL];
 
 // An update/delete matching no row means the transaction does not exist or
 // belongs to another user.
@@ -69,13 +59,12 @@ type Comparison = 'lt' | 'gt' | 'equals';
 type SortColumn = {
   orderBy(direction: SortOrder): Prisma.TransactionOrderByWithRelationInput;
   toCursor(row: TransactionRow): string;
-  where(
-    comparison: Comparison,
-    cursorValue: string,
-  ): Prisma.TransactionWhereInput;
+  where(comparison: Comparison, cursorValue: string): Prisma.TransactionWhereInput;
 };
 
 type OrderedColumn = [SortColumn, SortOrder];
+
+type CursorKey = { column: SortColumn; direction: SortOrder; value: string };
 
 /**
  * startDate floors to the day's start and endDate widens to its end; callers
@@ -164,28 +153,31 @@ function encodeCursor(ordering: OrderedColumn[], row: TransactionRow): string {
   return Buffer.from(JSON.stringify(values)).toString('base64url');
 }
 
-function decodeCursor(cursor: string, columnCount: number): string[] {
+function decodeCursor(cursor: string, ordering: OrderedColumn[]): CursorKey[] {
   let decoded: unknown;
   try {
     decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString());
   } catch {
     invalidCursor();
   }
-  const values = z.array(z.string()).length(columnCount).safeParse(decoded);
+  const values = z.array(z.string()).length(ordering.length).safeParse(decoded);
   if (!values.success) {
     invalidCursor();
   }
-  return values.data;
+  return ordering.map(([column, direction], index) => {
+    const value = values.data[index];
+    if (value === undefined) {
+      invalidCursor();
+    }
+    return { column, direction, value };
+  });
 }
 
 class TransactionRepository {
   public async getTransactionsSummary(
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
-    const { startDate, endDate } = normalizeDateRange(
-      filters.startDate,
-      filters.endDate,
-    );
+    const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
     const groups = await prisma.transaction.groupBy({
       by: ['type'],
       _sum: { value: true },
@@ -193,12 +185,8 @@ class TransactionRepository {
       where: this.buildListWhere(filters, startDate, endDate),
     });
 
-    const incomeGroup = groups.find(
-      (group) => group.type === TransactionType.INCOME,
-    );
-    const expenseGroup = groups.find(
-      (group) => group.type === TransactionType.EXPENSE,
-    );
+    const incomeGroup = groups.find((group) => group.type === TransactionType.INCOME);
+    const expenseGroup = groups.find((group) => group.type === TransactionType.EXPENSE);
     const incomeCount = incomeGroup?._count._all ?? 0;
     const expenseCount = expenseGroup?._count._all ?? 0;
 
@@ -211,13 +199,8 @@ class TransactionRepository {
     };
   }
 
-  public async getCategoryTotals(
-    filters: TransactionSummaryFilters,
-  ): Promise<CategoryTotal[]> {
-    const { startDate, endDate } = normalizeDateRange(
-      filters.startDate,
-      filters.endDate,
-    );
+  public async getCategoryTotals(filters: TransactionSummaryFilters): Promise<CategoryTotal[]> {
+    const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
     const groups = await prisma.transaction.groupBy({
       by: ['categoryId'],
       _sum: { value: true },
@@ -229,9 +212,7 @@ class TransactionRepository {
     }));
   }
 
-  public async createTransaction(
-    data: CreateTransactionDbModel,
-  ): Promise<Transaction> {
+  public async createTransaction(data: CreateTransactionDbModel): Promise<Transaction> {
     const transaction = await prisma.transaction.create({
       data: this.toCreateData(data),
       include: { category: true },
@@ -248,13 +229,8 @@ class TransactionRepository {
    * Offset paging for callers that address pages by number; new callers should
    * prefer getTransactionsList.
    */
-  public async getTransactions(
-    filters: TransactionFilters,
-  ): Promise<Transaction[]> {
-    const { startDate, endDate } = normalizeDateRange(
-      filters.startDate,
-      filters.endDate,
-    );
+  public async getTransactions(filters: TransactionFilters): Promise<Transaction[]> {
+    const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
 
     const transactions = await prisma.transaction.findMany({
       where: this.buildListWhere(filters, startDate, endDate),
@@ -266,13 +242,8 @@ class TransactionRepository {
     return transactions.map(this.mapToDomain);
   }
 
-  public async getTransactionsList(
-    filters: TransactionListFilters,
-  ): Promise<TransactionListPage> {
-    const { startDate, endDate } = normalizeDateRange(
-      filters.startDate,
-      filters.endDate,
-    );
+  public async getTransactionsList(filters: TransactionListFilters): Promise<TransactionListPage> {
+    const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
 
     const ordering = listOrdering(filters);
     const transactions = await prisma.transaction.findMany({
@@ -288,18 +259,17 @@ class TransactionRepository {
 
     const hasMore = transactions.length > filters.limit;
     const items = hasMore ? transactions.slice(0, filters.limit) : transactions;
+    const lastItem = hasMore ? items.at(-1) : undefined;
 
     return {
       items: items.map(this.mapToDomain),
-      nextCursor: hasMore
-        ? encodeCursor(ordering, items[items.length - 1])
-        : null,
+      nextCursor: lastItem ? encodeCursor(ordering, lastItem) : null,
     };
   }
 
   public async getPendingTransactions(userId: string): Promise<Transaction[]> {
     const transactions = await prisma.transaction.findMany({
-      where: { status: TransactionStatus.PENDING_APPROVAL, userId: userId },
+      where: { status: TransactionStatus.PENDING_APPROVAL, userId },
       include: { category: true },
       orderBy: { date: 'desc' },
     });
@@ -381,11 +351,7 @@ class TransactionRepository {
   }
 
   /** Unawaited for batching; a missing row fails as a raw Prisma error, not a 404. */
-  public updateTransactionOp(
-    id: string,
-    data: UpdateTransactionDbModel,
-    userId: string,
-  ) {
+  public updateTransactionOp(id: string, data: UpdateTransactionDbModel, userId: string) {
     return prisma.transaction.update({
       where: { id, userId },
       data: this.toUpdateData(data),
@@ -393,10 +359,7 @@ class TransactionRepository {
   }
 
   /** Returns the attachment keys the cascade dropped, read by the delete itself. */
-  public async deleteTransaction(
-    id: string,
-    userId: string,
-  ): Promise<string[]> {
+  public async deleteTransaction(id: string, userId: string): Promise<string[]> {
     const deleted = await prisma.transaction
       .delete({
         where: { id, userId },
@@ -422,10 +385,7 @@ class TransactionRepository {
       count: number;
     }[]
   > {
-    const { startDate, endDate } = normalizeDateRange(
-      params.startDate,
-      params.endDate,
-    );
+    const { startDate, endDate } = normalizeDateRange(params.startDate, params.endDate);
 
     const groups = await prisma.transaction.groupBy({
       by: ['categoryId', 'type', 'date'],
@@ -486,8 +446,7 @@ class TransactionRepository {
 
     return potentialTransactions.map((transaction) => ({
       ...this.mapToDomain(transaction),
-      bankDescriptionPrefix:
-        transaction.scheduledTransaction?.bankDescriptionPrefix ?? null,
+      bankDescriptionPrefix: transaction.scheduledTransaction?.bankDescriptionPrefix ?? null,
     }));
   }
 
@@ -553,12 +512,8 @@ class TransactionRepository {
     for (const window of windows) {
       const span = spanByType.get(window.type);
       spanByType.set(window.type, {
-        gte:
-          span && span.gte < window.earliestDate
-            ? span.gte
-            : window.earliestDate,
-        lte:
-          span && span.lte > window.latestDate ? span.lte : window.latestDate,
+        gte: span && span.gte < window.earliestDate ? span.gte : window.earliestDate,
+        lte: span && span.lte > window.latestDate ? span.lte : window.latestDate,
       });
     }
     return [...spanByType].map(([type, date]) => ({
@@ -622,20 +577,17 @@ class TransactionRepository {
     if (!cursor) {
       return {};
     }
-    const values = decodeCursor(cursor, ordering.length);
+    const keys = decodeCursor(cursor, ordering);
     return {
-      OR: ordering.map(([column, direction], index) => ({
+      OR: keys.map(({ column, direction, value }, index) => ({
         AND: [
-          ...ordering
-            .slice(0, index)
-            .map(([earlier], earlierIndex) =>
-              earlier.where('equals', values[earlierIndex]),
-            ),
-          column.where(direction === 'desc' ? 'lt' : 'gt', values[index]),
+          ...keys.slice(0, index).map((earlier) => earlier.column.where('equals', earlier.value)),
+          column.where(direction === 'desc' ? 'lt' : 'gt', value),
         ],
       })),
     };
   }
 }
 
-export default new TransactionRepository();
+const transactionRepository = new TransactionRepository();
+export default transactionRepository;

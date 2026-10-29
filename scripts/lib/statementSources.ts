@@ -1,21 +1,14 @@
 import { z } from 'zod';
 import { ImportStatus } from '../../src/shared/types/import';
 import { APP_TIME_ZONE } from '../../src/shared/dates';
-import {
-  BASE_URL_FLAG,
-  DEFAULT_BASE_URL,
-  parseBaseUrl,
-} from './importStatements';
+import { BASE_URL_FLAG, DEFAULT_BASE_URL, parseBaseUrl } from './importStatements';
 
 const STATEMENT_ISSUERS = ['cal', 'isracard', 'amex'] as const;
 const PAYMENT_MONTH_PATTERN = /^(0[1-9]|1[0-2])\/(\d{4})$/;
 const SOURCES_FLAG = '--sources=';
-const USAGE =
-  'Usage: tsx scripts/statements-due.ts [--sources=<json>] [--base-url=<url>]';
+const USAGE = 'Usage: tsx scripts/statements-due.ts [--sources=<json>] [--base-url=<url>]';
 
-const paymentMonthSchema = z
-  .string()
-  .regex(PAYMENT_MONTH_PATTERN, 'expected a month as MM/YYYY');
+const paymentMonthSchema = z.string().regex(PAYMENT_MONTH_PATTERN, 'expected a month as MM/YYYY');
 
 const closedCardSchema = z.object({
   issuer: z.enum(STATEMENT_ISSUERS),
@@ -96,10 +89,7 @@ const COVERS_ITS_MONTH = {
   [ImportStatus.FAILED]: false,
 } satisfies Record<ImportStatus, boolean>;
 
-export function parseDueArguments(
-  args: string[],
-  defaultSourcesPath: string,
-): DueArguments {
+export function parseDueArguments(args: string[], defaultSourcesPath: string): DueArguments {
   let sourcesPath = defaultSourcesPath;
   let baseUrl = DEFAULT_BASE_URL;
   for (const arg of args) {
@@ -116,10 +106,7 @@ export function parseDueArguments(
   return { sourcesPath, baseUrl };
 }
 
-export function parseStatementSources(
-  text: string,
-  source: string,
-): StatementSources {
+export function parseStatementSources(text: string, source: string): StatementSources {
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -159,12 +146,8 @@ export function findDueStatements(
         continue;
       }
 
-      const importDates =
-        importDatesByStatement.get(statementKey(card.last4, paymentMonth)) ??
-        [];
-      const importedAfterBilling = importDates.some(
-        (importDate) => importDate >= billingDate,
-      );
+      const importDates = importDatesByStatement.get(statementKey(card.last4, paymentMonth)) ?? [];
+      const importedAfterBilling = importDates.some((importDate) => importDate >= billingDate);
       if (importedAfterBilling) {
         continue;
       }
@@ -179,16 +162,11 @@ export function findDueStatements(
     }
   }
 
-  upcoming.sort((first, second) =>
-    first.billingDate.localeCompare(second.billingDate),
-  );
+  upcoming.sort((first, second) => first.billingDate.localeCompare(second.billingDate));
   return { due, upcoming };
 }
 
-export function statementFileName(
-  card: StatementCard,
-  paymentMonth: string,
-): string {
+export function statementFileName(card: StatementCard, paymentMonth: string): string {
   const [month, year] = paymentMonth.split('/');
   return `${card.issuer}-${card.last4}-${month}-${year}.xlsx`;
 }
@@ -211,10 +189,7 @@ function groupImportDates(imports: ImportSummary[]): Map<string, string[]> {
       continue;
     }
 
-    const key = statementKey(
-      creditCardLastFourDigits ?? '',
-      paymentMonth ?? '',
-    );
+    const key = statementKey(creditCardLastFourDigits ?? '', paymentMonth ?? '');
     const dates = datesByStatement.get(key) ?? [];
     dates.push(israelDate(new Date(importRecord.createdAt)));
     datesByStatement.set(key, dates);
@@ -235,11 +210,8 @@ function laterMonth(first: string, second: string | undefined): string {
 
 // Runs one month past today's, whose billing day is always still ahead, so
 // every card yields its next statement to close.
-function* monthsThroughNext(
-  firstMonth: string,
-  today: string,
-): Generator<string> {
-  const [todayYear, todayMonth] = today.split('-').map(Number);
+function* monthsThroughNext(firstMonth: string, today: string): Generator<string> {
+  const [todayYear, todayMonth] = splitNumbers({ value: today, separator: '-' });
   const lastIndex = todayYear * 12 + todayMonth;
   for (let index = monthIndex(firstMonth); index <= lastIndex; index++) {
     const month = String((index % 12) + 1).padStart(2, '0');
@@ -248,14 +220,30 @@ function* monthsThroughNext(
 }
 
 function monthIndex(paymentMonth: string): number {
-  const [month, year] = paymentMonth.split('/').map(Number);
+  const [month, year] = splitNumbers({ value: paymentMonth, separator: '/' });
   return year * 12 + month - 1;
 }
 
 // A billing day past the month's end bills on its last day.
 function billingDateOf(paymentMonth: string, billingDay: number): string {
-  const [month, year] = paymentMonth.split('/').map(Number);
+  const [month, year] = splitNumbers({ value: paymentMonth, separator: '/' });
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const day = Math.min(billingDay, daysInMonth);
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function splitNumbers({
+  value,
+  separator,
+}: {
+  value: string;
+  separator: string;
+}): [number, number] {
+  const [first, second] = value.split(separator).map(Number);
+  const isTwoNumbers =
+    first !== undefined && second !== undefined && !Number.isNaN(first) && !Number.isNaN(second);
+  if (!isTwoNumbers) {
+    throw new Error(`expected two numbers separated by '${separator}' (value: ${value})`);
+  }
+  return [first, second];
 }

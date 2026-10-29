@@ -1,7 +1,8 @@
 import { endOfMonth, isAfter, max, startOfDay } from 'date-fns';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
-import { ScheduledTransaction } from '@/types';
+import type { ScheduledTransaction } from '@/types';
 import { roundToCents, toMonthlyAmount } from './subscriptionMath';
+import { assertNever } from '@/utils/assertNever';
 
 const DAYS_PER_MONTH = 365 / 12;
 
@@ -22,6 +23,8 @@ export function toMonthlyScheduledAmount(tx: ScheduledTransaction): number {
     case 'MONTHLY':
     case 'YEARLY':
       return toMonthlyAmount(tx.value, tx.scheduleType) / interval;
+    default:
+      return assertNever({ value: tx.scheduleType, what: 'schedule type' });
   }
 }
 
@@ -39,12 +42,7 @@ export function forecastFixedExpenses(
     if (!tx.nextRunDate) {
       continue;
     }
-    const occurrences = countOccurrencesUntil(
-      tx,
-      tx.nextRunDate,
-      today,
-      monthEnd,
-    );
+    const occurrences = countOccurrencesUntil(tx, tx.nextRunDate, today, monthEnd);
     remainingThisMonth += occurrences * tx.value;
     remainingCount += occurrences;
   }

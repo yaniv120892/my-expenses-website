@@ -16,7 +16,7 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
     findMany.mockResolvedValue([]);
   });
 
-  const windowsQueried = () => findMany.mock.calls[0][0].where.OR;
+  const windowsQueried = () => findMany.mock.calls[0]?.[0].where.OR;
 
   it('queries a foreign charge whose ILS amount is unknown by currency and original amount', async () => {
     await transactionRepository.findPotentialMatchesForCharges('user-1', [
@@ -90,18 +90,15 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
   });
 
   it('skips the query when no charge can match', async () => {
-    const matches = await transactionRepository.findPotentialMatchesForCharges(
-      'user-1',
-      [
-        {
-          date: DAY,
-          type: TransactionType.EXPENSE,
-          value: null,
-          currency: null,
-          originalAmount: 25,
-        },
-      ],
-    );
+    const matches = await transactionRepository.findPotentialMatchesForCharges('user-1', [
+      {
+        date: DAY,
+        type: TransactionType.EXPENSE,
+        value: null,
+        currency: null,
+        originalAmount: 25,
+      },
+    ]);
 
     expect(matches).toEqual([]);
     expect(findMany).not.toHaveBeenCalled();

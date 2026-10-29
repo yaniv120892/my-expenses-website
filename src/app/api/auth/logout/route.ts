@@ -10,8 +10,8 @@ import { verifyToken } from '@/server/auth/tokens';
 export const POST = createHandler({
   auth: 'public',
   rateLimit: 'none',
-  handler: async ({ req }) => {
-    const token = extractToken(req);
+  handler: async ({ request }) => {
+    const token = extractToken(request);
     if (!token) {
       throw new AuthError('AUTH_REQUIRED', 'Authentication required');
     }

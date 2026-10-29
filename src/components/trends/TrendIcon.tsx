@@ -2,9 +2,9 @@ import TrendArrowUpward from '@mui/icons-material/TrendingUp';
 import TrendArrowDownward from '@mui/icons-material/TrendingDown';
 import TrendArrowFlat from '@mui/icons-material/TrendingFlat';
 
-interface TrendIconProps {
+type TrendIconProps = {
   trend: 'up' | 'down' | 'stable';
-}
+};
 
 export const TrendIcon = ({ trend }: TrendIconProps) => {
   switch (trend) {

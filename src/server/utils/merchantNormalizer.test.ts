@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  normalizeMerchantName,
-  toDisplayName,
-} from '@/server/utils/merchantNormalizer';
+import { normalizeMerchantName, toDisplayName } from '@/server/utils/merchantNormalizer';
 
 describe('normalizeMerchantName', () => {
   it('lowercases and trims', () => {

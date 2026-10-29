@@ -9,10 +9,9 @@ export function normalizePaymentMonth(raw: string): string | null {
 }
 
 export function parsePaymentMonth(raw: string): PaymentMonthParts | null {
-  const match = PAYMENT_MONTH_INPUT.exec(raw.trim());
-  if (!match) {
+  const [, month, year] = PAYMENT_MONTH_INPUT.exec(raw.trim()) ?? [];
+  if (month === undefined || year === undefined) {
     return null;
   }
-  const [, month, year] = match;
   return { month: month.padStart(2, '0'), year };
 }

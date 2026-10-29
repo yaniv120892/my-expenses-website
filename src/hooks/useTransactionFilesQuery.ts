@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { TransactionFile } from '../types';
+import type { TransactionFile } from '../types';
 import * as TransactionFileService from '../services/transactionFileService';
 import { useState } from 'react';
 
@@ -74,12 +74,14 @@ export function useDirectS3UploadForAttachment() {
     setIsUploading(true);
     setError(null);
     try {
-      const { uploadUrl, fileKey } =
-        await TransactionFileService.getPresignedUploadUrl(transactionId, {
+      const { uploadUrl, fileKey } = await TransactionFileService.getPresignedUploadUrl(
+        transactionId,
+        {
           fileName: file.name,
           mimeType: file.type,
           fileSize: file.size,
-        });
+        },
+      );
 
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
@@ -89,9 +91,7 @@ export function useDirectS3UploadForAttachment() {
         body: file,
       });
       if (!uploadRes.ok) {
-        throw new Error(
-          `S3 upload failed: ${uploadRes.status} ${uploadRes.statusText}`,
-        );
+        throw new Error(`S3 upload failed: ${uploadRes.status} ${uploadRes.statusText}`);
       }
 
       await attachFileMutation.mutateAsync({

@@ -4,9 +4,9 @@ import { runWithConcurrency } from '@/utils/asyncPool';
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
   });
   return { promise, resolve, reject };
 }
@@ -47,7 +47,7 @@ describe('runWithConcurrency', () => {
     });
 
     expect(results[0]).toEqual({ status: 'fulfilled', value: 1 });
-    expect(results[1].status).toBe('rejected');
+    expect(results[1]?.status).toBe('rejected');
     expect(results[2]).toEqual({ status: 'fulfilled', value: 3 });
   });
 
@@ -77,5 +77,16 @@ describe('runWithConcurrency', () => {
 
     const results = await runWithConcurrency([1, 2], 10, async (item) => item);
     expect(results).toHaveLength(2);
+  });
+
+  it('hands each item to exactly one worker', async () => {
+    const seen: number[] = [];
+
+    await runWithConcurrency([1, 2, 3, 4, 5], 3, async (item) => {
+      seen.push(item);
+      await Promise.resolve();
+    });
+
+    expect(seen.sort()).toEqual([1, 2, 3, 4, 5]);
   });
 });

@@ -11,9 +11,7 @@ import { recordIdSchema, transactionTypeSchema } from '@/shared/schemas/common';
 
 // A shape-only check lets "2026-13-45" reach the database as an Invalid Date
 // and "2026-02-31" roll over to March, so the day must exist.
-const dayString = z
-  .string()
-  .refine(isCalendarDay, 'Use a real calendar day as YYYY-MM-DD');
+const dayString = z.string().refine(isCalendarDay, 'Use a real calendar day as YYYY-MM-DD');
 
 const dateBounds = {
   startDate: dayString.optional().describe('Inclusive start day, YYYY-MM-DD'),
@@ -87,19 +85,13 @@ export const addTransactionShape = {
     .describe(
       'What the money was for, in the words the user used (Hebrew or English), e.g. "קפה בארומה" or "Salary".',
     ),
-  amount: amount.describe(
-    'The amount paid or received, in `currency`. Always positive.',
-  ),
+  amount: amount.describe('The amount paid or received, in `currency`. Always positive.'),
   type: transactionTypeSchema
     .default('EXPENSE')
-    .describe(
-      'EXPENSE for money spent (the default), INCOME for money received',
-    ),
+    .describe('EXPENSE for money spent (the default), INCOME for money received'),
   currency: currencyCode.optional(),
   ilsAmount: ilsAmount.optional(),
-  date: dayString
-    .optional()
-    .describe('Day of the transaction, YYYY-MM-DD. Defaults to today.'),
+  date: dayString.optional().describe('Day of the transaction, YYYY-MM-DD. Defaults to today.'),
   categoryName: categoryName.optional(),
 };
 
@@ -108,9 +100,7 @@ export const updateTransactionShape = {
   description: addTransactionShape.description.optional(),
   amount: amount
     .optional()
-    .describe(
-      "New amount, in the transaction's own currency unless `currency` is also given",
-    ),
+    .describe("New amount, in the transaction's own currency unless `currency` is also given"),
   type: transactionTypeSchema.optional(),
   currency: currencyCode.optional(),
   ilsAmount: ilsAmount.optional(),

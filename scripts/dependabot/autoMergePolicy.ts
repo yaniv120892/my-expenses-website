@@ -9,7 +9,8 @@ import type {
   UpdateType,
 } from './autoMergePolicy.types';
 
-const REQUIRED_CHECKS = ['checks', 'e2e'];
+// A reusable workflow reports its check as "<caller job> / <called job>".
+const REQUIRED_CHECKS = ['checks / Quality gate', 'e2e'];
 
 const AUTO_MERGE_BY_UPDATE_TYPE = {
   'version-update:semver-major': false,
@@ -27,13 +28,10 @@ export function decideAutoMerge(
       reason: 'no dependency metadata: not a verified Dependabot PR',
     };
   }
-  const blocked = dependencies.filter(
-    (dependency) => !isAutoMergeable(dependency),
-  );
+  const blocked = dependencies.filter((dependency) => !isAutoMergeable(dependency));
   if (blocked.length > 0) {
     const blockedLabels = blocked.map(
-      (dependency) =>
-        `${dependency.dependencyName} (${dependency.updateType ?? 'unknown'})`,
+      (dependency) => `${dependency.dependencyName} (${dependency.updateType ?? 'unknown'})`,
     );
     return {
       merge: false,
@@ -47,9 +45,7 @@ export function decideAutoMerge(
       .flatMap((rule) => rule.parameters?.required_status_checks ?? [])
       .map((check) => check.context),
   );
-  const missingChecks = REQUIRED_CHECKS.filter(
-    (check) => !requiredChecks.has(check),
-  );
+  const missingChecks = REQUIRED_CHECKS.filter((check) => !requiredChecks.has(check));
   if (missingChecks.length > 0) {
     return {
       merge: false,
@@ -65,17 +61,11 @@ function isAutoMergeable(dependency: UpdatedDependency): boolean {
   if (!isKnownUpdateType(updateType) || !prevVersion) {
     return false;
   }
-  return (
-    AUTO_MERGE_BY_UPDATE_TYPE[updateType] &&
-    !isPreOneBreakingBump(updateType, prevVersion)
-  );
+  return AUTO_MERGE_BY_UPDATE_TYPE[updateType] && !isPreOneBreakingBump(updateType, prevVersion);
 }
 
 // Below 1.0 a caret range treats a 0.x minor, and a 0.0.x patch, as breaking.
-function isPreOneBreakingBump(
-  updateType: UpdateType,
-  prevVersion: string,
-): boolean {
+function isPreOneBreakingBump(updateType: UpdateType, prevVersion: string): boolean {
   const version = prevVersion.replace(/^v/, '');
   switch (updateType) {
     case 'version-update:semver-minor':
@@ -87,21 +77,13 @@ function isPreOneBreakingBump(
   }
 }
 
-function isKnownUpdateType(
-  updateType: string | null,
-): updateType is UpdateType {
-  return (
-    updateType !== null && Object.hasOwn(AUTO_MERGE_BY_UPDATE_TYPE, updateType)
-  );
+function isKnownUpdateType(updateType: string | null): updateType is UpdateType {
+  return updateType !== null && Object.hasOwn(AUTO_MERGE_BY_UPDATE_TYPE, updateType);
 }
 
 function main(): void {
-  const dependencies: UpdatedDependency[] = JSON.parse(
-    process.env.UPDATED_DEPENDENCIES || '[]',
-  );
-  const branchRules: BranchRule[] = JSON.parse(
-    process.env.BRANCH_RULES || '[]',
-  );
+  const dependencies: UpdatedDependency[] = JSON.parse(process.env.UPDATED_DEPENDENCIES || '[]');
+  const branchRules: BranchRule[] = JSON.parse(process.env.BRANCH_RULES || '[]');
   const decision = decideAutoMerge(dependencies, branchRules);
   process.stdout.write(`auto-merge: ${decision.merge} — ${decision.reason}\n`);
   if (process.env.GITHUB_OUTPUT) {
@@ -109,9 +91,6 @@ function main(): void {
   }
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }

@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  acknowledgeAnnouncements,
-  getAnnouncements,
-} from '@/services/announcementService';
-import { AnnouncementWithSeen } from '@/shared/types/announcement';
+import { acknowledgeAnnouncements, getAnnouncements } from '@/services/announcementService';
+import type { AnnouncementWithSeen } from '@/shared/types/announcement';
 
 export const announcementKeys = {
   all: ['announcements'] as const,
@@ -25,14 +22,10 @@ export const useAcknowledgeAnnouncementsMutation = () => {
     mutationFn: (ids: string[]) => acknowledgeAnnouncements(ids),
     onSuccess: (acknowledged) => {
       const seen = new Set(acknowledged);
-      queryClient.setQueryData<AnnouncementWithSeen[]>(
-        announcementKeys.list(),
-        (current) =>
-          current?.map((announcement) =>
-            seen.has(announcement.id)
-              ? { ...announcement, seen: true }
-              : announcement,
-          ),
+      queryClient.setQueryData<AnnouncementWithSeen[]>(announcementKeys.list(), (current) =>
+        current?.map((announcement) =>
+          seen.has(announcement.id) ? { ...announcement, seen: true } : announcement,
+        ),
       );
     },
   });

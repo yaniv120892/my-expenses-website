@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const {
@@ -8,7 +9,7 @@ const {
   markForDeletion,
   markDeleted,
   hasActiveFileWithKey,
-  reportSwallowedError,
+  reportError,
 } = vi.hoisted(() => ({
   deleteTransaction: vi.fn(),
   getTransactionItem: vi.fn(),
@@ -16,7 +17,7 @@ const {
   markForDeletion: vi.fn(),
   markDeleted: vi.fn(),
   hasActiveFileWithKey: vi.fn(),
-  reportSwallowedError: vi.fn(),
+  reportError: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({
@@ -27,11 +28,13 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: { findById, markForDeletion, markDeleted, hasActiveFileWithKey },
 }));
 
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { firstInvocationOrder } from '@/test/mocks';
 
 const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
 const FILE_ID = '22222222-2222-4222-8222-222222222222';
@@ -75,16 +78,14 @@ describe('removeFile', () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
     expect(deletedKeys()).toEqual([{ Bucket: 'bucket', Key: FILE_KEY }]);
-    expect(markForDeletion.mock.invocationCallOrder[0]).toBeLessThan(
-      send.mock.invocationCallOrder[0],
-    );
+    expect(firstInvocationOrder(markForDeletion)).toBeLessThan(firstInvocationOrder(send));
     expect(markDeleted).toHaveBeenCalledWith(FILE_ID);
   });
 
   it('bounds the storage call with an abort signal', async () => {
     await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
 
-    const [, options] = send.mock.calls[0];
+    const [, options] = send.mock.calls[0] ?? [];
     expect(options).toEqual({ abortSignal: expect.any(AbortSignal) });
   });
 
@@ -98,14 +99,12 @@ describe('removeFile', () => {
 
     expect(markForDeletion).toHaveBeenCalledWith(FILE_ID);
     expect(markDeleted).not.toHaveBeenCalled();
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: storageError,
-        fileKey: FILE_KEY,
-        transactionId: TRANSACTION_ID,
-        fileId: FILE_ID,
+        error: expect.objectContaining({ message: 'Attachment object delete failed: Error' }),
+        where: expect.any(String),
+        context: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
       }),
-      expect.any(String),
     );
   });
 
@@ -118,10 +117,13 @@ describe('removeFile', () => {
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: markError, fileId: FILE_ID }),
-      'Deleted attachment object but failed to mark its file DELETED',
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: markError,
+        where: 'Deleted attachment object but failed to mark its file DELETED',
+        context: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
+      }),
     );
   });
 
@@ -157,17 +159,13 @@ describe('deleteTransaction', () => {
       { Bucket: 'bucket', Key: FILE_KEY },
       { Bucket: 'bucket', Key: OTHER_KEY },
     ]);
-    expect(deleteTransaction.mock.invocationCallOrder[0]).toBeLessThan(
-      send.mock.invocationCallOrder[0],
-    );
+    expect(firstInvocationOrder(deleteTransaction)).toBeLessThan(firstInvocationOrder(send));
   });
 
   it('deletes the remaining objects when one fails, and still succeeds', async () => {
     const storageError = new Error('SlowDown');
     send.mockImplementation(async (command) => {
-      const isFailingKey =
-        command instanceof DeleteObjectCommand &&
-        command.input.Key === FILE_KEY;
+      const isFailingKey = command instanceof DeleteObjectCommand && command.input.Key === FILE_KEY;
       if (isFailingKey) {
         throw storageError;
       }
@@ -179,21 +177,18 @@ describe('deleteTransaction', () => {
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(2);
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: storageError,
-        fileKey: FILE_KEY,
-        transactionId: TRANSACTION_ID,
+        error: expect.objectContaining({ message: 'Attachment object delete failed: Error' }),
+        where: expect.any(String),
+        context: { transactionId: TRANSACTION_ID },
       }),
-      expect.any(String),
     );
   });
 
   it('keeps every object when the row delete fails', async () => {
-    deleteTransaction.mockRejectedValue(
-      Object.assign(new Error('Not found'), { status: 404 }),
-    );
+    deleteTransaction.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404 }));
 
     await expect(
       transactionService.deleteTransaction(TRANSACTION_ID, 'other-user'),

@@ -4,17 +4,9 @@ import {
   ImportStatus,
   ImportedTransactionStatus,
 } from '@/shared/types/import';
-import type {
-  ExchangeRateSource,
-  TransactionType,
-} from '@/shared/types/transaction';
+import type { ExchangeRateSource, TransactionType } from '@/shared/types/transaction';
 
-export {
-  ImportBankSourceType,
-  ImportFileType,
-  ImportStatus,
-  ImportedTransactionStatus,
-};
+export { ImportBankSourceType, ImportFileType, ImportStatus, ImportedTransactionStatus };
 
 // Mirrors the shared TransactionStatus union as an enum so components can
 // reference its values without importing Prisma.
@@ -24,7 +16,7 @@ export enum TransactionApprovalStatus {
 }
 
 /** An import as the API serializes it: JSON string dates, no server-only fields. */
-export interface Import {
+export type Import = {
   id: string;
   fileUrl: string;
   originalFileName: string;
@@ -39,9 +31,9 @@ export interface Import {
   isVerified: boolean;
   mergedIntoImportId?: string | null;
   mergedIntoFileName?: string | null;
-}
+};
 
-export interface MatchingTransaction {
+export type MatchingTransaction = {
   id: string;
   description: string;
   value: number;
@@ -52,10 +44,10 @@ export interface MatchingTransaction {
   type: TransactionType;
   status: TransactionApprovalStatus;
   userId: string;
-}
+};
 
 /** An imported row as the API serializes it, joined with its matching transaction. */
-export interface ImportedTransaction {
+export type ImportedTransaction = {
   id: string;
   importId: string;
   description: string;
@@ -66,28 +58,28 @@ export interface ImportedTransaction {
   exchangeRate: number | null;
   exchangeRateSource: ExchangeRateSource | null;
   date: string;
-  type: string;
+  type: TransactionType;
   status: ImportedTransactionStatus;
   matchingTransactionId?: string;
   matchingTransaction?: MatchingTransaction;
   rawData: unknown;
   deleted?: boolean;
-}
+};
 
-export interface BatchActionRequest {
+export type BatchActionRequest = {
   importId: string;
   transactionIds?: string[];
   action: 'approve' | 'ignore';
-}
+};
 
-export interface BatchResult {
+export type BatchResult = {
   total: number;
   succeeded: number;
   failed: number;
   errors: { id: string; error: string }[];
-}
+};
 
-export interface AutoApproveRule {
+export type AutoApproveRule = {
   id: string;
   descriptionPattern: string;
   categoryId: string;
@@ -96,4 +88,4 @@ export interface AutoApproveRule {
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string };
-}
+};

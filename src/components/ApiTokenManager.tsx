@@ -45,9 +45,7 @@ export default function ApiTokenManager() {
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<ApiTokenScope[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
-  const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(
-    null,
-  );
+  const [pendingRevoke, setPendingRevoke] = useState<ApiTokenSummary | null>(null);
 
   const toggleScope = (scope: ApiTokenScope) => {
     setScopes((current) =>
@@ -77,15 +75,12 @@ export default function ApiTokenManager() {
 
   const now = new Date();
   const revokeLabels = {
-    title: (tokenName: string) =>
-      t('settings.tokens.revokeTitle', { name: tokenName }),
+    title: (tokenName: string) => t('settings.tokens.revokeTitle', { name: tokenName }),
     consequence: t('settings.tokens.revokeConsequence'),
     cancel: t('common.cancel'),
     confirm: t('settings.tokens.revoke'),
   };
-  const [introBefore, introAfter] = t('settings.tokens.intro').split(
-    '{command}',
-  );
+  const [introBefore, introAfter] = t('settings.tokens.intro').split('{command}');
 
   return (
     <Stack spacing={2}>
@@ -107,15 +102,9 @@ export default function ApiTokenManager() {
         <Button
           variant="contained"
           onClick={handleCreate}
-          disabled={
-            !name.trim() || scopes.length === 0 || createMutation.isPending
-          }
+          disabled={!name.trim() || scopes.length === 0 || createMutation.isPending}
         >
-          {createMutation.isPending ? (
-            <CircularProgress size={20} />
-          ) : (
-            t('settings.tokens.create')
-          )}
+          {createMutation.isPending ? <CircularProgress size={20} /> : t('settings.tokens.create')}
         </Button>
       </Stack>
       <FormGroup>
@@ -142,36 +131,24 @@ export default function ApiTokenManager() {
           <Typography variant="body2" sx={{ mb: 1 }}>
             {t('settings.tokens.copyNow')}
           </Typography>
-          <CopyableText
-            key={createdToken}
-            label={t('settings.agent.token')}
-            value={createdToken}
-          />
+          <CopyableText key={createdToken} label={t('settings.agent.token')} value={createdToken} />
         </Alert>
       )}
 
       {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(
-            createMutation.error,
-            t('settings.tokens.createFailed'),
-          )}
+          {describeApiError(createMutation.error, t('settings.tokens.createFailed'))}
         </Alert>
       )}
       {revokeMutation.error && (
         <Alert severity="error">
-          {describeApiError(
-            revokeMutation.error,
-            t('settings.tokens.revokeFailed'),
-          )}
+          {describeApiError(revokeMutation.error, t('settings.tokens.revokeFailed'))}
         </Alert>
       )}
 
       {isLoading && <CircularProgress size={24} />}
       {error && (
-        <Alert severity="error">
-          {describeApiError(error, t('settings.tokens.loadFailed'))}
-        </Alert>
+        <Alert severity="error">{describeApiError(error, t('settings.tokens.loadFailed'))}</Alert>
       )}
       {tokens && tokens.length > 0 && (
         <Table size="small">
@@ -188,9 +165,7 @@ export default function ApiTokenManager() {
           <TableBody>
             {tokens.map((token) => {
               const isExpired = new Date(token.expiresAt) <= now;
-              const isRevoking =
-                revokeMutation.isPending &&
-                revokeMutation.variables === token.id;
+              const isRevoking = revokeMutation.isPending && revokeMutation.variables === token.id;
               return (
                 <TableRow key={token.id}>
                   <TableCell>{token.name}</TableCell>
@@ -213,11 +188,7 @@ export default function ApiTokenManager() {
                   </TableCell>
                   <TableCell>
                     {isExpired ? (
-                      <Chip
-                        size="small"
-                        color="error"
-                        label={t('settings.tokens.expired')}
-                      />
+                      <Chip size="small" color="error" label={t('settings.tokens.expired')} />
                     ) : (
                       formatter.day(token.expiresAt)
                     )}

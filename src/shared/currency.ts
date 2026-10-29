@@ -33,19 +33,13 @@ export function isIsoCurrencyCode(code: string): boolean {
   return KNOWN_CURRENCIES.has(code);
 }
 
-export const currencyCodeSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .refine(isIsoCurrencyCode, {
-    message: 'Must be an ISO 4217 currency code, such as ILS or USD',
-  });
+export const currencyCodeSchema = z.string().trim().toUpperCase().refine(isIsoCurrencyCode, {
+  message: 'Must be an ISO 4217 currency code, such as ILS or USD',
+});
 
 // A payload from a server that predates currencies has no `currency` at all,
 // and its amounts are ILS.
-export function isForeignCurrency(
-  currency: string | null | undefined,
-): boolean {
+export function isForeignCurrency(currency: string | null | undefined): boolean {
   const isKnown = currency !== null && currency !== undefined;
   return isKnown && currency !== BASE_CURRENCY;
 }

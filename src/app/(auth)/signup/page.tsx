@@ -1,16 +1,10 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import type { FormEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Alert,
-  Button,
-  Link as MuiLink,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { signup } from '@/services/authClient';
@@ -32,9 +26,7 @@ export default function SignupPage() {
       await signup(email, password);
       router.push(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err) {
-      setError(
-        authErrorMessage({ error: err, fallback: t('auth.signup.failed'), t }),
-      );
+      setError(authErrorMessage({ error: err, fallback: t('auth.signup.failed'), t }));
       setSubmitting(false);
     }
   }
@@ -64,19 +56,10 @@ export default function SignupPage() {
           helperText={t('auth.signup.passwordHint')}
           fullWidth
         />
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={submitting}
-          fullWidth
-        >
+        <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
           {submitting ? t('auth.signup.submitting') : t('auth.signup.submit')}
         </Button>
-        <Typography
-          variant="body2"
-          sx={{ color: 'text.secondary', textAlign: 'center' }}
-        >
+        <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
           {t('auth.signup.haveAccount')}{' '}
           <MuiLink component={Link} href="/login">
             {t('auth.signup.loginLink')}

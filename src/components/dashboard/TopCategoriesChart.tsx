@@ -1,20 +1,12 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Paper,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Card, CardContent, Paper, Stack, Typography, useTheme } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { TopCategory } from '@/types/dashboard';
+import type { TopCategory } from '@/types/dashboard';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import { CLICKABLE_ROW_SX, CLICKABLE_SLICE_SX } from '@/components/chartStyles';
@@ -33,10 +25,11 @@ function ChartTooltip({
   payload?: { name: string; value: number }[];
 }) {
   const formatter = useAppFormat();
-  if (!active || !payload || !payload.length) {
+  const entry = payload?.[0];
+  if (!active || !entry) {
     return null;
   }
-  const { name, value } = payload[0];
+  const { name, value } = entry;
   return (
     <Paper variant="outlined" sx={{ px: 1, py: 0.5, whiteSpace: 'nowrap' }}>
       <Typography variant="caption">
@@ -49,29 +42,15 @@ function ChartTooltip({
   );
 }
 
-function CategoryTrendIcon({
-  trend,
-}: {
-  trend: TopCategory['change']['trend'];
-}) {
+function CategoryTrendIcon({ trend }: { trend: TopCategory['change']['trend'] }) {
   // Spending semantics: an upward-trending expense category is the bad case.
   if (trend === 'up') {
-    return (
-      <TrendingUpIcon fontSize="small" color="error" sx={MIRROR_IN_RTL_SX} />
-    );
+    return <TrendingUpIcon fontSize="small" color="error" sx={MIRROR_IN_RTL_SX} />;
   }
   if (trend === 'down') {
-    return (
-      <TrendingDownIcon
-        fontSize="small"
-        color="success"
-        sx={MIRROR_IN_RTL_SX}
-      />
-    );
+    return <TrendingDownIcon fontSize="small" color="success" sx={MIRROR_IN_RTL_SX} />;
   }
-  return (
-    <TrendingFlatIcon fontSize="small" color="disabled" sx={MIRROR_IN_RTL_SX} />
-  );
+  return <TrendingFlatIcon fontSize="small" color="disabled" sx={MIRROR_IN_RTL_SX} />;
 }
 
 export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
@@ -105,6 +84,13 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
     name: category.categoryName,
     value: category.amount,
   }));
+
+  function selectSlice(_slice: unknown, index: number) {
+    const category = categories[index];
+    if (category) {
+      onSelectCategory?.(category.categoryId);
+    }
+  }
 
   return (
     <Card sx={{ height: '100%' }}>
@@ -141,38 +127,23 @@ export function TopCategoriesChart({ categories, onSelectCategory }: Props) {
                   innerRadius={50}
                   stroke={palette.background.paper}
                   strokeWidth={2}
-                  onClick={
-                    onSelectCategory
-                      ? (_, index) =>
-                          onSelectCategory(categories[index].categoryId)
-                      : undefined
-                  }
+                  onClick={onSelectCategory ? selectSlice : undefined}
                 >
                   {chartData.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={seriesColors[index % seriesColors.length]}
-                    />
+                    <Cell key={index} fill={seriesColors[index % seriesColors.length]} />
                   ))}
                 </Pie>
                 <Tooltip content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </Box>
-          <Stack
-            spacing={1}
-            sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}
-          >
+          <Stack spacing={1} sx={{ minWidth: { md: 220 }, width: { xs: '100%', md: 'auto' } }}>
             {categories.map((category, index) => (
               <Stack
                 key={category.categoryId}
                 direction="row"
                 spacing={1}
-                onClick={
-                  onSelectCategory
-                    ? () => onSelectCategory(category.categoryId)
-                    : undefined
-                }
+                onClick={onSelectCategory ? () => onSelectCategory(category.categoryId) : undefined}
                 sx={{
                   alignItems: 'center',
                   ...(onSelectCategory ? CLICKABLE_ROW_SX : {}),

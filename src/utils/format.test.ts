@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  formatCurrency,
-  formatCurrencyPlain,
-  translateToScheduleSummary,
-} from '@/utils/format';
+import { formatCurrency, formatCurrencyPlain, translateToScheduleSummary } from '@/utils/format';
 
 const normalizeCurrency = (value: string) =>
-  value.replace(/[‎‏]/g, '').replace(/ /g, ' ');
+  value.replace(/[\u200E\u200F]/g, '').replace(/\u00A0/g, ' ');
 
 describe('formatCurrency', () => {
   it('formats as ILS with two decimals', () => {
@@ -36,15 +32,11 @@ describe('formatCurrencyPlain', () => {
 
 describe('translateToScheduleSummary', () => {
   it('describes daily schedules with and without an interval', () => {
-    expect(
-      translateToScheduleSummary('DAILY', undefined, undefined, undefined),
-    ).toBe('Runs every day.');
-    expect(translateToScheduleSummary('DAILY', 1, undefined, undefined)).toBe(
+    expect(translateToScheduleSummary('DAILY', undefined, undefined, undefined)).toBe(
       'Runs every day.',
     );
-    expect(translateToScheduleSummary('DAILY', 3, undefined, undefined)).toBe(
-      'Runs every 3 days.',
-    );
+    expect(translateToScheduleSummary('DAILY', 1, undefined, undefined)).toBe('Runs every day.');
+    expect(translateToScheduleSummary('DAILY', 3, undefined, undefined)).toBe('Runs every 3 days.');
   });
 
   it('describes weekly schedules using a 1-based day of week', () => {
@@ -60,15 +52,13 @@ describe('translateToScheduleSummary', () => {
     expect(translateToScheduleSummary('WEEKLY', 1, undefined, undefined)).toBe(
       'Choose a day of week.',
     );
-    expect(translateToScheduleSummary('WEEKLY', 1, 0, undefined)).toBe(
-      'Choose a day of week.',
-    );
+    expect(translateToScheduleSummary('WEEKLY', 1, 0, undefined)).toBe('Choose a day of week.');
   });
 
   it('describes monthly schedules and prompts without a day of month', () => {
-    expect(
-      translateToScheduleSummary('MONTHLY', undefined, undefined, 15),
-    ).toBe('Runs every month on day 15.');
+    expect(translateToScheduleSummary('MONTHLY', undefined, undefined, 15)).toBe(
+      'Runs every month on day 15.',
+    );
     expect(translateToScheduleSummary('MONTHLY', 6, undefined, 31)).toBe(
       'Runs every 6 months on day 31.',
     );

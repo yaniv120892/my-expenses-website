@@ -43,9 +43,7 @@ export function calculateNextRunDate(
       if (isAfter(thisMonth, fromDate)) {
         return startOfDay(thisMonth);
       }
-      return startOfDay(
-        onDayOfMonth(addMonths(fromDate, intervalValue), dayOfMonth),
-      );
+      return startOfDay(onDayOfMonth(addMonths(fromDate, intervalValue), dayOfMonth));
     }
     case 'YEARLY':
       return startOfDay(addYears(fromDate, intervalValue));

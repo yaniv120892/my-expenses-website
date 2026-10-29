@@ -1,26 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as ObservabilityModule from '@/server/observability';
 import type { ClientOptions } from 'openai';
+import type * as OpenAIModule from 'openai';
 
-const { reportSwallowedError, hangingFetch, constructedWith } = vi.hoisted(
-  () => ({
-    reportSwallowedError: vi.fn(),
-    hangingFetch: vi.fn(),
-    constructedWith: [] as unknown[],
-  }),
-);
+const { reportError, hangingFetch, constructedWith } = vi.hoisted(() => {
+  const constructedWith: unknown[] = [];
+  return { reportError: vi.fn(), hangingFetch: vi.fn(), constructedWith };
+});
 
 vi.mock('openai', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('openai')>();
+  const actual = await importOriginal<typeof OpenAIModule>();
   class RecordingOpenAI extends actual.default {
-    constructor(options: ClientOptions) {
+    public constructor(options: ClientOptions) {
       constructedWith.push(options);
       super({ ...options, fetch: hangingFetch });
     }
   }
   return { ...actual, default: RecordingOpenAI };
 });
-vi.mock('@/server/logging/reportSwallowedError', () => ({
-  reportSwallowedError,
+vi.mock('@/server/observability', async (importOriginal) => ({
+  ...(await importOriginal<typeof ObservabilityModule>()),
+  observability: { reportError },
 }));
 
 import { APIConnectionTimeoutError } from 'openai';
@@ -28,6 +28,7 @@ import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
 import { stalledFetch } from '@/test/stalledFetch';
+import { trackSettled } from '@/test/trackSettled';
 
 hangingFetch.mockImplementation(stalledFetch);
 
@@ -61,9 +62,7 @@ describe('ChatGPTService request limits', () => {
     await vi.runAllTimersAsync();
     await pending;
 
-    expect(constructedWith).toEqual([
-      expect.objectContaining({ timeout: 30_000, maxRetries: 1 }),
-    ]);
+    expect(constructedWith).toEqual([expect.objectContaining({ timeout: 30_000, maxRetries: 1 })]);
   });
 
   it('does not build the client until a call is made', () => {
@@ -73,26 +72,23 @@ describe('ChatGPTService request limits', () => {
   });
 
   it('fails a stalled call after the timeout and one retry instead of hanging', async () => {
-    let settled = false;
-    const pending = new ChatGPTService()
-      .suggestCategory('coffee', categories)
-      .finally(() => {
-        settled = true;
-      });
-
-    await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
-    expect(settled).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(
-      AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS,
+    const { pending, isSettled } = trackSettled(
+      new ChatGPTService().suggestCategory('coffee', categories),
     );
 
-    expect(settled).toBe(true);
+    await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);
+    expect(isSettled()).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs + RETRY_BACKOFF_ALLOWANCE_MS);
+
+    expect(isSettled()).toBe(true);
     await expect(pending).resolves.toBeNull();
     expect(hangingFetch).toHaveBeenCalledTimes(2);
-    expect(reportSwallowedError).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(APIConnectionTimeoutError) }),
-      'ChatGPT API error',
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.any(APIConnectionTimeoutError),
+        where: 'ChatGPT API error',
+      }),
     );
   });
 });
@@ -106,10 +102,7 @@ describe('ChatGPTService.evaluateCategory', () => {
       }),
     );
 
-    const evaluation = await new ChatGPTService().evaluateCategory(
-      'coffee',
-      categories,
-    );
+    const evaluation = await new ChatGPTService().evaluateCategory('coffee', categories);
 
     expect(evaluation).toEqual({
       categoryId: 'cat-food',
@@ -125,10 +118,7 @@ describe('ChatGPTService.evaluateCategory', () => {
       jsonResponse(200, { choices: [], usage: { prompt_tokens: 140 } }),
     );
 
-    const evaluation = await new ChatGPTService().evaluateCategory(
-      'coffee',
-      categories,
-    );
+    const evaluation = await new ChatGPTService().evaluateCategory('coffee', categories);
 
     expect(evaluation).toMatchObject({ categoryId: null, categoryName: null });
   });
@@ -141,12 +131,10 @@ describe('ChatGPTService.evaluateCategory', () => {
     await expect(
       new ChatGPTService().evaluateCategory('coffee', categories),
     ).rejects.toBeInstanceOf(Error);
-    expect(reportSwallowedError).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
 
-    await expect(
-      new ChatGPTService().suggestCategory('coffee', categories),
-    ).resolves.toBeNull();
-    expect(reportSwallowedError).toHaveBeenCalledTimes(1);
+    await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledTimes(1);
     hangingFetch.mockImplementation(stalledFetch);
   });
 });

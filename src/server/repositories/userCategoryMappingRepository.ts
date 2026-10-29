@@ -35,4 +35,5 @@ class UserCategoryMappingRepository {
   }
 }
 
-export default new UserCategoryMappingRepository();
+const userCategoryMappingRepository = new UserCategoryMappingRepository();
+export default userCategoryMappingRepository;

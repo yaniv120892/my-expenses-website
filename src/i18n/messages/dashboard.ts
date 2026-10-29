@@ -34,8 +34,7 @@ const en = {
   'dashboard.fixedExpenses.label': 'Fixed expenses',
   'dashboard.fixedExpenses.leftInMonth': 'Fixed expenses left in {month}',
   'dashboard.fixedExpenses.perMonth': 'Fixed expenses per month',
-  'dashboard.fixedExpenses.perMonthCaption':
-    'All scheduled expenses, averaged to one month',
+  'dashboard.fixedExpenses.perMonthCaption': 'All scheduled expenses, averaged to one month',
   'dashboard.fixedExpenses.remaining.one': '1 scheduled charge to go',
   'dashboard.fixedExpenses.remaining.other': '{count} scheduled charges to go',
 } satisfies Messages;
@@ -76,10 +75,8 @@ export const dashboardMessages: Dictionary<typeof en> = {
     'dashboard.fixedExpenses.label': 'הוצאות קבועות',
     'dashboard.fixedExpenses.leftInMonth': 'הוצאות קבועות שנותרו ב{month}',
     'dashboard.fixedExpenses.perMonth': 'הוצאות קבועות בחודש',
-    'dashboard.fixedExpenses.perMonthCaption':
-      'כל ההוצאות הקבועות, בממוצע לחודש',
+    'dashboard.fixedExpenses.perMonthCaption': 'כל ההוצאות הקבועות, בממוצע לחודש',
     'dashboard.fixedExpenses.remaining.one': 'נותר עוד חיוב קבוע אחד',
-    'dashboard.fixedExpenses.remaining.other':
-      'נותרו עוד {count} חיובים קבועים',
+    'dashboard.fixedExpenses.remaining.other': 'נותרו עוד {count} חיובים קבועים',
   },
 };

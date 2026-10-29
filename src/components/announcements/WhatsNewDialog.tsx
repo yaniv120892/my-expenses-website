@@ -21,7 +21,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import { useT } from '@/i18n/useT';
-import {
+import type {
   AnnouncementIcon,
   AnnouncementItem,
   AnnouncementWithSeen,
@@ -36,14 +36,14 @@ const ICONS: Record<AnnouncementIcon, typeof AutoAwesomeRoundedIcon> = {
   sparkle: AutoAwesomeRoundedIcon,
 };
 
-interface Props {
+type Props = {
   open: boolean;
   announcements: AnnouncementWithSeen[];
   // When true the only way out is the action button — no Escape, no backdrop.
   requireAcknowledgement: boolean;
   onAcknowledge: () => void;
   onClose: () => void;
-}
+};
 
 function ItemRow({
   item,
@@ -53,6 +53,7 @@ function ItemRow({
   onNavigate: (href: string) => void;
 }) {
   const Icon = ICONS[item.icon];
+  const { cta } = item;
 
   return (
     <Stack
@@ -105,13 +106,9 @@ function ItemRow({
         >
           {item.body}
         </Typography>
-        {item.cta && (
-          <Button
-            size="small"
-            onClick={() => onNavigate(item.cta!.href)}
-            sx={{ mt: 0.75, ml: -1 }}
-          >
-            {item.cta.label}
+        {cta && (
+          <Button size="small" onClick={() => onNavigate(cta.href)} sx={{ mt: 0.75, ml: -1 }}>
+            {cta.label}
           </Button>
         )}
       </Box>
@@ -130,7 +127,8 @@ export default function WhatsNewDialog({
   const fullScreen = useIsCompact();
   const router = useRouter();
 
-  if (announcements.length === 0) {
+  const [latest] = announcements;
+  if (!latest) {
     return null;
   }
 
@@ -155,7 +153,7 @@ export default function WhatsNewDialog({
       aria-labelledby="whats-new-title"
     >
       <DialogTitle id="whats-new-title" sx={{ pb: 0.5 }}>
-        {announcements[0].title}
+        {latest.title}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={3}>
@@ -176,11 +174,7 @@ export default function WhatsNewDialog({
               </Typography>
               <Stack spacing={2.5}>
                 {announcement.items.map((item) => (
-                  <ItemRow
-                    key={item.headline}
-                    item={item}
-                    onNavigate={handleNavigate}
-                  />
+                  <ItemRow key={item.headline} item={item} onNavigate={handleNavigate} />
                 ))}
               </Stack>
             </Stack>
@@ -189,9 +183,7 @@ export default function WhatsNewDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="contained" onClick={onAcknowledge}>
-          {requireAcknowledgement
-            ? t('announcements.gotIt')
-            : t('announcements.close')}
+          {requireAcknowledgement ? t('announcements.gotIt') : t('announcements.close')}
         </Button>
       </DialogActions>
     </Dialog>

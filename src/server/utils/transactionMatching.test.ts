@@ -56,22 +56,16 @@ describe('findExactNormalizedMatch', () => {
   ];
 
   it('returns the id of the single candidate that normalizes equal', () => {
-    expect(findExactNormalizedMatch('SUPER-PHARM', candidates)).toBe(
-      'transaction-1',
-    );
+    expect(findExactNormalizedMatch('SUPER-PHARM', candidates)).toBe('transaction-1');
   });
 
   it('matches across punctuation and spacing differences', () => {
-    expect(findExactNormalizedMatch('  shufersal   deal!  ', candidates)).toBe(
-      'transaction-2',
-    );
+    expect(findExactNormalizedMatch('  shufersal   deal!  ', candidates)).toBe('transaction-2');
   });
 
   it('matches Hebrew descriptions', () => {
     expect(
-      findExactNormalizedMatch('סופר פארם', [
-        { id: 'transaction-3', description: '  סופר פארם ' },
-      ]),
+      findExactNormalizedMatch('סופר פארם', [{ id: 'transaction-3', description: '  סופר פארם ' }]),
     ).toBe('transaction-3');
   });
 
@@ -91,11 +85,7 @@ describe('findExactNormalizedMatch', () => {
   });
 
   it('returns null for a description that normalizes to empty', () => {
-    expect(
-      findExactNormalizedMatch('...', [
-        { id: 'transaction-1', description: '' },
-      ]),
-    ).toBeNull();
+    expect(findExactNormalizedMatch('...', [{ id: 'transaction-1', description: '' }])).toBeNull();
   });
 
   it('returns null when there are no candidates', () => {
@@ -136,9 +126,7 @@ describe('isSameCharge', () => {
     date: new Date('2026-03-05'),
     type: TransactionType.EXPENSE,
   };
-  const charge = (
-    overrides: Partial<typeof base & { description: string }>,
-  ) => ({
+  const charge = (overrides: Partial<typeof base & { description: string }>) => ({
     description: '',
     ...base,
     ...overrides,
@@ -146,10 +134,7 @@ describe('isSameCharge', () => {
 
   it('matches identical descriptions', () => {
     expect(
-      isSameCharge(
-        charge({ description: 'Super Pharm' }),
-        charge({ description: 'Super Pharm' }),
-      ),
+      isSameCharge(charge({ description: 'Super Pharm' }), charge({ description: 'Super Pharm' })),
     ).toBe(true);
   });
 
@@ -174,12 +159,7 @@ describe('isSameCharge', () => {
     ['קסטרו', 'קסטרו קניון אילון'],
     ['AMPM', 'AMPM אלנבי'],
   ])('matches a merchant shortened to its leading words: %s', (short, full) => {
-    expect(
-      isSameCharge(
-        charge({ description: short }),
-        charge({ description: full }),
-      ),
-    ).toBe(true);
+    expect(isSameCharge(charge({ description: short }), charge({ description: full }))).toBe(true);
   });
 
   it('matches a name cut inside its last word when most of it is kept', () => {
@@ -202,10 +182,7 @@ describe('isSameCharge', () => {
 
   it('does not match a name that only ends the same way inside a word', () => {
     expect(
-      isSameCharge(
-        charge({ description: 'Pharm' }),
-        charge({ description: 'Superpharm' }),
-      ),
+      isSameCharge(charge({ description: 'Pharm' }), charge({ description: 'Superpharm' })),
     ).toBe(false);
   });
 
@@ -222,20 +199,14 @@ describe('isSameCharge', () => {
 
   it('does not match two different merchants that share only their first word', () => {
     expect(
-      isSameCharge(
-        charge({ description: 'קפה גרג' }),
-        charge({ description: 'קפה ג׳ו רמת גן' }),
-      ),
+      isSameCharge(charge({ description: 'קפה גרג' }), charge({ description: 'קפה ג׳ו רמת גן' })),
     ).toBe(false);
   });
 
   it('does not let a bare initial stand for a merchant', () => {
-    expect(
-      isSameCharge(
-        charge({ description: 'א' }),
-        charge({ description: 'אלמה מרקט' }),
-      ),
-    ).toBe(false);
+    expect(isSameCharge(charge({ description: 'א' }), charge({ description: 'אלמה מרקט' }))).toBe(
+      false,
+    );
   });
 
   it('does not match when the value differs', () => {
@@ -266,18 +237,13 @@ describe('isSameCharge', () => {
   });
 
   it('treats two blank descriptions as the same charge', () => {
-    expect(
-      isSameCharge(charge({ description: '' }), charge({ description: '' })),
-    ).toBe(true);
+    expect(isSameCharge(charge({ description: '' }), charge({ description: '' }))).toBe(true);
   });
 
   it('does not treat one blank description as evidence of sameness', () => {
-    expect(
-      isSameCharge(
-        charge({ description: '' }),
-        charge({ description: 'Super Pharm' }),
-      ),
-    ).toBe(false);
+    expect(isSameCharge(charge({ description: '' }), charge({ description: 'Super Pharm' }))).toBe(
+      false,
+    );
   });
 });
 
@@ -332,21 +298,13 @@ describe('isWithinMatchWindow', () => {
   const window = matchWindow(expense(new Date(2026, 5, 16), 470));
 
   it('includes the edges of the date and value range', () => {
-    expect(
-      isWithinMatchWindow(window, expense(new Date(2026, 5, 21), 474.7)),
-    ).toBe(true);
-    expect(
-      isWithinMatchWindow(window, expense(new Date(2026, 5, 11), 465.3)),
-    ).toBe(true);
+    expect(isWithinMatchWindow(window, expense(new Date(2026, 5, 21), 474.7))).toBe(true);
+    expect(isWithinMatchWindow(window, expense(new Date(2026, 5, 11), 465.3))).toBe(true);
   });
 
   it('excludes a day or a value past the range', () => {
-    expect(
-      isWithinMatchWindow(window, expense(new Date(2026, 5, 22), 470)),
-    ).toBe(false);
-    expect(
-      isWithinMatchWindow(window, expense(new Date(2026, 5, 16), 475)),
-    ).toBe(false);
+    expect(isWithinMatchWindow(window, expense(new Date(2026, 5, 22), 470))).toBe(false);
+    expect(isWithinMatchWindow(window, expense(new Date(2026, 5, 16), 475))).toBe(false);
   });
 
   it('excludes the opposite direction at the same day and value', () => {
@@ -360,11 +318,7 @@ describe('isWithinMatchWindow', () => {
 });
 
 describe('isWithinMatchWindow for a foreign charge', () => {
-  const foreign = (
-    value: number | null,
-    currency: string,
-    originalAmount: number,
-  ) => ({
+  const foreign = (value: number | null, currency: string, originalAmount: number) => ({
     date: new Date(2026, 5, 16),
     type: TransactionType.EXPENSE,
     value,
@@ -420,10 +374,8 @@ describe('matchCandidateFilter', () => {
     date: new Date(2026, 8, 1),
     type: TransactionType.EXPENSE,
   };
-  const isMatchCandidate = (
-    matched: typeof charge,
-    candidate: MatchCandidate,
-  ) => matchCandidateFilter(matched)(candidate);
+  const isMatchCandidate = (matched: typeof charge, candidate: MatchCandidate) =>
+    matchCandidateFilter(matched)(candidate);
   const candidate = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
     description: 'גוגל אחסון',
     value: 8,
@@ -441,53 +393,29 @@ describe('matchCandidateFilter', () => {
   });
 
   it('still requires the date window and the direction', () => {
-    expect(
-      isMatchCandidate(charge, candidate({ date: new Date(2026, 8, 7) })),
-    ).toBe(false);
-    expect(
-      isMatchCandidate(charge, candidate({ type: TransactionType.INCOME })),
-    ).toBe(false);
+    expect(isMatchCandidate(charge, candidate({ date: new Date(2026, 8, 7) }))).toBe(false);
+    expect(isMatchCandidate(charge, candidate({ type: TransactionType.INCOME }))).toBe(false);
   });
 
   it('rejects a placeholder whose prefix does not start the description', () => {
     expect(
-      isMatchCandidate(
-        charge,
-        candidate({ bankDescriptionPrefix: 'CLOUD', value: 101.98 }),
-      ),
+      isMatchCandidate(charge, candidate({ bankDescriptionPrefix: 'CLOUD', value: 101.98 })),
     ).toBe(false);
   });
 
   it('falls back to the value window for anything that is not a pending placeholder', () => {
-    expect(
-      isMatchCandidate(charge, candidate({ bankDescriptionPrefix: null })),
-    ).toBe(false);
-    expect(
-      isMatchCandidate(
-        charge,
-        candidate({ status: TransactionStatus.APPROVED }),
-      ),
-    ).toBe(false);
-    expect(
-      isMatchCandidate(
-        charge,
-        candidate({ bankDescriptionPrefix: null, value: 101 }),
-      ),
-    ).toBe(true);
+    expect(isMatchCandidate(charge, candidate({ bankDescriptionPrefix: null }))).toBe(false);
+    expect(isMatchCandidate(charge, candidate({ status: TransactionStatus.APPROVED }))).toBe(false);
+    expect(isMatchCandidate(charge, candidate({ bankDescriptionPrefix: null, value: 101 }))).toBe(
+      true,
+    );
   });
 });
 
 describe('startsWithBankDescriptionPrefix', () => {
   it('compares normalized text, so case and punctuation do not matter', () => {
-    expect(
-      startsWithBankDescriptionPrefix(
-        'מנורה מבטחים-חיים/בריאות',
-        'מנורה מבטחים',
-      ),
-    ).toBe(true);
-    expect(startsWithBankDescriptionPrefix('GOOGLE*CLOUD', 'google')).toBe(
-      true,
-    );
+    expect(startsWithBankDescriptionPrefix('מנורה מבטחים-חיים/בריאות', 'מנורה מבטחים')).toBe(true);
+    expect(startsWithBankDescriptionPrefix('GOOGLE*CLOUD', 'google')).toBe(true);
   });
 
   it('never matches on a prefix shorter than three characters', () => {
@@ -510,8 +438,6 @@ describe('closestInDate', () => {
       date: new Date(2026, 8, day),
     });
 
-    expect(closestInDate(charge, [onDay(6), onDay(12), onDay(15)])).toEqual(
-      onDay(12),
-    );
+    expect(closestInDate(charge, [onDay(6), onDay(12), onDay(15)])).toEqual(onDay(12));
   });
 });

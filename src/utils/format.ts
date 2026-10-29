@@ -1,5 +1,5 @@
-import { ScheduleType } from '../types';
-import { SubscriptionFrequency } from '../types/subscription';
+import type { ScheduleType } from '../types';
+import type { SubscriptionFrequency } from '../types/subscription';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 
 export const SUBSCRIPTION_FREQUENCIES: readonly SubscriptionFrequency[] = [
@@ -34,10 +34,10 @@ const moneyFormatters = new Map<string, Intl.NumberFormat>();
 function formatMoney(amount: number, currency: string) {
   let formatter = moneyFormatters.get(currency);
   if (!formatter) {
-    formatter = new Intl.NumberFormat(
-      currency === BASE_CURRENCY ? 'he-IL' : 'en-US',
-      { style: 'currency', currency },
-    );
+    formatter = new Intl.NumberFormat(currency === BASE_CURRENCY ? 'he-IL' : 'en-US', {
+      style: 'currency',
+      currency,
+    });
     moneyFormatters.set(currency, formatter);
   }
   return formatter.format(amount);
@@ -56,9 +56,7 @@ type DisplayedAmount = {
  */
 export function formatAmountWithOriginal(amount: DisplayedAmount) {
   const baseText =
-    amount.value === null
-      ? `${BASE_CURRENCY} amount missing`
-      : formatCurrencyPlain(amount.value);
+    amount.value === null ? `${BASE_CURRENCY} amount missing` : formatCurrencyPlain(amount.value);
   if (amount.currency === null) {
     return amount.value === null
       ? `${formatNumber(amount.originalAmount)} (currency unknown) · ${baseText}`
@@ -76,36 +74,23 @@ export function translateToScheduleSummary(
   dayOfWeek: number | undefined,
   dayOfMonth: number | undefined,
 ) {
-  const baseIntervalText =
-    interval && interval > 1 ? `every ${interval} ` : 'every ';
+  const baseIntervalText = interval && interval > 1 ? `every ${interval} ` : 'every ';
   if (scheduleType === 'DAILY') {
-    return `Runs ${baseIntervalText.trim()} day${
-      interval && interval > 1 ? 's' : ''
-    }.`;
+    return `Runs ${baseIntervalText.trim()} day${interval && interval > 1 ? 's' : ''}.`;
   }
   if (scheduleType === 'WEEKLY') {
     if (!dayOfWeek) {
       return 'Choose a day of week.';
     }
-    const weekInterval =
-      interval && interval > 1 ? `every ${interval} weeks` : 'every week';
-    const days = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-    ];
+    const weekInterval = interval && interval > 1 ? `every ${interval} weeks` : 'every week';
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return `Runs ${weekInterval} on ${days[(dayOfWeek - 1) % 7]}.`;
   }
   if (scheduleType === 'MONTHLY') {
     if (!dayOfMonth) {
       return 'Choose a day of month.';
     }
-    const monthInterval =
-      interval && interval > 1 ? `every ${interval} months` : 'every month';
+    const monthInterval = interval && interval > 1 ? `every ${interval} months` : 'every month';
     return `Runs ${monthInterval} on day ${dayOfMonth}.`;
   }
   return '';

@@ -17,8 +17,7 @@ const en = {
   'settings.account.email': 'Email',
 
   'settings.notifications.title': 'Notifications',
-  'settings.notifications.createTransaction':
-    'Notify on new transaction creation',
+  'settings.notifications.createTransaction': 'Notify on new transaction creation',
   'settings.notifications.dailySummary': 'Daily summary notification',
   'settings.notifications.subscriptionAudit': 'Monthly subscription audit',
   'settings.notifications.monthlyReport': 'Monthly report by email',
@@ -26,12 +25,10 @@ const en = {
   'settings.notifications.sendNowHint':
     '"Send now" emails you last month\'s report immediately, so you can check it works without waiting for the 1st.',
   'settings.notifications.testReportFailed': 'Failed to send the test report',
-  'settings.notifications.testReportSent':
-    '{month} report sent to {recipient}.',
+  'settings.notifications.testReportSent': '{month} report sent to {recipient}.',
   'settings.notifications.testReportSentEmpty':
     '{month} report sent to {recipient}. That month had no transactions, so the scheduled monthly email would have skipped it.',
-  'settings.notifications.testReportNotBuilt':
-    'Could not build the report for your account.',
+  'settings.notifications.testReportNotBuilt': 'Could not build the report for your account.',
 
   'settings.telegram.title': 'Telegram',
   'settings.telegram.linked': 'Linked',
@@ -46,8 +43,7 @@ const en = {
   'settings.telegram.unlinkFailed': 'Failed to unlink Telegram',
   'settings.telegram.createCodeFailed': 'Failed to create a link code',
   'settings.telegram.done': 'Done',
-  'settings.telegram.codeExpired':
-    'This code has expired. Create a new one to link a chat.',
+  'settings.telegram.codeExpired': 'This code has expired. Create a new one to link a chat.',
   'settings.telegram.instructions':
     'Send this message to the My Expenses bot from the chat that should receive notifications. The code works once and expires in {minutes} minutes.',
   'settings.telegram.command': 'Telegram link command',
@@ -73,8 +69,7 @@ const en = {
   'settings.agent.example.coffee': 'Log an 18 shekel expense for coffee',
   'settings.agent.example.netflix': 'I paid 25 dollars for Netflix',
   'settings.agent.example.food': 'How much did I spend on food this month?',
-  'settings.agent.example.compare':
-    "Compare this month's spending with last month",
+  'settings.agent.example.compare': "Compare this month's spending with last month",
   'settings.agent.example.recurring': 'What are my recurring charges?',
   'settings.agent.example.delete': "Delete yesterday's taxi expense",
   'settings.agent.revokeFailed': 'Failed to remove the access',
@@ -97,14 +92,11 @@ const en = {
   'settings.tokens.namePlaceholder': 'e.g. MacBook statements script',
   'settings.tokens.create': 'Create',
   'settings.tokens.scope.IMPORTS': 'Imports',
-  'settings.tokens.scope.IMPORTS.description':
-    'Upload statements, preview and approve imports',
+  'settings.tokens.scope.IMPORTS.description': 'Upload statements, preview and approve imports',
   'settings.tokens.scope.AGENT': 'Personal agent',
-  'settings.tokens.scope.AGENT.description':
-    'Read, add, edit and delete transactions over MCP',
+  'settings.tokens.scope.AGENT.description': 'Read, add, edit and delete transactions over MCP',
   'settings.tokens.scopeOption': '{label} — {description}',
-  'settings.tokens.copyNow':
-    'Copy this token now — it will not be shown again.',
+  'settings.tokens.copyNow': 'Copy this token now — it will not be shown again.',
   'settings.tokens.createFailed': 'Failed to create the token',
   'settings.tokens.revokeFailed': 'Failed to revoke the token',
   'settings.tokens.loadFailed': 'Failed to load API tokens',
@@ -131,8 +123,7 @@ const en = {
   'settings.rules.editTitle': 'Edit rule',
   'settings.rules.createTitle': 'Create auto-approve rule',
   'settings.rules.pattern': 'Description pattern',
-  'settings.rules.patternPlaceholder':
-    'e.g. "Wolt" matches "Wolt delivery", "WOLT*123"',
+  'settings.rules.patternPlaceholder': 'e.g. "Wolt" matches "Wolt delivery", "WOLT*123"',
   'settings.rules.update': 'Update',
   'settings.rules.create': 'Create',
   'settings.rules.editFor': 'Edit the rule for {pattern}',
@@ -167,12 +158,10 @@ export const settingsMessages: Dictionary<typeof en> = {
     'settings.notifications.sendNowHint':
       '"שליחה עכשיו" שולחת לכם מיד את הדוח של החודש הקודם, כדי לבדוק שהכול עובד בלי לחכות לראשון לחודש.',
     'settings.notifications.testReportFailed': 'שליחת דוח הבדיקה נכשלה',
-    'settings.notifications.testReportSent':
-      'הדוח של {month} נשלח אל {recipient}.',
+    'settings.notifications.testReportSent': 'הדוח של {month} נשלח אל {recipient}.',
     'settings.notifications.testReportSentEmpty':
       'הדוח של {month} נשלח אל {recipient}. לא היו תנועות בחודש הזה, ולכן המייל החודשי המתוזמן היה מדלג עליו.',
-    'settings.notifications.testReportNotBuilt':
-      'לא הצלחנו להפיק את הדוח לחשבון שלך.',
+    'settings.notifications.testReportNotBuilt': 'לא הצלחנו להפיק את הדוח לחשבון שלך.',
 
     'settings.telegram.title': 'טלגרם',
     'settings.telegram.linked': 'מחובר',
@@ -239,8 +228,7 @@ export const settingsMessages: Dictionary<typeof en> = {
     'settings.tokens.scope.IMPORTS.description':
       'העלאת פירוטי חיובים, תצוגה מקדימה ואישור של ייבוא',
     'settings.tokens.scope.AGENT': 'סוכן אישי',
-    'settings.tokens.scope.AGENT.description':
-      'קריאה, הוספה, עריכה ומחיקה של תנועות דרך MCP',
+    'settings.tokens.scope.AGENT.description': 'קריאה, הוספה, עריכה ומחיקה של תנועות דרך MCP',
     'settings.tokens.scopeOption': '{label} — {description}',
     'settings.tokens.copyNow': 'העתיקו את הטוקן עכשיו — הוא לא יוצג שוב.',
     'settings.tokens.createFailed': 'יצירת הטוקן נכשלה',
@@ -269,8 +257,7 @@ export const settingsMessages: Dictionary<typeof en> = {
     'settings.rules.editTitle': 'עריכת כלל',
     'settings.rules.createTitle': 'כלל אישור אוטומטי חדש',
     'settings.rules.pattern': 'תבנית תיאור',
-    'settings.rules.patternPlaceholder':
-      'למשל "Wolt" יתאים ל-"Wolt delivery" ול-"WOLT*123"',
+    'settings.rules.patternPlaceholder': 'למשל "Wolt" יתאים ל-"Wolt delivery" ול-"WOLT*123"',
     'settings.rules.update': 'עדכון',
     'settings.rules.create': 'יצירה',
     'settings.rules.editFor': 'עריכת הכלל עבור {pattern}',

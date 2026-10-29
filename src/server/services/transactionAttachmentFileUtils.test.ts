@@ -43,7 +43,7 @@ function signedDisposition(): unknown {
 
 describe('buildPreviewUrl', () => {
   it('signs the stored file name inline, since the key no longer carries it', async () => {
-    await buildPreviewUrl('transactions/t/uuid.pdf', 'receipt march.pdf');
+    await buildPreviewUrl({ key: 'transactions/t/uuid.pdf', fileName: 'receipt march.pdf' });
 
     expect(signedDisposition()).toEqual({
       type: 'inline',

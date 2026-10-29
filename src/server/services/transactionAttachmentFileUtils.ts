@@ -23,11 +23,19 @@ const getS3Client = lazy(
 );
 
 /** Signs the stored file name inline, since a new key no longer carries it for a browser's save-as. */
-export async function buildPreviewUrl(key: string, filename: string, expiresInSeconds = 600) {
+export async function buildPreviewUrl({
+  key,
+  fileName,
+  expiresInSeconds = 600,
+}: {
+  key: string;
+  fileName: string;
+  expiresInSeconds?: number;
+}) {
   const command = new GetObjectCommand({
     Bucket: requireEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME'),
     Key: key,
-    ResponseContentDisposition: contentDisposition(filename, { type: 'inline' }),
+    ResponseContentDisposition: contentDisposition(fileName, { type: 'inline' }),
   });
   return getSignedUrl(getS3Client(), command, {
     expiresIn: expiresInSeconds,

@@ -1,4 +1,4 @@
-import {
+import type {
   ScheduleType,
   SubscriptionFrequency,
   SubscriptionStatus,
@@ -34,16 +34,16 @@ export type SubscriptionDetectionEvidence = {
 
 // LINKED: the schedule a conversion created; NAME_MATCH: one whose description
 // normalizes to the same merchant.
-export interface SubscriptionScheduleMatch {
+export type SubscriptionScheduleMatch = {
   id: string;
   description: string;
   value: number;
   scheduleType: ScheduleType;
   nextRunDate?: Date;
   matchType: 'LINKED' | 'NAME_MATCH';
-}
+};
 
-export interface DetectedSubscriptionDomain {
+export type DetectedSubscriptionDomain = {
   id: string;
   userId: string;
   merchantName: string;
@@ -64,32 +64,32 @@ export interface DetectedSubscriptionDomain {
   confidence: number;
   createdAt: Date;
   updatedAt: Date;
-}
+};
 
-export interface SubscriptionListItem extends DetectedSubscriptionDomain {
+export type SubscriptionListItem = {
   scheduleMatch?: SubscriptionScheduleMatch;
-}
+} & DetectedSubscriptionDomain;
 
-export interface SubscriptionSummary {
+export type SubscriptionSummary = {
   totalMonthlyEstimate: number;
   totalAnnualEstimate: number;
   activeCount: number;
   detectedCount: number;
   subscriptions: SubscriptionListItem[];
-}
+};
 
-export interface SubscriptionDashboardSnapshot {
+export type SubscriptionDashboardSnapshot = {
   activeCount: number;
   totalMonthlyEstimate: number;
   totalAnnualEstimate: number;
   detectedCount: number;
-}
+};
 
-export interface UpdateSubscriptionInput {
+export type UpdateSubscriptionInput = {
   displayName?: string;
   averageAmount?: number;
   frequency?: SubscriptionFrequency;
   lastChargeDate?: Date;
   nextExpectedDate?: Date;
   categoryId?: string | null;
-}
+};

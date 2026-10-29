@@ -40,13 +40,12 @@ const PASSWORD = 'correct horse';
 const store = new Map<string, unknown>();
 
 function mailedCode(callIndex: number): string {
-  const match = /Verification Code: (\d+)/.exec(
-    send.mock.calls[callIndex][0].text,
-  );
-  if (!match) {
+  const [mail] = send.mock.calls[callIndex] ?? [];
+  const code = /Verification Code: (\d+)/.exec(mail?.text ?? '')?.[1];
+  if (!code) {
     throw new Error(`no code in mail ${callIndex}`);
   }
-  return match[1];
+  return code;
 }
 
 beforeEach(() => {
@@ -58,9 +57,7 @@ beforeEach(() => {
   redis.setValue.mockImplementation(async (key: string, value: unknown) => {
     store.set(key, JSON.parse(JSON.stringify(value)));
   });
-  redis.getValue.mockImplementation(
-    async (key: string) => store.get(key) ?? null,
-  );
+  redis.getValue.mockImplementation(async (key: string) => store.get(key) ?? null);
   redis.deleteValue.mockImplementation(async (key: string) => {
     store.delete(key);
   });
@@ -79,9 +76,7 @@ describe('signupUser without a configured origin', () => {
     vi.stubEnv('VERCEL_URL', undefined);
     users.findByEmailOrUsername.mockResolvedValue(null);
 
-    await expect(
-      authService.signupUser(EMAIL, 'someone', PASSWORD),
-    ).rejects.toThrow('WEBSITE_URL');
+    await expect(authService.signupUser(EMAIL, 'someone', PASSWORD)).rejects.toThrow('WEBSITE_URL');
 
     expect(users.findByEmailOrUsername).not.toHaveBeenCalled();
     expect(users.createUser).not.toHaveBeenCalled();
@@ -134,10 +129,7 @@ describe('signupUser', () => {
     );
     // Anyone may sign up for a pending address, so a signup must not lift the
     // guess cap.
-    expect(redis.deleteValue).not.toHaveBeenCalledWith(
-      `loginCodeAttempts:${EMAIL}`,
-      'branch',
-    );
+    expect(redis.deleteValue).not.toHaveBeenCalledWith(`loginCodeAttempts:${EMAIL}`, 'branch');
     expect(send).toHaveBeenCalledTimes(1);
     expect(users.createUser).not.toHaveBeenCalled();
   });
@@ -186,7 +178,7 @@ describe('signupUser', () => {
 
     await authService.signupUser(EMAIL, 'user', PASSWORD);
 
-    const [, , storedPassword] = users.createUser.mock.calls[0];
+    const [, , storedPassword] = users.createUser.mock.calls[0] ?? [];
     expect(await compare(PASSWORD, storedPassword)).toBe(false);
   });
 });
@@ -213,9 +205,10 @@ describe('signup squatting', () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(1))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
 
-    const [verifiedEmail, passwordHash] = users.verifyUser.mock.calls[0];
+    const [verifiedEmail, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
     expect(verifiedEmail).toBe(EMAIL);
     expect(await compare(PASSWORD, passwordHash)).toBe(true);
   });
@@ -226,8 +219,9 @@ describe('signup squatting', () => {
 
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(0))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
-    const [, passwordHash] = users.verifyUser.mock.calls[0];
+    const [, passwordHash] = users.verifyUser.mock.calls[0] ?? [];
     expect(await compare(PASSWORD, passwordHash)).toBe(true);
     expect(await compare(SQUATTER_PASSWORD, passwordHash)).toBe(false);
   });
@@ -243,6 +237,7 @@ describe('signup squatting', () => {
     });
     expect(await authService.verifyLoginCode(EMAIL, mailedCode(3))).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
   });
 
@@ -284,6 +279,7 @@ describe('a code issued before codes carried a password', () => {
 
     expect(await authService.verifyLoginCode(EMAIL, '123456')).toEqual({
       token: 'token',
+      userId: 'user-1',
     });
     expect(users.verifyUser).toHaveBeenCalledWith(EMAIL, null);
   });
@@ -296,7 +292,7 @@ describe('verification email', () => {
 
     await authService.signupUser('a+tag@example.com', 'someone', PASSWORD);
 
-    const [{ text, html }] = send.mock.calls[0];
+    const [{ text, html }] = send.mock.calls[0] ?? [];
     const link = 'https://expenses.example/verify?email=a%2Btag%40example.com';
     expect(text).toContain(link);
     expect(html).toContain(`href="${link}"`);

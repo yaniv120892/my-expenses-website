@@ -1,14 +1,10 @@
 import { runWithConcurrency } from '@/utils/asyncPool';
 import { describeApiError } from '@/utils/api';
-import {
-  UploadItem,
-  UploadItemError,
-  UploadQueueAction,
-} from '@/utils/importUploadQueue';
+import type { UploadItem, UploadItemError, UploadQueueAction } from '@/utils/importUploadQueue';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { isUnreadablePaymentMonth } from '@/utils/paymentMonth';
 
-export interface UploadRunnerApi {
+export type UploadRunnerApi = {
   uploadImportFile(
     formData: FormData,
     onProgress?: (progress: number) => void,
@@ -18,7 +14,7 @@ export interface UploadRunnerApi {
     originalFileName: string,
     paymentMonth?: string,
   ): Promise<{ id: string }>;
-}
+};
 
 export type UploadDispatch = (action: UploadQueueAction) => void;
 
@@ -57,11 +53,7 @@ export async function runUploadItem(
 
   dispatch({ type: 'UPLOAD_SUCCEEDED', id: item.id, fileUrl });
 
-  const created = await api.processImport(
-    fileUrl,
-    item.file.name,
-    paymentMonth,
-  );
+  const created = await api.processImport(fileUrl, item.file.name, paymentMonth);
 
   dispatch({ type: 'ITEM_SUCCEEDED', id: item.id, importId: created.id });
 }
@@ -95,7 +87,7 @@ export async function runUploadBatch(
 }
 
 export class InvalidPaymentMonthError extends Error {
-  constructor(raw: string) {
+  public constructor(raw: string) {
     super(`Payment month must be MM/YYYY (got "${raw}")`);
     this.name = 'InvalidPaymentMonthError';
   }

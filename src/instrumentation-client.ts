@@ -1,3 +1,3 @@
-import { initSentry } from '../sentry.config';
+import { initSentry } from '@yaniv120892/observability/next/sentry';
 
 initSentry();

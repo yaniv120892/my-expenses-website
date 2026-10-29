@@ -9,19 +9,9 @@ import {
 
 const SECRET = 'test-webhook-secret';
 
-function sign(
-  userId: string,
-  timestamp: number,
-  secret = SECRET,
-  importId?: string,
-): string {
-  const payload = importId
-    ? `${userId}:${timestamp}:${importId}`
-    : `${userId}:${timestamp}`;
-  return crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('base64url');
+function sign(userId: string, timestamp: number, secret = SECRET, importId?: string): string {
+  const payload = importId ? `${userId}:${timestamp}:${importId}` : `${userId}:${timestamp}`;
+  return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
 }
 
 beforeEach(() => {
@@ -31,9 +21,7 @@ beforeEach(() => {
 describe('generateWebhookToken', () => {
   it('produces the HMAC-SHA256 base64url of "userId:timestamp"', () => {
     const timestamp = 1754900000000;
-    expect(generateWebhookToken('user-1', timestamp)).toBe(
-      sign('user-1', timestamp),
-    );
+    expect(generateWebhookToken('user-1', timestamp)).toBe(sign('user-1', timestamp));
   });
 
   it('binds the importId into the signature when one is given', () => {
@@ -115,9 +103,7 @@ describe('verifyWebhookToken', () => {
   it('rejects empty token or userId', () => {
     const timestamp = Date.now();
     expect(verifyWebhookToken('', 'user-1', timestamp)).toBe(false);
-    expect(verifyWebhookToken(sign('user-1', timestamp), '', timestamp)).toBe(
-      false,
-    );
+    expect(verifyWebhookToken(sign('user-1', timestamp), '', timestamp)).toBe(false);
   });
 
   it('accepts an importId-bound token', () => {
@@ -187,15 +173,15 @@ describe('extractWebhookParams', () => {
   });
 
   it('returns null for a non-numeric timestamp', () => {
-    expect(
-      extractWebhookParams({ token: 'abc', userId: 'u1', timestamp: 'soon' }),
-    ).toBeNull();
+    expect(extractWebhookParams({ token: 'abc', userId: 'u1', timestamp: 'soon' })).toBeNull();
   });
 
   it('parses a numeric prefix the way parseInt does', () => {
-    expect(
-      extractWebhookParams({ token: 'abc', userId: 'u1', timestamp: '123abc' }),
-    ).toEqual({ token: 'abc', userId: 'u1', timestamp: 123 });
+    expect(extractWebhookParams({ token: 'abc', userId: 'u1', timestamp: '123abc' })).toEqual({
+      token: 'abc',
+      userId: 'u1',
+      timestamp: 123,
+    });
   });
 });
 

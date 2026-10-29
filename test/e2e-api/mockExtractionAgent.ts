@@ -10,12 +10,12 @@ const CALLBACK_DELAY_MS = 150;
 // limitation.
 let callbackChain: Promise<void> = Promise.resolve();
 
-export interface ExtractionRequestRecord {
+export type ExtractionRequestRecord = {
   fileUrl: string;
   filename: string;
   userId: string;
   webhookUrl: string;
-}
+};
 
 let requests: ExtractionRequestRecord[] = [];
 let requestCounter = 0;
@@ -34,7 +34,7 @@ export function resetExtractionRequests(): void {
 
 function cardDigitsFromFilename(filename: string): string {
   const match = filename.match(/(\d{4})/);
-  return match ? match[1] : '0000';
+  return match?.[1] ?? '0000';
 }
 
 function paymentMonthFromFilename(filename: string): string {
@@ -92,21 +92,45 @@ async function sendCallback(
   }
 }
 
+// Callbacks go out one at a time, each CALLBACK_DELAY_MS after the previous one settled. A timer
+// cleared on server close never fires, so its callback is never sent.
+async function sendCallbackAfter({
+  previous,
+  webhookUrl,
+  requestId,
+  filename,
+}: {
+  previous: Promise<void>;
+  webhookUrl: string;
+  requestId: string;
+  filename: string;
+}): Promise<void> {
+  await previous;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      pendingCallbacks.delete(timer);
+      resolve();
+    }, CALLBACK_DELAY_MS);
+    pendingCallbacks.add(timer);
+  });
+  await sendCallback(webhookUrl, requestId, filename);
+}
+
 export function startMockExtractionAgent(port: number): Promise<http.Server> {
-  const server = http.createServer((req, res) => {
-    if (req.method !== 'POST' || !req.url?.startsWith('/api/extract')) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not found' }));
+  const server = http.createServer((request, response) => {
+    if (request.method !== 'POST' || !request.url?.startsWith('/api/extract')) {
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Not found' }));
       return;
     }
 
     let body = '';
-    req.on('data', (chunk) => {
+    request.on('data', (chunk) => {
       body += chunk;
     });
-    req.on('end', () => {
+    request.on('end', () => {
       const parsed = JSON.parse(body || '{}');
-      const requestId = `mock-req-${++requestCounter}`;
+      const requestId = `mock-request-${++requestCounter}`;
 
       requests.push({
         fileUrl: parsed.fileUrl,
@@ -115,8 +139,8 @@ export function startMockExtractionAgent(port: number): Promise<http.Server> {
         webhookUrl: parsed.webhookUrl,
       });
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(
         JSON.stringify({
           success: true,
           message: 'accepted',
@@ -129,20 +153,12 @@ export function startMockExtractionAgent(port: number): Promise<http.Server> {
       // Deliberately after the response, so the callback races the caller
       // persisting the request id — exactly the window the importId in the
       // webhook URL exists to close.
-      callbackChain = callbackChain.then(
-        () =>
-          new Promise<void>((resolve) => {
-            const timer = setTimeout(() => {
-              pendingCallbacks.delete(timer);
-              void sendCallback(
-                parsed.webhookUrl,
-                requestId,
-                parsed.filename,
-              ).finally(resolve);
-            }, CALLBACK_DELAY_MS);
-            pendingCallbacks.add(timer);
-          }),
-      );
+      callbackChain = sendCallbackAfter({
+        previous: callbackChain,
+        webhookUrl: parsed.webhookUrl,
+        requestId,
+        filename: parsed.filename,
+      });
     });
   });
 

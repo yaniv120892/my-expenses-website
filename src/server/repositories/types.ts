@@ -1,12 +1,12 @@
-import {
+import type {
   Transaction,
   TransactionAmount,
   TransactionType,
   TransactionStatus,
 } from '@/shared/types/transaction';
-import { ScheduleType } from '@/generated/prisma/client';
+import type { ScheduleType } from '@/generated/prisma/client';
 
-export interface CreateTransactionDbModel extends TransactionAmount {
+export type CreateTransactionDbModel = {
   description: string;
   categoryId: string;
   type: TransactionType;
@@ -14,13 +14,13 @@ export interface CreateTransactionDbModel extends TransactionAmount {
   status?: TransactionStatus;
   scheduledTransactionId?: string;
   userId: string;
-}
+} & TransactionAmount;
 
 export type MatchCandidateTransaction = Transaction & {
   bankDescriptionPrefix: string | null;
 };
 
-export interface UpdateTransactionDbModel {
+export type UpdateTransactionDbModel = {
   description?: string;
   /** Replaces every amount field together, so a conversion never half-changes. */
   amount?: TransactionAmount;
@@ -28,9 +28,9 @@ export interface UpdateTransactionDbModel {
   type?: TransactionType;
   date?: Date;
   status?: TransactionStatus;
-}
+};
 
-export interface CreateScheduledTransactionDbModel {
+export type CreateScheduledTransactionDbModel = {
   description: string;
   value: number;
   type: TransactionType;
@@ -40,9 +40,9 @@ export interface CreateScheduledTransactionDbModel {
   dayOfWeek?: number;
   dayOfMonth?: number;
   monthOfYear?: number;
-}
+};
 
-export interface ScheduledTransaction {
+export type ScheduledTransaction = {
   id: string;
   description: string;
   value: number;
@@ -55,8 +55,8 @@ export interface ScheduledTransaction {
   monthOfYear?: number;
   lastRunDate?: Date;
   nextRunDate?: Date;
-}
+};
 
-export interface UserQuery {
+export type UserQuery = {
   isVerified?: boolean;
-}
+};

@@ -1,5 +1,6 @@
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_MOCK_PORT } from './ports';
-import { SEED_PASSWORD, SeededUser } from './seed';
+import type { SeededUser } from './seed';
+import { SEED_PASSWORD } from './seed';
 import { startStack, startStackForUser } from './stack';
 
 // Unlike run.ts, stays up so Playwright can drive the site against it.
@@ -28,9 +29,7 @@ async function main(): Promise<void> {
     return { user: stack.seeded.userA, password: SEED_PASSWORD };
   }
 
-  async function forExistingUser(
-    email: string,
-  ): Promise<{ user: SeededUser; password: string }> {
+  async function forExistingUser(email: string): Promise<{ user: SeededUser; password: string }> {
     const stack = await startStackForUser(ports, email);
     return { user: stack.user, password: '' };
   }

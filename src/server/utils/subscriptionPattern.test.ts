@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  analyzeMerchantPattern,
+import type {
+  DetectedPattern,
   MerchantCharge,
   MerchantGroup,
 } from '@/server/utils/subscriptionPattern';
+import { analyzeMerchantPattern } from '@/server/utils/subscriptionPattern';
 
 const ANALYZED_FROM = new Date('2025-08-18T00:00:00Z');
 const ANALYZED_TO = new Date('2026-08-18T00:00:00Z');
@@ -32,8 +33,15 @@ const monthly = group([
   charge('2026-08-04'),
 ]);
 
-const analyze = (g: MerchantGroup) =>
-  analyzeMerchantPattern(g, ANALYZED_FROM, ANALYZED_TO);
+const analyze = (g: MerchantGroup) => analyzeMerchantPattern(g, ANALYZED_FROM, ANALYZED_TO);
+
+function analyzeDetected(merchantGroup: MerchantGroup): DetectedPattern {
+  const pattern = analyze(merchantGroup);
+  if (!pattern) {
+    throw new Error(`expected a pattern for ${merchantGroup.merchantKey}`);
+  }
+  return pattern;
+}
 
 describe('analyzeMerchantPattern', () => {
   it('classifies an evenly spaced monthly charge', () => {
@@ -46,9 +54,7 @@ describe('analyzeMerchantPattern', () => {
   });
 
   it('needs at least three charges', () => {
-    expect(analyze(group([charge('2026-07-04'), charge('2026-08-04')]))).toBe(
-      null,
-    );
+    expect(analyze(group([charge('2026-07-04'), charge('2026-08-04')]))).toBe(null);
   });
 
   it('rejects spacing that varies more than the tolerance', () => {
@@ -89,16 +95,14 @@ describe('analyzeMerchantPattern', () => {
   });
 
   it('records the evidence behind the decision', () => {
-    const pattern = analyze(monthly);
-    const evidence = pattern!.evidence;
+    const pattern = analyzeDetected(monthly);
+    const evidence = pattern.evidence;
 
     expect(evidence.chargeCount).toBe(4);
-    expect(pattern!.merchantKey).toBe('netflix');
+    expect(pattern.merchantKey).toBe('netflix');
     expect(evidence.medianIntervalDays).toBe(31);
     expect(evidence.frequencyWindowDays).toEqual({ min: 25, max: 35 });
-    expect(evidence.intervalVariationRatio).toBeLessThanOrEqual(
-      evidence.intervalToleranceRatio,
-    );
+    expect(evidence.intervalVariationRatio).toBeLessThanOrEqual(evidence.intervalToleranceRatio);
     expect(evidence.minAmount).toBe(49.9);
     expect(evidence.maxAmount).toBe(49.9);
     expect(evidence.firstChargeDate).toBe('2026-05-04T00:00:00.000Z');
@@ -115,7 +119,7 @@ describe('analyzeMerchantPattern', () => {
         description: 'NETFLIX.COM',
       })),
     );
-    const evidence = analyze(many)!.evidence;
+    const evidence = analyzeDetected(many).evidence;
 
     expect(evidence.recentCharges).toHaveLength(12);
     expect(evidence.olderChargeCount).toBe(2);
@@ -124,14 +128,14 @@ describe('analyzeMerchantPattern', () => {
   });
 
   it('reports amount spread when charges differ', () => {
-    const evidence = analyze(
+    const evidence = analyzeDetected(
       group([
         charge('2026-05-04', 40),
         charge('2026-06-04', 50),
         charge('2026-07-04', 60),
         charge('2026-08-04', 50),
       ]),
-    )!.evidence;
+    ).evidence;
 
     expect(evidence.minAmount).toBe(40);
     expect(evidence.maxAmount).toBe(60);

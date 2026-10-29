@@ -2,8 +2,9 @@ import * as Sentry from '@sentry/nextjs';
 import { createHandler } from '@/server/http/handler';
 import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
+import { captureProductEvent } from '@/server/productEvents';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,10 +17,8 @@ function sseFrame(payload: Record<string, unknown>): Uint8Array {
 export const POST = createHandler({
   auth: 'session',
   bodySchema: chatRequestSchema,
-  rateLimit: ({ userId }) => [
-    { key: `chat:user:${userId}`, ...RATE_LIMITS.chat },
-  ],
-  handler: async ({ req, body, userId }) => {
+  rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
+  handler: async ({ request, body, userId }) => {
     logger.debug({ userId }, 'Start handle chat message');
 
     const stream = new ReadableStream<Uint8Array>({
@@ -28,7 +27,7 @@ export const POST = createHandler({
           const textStream = await chatService.streamChatResponse(
             body.messages,
             userId,
-            req.signal,
+            request.signal,
           );
 
           for await (const delta of textStream) {
@@ -36,9 +35,10 @@ export const POST = createHandler({
           }
 
           controller.enqueue(sseFrame({ type: 'done' }));
+          captureProductEvent({ userId, event: 'assistant_message_sent' });
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
-          if (!req.signal.aborted) {
+          if (!request.signal.aborted) {
             // createHandler already returned the 200 stream response, so this
             // failure reaches neither the error response nor onRequestError.
             logger.error({ err, userId }, 'Failed to handle chat message');

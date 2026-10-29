@@ -1,9 +1,5 @@
-import {
-  Prisma,
-  ImportedTransaction,
-  TransactionType,
-  ImportedTransactionStatus,
-} from '@/generated/prisma/client';
+import type { Prisma, ImportedTransaction, TransactionType } from '@/generated/prisma/client';
+import { ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';
@@ -16,8 +12,9 @@ const WITH_MATCH = {
   },
 } satisfies Prisma.ImportedTransactionInclude;
 
-export type ImportedTransactionWithMatch =
-  Prisma.ImportedTransactionGetPayload<{ include: typeof WITH_MATCH }>;
+export type ImportedTransactionWithMatch = Prisma.ImportedTransactionGetPayload<{
+  include: typeof WITH_MATCH;
+}>;
 
 type DuplicateComparable = {
   description: string;
@@ -35,9 +32,7 @@ export function selectNonDuplicateRows<T extends DuplicateComparable>(
   const unclaimed = [...existing];
 
   return incoming.filter((row) => {
-    const claimed = unclaimed.findIndex((candidate) =>
-      isSameCharge(candidate, row),
-    );
+    const claimed = unclaimed.findIndex((candidate) => isSameCharge(candidate, row));
     if (claimed === -1) {
       return true;
     }
@@ -69,9 +64,7 @@ const PENDING_ROW_OF_LIVE_IMPORT = {
 } satisfies Prisma.ImportedTransactionWhereInput;
 
 export class ImportedTransactionRepository {
-  public async createMany(
-    transactions: ImportedTransactionCreateRow[],
-  ): Promise<number> {
+  public async createMany(transactions: ImportedTransactionCreateRow[]): Promise<number> {
     const result = await prisma.importedTransaction.createMany({
       data: transactions,
     });
@@ -93,9 +86,7 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async findByImportId(
-    importId: string,
-  ): Promise<ImportedTransaction[]> {
+  public async findByImportId(importId: string): Promise<ImportedTransaction[]> {
     return prisma.importedTransaction.findMany({
       where: {
         importId,
@@ -105,9 +96,7 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async findById(
-    id: string,
-  ): Promise<ImportedTransactionWithMatch | null> {
+  public async findById(id: string): Promise<ImportedTransactionWithMatch | null> {
     return prisma.importedTransaction.findUnique({
       where: { id },
       include: WITH_MATCH,
@@ -137,11 +126,7 @@ export class ImportedTransactionRepository {
   }
 
   /** Pending-scoped like markApprovedOp. */
-  public updateStatusOp(
-    id: string,
-    userId: string,
-    status: ImportedTransactionStatus,
-  ) {
+  public updateStatusOp(id: string, userId: string, status: ImportedTransactionStatus) {
     return prisma.importedTransaction.update({
       where: { id, userId, ...PENDING_ROW },
       data: { status },
@@ -224,9 +209,7 @@ export class ImportedTransactionRepository {
     return prisma.importedTransaction.deleteMany({ where: { importId } });
   }
 
-  public async findClaimedMatchingTransactionIds(
-    userId: string,
-  ): Promise<string[]> {
+  public async findClaimedMatchingTransactionIds(userId: string): Promise<string[]> {
     const claimed = await prisma.importedTransaction.findMany({
       where: {
         userId,
@@ -236,7 +219,9 @@ export class ImportedTransactionRepository {
       select: { matchingTransactionId: true },
     });
 
-    return claimed.map((row) => row.matchingTransactionId!);
+    return claimed.flatMap(({ matchingTransactionId }) =>
+      matchingTransactionId === null ? [] : [matchingTransactionId],
+    );
   }
 
   public async filterDuplicates<T extends DuplicateComparable>(
@@ -255,14 +240,11 @@ export class ImportedTransactionRepository {
   // The whole import rather than an OR per row: selectNonDuplicateRows re-
   // derives the comparison anyway, and a hand-built OR would have to stay in
   // sync with it.
-  private async findExistingTransactions(
-    importId: string,
-  ): Promise<ImportedTransaction[]> {
+  private async findExistingTransactions(importId: string): Promise<ImportedTransaction[]> {
     return prisma.importedTransaction.findMany({
       where: { importId, deleted: false },
     });
   }
 }
 
-export const importedTransactionRepository =
-  new ImportedTransactionRepository();
+export const importedTransactionRepository = new ImportedTransactionRepository();

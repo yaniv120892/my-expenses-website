@@ -1,4 +1,5 @@
-import { Import, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportStatus } from '@/types/import';
 
 export const ACTIVE_IMPORT_STATUSES: readonly ImportStatus[] = [
   ImportStatus.PENDING,
@@ -14,7 +15,5 @@ export const IMPORTS_POLL_INTERVAL_MS = 5_000;
 export const MAX_ACTIVE_POLL_MS = 15 * 60_000;
 
 export function hasActiveImports(imports: Import[] | undefined): boolean {
-  return !!imports?.some((item) =>
-    ACTIVE_IMPORT_STATUSES.includes(item.status),
-  );
+  return !!imports?.some((item) => ACTIVE_IMPORT_STATUSES.includes(item.status));
 }

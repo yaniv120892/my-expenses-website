@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, transactionService } = vi.hoisted(() => ({
@@ -7,23 +9,18 @@ const { requireUser, transactionService } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@/server/services/transactionService', () => ({
   default: transactionService,
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  observability: { captureEvent: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 
@@ -93,27 +90,24 @@ describe('POST /api/transactions', () => {
     ['zero', 0],
     ['a negative amount', -5],
     ['an empty string', ''],
-  ])(
-    'refuses %s as the value without creating anything',
-    async (_label, value) => {
-      const response = await POST(
-        new NextRequest('http://localhost/api/transactions', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            description: 'Coffee',
-            value,
-            type: 'EXPENSE',
-          }),
+  ])('refuses %s as the value without creating anything', async (_label, value) => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/transactions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Coffee',
+          value,
+          type: 'EXPENSE',
         }),
-        ROUTE_CONTEXT,
-      );
+      }),
+      ROUTE_CONTEXT,
+    );
 
-      expect(response.status).toBe(400);
-      expect(JSON.stringify(await response.json())).toContain(
-        'Amount must be a number from 0.01 to 10000000',
-      );
-      expect(transactionService.createTransaction).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toContain(
+      'Amount must be a number from 0.01 to 10000000',
+    );
+    expect(transactionService.createTransaction).not.toHaveBeenCalled();
+  });
 });

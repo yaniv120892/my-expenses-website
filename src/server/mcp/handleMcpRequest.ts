@@ -1,11 +1,8 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
-import {
-  JSON_RPC_ERROR_CODES,
-  jsonRpcErrorResponse,
-} from '@/server/http/jsonRpc';
+import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
 
 const jsonRpcRequest = z.object({
   id: z.union([z.string(), z.number()]),
@@ -37,8 +34,7 @@ export async function handleMcpRequest({
     return jsonRpcErrorResponse({
       status: 400,
       code: JSON_RPC_ERROR_CODES.INVALID_REQUEST,
-      message:
-        'Batched JSON-RPC requests are not supported; send one message per request.',
+      message: 'Batched JSON-RPC requests are not supported; send one message per request.',
     });
   }
 

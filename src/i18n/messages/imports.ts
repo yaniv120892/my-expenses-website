@@ -79,18 +79,14 @@ const en = {
     'Are you sure you want to approve 1 transaction? Transactions with a match will be merged; others will be created as new records.',
   'imports.batch.confirmApprove.other':
     'Are you sure you want to approve {count} transactions? Transactions with a match will be merged; others will be created as new records.',
-  'imports.batch.confirmIgnore.one':
-    'Are you sure you want to ignore 1 transaction?',
-  'imports.batch.confirmIgnore.other':
-    'Are you sure you want to ignore {count} transactions?',
+  'imports.batch.confirmIgnore.one': 'Are you sure you want to ignore 1 transaction?',
+  'imports.batch.confirmIgnore.other': 'Are you sure you want to ignore {count} transactions?',
   'imports.batch.processing': 'Processing...',
   'imports.batch.approveCount': 'Approve {count}',
   'imports.batch.ignoreCount': 'Ignore {count}',
   'imports.batch.inProgress': 'Processing batch operation...',
-  'imports.batch.transactionsResult':
-    '{succeeded} of {total} transactions processed successfully.',
-  'imports.batch.filesResult':
-    '{succeeded} of {total} files processed successfully.',
+  'imports.batch.transactionsResult': '{succeeded} of {total} transactions processed successfully.',
+  'imports.batch.filesResult': '{succeeded} of {total} files processed successfully.',
   'imports.batch.failedCount': '{count} failed.',
   'imports.batch.toggleErrors': 'Show errors',
   'imports.batch.dismiss': 'Dismiss',
@@ -113,8 +109,7 @@ const en = {
     '{count} file(s) were rejected. Supported formats: XLSX, XLS, CSV (max {max} per batch).',
   'imports.upload.queueFull':
     'The queue holds {max} files, so {count} were not added. Upload these first.',
-  'imports.upload.tooLarge':
-    '{fileName} is {size} MB, over the {limit} upload limit.',
+  'imports.upload.tooLarge': '{fileName} is {size} MB, over the {limit} upload limit.',
   'imports.upload.queued': 'Queued',
   'imports.upload.uploading': 'Uploading',
   'imports.upload.processing': 'Processing',
@@ -167,8 +162,7 @@ export const importsMessages: Dictionary<typeof en> = {
       'כפילות של ייבוא קודם לאותו כרטיס ולאותו חודש. השורות החדשות שבו הועברו אל {fileName} ומותאמות שם.',
     'imports.list.mergedIntoUnknown': 'הייבוא ההוא',
     'imports.list.deleteTitle': 'מחיקת ייבוא',
-    'imports.list.deleteBody':
-      'למחוק את הייבוא ״{fileName}״? אי אפשר לבטל את הפעולה.',
+    'imports.list.deleteBody': 'למחוק את הייבוא ״{fileName}״? אי אפשר לבטל את הפעולה.',
 
     'imports.row.status.PENDING': 'ממתינה',
     'imports.row.status.APPROVED': 'אושרה',
@@ -218,8 +212,7 @@ export const importsMessages: Dictionary<typeof en> = {
     'imports.batch.approveCount': 'אישור {count}',
     'imports.batch.ignoreCount': 'דחיית {count}',
     'imports.batch.inProgress': 'מבצע את הפעולה הקבוצתית…',
-    'imports.batch.transactionsResult':
-      '{succeeded} מתוך {total} תנועות עובדו בהצלחה.',
+    'imports.batch.transactionsResult': '{succeeded} מתוך {total} תנועות עובדו בהצלחה.',
     'imports.batch.filesResult': '{succeeded} מתוך {total} קבצים עובדו בהצלחה.',
     'imports.batch.failedCount': '{count} נכשלו.',
     'imports.batch.toggleErrors': 'הצגת השגיאות',
@@ -243,8 +236,7 @@ export const importsMessages: Dictionary<typeof en> = {
       '{count} קבצים נדחו. פורמטים נתמכים: XLSX,‏ XLS,‏ CSV (עד {max} בכל פעם).',
     'imports.upload.queueFull':
       'אפשר להעלות עד {max} קבצים בכל פעם, ולכן {count} לא נוספו. העלו קודם את אלה.',
-    'imports.upload.tooLarge':
-      'הקובץ {fileName} שוקל {size} MB, מעל מגבלת ההעלאה של {limit}.',
+    'imports.upload.tooLarge': 'הקובץ {fileName} שוקל {size} MB, מעל מגבלת ההעלאה של {limit}.',
     'imports.upload.queued': 'בתור',
     'imports.upload.uploading': 'מעלה',
     'imports.upload.processing': 'בעיבוד',

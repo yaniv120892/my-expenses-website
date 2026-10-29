@@ -7,9 +7,9 @@ export default function ImportListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <Paper variant="outlined">
       <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
-        {[...Array(rows)].map((_, idx) => (
+        {[...Array(rows)].map((_, index) => (
           <Stack
-            key={idx}
+            key={index}
             direction="row"
             spacing={2}
             sx={{

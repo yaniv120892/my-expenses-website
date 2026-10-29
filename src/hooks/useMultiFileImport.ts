@@ -4,7 +4,8 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { importService } from '@/services/importService';
 import { importKeys } from '@/hooks/useImports';
-import { BatchResult } from '@/types/import';
+import type { BatchResult } from '@/types/import';
+import type { UploadItem } from '@/utils/importUploadQueue';
 import {
   initialUploadQueueState,
   MAX_CONCURRENT_UPLOADS,
@@ -16,16 +17,16 @@ import {
   toBatchResult,
   toQueuedItem,
   uploadQueueReducer,
-  UploadItem,
 } from '@/utils/importUploadQueue';
-import { runUploadBatch, UploadRunnerApi } from '@/utils/importUploadRunner';
+import type { UploadRunnerApi } from '@/utils/importUploadRunner';
+import { runUploadBatch } from '@/utils/importUploadRunner';
 import { useT } from '@/i18n/useT';
 
-interface UseMultiFileImportOptions {
+type UseMultiFileImportOptions = {
   onAllSucceeded?: () => void;
-}
+};
 
-export interface UseMultiFileImportResult {
+export type UseMultiFileImportResult = {
   items: UploadItem[];
   isRunning: boolean;
   summary: BatchResult | null;
@@ -40,11 +41,10 @@ export interface UseMultiFileImportResult {
   retryItem: (id: string) => void;
   retryAllFailed: () => void;
   reset: () => void;
-}
+};
 
 const uploadRunnerApi: UploadRunnerApi = {
-  uploadImportFile: (formData, onProgress) =>
-    importService.uploadImportFile(formData, onProgress),
+  uploadImportFile: (formData, onProgress) => importService.uploadImportFile(formData, onProgress),
   processImport: (fileUrl, originalFileName, paymentMonth) =>
     importService.processImport(fileUrl, originalFileName, paymentMonth),
 };
@@ -52,10 +52,7 @@ const uploadRunnerApi: UploadRunnerApi = {
 export function useMultiFileImport({
   onAllSucceeded,
 }: UseMultiFileImportOptions = {}): UseMultiFileImportResult {
-  const [state, dispatch] = useReducer(
-    uploadQueueReducer,
-    initialUploadQueueState,
-  );
+  const [state, dispatch] = useReducer(uploadQueueReducer, initialUploadQueueState);
   const queryClient = useQueryClient();
   const t = useT();
 
@@ -79,12 +76,7 @@ export function useMultiFileImport({
       notifiedRef.current = false;
 
       try {
-        await runUploadBatch(
-          batch,
-          uploadRunnerApi,
-          dispatch,
-          MAX_CONCURRENT_UPLOADS,
-        );
+        await runUploadBatch(batch, uploadRunnerApi, dispatch, MAX_CONCURRENT_UPLOADS);
       } finally {
         isRunningRef.current = false;
         queryClient.invalidateQueries({ queryKey: importKeys.lists() });

@@ -34,9 +34,7 @@ test('assistant reply renders incrementally', async ({ page }) => {
     const lengths: number[] = [];
     window.__botReplyLengths = lengths;
     new MutationObserver(() => {
-      const bubbles = document.querySelectorAll(
-        '[data-testid="chat-message"][data-sender="bot"]',
-      );
+      const bubbles = document.querySelectorAll('[data-testid="chat-message"][data-sender="bot"]');
       const last = bubbles[bubbles.length - 1];
       if (last) {
         lengths.push((last.textContent || '').length);
@@ -57,9 +55,9 @@ test('assistant reply renders incrementally', async ({ page }) => {
   const reply = page.locator('[data-testid="chat-message"][data-sender="bot"]');
   await expect(reply.last()).toContainText('26.83%', { timeout: 90_000 });
 
-  const lengths = (
-    await page.evaluate(() => window.__botReplyLengths ?? [])
-  ).filter((length) => length > 0);
+  const lengths = (await page.evaluate(() => window.__botReplyLengths ?? [])).filter(
+    (length) => length > 0,
+  );
   const distinct = [...new Set(lengths)];
   expect(
     distinct.length,
@@ -67,17 +65,13 @@ test('assistant reply renders incrementally', async ({ page }) => {
   ).toBeGreaterThan(1);
 
   // Deltas append, never replace.
-  for (let i = 1; i < lengths.length; i++) {
-    expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
-  }
+  expect(lengths).toEqual([...lengths].sort((left, right) => left - right));
 
   await expect(reply.last()).toContainText('1,100.00');
   await expect(reply.last()).toContainText('26.83%');
 });
 
-test('a suggested prompt sends itself and clears the empty state', async ({
-  page,
-}) => {
+test('a suggested prompt sends itself and clears the empty state', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
 
   await signIn(page, TOKEN);
@@ -89,10 +83,13 @@ test('a suggested prompt sends itself and clears the empty state', async ({
   await expect(prompts.first()).toBeVisible();
 
   const promptText = await prompts.first().textContent();
+  if (promptText === null) {
+    throw new Error('the suggested prompt has no text');
+  }
   await prompts.first().click();
 
-  await expect(
-    page.locator('[data-testid="chat-message"][data-sender="user"]'),
-  ).toHaveText(promptText!);
+  await expect(page.locator('[data-testid="chat-message"][data-sender="user"]')).toHaveText(
+    promptText,
+  );
   await expect(prompts).toHaveCount(0);
 });

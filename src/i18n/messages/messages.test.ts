@@ -6,9 +6,7 @@ describe('messages', () => {
   it.each(Object.entries(messageAreas))(
     '%s has the same keys in Hebrew and English',
     (_area, dictionary) => {
-      expect(Object.keys(dictionary.he).sort()).toEqual(
-        Object.keys(dictionary.en).sort(),
-      );
+      expect(Object.keys(dictionary.he).sort()).toEqual(Object.keys(dictionary.en).sort());
     },
   );
 
@@ -40,9 +38,7 @@ describe('messages', () => {
       const listed = Object.values(messageAreas).flatMap((dictionary) =>
         Object.keys(dictionary[locale]),
       );
-      expect(Object.keys(messages[locale]).sort(), locale).toEqual(
-        listed.sort(),
-      );
+      expect(Object.keys(messages[locale]).sort(), locale).toEqual(listed.sort());
     }
   });
 
@@ -51,10 +47,7 @@ describe('messages', () => {
       [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
     const hebrew: Record<string, string> = messages.he;
     const mismatched = Object.entries(messages.en)
-      .filter(
-        ([key, text]) =>
-          placeholders(text).join() !== placeholders(hebrew[key]).join(),
-      )
+      .filter(([key, text]) => placeholders(text).join() !== placeholders(hebrew[key] ?? '').join())
       .map(([key]) => key);
     expect(mismatched).toEqual([]);
   });

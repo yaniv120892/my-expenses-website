@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Transaction, TransactionSummary } from '@/shared/types/transaction';
+import { z } from 'zod';
+import { RequestContext } from '@mastra/core/request-context';
+import { noopObserve } from '@mastra/core/tools';
+import type { ToolExecutionContext } from '@mastra/core/tools';
+import type { Transaction, TransactionSummary } from '@/shared/types/transaction';
 
-const { getAllCategories, getTransactions, getTransactionsSummary } =
-  vi.hoisted(() => ({
-    getAllCategories: vi.fn(),
-    getTransactions: vi.fn(),
-    getTransactionsSummary: vi.fn(),
-  }));
+const { getAllCategories, getTransactions, getTransactionsSummary } = vi.hoisted(() => ({
+  getAllCategories: vi.fn(),
+  getTransactions: vi.fn(),
+  getTransactionsSummary: vi.fn(),
+}));
 
 vi.mock('@/server/repositories/categoryRepository', () => ({
   default: { getAllCategories },
@@ -17,29 +20,25 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 
 import { buildAssistantTools } from '@/server/services/assistant/tools';
 
-const CONTEXT = {
-  requestContext: { get: (key: string) => (key === 'userId' ? 'user-1' : '') },
-};
+const requestContext = new RequestContext();
+requestContext.set('userId', 'user-1');
+const CONTEXT: ToolExecutionContext = { requestContext, observe: noopObserve };
 
-type SummaryToolResult = {
-  summary: string;
-  transactionCount: number;
-  resolvedCategory: string | null;
-};
+// Covers both the summary and the trend output: the trend has no transactionCount.
+const toolResultSchema = z.object({
+  summary: z.string(),
+  transactionCount: z.number().optional(),
+  resolvedCategory: z.string().nullable(),
+});
 
-// Bridges Mastra's full execute signature to the requestContext.get and summary
-// shape these tools actually use.
-async function invoke(
-  tool: { execute?: (input: never, context: never) => unknown },
-  input: unknown,
-): Promise<SummaryToolResult> {
+async function invoke<TInput>(
+  tool: { execute?: (input: TInput, context: ToolExecutionContext) => Promise<unknown> },
+  input: NoInfer<TInput>,
+): Promise<z.infer<typeof toolResultSchema>> {
   if (!tool.execute) {
     throw new Error('tool has no execute');
   }
-  return (await tool.execute(
-    input as never,
-    CONTEXT as never,
-  )) as SummaryToolResult;
+  return toolResultSchema.parse(await tool.execute(input, CONTEXT));
 }
 
 const CATEGORIES = [
@@ -133,9 +132,7 @@ describe('category resolution', () => {
 
 describe('aggregation paths', () => {
   it('answers totals from the SQL summary without loading rows', async () => {
-    getTransactionsSummary.mockResolvedValue(
-      totals({ totalExpense: 123456.78, count: 9999 }),
-    );
+    getTransactionsSummary.mockResolvedValue(totals({ totalExpense: 123456.78, count: 9999 }));
 
     const result = await invoke(tools.summarizeTransactions, {
       aggregation: 'total',
@@ -147,9 +144,7 @@ describe('aggregation paths', () => {
   });
 
   it('marks row-level results as partial when the read cap was hit', async () => {
-    getTransactions.mockResolvedValue(
-      Array.from({ length: 5000 }, (_, index) => row(index + 1)),
-    );
+    getTransactions.mockResolvedValue(Array.from({ length: 5000 }, (_, index) => row(index + 1)));
     getTransactionsSummary.mockResolvedValue(totals({ count: 7000 }));
 
     const result = await invoke(tools.summarizeTransactions, {
@@ -211,8 +206,6 @@ describe('getSpendingTrends', () => {
       endDate: '2026-10-24',
     });
 
-    expect(result.summary).toContain(
-      'Spending trend (monthly) from 2026-07-01 to 2026-10-24:',
-    );
+    expect(result.summary).toContain('Spending trend (monthly) from 2026-07-01 to 2026-10-24:');
   });
 });

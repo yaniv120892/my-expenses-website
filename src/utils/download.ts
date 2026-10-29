@@ -15,10 +15,7 @@ export function downloadBlob(fileName: string, blob: Blob): void {
 
 /** For CSV built in the browser; a server response already carries its own BOM. */
 export function downloadCsv(fileName: string, csv: string): void {
-  downloadBlob(
-    fileName,
-    new Blob([`${CSV_BOM}${csv}`], { type: 'text/csv;charset=utf-8;' }),
-  );
+  downloadBlob(fileName, new Blob([`${CSV_BOM}${csv}`], { type: 'text/csv;charset=utf-8;' }));
 }
 
 export function filenameFromContentDisposition(

@@ -77,10 +77,7 @@ export default function PendingPage() {
   return (
     <>
       <PageHeader title={t('pending.title')} subtitle={t('pending.subtitle')} />
-      <FixedExpensesSummary
-        scheduledTransactions={scheduledTransactions}
-        today={new Date()}
-      />
+      <FixedExpensesSummary scheduledTransactions={scheduledTransactions} today={new Date()} />
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />
       ) : loadFailed ? (

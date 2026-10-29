@@ -1,5 +1,5 @@
 import { parseISO } from 'date-fns';
-import {
+import type {
   CategoryComparison,
   ComparisonCell,
   ComparisonMeasure,
@@ -15,10 +15,7 @@ type ComparisonBucketLabelInput = {
   formatter: AppFormatter;
 };
 
-export function selectMeasure(
-  cell: ComparisonCell,
-  measure: ComparisonMeasure,
-): number {
+export function selectMeasure(cell: ComparisonCell, measure: ComparisonMeasure): number {
   if (measure === 'income') {
     return cell.income;
   }
@@ -28,8 +25,23 @@ export function selectMeasure(
   return cell.net;
 }
 
+/** A dense bucket holds one cell per series, so a series index always has a cell. */
+export function cellAt({
+  cells,
+  seriesIndex,
+}: {
+  cells: ComparisonCell[];
+  seriesIndex: number;
+}): ComparisonCell {
+  const cell = cells[seriesIndex];
+  if (!cell) {
+    throw new Error(`bucket has no cell for series ${seriesIndex} (cells: ${cells.length})`);
+  }
+  return cell;
+}
+
 export function seriesColor(index: number, palette: string[]): string {
-  return palette[index % palette.length];
+  return palette[index % palette.length] ?? '';
 }
 
 export function formatBucketLabel({
@@ -82,9 +94,7 @@ export function comparisonToCsv({
     selectMeasure(comparison.grandTotal, measure),
   ];
 
-  return [header, ...rows, totals]
-    .map((row) => row.map(escapeCsvValue).join(','))
-    .join('\n');
+  return [header, ...rows, totals].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
 }
 
 export function comparisonFileName(comparison: CategoryComparison): string {

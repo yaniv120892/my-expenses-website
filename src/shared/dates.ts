@@ -18,9 +18,7 @@ export function toDayString(date: Date): string {
  * the neighbouring day.
  */
 export function toUtcDayString(date: Date): string {
-  return toDayString(
-    new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
+  return toDayString(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

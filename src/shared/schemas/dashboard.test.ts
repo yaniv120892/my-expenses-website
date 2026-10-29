@@ -21,8 +21,6 @@ describe('dashboardInsightsResponseSchema', () => {
   });
 
   it('rejects a response missing summary', () => {
-    expect(() =>
-      dashboardInsightsResponseSchema.parse({ unusualSpending: [] }),
-    ).toThrow();
+    expect(() => dashboardInsightsResponseSchema.parse({ unusualSpending: [] })).toThrow();
   });
 });

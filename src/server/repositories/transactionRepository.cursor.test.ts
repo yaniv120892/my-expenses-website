@@ -33,18 +33,15 @@ describe('transactionRepository.getTransactionsList amount cursor', () => {
   it('pages past a finite amount', async () => {
     await listByAmount(amountCursor('12.5'));
 
-    const cursorWhere = findMany.mock.calls[0][0].where.OR;
+    const cursorWhere = findMany.mock.calls[0]?.[0].where.OR;
     expect(cursorWhere[0]).toEqual({ AND: [{ value: { lt: 12.5 } }] });
   });
 
-  it.each(['1e400', 'abc', ' '])(
-    'refuses %j with a 400 before querying',
-    async (amount) => {
-      await expect(listByAmount(amountCursor(amount))).rejects.toMatchObject({
-        status: 400,
-        message: 'Invalid cursor',
-      });
-      expect(findMany).not.toHaveBeenCalled();
-    },
-  );
+  it.each(['1e400', 'abc', ' '])('refuses %j with a 400 before querying', async (amount) => {
+    await expect(listByAmount(amountCursor(amount))).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid cursor',
+    });
+    expect(findMany).not.toHaveBeenCalled();
+  });
 });

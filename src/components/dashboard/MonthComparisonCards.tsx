@@ -1,18 +1,11 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Stack,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Card, CardContent, Stack, Typography, useTheme } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
-import { MonthComparison, PercentageChange } from '@/types/dashboard';
+import type { MonthComparison, PercentageChange } from '@/types/dashboard';
 import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';

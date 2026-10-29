@@ -3,8 +3,9 @@ import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
 import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 import { buildImportObjectKey } from '@/server/utils/importObjectKey';
+import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
@@ -23,19 +24,15 @@ const getS3Client = lazy(
 export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
-  handler: async ({ req }) => {
-    const formData = await req.formData();
+  handler: async ({ request }) => {
+    const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
       throw new HttpError(400, 'No file provided');
     }
 
-    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      throw new HttpError(
-        400,
-        `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
-      );
+    if (!ALLOWED_EXTENSIONS.includes(keySafeExtension(file.name))) {
+      throw new HttpError(400, `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
     }
     assertWithinUploadLimit({ fileName: file.name, sizeInBytes: file.size });
 

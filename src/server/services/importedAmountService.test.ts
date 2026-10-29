@@ -16,9 +16,7 @@ describe('importedAmountService.resolveExtractedAmounts', () => {
   });
 
   const resolveOne = async (
-    row: Parameters<
-      typeof importedAmountService.resolveExtractedAmounts
-    >[0][number],
+    row: Parameters<typeof importedAmountService.resolveExtractedAmounts>[0][number],
   ) => (await importedAmountService.resolveExtractedAmounts([row]))[0];
 
   it('reads a row from an extraction service without currencies as ILS', async () => {
@@ -173,15 +171,14 @@ describe('importedAmountService.resolveApprovedAmount', () => {
   };
 
   it('keeps the statement conversion when the confirmed ILS amount is unchanged', () => {
-    expect(
-      importedAmountService.resolveApprovedAmount(statementRow, 92.35),
-    ).toMatchObject({ value: 92.35, exchangeRateSource: 'STATEMENT' });
+    expect(importedAmountService.resolveApprovedAmount(statementRow, 92.35)).toMatchObject({
+      value: 92.35,
+      exchangeRateSource: 'STATEMENT',
+    });
   });
 
   it('records an ILS amount the user enters as a manual rate', () => {
-    expect(
-      importedAmountService.resolveApprovedAmount(unknownRow, 80),
-    ).toMatchObject({
+    expect(importedAmountService.resolveApprovedAmount(unknownRow, 80)).toMatchObject({
       value: 80,
       currency: 'USD',
       originalAmount: 25,
@@ -191,9 +188,9 @@ describe('importedAmountService.resolveApprovedAmount', () => {
   });
 
   it('refuses to approve a row whose ILS amount is unknown', () => {
-    expect(() =>
-      importedAmountService.resolveApprovedAmount(unknownRow),
-    ).toThrow(/is not known\. Enter it before approving/);
+    expect(() => importedAmountService.resolveApprovedAmount(unknownRow)).toThrow(
+      /is not known\. Enter it before approving/,
+    );
   });
 
   it('borrows a merge target’s conversion of the same foreign charge', () => {
@@ -205,13 +202,7 @@ describe('importedAmountService.resolveApprovedAmount', () => {
       exchangeRateDate: DAY,
       exchangeRateSource: 'BANK_OF_ISRAEL' as const,
     };
-    expect(
-      importedAmountService.resolveApprovedAmount(
-        unknownRow,
-        undefined,
-        target,
-      ),
-    ).toBe(target);
+    expect(importedAmountService.resolveApprovedAmount(unknownRow, undefined, target)).toBe(target);
   });
 
   it('keeps a merge target’s conversion when the merge form sends its ILS amount back', () => {
@@ -223,17 +214,12 @@ describe('importedAmountService.resolveApprovedAmount', () => {
       exchangeRateDate: DAY,
       exchangeRateSource: 'BANK_OF_ISRAEL' as const,
     };
-    expect(
-      importedAmountService.resolveApprovedAmount(statementRow, 76.75, target),
-    ).toBe(target);
+    expect(importedAmountService.resolveApprovedAmount(statementRow, 76.75, target)).toBe(target);
   });
 
   it('approves a row of unknown currency as the ILS amount entered', () => {
     expect(
-      importedAmountService.resolveApprovedAmount(
-        { ...unknownRow, currency: null },
-        41.5,
-      ),
+      importedAmountService.resolveApprovedAmount({ ...unknownRow, currency: null }, 41.5),
     ).toMatchObject({
       value: 41.5,
       currency: 'ILS',

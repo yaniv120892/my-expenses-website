@@ -36,11 +36,7 @@ describe('buildParentMap', () => {
   });
 
   it('keeps separate trees apart', () => {
-    const map = buildParentMap([
-      ...chain,
-      { id: 'X', parentId: null },
-      { id: 'Y', parentId: 'X' },
-    ]);
+    const map = buildParentMap([...chain, { id: 'X', parentId: null }, { id: 'Y', parentId: 'X' }]);
     expect(map.get('Y')).toBe('X');
     expect(map.get('C')).toBe('A');
     expect(map.size).toBe(5);
@@ -126,9 +122,9 @@ describe('rollUpToTopLevel', () => {
   });
 
   it('keeps an unknown category as its own root', () => {
-    expect(
-      rollUpToTopLevel([{ categoryId: 'gone', amount: 5 }], parentMap),
-    ).toEqual([{ categoryId: 'gone', amount: 5 }]);
+    expect(rollUpToTopLevel([{ categoryId: 'gone', amount: 5 }], parentMap)).toEqual([
+      { categoryId: 'gone', amount: 5 },
+    ]);
   });
 });
 

@@ -7,15 +7,15 @@ export async function runWithConcurrency<T, R>(
 ): Promise<PromiseSettledResult<R>[]> {
   const results: PromiseSettledResult<R>[] = new Array(items.length);
   const workerCount = Math.max(1, Math.min(limit, items.length));
-  let nextIndex = 0;
+  // One iterator shared by every runner, so each item is taken exactly once.
+  const pending = items.entries();
 
   const runners = Array.from({ length: workerCount }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
+    for (const [index, item] of pending) {
       try {
         results[index] = {
           status: 'fulfilled',
-          value: await worker(items[index], index),
+          value: await worker(item, index),
         };
       } catch (reason) {
         results[index] = { status: 'rejected', reason };

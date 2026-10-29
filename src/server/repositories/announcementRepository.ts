@@ -20,4 +20,5 @@ class AnnouncementRepository {
   }
 }
 
-export default new AnnouncementRepository();
+const announcementRepository = new AnnouncementRepository();
+export default announcementRepository;

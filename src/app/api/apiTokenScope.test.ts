@@ -38,7 +38,7 @@ function declaredScopes(path: string): string[] {
     .split(/^export const /m)
     .slice(1)
     .flatMap((handler) => {
-      const scope = SCOPE_DECLARATION.exec(handler)?.[1].trim();
+      const scope = SCOPE_DECLARATION.exec(handler)?.[1]?.trim();
       const method = handler.slice(0, handler.indexOf(' '));
       return scope ? [`${method} ${route} → ${scope}`] : [];
     });
@@ -77,10 +77,7 @@ describe('API token scopes', () => {
       return readFileSync(path, 'utf8')
         .split('\n')
         .filter((line) => line.includes('apiTokenScope'))
-        .filter(
-          (line) =>
-            !file.endsWith('/route.ts') || !LITERAL_DECLARATION.test(line),
-        )
+        .filter((line) => !file.endsWith('/route.ts') || !LITERAL_DECLARATION.test(line))
         .map((line) => `${file}: ${line.trim()}`);
     });
 

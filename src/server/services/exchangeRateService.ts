@@ -1,8 +1,7 @@
 import { subDays } from 'date-fns';
 import { parse } from 'csv-parse/sync';
 import Decimal from 'decimal.js';
-import logger from '@/server/logging/logger';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { logger, observability } from '@/server/observability';
 import { getValue, setValue } from '@/server/redis';
 import { toDayString } from '@/shared/dates';
 import { toRateString } from '@/server/utils/money';
@@ -23,10 +22,7 @@ type PublishedRate = { day: string; rate: string };
 
 class ExchangeRateService {
   /** Falls back to the last rate published before `date`; null, never 1:1, when none. */
-  public async getRateToBase(
-    currency: string,
-    date: Date,
-  ): Promise<ExchangeRateQuote | null> {
+  public async getRateToBase(currency: string, date: Date): Promise<ExchangeRateQuote | null> {
     const day = toDayString(date);
     const cacheKey = `fx:boi:${currency}:${day}`;
 
@@ -37,23 +33,17 @@ class ExchangeRateService {
 
     const quote = await this.fetchQuoteSafe(currency, date);
     if (quote) {
-      const mayStillBePublished =
-        quote.rateDate !== day && day >= toDayString(new Date());
+      const mayStillBePublished = quote.rateDate !== day && day >= toDayString(new Date());
       await this.writeCacheSafe(
         cacheKey,
         quote,
-        mayStillBePublished
-          ? UNPUBLISHED_DAY_CACHE_TTL_SECONDS
-          : CACHE_TTL_SECONDS,
+        mayStillBePublished ? UNPUBLISHED_DAY_CACHE_TTL_SECONDS : CACHE_TTL_SECONDS,
       );
     }
     return quote;
   }
 
-  private async fetchQuoteSafe(
-    currency: string,
-    date: Date,
-  ): Promise<ExchangeRateQuote | null> {
+  private async fetchQuoteSafe(currency: string, date: Date): Promise<ExchangeRateQuote | null> {
     try {
       const rates = await this.fetchPublishedRates(currency, date);
       const latest = rates.at(-1);
@@ -66,23 +56,18 @@ class ExchangeRateService {
       }
       return { rate: latest.rate, rateDate: latest.day };
     } catch (err) {
-      reportSwallowedError(
-        { err, currency, day: toDayString(date) },
-        'Failed to fetch exchange rate',
-      );
+      observability.reportError({
+        error: err,
+        where: 'Failed to fetch exchange rate',
+        context: { currency, day: toDayString(date) },
+      });
       return null;
     }
   }
 
-  private async fetchPublishedRates(
-    currency: string,
-    date: Date,
-  ): Promise<PublishedRate[]> {
+  private async fetchPublishedRates(currency: string, date: Date): Promise<PublishedRate[]> {
     const url = new URL(`${BANK_OF_ISRAEL_RATES_URL}/RER_${currency}_ILS`);
-    url.searchParams.set(
-      'startperiod',
-      toDayString(subDays(date, LOOKBACK_DAYS)),
-    );
+    url.searchParams.set('startperiod', toDayString(subDays(date, LOOKBACK_DAYS)));
     url.searchParams.set('endperiod', toDayString(date));
     url.searchParams.set('format', 'csv');
 
@@ -101,9 +86,7 @@ class ExchangeRateService {
     return parsePublishedRates(await response.text());
   }
 
-  private async readCacheSafe(
-    cacheKey: string,
-  ): Promise<ExchangeRateQuote | null> {
+  private async readCacheSafe(cacheKey: string): Promise<ExchangeRateQuote | null> {
     try {
       return await getValue<ExchangeRateQuote>(cacheKey);
     } catch (err) {
@@ -137,15 +120,17 @@ export function parsePublishedRates(csv: string): PublishedRate[] {
   });
 
   return records
-    .filter((record) => Number(record.OBS_VALUE) > 0)
-    .map((record) => ({
-      day: record.TIME_PERIOD,
-      rate: toRateString(
-        new Decimal(record.OBS_VALUE).dividedBy(
-          new Decimal(10).pow(Number(record.UNIT_MULT) || 0),
-        ),
-      ),
-    }))
+    .flatMap((record) => {
+      const day = record.TIME_PERIOD;
+      const observedValue = record.OBS_VALUE;
+      const isPublished =
+        day !== undefined && observedValue !== undefined && Number(observedValue) > 0;
+      if (!isPublished) {
+        return [];
+      }
+      const scale = new Decimal(10).pow(Number(record.UNIT_MULT) || 0);
+      return [{ day, rate: toRateString(new Decimal(observedValue).dividedBy(scale)) }];
+    })
     .sort((left, right) => left.day.localeCompare(right.day));
 }
 
@@ -153,12 +138,9 @@ const exchangeRateService = new ExchangeRateService();
 export default exchangeRateService;
 
 function requirePublishedRateColumns(header: string[]): string[] {
-  const hasRateColumns =
-    header.includes('TIME_PERIOD') && header.includes('OBS_VALUE');
+  const hasRateColumns = header.includes('TIME_PERIOD') && header.includes('OBS_VALUE');
   if (!hasRateColumns) {
-    throw new Error(
-      `Unexpected exchange rate CSV header: ${header.join(',').slice(0, 200)}`,
-    );
+    throw new Error(`Unexpected exchange rate CSV header: ${header.join(',').slice(0, 200)}`);
   }
   return header;
 }

@@ -23,7 +23,7 @@ function asQueryString(params: Record<string, unknown>) {
 }
 
 function sentParams(): Record<string, unknown> {
-  return get.mock.calls[0][1].params;
+  return get.mock.calls[0]?.[1].params;
 }
 
 describe('getTransactionsPage', () => {
@@ -95,9 +95,7 @@ describe('getTransactionSummary', () => {
       searchTerm: 'taxi',
     });
 
-    const result = getTransactionsSummarySchema.safeParse(
-      asQueryString(sentParams()),
-    );
+    const result = getTransactionsSummarySchema.safeParse(asQueryString(sentParams()));
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
     expect(sentParams().searchTerm).toBe('taxi');
   });
@@ -109,8 +107,7 @@ describe('exportTransactionsCsv', () => {
     get.mockResolvedValue({
       data: new Blob(['csv']),
       headers: {
-        'content-disposition':
-          'attachment; filename="transactions_2026-08-01_2026-08-31.csv"',
+        'content-disposition': 'attachment; filename="transactions_2026-08-01_2026-08-31.csv"',
       },
     });
   });
@@ -118,9 +115,7 @@ describe('exportTransactionsCsv', () => {
   it('sends params the export route schema accepts', async () => {
     await exportTransactionsCsv({ startDate: '2026-08-01', type: 'EXPENSE' });
 
-    const result = exportTransactionsSchema.safeParse(
-      asQueryString(sentParams()),
-    );
+    const result = exportTransactionsSchema.safeParse(asQueryString(sentParams()));
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
     expect(sentParams().type).toBe('EXPENSE');
   });
@@ -128,7 +123,7 @@ describe('exportTransactionsCsv', () => {
   it('asks for a blob so the CSV is not parsed as JSON', async () => {
     await exportTransactionsCsv({ startDate: '2026-08-01' });
 
-    expect(get.mock.calls[0][1].responseType).toBe('blob');
+    expect(get.mock.calls[0]?.[1].responseType).toBe('blob');
   });
 
   it('saves under the name the route chose', async () => {
@@ -168,11 +163,7 @@ describe('list, summary and export filters', () => {
     const exportParams = sentParams();
 
     const { cursor: _cursor, limit: _limit, ...exportedFilters } = listParams;
-    const {
-      sortBy: _sortBy,
-      sortOrder: _sortOrder,
-      ...summaryFilters
-    } = exportedFilters;
+    const { sortBy: _sortBy, sortOrder: _sortOrder, ...summaryFilters } = exportedFilters;
     expect(summaryParams).toEqual(summaryFilters);
     expect(exportParams).toEqual(exportedFilters);
   });

@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createTransactionSchema,
-  updateTransactionSchema,
-} from './transactions';
-import {
-  approveImportedTransactionSchema,
-  mergeImportedTransactionSchema,
-} from './imports';
+import { createTransactionSchema, updateTransactionSchema } from './transactions';
+import { approveImportedTransactionSchema, mergeImportedTransactionSchema } from './imports';
 import { createScheduledTransactionSchema } from './scheduledTransactions';
 import { updateSubscriptionSchema } from './subscriptions';
 import { POSITIVE_AMOUNT_MESSAGE } from './amount';
@@ -100,9 +94,7 @@ describe.each(amountFields)('$name', ({ schema, payload }) => {
       const result = schema.safeParse(payload(amount));
 
       expect(result.success).toBe(false);
-      expect(result.error?.issues.map((issue) => issue.message)).toContain(
-        POSITIVE_AMOUNT_MESSAGE,
-      );
+      expect(result.error?.issues.map((issue) => issue.message)).toContain(POSITIVE_AMOUNT_MESSAGE);
     },
   );
 });
@@ -130,8 +122,6 @@ describe('a form field sent as text', () => {
 
     expect(create({ ...foreign, exchangeRate: '0.0254' }).success).toBe(true);
     expect(create({ ...foreign, exchangeRate: '' }).success).toBe(false);
-    expect(create({ ...foreign, exchangeRate: 'Infinity' }).success).toBe(
-      false,
-    );
+    expect(create({ ...foreign, exchangeRate: 'Infinity' }).success).toBe(false);
   });
 });

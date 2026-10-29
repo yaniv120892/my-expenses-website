@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Import, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportFileType, ImportStatus } from '@/types/import';
 import { hasActiveImports } from '@/utils/importStatus';
 
 const NOW = Date.parse('2026-08-17T12:00:00.000Z');
@@ -9,13 +10,13 @@ function buildImport(overrides: Partial<Import> = {}): Import {
     id: 'import-1',
     fileUrl: 'https://example.com/file.csv',
     originalFileName: 'file.csv',
-    importType: 'VISA_CREDIT',
+    importType: ImportFileType.VISA_CREDIT,
     status: ImportStatus.COMPLETED,
     createdAt: new Date(NOW).toISOString(),
     updatedAt: new Date(NOW).toISOString(),
     isVerified: false,
     ...overrides,
-  } as Import;
+  };
 }
 
 describe('hasActiveImports', () => {
@@ -24,13 +25,12 @@ describe('hasActiveImports', () => {
     expect(hasActiveImports([])).toBe(false);
   });
 
-  it.each([
-    ImportStatus.PENDING,
-    ImportStatus.PROCESSING,
-    ImportStatus.REMATCHING,
-  ])('is true for a %s import', (status) => {
-    expect(hasActiveImports([buildImport({ status })])).toBe(true);
-  });
+  it.each([ImportStatus.PENDING, ImportStatus.PROCESSING, ImportStatus.REMATCHING])(
+    'is true for a %s import',
+    (status) => {
+      expect(hasActiveImports([buildImport({ status })])).toBe(true);
+    },
+  );
 
   it.each([ImportStatus.COMPLETED, ImportStatus.FAILED])(
     'is false when every import is %s',

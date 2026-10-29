@@ -11,8 +11,9 @@ import {
   toCategories,
 } from './categoryBenchmark';
 
+const gett = { description: 'GETT', expected: ['Taxi', 'Transportation'] };
 const samples = [
-  { description: 'GETT', expected: ['Taxi', 'Transportation'] },
+  gett,
   { description: 'רב קו', expected: ['Transportation'] },
   { description: 'Lime', expected: ['Bikes & Scooters', 'Transportation'] },
 ];
@@ -97,11 +98,11 @@ describe('scoreDecision', () => {
       answer: 'Transportation',
       categoryId: 'cat-1',
     });
-    expect(scoreDecision(samples[0], taxi)).toEqual({
+    expect(scoreDecision(gett, taxi)).toEqual({
       exact: true,
       acceptable: true,
     });
-    expect(scoreDecision(samples[0], transport)).toEqual({
+    expect(scoreDecision(gett, transport)).toEqual({
       exact: false,
       acceptable: true,
     });
@@ -109,7 +110,7 @@ describe('scoreDecision', () => {
 
   it('never credits an answer that resolved to no offered category', () => {
     const unoffered = decision({ answer: 'Taxi', categoryId: null });
-    expect(scoreDecision(samples[0], unoffered)).toEqual({
+    expect(scoreDecision(gett, unoffered)).toEqual({
       exact: false,
       acceptable: false,
     });
@@ -139,16 +140,21 @@ describe('summarize', () => {
       inputTokens: 1200,
     });
     expect(summary.runCostUsd).toBeCloseTo((1200 * 0.042) / 1_000_000, 12);
-    expect(summary.costPer1000Usd).toBeCloseTo(
-      ((1200 * 0.042) / 1_000_000 / 2) * 1000,
-      12,
-    );
+    expect(summary.costPer1000Usd).toBeCloseTo(((1200 * 0.042) / 1_000_000 / 2) * 1000, 12);
   });
 
   it('reports no cost for a model without a price', () => {
-    expect(
-      summarize('mystery', samples, decisions, undefined).runCostUsd,
-    ).toBeNull();
+    expect(summarize('mystery', samples, decisions, undefined).runCostUsd).toBeNull();
+  });
+
+  it('scores only answered decisions, so a failed one past the samples is ignored', () => {
+    expect(summarize('jev-latest', samples.slice(0, 2), decisions, undefined).succeeded).toBe(2);
+  });
+
+  it('refuses an answered decision that has no sample to score against', () => {
+    expect(() => summarize('jev-latest', samples.slice(0, 1), decisions, undefined)).toThrow(
+      'jev-latest returned decision 1 for 1 sample(s)',
+    );
   });
 });
 
@@ -165,18 +171,12 @@ describe('percentile', () => {
 describe('prices', () => {
   it('strips the gateway prefix when looking a model up', () => {
     const prices = modelPrices(new Date('2026-09-20T00:00:00Z'));
-    expect(priceFor('openai/gpt-4-turbo', prices)).toEqual(
-      priceFor('gpt-4-turbo', prices),
-    );
+    expect(priceFor('openai/gpt-4-turbo', prices)).toEqual(priceFor('gpt-4-turbo', prices));
   });
 
   it('moves Gemini Flash off its introductory price in 2027', () => {
-    expect(
-      modelPrices(new Date('2026-12-31T00:00:00Z'))['gemini-3.6-flash'].input,
-    ).toBe(0.75);
-    expect(
-      modelPrices(new Date('2027-01-01T00:00:00Z'))['gemini-3.6-flash'].input,
-    ).toBe(1.5);
+    expect(modelPrices(new Date('2026-12-31T00:00:00Z'))['gemini-3.6-flash']?.input).toBe(0.75);
+    expect(modelPrices(new Date('2027-01-01T00:00:00Z'))['gemini-3.6-flash']?.input).toBe(1.5);
   });
 });
 

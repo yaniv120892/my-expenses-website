@@ -1,19 +1,13 @@
 import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 import api from './api';
-import type {
-  TelegramLinkCode,
-  UpdateUserSettings,
-  UserSettings,
-} from '../types';
+import type { TelegramLinkCode, UpdateUserSettings, UserSettings } from '../types';
 
 export async function getUserSettings(): Promise<UserSettings> {
   const response = await api.get('/api/user/settings');
   return response.data;
 }
 
-export async function updateUserSettings(
-  settings: UpdateUserSettings,
-): Promise<UserSettings> {
+export async function updateUserSettings(settings: UpdateUserSettings): Promise<UserSettings> {
   const response = await api.put('/api/user/settings', settings);
   return response.data;
 }

@@ -10,10 +10,7 @@ import {
 } from '@/server/utils/transactionAmounts';
 import { BASE_CURRENCY, isForeignCurrency } from '@/shared/currency';
 import { toDayString } from '@/shared/dates';
-import type {
-  DatedImportedAmount,
-  ImportedAmount,
-} from '@/shared/types/import';
+import type { DatedImportedAmount, ImportedAmount } from '@/shared/types/import';
 import type { TransactionAmount } from '@/shared/types/transaction';
 import { formatAmountWithOriginal } from '@/utils/format';
 
@@ -27,20 +24,13 @@ type ExtractedAmount = {
   currencyAmbiguous?: boolean;
 };
 
-type RateLookup = (
-  currency: string,
-  date: Date,
-) => Promise<ExchangeRateQuote | null>;
+type RateLookup = (currency: string, date: Date) => Promise<ExchangeRateQuote | null>;
 
 class ImportedAmountService {
   /** A billed ILS amount on the statement is the conversion and is never converted again. */
-  public async resolveExtractedAmounts(
-    rows: ExtractedAmount[],
-  ): Promise<ImportedAmount[]> {
+  public async resolveExtractedAmounts(rows: ExtractedAmount[]): Promise<ImportedAmount[]> {
     const lookupRate = this.memoizedRateLookup();
-    return Promise.all(
-      rows.map((row) => this.resolveExtractedAmount(row, lookupRate)),
-    );
+    return Promise.all(rows.map((row) => this.resolveExtractedAmount(row, lookupRate)));
   }
 
   /**
@@ -67,8 +57,7 @@ class ImportedAmountService {
       return mergeTarget;
     }
 
-    const value =
-      requestedValue ?? (row.value === null ? undefined : row.value);
+    const value = requestedValue ?? (row.value === null ? undefined : row.value);
     if (value !== undefined) {
       return this.approvedAmount(row, value);
     }
@@ -84,25 +73,15 @@ class ImportedAmountService {
 
   // The row's own conversion survives unless the user typed a different ILS
   // amount, which then becomes a hand-entered rate.
-  private approvedAmount(
-    row: DatedImportedAmount,
-    value: number,
-  ): TransactionAmount {
+  private approvedAmount(row: DatedImportedAmount, value: number): TransactionAmount {
     if (row.currency === null || !isForeignCurrency(row.currency)) {
       return baseAmount(value);
     }
-    const keepsRowConversion =
-      row.value !== null && isSameMoney(value, row.value);
+    const keepsRowConversion = row.value !== null && isSameMoney(value, row.value);
     if (keepsRowConversion) {
       return pickAmountFields({ ...row, value, currency: row.currency });
     }
-    return impliedRateAmount(
-      value,
-      row.originalAmount,
-      row.currency,
-      row.date,
-      'MANUAL',
-    );
+    return impliedRateAmount(value, row.originalAmount, row.currency, row.date, 'MANUAL');
   }
 
   private async resolveExtractedAmount(
@@ -126,19 +105,9 @@ class ImportedAmountService {
     if (row.chargedAmount !== undefined) {
       const chargedCurrency = row.chargedCurrency ?? BASE_CURRENCY;
       if (chargedCurrency === BASE_CURRENCY) {
-        return this.billedInBase(
-          row.chargedAmount,
-          originalAmount,
-          originalCurrency,
-          row,
-        );
+        return this.billedInBase(row.chargedAmount, originalAmount, originalCurrency, row);
       }
-      return this.convertAtPublishedRate(
-        row.chargedAmount,
-        chargedCurrency,
-        row.date,
-        lookupRate,
-      );
+      return this.convertAtPublishedRate(row.chargedAmount, chargedCurrency, row.date, lookupRate);
     }
 
     if (row.currencyAmbiguous) {
@@ -147,12 +116,7 @@ class ImportedAmountService {
     if (originalCurrency === null || originalCurrency === BASE_CURRENCY) {
       return baseAmount(originalAmount);
     }
-    return this.convertAtPublishedRate(
-      originalAmount,
-      originalCurrency,
-      row.date,
-      lookupRate,
-    );
+    return this.convertAtPublishedRate(originalAmount, originalCurrency, row.date, lookupRate);
   }
 
   private billedInBase(
@@ -209,10 +173,7 @@ class ImportedAmountService {
   }
 }
 
-function unknownAmount(
-  originalAmount: number,
-  currency: string | null,
-): ImportedAmount {
+function unknownAmount(originalAmount: number, currency: string | null): ImportedAmount {
   return {
     value: null,
     currency,

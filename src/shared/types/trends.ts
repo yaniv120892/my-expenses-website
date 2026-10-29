@@ -88,16 +88,16 @@ export type CategoryComparison = {
   hasOverlappingSeries: boolean;
 };
 
-export interface GetCategoryComparisonRequest {
+export type GetCategoryComparisonRequest = {
   startDate: Date;
   endDate: Date;
   period: TrendPeriod;
   categoryIds: string[];
   scope: ComparisonScope;
   transactionType?: TransactionType;
-}
+};
 
-export interface GetSpendingTrendsRequest {
+export type GetSpendingTrendsRequest = {
   startDate?: Date;
   endDate?: Date;
   period: TrendPeriod;
@@ -105,4 +105,4 @@ export interface GetSpendingTrendsRequest {
   /** A category's whole subtree; wins over `categoryId` when both are set. */
   categoryIds?: string[];
   transactionType?: TransactionType;
-}
+};

@@ -1,11 +1,11 @@
 import { formatCurrencyPlain } from '@/utils/format';
 import { escapeMarkdown } from '@/server/services/telegramService';
 
-export interface SummaryTransaction {
+export type SummaryTransaction = {
   description?: string | null;
   value: number;
   category?: { name: string } | null;
-}
+};
 
 /**
  * The template's bold markers are the only intended Markdown; everything

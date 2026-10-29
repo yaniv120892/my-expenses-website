@@ -1,7 +1,7 @@
-import { Category } from '@/shared/types/category';
+import type { Category } from '@/shared/types/category';
 import prisma from '@/server/db/client';
 import { setValue, getValue } from '@/server/redis';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 const oneDayInSeconds = 24 * 60 * 60;
 
@@ -85,10 +85,7 @@ export class CategoryRepository {
     }
   }
 
-  private async writeCacheSafe(
-    cacheKey: string,
-    value: unknown,
-  ): Promise<void> {
+  private async writeCacheSafe(cacheKey: string, value: unknown): Promise<void> {
     try {
       await setValue(cacheKey, value, oneDayInSeconds);
     } catch (err) {
@@ -97,4 +94,5 @@ export class CategoryRepository {
   }
 }
 
-export default new CategoryRepository();
+const categoryRepository = new CategoryRepository();
+export default categoryRepository;

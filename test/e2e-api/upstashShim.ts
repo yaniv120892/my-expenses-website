@@ -3,9 +3,12 @@ import http from 'http';
 // `@upstash/redis` speaks REST rather than the Redis wire protocol, so a local
 // redis-server cannot stand in. TTLs expire lazily so rate-limit windows
 // behave.
-const store = new Map<string, { value: string; expiresAt?: number }>();
+// Keys and values are stored exactly as the client sent them, without coercion.
+type StoredEntry = { value: unknown; expiresAt?: number };
 
-function liveEntry(key: string): { value: string; expiresAt?: number } | null {
+const store = new Map<unknown, StoredEntry>();
+
+function liveEntry(key: unknown): StoredEntry | null {
   const entry = store.get(key);
   if (!entry) {
     return null;
@@ -18,19 +21,12 @@ function liveEntry(key: string): { value: string; expiresAt?: number } | null {
 }
 
 function runCommand(command: unknown[]): unknown {
-  const [name, key, value, ...rest] = command as [
-    string,
-    string,
-    string,
-    ...string[],
-  ];
+  const [name, key, value, ...rest] = command;
 
   switch (String(name).toLowerCase()) {
     case 'set': {
       // setValue sends ['set', key, value, 'EX', seconds].
-      const exIndex = rest.findIndex(
-        (part) => String(part).toLowerCase() === 'ex',
-      );
+      const exIndex = rest.findIndex((part) => String(part).toLowerCase() === 'ex');
       const ttlSeconds = exIndex >= 0 ? Number(rest[exIndex + 1]) : undefined;
       store.set(key, {
         value,
@@ -83,16 +79,13 @@ function encodeResult(result: unknown, base64: boolean): unknown {
 }
 
 export function startUpstashShim(port: number): Promise<http.Server> {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer((request, response) => {
     let raw = '';
-    req.on('data', (chunk) => (raw += chunk));
-    req.on('end', () => {
+    request.on('data', (chunk) => (raw += chunk));
+    request.on('end', () => {
       // The client may put the command in the path or in the JSON body;
       // accept either so the shim is not coupled to one client version.
-      const pathParts = (req.url || '/')
-        .split('/')
-        .filter(Boolean)
-        .map(decodeURIComponent);
+      const pathParts = (request.url || '/').split('/').filter(Boolean).map(decodeURIComponent);
 
       let command: unknown[] = pathParts;
       if (raw) {
@@ -110,32 +103,24 @@ export function startUpstashShim(port: number): Promise<http.Server> {
         }
       }
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      const base64 =
-        String(req.headers['upstash-encoding']).toLowerCase() === 'base64';
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      const base64 = String(request.headers['upstash-encoding']).toLowerCase() === 'base64';
 
       // The client auto-pipelines: several commands arrive as an array of
       // arrays and it expects an array of results back, one per command.
-      const isPipeline =
-        Array.isArray(command) && command.every((c) => Array.isArray(c));
-
-      if (isPipeline) {
-        const results = (command as unknown[][]).map((c) => ({
-          result: encodeResult(runCommand(c), base64),
+      if (command.every(Array.isArray)) {
+        const results = command.map((pipelined) => ({
+          result: encodeResult(runCommand(pipelined), base64),
         }));
-        res.end(JSON.stringify(results));
+        response.end(JSON.stringify(results));
         return;
       }
 
-      res.end(
-        JSON.stringify({ result: encodeResult(runCommand(command), base64) }),
-      );
+      response.end(JSON.stringify({ result: encodeResult(runCommand(command), base64) }));
     });
   });
 
-  return new Promise((resolve) =>
-    server.listen(port, '127.0.0.1', () => resolve(server)),
-  );
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }
 
 export function seedKey(key: string, value: string): void {

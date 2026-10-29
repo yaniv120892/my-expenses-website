@@ -1,4 +1,4 @@
-import {
+import type {
   SubscriptionStatus,
   SubscriptionFrequency,
   DetectedSubscription,
@@ -6,22 +6,19 @@ import {
   Prisma,
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import {
+import type {
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
   SubscriptionDetectionEvidence,
   UpdateSubscriptionInput,
 } from '@/shared/types/subscription';
-import {
-  nextExpectedDateAfter,
-  toMonthlyAmount,
-} from '@/utils/subscriptionMath';
+import { nextExpectedDateAfter, toMonthlyAmount } from '@/utils/subscriptionMath';
 
 type DetectedSubscriptionRow = DetectedSubscription & {
   category?: Pick<Category, 'id' | 'name'> | null;
 };
 
-export interface DetectionInput {
+export type DetectionInput = {
   userId: string;
   merchantName: string;
   displayName: string;
@@ -34,28 +31,28 @@ export interface DetectionInput {
   confidence: number;
   categoryId?: string;
   detectionEvidence: SubscriptionDetectionEvidence;
-}
+};
 
 export type UpdateSubscriptionFields = UpdateSubscriptionInput & {
   annualCost?: number;
 };
 
-interface ExistingDetectionRow {
+type ExistingDetectionRow = {
   id: string;
   frequency: SubscriptionFrequency;
   status: SubscriptionStatus;
   userEditedAt: Date | null;
-}
+};
 
 /** What buildAuditMessage needs; the evidence blob would dwarf it. */
-export interface SubscriptionAuditRow {
+export type SubscriptionAuditRow = {
   userId: string;
   displayName: string;
   averageAmount: number;
   frequency: SubscriptionFrequency;
   annualCost: number;
   status: SubscriptionStatus;
-}
+};
 
 const withCategory = {
   category: { select: { id: true, name: true } },
@@ -88,10 +85,7 @@ class SubscriptionRepository {
     return subscriptions.map(mapToDomain);
   }
 
-  public async applyDetectionResults(
-    userId: string,
-    results: DetectionInput[],
-  ): Promise<void> {
+  public async applyDetectionResults(userId: string, results: DetectionInput[]): Promise<void> {
     if (results.length === 0) {
       return;
     }
@@ -109,10 +103,7 @@ class SubscriptionRepository {
 
     const byMerchant = new Map<string, typeof existing>();
     for (const row of existing) {
-      byMerchant.set(row.merchantName, [
-        ...(byMerchant.get(row.merchantName) ?? []),
-        row,
-      ]);
+      byMerchant.set(row.merchantName, [...(byMerchant.get(row.merchantName) ?? []), row]);
     }
 
     await Promise.all(
@@ -136,10 +127,7 @@ class SubscriptionRepository {
         where: { id: edited.id },
         data: {
           ...detectionOwnedFields(data),
-          nextExpectedDate: nextExpectedDateAfter(
-            data.lastChargeDate,
-            edited.frequency,
-          ),
+          nextExpectedDate: nextExpectedDateAfter(data.lastChargeDate, edited.frequency),
         },
       });
       return;
@@ -211,10 +199,7 @@ class SubscriptionRepository {
     });
   }
 
-  public async getById(
-    id: string,
-    userId: string,
-  ): Promise<DetectedSubscriptionDomain | null> {
+  public async getById(id: string, userId: string): Promise<DetectedSubscriptionDomain | null> {
     const result = await prisma.detectedSubscription.findUnique({
       where: { id, userId },
       include: withCategory,
@@ -229,9 +214,7 @@ class SubscriptionRepository {
     return users.map((u) => u.id);
   }
 
-  public async getSnapshotByUserId(
-    userId: string,
-  ): Promise<SubscriptionDashboardSnapshot> {
+  public async getSnapshotByUserId(userId: string): Promise<SubscriptionDashboardSnapshot> {
     const subscriptions = await prisma.detectedSubscription.findMany({
       where: {
         userId,
@@ -300,6 +283,14 @@ class SubscriptionRepository {
   }
 }
 
+// The column is written only from a SubscriptionDetectionEvidence, so a JSON
+// object is that shape; null is a row detected before evidence was recorded.
+function isDetectionEvidence(
+  value: Prisma.JsonValue,
+): value is Prisma.JsonObject & SubscriptionDetectionEvidence {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
   return {
     id: db.id,
@@ -317,9 +308,7 @@ function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
     scheduledTransactionId: db.scheduledTransactionId ?? undefined,
     categoryId: db.categoryId ?? undefined,
     categoryName: db.category?.name ?? undefined,
-    detectionEvidence:
-      (db.detectionEvidence as SubscriptionDetectionEvidence | null) ??
-      undefined,
+    detectionEvidence: isDetectionEvidence(db.detectionEvidence) ? db.detectionEvidence : undefined,
     userEditedAt: db.userEditedAt ?? undefined,
     confidence: db.confidence,
     createdAt: db.createdAt,
@@ -327,4 +316,5 @@ function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
   };
 }
 
-export default new SubscriptionRepository();
+const subscriptionRepository = new SubscriptionRepository();
+export default subscriptionRepository;

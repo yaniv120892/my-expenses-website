@@ -1,7 +1,7 @@
-import { TransactionType } from './transaction';
-import { ScheduleType } from '@/generated/prisma/enums';
+import type { TransactionType } from './transaction';
+import type { ScheduleType } from '@/generated/prisma/enums';
 
-export interface CreateScheduledTransaction {
+export type CreateScheduledTransaction = {
   description: string;
   value: number;
   type: TransactionType;
@@ -13,9 +13,9 @@ export interface CreateScheduledTransaction {
   monthOfYear?: number;
   bankDescriptionPrefix?: string;
   userId: string;
-}
+};
 
-export interface UpdateScheduledTransaction {
+export type UpdateScheduledTransaction = {
   description: string;
   value: number;
   type: TransactionType;
@@ -26,9 +26,9 @@ export interface UpdateScheduledTransaction {
   dayOfMonth?: number;
   monthOfYear?: number;
   bankDescriptionPrefix?: string;
-}
+};
 
-export interface ScheduledTransactionDomain {
+export type ScheduledTransactionDomain = {
   id: string;
   description: string;
   value: number;
@@ -43,4 +43,4 @@ export interface ScheduledTransactionDomain {
   lastRunDate?: Date;
   nextRunDate?: Date;
   userId: string;
-}
+};

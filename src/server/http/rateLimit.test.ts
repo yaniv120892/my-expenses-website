@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { incrementManyWithTtl, logger } = vi.hoisted(() => ({
+const { incrementManyWithTtl, logger, reportError } = vi.hoisted(() => ({
   incrementManyWithTtl: vi.fn(),
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  reportError: vi.fn(),
 }));
 
 vi.mock('@/server/redis', () => ({ incrementManyWithTtl }));
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
+vi.mock('@/server/observability', () => ({ logger, observability: { reportError } }));
 
 import { enforceRateLimits, resolveClientIp } from '@/server/http/rateLimit';
 
@@ -22,10 +23,7 @@ describe('enforceRateLimits', () => {
     incrementManyWithTtl.mockResolvedValue([3, 1]);
 
     await expect(
-      enforceRateLimits([
-        LOGIN_RULE,
-        { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 },
-      ]),
+      enforceRateLimits([LOGIN_RULE, { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 }]),
     ).resolves.toBeUndefined();
     expect(incrementManyWithTtl).toHaveBeenCalledWith([
       { key: 'rateLimit:login:ip:1.2.3.4', ttlSeconds: 60 },
@@ -43,21 +41,22 @@ describe('enforceRateLimits', () => {
     expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 
-  it('fails open with a logged error when Redis is down', async () => {
-    incrementManyWithTtl.mockRejectedValue(new Error('connect ECONNREFUSED'));
+  it('fails open and reports the error when Redis is down', async () => {
+    const error = new Error('connect ECONNREFUSED');
+    incrementManyWithTtl.mockRejectedValue(error);
 
     await expect(enforceRateLimits([LOGIN_RULE])).resolves.toBeUndefined();
-    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith({
+      error,
+      where: 'Rate limit check failed; allowing the request',
+    });
   });
 
   it('trips on the right rule when several are counted at once', async () => {
     incrementManyWithTtl.mockResolvedValue([99, 1]);
 
     await expect(
-      enforceRateLimits([
-        LOGIN_RULE,
-        { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 },
-      ]),
+      enforceRateLimits([LOGIN_RULE, { key: 'login:email:a@b.c', limit: 5, windowSeconds: 60 }]),
     ).rejects.toMatchObject({ status: 429 });
   });
 

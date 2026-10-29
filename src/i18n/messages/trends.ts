@@ -17,8 +17,7 @@ const en = {
   'trends.categoryCount.other': '{count} categories',
   'trends.scope.subtreeChip': 'Including subcategories',
   'trends.scope.exactChip': 'Exact categories',
-  'trends.card.noTransactions':
-    'No transactions found for selected period and category',
+  'trends.card.noTransactions': 'No transactions found for selected period and category',
   'trends.card.overallSpendingTitle': 'Overall Spending Trend',
   'trends.card.overallIncomeTitle': 'Overall Income Trend',
   'trends.card.categorySpendingTitle': '{category} Spending Trend',
@@ -67,10 +66,8 @@ const en = {
   'trends.dialog.scopeLabel': 'Category scope',
   'trends.dialog.scope.subtree': 'Include subcategories',
   'trends.dialog.scope.exact': 'This category only',
-  'trends.dialog.scope.subtreeHelp':
-    'A parent category sums all of its subcategories.',
-  'trends.dialog.scope.exactHelp':
-    'Each category counts only its own transactions.',
+  'trends.dialog.scope.subtreeHelp': 'A parent category sums all of its subcategories.',
+  'trends.dialog.scope.exactHelp': 'Each category counts only its own transactions.',
   'trends.dialog.cancel': 'Cancel',
   'trends.dialog.apply': 'Apply',
 } satisfies Messages;
@@ -143,8 +140,7 @@ export const trendsMessages: Dictionary<typeof en> = {
     'trends.dialog.scopeLabel': 'היקף הקטגוריה',
     'trends.dialog.scope.subtree': 'כולל תתי־קטגוריות',
     'trends.dialog.scope.exact': 'הקטגוריה הזו בלבד',
-    'trends.dialog.scope.subtreeHelp':
-      'קטגוריית אב מסכמת את כל תתי־הקטגוריות שלה.',
+    'trends.dialog.scope.subtreeHelp': 'קטגוריית אב מסכמת את כל תתי־הקטגוריות שלה.',
     'trends.dialog.scope.exactHelp': 'כל קטגוריה סופרת רק את התנועות שלה עצמה.',
     'trends.dialog.cancel': 'ביטול',
     'trends.dialog.apply': 'החלה',

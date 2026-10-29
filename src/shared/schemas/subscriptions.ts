@@ -2,11 +2,7 @@ import { z } from 'zod';
 import { positiveAmountSchema } from './amount';
 import { recordIdSchema, subscriptionStatusSchema } from './common';
 
-export const subscriptionFrequencySchema = z.enum([
-  'WEEKLY',
-  'MONTHLY',
-  'YEARLY',
-]);
+export const subscriptionFrequencySchema = z.enum(['WEEKLY', 'MONTHLY', 'YEARLY']);
 
 export const convertSubscriptionSchema = z.object({
   categoryId: recordIdSchema.optional(),

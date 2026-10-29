@@ -1,6 +1,6 @@
 import { parse } from 'json2csv';
 import { CSV_BOM } from '@/shared/csv';
-import { Transaction } from '@/shared/types/transaction';
+import type { Transaction } from '@/shared/types/transaction';
 import { toDayString } from '@/shared/dates';
 
 // `value` stays the ILS amount, so a sheet summing that column still sums one
@@ -24,9 +24,7 @@ const FIELDS = [
 const FORMULA_TRIGGERS = ['=', '+', '-', '@', '\t', '\r'];
 
 function asText(value: string): string {
-  return FORMULA_TRIGGERS.some((trigger) => value.startsWith(trigger))
-    ? `'${value}`
-    : value;
+  return FORMULA_TRIGGERS.some((trigger) => value.startsWith(trigger)) ? `'${value}` : value;
 }
 
 function buildCsv(
@@ -44,8 +42,7 @@ function buildCsv(
     originalAmount: transaction.originalAmount,
     exchangeRate: transaction.exchangeRate ?? '',
     // A DATE column arrives as UTC midnight, which a local format can shift.
-    exchangeRateDate:
-      transaction.exchangeRateDate?.toISOString().slice(0, 10) ?? '',
+    exchangeRateDate: transaction.exchangeRateDate?.toISOString().slice(0, 10) ?? '',
     exchangeRateSource: transaction.exchangeRateSource ?? '',
   }));
 
@@ -68,9 +65,7 @@ export function buildTransactionsCsvFile(transactions: Transaction[]): string {
  * The nightly archive: the only copy of the data, so it keeps the full instant
  * and the text exactly as stored.
  */
-export function buildTransactionsBackupCsv(
-  transactions: Transaction[],
-): string {
+export function buildTransactionsBackupCsv(transactions: Transaction[]): string {
   return buildCsv(
     transactions,
     (date) => date.toISOString(),

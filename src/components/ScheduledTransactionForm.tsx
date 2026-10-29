@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Box,
   Button,
@@ -14,7 +15,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import {
+import type {
   ScheduledTransaction,
   CreateScheduledTransactionInput,
   ScheduleType,
@@ -34,13 +35,13 @@ import {
 import { scheduleSummary, useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
-interface Props {
+type Props = {
   open: boolean;
   onCloseAction: () => void;
   onSubmitAction: (data: CreateScheduledTransactionInput) => Promise<void>;
   onDeleteAction?: (id: string) => Promise<void>;
   initialData?: ScheduledTransaction | null;
-}
+};
 
 const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   description: '',
@@ -50,11 +51,7 @@ const defaultForm: Omit<CreateScheduledTransactionInput, 'date'> = {
   scheduleType: 'MONTHLY',
 };
 
-const scheduleTypes = [
-  'DAILY',
-  'WEEKLY',
-  'MONTHLY',
-] as const satisfies ScheduleType[];
+const scheduleTypes = ['DAILY', 'WEEKLY', 'MONTHLY'] as const satisfies ScheduleType[];
 const transactionTypes: TransactionType[] = ['EXPENSE', 'INCOME'];
 const DAYS_OF_WEEK = [1, 2, 3, 4, 5, 6, 7];
 
@@ -76,28 +73,29 @@ export default function ScheduledTransactionForm({
   const [errors, setErrors] = useState<{ [field: string]: string }>({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
-    'success',
-  );
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        description: initialData.description,
-        value: initialData.value,
-        categoryId: initialData.categoryId,
-        type: initialData.type,
-        scheduleType: initialData.scheduleType,
-        interval: initialData.interval,
-        dayOfWeek: initialData.dayOfWeek,
-        dayOfMonth: initialData.dayOfMonth,
-        bankDescriptionPrefix: initialData.bankDescriptionPrefix,
-      });
-    } else {
-      setForm({ ...defaultForm });
-    }
-    setErrors({});
-  }, [initialData, open]);
+  useResetOnChange({
+    deps: [initialData, open],
+    reset: () => {
+      if (initialData) {
+        setForm({
+          description: initialData.description,
+          value: initialData.value,
+          categoryId: initialData.categoryId,
+          type: initialData.type,
+          scheduleType: initialData.scheduleType,
+          interval: initialData.interval,
+          dayOfWeek: initialData.dayOfWeek,
+          dayOfMonth: initialData.dayOfMonth,
+          bankDescriptionPrefix: initialData.bankDescriptionPrefix,
+        });
+      } else {
+        setForm({ ...defaultForm });
+      }
+      setErrors({});
+    },
+  });
 
   function getScheduleSummary() {
     return scheduleSummary({ schedule: form, t, formatter });
@@ -122,12 +120,9 @@ export default function ScheduledTransactionForm({
     }
     const prefix = form.bankDescriptionPrefix?.trim() ?? '';
     if (prefix.length > 0 && !isUsableBankDescriptionPrefix(prefix)) {
-      fieldErrors.bankDescriptionPrefix = t(
-        'scheduled.validation.prefixTooShort',
-        {
-          count: MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
-        },
-      );
+      fieldErrors.bankDescriptionPrefix = t('scheduled.validation.prefixTooShort', {
+        count: MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
+      });
     }
     if (form.scheduleType === 'WEEKLY' && !form.dayOfWeek) {
       fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekRequired');
@@ -138,10 +133,7 @@ export default function ScheduledTransactionForm({
     if (form.scheduleType === 'MONTHLY' && form.dayOfWeek) {
       fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekNotMonthly');
     }
-    if (
-      form.scheduleType === 'DAILY' &&
-      (form.dayOfWeek || form.dayOfMonth || form.monthOfYear)
-    ) {
+    if (form.scheduleType === 'DAILY' && (form.dayOfWeek || form.dayOfMonth || form.monthOfYear)) {
       if (form.dayOfWeek) {
         fieldErrors.dayOfWeek = t('scheduled.validation.dayOfWeekNotDaily');
       }
@@ -152,17 +144,12 @@ export default function ScheduledTransactionForm({
         fieldErrors.monthOfYear = t('scheduled.validation.monthOfYearNotDaily');
       }
     }
-    if (
-      form.scheduleType === 'WEEKLY' &&
-      (form.dayOfMonth || form.monthOfYear)
-    ) {
+    if (form.scheduleType === 'WEEKLY' && (form.dayOfMonth || form.monthOfYear)) {
       if (form.dayOfMonth) {
         fieldErrors.dayOfMonth = t('scheduled.validation.dayOfMonthNotWeekly');
       }
       if (form.monthOfYear) {
-        fieldErrors.monthOfYear = t(
-          'scheduled.validation.monthOfYearNotWeekly',
-        );
+        fieldErrors.monthOfYear = t('scheduled.validation.monthOfYearNotWeekly');
       }
     }
     setErrors(fieldErrors);
@@ -176,15 +163,11 @@ export default function ScheduledTransactionForm({
   function handleNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({
       ...form,
-      [e.target.name]:
-        e.target.value === '' ? undefined : Number(e.target.value),
+      [e.target.name]: e.target.value === '' ? undefined : Number(e.target.value),
     });
   }
 
-  function showSnackbar(
-    message: string,
-    severity: 'success' | 'error' = 'success',
-  ) {
+  function showSnackbar(message: string, severity: 'success' | 'error' = 'success') {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
@@ -197,10 +180,7 @@ export default function ScheduledTransactionForm({
     setIsLoadingUpdate(true);
     try {
       await onSubmitAction(form);
-      showSnackbar(
-        initialData ? t('scheduled.updated') : t('scheduled.created'),
-        'success',
-      );
+      showSnackbar(initialData ? t('scheduled.updated') : t('scheduled.created'), 'success');
       onCloseAction();
     } catch (err) {
       showSnackbar(describeApiError(err, t('scheduled.saveFailed')), 'error');
@@ -217,10 +197,7 @@ export default function ScheduledTransactionForm({
         showSnackbar(t('scheduled.deleted'), 'success');
         onCloseAction();
       } catch (err) {
-        showSnackbar(
-          describeApiError(err, t('scheduled.deleteFailed')),
-          'error',
-        );
+        showSnackbar(describeApiError(err, t('scheduled.deleteFailed')), 'error');
       } finally {
         setIsLoadingDelete(false);
       }
@@ -238,9 +215,7 @@ export default function ScheduledTransactionForm({
         fullScreen={fullScreen}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
-          {initialData
-            ? t('scheduled.form.editTitle')
-            : t('scheduled.form.newTitle')}
+          {initialData ? t('scheduled.form.editTitle') : t('scheduled.form.newTitle')}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -272,9 +247,7 @@ export default function ScheduledTransactionForm({
               value={form.bankDescriptionPrefix ?? ''}
               onChange={handleChange}
               error={!!errors.bankDescriptionPrefix}
-              helperText={
-                errors.bankDescriptionPrefix ?? t('scheduled.form.prefixHint')
-              }
+              helperText={errors.bankDescriptionPrefix ?? t('scheduled.form.prefixHint')}
               fullWidth
             />
             <CategorySelect
@@ -358,20 +331,14 @@ export default function ScheduledTransactionForm({
             )}
           </Stack>
         </DialogContent>
-        <DialogActions
-          sx={{ px: 3, pb: 2.5, pt: 1, justifyContent: 'space-between' }}
-        >
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, justifyContent: 'space-between' }}>
           {initialData && onDeleteAction ? (
             <Button
               color="error"
               onClick={handleDelete}
               disabled={busy}
               startIcon={
-                isLoadingDelete ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <DeleteIcon />
-                )
+                isLoadingDelete ? <CircularProgress size={18} color="inherit" /> : <DeleteIcon />
               }
             >
               {t('scheduled.form.delete')}
@@ -388,16 +355,10 @@ export default function ScheduledTransactionForm({
               onClick={handleSubmit}
               disabled={busy}
               startIcon={
-                isLoadingUpdate ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <SaveIcon />
-                )
+                isLoadingUpdate ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />
               }
             >
-              {initialData
-                ? t('scheduled.form.update')
-                : t('scheduled.form.create')}
+              {initialData ? t('scheduled.form.update') : t('scheduled.form.create')}
             </Button>
           </Stack>
         </DialogActions>

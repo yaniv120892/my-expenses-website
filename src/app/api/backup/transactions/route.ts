@@ -1,16 +1,13 @@
 import { createHandler } from '@/server/http/handler';
 import backupService from '@/server/services/backupService';
-import logger from '@/server/logging/logger';
+import { logger } from '@/server/observability';
 
 export const GET = createHandler({
   auth: 'cron',
   heartbeatEnvVar: 'BETTERSTACK_HEARTBEAT_BACKUP_TRANSACTIONS',
   handler: async () => {
     const users = await backupService.getUsersRequiredBackup();
-    logger.info(
-      { userCount: users?.length ?? 0 },
-      'Starting transaction backup',
-    );
+    logger.info({ userCount: users?.length ?? 0 }, 'Starting transaction backup');
 
     let failed = 0;
     for (const user of users ?? []) {
@@ -18,10 +15,7 @@ export const GET = createHandler({
         await backupService.backupTransactionsToCsvAndUpload(user.id);
       } catch (err) {
         failed += 1;
-        logger.error(
-          { err, userId: user.id },
-          'Failed to back up transactions',
-        );
+        logger.error({ err, userId: user.id }, 'Failed to back up transactions');
       }
     }
 

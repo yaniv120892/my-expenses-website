@@ -1,19 +1,11 @@
 import { z } from 'zod';
 import { recordIdSchema, transactionTypeSchema } from './common';
 import { countBuckets } from '@/shared/periodBuckets';
-import {
-  MAX_COMPARISON_BUCKETS,
-  MAX_COMPARISON_SERIES,
-} from '@/shared/types/trends';
+import { MAX_COMPARISON_BUCKETS, MAX_COMPARISON_SERIES } from '@/shared/types/trends';
 
 export { MAX_COMPARISON_SERIES };
 
-export const trendPeriodSchema = z.enum([
-  'daily',
-  'weekly',
-  'monthly',
-  'yearly',
-]);
+export const trendPeriodSchema = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
 
 export const getSpendingTrendsQuerySchema = z.object({
   startDate: z.coerce.date().optional(),
@@ -24,8 +16,7 @@ export const getSpendingTrendsQuerySchema = z.object({
 });
 
 // Category trends accept the same query shape; categoryId is simply ignored.
-export const getCategorySpendingTrendsQuerySchema =
-  getSpendingTrendsQuerySchema;
+export const getCategorySpendingTrendsQuerySchema = getSpendingTrendsQuerySchema;
 
 export const comparisonScopeSchema = z.enum(['SUBTREE', 'EXACT']);
 
@@ -56,9 +47,7 @@ export const getCategoryComparisonQuerySchema = z
     path: ['startDate'],
   })
   .refine(
-    (query) =>
-      countBuckets(query.startDate, query.endDate, query.period) <=
-      MAX_COMPARISON_BUCKETS,
+    (query) => countBuckets(query.startDate, query.endDate, query.period) <= MAX_COMPARISON_BUCKETS,
     {
       message: `Range covers more than ${MAX_COMPARISON_BUCKETS} periods; shorten it or use a longer period`,
       path: ['startDate'],

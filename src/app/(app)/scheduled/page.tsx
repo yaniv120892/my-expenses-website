@@ -7,7 +7,7 @@ import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
 import ScheduledTransactionListSkeleton from '@/components/ScheduledTransactionListSkeleton';
 import { PageHeader } from '@yaniv120892/my-ui';
-import { CreateScheduledTransactionInput, ScheduledTransaction } from '@/types';
+import type { CreateScheduledTransactionInput, ScheduledTransaction } from '@/types';
 import {
   useScheduledTransactionsQuery,
   useCreateScheduledTransactionMutation,

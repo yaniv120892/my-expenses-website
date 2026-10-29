@@ -9,7 +9,7 @@ import {
   eachYearOfInterval,
   format,
 } from 'date-fns';
-import { TrendPeriod } from '@/shared/types/trends';
+import type { TrendPeriod } from '@/shared/types/trends';
 import { DAY_FORMAT, MONTH_FORMAT } from '@/shared/dates';
 
 // Weekly uses ISO week-year + ISO week ('RRRR-II') so year-boundary weeks
@@ -22,7 +22,7 @@ export const PERIOD_FORMATS: Record<string, string> = {
 };
 
 export function bucketKeyFor(date: Date, period: string): string {
-  return format(date, PERIOD_FORMATS[period] ?? PERIOD_FORMATS.daily);
+  return format(date, PERIOD_FORMATS[period] ?? DAY_FORMAT);
 }
 
 // Dense, so a period with no transactions renders as zero instead of
@@ -62,11 +62,7 @@ export function enumerateBuckets(
 }
 
 // Must agree with enumerateBuckets on every period, weekly included.
-export function countBuckets(
-  startDate: Date,
-  endDate: Date,
-  period: TrendPeriod,
-): number {
+export function countBuckets(startDate: Date, endDate: Date, period: TrendPeriod): number {
   switch (period) {
     case 'daily':
       return differenceInCalendarDays(endDate, startDate) + 1;

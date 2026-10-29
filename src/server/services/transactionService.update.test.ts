@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getTransactionItem, updateTransaction, upsert, getRateToBase } =
-  vi.hoisted(() => ({
-    getTransactionItem: vi.fn(),
-    updateTransaction: vi.fn(),
-    upsert: vi.fn(),
-    getRateToBase: vi.fn(),
-  }));
+const { getTransactionItem, updateTransaction, upsert, getRateToBase } = vi.hoisted(() => ({
+  getTransactionItem: vi.fn(),
+  updateTransaction: vi.fn(),
+  upsert: vi.fn(),
+  getRateToBase: vi.fn(),
+}));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({
   default: { getTransactionItem, updateTransaction },
@@ -54,11 +53,7 @@ describe('transactionService.updateTransaction', () => {
   });
 
   it('keeps the statement conversion when an edit leaves amount and day alone', async () => {
-    await transactionService.updateTransaction(
-      'tx-1',
-      edit({ value: 92.35 }),
-      'user-1',
-    );
+    await transactionService.updateTransaction('tx-1', edit({ value: 92.35 }), 'user-1');
 
     expect(getRateToBase).not.toHaveBeenCalled();
     expect(updateTransaction).toHaveBeenCalledWith(
@@ -90,7 +85,7 @@ describe('transactionService.updateTransaction', () => {
       'user-1',
     );
 
-    expect(updateTransaction.mock.calls[0][1].amount).toMatchObject({
+    expect(updateTransaction.mock.calls[0]?.[1].amount).toMatchObject({
       value: 111,
       originalAmount: 30,
       exchangeRateSource: 'BANK_OF_ISRAEL',
@@ -160,11 +155,7 @@ describe('transactionService.updateTransaction', () => {
     getTransactionItem.mockResolvedValue(null);
 
     await expect(
-      transactionService.updateTransaction(
-        'tx-1',
-        edit({ value: 1 }),
-        'user-1',
-      ),
+      transactionService.updateTransaction('tx-1', edit({ value: 1 }), 'user-1'),
     ).rejects.toMatchObject({ status: 404 });
     expect(updateTransaction).not.toHaveBeenCalled();
   });

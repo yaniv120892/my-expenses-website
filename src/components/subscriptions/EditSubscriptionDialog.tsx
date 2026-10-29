@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useResetOnChange } from '@/hooks/useResetOnChange';
 import {
   Alert,
   Button,
@@ -15,7 +16,7 @@ import {
 } from '@mui/material';
 import { useIsCompact } from '@/hooks/useBreakpoints';
 import CategorySelect from '@/components/CategorySelect';
-import {
+import type {
   DetectedSubscription,
   SubscriptionFrequency,
   UpdateSubscriptionPayload,
@@ -26,23 +27,23 @@ import { useT } from '@/i18n/useT';
 import { toMonthlyAmount, toAnnualAmount } from '@/utils/subscriptionMath';
 import { isOneOf } from '@/utils/oneOf';
 
-interface Props {
+type Props = {
   open: boolean;
   subscription: DetectedSubscription | null;
   onClose: () => void;
   onSave: (id: string, payload: UpdateSubscriptionPayload) => void;
   isLoading: boolean;
   error?: string;
-}
+};
 
-interface FormState {
+type FormState = {
   displayName: string;
   amount: string;
   frequency: SubscriptionFrequency;
   lastChargeDate: string;
   nextExpectedDate: string;
   categoryId: string;
-}
+};
 
 function toDateInput(value: string): string {
   return new Date(value).toISOString().slice(0, 10);
@@ -81,11 +82,14 @@ export default function EditSubscriptionDialog({
   const fullScreen = useIsCompact();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  useEffect(() => {
-    if (open && subscription) {
-      setForm(toFormState(subscription));
-    }
-  }, [open, subscription]);
+  useResetOnChange({
+    deps: [open, subscription],
+    reset: () => {
+      if (open && subscription) {
+        setForm(toFormState(subscription));
+      }
+    },
+  });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -93,9 +97,7 @@ export default function EditSubscriptionDialog({
 
   const parsedAmount = Number(form.amount);
   const amountError =
-    form.amount.trim() === '' ||
-    !Number.isFinite(parsedAmount) ||
-    parsedAmount <= 0;
+    form.amount.trim() === '' || !Number.isFinite(parsedAmount) || parsedAmount <= 0;
   const nameError = form.displayName.trim() === '';
   const canSave = !amountError && !nameError && !isLoading;
 
@@ -114,13 +116,7 @@ export default function EditSubscriptionDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      fullScreen={fullScreen}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle>{t('subscriptions.edit.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -130,9 +126,7 @@ export default function EditSubscriptionDialog({
             value={form.displayName}
             onChange={(e) => set('displayName', e.target.value)}
             error={nameError}
-            helperText={
-              nameError ? t('subscriptions.edit.nameRequired') : undefined
-            }
+            helperText={nameError ? t('subscriptions.edit.nameRequired') : undefined}
             fullWidth
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -142,9 +136,7 @@ export default function EditSubscriptionDialog({
               value={form.amount}
               onChange={(e) => set('amount', e.target.value)}
               error={amountError}
-              helperText={
-                amountError ? t('subscriptions.edit.amountInvalid') : undefined
-              }
+              helperText={amountError ? t('subscriptions.edit.amountInvalid') : undefined}
               fullWidth
               slotProps={{
                 htmlInput: { min: 0, step: '0.01' },
@@ -191,10 +183,7 @@ export default function EditSubscriptionDialog({
               }}
             />
           </Stack>
-          <CategorySelect
-            value={form.categoryId}
-            onChange={(value) => set('categoryId', value)}
-          />
+          <CategorySelect value={form.categoryId} onChange={(value) => set('categoryId', value)} />
           {!amountError && (
             <Typography
               variant="body2"
@@ -203,12 +192,8 @@ export default function EditSubscriptionDialog({
               }}
             >
               {t('subscriptions.edit.costs', {
-                monthly: formatter.currency(
-                  toMonthlyAmount(parsedAmount, form.frequency),
-                ),
-                annual: formatter.currency(
-                  toAnnualAmount(parsedAmount, form.frequency),
-                ),
+                monthly: formatter.currency(toMonthlyAmount(parsedAmount, form.frequency)),
+                annual: formatter.currency(toAnnualAmount(parsedAmount, form.frequency)),
               })}
             </Typography>
           )}

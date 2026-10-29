@@ -27,8 +27,7 @@ export function validateTransactionForm({
   } else if (!isPositiveAmount(form.value)) {
     errors.value = 'transactions.validation.valueNotPositive';
   }
-  const baseValueEntered =
-    form.baseValue !== undefined && form.baseValue !== '';
+  const baseValueEntered = form.baseValue !== undefined && form.baseValue !== '';
   if (baseValueEntered && !isPositiveAmount(form.baseValue)) {
     errors.baseValue = 'transactions.validation.baseValueInvalid';
   }

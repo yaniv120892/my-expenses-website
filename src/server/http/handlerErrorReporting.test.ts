@@ -1,20 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { logger, captureException } = vi.hoisted(() => ({
+const { logger, captureException, scheduleOpsAlert } = vi.hoisted(() => ({
   logger: { error: vi.fn(), info: vi.fn() },
   captureException: vi.fn(),
+  scheduleOpsAlert: vi.fn(),
 }));
 
-vi.mock('@/server/logging/logger', () => ({ default: logger }));
+vi.mock('@/server/observability', () => ({ logger, observability: { scheduleOpsAlert } }));
 vi.mock('@sentry/nextjs', () => ({ captureException }));
-
-// `after` throws outside a request scope, which is where these tests call the
-// handler.
-vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
-  after: vi.fn(),
-}));
 
 import { z } from 'zod';
 import { createHandler } from '@/server/http/handler';
@@ -46,6 +40,43 @@ describe('createHandler error reporting', () => {
     expect(response.status).toBe(500);
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(err, expect.anything());
+  });
+
+  it('alerts the owner on a 500, counted per route pattern rather than per id', async () => {
+    const err = new Error('boom');
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw err;
+      },
+    });
+    const transactionId = '0b6f2c64-5d6f-4a43-9c55-6a1f7b3e2d10';
+
+    await handler(new NextRequest(`https://website.localhost/api/transactions/${transactionId}`), {
+      params: Promise.resolve({ id: transactionId }),
+    });
+
+    expect(scheduleOpsAlert).toHaveBeenCalledWith({
+      alertType: '5xx GET /api/transactions/[id]',
+      title: `5xx on GET /api/transactions/${transactionId}`,
+      error: err,
+      context: { requestId: expect.any(String) },
+    });
+  });
+
+  it('does not alert on a client error', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw new HttpError(404, 'Not found');
+      },
+    });
+
+    await handler(get(), routeContext);
+
+    expect(scheduleOpsAlert).not.toHaveBeenCalled();
   });
 
   it('does not report a client error', async () => {
@@ -81,10 +112,7 @@ describe('createHandler error responses', () => {
   }
 
   it.each([
-    [
-      'a plain Error',
-      new Error('Missing required environment variable: SMTP_PASS'),
-    ],
+    ['a plain Error', new Error('Missing required environment variable: SMTP_PASS')],
     [
       'a non-Prisma code-bearing error',
       Object.assign(new Error('connect ECONNREFUSED'), {
@@ -111,10 +139,9 @@ describe('createHandler error responses', () => {
     ['P2003', 400, 'Invalid reference'],
     ['P2023', 400, 'Invalid identifier'],
   ])('maps Prisma %s to %i', async (code, status, message) => {
-    const err = Object.assign(
-      new Error('Invalid `prisma.transaction.update()` invocation'),
-      { code },
-    );
+    const err = Object.assign(new Error('Invalid `prisma.transaction.update()` invocation'), {
+      code,
+    });
 
     const response = await routeThrowing(err)(get(), routeContext);
 
@@ -157,10 +184,7 @@ describe('createHandler params validation', () => {
 
   it.each([
     ['an RFC 9562 uuid', '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a'],
-    [
-      'a seeded category id without RFC 9562 version bits',
-      'a6b7c8d9-6e7f-8a9b-3c4d-4e5f6a7b8c9d',
-    ],
+    ['a seeded category id without RFC 9562 version bits', 'a6b7c8d9-6e7f-8a9b-3c4d-4e5f6a7b8c9d'],
   ])('passes %s through by default', async (_label, id) => {
     const response = await echoParams(get(), {
       params: Promise.resolve({ id }),

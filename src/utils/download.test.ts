@@ -13,25 +13,17 @@ describe('filenameFromContentDisposition', () => {
 
   it('reads an unquoted filename', () => {
     expect(
-      filenameFromContentDisposition(
-        'attachment; filename=transactions.csv',
-        'fallback.csv',
-      ),
+      filenameFromContentDisposition('attachment; filename=transactions.csv', 'fallback.csv'),
     ).toBe('transactions.csv');
   });
 
   it('falls back when the header is missing', () => {
-    expect(filenameFromContentDisposition(undefined, 'fallback.csv')).toBe(
-      'fallback.csv',
-    );
+    expect(filenameFromContentDisposition(undefined, 'fallback.csv')).toBe('fallback.csv');
   });
 
   it('falls back when the header carries no plain filename', () => {
     expect(
-      filenameFromContentDisposition(
-        "attachment; filename*=UTF-8''%D7%A2.csv",
-        'fallback.csv',
-      ),
+      filenameFromContentDisposition("attachment; filename*=UTF-8''%D7%A2.csv", 'fallback.csv'),
     ).toBe('fallback.csv');
   });
 });

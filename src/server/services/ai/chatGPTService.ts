@@ -1,15 +1,15 @@
 import OpenAI from 'openai';
-import {
+import type {
   AIProvider,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
-import { Category } from '@/shared/types/category';
-import { Transaction } from '@/shared/types/transaction';
+import type { Category } from '@/shared/types/category';
+import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
-import { reportSwallowedError } from '@/server/logging/reportSwallowedError';
+import { observability } from '@/server/observability';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -47,12 +47,13 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 200,
       });
 
-      return response.choices[0].message?.content || 'No insights available.';
+      return this.firstChoiceContent(response) || 'No insights available.';
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return '';
     }
   }
@@ -67,8 +68,7 @@ export class ChatGPTService implements AIProvider {
         messages: [
           {
             role: 'system',
-            content:
-              'You are a financial assistant helping users analyze their expenses.',
+            content: 'You are a financial assistant helping users analyze their expenses.',
           },
           {
             role: 'user',
@@ -78,12 +78,13 @@ export class ChatGPTService implements AIProvider {
         max_tokens: 200,
       });
 
-      return response.choices[0].message?.content || null;
+      return this.firstChoiceContent(response) || null;
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }
@@ -112,23 +113,16 @@ export class ChatGPTService implements AIProvider {
         },
         {
           role: 'user',
-          content: buildSuggestCategoryPrompt(
-            expenseDescription,
-            categoryOptions,
-          ),
+          content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
         },
       ],
       max_tokens: 50,
     });
 
-    return buildCategoryEvaluation(
-      response.choices[0]?.message?.content,
-      categoryOptions,
-      {
-        inputTokens: response.usage?.prompt_tokens ?? null,
-        outputTokens: response.usage?.completion_tokens ?? null,
-      },
-    );
+    return buildCategoryEvaluation(response.choices[0]?.message?.content, categoryOptions, {
+      inputTokens: response.usage?.prompt_tokens ?? null,
+      outputTokens: response.usage?.completion_tokens ?? null,
+    });
   }
 
   public async findMatchingTransaction(
@@ -149,30 +143,35 @@ export class ChatGPTService implements AIProvider {
           },
           {
             role: 'user',
-            content: buildFindMatchingTransactionPrompt(
-              importedCharge,
-              potentialMatches,
-            ),
+            content: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
           },
         ],
         temperature: 0,
         max_tokens: 50,
       });
 
-      return resolveMatchedTransactionId(
-        response.choices[0].message?.content,
-        potentialMatches,
-      );
+      return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
     } catch (err) {
-      reportSwallowedError(
-        { err, model: this.modelName() },
-        'ChatGPT API error',
-      );
+      observability.reportError({
+        error: err,
+        where: 'ChatGPT API error',
+        context: { model: this.modelName() },
+      });
       return null;
     }
   }
 
   public modelName(): string {
     return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
+  }
+
+  private firstChoiceContent(
+    response: OpenAI.Chat.Completions.ChatCompletion,
+  ): string | null | undefined {
+    const [choice] = response.choices;
+    if (!choice) {
+      throw new Error(`OpenAI completion ${response.id} returned no choices`);
+    }
+    return choice.message?.content;
   }
 }

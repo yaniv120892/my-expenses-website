@@ -4,19 +4,18 @@ import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithClient } from '@/test/renderWithClient';
 import PendingPage from '@/app/(app)/pending/page';
-import { Transaction } from '@/types';
+import type { Transaction } from '@/types';
 
 function renderPage() {
   return renderWithClient(<PendingPage />);
 }
 
-const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } =
-  vi.hoisted(() => ({
-    queryMock: vi.fn(),
-    scheduledQueryMock: vi.fn(),
-    confirmMutateAsync: vi.fn(),
-    deleteMutateAsync: vi.fn(),
-  }));
+const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } = vi.hoisted(() => ({
+  queryMock: vi.fn(),
+  scheduledQueryMock: vi.fn(),
+  confirmMutateAsync: vi.fn(),
+  deleteMutateAsync: vi.fn(),
+}));
 
 vi.mock('@/hooks/usePendingTransactionsQuery', () => ({
   usePendingTransactionsQuery: queryMock,
@@ -61,9 +60,7 @@ describe('pending page toasts', () => {
     confirmMutateAsync.mockRejectedValue(new Error('Approval failed upstream'));
     renderPage();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Approve transaction' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Approve transaction' }));
 
     expect(await screen.findByText('Approval failed upstream')).toBeTruthy();
     expect(screen.getAllByRole('alert')).toHaveLength(1);
@@ -73,22 +70,18 @@ describe('pending page toasts', () => {
   it.each([
     ['approve', confirmMutateAsync, 'Transaction approved successfully'],
     ['reject', deleteMutateAsync, 'Transaction rejected successfully'],
-  ] as const)(
-    'shows a success toast when %s succeeds',
-    async (action, mutateAsync, message) => {
-      mutateAsync.mockResolvedValue(undefined);
-      renderPage();
+  ] as const)('shows a success toast when %s succeeds', async (action, mutateAsync, message) => {
+    mutateAsync.mockResolvedValue(undefined);
+    renderPage();
 
-      await userEvent.click(
-        screen.getByRole('button', {
-          name:
-            action === 'approve' ? 'Approve transaction' : 'Delete transaction',
-        }),
-      );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: action === 'approve' ? 'Approve transaction' : 'Delete transaction',
+      }),
+    );
 
-      expect(await screen.findByText(message)).toBeTruthy();
-    },
-  );
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
 });
 
 describe('pending page fixed expenses summary', () => {

@@ -1,10 +1,5 @@
-import {
-  QueryClient,
-  keepPreviousData,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchSubscriptions,
   confirmSubscription,
@@ -12,7 +7,7 @@ import {
   updateSubscription,
   convertToScheduled,
 } from '../services/subscriptionService';
-import { UpdateSubscriptionPayload } from '../types/subscription';
+import type { UpdateSubscriptionPayload } from '../types/subscription';
 import { scheduledTransactionKeys } from './useScheduledTransactionsQuery';
 import { dashboardKeys } from './useDashboardQuery';
 
@@ -55,13 +50,8 @@ export const useUpdateSubscriptionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: string;
-      payload: UpdateSubscriptionPayload;
-    }) => updateSubscription(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateSubscriptionPayload }) =>
+      updateSubscription(id, payload),
     onSuccess: () => {
       invalidateSubscriptionData(queryClient);
     },

@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { renderWithClient } from '@/test/renderWithClient';
 import ImportList from '@/components/ImportList';
-import { Import, ImportFileType, ImportStatus } from '@/types/import';
+import type { Import } from '@/types/import';
+import { ImportFileType, ImportStatus } from '@/types/import';
+import { requireAt } from '@/test/dom';
 
 const importFor = (paymentMonth: string): Import => ({
   id: paymentMonth,
@@ -37,9 +39,7 @@ const renderedMonths = () =>
 
 describe('ImportList payment month order', () => {
   it('sorts rows by date, year first', () => {
-    renderWithClient(
-      <ImportList onImportClick={vi.fn()} expandedImportId={null} />,
-    );
+    renderWithClient(<ImportList onImportClick={vi.fn()} expandedImportId={null} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Payment Month/ }));
 
@@ -47,11 +47,9 @@ describe('ImportList payment month order', () => {
   });
 
   it('lists filter options by date, year first', () => {
-    renderWithClient(
-      <ImportList onImportClick={vi.fn()} expandedImportId={null} />,
-    );
+    renderWithClient(<ImportList onImportClick={vi.fn()} expandedImportId={null} />);
 
-    fireEvent.mouseDown(screen.getAllByRole('combobox')[1]);
+    fireEvent.mouseDown(requireAt({ elements: screen.getAllByRole('combobox'), index: 1 }));
 
     const options = within(screen.getByRole('listbox'))
       .getAllByRole('option')
@@ -60,9 +58,7 @@ describe('ImportList payment month order', () => {
   });
 
   it('labels each status in words rather than its enum value', () => {
-    renderWithClient(
-      <ImportList onImportClick={vi.fn()} expandedImportId={null} />,
-    );
+    renderWithClient(<ImportList onImportClick={vi.fn()} expandedImportId={null} />);
 
     expect(screen.getAllByText('Completed')).toHaveLength(3);
     expect(screen.queryByText('COMPLETED')).toBeNull();

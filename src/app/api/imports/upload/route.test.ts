@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as SessionModule from '@/server/auth/session';
+import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, send } = vi.hoisted(() => ({
@@ -7,9 +9,7 @@ const { requireUser, send } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/server/auth/session', async () => ({
-  ...(await vi.importActual<typeof import('@/server/auth/session')>(
-    '@/server/auth/session',
-  )),
+  ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
 }));
 vi.mock('@aws-sdk/client-s3', () => ({
@@ -17,18 +17,14 @@ vi.mock('@aws-sdk/client-s3', () => ({
     public send = send;
   },
   PutObjectCommand: class {
-    constructor(public readonly input: { Key: string }) {}
+    public constructor(public readonly input: { Key: string }) {}
   },
 }));
-vi.mock('@/server/logging/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-vi.mock('@/server/logging/betterStackStream', () => ({
-  flushRemoteLogs: vi.fn(),
-  betterStackStream: { write: vi.fn() },
+vi.mock('@/server/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof import('next/server')>('next/server')),
+  ...(await vi.importActual<typeof NextServerModule>('next/server')),
   after: vi.fn(),
 }));
 
@@ -62,16 +58,34 @@ describe('POST /api/imports/upload', () => {
 
     expect(response.status).toBe(200);
     const { fileUrl } = await response.json();
-    const storedKey = send.mock.calls[0][0].input.Key;
+    const storedKey = send.mock.calls[0]?.[0].input.Key;
     expect(new URL(fileUrl).pathname).toBe(`/${storedKey}`);
   });
 
+  it.each([
+    ['Visa March.XLSX', 200, /^imports\/[0-9a-f-]+\.xlsx$/],
+    ['.xlsx', 400, undefined],
+  ])(
+    'stores %j only under a key ending with the extension it was accepted for',
+    async (name, status, key) => {
+      const form = new FormData();
+      form.append('file', new File(['x'], name));
+
+      const response = await POST(
+        new NextRequest('http://localhost/api/imports/upload', { method: 'POST', body: form }),
+        ROUTE_CONTEXT,
+      );
+
+      expect(response.status).toBe(status);
+      expect(send.mock.calls[0]?.[0].input.Key).toEqual(
+        key ? expect.stringMatching(key) : undefined,
+      );
+    },
+  );
+
   function uploadOfSize(sizeInBytes: number) {
     const form = new FormData();
-    form.append(
-      'file',
-      new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'),
-    );
+    form.append('file', new File([new Uint8Array(sizeInBytes)], 'statement.xlsx'));
     return POST(
       new NextRequest('http://localhost/api/imports/upload', {
         method: 'POST',

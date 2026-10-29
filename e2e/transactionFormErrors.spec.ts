@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signIn } from './helpers';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
@@ -13,9 +14,7 @@ async function fillCreateForm(page: Page) {
   await page.getByRole('option').first().click();
 }
 
-test('a rejected save reports the failure and keeps the dialog open', async ({
-  page,
-}) => {
+test('a rejected save reports the failure and keeps the dialog open', async ({ page }) => {
   test.skip(!TOKEN, 'E2E_AUTH_TOKEN not provided');
 
   await signIn(page, TOKEN);
@@ -48,8 +47,6 @@ test('an accepted save reports success and closes', async ({ page }) => {
   await fillCreateForm(page);
   await page.getByRole('button', { name: 'Create' }).click();
 
-  await expect(
-    page.getByText('Transaction created successfully'),
-  ).toBeVisible();
+  await expect(page.getByText('Transaction created successfully')).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

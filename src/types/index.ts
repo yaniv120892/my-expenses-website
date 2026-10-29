@@ -19,10 +19,7 @@ export type {
   TransactionSummary,
 } from '@/shared/types/transaction';
 
-export type TransactionFile = Omit<
-  SharedTransactionFile,
-  'createdAt' | 'updatedAt'
-> & {
+export type TransactionFile = Omit<SharedTransactionFile, 'createdAt' | 'updatedAt'> & {
   previewFileUrl: string;
   downloadableFileUrl: string;
   createdAt: string;
@@ -42,7 +39,7 @@ export type Transaction = Omit<
 // Dates travel as strings and are coerced by createTransactionSchema. A
 // foreign amount is `originalAmount` + `currency`; `value` is then the ILS
 // charged, sent only when the user knows it.
-export interface CreateTransactionInput {
+export type CreateTransactionInput = {
   description: string;
   value?: number;
   currency?: string;
@@ -51,26 +48,23 @@ export interface CreateTransactionInput {
   categoryId: string | undefined;
   type: TransactionType;
   date: string;
-}
+};
 
 export type UpdateTransactionInput = CreateTransactionInput;
 
 // No paging: the list pages by cursor, and the same filters drive the summary
 // totals.
-export interface TransactionFilters {
+export type TransactionFilters = {
   searchTerm?: string;
   categoryId?: string;
   type?: TransactionType;
   startDate?: string;
   endDate?: string;
-}
+};
 
 export type ScheduleType = ScheduledTransactionDomain['scheduleType'];
 
-export type CreateScheduledTransactionInput = Omit<
-  CreateScheduledTransaction,
-  'userId'
->;
+export type CreateScheduledTransactionInput = Omit<CreateScheduledTransaction, 'userId'>;
 
 export type UpdateScheduledTransactionInput = UpdateScheduledTransaction;
 

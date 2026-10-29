@@ -102,7 +102,7 @@ class AuthService {
     }
     const token = await signToken(user.id);
     await storeSession(user.id, token, tokenTtlSeconds());
-    return { token };
+    return { token, userId: user.id };
   }
 
   public async verifyLoginCode(email: string, code: string) {
@@ -136,7 +136,7 @@ class AuthService {
     await deleteValue(loginCodeKey(email), 'branch');
     await deleteValue(attemptsKey, 'branch');
     await storeSession(user.id, token, tokenTtlSeconds());
-    return { token };
+    return { token, userId: user.id };
   }
 
   public async logoutUser(userId: string, token: string) {

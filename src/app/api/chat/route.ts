@@ -4,6 +4,7 @@ import { chatRequestSchema } from '@/shared/schemas/chat';
 import chatService from '@/server/services/chatService';
 import { logger } from '@/server/observability';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
+import { captureProductEvent } from '@/server/productEvents';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,7 @@ export const POST = createHandler({
           }
 
           controller.enqueue(sseFrame({ type: 'done' }));
+          captureProductEvent({ userId, event: 'assistant_message_sent' });
           logger.debug({ userId }, 'Done handle chat message');
         } catch (err) {
           if (!request.signal.aborted) {

@@ -1,3 +1,4 @@
+import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
@@ -8,6 +9,10 @@ const { requireUser, sendMonthlyReportForUser } = vi.hoisted(() => ({
   sendMonthlyReportForUser: vi.fn(),
 }));
 
+vi.mock('@/server/auth/householdActor', async () => ({
+  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
+  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
+}));
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
@@ -42,7 +47,7 @@ async function callRoute() {
 describe('POST /api/user/settings/test-monthly-report', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requireUser.mockResolvedValue('user-1');
+    requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
   });
 
   it('returns the sent month and recipient', async () => {

@@ -224,19 +224,37 @@ function textOf(frames: Frame[]): string {
     .join('');
 }
 
+// Every account owns a household of its own, as signup opens one.
+async function insertVerifiedUser({
+  username,
+  email,
+  passwordHash,
+}: {
+  username: string;
+  email: string;
+  passwordHash: string;
+}): Promise<{ id: string; householdId: string }> {
+  return firstRow({
+    rows: await query<{ id: string; householdId: string }>(
+      `with household as (insert into "Household" (id) values (gen_random_uuid()) returning id)
+       insert into "User" (id, username, email, password, verified, "householdId")
+       select gen_random_uuid(), $1, $2, $3, true, household.id from household
+       returning id, "householdId"`,
+      [username, email, passwordHash],
+    ),
+    what: `the user ${email}`,
+  });
+}
+
 // Runs against a user of its own: logout deletes the session key, which would
 // invalidate the token the other checks share.
 async function authLifecycleFlow(): Promise<void> {
   const email = 'login-flow@e2e.test';
   const password = 'e2e-login-password';
-  const user = firstRow({
-    rows: await query<{ id: string }>(
-      `insert into "User" (id, username, email, password, verified)
-     values (gen_random_uuid(), 'e2e-login-flow', $1, $2, true)
-     returning id`,
-      [email, await hash(password, 10)],
-    ),
-    what: 'the login-flow user',
+  const user = await insertVerifiedUser({
+    username: 'e2e-login-flow',
+    email,
+    passwordHash: await hash(password, 10),
   });
 
   const login = await api<{ success?: boolean; token?: string }>('POST', '/api/auth/login', {

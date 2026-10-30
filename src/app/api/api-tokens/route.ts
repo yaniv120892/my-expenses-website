@@ -9,6 +9,7 @@ export const GET = createHandler({
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   bodySchema: createApiTokenSchema,
   status: 201,
   handler: async ({ userId, body }) => apiTokenService.create(userId, body.name, body.scopes),

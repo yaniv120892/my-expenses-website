@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { deleteValue, getValue, setValue } from '@/server/redis';
+import type { SessionClaims } from '@/server/auth/tokens';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
@@ -53,15 +54,15 @@ export function extractToken(request: NextRequest): string | null {
   return extractCredential(request)?.token ?? null;
 }
 
-export async function requireUser(request: NextRequest): Promise<string> {
+export async function requireUser(request: NextRequest): Promise<SessionClaims> {
   const token = extractToken(request);
   if (!token) {
     throw new AuthError('AUTH_REQUIRED', 'Authentication required');
   }
 
-  let userId: string;
+  let claims: SessionClaims;
   try {
-    ({ userId } = await verifyToken(token));
+    claims = await verifyToken(token);
   } catch (err) {
     if (err instanceof TokenExpiredError) {
       throw new AuthError('TOKEN_EXPIRED', 'Token expired');
@@ -72,8 +73,8 @@ export async function requireUser(request: NextRequest): Promise<string> {
     throw err;
   }
 
-  if (!(await isSessionActive(userId, token))) {
+  if (!(await isSessionActive(claims.userId, token))) {
     throw new AuthError('SESSION_EXPIRED', 'Session expired');
   }
-  return userId;
+  return claims;
 }

@@ -19,6 +19,7 @@ export const GET = createHandler({
 // Answers with the saved settings, which the client caches as the new state.
 export const PUT = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   bodySchema: updateUserSettingsSchema,
   handler: async ({ userId, body }) => {
     await userSettingsService.updateUserSettings(userId, body);

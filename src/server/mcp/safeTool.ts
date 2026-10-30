@@ -5,6 +5,7 @@ import type {
 } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { HttpError } from '@/server/http/errors';
+import { assertCanWrite } from '@/server/auth/householdActor';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { logger, observability } from '@/server/observability';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
@@ -38,7 +39,8 @@ export const READ_ONLY = {
  * failure, while a returned one ("Unknown category …, close matches: …") is
  * something the agent can correct or relay. A 4xx is written for the caller,
  * so its message passes through; anything else is reported and kept neutral.
- * Every call logs one line with its outcome.
+ * Every call logs one line with its outcome. A tool not annotated read-only is
+ * a write, so a viewer's token is refused it like any other write.
  */
 export function registerSafeTool<TShape extends ZodRawShapeCompat>(
   registration: SafeToolRegistration<TShape>,
@@ -79,6 +81,9 @@ export function registerSafeTool({
       });
     };
     try {
+      if (config.annotations.readOnlyHint !== true) {
+        assertCanWrite(actor);
+      }
       const reply = await handler(input);
       if (typeof reply === 'string') {
         recordCall({ outcome: 'ok' });

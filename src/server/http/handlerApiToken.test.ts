@@ -1,3 +1,4 @@
+import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiTokensModule from '@/server/auth/apiTokens';
 import type * as SessionModule from '@/server/auth/session';
@@ -10,6 +11,10 @@ const { authenticateApiToken, requireUser } = vi.hoisted(() => ({
   requireUser: vi.fn(),
 }));
 
+vi.mock('@/server/auth/householdActor', async () => ({
+  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
+  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
+}));
 vi.mock('@/server/auth/apiTokens', async () => ({
   ...(await vi.importActual<typeof ApiTokensModule>('@/server/auth/apiTokens')),
   authenticateApiToken,
@@ -75,7 +80,7 @@ describe('createHandler API token auth', () => {
   });
 
   it('lets a session cookie win over an API token bearer', async () => {
-    requireUser.mockResolvedValue('session-user');
+    requireUser.mockResolvedValue({ userId: 'session-user', tokenVersion: 0 });
 
     const response = await echoUserRoute()(
       request('Bearer mxk_secret', 'session=browser-jwt'),
@@ -103,7 +108,7 @@ describe('createHandler API token auth', () => {
   });
 
   it('never reads an API token from the session cookie', async () => {
-    requireUser.mockResolvedValue('session-user');
+    requireUser.mockResolvedValue({ userId: 'session-user', tokenVersion: 0 });
 
     const response = await echoUserRoute('IMPORTS')(
       new NextRequest('http://localhost/api/imports', {
@@ -118,7 +123,7 @@ describe('createHandler API token auth', () => {
   });
 
   it('still takes a session bearer on a route that declares a scope', async () => {
-    requireUser.mockResolvedValue('session-user');
+    requireUser.mockResolvedValue({ userId: 'session-user', tokenVersion: 0 });
 
     const response = await echoUserRoute('IMPORTS')(
       request('Bearer eyJhbGciOi.session.jwt'),
@@ -143,7 +148,7 @@ describe('createHandler API token auth', () => {
   });
 
   it('takes a token only under the Bearer scheme', async () => {
-    requireUser.mockResolvedValue(TOKEN_OWNER);
+    requireUser.mockResolvedValue({ userId: TOKEN_OWNER, tokenVersion: 0 });
 
     await echoUserRoute('IMPORTS')(request('Token mxk_secret'), ROUTE_CONTEXT);
 

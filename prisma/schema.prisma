@@ -74,10 +74,49 @@ enum ExchangeRateSource {
   MANUAL
 }
 
+enum HouseholdRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
 enum TransactionFileStatus {
   ACTIVE
   MARKED_FOR_DELETION
   DELETED
+}
+
+// Owns every household-scoped row; each user belongs to exactly one.
+model Household {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  createdAt             DateTime               @default(now())
+  members               User[]
+  invites               Invite[]
+  transactions          Transaction[]
+  imports               Import[]
+  importedTransactions  ImportedTransaction[]
+  scheduledTransactions ScheduledTransaction[]
+  categoryMappings      UserCategoryMapping[]
+  autoApproveRules      AutoApproveRule[]
+  detectedSubscriptions DetectedSubscription[]
+}
+
+model Invite {
+  id          String        @id @default(uuid()) @db.Uuid
+  householdId String        @db.Uuid
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  code        String        @unique
+  role        HouseholdRole @default(EDITOR)
+  createdById String        @db.Uuid
+  createdBy   User          @relation("InvitesCreated", fields: [createdById], references: [id])
+  expiresAt   DateTime
+  usedById    String?       @db.Uuid
+  usedBy      User?         @relation("InvitesUsed", fields: [usedById], references: [id])
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([householdId])
 }
 
 model User {
@@ -86,6 +125,13 @@ model User {
   email                     String                @unique
   password                  String
   verified                  Boolean               @default(false)
+  householdId               String                @db.Uuid
+  household                 Household             @relation(fields: [householdId], references: [id])
+  householdRole             HouseholdRole         @default(OWNER)
+  // Bumped to end every session at once, e.g. when the member is removed.
+  tokenVersion              Int                   @default(0)
+  invitesCreated            Invite[]              @relation("InvitesCreated")
+  invitesUsed               Invite[]              @relation("InvitesUsed")
   transactions              Transaction[]
   scheduledTransactions     ScheduledTransaction[]
   userNotification          UserNotificationPreference?
@@ -97,6 +143,8 @@ model User {
   detectedSubscriptions     DetectedSubscription[]
   announcementAcks          AnnouncementAck[]
   apiTokens                 ApiToken[]
+
+  @@index([householdId])
 }
 
 // Which in-app announcements a user has acknowledged. announcementId is a
@@ -153,6 +201,9 @@ model Transaction {
   scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id], onDelete: SetNull)
   userId               String               @db.Uuid
   user                 User                 @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   importedTransactions ImportedTransaction[]
   files                TransactionFile[]
 
@@ -188,6 +239,9 @@ model Import {
   mergedInto               Import?   @relation("ImportMerges", fields: [mergedIntoImportId], references: [id], onDelete: SetNull)
   mergedFrom               Import[]  @relation("ImportMerges")
   user                     User      @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
 
   @@index([userId, deleted, createdAt])
   @@index([mergedIntoImportId])
@@ -216,6 +270,9 @@ model ImportedTransaction {
   deleted              Boolean                  @default(false)
   import               Import                   @relation(fields: [importId], references: [id])
   user                 User                     @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   matchingTransaction  Transaction?             @relation(fields: [matchingTransactionId], references: [id])
 
   @@index([importId])
@@ -255,6 +312,9 @@ model ScheduledTransaction {
   nextRunDate   DateTime?
   userId        String          @db.Uuid
   user          User            @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   transactions  Transaction[]
 
   // The cron scans nextRunDate across all users, so it cannot use the
@@ -288,6 +348,9 @@ model UserCategoryMapping {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   user               User     @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category           Category @relation(fields: [categoryId], references: [id])
 
   @@unique([userId, descriptionPattern])
@@ -323,6 +386,9 @@ model AutoApproveRule {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   user               User            @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category           Category        @relation(fields: [categoryId], references: [id])
 
   @@index([userId])
@@ -353,6 +419,9 @@ model DetectedSubscription {
   updatedAt              DateTime              @updatedAt
 
   user                   User                  @relation(fields: [userId], references: [id])
+  // Nullable until every writer sets it; the next migration requires it.
+  householdId          String?              @db.Uuid
+  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category               Category?             @relation(fields: [categoryId], references: [id])
 
   // Frequency is part of the key but is user-editable, so detection resolves

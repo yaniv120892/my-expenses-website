@@ -46,6 +46,8 @@ vi.mock('@/server/observability', () => ({
   observability: { reportError, captureEvent: vi.fn() },
 }));
 
+import { testMemberActor } from '@/test/memberActor';
+import type { HouseholdRole } from '@/generated/prisma/enums';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { HttpError } from '@/server/http/errors';
 import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
@@ -90,8 +92,8 @@ function totals(overrides: Partial<TransactionSummary> = {}) {
 
 // Through a real client, so schema validation, argument defaults and result
 // shaping run exactly as they do for a remote agent.
-async function connectClient(): Promise<Client> {
-  const server = createMcpServer({ userId: USER_ID });
+async function connectClient(role: HouseholdRole = 'OWNER'): Promise<Client> {
+  const server = createMcpServer(testMemberActor({ userId: USER_ID, role }));
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-agent', version: '1.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -705,6 +707,31 @@ describe('delete_transaction', () => {
     });
 
     expect(outcome.isError).toBe(true);
+    expect(transactionService.deleteTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("a viewer's token", () => {
+  it('still reads the household data', async () => {
+    const viewer = await connectClient('VIEWER');
+
+    const outcome = await call({ client: viewer, name: 'list_categories' });
+
+    expect(outcome.isError).toBe(false);
+  });
+
+  it.each([
+    ['add_transaction', { description: 'קפה', amount: 18 }],
+    ['update_transaction', { id: TRANSACTION_ID, description: 'קפה' }],
+    ['delete_transaction', { id: TRANSACTION_ID }],
+  ])('is refused %s before the service is reached', async (name, toolArguments) => {
+    const viewer = await connectClient('VIEWER');
+
+    const outcome = await call({ client: viewer, name, toolArguments });
+
+    expect(outcome).toEqual({ isError: true, text: expect.stringContaining('viewer') });
+    expect(transactionService.createTransaction).not.toHaveBeenCalled();
+    expect(transactionService.updateTransaction).not.toHaveBeenCalled();
     expect(transactionService.deleteTransaction).not.toHaveBeenCalled();
   });
 });

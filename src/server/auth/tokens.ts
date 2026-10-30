@@ -10,21 +10,26 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(requireEnv('JWT_SECRET'));
 }
 
-export async function signToken(userId: string): Promise<string> {
-  return new SignJWT({ userId })
+export type SessionClaims = { userId: string; tokenVersion: number };
+
+export async function signToken({ userId, tokenVersion }: SessionClaims): Promise<string> {
+  return new SignJWT({ userId, tokenVersion })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
     .sign(secretKey());
 }
 
-export async function verifyToken(token: string): Promise<{ userId: string }> {
+// A session signed before token versions existed is version 0, which every
+// account started at.
+export async function verifyToken(token: string): Promise<SessionClaims> {
   try {
     const { payload } = await jwtVerify(token, secretKey());
     if (typeof payload.userId !== 'string' || !payload.userId) {
       throw new InvalidTokenError('Token payload missing userId');
     }
-    return { userId: payload.userId };
+    const tokenVersion = typeof payload.tokenVersion === 'number' ? payload.tokenVersion : 0;
+    return { userId: payload.userId, tokenVersion };
   } catch (err) {
     if (err instanceof joseErrors.JWTExpired) {
       throw new TokenExpiredError('Token expired');

@@ -1,3 +1,4 @@
+import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
@@ -10,6 +11,10 @@ const { requireUser, redisStore, userRepository, telegramService } = vi.hoisted(
   telegramService: { sendPlainMessage: vi.fn() },
 }));
 
+vi.mock('@/server/auth/householdActor', async () => ({
+  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
+  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
+}));
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
@@ -85,7 +90,7 @@ beforeEach(() => {
   redisStore.clear();
   vi.stubEnv('TELEGRAM_WEBHOOK_SECRET', WEBHOOK_SECRET);
   vi.stubEnv('TELEGRAM_BOT_USERNAME', '');
-  requireUser.mockResolvedValue(USER_ID);
+  requireUser.mockResolvedValue({ userId: USER_ID, tokenVersion: 0 });
 });
 
 describe('linking a Telegram chat with a one-time /start code', () => {

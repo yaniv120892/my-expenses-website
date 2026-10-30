@@ -35,6 +35,8 @@ export const useHouseholdActivityQuery = () =>
     queryFn: ({ pageParam }) => getHouseholdActivity(pageParam),
     initialPageParam: null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    // Any member's write, here or elsewhere, adds to it; no mutation could invalidate them all.
+    staleTime: 0,
   });
 
 export const useInvitePreviewQuery = (code: string) =>

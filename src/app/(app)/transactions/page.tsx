@@ -306,6 +306,7 @@ function TransactionsPageContent() {
                 date: editTx.date,
                 addedBy: editTx.addedBy,
                 editedBy: editTx.editedBy,
+                addedAutomatically: editTx.addedAutomatically,
               }
             : null
         }

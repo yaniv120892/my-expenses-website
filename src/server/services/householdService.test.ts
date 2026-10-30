@@ -129,6 +129,8 @@ describe('acceptInvite', () => {
       expect.objectContaining({
         action: 'MEMBER_JOINED',
         entityId: 'newcomer',
+        summary: null,
+        role: 'EDITOR',
         householdId: OWNER.householdId,
       }),
     ]);
@@ -180,18 +182,30 @@ describe('acceptInvite', () => {
 });
 
 describe('membership changes', () => {
-  it('removes a member, ends their sessions and records it', async () => {
+  it('removes a member, ends their sessions and records it with each token it revoked', async () => {
     repository.findMember.mockResolvedValue({ id: 'editor', username: 'Dana' });
-    repository.moveToOwnHousehold.mockResolvedValue({ apiTokensRevoked: 2 });
+    repository.moveToOwnHousehold.mockResolvedValue({
+      revokedApiTokens: [
+        { id: 'token-1', name: 'agent' },
+        { id: 'token-2', name: 'script' },
+      ],
+    });
 
     await householdService.removeMember(OWNER, 'editor');
 
     expect(activity.entries).toEqual([
+      { action: 'MEMBER_REMOVED', entityType: 'MEMBER', entityId: 'editor', summary: 'Dana' },
       {
-        action: 'MEMBER_REMOVED',
-        entityType: 'MEMBER',
-        entityId: 'editor',
-        summary: 'Removed Dana',
+        action: 'API_TOKEN_REVOKED',
+        entityType: 'API_TOKEN',
+        entityId: 'token-1',
+        summary: 'agent',
+      },
+      {
+        action: 'API_TOKEN_REVOKED',
+        entityType: 'API_TOKEN',
+        entityId: 'token-2',
+        summary: 'script',
       },
     ]);
 
@@ -219,10 +233,22 @@ describe('membership changes', () => {
     expect(repository.moveToOwnHousehold).not.toHaveBeenCalled();
   });
 
-  it('lets a non-owner leave without ending their session', async () => {
-    repository.moveToOwnHousehold.mockResolvedValue({ apiTokensRevoked: 0 });
+  it('lets a non-owner leave without ending their session, recording each token it revoked', async () => {
+    repository.moveToOwnHousehold.mockResolvedValue({
+      revokedApiTokens: [{ id: 'token-1', name: 'agent' }],
+    });
 
     await householdService.leave(EDITOR);
+
+    expect(activity.entries).toEqual([
+      { action: 'MEMBER_LEFT', entityType: 'MEMBER', entityId: 'editor', summary: null },
+      {
+        action: 'API_TOKEN_REVOKED',
+        entityType: 'API_TOKEN',
+        entityId: 'token-1',
+        summary: 'agent',
+      },
+    ]);
 
     expect(repository.moveToOwnHousehold).toHaveBeenCalledWith({
       fromHouseholdId: EDITOR.householdId,
@@ -256,10 +282,21 @@ describe('membership changes', () => {
     });
   });
 
-  it('changes the role of a member of the owner household only', async () => {
+  it('changes the role of a member of the owner household only, recording the new role', async () => {
+    repository.findMember.mockResolvedValue({ id: 'editor', username: 'Dana' });
     repository.changeMemberRole.mockResolvedValue(true);
 
     await householdService.changeMemberRole(OWNER, 'editor', 'VIEWER');
+
+    expect(activity.entries).toEqual([
+      {
+        action: 'ROLE_CHANGED',
+        entityType: 'MEMBER',
+        entityId: 'editor',
+        summary: 'Dana',
+        role: 'VIEWER',
+      },
+    ]);
 
     expect(repository.changeMemberRole).toHaveBeenCalledWith({
       householdId: OWNER.householdId,

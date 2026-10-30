@@ -56,7 +56,11 @@ function MobileRow({
         >
           {transaction.category?.name}
         </Typography>
-        <AttributionLine addedBy={transaction.addedBy} editedBy={transaction.editedBy} />
+        <AttributionLine
+          addedBy={transaction.addedBy}
+          editedBy={transaction.editedBy}
+          addedAutomatically={transaction.addedAutomatically}
+        />
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         <AmountText type={transaction.type} value={transaction.value} original={transaction} />
@@ -138,7 +142,11 @@ export default function TransactionList({
                 <Box component="span" sx={{ display: 'block' }}>
                   {tx.description}
                 </Box>
-                <AttributionLine addedBy={tx.addedBy} editedBy={tx.editedBy} />
+                <AttributionLine
+                  addedBy={tx.addedBy}
+                  editedBy={tx.editedBy}
+                  addedAutomatically={tx.addedAutomatically}
+                />
               </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>

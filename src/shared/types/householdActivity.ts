@@ -1,11 +1,16 @@
-import type { HouseholdActivityAction, HouseholdEntityType } from '@/generated/prisma/enums';
+import type {
+  HouseholdActivityAction,
+  HouseholdEntityType,
+  HouseholdRole,
+} from '@/generated/prisma/enums';
 
 export type HouseholdActivityView = {
   id: string;
   action: HouseholdActivityAction;
   entityType: HouseholdEntityType;
   entityId: string;
-  summary: string;
+  summary: string | null;
+  role: HouseholdRole | null;
   /** Null for a system job, or a member whose account is gone. */
   actorName: string | null;
   /** Made through an API token (the personal agent, a script) rather than the site. */

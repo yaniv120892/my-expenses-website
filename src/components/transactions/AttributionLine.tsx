@@ -1,19 +1,21 @@
 'use client';
 
 import { Typography } from '@mui/material';
+import type { T } from '@/i18n/useT.types';
 import { useT } from '@/i18n/useT';
 
-/** "Added by … · Edited by …" for a row, or nothing when neither is known. */
 export default function AttributionLine({
   addedBy,
   editedBy,
+  addedAutomatically,
 }: {
   addedBy?: string | null;
   editedBy?: string | null;
+  addedAutomatically?: boolean;
 }) {
   const t = useT();
   const parts = [
-    addedBy ? t('transactions.attribution.addedBy', { name: addedBy }) : null,
+    addedLabel({ t, addedBy, addedAutomatically }),
     editedBy ? t('transactions.attribution.editedBy', { name: editedBy }) : null,
   ].filter((part) => part !== null);
 
@@ -31,4 +33,19 @@ export default function AttributionLine({
       {parts.join(' · ')}
     </Typography>
   );
+}
+
+function addedLabel({
+  t,
+  addedBy,
+  addedAutomatically,
+}: {
+  t: T;
+  addedBy?: string | null;
+  addedAutomatically?: boolean;
+}): string | null {
+  if (addedAutomatically) {
+    return t('transactions.attribution.addedAutomatically');
+  }
+  return addedBy ? t('transactions.attribution.addedBy', { name: addedBy }) : null;
 }

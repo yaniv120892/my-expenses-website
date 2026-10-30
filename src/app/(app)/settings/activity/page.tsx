@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   Alert,
   Button,
@@ -15,12 +16,13 @@ import {
 } from '@mui/material';
 import { PageHeader } from '@yaniv120892/my-ui';
 import EmptyState from '@/components/EmptyState';
+import { MIRROR_IN_RTL_SX } from '@/components/rtlStyles';
 import { useHouseholdActivityQuery } from '@/hooks/useHouseholdQuery';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import type { HouseholdActivityView } from '@/shared/types/householdActivity';
+import { describeHouseholdActivity } from '@/utils/householdActivityText';
 
-/** Who did what in the household, newest first, a page at a time. */
 export default function HouseholdActivityPage() {
   const t = useT();
   const { data, isLoading, error, hasNextPage, fetchNextPage, isFetchingNextPage } =
@@ -29,14 +31,18 @@ export default function HouseholdActivityPage() {
 
   return (
     <>
+      <Button
+        component={Link}
+        href="/settings"
+        color="inherit"
+        startIcon={<ArrowBackIcon sx={MIRROR_IN_RTL_SX} />}
+        sx={{ mb: 1 }}
+      >
+        {t('household.activity.backToSettings')}
+      </Button>
       <PageHeader
         title={t('household.activity.title')}
         subtitle={t('household.activity.subtitle')}
-        actions={
-          <Button component={Link} href="/settings" variant="outlined">
-            {t('household.activity.backToSettings')}
-          </Button>
-        }
       />
       {isLoading ? (
         <CircularProgress size={24} />
@@ -71,31 +77,24 @@ export default function HouseholdActivityPage() {
 function ActivityItem({ item }: { item: HouseholdActivityView }) {
   const t = useT();
   const formatter = useAppFormat();
-  const actor =
-    item.actorName ??
-    (item.systemJob ? t('household.activity.system') : t('household.activity.formerMember'));
+  const { sentence, detail } = describeHouseholdActivity({ item, t });
+  const time = formatter.date({
+    value: new Date(item.createdAt),
+    options: { dateStyle: 'medium', timeStyle: 'short' },
+  });
 
   return (
     <ListItem divider data-testid="household-activity-item">
       <ListItemText
         primary={
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography component="span" sx={{ fontWeight: 600 }}>
-              {actor}
-            </Typography>
-            <Typography component="span">
-              {t(`household.activity.action.${item.action}`)}{' '}
-              {t(`household.activity.entity.${item.entityType}`)}
-            </Typography>
+            <Typography component="span">{sentence}</Typography>
             {item.viaApiToken && (
               <Chip size="small" variant="outlined" label={t('household.activity.viaToken')} />
             )}
           </Stack>
         }
-        secondary={`${item.summary} · ${formatter.date({
-          value: new Date(item.createdAt),
-          options: { dateStyle: 'medium', timeStyle: 'short' },
-        })}`}
+        secondary={detail ? `${detail} · ${time}` : time}
       />
     </ListItem>
   );

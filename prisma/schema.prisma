@@ -223,6 +223,7 @@ model Transaction {
   createdBy              User?                 @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById            String?               @db.Uuid
   updatedBy              User?                 @relation("TransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem        Boolean               @default(false)
   importedTransactions   ImportedTransaction[]
   files                  TransactionFile[]
 
@@ -265,6 +266,7 @@ model Import {
   createdBy                User?     @relation("ImportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById              String?   @db.Uuid
   updatedBy                User?     @relation("ImportUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem          Boolean   @default(false)
 
   @@index([householdId, deleted, createdAt])
   @@index([mergedIntoImportId])
@@ -301,6 +303,7 @@ model ImportedTransaction {
   createdBy             User?                     @relation("ImportedTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById           String?                   @db.Uuid
   updatedBy             User?                     @relation("ImportedTransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem       Boolean                   @default(false)
   matchingTransaction   Transaction?              @relation(fields: [matchingTransactionId], references: [id])
 
   @@index([importId])
@@ -348,6 +351,7 @@ model ScheduledTransaction {
   createdBy             User?           @relation("ScheduledTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById           String?         @db.Uuid
   updatedBy             User?           @relation("ScheduledTransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem       Boolean         @default(false)
   transactions          Transaction[]
 
   // The cron scans nextRunDate across all households, so it cannot use the
@@ -389,6 +393,7 @@ model UserCategoryMapping {
   createdBy          User?     @relation("UserCategoryMappingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById        String?   @db.Uuid
   updatedBy          User?     @relation("UserCategoryMappingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem    Boolean   @default(false)
   category           Category  @relation(fields: [categoryId], references: [id])
 
   @@unique([householdId, descriptionPattern])
@@ -431,6 +436,7 @@ model AutoApproveRule {
   createdBy          User?           @relation("AutoApproveRuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById        String?         @db.Uuid
   updatedBy          User?           @relation("AutoApproveRuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem    Boolean         @default(false)
   category           Category        @relation(fields: [categoryId], references: [id])
 
   @@index([householdId])
@@ -460,16 +466,17 @@ model DetectedSubscription {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
-  user        User?     @relation(fields: [userId], references: [id])
-  householdId String    @db.Uuid
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user            User?     @relation(fields: [userId], references: [id])
+  householdId     String    @db.Uuid
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
   // Who made the row and who last changed it; null for system writes and rows
   // older than attribution, whose creator was backfilled from userId.
-  createdById String?   @db.Uuid
-  createdBy   User?     @relation("DetectedSubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?   @db.Uuid
-  updatedBy   User?     @relation("DetectedSubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  category    Category? @relation(fields: [categoryId], references: [id])
+  createdById     String?   @db.Uuid
+  createdBy       User?     @relation("DetectedSubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?   @db.Uuid
+  updatedBy       User?     @relation("DetectedSubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBySystem Boolean   @default(false)
+  category        Category? @relation(fields: [categoryId], references: [id])
 
   // Frequency is part of the key but is user-editable, so detection resolves
   // an edited row by merchantName alone before falling back to this key.
@@ -493,6 +500,7 @@ enum HouseholdActivityAction {
   MEMBER_LEFT
   MEMBER_REMOVED
   ROLE_CHANGED
+  API_TOKEN_REVOKED
 }
 
 enum HouseholdEntityType {
@@ -505,6 +513,8 @@ enum HouseholdEntityType {
   SUBSCRIPTION
   INVITE
   MEMBER
+  API_TOKEN
+  ATTACHMENT
 }
 
 // Append-only: who did what in a household, written in the same transaction
@@ -523,8 +533,11 @@ model HouseholdActivity {
   action       HouseholdActivityAction
   entityType   HouseholdEntityType
   entityId     String
-  summary      String
+  // The entity's own words, shown untranslated; null when the action names nothing.
+  summary      String?
+  // The role an invite grants, a member joined with or was given.
+  role         HouseholdRole?
   createdAt    DateTime                @default(now())
 
-  @@index([householdId, createdAt])
+  @@index([householdId, createdAt(sort: Desc), id(sort: Desc)])
 }

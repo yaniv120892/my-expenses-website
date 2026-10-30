@@ -1,6 +1,7 @@
+import { TransactionFileStatus } from '@/generated/prisma/client';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
 import type {
@@ -188,14 +189,14 @@ class TransactionService {
     id: string,
     status: TransactionStatus,
   ): Promise<string> {
-    const transactionId = await householdActivityService.record({
+    const { id: transactionId } = await householdActivityService.record({
       actor,
       write: () => transactionRepository.updateTransactionStatus(actor.householdId, id, status),
-      describe: (updatedId) => ({
+      describe: (updated) => ({
         action: status === 'APPROVED' ? 'APPROVE' : 'UPDATE',
         entityType: 'TRANSACTION',
-        entityId: updatedId,
-        summary: `Status set to ${status}`,
+        entityId: updated.id,
+        summary: updated.description,
       }),
     });
     if (status === 'APPROVED') {
@@ -330,9 +331,10 @@ class TransactionService {
 
     await this.assertTransactionExists(actor.householdId, transactionId);
 
-    await transactionFileRepository.create({
-      transactionId,
-      ...fileData,
+    await householdActivityService.record({
+      actor,
+      write: () => transactionFileRepository.create({ transactionId, ...fileData }),
+      describe: (file) => attachmentActivity({ action: 'CREATE', file }),
     });
 
     logger.debug(
@@ -381,7 +383,14 @@ class TransactionService {
     await this.assertTransactionExists(actor.householdId, transactionId);
     const file = await this.assertTransactionFileExists(fileId, transactionId);
 
-    await transactionFileRepository.markForDeletion(fileId);
+    await householdActivityService.record({
+      actor,
+      write: () => transactionFileRepository.markForDeletion(fileId),
+      describe: () =>
+        file.status === TransactionFileStatus.ACTIVE
+          ? attachmentActivity({ action: 'DELETE', file })
+          : null,
+    });
     logger.debug(`File ${fileId} marked for deletion from transaction ${transactionId}`);
     await this.deleteAttachmentObjectSafe({
       fileKey: file.fileKey,
@@ -642,9 +651,6 @@ class TransactionService {
   }
 }
 
-const transactionService = new TransactionService();
-export default transactionService;
-
 function transactionActivity({
   action,
   transaction,
@@ -659,3 +665,16 @@ function transactionActivity({
     summary: transaction.description,
   };
 }
+
+function attachmentActivity({
+  action,
+  file,
+}: {
+  action: 'CREATE' | 'DELETE';
+  file: { id: string; fileName: string };
+}): ActivityEntry {
+  return { action, entityType: 'ATTACHMENT', entityId: file.id, summary: file.fileName };
+}
+
+const transactionService = new TransactionService();
+export default transactionService;

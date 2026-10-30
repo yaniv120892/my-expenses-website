@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 
 /**
  * Stands in for householdActivityService in a service test that mocks its

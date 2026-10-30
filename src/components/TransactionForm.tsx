@@ -1,6 +1,5 @@
 'use client';
 
-import AttributionLine from '@/components/transactions/AttributionLine';
 import React, { useState } from 'react';
 import {
   Box,
@@ -24,6 +23,7 @@ import { useIsCompact } from '../hooks/useBreakpoints';
 import CategorySelect from './CategorySelect';
 import NotificationSnackbar from './NotificationSnackbar';
 import TransactionAttachments from './TransactionForm/TransactionAttachments';
+import AttributionLine from './transactions/AttributionLine';
 import {
   useRemoveFileMutation,
   useDirectS3UploadForAttachment,
@@ -60,6 +60,7 @@ type TransactionFormType = {
   date: string;
   addedBy?: string | null;
   editedBy?: string | null;
+  addedAutomatically?: boolean;
 };
 
 // The amount field is in `currency`; `baseValue` is the ILS charged, asked
@@ -372,7 +373,11 @@ export default function TransactionForm({
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
           {getDialogTitle()}
-          <AttributionLine addedBy={initialData?.addedBy} editedBy={initialData?.editedBy} />
+          <AttributionLine
+            addedBy={initialData?.addedBy}
+            editedBy={initialData?.editedBy}
+            addedAutomatically={initialData?.addedAutomatically}
+          />
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>

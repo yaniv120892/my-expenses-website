@@ -99,6 +99,7 @@ export type Transaction = {
   /** Usernames of the member who added the row and who last edited it, where known. */
   addedBy?: string | null;
   editedBy?: string | null;
+  addedAutomatically?: boolean;
 } & TransactionAmount;
 
 export type TransactionSummary = {

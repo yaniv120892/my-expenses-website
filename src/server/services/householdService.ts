@@ -6,7 +6,8 @@ import { HouseholdRefusal } from '@/server/services/householdRefusal';
 import { logger } from '@/server/observability';
 import householdRepository from '@/server/repositories/householdRepository';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { PendingInviteRow } from '@/server/repositories/householdRepository.types';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
+import type { MemberMove, PendingInviteRow } from '@/server/repositories/householdRepository.types';
 import { inviteValidator } from '@/server/services/validators/inviteValidator';
 import { generateInviteCode, inviteExpiryFrom } from '@/server/utils/inviteCode';
 import type {
@@ -57,7 +58,8 @@ class HouseholdService {
         action: 'INVITE_CREATED',
         entityType: 'INVITE',
         entityId: created.id,
-        summary: `Invite to join as ${role}`,
+        summary: null,
+        role,
       }),
     });
     logger.info({ householdId: actor.householdId, inviteId: invite.id, role }, 'Invite created');
@@ -80,7 +82,7 @@ class HouseholdService {
               action: 'INVITE_REVOKED',
               entityType: 'INVITE',
               entityId: inviteId,
-              summary: 'Invite revoked',
+              summary: null,
             }
           : null,
     });
@@ -145,7 +147,8 @@ class HouseholdService {
               action: 'MEMBER_JOINED',
               entityType: 'MEMBER',
               entityId: actor.userId,
-              summary: `Joined as ${invite.role}`,
+              summary: null,
+              role: invite.role,
               householdId: toHouseholdId(invite.householdId),
             }
           : null,
@@ -175,14 +178,10 @@ class HouseholdService {
           endSessions: false,
         }),
       describe: (memberMove) =>
-        memberMove
-          ? {
-              action: 'MEMBER_LEFT',
-              entityType: 'MEMBER',
-              entityId: actor.userId,
-              summary: 'Left the household',
-            }
-          : null,
+        memberMove && [
+          { action: 'MEMBER_LEFT', entityType: 'MEMBER', entityId: actor.userId, summary: null },
+          ...this.tokenRevocations(memberMove),
+        ],
     });
     if (!move) {
       throw new HouseholdRefusal({
@@ -195,7 +194,7 @@ class HouseholdService {
       {
         userId: actor.userId,
         householdId: actor.householdId,
-        apiTokensRevoked: move.apiTokensRevoked,
+        apiTokensRevoked: move.revokedApiTokens.length,
         sessionsEnded: false,
       },
       'Member left a household',
@@ -221,12 +220,15 @@ class HouseholdService {
         return memberMove ? { member, memberMove } : null;
       },
       describe: (removed) =>
-        removed && {
-          action: 'MEMBER_REMOVED',
-          entityType: 'MEMBER',
-          entityId: removed.member.id,
-          summary: `Removed ${removed.member.username}`,
-        },
+        removed && [
+          {
+            action: 'MEMBER_REMOVED',
+            entityType: 'MEMBER',
+            entityId: removed.member.id,
+            summary: removed.member.username,
+          },
+          ...this.tokenRevocations(removed.memberMove),
+        ],
     });
     if (!removal) {
       throw new HouseholdRefusal({
@@ -239,7 +241,7 @@ class HouseholdService {
       {
         householdId: actor.householdId,
         memberId,
-        apiTokensRevoked: removal.memberMove.apiTokensRevoked,
+        apiTokensRevoked: removal.memberMove.revokedApiTokens.length,
         sessionsEnded: true,
       },
       'Member removed from a household',
@@ -269,7 +271,8 @@ class HouseholdService {
           action: 'ROLE_CHANGED',
           entityType: 'MEMBER',
           entityId: member.id,
-          summary: `${member.username} is now ${role}`,
+          summary: member.username,
+          role,
         },
     });
     if (!changed) {
@@ -280,6 +283,15 @@ class HouseholdService {
       });
     }
     logger.info({ householdId: actor.householdId, memberId, role }, 'Member role changed');
+  }
+
+  private tokenRevocations(memberMove: MemberMove): ActivityEntry[] {
+    return memberMove.revokedApiTokens.map((token) => ({
+      action: 'API_TOKEN_REVOKED',
+      entityType: 'API_TOKEN',
+      entityId: token.id,
+      summary: token.name,
+    }));
   }
 
   private async joinOrConflict({

@@ -111,13 +111,19 @@ test.describe('household sharing', () => {
     const confirmation = owner.getByRole('dialog');
     await expect(confirmation).toContainText('The link stops working');
     await confirmation.getByRole('button', { name: 'Revoke invite', exact: true }).click();
+    // The revoke is still in flight when the dialog closes.
+    await expect
+      .poll(async () => (await (await owner.request.get('/api/household')).json()).invites)
+      .toEqual([]);
     await expect(owner.getByRole('heading', { name: 'Pending invites' })).toHaveCount(0);
-
-    const household = await owner.request.get('/api/household');
-    expect((await household.json()).invites).toEqual([]);
   });
 
-  test('5. once removed, the editor no longer sees the household data', async () => {
+  test('5. once removed, the editor no longer sees the household data, and Activity says so', async () => {
+    const agentToken = await editor.request.post('/api/api-tokens', {
+      data: { name: 'household-e2e-agent', scopes: ['AGENT'] },
+    });
+    expect(agentToken.status()).toBe(201);
+
     await owner.goto('/settings');
     await owner
       .getByRole('button', { name: `Remove ${HOUSEHOLD_E2E_USERS.editor.username}` })
@@ -129,6 +135,17 @@ test.describe('household sharing', () => {
 
     const afterRemoval = await editor.request.get('/api/transactions');
     expect(afterRemoval.status()).toBe(401);
+
+    await owner.goto('/settings/activity');
+    const activity = owner.getByTestId('household-activity-item');
+    await expect(
+      activity.filter({
+        hasText: `${HOUSEHOLD_E2E_USERS.owner.username} removed ${HOUSEHOLD_E2E_USERS.editor.username} from the household`,
+      }),
+    ).toHaveCount(1);
+    await expect(
+      activity.filter({ hasText: 'The API token "household-e2e-agent" was revoked' }),
+    ).toHaveCount(1);
 
     await editor.context().close();
     editor = await signedInPage(HOUSEHOLD_E2E_USERS.editor);

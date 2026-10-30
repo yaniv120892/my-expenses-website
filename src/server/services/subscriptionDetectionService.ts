@@ -9,7 +9,7 @@ import type {
 } from '@/server/repositories/subscriptionRepository';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import type {

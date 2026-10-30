@@ -425,12 +425,14 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   seven data models carry `createdById`/`updatedById` (null for system writes
   and for rows older than the columns, whose creator was backfilled from
   `userId`), stamped by the `attributionStamp` Prisma extension
-  (`src/server/db/attribution.ts`) from the actor `createHandler` puts in
-  `src/server/db/actorContext.ts` for every member request, so no write path
-  can skip it; a system job stamps nothing. Transactions show "Added by /
-  Edited by" in the list and the edit dialog. Each member-visible change is
+  (`src/server/db/attribution.ts`) from the actor in
+  `src/server/db/actorContext.ts`, which `createHandler` sets for every member
+  request, so no write path can skip it. A system job marks the rows it
+  creates `createdBySystem` and leaves a row it updates alone. Transactions
+  show "Added by / Edited by", or "Added automatically", in the list and the
+  edit dialog. Each member-visible change is
   also appended to `HouseholdActivity` (actor user, API token when the write
-  came through one, or the system job; action, entity, summary) through the
+  came through one, or the system job; action, entity) through the
   one helper `householdActivityService.record({ actor, write, describe })`:
   `write` runs in an interactive transaction that every repository call made
   inside it joins — the default `prisma` export resolves to that transaction
@@ -438,10 +440,14 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   change and its record commit together. Only database work goes inside
   `write`: model calls, storage and notifications stay outside, since the
   transaction holds the instance's one connection. Membership events (invite
-  created or revoked, joined, left, removed, role changed) are recorded the
-  same way. Settings → Activity (`/settings/activity`,
-  `GET /api/household/activity`) pages it newest first; it is the only trace
-  of a delete.
+  created or revoked, joined, left, removed, role changed, and each API token
+  a leave or removal revokes) are recorded the same way. A delete that
+  changes nothing records nothing. An entry stores only the entity's own
+  words (`summary`: a description, file name, member or token name) and a
+  `role`; Settings → Activity (`/settings/activity`,
+  `GET /api/household/activity`) words the sentence in the reader's language
+  (`src/utils/householdActivityText.ts`) and pages it newest first. It is the
+  only trace of a delete.
 - **Every household-owned row is read and written by `householdId`.** The
   models whose `IS_HOUSEHOLD_OWNED` entry is true
   (`src/server/db/householdScope.ts`) carry a required `householdId`, and

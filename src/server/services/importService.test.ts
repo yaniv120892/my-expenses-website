@@ -1388,10 +1388,12 @@ describe('deleteImport', () => {
   it('deletes the rows with the import in one batch, so none stays approvable', async () => {
     importRepo.softDeleteOp.mockReturnValue({ op: 'deleteImport' });
     importedTxRepo.softDeleteByImportIdOp.mockReturnValue({ op: 'deleteRows' });
-    prismaMock.$transaction.mockResolvedValue([
-      { id: 'imp-1', originalFileName: 'march.xlsx' },
-      { count: 3 },
-    ]);
+    importRepo.findById.mockResolvedValue({
+      id: 'imp-1',
+      originalFileName: 'march.xlsx',
+      deleted: false,
+    });
+    prismaMock.$transaction.mockResolvedValue([{ id: 'imp-1' }, { count: 3 }]);
 
     await importService.deleteImport(actor, 'imp-1');
 
@@ -1406,9 +1408,30 @@ describe('deleteImport', () => {
       { op: 'deleteRows' },
     ]);
   });
+
+  it('records nothing when the import was already deleted', async () => {
+    importRepo.findById.mockResolvedValue({
+      id: 'imp-1',
+      originalFileName: 'march.xlsx',
+      deleted: true,
+    });
+    prismaMock.$transaction.mockResolvedValue([{ id: 'imp-1' }, { count: 0 }]);
+
+    await importService.deleteImport(actor, 'imp-1');
+
+    expect(activity.entries).toEqual([]);
+  });
 });
 
 describe('deleteImportedTransaction', () => {
+  it('records nothing when the row was already deleted', async () => {
+    importedTxRepo.findById.mockResolvedValue(pendingRow({ deleted: true }));
+
+    await importService.deleteImportedTransaction(actor, 'r1');
+
+    expect(activity.entries).toEqual([]);
+  });
+
   it('records the deleted row under the description it had', async () => {
     importedTxRepo.findById.mockResolvedValue(pendingRow({ deleted: false }));
 

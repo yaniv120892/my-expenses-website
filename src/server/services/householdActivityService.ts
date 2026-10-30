@@ -1,23 +1,11 @@
-import type {
-  HouseholdActivityAction,
-  HouseholdEntityType,
-  Prisma,
-} from '@/generated/prisma/client';
+import type { Prisma } from '@/generated/prisma/client';
 import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
 import { runInTransaction } from '@/server/db/actorContext';
-import prisma from '@/server/db/client';
+import prisma, { CONNECTION_WAIT_MS } from '@/server/db/client';
 import householdActivityRepository from '@/server/repositories/householdActivityRepository';
-import type { HouseholdActivityRow } from '@/server/repositories/householdActivityRepository';
+import type { HouseholdActivityRow } from '@/server/repositories/householdActivityRepository.types';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import type { HouseholdActivityPage } from '@/shared/types/householdActivity';
-
-export type ActivityEntry = {
-  action: HouseholdActivityAction;
-  entityType: HouseholdEntityType;
-  entityId: string;
-  summary: string;
-  /** The actor's household unless named: a member who joins is recorded in the one they join. */
-  householdId?: HouseholdId;
-};
 
 type ActivityDescription = ActivityEntry | ActivityEntry[] | null;
 
@@ -39,12 +27,16 @@ class HouseholdActivityService {
     write: () => Promise<Result>;
     describe: (result: Result) => ActivityDescription;
   }): Promise<Result> {
-    return prisma.$transaction(async (transaction) =>
-      runInTransaction({ actor, transaction }, async () => {
-        const result = await write();
-        await householdActivityRepository.append(this.toRows(actor, describe(result)));
-        return result;
-      }),
+    // Prisma's default 2s wait for a transaction's connection would fail a
+    // write that, outside a transaction, queues for the pool's one connection.
+    return prisma.$transaction(
+      async (transaction) =>
+        runInTransaction({ actor, transaction }, async () => {
+          const result = await write();
+          await householdActivityRepository.append(this.toRows(actor, describe(result)));
+          return result;
+        }),
+      { maxWait: CONNECTION_WAIT_MS },
     );
   }
 
@@ -99,6 +91,7 @@ class HouseholdActivityService {
       entityType: row.entityType,
       entityId: row.entityId,
       summary: row.summary,
+      role: row.role,
       actorName: row.actorUser?.username ?? null,
       viaApiToken: row.actorTokenId !== null,
       systemJob: row.systemJob,

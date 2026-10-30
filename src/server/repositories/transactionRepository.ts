@@ -298,14 +298,15 @@ class TransactionRepository {
     householdId: HouseholdId,
     id: string,
     status: TransactionStatus,
-  ): Promise<string> {
-    const transaction = await prisma.transaction
+  ): Promise<{ id: string; description: string }> {
+    const updated = await prisma.transaction
       .update({
         where: { id, householdId },
         data: { status },
+        select: { id: true, description: true },
       })
       .catch(throwNotFoundOnMissingRow);
-    return transaction.id;
+    return updated;
   }
 
   public async getTransactionItem(
@@ -341,6 +342,7 @@ class TransactionRepository {
       },
       addedBy: transaction.createdBy?.username ?? null,
       editedBy: transaction.updatedBy?.username ?? null,
+      addedAutomatically: transaction.createdBySystem,
       files:
         transaction.files?.map((file) => ({
           id: file.id,

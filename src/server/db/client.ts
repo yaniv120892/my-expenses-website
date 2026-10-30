@@ -7,6 +7,8 @@ import { householdScopeGuard } from '@/server/db/householdScope';
 import { requireEnv } from '@/server/env';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
+export const CONNECTION_WAIT_MS = 10_000;
+
 function createPrismaClient() {
   return new PrismaClient({
     // No statementNameGenerator, so every statement is unnamed and safe in a
@@ -15,7 +17,7 @@ function createPrismaClient() {
     adapter: new PrismaPg({
       connectionString: withVerifyFullSslMode(requireEnv('DATABASE_URL')),
       max: 1,
-      connectionTimeoutMillis: 10_000,
+      connectionTimeoutMillis: CONNECTION_WAIT_MS,
     }),
     log: ['warn', 'error'],
   })

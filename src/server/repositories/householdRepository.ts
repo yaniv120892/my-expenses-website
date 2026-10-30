@@ -236,8 +236,14 @@ class HouseholdRepository {
         await transaction.household.delete({ where: { id: household.id } });
         return null;
       }
-      const revoked = await transaction.apiToken.deleteMany({ where: { userId: memberId } });
-      return { apiTokensRevoked: revoked.count };
+      const revokedApiTokens = await transaction.apiToken.findMany({
+        where: { userId: memberId },
+        select: { id: true, name: true },
+      });
+      await transaction.apiToken.deleteMany({
+        where: { id: { in: revokedApiTokens.map((token) => token.id) } },
+      });
+      return { revokedApiTokens };
     });
   }
 

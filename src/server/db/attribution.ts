@@ -1,12 +1,18 @@
 import { Prisma } from '@/generated/prisma/client';
+import type { HouseholdActor } from '@/server/auth/householdActor.types';
 import { currentActorContext } from '@/server/db/actorContext';
 import { isHouseholdOwnedModel } from '@/server/db/householdScope';
 
+type WriteStamp = {
+  created: Record<string, string | boolean>;
+  updated: Record<string, string>;
+};
+
 /**
  * Stamps `createdById` and `updatedById` on every household-owned row a
- * member's request writes, whichever path the write takes. A system job
- * stamps nothing, so its rows read as made by no member and a row it touches
- * keeps the member who last edited it.
+ * member's request writes, whichever path the write takes. A system job marks
+ * the rows it creates `createdBySystem` and leaves a row it updates alone, so
+ * that row keeps the member who last edited it.
  */
 export function attributionStamp() {
   return Prisma.defineExtension({
@@ -15,27 +21,36 @@ export function attributionStamp() {
       $allModels: {
         $allOperations: ({ model, operation, args, query }) => {
           const actor = currentActorContext()?.actor;
-          if (actor?.kind !== 'member' || !isAttributedModel(model)) {
+          if (!actor || !isAttributedModel(model)) {
             return query(args);
           }
-          return query(stampWrite({ operation, args, userId: actor.userId }));
+          return query(stampWrite({ operation, args, stamp: stampFor(actor) }));
         },
       },
     },
   });
 }
 
+export function stampFor(actor: HouseholdActor): WriteStamp {
+  switch (actor.kind) {
+    case 'member':
+      return { created: { createdById: actor.userId }, updated: { updatedById: actor.userId } };
+    case 'system':
+      return { created: { createdBySystem: true }, updated: {} };
+    default:
+      throw new Error(`Unhandled actor kind: ${actor satisfies never}`);
+  }
+}
+
 export function stampWrite<Arguments extends object>({
   operation,
   args,
-  userId,
+  stamp: { created, updated },
 }: {
   operation: string;
   args: Arguments;
-  userId: string;
+  stamp: WriteStamp;
 }): Arguments {
-  const created = { createdById: userId };
-  const updated = { updatedById: userId };
   const data = field(args, 'data');
   switch (operation) {
     case 'create':

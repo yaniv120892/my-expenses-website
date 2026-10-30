@@ -20,7 +20,7 @@ import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRule
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
 import type { HouseholdActor, HouseholdId, MemberActor } from '@/server/auth/householdActor.types';
@@ -474,12 +474,18 @@ class ImportService {
   public async deleteImport(actor: HouseholdActor, importId: string) {
     await householdActivityService.record({
       actor,
-      write: () =>
-        prisma.$transaction([
+      write: async () => {
+        const existing = await importRepository.findById(actor.householdId, importId);
+        await prisma.$transaction([
           importRepository.softDeleteOp(actor.householdId, importId),
           importedTransactionRepository.softDeleteByImportIdOp(actor.householdId, importId),
-        ]),
-      describe: ([deletedImport]) => importActivity('DELETE', deletedImport),
+        ]);
+        return existing;
+      },
+      describe: (existing) => {
+        const wasLive = existing !== null && !existing.deleted;
+        return wasLive ? importActivity('DELETE', existing) : null;
+      },
     });
   }
 
@@ -487,14 +493,17 @@ class ImportService {
     await householdActivityService.record({
       actor,
       write: async () => {
-        const row = await importedTransactionRepository.findById(
+        const existing = await importedTransactionRepository.findById(
           actor.householdId,
           importedTransactionId,
         );
         await importedTransactionRepository.softDelete(actor.householdId, importedTransactionId);
-        return row;
+        return existing;
       },
-      describe: (deleted) => deleted && importedRowActivity('DELETE', deleted),
+      describe: (existing) => {
+        const wasLive = existing !== null && !existing.deleted;
+        return wasLive ? importedRowActivity('DELETE', existing) : null;
+      },
     });
   }
 

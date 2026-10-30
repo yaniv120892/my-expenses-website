@@ -1,7 +1,7 @@
 import scheduledTransactionRepository from '@/server/repositories/scheduledTransactionRepository';
 import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import transactionService from '@/server/services/transactionService';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
 import type {

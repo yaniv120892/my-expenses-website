@@ -1,10 +1,7 @@
 import type { Prisma } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
-
-export type HouseholdActivityRow = Prisma.HouseholdActivityGetPayload<{
-  include: { actorUser: { select: { username: true } } };
-}>;
+import type { HouseholdActivityRow } from '@/server/repositories/householdActivityRepository.types';
 
 class HouseholdActivityRepository {
   public async append(rows: Prisma.HouseholdActivityCreateManyInput[]): Promise<void> {

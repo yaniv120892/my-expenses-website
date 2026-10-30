@@ -3,7 +3,7 @@ import type { AutoApproveRule } from '@/generated/prisma/client';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { ActivityEntry } from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import type {
   createAutoApproveRuleSchema,
   updateAutoApproveRuleSchema,

@@ -12,7 +12,14 @@ describe('safeNextPath', () => {
     'https://evil.example/join',
     '//evil.example/join',
     '/\\evil.example',
+    '/\\/evil.example',
     'javascript:alert(1)',
+    '/\t/evil.example',
+    '/\n/evil.example',
+    '/\r/evil.example',
+    '/\u0000/evil.example',
+    '/\u007f/evil.example',
+    '/dashboard\n',
   ])('refuses %s', (value) => {
     expect(safeNextPath(value)).toBeNull();
   });

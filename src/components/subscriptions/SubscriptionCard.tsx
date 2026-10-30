@@ -24,6 +24,7 @@ type Props = {
   onConvert: (subscription: DetectedSubscription) => void;
   onEdit: (subscription: DetectedSubscription) => void;
   onExplain: (subscription: DetectedSubscription) => void;
+  readOnly?: boolean;
 };
 
 function frequencyColor(frequency: string): 'primary' | 'secondary' | 'warning' {
@@ -59,6 +60,7 @@ export default function SubscriptionCard({
   onConvert,
   onEdit,
   onExplain,
+  readOnly = false,
 }: Props) {
   const t = useT();
   const formatter = useAppFormat();
@@ -228,7 +230,7 @@ export default function SubscriptionCard({
             pt: 1,
           }}
         >
-          {subscription.status === 'DETECTED' && (
+          {!readOnly && subscription.status === 'DETECTED' && (
             <>
               <Button variant="contained" size="small" onClick={() => onConfirm(subscription.id)}>
                 {t('subscriptions.card.confirm')}
@@ -243,13 +245,15 @@ export default function SubscriptionCard({
               </Button>
             </>
           )}
-          <Button variant="outlined" size="small" onClick={() => onEdit(subscription)}>
-            {t('subscriptions.card.edit')}
-          </Button>
+          {!readOnly && (
+            <Button variant="outlined" size="small" onClick={() => onEdit(subscription)}>
+              {t('subscriptions.card.edit')}
+            </Button>
+          )}
           <Button size="small" onClick={() => onExplain(subscription)}>
             {t('subscriptions.card.explain')}
           </Button>
-          {subscription.status !== 'DISMISSED' && !scheduleMatch && (
+          {!readOnly && subscription.status !== 'DISMISSED' && !scheduleMatch && (
             <Button variant="outlined" size="small" onClick={() => onConvert(subscription)}>
               {t('subscriptions.card.convert')}
             </Button>

@@ -86,6 +86,25 @@ test.describe('household sharing', () => {
     expect(transactions).not.toContain('Viewer write');
   });
 
+  test('4b. the owner copies a pending invite link, and revokes it only after confirming', async () => {
+    await owner.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const pendingLink = await createInvite(owner, 'Viewer');
+
+    await owner.reload();
+    await owner.getByRole('button', { name: 'Copy link', exact: true }).click();
+    await expect(owner.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    expect(await owner.evaluate(() => navigator.clipboard.readText())).toBe(pendingLink);
+
+    await owner.getByRole('button', { name: 'Revoke invite', exact: true }).click();
+    const confirmation = owner.getByRole('dialog');
+    await expect(confirmation).toContainText('The link stops working');
+    await confirmation.getByRole('button', { name: 'Revoke invite', exact: true }).click();
+    await expect(owner.getByRole('heading', { name: 'Pending invites' })).toHaveCount(0);
+
+    const household = await owner.request.get('/api/household');
+    expect((await household.json()).invites).toEqual([]);
+  });
+
   test('5. once removed, the editor no longer sees the household data', async () => {
     await owner.goto('/settings');
     await owner

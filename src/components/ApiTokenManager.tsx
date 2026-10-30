@@ -29,6 +29,7 @@ import {
 import { API_TOKEN_SCOPES } from '@/shared/types/apiToken';
 import type { ApiTokenScope, ApiTokenSummary } from '@/types/apiToken';
 import { describeApiError } from '@/utils/api';
+import { useCanWrite } from '@/hooks/useSession';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import CopyableText from '@/components/CopyableText';
@@ -36,12 +37,23 @@ import RevokeTokenDialog from '@/components/RevokeTokenDialog';
 
 const STATEMENTS_IMPORT_COMMAND = 'npm run statements:import';
 
+// A viewer's token is refused every write, so it is offered only the scopes
+// that still do something for one.
+const SCOPE_SERVES_A_VIEWER = {
+  IMPORTS: false,
+  AGENT: true,
+} as const satisfies Record<ApiTokenScope, boolean>;
+
 export default function ApiTokenManager() {
   const t = useT();
   const formatter = useAppFormat();
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
+  const canWrite = useCanWrite();
+  const offeredScopes = API_TOKEN_SCOPES.filter(
+    (scope) => canWrite || SCOPE_SERVES_A_VIEWER[scope],
+  );
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<ApiTokenScope[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
@@ -108,7 +120,7 @@ export default function ApiTokenManager() {
         </Button>
       </Stack>
       <FormGroup>
-        {API_TOKEN_SCOPES.map((scope) => (
+        {offeredScopes.map((scope) => (
           <FormControlLabel
             key={scope}
             control={

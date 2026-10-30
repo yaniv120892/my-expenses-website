@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { AxiosError } from 'axios';
 import api from '@/services/api';
+import { householdErrorCode } from '@/utils/householdError';
 import { logout } from '@/services/authClient';
 
 vi.mock('@/services/authClient', () => ({ logout: vi.fn() }));
@@ -34,7 +35,7 @@ describe('api 401 interceptor', () => {
 
     expect(results.every((r) => r.status === 'rejected')).toBe(true);
     expect(logout).toHaveBeenCalledTimes(1);
-    expect(location.href).toBe('https://app.test/login?reason=session-expired');
+    expect(location.href).toBe('https://app.test/login?reason=session-expired&next=%2Fdashboard');
   });
 
   it('still redirects when the logout request fails', async () => {
@@ -45,7 +46,7 @@ describe('api 401 interceptor', () => {
 
     await expect(freshApi.get('/api/x', { adapter: rejectWith401() })).rejects.toThrow();
 
-    expect(location.href).toBe('https://app.test/login?reason=session-expired');
+    expect(location.href).toBe('https://app.test/login?reason=session-expired&next=%2Fdashboard');
   });
 });
 
@@ -66,12 +67,39 @@ describe('api error messages', () => {
       'Amount must be positive',
     );
   });
+
+  it('parses a JSON error that arrived as a Blob, so its code can be read', async () => {
+    const rejectWithBlob = (config: InternalAxiosRequestConfig) =>
+      Promise.reject(
+        new AxiosError('Request failed with status code 409', '409', config, null, {
+          status: 409,
+          statusText: 'Conflict',
+          headers: {},
+          config,
+          data: new Blob([
+            JSON.stringify({ error: 'Conflict', message: 'In use', code: 'HOUSEHOLD_IN_USE' }),
+          ]),
+        }),
+      );
+
+    let failure: unknown = null;
+    try {
+      await api.get('/api/x', { adapter: rejectWithBlob, responseType: 'blob' });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).toHaveProperty('message', 'In use');
+    expect(householdErrorCode(failure)).toBe('HOUSEHOLD_IN_USE');
+  });
 });
 
 function stubLocation() {
   const location = {
     origin: 'https://app.test',
     pathname: '/dashboard',
+    search: '',
     href: 'https://app.test/dashboard',
   };
   vi.stubGlobal('window', { location });

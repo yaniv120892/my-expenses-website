@@ -8,7 +8,7 @@ import { AuthCard } from '@yaniv120892/my-ui';
 import { useInvitePreviewQuery, useJoinHouseholdMutation } from '@/hooks/useHouseholdQuery';
 import { useT } from '@/i18n/useT';
 import type { InvitePreview } from '@/shared/types/household';
-import { describeApiError } from '@/utils/api';
+import { describeHouseholdError } from '@/utils/householdError';
 
 function JoinHousehold() {
   const t = useT();
@@ -27,7 +27,11 @@ function JoinHousehold() {
     );
   }
   if (preview.error || !preview.data) {
-    return <Alert severity="error">{t('join.invalid')}</Alert>;
+    return (
+      <Alert severity="error">
+        {describeHouseholdError({ error: preview.error, fallback: t('join.invalid'), t })}
+      </Alert>
+    );
   }
   return <JoinOffer invite={preview.data} />;
 }
@@ -74,7 +78,9 @@ function JoinOffer({ invite }: { invite: InvitePreview }) {
             {t(`household.roleHint.${invite.role}`)}
           </Typography>
           {joinMutation.error && (
-            <Alert severity="error">{describeApiError(joinMutation.error, t('join.failed'))}</Alert>
+            <Alert severity="error">
+              {describeHouseholdError({ error: joinMutation.error, fallback: t('join.failed'), t })}
+            </Alert>
           )}
           <Button
             variant="contained"

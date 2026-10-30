@@ -1,9 +1,11 @@
 import type { ZodError } from 'zod';
 
+/** `code` is a stable, machine-readable reason a client can localize instead of `message`. */
 export class HttpError extends Error {
   public constructor(
     public readonly status: number,
     message: string,
+    public readonly code?: string,
   ) {
     super(message);
   }

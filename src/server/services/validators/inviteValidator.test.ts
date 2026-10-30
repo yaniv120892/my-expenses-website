@@ -58,12 +58,14 @@ describe('assertCanRedeem', () => {
     await expect(inviteValidator.assertCanRedeem('ABCD2345', NOW)).rejects.toMatchObject({
       status: 404,
       message: NOT_REDEEMABLE,
+      code: 'INVITE_INVALID',
     });
   });
 
   it('never queries for a code of the wrong length', async () => {
     await expect(inviteValidator.assertCanRedeem('ABC', NOW)).rejects.toMatchObject({
       status: 404,
+      code: 'INVITE_INVALID',
     });
     expect(repository.findInviteByCode).not.toHaveBeenCalled();
   });

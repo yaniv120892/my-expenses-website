@@ -1,24 +1,14 @@
-import type { HouseholdRole, Invite } from '@/generated/prisma/client';
+import type { Invite } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
 import type { IS_HOUSEHOLD_OWNED } from '@/server/db/householdScope';
+import type {
+  HouseholdMemberRow,
+  MemberMove,
+  PendingInviteRow,
+} from '@/server/repositories/householdRepository.types';
 import type { InvitableRole } from '@/shared/types/household';
-
-export type HouseholdMemberRow = {
-  id: string;
-  username: string;
-  email: string;
-  householdRole: HouseholdRole;
-};
-
-export type PendingInviteRow = {
-  id: string;
-  code: string;
-  role: HouseholdRole;
-  expiresAt: Date;
-  createdAt: Date;
-};
 
 const MEMBER_SELECT = {
   id: true,
@@ -43,17 +33,19 @@ type HouseholdOwnedModel = {
 
 const ANY_ROW = { select: { id: true } } as const;
 
+const LIVE = { deleted: false } as const;
+
 // Keyed by every household-owned model, so a new one fails to compile until the
-// join check covers it.
-const FIND_ANY_OWNED_ROW: Record<
+// join check covers it. A soft-deleted row does not count: the join purges it.
+const FIND_ANY_LIVE_OWNED_ROW: Record<
   HouseholdOwnedModel,
   (householdId: HouseholdId) => Promise<unknown>
 > = {
   Transaction: (householdId) =>
     prisma.transaction.findFirst({ where: { householdId }, ...ANY_ROW }),
-  Import: (householdId) => prisma.import.findFirst({ where: { householdId }, ...ANY_ROW }),
+  Import: (householdId) => prisma.import.findFirst({ where: { householdId, ...LIVE }, ...ANY_ROW }),
   ImportedTransaction: (householdId) =>
-    prisma.importedTransaction.findFirst({ where: { householdId }, ...ANY_ROW }),
+    prisma.importedTransaction.findFirst({ where: { householdId, ...LIVE }, ...ANY_ROW }),
   ScheduledTransaction: (householdId) =>
     prisma.scheduledTransaction.findFirst({ where: { householdId }, ...ANY_ROW }),
   UserCategoryMapping: (householdId) =>
@@ -94,7 +86,7 @@ class HouseholdRepository {
     return owner?.username ?? null;
   }
 
-  /** Another member or any household-owned row, either of which keeps the household. */
+  /** Another member or any live household-owned row, either of which keeps the household. */
   public async hasAnythingAJoinWouldOrphan({
     householdId,
     memberId,
@@ -109,7 +101,7 @@ class HouseholdRepository {
     if (otherMember) {
       return true;
     }
-    for (const findAnyRow of Object.values(FIND_ANY_OWNED_ROW)) {
+    for (const findAnyRow of Object.values(FIND_ANY_LIVE_OWNED_ROW)) {
       if (await findAnyRow(householdId)) {
         return true;
       }
@@ -165,10 +157,11 @@ class HouseholdRepository {
 
   /**
    * Claims the invite, moves the member in with the invite's role, and drops
-   * the household they leave. The claim is guarded on the invite still being
-   * open, so of two concurrent redemptions one updates no row; dropping the
-   * old household fails on its foreign keys if it gained a member or a row
-   * since it was checked. Either rolls the whole move back.
+   * the household they leave along with its soft-deleted imports. The claim is
+   * guarded on the invite still being open, so of two concurrent redemptions
+   * one updates no row; dropping the old household fails on its foreign keys
+   * if it gained a member or a live row since it was checked. Either rolls the
+   * whole move back.
    */
   public async joinHousehold({
     invite,
@@ -193,14 +186,23 @@ class HouseholdRepository {
         where: { id: memberId },
         data: { householdId: invite.householdId, householdRole: invite.role },
       });
+      await transaction.importedTransaction.deleteMany({
+        where: { householdId: leavingHouseholdId, deleted: true },
+      });
+      await transaction.import.deleteMany({
+        where: { householdId: leavingHouseholdId, deleted: true },
+      });
       await transaction.household.delete({ where: { id: leavingHouseholdId } });
       return 'joined';
     });
   }
 
   /**
-   * Gives a member a fresh, empty household of their own, as its owner.
+   * Gives a member a fresh, empty household of their own, as its owner, and
+   * revokes their API tokens, which carry no household of their own and would
+   * otherwise keep acting for an agent set up in the household they left.
    * `endSessions` bumps their token version, signing them out everywhere.
+   * Null when there is no such non-owner member of `fromHouseholdId`.
    */
   public async moveToOwnHousehold({
     fromHouseholdId,
@@ -210,7 +212,7 @@ class HouseholdRepository {
     fromHouseholdId: HouseholdId;
     memberId: string;
     endSessions: boolean;
-  }): Promise<boolean> {
+  }): Promise<MemberMove | null> {
     return prisma.$transaction(async (transaction) => {
       const household = await transaction.household.create({ data: {} });
       const moved = await transaction.user.updateMany({
@@ -223,9 +225,10 @@ class HouseholdRepository {
       });
       if (moved.count === 0) {
         await transaction.household.delete({ where: { id: household.id } });
-        return false;
+        return null;
       }
-      return true;
+      const revoked = await transaction.apiToken.deleteMany({ where: { userId: memberId } });
+      return { apiTokensRevoked: revoked.count };
     });
   }
 

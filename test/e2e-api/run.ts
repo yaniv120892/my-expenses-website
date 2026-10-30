@@ -1440,6 +1440,139 @@ async function householdLeakGuardFlow(attacker: { token: string }, victim: Owner
     after === before,
     after === before ? 'unchanged' : 'rows changed',
   );
+
+  await householdMembershipLeakGuard({ token, victim });
+}
+
+/**
+ * The owner-only member and invite routes, aimed at another household's
+ * invite and member. Invites and users are not household-owned rows, so the
+ * snapshot above does not cover them; this compares them directly.
+ */
+async function householdMembershipLeakGuard({
+  token,
+  victim,
+}: {
+  token: string;
+  victim: Owner;
+}): Promise<void> {
+  const inviteId = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "Invite" (id, "householdId", code, role, "createdById", "expiresAt")
+       values (gen_random_uuid(), $1, 'LEAKGRD2', 'EDITOR', $2, now() + interval '7 days') returning id`,
+      [victim.householdId, victim.id],
+    ),
+    what: "the other household's invite",
+  }).id;
+  const memberId = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "User" (id, username, email, password, verified, "householdId", "householdRole")
+       values (gen_random_uuid(), 'e2e-leak-member', 'leak-member@e2e.test', 'unused', true, $1, 'EDITOR')
+       returning id`,
+      [victim.householdId],
+    ),
+    what: "the other household's member",
+  }).id;
+  const snapshotMembership = async () =>
+    JSON.stringify([
+      await query(
+        `select id, "usedAt", "revokedAt" from "Invite" where "householdId" = $1 order by id`,
+        [victim.householdId],
+      ),
+      await query(
+        `select id, "householdRole", "tokenVersion" from "User" where "householdId" = $1 order by id`,
+        [victim.householdId],
+      ),
+    ]);
+  const before = await snapshotMembership();
+
+  const writes: [string, string, unknown?][] = [
+    ['DELETE', `/api/household/invites/${inviteId}`],
+    ['PATCH', `/api/household/members/${memberId}`, { role: 'VIEWER' }],
+    ['DELETE', `/api/household/members/${memberId}`],
+  ];
+  for (const [method, path, body] of writes) {
+    const result = await api(method, path, { token, body });
+    check(
+      `household leak guard: ${method} ${path.replace(/[0-9a-f-]{36}/g, ':id')} finds nothing`,
+      result.status === 404,
+      `status ${result.status} ${preview(JSON.stringify(result.body))}`,
+    );
+  }
+
+  const after = await snapshotMembership();
+  check(
+    "household leak guard: the other household's invites and members are untouched",
+    after === before,
+    after === before ? 'unchanged' : 'invites or members changed',
+  );
+}
+
+/**
+ * A member's API tokens carry no household, so they would keep acting for an
+ * agent set up in the household the member left. Leaving and being removed
+ * both revoke them.
+ */
+async function memberTokenRevocationFlow(): Promise<void> {
+  const password = 'e2e-household-password';
+  const passwordHash = await hash(password, 10);
+  const signIn = async (username: string) => {
+    const email = `${username}@e2e.test`;
+    const user = await insertVerifiedUser({ username, email, passwordHash });
+    const login = await api<{ token?: string }>('POST', '/api/auth/login', {
+      body: { email, password },
+    });
+    return { id: user.id, token: login.body?.token ?? '' };
+  };
+  const { token: ownerToken } = await signIn('e2e-token-owner');
+  const { id: memberId, token: memberToken } = await signIn('e2e-token-member');
+
+  const joinAndMintToken = async (): Promise<string> => {
+    const invite = await api<{ code?: string }>('POST', '/api/household/invites', {
+      token: ownerToken,
+      body: { role: 'EDITOR' },
+    });
+    const joined = await api('POST', '/api/household/join', {
+      token: memberToken,
+      body: { code: invite.body?.code ?? '' },
+    });
+    const minted = await api<{ token?: string }>('POST', '/api/api-tokens', {
+      token: memberToken,
+      body: { name: 'member script', scopes: ['IMPORTS'] },
+    });
+    const apiToken = minted.body?.token ?? '';
+    const works = await api('GET', '/api/imports', { token: apiToken });
+    check(
+      "household tokens: a member's API token works while they are in the household",
+      invite.status === 201 && joined.status === 200 && works.status === 200,
+      `invite ${invite.status}, join ${joined.status}, token use ${works.status}`,
+    );
+    return apiToken;
+  };
+
+  const tokenBeforeLeaving = await joinAndMintToken();
+  const left = await api('POST', '/api/household/leave', { token: memberToken });
+  const afterLeaving = await api('GET', '/api/imports', { token: tokenBeforeLeaving });
+  check(
+    "household tokens: leaving revokes the member's API tokens",
+    left.status === 200 &&
+      afterLeaving.status === 401 &&
+      errorCode(afterLeaving) === 'INVALID_API_TOKEN',
+    `leave ${left.status}, then ${afterLeaving.status}`,
+  );
+
+  const tokenBeforeRemoval = await joinAndMintToken();
+  const removed = await api('DELETE', `/api/household/members/${memberId}`, {
+    token: ownerToken,
+  });
+  const afterRemoval = await api('GET', '/api/imports', { token: tokenBeforeRemoval });
+  check(
+    "household tokens: removal revokes the member's API tokens",
+    removed.status === 204 &&
+      afterRemoval.status === 401 &&
+      errorCode(afterRemoval) === 'INVALID_API_TOKEN',
+    `remove ${removed.status}, then ${afterRemoval.status}`,
+  );
 }
 
 function isEmptyArray(body: unknown): boolean {
@@ -1646,6 +1779,7 @@ async function main(): Promise<void> {
   await variableAmountPlaceholderFlow(seeded.userA.token, apiToken, seeded.userA);
   await apiTokenRevocationFlow(seeded.userA.token, apiToken);
   await householdLeakGuardFlow(seeded.userA, seeded.userB);
+  await memberTokenRevocationFlow();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

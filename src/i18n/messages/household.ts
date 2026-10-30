@@ -15,7 +15,7 @@ const en = {
   'household.memberRole': 'Role of {name}',
   'household.remove': 'Remove',
   'household.removeConfirm':
-    'Remove {name} from your household? They keep their login but lose access to this data.',
+    "Remove {name} from your household? They are signed out everywhere, lose access to this household's data, and any agent or API access they set up stops working. They keep their login and start again with an empty household of their own.",
   'household.removeFailed': 'Failed to remove the member',
   'household.roleChangeFailed': 'Failed to change the role',
   'household.invite.title': 'Invite someone',
@@ -27,13 +27,28 @@ const en = {
     'Send this link to the person you are inviting. It works once and expires on {date}.',
   'household.invite.pending': 'Pending invites',
   'household.invite.expires': 'Expires {date}',
-  'household.invite.revoke': 'Revoke',
+  'household.invite.revoke': 'Revoke invite',
+  'household.invite.revokeConfirm':
+    'Revoke this invite? The link stops working, and no one can join with it.',
+  'household.invite.copyLink': 'Copy link',
   'household.invite.revokeFailed': 'Failed to revoke the invite',
   'household.memberOf': "You are a member of {owner}'s household, as {role}.",
   'household.leave': 'Leave household',
   'household.leaveConfirm':
-    'Leave this household? You will start again with an empty household of your own.',
+    'Leave this household? You lose access to its data, and any agent or API access you set up stops working. You start again with an empty household of your own.',
   'household.leaveFailed': 'Failed to leave the household',
+  'household.error.INVITE_INVALID':
+    'This invite link is not valid. It may have expired or been used.',
+  'household.error.INVITE_TAKEN':
+    'Someone else used this invite a moment ago. Ask for a new invite link.',
+  'household.error.INVITE_NOT_FOUND': 'This invite is no longer pending.',
+  'household.error.HOUSEHOLD_IN_USE':
+    'You already have data or other members in your own household, so you cannot join another one.',
+  'household.error.NOT_HOUSEHOLD_OWNER':
+    'Only the owner of this household can manage its members and invites.',
+  'household.error.OWNER_CANNOT_LEAVE': 'As the owner, you cannot leave this household.',
+  'household.error.OWNER_OWN_MEMBERSHIP': 'As the owner, you cannot change your own membership.',
+  'household.error.MEMBER_NOT_FOUND': 'This person is no longer a member of the household.',
 
   'join.title': 'Join a household',
   'join.checking': 'Checking the invite…',
@@ -65,7 +80,7 @@ export const householdMessages: Dictionary<typeof en> = {
     'household.memberRole': 'התפקיד של {name}',
     'household.remove': 'הסרה',
     'household.removeConfirm':
-      'להסיר את {name} ממשק הבית? החשבון נשאר, אבל הגישה לנתונים האלה תיחסם.',
+      'להסיר את {name} ממשק הבית? הם ינותקו מכל המכשירים, הגישה שלהם לנתוני משק הבית תיחסם, וכל גישה של סוכן או API שהגדירו תפסיק לעבוד. החשבון שלהם נשאר, והם יתחילו מחדש עם משק בית ריק משלהם.',
     'household.removeFailed': 'הסרת החבר נכשלה',
     'household.roleChangeFailed': 'שינוי התפקיד נכשל',
     'household.invite.title': 'הזמנת חבר',
@@ -77,12 +92,26 @@ export const householdMessages: Dictionary<typeof en> = {
       'שלחו את הקישור לאדם שאתם מזמינים. הוא עובד פעם אחת ותוקפו עד {date}.',
     'household.invite.pending': 'הזמנות ממתינות',
     'household.invite.expires': 'בתוקף עד {date}',
-    'household.invite.revoke': 'ביטול',
+    'household.invite.revoke': 'ביטול ההזמנה',
+    'household.invite.revokeConfirm':
+      'לבטל את ההזמנה? הקישור יפסיק לעבוד, ואי אפשר יהיה להצטרף דרכו.',
+    'household.invite.copyLink': 'העתקת קישור',
     'household.invite.revokeFailed': 'ביטול ההזמנה נכשל',
     'household.memberOf': 'את/ה חבר/ה במשק הבית של {owner}, בתור {role}.',
     'household.leave': 'עזיבת משק הבית',
-    'household.leaveConfirm': 'לעזוב את משק הבית? תתחילו מחדש עם משק בית ריק משלכם.',
+    'household.leaveConfirm':
+      'לעזוב את משק הבית? הגישה לנתונים שלו תיחסם, וכל גישה של סוכן או API שהגדרתם תפסיק לעבוד. תתחילו מחדש עם משק בית ריק משלכם.',
     'household.leaveFailed': 'עזיבת משק הבית נכשלה',
+    'household.error.INVITE_INVALID':
+      'קישור ההזמנה אינו תקף. ייתכן שפג תוקפו או שכבר נעשה בו שימוש.',
+    'household.error.INVITE_TAKEN': 'מישהו אחר השתמש בהזמנה הזו לפני רגע. בקשו קישור הזמנה חדש.',
+    'household.error.INVITE_NOT_FOUND': 'ההזמנה הזו כבר אינה ממתינה.',
+    'household.error.HOUSEHOLD_IN_USE':
+      'במשק הבית שלכם כבר יש נתונים או חברים נוספים, ולכן אי אפשר להצטרף למשק בית אחר.',
+    'household.error.NOT_HOUSEHOLD_OWNER': 'רק הבעלים של משק הבית יכולים לנהל את החברים וההזמנות.',
+    'household.error.OWNER_CANNOT_LEAVE': 'כבעלים, אי אפשר לעזוב את משק הבית.',
+    'household.error.OWNER_OWN_MEMBERSHIP': 'כבעלים, אי אפשר לשנות את החברות שלך במשק הבית.',
+    'household.error.MEMBER_NOT_FOUND': 'האדם הזה כבר אינו חבר במשק הבית.',
 
     'join.title': 'הצטרפות למשק בית',
     'join.checking': 'בודקים את ההזמנה…',

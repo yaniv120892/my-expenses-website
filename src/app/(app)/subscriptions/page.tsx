@@ -34,6 +34,7 @@ import type {
 } from '@/types/subscription';
 import { describeApiError } from '@/utils/api';
 import { useErrorNotice } from '@/hooks/useErrorNotice';
+import { useCanWrite } from '@/hooks/useSession';
 import { isOneOf } from '@/utils/oneOf';
 import type { SubscriptionSortKey } from '@/utils/subscriptionSort';
 import { SUBSCRIPTION_SORT_KEYS, sortSubscriptions } from '@/utils/subscriptionSort';
@@ -80,6 +81,7 @@ function StatTile({
 export default function SubscriptionsPage() {
   const t = useT();
   const formatter = useAppFormat();
+  const canWrite = useCanWrite();
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [sortKey, setSortKey] = useState<SubscriptionSortKey>('MONTHLY_DESC');
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
@@ -253,6 +255,7 @@ export default function SubscriptionsPage() {
                   onConvert={(s) => setDialog({ kind: 'convert', subscription: s })}
                   onEdit={(s) => setDialog({ kind: 'edit', subscription: s })}
                   onExplain={(s) => setDialog({ kind: 'explain', subscription: s })}
+                  readOnly={!canWrite}
                 />
               ))}
             </Box>

@@ -92,7 +92,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `paramsSchema`),
   enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
   on `public` routes — declare rules or an explicit `'none'`),
-  maps errors to `{message}`/`{error, code}` (or a JSON-RPC error envelope
+  maps errors to `{message}`/`{error, message, code}` (or a JSON-RPC error envelope
   on a route declaring `errorFormat: 'json-rpc'`), and logs one pino line per
   request. Every error it maps to a 5xx is also reported to Sentry and alerted
   to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/mcp` (the personal
@@ -400,16 +400,25 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   from an unambiguous alphabet, single use, 14 days, granting `EDITOR` (the
   default) or `VIEWER` — never `OWNER`, so a household keeps exactly one and
   ownership is not transferable. Every code that cannot be redeemed — unknown,
-  used, revoked, expired — gets the same 404. `/join?code=` (outside both
+  used, revoked, expired — gets the same 404. Every household refusal is a
+  `HouseholdRefusal` (`src/server/services/householdRefusal.ts`) carrying a
+  `code` from `HOUSEHOLD_ERROR_CODES` (`src/shared/types/household.ts`);
+  `createHandler` sends any `HttpError`'s code beside its message
+  (`{error, message, code}`), and the client localizes by the code. `/join?code=` (outside both
   route groups) previews and confirms; signed out, the proxy sends it to
   `/login?next=`, and login, signup and verify follow only a same-site
-  `next` (`src/shared/nextPath.ts`). Joining moves the member and drops the
-  household they leave, which is allowed only while it holds no other member
-  and no row (`hasAnythingAJoinWouldOrphan`); one transaction claims the invite
-  (guarded on it still being open) and deletes that household, whose
-  restricting foreign keys fail the move if it gained anything meanwhile. The
-  owner cannot leave or change their own membership; a member who leaves, or is
-  removed, gets a fresh empty household as its owner, and removal bumps their
+  `next` (`src/shared/nextPath.ts`: resolved against a placeholder origin,
+  which must not change, and refused if it holds a control character, since a
+  browser strips those). Joining moves the member and drops the household they
+  leave, which is allowed only while it holds no other member and no live row
+  (`hasAnythingAJoinWouldOrphan`; a soft-deleted import or imported row does
+  not count); one transaction claims the invite (guarded on it still being
+  open), hard-deletes those soft-deleted rows, and deletes that household,
+  whose restricting foreign keys fail the move if it gained anything
+  meanwhile. The owner cannot leave or change their own membership; a member
+  who leaves, or is removed, gets a fresh empty household as its owner and, in
+  the same transaction, loses every API token, since a token follows its user
+  into whatever household they are in; removal also bumps their
   `tokenVersion`, ending every session. Invite routes take no API token.
   `e2e/household.spec.ts` drives the whole flow in a browser with the seed's
   data-free `hh-*` users (`test/e2e-api/householdUsers.ts`), which no other

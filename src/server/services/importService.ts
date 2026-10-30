@@ -6,6 +6,8 @@ import {
 } from '@/generated/prisma/client';
 import { logger, observability } from '@/server/observability';
 import { keySafeExtension } from '@/server/utils/storageObjectName';
+import { ownImportObjectKey } from '@/server/utils/importObjectKey';
+import { importsBucket, presignImportDownload } from '@/server/services/importFileStorage';
 import { getErrorMessage } from '@/server/utils/errorUtils';
 import {
   importRepository,
@@ -23,7 +25,6 @@ import prisma from '@/server/db/client';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
-import { requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { WEBHOOK_TOKEN_EXPIRY_HOURS, WEBHOOK_TOKEN_EXPIRY_MS } from '@/server/utils/webhookAuth';
 import {
@@ -104,14 +105,15 @@ type PlannedRow = {
   item: ReconciliationPlanItem;
 };
 
-// The extraction agent fetches this URL server-side, so accepting an arbitrary
-// URL would let a user point it at internal hosts. Only files the upload
-// endpoint wrote to the imports bucket are allowed.
-function assertUploadedImportUrl(fileUrl: string): void {
-  const importsPrefix = `https://${requireEnv('IMPORTS_S3_BUCKET')}.s3.${requireEnv('IMPORTS_S3_REGION')}.amazonaws.com/imports/`;
-  if (!fileUrl.startsWith(importsPrefix)) {
-    throw new HttpError(400, 'fileUrl must point to an uploaded import file');
+// Only an object the upload endpoint wrote for this user may be extracted:
+// the extraction service reads any key in the bucket with its own credentials,
+// so another user's key would hand that user's statement to the caller.
+function assertOwnImportObjectKey(fileUrl: string, userId: string): string {
+  const key = ownImportObjectKey({ fileUrl, userId, ...importsBucket() });
+  if (!key) {
+    throw new HttpError(400, 'fileUrl must point to a file you uploaded for import');
   }
+  return key;
 }
 
 const REMATCH_REQUIRES_COMPLETED_ERROR = 'Import must be in COMPLETED status to re-match';
@@ -125,7 +127,7 @@ class ImportService {
     originalFileName: string,
     paymentMonthFromRequest?: string,
   ): Promise<Import> {
-    assertUploadedImportUrl(fileUrl);
+    const objectKey = assertOwnImportObjectKey(fileUrl, userId);
 
     try {
       logger.info(
@@ -149,7 +151,7 @@ class ImportService {
 
       logger.info({ importId: importRecord.id, userId }, 'Created import record');
 
-      await this.submitExtraction(importRecord.id, fileUrl, originalFileName, userId);
+      await this.submitExtraction(importRecord.id, objectKey, originalFileName, userId);
 
       return importRecord;
     } catch (error) {
@@ -161,13 +163,13 @@ class ImportService {
   /** Marks the import FAILED before rethrowing, so a rejected submit is visible. */
   private async submitExtraction(
     importId: string,
-    fileUrl: string,
+    objectKey: string,
     originalFileName: string,
     userId: string,
   ): Promise<void> {
     try {
       const extractionResponse = await excelExtractionAgentClient.submitExtractionRequest({
-        fileUrl,
+        fileUrl: await presignImportDownload(objectKey),
         filename: originalFileName,
         userId,
         importId,

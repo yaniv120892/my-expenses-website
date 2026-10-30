@@ -158,6 +158,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.IMPORTS_S3_BUCKET = 'bucket';
   process.env.IMPORTS_S3_REGION = 'us-east-1';
+  process.env.IMPORTS_S3_ACCESS_KEY_ID = 'AKIAEXAMPLE';
+  process.env.IMPORTS_S3_SECRET_ACCESS_KEY = 'secret';
   importRepo.findById.mockResolvedValue({
     id: 'imp-1',
     userId: 'user-1',
@@ -352,9 +354,15 @@ describe('rematchImport', () => {
 });
 
 describe('processImport', () => {
-  const url = 'https://bucket.s3.us-east-1.amazonaws.com/imports/f.xlsx';
+  const OBJECT_KEY = 'imports/user-1/0b4c5a52-1d0e-4b8e-9a51-6f1f3c2d7e90.xlsx';
+  const url = `https://bucket.s3.us-east-1.amazonaws.com/${OBJECT_KEY}`;
   const run = (fileUrl = url) =>
     importService.processImport(fileUrl, 'user-1', 'f.xlsx', '03/2026');
+
+  function submittedFileUrl(): URL {
+    const [request] = agentClient.submitExtractionRequest.mock.calls[0] ?? [];
+    return new URL(request.fileUrl);
+  }
 
   beforeEach(() => {
     importRepo.create.mockResolvedValue({ id: 'imp-1' });
@@ -373,11 +381,49 @@ describe('processImport', () => {
     expect(importRepo.create).not.toHaveBeenCalled();
   });
 
+  // Regression: any key under imports/ passed, and the extraction service
+  // reads keys with its own credentials, so a caller who learned another
+  // user's key got that user's statement extracted into their own import.
+  it.each([
+    ['another user’s upload', OBJECT_KEY.replace('user-1', 'user-2')],
+    ['a key outside any user’s folder', 'imports/0b4c5a52-1d0e-4b8e-9a51-6f1f3c2d7e90.xlsx'],
+    [
+      'a path that climbs out of the folder',
+      'imports/user-1/../user-2/0b4c5a52-1d0e-4b8e-9a51-6f1f3c2d7e90.xlsx',
+    ],
+    ['an escaped climb', 'imports/user-1/%2e%2e/user-2/0b4c5a52-1d0e-4b8e-9a51-6f1f3c2d7e90.xlsx'],
+  ])('refuses %s without creating an import', async (_, key) => {
+    await expect(run(`https://bucket.s3.us-east-1.amazonaws.com/${key}`)).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(importRepo.create).not.toHaveBeenCalled();
+    expect(agentClient.submitExtractionRequest).not.toHaveBeenCalled();
+  });
+
+  // The bucket is private: the plain URL answers 403 to anyone without
+  // credentials, so the extraction service gets a short-lived signed one.
+  it('hands the extraction service a 15-minute signed URL for the same key', async () => {
+    await run();
+
+    const submitted = submittedFileUrl();
+    expect(submitted.origin).toBe('https://bucket.s3.us-east-1.amazonaws.com');
+    // The extraction service takes the object key from the URL's path.
+    expect(decodeURIComponent(submitted.pathname.slice(1))).toBe(OBJECT_KEY);
+    expect(submitted.searchParams.get('X-Amz-Expires')).toBe('900');
+    expect(submitted.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('stores the plain URL, never the signed one, on the import', async () => {
+    await run();
+
+    expect(importRepo.create).toHaveBeenCalledWith(expect.objectContaining({ fileUrl: url }));
+  });
+
   it('submits the extraction and records the request id', async () => {
     const result = await run();
     expect(result).toEqual({ id: 'imp-1' });
     expect(agentClient.submitExtractionRequest).toHaveBeenCalledWith({
-      fileUrl: url,
+      fileUrl: expect.any(String),
       filename: 'f.xlsx',
       userId: 'user-1',
       importId: 'imp-1',
@@ -411,13 +457,11 @@ describe('processImport', () => {
     expect(agentClient.submitExtractionRequest).not.toHaveBeenCalled();
   });
 
-  it('logs the extension, never the file name, even from an older name-bearing key', async () => {
+  it('logs the extension, never the file name', async () => {
     const info = vi.spyOn(logger, 'info');
     onTestFinished(() => info.mockRestore());
-    const olderUrl =
-      'https://bucket.s3.us-east-1.amazonaws.com/imports/uuid-Leumi_statement_March.xlsx';
 
-    await importService.processImport(olderUrl, 'user-1', 'Leumi statement March.xlsx', '03/2026');
+    await importService.processImport(url, 'user-1', 'Leumi statement March.xlsx', '03/2026');
 
     expect(JSON.stringify(info.mock.calls)).not.toMatch(/Leumi|statement|March/);
     expect(info).toHaveBeenCalledWith(

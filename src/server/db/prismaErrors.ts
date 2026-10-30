@@ -3,6 +3,7 @@ import { HttpError } from '@/server/http/errors';
 export const PRISMA_ERROR_CODES = {
   RECORD_NOT_FOUND: 'P2025',
   UNIQUE_CONSTRAINT_VIOLATION: 'P2002',
+  FOREIGN_KEY_CONSTRAINT_VIOLATION: 'P2003',
 } as const;
 
 type PrismaHttpMapping = { status: number; message: string };

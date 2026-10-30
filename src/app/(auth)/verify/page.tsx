@@ -7,6 +7,7 @@ import { Alert, Button, Stack, TextField } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { verifyCode } from '@/services/authClient';
+import { NEXT_PATH_PARAM, safeNextPath } from '@/shared/nextPath';
 import { authErrorMessage } from '@/utils/authErrorMessage';
 
 function VerifyForm() {
@@ -14,6 +15,7 @@ function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
+  const next = safeNextPath(searchParams.get(NEXT_PATH_PARAM));
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +26,7 @@ function VerifyForm() {
     setSubmitting(true);
     try {
       await verifyCode(code, email);
-      router.push('/dashboard');
+      router.push(next ?? '/dashboard');
       router.refresh();
     } catch (err) {
       setError(authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }));

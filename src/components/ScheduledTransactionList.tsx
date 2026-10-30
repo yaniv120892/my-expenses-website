@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Fragment } from 'react';
 import {
   Box,
   Paper,
@@ -28,7 +28,8 @@ export default function ScheduledTransactionList({
 }: {
   scheduledTransactions: ScheduledTransaction[];
   categories: Category[];
-  onEditAction: (tx: ScheduledTransaction) => void;
+  /** Absent for a viewer, who can open no schedule for editing. */
+  onEditAction?: (tx: ScheduledTransaction) => void;
 }) {
   const t = useT();
   const formatter = useAppFormat();
@@ -55,15 +56,10 @@ export default function ScheduledTransactionList({
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
-          {scheduledTransactions.map((tx) => (
-            <SwipeableRow
-              key={tx.id}
-              onSwipeRight={() => onEditAction(tx)}
-              rightLabel={t('scheduled.edit')}
-              rightColor="primary.main"
-            >
+          {scheduledTransactions.map((tx) => {
+            const row = (
               <Box
-                onClick={() => onEditAction(tx)}
+                onClick={onEditAction && (() => onEditAction(tx))}
                 sx={{
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -71,7 +67,7 @@ export default function ScheduledTransactionList({
                   gap: 2,
                   px: 2,
                   py: 1.5,
-                  cursor: 'pointer',
+                  cursor: onEditAction ? 'pointer' : 'default',
                 }}
               >
                 <Box sx={{ minWidth: 0 }}>
@@ -109,8 +105,20 @@ export default function ScheduledTransactionList({
                   </Typography>
                 </Box>
               </Box>
-            </SwipeableRow>
-          ))}
+            );
+            return onEditAction ? (
+              <SwipeableRow
+                key={tx.id}
+                onSwipeRight={() => onEditAction(tx)}
+                rightLabel={t('scheduled.edit')}
+                rightColor="primary.main"
+              >
+                {row}
+              </SwipeableRow>
+            ) : (
+              <Fragment key={tx.id}>{row}</Fragment>
+            );
+          })}
         </Stack>
       </Paper>
     );
@@ -132,9 +140,12 @@ export default function ScheduledTransactionList({
           {scheduledTransactions.map((tx) => (
             <TableRow
               key={tx.id}
-              hover
-              onClick={() => onEditAction(tx)}
-              sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+              hover={!!onEditAction}
+              onClick={onEditAction && (() => onEditAction(tx))}
+              sx={{
+                cursor: onEditAction ? 'pointer' : 'default',
+                '&:last-child td': { border: 0 },
+              }}
             >
               <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>{categoryName(tx.categoryId)}</TableCell>

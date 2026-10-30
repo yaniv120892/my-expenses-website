@@ -26,12 +26,12 @@ function MobileRow({
   onEdit,
 }: {
   transaction: Transaction;
-  onEdit: (tx: Transaction) => void;
+  onEdit?: (tx: Transaction) => void;
 }) {
   const formatter = useAppFormat();
   return (
     <Box
-      onClick={() => onEdit(transaction)}
+      onClick={onEdit && (() => onEdit(transaction))}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -39,7 +39,7 @@ function MobileRow({
         gap: 2,
         px: 2,
         py: 1.5,
-        cursor: 'pointer',
+        cursor: onEdit ? 'pointer' : 'default',
       }}
     >
       <Box sx={{ minWidth: 0 }}>
@@ -76,7 +76,8 @@ export default function TransactionList({
   onEditAction,
 }: {
   transactions: Transaction[];
-  onEditAction: (tx: Transaction) => void;
+  /** Absent for a viewer, who can open no row for editing. */
+  onEditAction?: (tx: Transaction) => void;
 }) {
   const isMobile = useIsMobile();
   const t = useT();
@@ -90,16 +91,20 @@ export default function TransactionList({
     return (
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         <Stack divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
-          {transactions.map((tx) => (
-            <SwipeableRow
-              key={tx.id}
-              onSwipeRight={() => onEditAction(tx)}
-              rightLabel={t('transactions.list.edit')}
-              rightColor="primary.main"
-            >
-              <MobileRow transaction={tx} onEdit={onEditAction} />
-            </SwipeableRow>
-          ))}
+          {transactions.map((tx) =>
+            onEditAction ? (
+              <SwipeableRow
+                key={tx.id}
+                onSwipeRight={() => onEditAction(tx)}
+                rightLabel={t('transactions.list.edit')}
+                rightColor="primary.main"
+              >
+                <MobileRow transaction={tx} onEdit={onEditAction} />
+              </SwipeableRow>
+            ) : (
+              <MobileRow key={tx.id} transaction={tx} />
+            ),
+          )}
         </Stack>
       </Paper>
     );
@@ -120,9 +125,12 @@ export default function TransactionList({
           {transactions.map((tx) => (
             <TableRow
               key={tx.id}
-              hover
-              onClick={() => onEditAction(tx)}
-              sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+              hover={!!onEditAction}
+              onClick={onEditAction && (() => onEditAction(tx))}
+              sx={{
+                cursor: onEditAction ? 'pointer' : 'default',
+                '&:last-child td': { border: 0 },
+              }}
             >
               <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>

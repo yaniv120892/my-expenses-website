@@ -4,6 +4,7 @@ import { chatMessages } from './chat';
 import { commonMessages } from './common';
 import { dashboardMessages } from './dashboard';
 import { formatMessages } from './format';
+import { householdMessages } from './household';
 import { importsMessages } from './imports';
 import { navMessages } from './nav';
 import { pendingMessages } from './pending';
@@ -20,6 +21,7 @@ export const messageAreas = {
   common: commonMessages,
   dashboard: dashboardMessages,
   format: formatMessages,
+  household: householdMessages,
   imports: importsMessages,
   nav: navMessages,
   pending: pendingMessages,
@@ -38,6 +40,7 @@ export const messages = {
     ...commonMessages.en,
     ...dashboardMessages.en,
     ...formatMessages.en,
+    ...householdMessages.en,
     ...importsMessages.en,
     ...navMessages.en,
     ...pendingMessages.en,
@@ -54,6 +57,7 @@ export const messages = {
     ...commonMessages.he,
     ...dashboardMessages.he,
     ...formatMessages.he,
+    ...householdMessages.he,
     ...importsMessages.he,
     ...navMessages.he,
     ...pendingMessages.he,

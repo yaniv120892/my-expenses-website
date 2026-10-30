@@ -1,18 +1,20 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { signup } from '@/services/authClient';
+import { NEXT_PATH_PARAM, safeNextPath, withNextPath } from '@/shared/nextPath';
 import { authErrorMessage } from '@/utils/authErrorMessage';
 
-export default function SignupPage() {
+function SignupForm() {
   const t = useT();
   const router = useRouter();
+  const next = safeNextPath(useSearchParams().get(NEXT_PATH_PARAM));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       await signup(email, password);
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
+      router.push(withNextPath({ path: `/verify?email=${encodeURIComponent(email)}`, next }));
     } catch (err) {
       setError(authErrorMessage({ error: err, fallback: t('auth.signup.failed'), t }));
       setSubmitting(false);
@@ -61,11 +63,19 @@ export default function SignupPage() {
         </Button>
         <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
           {t('auth.signup.haveAccount')}{' '}
-          <MuiLink component={Link} href="/login">
+          <MuiLink component={Link} href={withNextPath({ path: '/login', next })}>
             {t('auth.signup.loginLink')}
           </MuiLink>
         </Typography>
       </Stack>
     </AuthCard>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

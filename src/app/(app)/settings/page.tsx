@@ -24,6 +24,7 @@ import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightne
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { PageHeader } from '@yaniv120892/my-ui';
 import ApiTokenManager from '@/components/ApiTokenManager';
+import HouseholdSettings from '@/components/HouseholdSettings';
 import PersonalAgentSettings from '@/components/PersonalAgentSettings';
 import TelegramLinkSettings from '@/components/TelegramLinkSettings';
 import {
@@ -283,6 +284,10 @@ export default function SettingsPage() {
               )}
             />
           </Stack>
+        </SettingsSection>
+
+        <SettingsSection title={t('household.title')}>
+          <HouseholdSettings />
         </SettingsSection>
 
         <SettingsSection title={t('settings.telegram.title')}>

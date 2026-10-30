@@ -53,6 +53,7 @@ vi.mock('@/server/services/transactionNotification/transactionNotifierFactory', 
 
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import { toHouseholdId } from '@/server/auth/householdId';
+import { currentActorContext } from '@/server/db/actorContext';
 import { testMemberActor } from '@/test/memberActor';
 
 type Sub = Record<string, unknown>;
@@ -237,6 +238,21 @@ describe('runDetectionForAllHouseholds', () => {
     expect(subRepo.applyDetectionResults.mock.calls).toEqual([
       [HOUSEHOLD_1, []],
       [HOUSEHOLD_2, []],
+    ]);
+  });
+
+  it('stores what it found as the detection job, so new rows read as added automatically', async () => {
+    listHouseholdIds.mockResolvedValue([HOUSEHOLD_1]);
+    prismaMock.transaction.findMany.mockResolvedValue([]);
+    const actors: unknown[] = [];
+    subRepo.applyDetectionResults.mockImplementation(async () => {
+      actors.push(currentActorContext()?.actor);
+    });
+
+    await subscriptionDetectionService.runDetectionForAllHouseholds();
+
+    expect(actors).toEqual([
+      { kind: 'system', householdId: HOUSEHOLD_1, job: 'subscription-detection' },
     ]);
   });
 

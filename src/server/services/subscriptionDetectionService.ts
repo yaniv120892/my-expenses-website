@@ -8,6 +8,8 @@ import type {
   SubscriptionAuditRow,
 } from '@/server/repositories/subscriptionRepository';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
+import { runAsActor } from '@/server/db/actorContext';
+import { systemActor } from '@/server/auth/householdActor';
 import householdActivityService from '@/server/services/householdActivityService';
 import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
@@ -345,7 +347,9 @@ class SubscriptionDetectionService {
       });
     }
 
-    await subscriptionRepository.applyDetectionResults(householdId, results);
+    await runAsActor(systemActor({ householdId, job: 'subscription-detection' }), () =>
+      subscriptionRepository.applyDetectionResults(householdId, results),
+    );
   }
 
   private groupByMerchant(transactions: MerchantCharge[]): MerchantGroup[] {

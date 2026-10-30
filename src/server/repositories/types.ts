@@ -59,7 +59,3 @@ export type ScheduledTransaction = {
   lastRunDate?: Date;
   nextRunDate?: Date;
 };
-
-export type UserQuery = {
-  isVerified?: boolean;
-};

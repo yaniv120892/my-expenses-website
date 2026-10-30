@@ -3,6 +3,34 @@
 -- becomes required. userId stays as who wrote the row, so it may be null for
 -- a write no member made.
 
+-- The deployment still serving while this one builds writes these rows with
+-- only a userId; the database fills in that user's household, so the column
+-- becoming required does not refuse them. Drop it once no deployment that
+-- predates scoping can serve.
+CREATE FUNCTION "row_inherit_household"() RETURNS trigger AS $$
+BEGIN
+  IF NEW."householdId" IS NULL AND NEW."userId" IS NOT NULL THEN
+    SELECT "householdId" INTO NEW."householdId" FROM "User" WHERE "id" = NEW."userId";
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "Transaction_inherit_household" BEFORE INSERT ON "Transaction"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "Import_inherit_household" BEFORE INSERT ON "Import"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "ImportedTransaction_inherit_household" BEFORE INSERT ON "ImportedTransaction"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "ScheduledTransaction_inherit_household" BEFORE INSERT ON "ScheduledTransaction"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "UserCategoryMapping_inherit_household" BEFORE INSERT ON "UserCategoryMapping"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "AutoApproveRule_inherit_household" BEFORE INSERT ON "AutoApproveRule"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+CREATE TRIGGER "DetectedSubscription_inherit_household" BEFORE INSERT ON "DetectedSubscription"
+FOR EACH ROW EXECUTE FUNCTION "row_inherit_household"();
+
 UPDATE "Transaction" AS row SET "householdId" = owner."householdId" FROM "User" AS owner WHERE row."householdId" IS NULL AND row."userId" = owner."id";
 UPDATE "Import" AS row SET "householdId" = owner."householdId" FROM "User" AS owner WHERE row."householdId" IS NULL AND row."userId" = owner."id";
 UPDATE "ImportedTransaction" AS row SET "householdId" = owner."householdId" FROM "User" AS owner WHERE row."householdId" IS NULL AND row."userId" = owner."id";

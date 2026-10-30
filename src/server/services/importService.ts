@@ -11,6 +11,7 @@ import {
   importRepository,
   type ImportWithPendingCount,
 } from '@/server/repositories/importRepository';
+import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 import {
   importedTransactionRepository,
   type ImportedTransactionWithMatch,
@@ -153,11 +154,10 @@ class ImportService {
       logger.info({ importId: importRecord.id, userId }, 'Created import record');
 
       await this.submitExtraction({
-        householdId,
+        actor,
         importId: importRecord.id,
         fileUrl,
         originalFileName,
-        userId,
       });
 
       return importRecord;
@@ -169,17 +169,15 @@ class ImportService {
 
   /** Marks the import FAILED before rethrowing, so a rejected submit is visible. */
   private async submitExtraction({
-    householdId,
+    actor: { householdId, userId },
     importId,
     fileUrl,
     originalFileName,
-    userId,
   }: {
-    householdId: HouseholdId;
+    actor: MemberActor;
     importId: string;
     fileUrl: string;
     originalFileName: string;
-    userId: string;
   }): Promise<void> {
     try {
       const extractionResponse = await excelExtractionAgentClient.submitExtractionRequest({
@@ -252,7 +250,7 @@ class ImportService {
 
   public async failStuckImports(now: Date = new Date()) {
     const createdBefore = new Date(now.getTime() - WEBHOOK_TOKEN_EXPIRY_MS);
-    const { importIds, failedCount } = await importRepository.failStuckProcessing(
+    const { importIds, failedCount } = await crossHouseholdRepository.failStuckImports(
       createdBefore,
       STUCK_IMPORT_ERROR,
     );
@@ -290,7 +288,7 @@ class ImportService {
   }
 
   public async getImportedTransactions(householdId: HouseholdId, importId: string) {
-    const rows = await importedTransactionRepository.findByImport(householdId, importId);
+    const rows = await importedTransactionRepository.findByImportWithMatch(householdId, importId);
     // Decimal columns would serialize as strings; the client reads numbers.
     return rows.map((row) => ({
       ...row,
@@ -743,7 +741,10 @@ class ImportService {
   }
 
   private async rematchClaimedImport(householdId: HouseholdId, importId: string): Promise<void> {
-    const allTransactions = await importedTransactionRepository.findByImport(householdId, importId);
+    const allTransactions = await importedTransactionRepository.findByImportWithMatch(
+      householdId,
+      importId,
+    );
 
     const pendingTransactions = allTransactions.filter(
       (t) => t.status === ImportedTransactionStatus.PENDING,

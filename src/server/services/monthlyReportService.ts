@@ -42,24 +42,24 @@ type MonthlyReport = {
 
 class MonthlyReportService {
   public async sendMonthlyReportToAllUsers(referenceDate: Date = new Date()): Promise<void> {
-    const userIds = await userSettingsService.getUsersRequiredMonthlyReport();
+    const recipients = await userRepository.findReportRecipients('monthlyReport');
 
     let failed = 0;
-    for (const userId of userIds) {
+    for (const recipient of recipients) {
       try {
-        await this.sendMonthlyReportForUser(userId, { referenceDate });
+        await this.sendMonthlyReportForUser({ ...recipient, referenceDate });
       } catch (err) {
         failed += 1;
-        logger.error({ err, userId }, 'Failed to send monthly report');
+        logger.error({ err, userId: recipient.userId }, 'Failed to send monthly report');
       }
     }
 
     logger.info(
-      { total: userIds.length, succeeded: userIds.length - failed, failed },
+      { total: recipients.length, succeeded: recipients.length - failed, failed },
       'Monthly report run finished',
     );
     if (failed > 0) {
-      throw new Error(`Monthly report failed for ${failed} of ${userIds.length} user(s)`);
+      throw new Error(`Monthly report failed for ${failed} of ${recipients.length} user(s)`);
     }
   }
 
@@ -67,11 +67,18 @@ class MonthlyReportService {
    * `sendWhenEmpty` is for the Settings test button: the scheduled run skips an
    * empty month, but a test that sends nothing looks like a broken setup.
    */
-  public async sendMonthlyReportForUser(
-    userId: string,
-    options: { referenceDate?: Date; sendWhenEmpty?: boolean } = {},
-  ): Promise<MonthlyReportOutcome> {
-    const reportMonth = subMonths(options.referenceDate ?? new Date(), 1);
+  public async sendMonthlyReportForUser({
+    userId,
+    householdId,
+    referenceDate = new Date(),
+    sendWhenEmpty = false,
+  }: {
+    userId: string;
+    householdId: HouseholdId;
+    referenceDate?: Date;
+    sendWhenEmpty?: boolean;
+  }): Promise<MonthlyReportOutcome> {
+    const reportMonth = subMonths(referenceDate, 1);
     const monthLabel = format(reportMonth, 'MMMM yyyy');
     const month = format(reportMonth, MONTH_FORMAT);
 
@@ -87,16 +94,12 @@ class MonthlyReportService {
       };
     }
 
-    const householdId = await userRepository.findHouseholdId(userId);
-    if (!householdId) {
-      throw new Error(`No household for user ${userId}`);
-    }
     const [transactions, previousTransactions] = await Promise.all([
       this.getMonthTransactions(householdId, reportMonth),
       this.getMonthTransactions(householdId, subMonths(reportMonth, 1)),
     ]);
 
-    if (transactions.length === 0 && !options.sendWhenEmpty) {
+    if (transactions.length === 0 && !sendWhenEmpty) {
       logger.info({ userId }, 'Skipping monthly report, no transactions');
       return {
         sent: false,

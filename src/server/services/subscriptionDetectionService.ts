@@ -249,15 +249,19 @@ class SubscriptionDetectionService {
     return subscriptionRepository.getSnapshot(householdId);
   }
 
-  /** Each opted-in member hears about their own household's subscriptions. */
   public async sendMonthlyAuditNotifications(): Promise<void> {
-    const recipients = await userRepository.findSubscriptionAuditRecipients();
+    const recipients = await userRepository.findReportRecipients('subscriptionAudit');
     const notifier = transactionNotifierFactory.getNotifier();
+    const messageByHousehold = new Map<HouseholdId, string | null>();
 
     let failed = 0;
     for (const { userId, householdId } of recipients) {
       try {
-        const message = buildAuditMessage(await subscriptionRepository.getActive(householdId));
+        let message = messageByHousehold.get(householdId);
+        if (message === undefined) {
+          message = buildAuditMessage(await subscriptionRepository.getActive(householdId));
+          messageByHousehold.set(householdId, message);
+        }
         if (!message) {
           continue;
         }

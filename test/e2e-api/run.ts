@@ -12,6 +12,7 @@ import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { requireEnv } from '../../src/server/env';
 import { buildImportObjectKey } from '../../src/server/utils/importObjectKey';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
+import { IS_HOUSEHOLD_OWNED } from '../../src/server/db/householdScope';
 import type { ImportStatus } from '../../src/shared/types/import';
 import {
   CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
@@ -203,6 +204,13 @@ async function redisGet(key: string): Promise<unknown> {
   });
   const parsed: { result: unknown } = await response.json();
   return parsed.result;
+}
+
+async function rentCategory(): Promise<{ id: string }> {
+  return firstRow({
+    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
+    what: 'the Rent category',
+  });
 }
 
 function firstRow<T>({ rows, what }: { rows: T[]; what: string }): T {
@@ -617,10 +625,7 @@ async function transactionCursorPagingFlow(token: string, owner: Owner): Promise
 }
 
 async function scheduledCronFlow(owner: Owner): Promise<void> {
-  const category = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+  const category = await rentCategory();
   const description = 'E2E due schedule';
   const schedule = firstRow({
     rows: await query<{ id: string }>(
@@ -645,22 +650,22 @@ async function scheduledCronFlow(owner: Owner): Promise<void> {
   });
   check('cron: process with CRON_SECRET succeeds', run.status === 200, `status ${run.status}`);
 
-  const txRows = await query<{ status: string; userId: string | null }>(
+  const transactionRows = await query<{ status: string; userId: string | null }>(
     `select status, "userId" from "Transaction" where "householdId" = $1 and description = $2`,
     [owner.householdId, description],
   );
-  const [firstTransaction] = txRows;
+  const [firstTransaction] = transactionRows;
   check(
     'cron: due schedule created a PENDING_APPROVAL transaction',
-    txRows.length === 1 && firstTransaction?.status === 'PENDING_APPROVAL',
+    transactionRows.length === 1 && firstTransaction?.status === 'PENDING_APPROVAL',
     firstTransaction
-      ? `${txRows.length} row(s), status ${firstTransaction.status}`
+      ? `${transactionRows.length} row(s), status ${firstTransaction.status}`
       : 'no transaction created',
   );
 
   check(
     "cron: the projected transaction is the cron's write, in the schedule's household",
-    txRows.length === 1 && firstTransaction?.userId === null,
+    transactionRows.length === 1 && firstTransaction?.userId === null,
     `userId ${firstTransaction?.userId}`,
   );
 
@@ -1138,10 +1143,7 @@ async function variableAmountPlaceholderFlow(
   }
   const digits = randomCardDigits();
   const description = `E2E variable ${digits}`;
-  const category = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+  const category = await rentCategory();
 
   // Created without a prefix and given one after the cron has run, so the
   // check proves an edit reaches a pending transaction already projected.
@@ -1241,10 +1243,7 @@ type ForeignRows = {
 // One row of every household-owned model, written straight into the other
 // household so no route of the household under test ever touched them.
 async function insertForeignRows(owner: Owner): Promise<ForeignRows> {
-  const rent = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+  const rent = await rentCategory();
   const insertOne = async (sql: string, params: unknown[], what: string) =>
     firstRow({ rows: await query<{ id: string }>(sql, params), what }).id;
   const values = [owner.householdId, owner.id];
@@ -1310,15 +1309,9 @@ async function insertForeignRows(owner: Owner): Promise<ForeignRows> {
 // Every row of the other household, as one comparable string: a write that
 // crossed households changes it, whatever status the route answered with.
 async function snapshotHousehold(householdId: string): Promise<string> {
-  const tables = [
-    'Transaction',
-    'Import',
-    'ImportedTransaction',
-    'ScheduledTransaction',
-    'UserCategoryMapping',
-    'AutoApproveRule',
-    'DetectedSubscription',
-  ];
+  const tables = Object.entries(IS_HOUSEHOLD_OWNED)
+    .filter(([, isOwned]) => isOwned)
+    .map(([model]) => model);
   const snapshots = await Promise.all(
     tables.map(async (table) => {
       const rows = await query(
@@ -1340,10 +1333,7 @@ async function householdLeakGuardFlow(attacker: { token: string }, victim: Owner
   const foreign = await insertForeignRows(victim);
   const before = await snapshotHousehold(victim.householdId);
   const token = attacker.token;
-  const rent = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+  const rent = await rentCategory();
   const transactionBody = {
     description: 'hijack',
     value: 1,

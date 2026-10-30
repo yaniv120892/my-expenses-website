@@ -46,9 +46,9 @@ function getScopedClient(): ScopedPrismaClient {
 function lazily<Client extends object>(getClient: () => Client): Client {
   const lazyClientTarget: Client = Object.create(Object.prototype);
   return new Proxy(lazyClientTarget, {
-    get(_target, prop) {
+    get(_target, property) {
       const client = getClient();
-      const value = Reflect.get(client, prop);
+      const value = Reflect.get(client, property);
       return typeof value === 'function' ? value.bind(client) : value;
     },
   });
@@ -60,8 +60,8 @@ const prisma = lazily(getScopedClient);
 
 /**
  * Skips the household check, for the few jobs that work across households —
- * a cron's sweep, the extraction callback finding its import. Which files may
- * import it is pinned in householdScope.test.ts.
+ * a cron's sweep, the extraction callback finding its import. Only
+ * crossHouseholdRepository imports it, as householdScope.test.ts pins.
  */
 export const systemPrisma = lazily(getSystemClient);
 

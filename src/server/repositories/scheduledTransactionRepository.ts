@@ -1,17 +1,12 @@
 import type { ScheduledTransaction } from '@/generated/prisma/client';
-import prisma, { systemPrisma } from '@/server/db/client';
+import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
 import type {
   CreateScheduledTransaction,
   UpdateScheduledTransaction,
-  ScheduledTransactionDomain,
 } from '@/shared/types/scheduledTransaction';
-
-// The household rides along so a cron acting on a due row stays inside it.
-export type ScheduledHouseholdTransaction = ScheduledTransactionDomain & {
-  householdId: HouseholdId;
-};
+import type { ScheduledHouseholdTransaction } from '@/server/repositories/scheduledTransactionRepository.types';
 
 class ScheduledTransactionRepository {
   public async createScheduledTransaction({
@@ -52,17 +47,7 @@ class ScheduledTransactionRepository {
         nextRunDate: 'asc',
       },
     });
-    return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
-  }
-
-  /** Across households: the cron runs every household's due schedules. */
-  public async getDueScheduledTransactions(date: Date): Promise<ScheduledHouseholdTransaction[]> {
-    const scheduledTransactions = await systemPrisma.scheduledTransaction.findMany({
-      where: {
-        nextRunDate: { lte: date },
-      },
-    });
-    return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
+    return scheduledTransactions.map(toScheduledHouseholdTransaction);
   }
 
   /**
@@ -147,30 +132,30 @@ class ScheduledTransactionRepository {
     if (!scheduledTransaction) {
       return null;
     }
-    return this.mapScheduledTransactionDbToDomain(scheduledTransaction);
-  }
-
-  private mapScheduledTransactionDbToDomain(
-    db: ScheduledTransaction,
-  ): ScheduledHouseholdTransaction {
-    return {
-      id: db.id,
-      description: db.description,
-      value: db.value,
-      type: db.type,
-      categoryId: db.categoryId,
-      scheduleType: db.scheduleType,
-      interval: db.interval === null ? undefined : db.interval,
-      dayOfWeek: db.dayOfWeek === null ? undefined : db.dayOfWeek,
-      dayOfMonth: db.dayOfMonth === null ? undefined : db.dayOfMonth,
-      monthOfYear: db.monthOfYear === null ? undefined : db.monthOfYear,
-      bankDescriptionPrefix: db.bankDescriptionPrefix ?? undefined,
-      lastRunDate: db.lastRunDate === null ? undefined : db.lastRunDate,
-      nextRunDate: db.nextRunDate === null ? undefined : db.nextRunDate,
-      householdId: toHouseholdId(db.householdId),
-    };
+    return toScheduledHouseholdTransaction(scheduledTransaction);
   }
 }
 
 const scheduledTransactionRepository = new ScheduledTransactionRepository();
 export default scheduledTransactionRepository;
+
+export function toScheduledHouseholdTransaction(
+  db: ScheduledTransaction,
+): ScheduledHouseholdTransaction {
+  return {
+    id: db.id,
+    description: db.description,
+    value: db.value,
+    type: db.type,
+    categoryId: db.categoryId,
+    scheduleType: db.scheduleType,
+    interval: db.interval === null ? undefined : db.interval,
+    dayOfWeek: db.dayOfWeek === null ? undefined : db.dayOfWeek,
+    dayOfMonth: db.dayOfMonth === null ? undefined : db.dayOfMonth,
+    monthOfYear: db.monthOfYear === null ? undefined : db.monthOfYear,
+    bankDescriptionPrefix: db.bankDescriptionPrefix ?? undefined,
+    lastRunDate: db.lastRunDate === null ? undefined : db.lastRunDate,
+    nextRunDate: db.nextRunDate === null ? undefined : db.nextRunDate,
+    householdId: toHouseholdId(db.householdId),
+  };
+}

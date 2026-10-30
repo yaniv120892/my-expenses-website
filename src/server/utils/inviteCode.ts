@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 
-// Crockford base32 minus I, L, O and U: no character pairs that get misread
+// Crockford base32: no character pairs that get misread
 // when the code is read aloud or retyped from a message.
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const INVITE_CODE_LENGTH = 8;

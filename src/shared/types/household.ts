@@ -1,5 +1,7 @@
 import type { HouseholdRole } from '@/generated/prisma/enums';
 
+export const INVITE_CODE_PARAM = 'code';
+
 /** An invite never makes a second owner: a household has exactly one. */
 export type InvitableRole = Exclude<HouseholdRole, 'OWNER'>;
 

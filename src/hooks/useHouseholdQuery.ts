@@ -27,6 +27,14 @@ export const useInvitePreviewQuery = (code: string) =>
     retry: false,
   });
 
+export const useCreateInviteMutation = () => useHouseholdMutation(createInvite);
+export const useRevokeInviteMutation = () => useHouseholdMutation(revokeInvite);
+export const useChangeMemberRoleMutation = () => useHouseholdMutation(changeMemberRole);
+export const useRemoveMemberMutation = () => useHouseholdMutation(removeMember);
+
+export const useJoinHouseholdMutation = () => useMembershipChangeMutation(joinHousehold);
+export const useLeaveHouseholdMutation = () => useMembershipChangeMutation(leaveHousehold);
+
 function useHouseholdMutation<Variables, Result>(
   mutationFn: (variables: Variables) => Promise<Result>,
 ) {
@@ -37,11 +45,6 @@ function useHouseholdMutation<Variables, Result>(
   });
 }
 
-export const useCreateInviteMutation = () => useHouseholdMutation(createInvite);
-export const useRevokeInviteMutation = () => useHouseholdMutation(revokeInvite);
-export const useChangeMemberRoleMutation = () => useHouseholdMutation(changeMemberRole);
-export const useRemoveMemberMutation = () => useHouseholdMutation(removeMember);
-
 /** Joining or leaving swaps every household-scoped answer, so the whole cache goes. */
 function useMembershipChangeMutation<Variables>(
   mutationFn: (variables: Variables) => Promise<void>,
@@ -49,6 +52,3 @@ function useMembershipChangeMutation<Variables>(
   const queryClient = useQueryClient();
   return useMutation({ mutationFn, onSuccess: () => queryClient.clear() });
 }
-
-export const useJoinHouseholdMutation = () => useMembershipChangeMutation(joinHousehold);
-export const useLeaveHouseholdMutation = () => useMembershipChangeMutation(leaveHousehold);

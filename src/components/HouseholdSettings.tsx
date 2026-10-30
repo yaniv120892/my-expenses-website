@@ -34,21 +34,18 @@ import {
 } from '@/hooks/useHouseholdQuery';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import type {
-  HouseholdInviteView,
-  HouseholdMemberView,
-  HouseholdView,
-  InvitableRole,
+import {
+  INVITE_CODE_PARAM,
+  type HouseholdInviteView,
+  type HouseholdMemberView,
+  type HouseholdView,
+  type InvitableRole,
 } from '@/shared/types/household';
 import { invitableRoleSchema } from '@/shared/schemas/household';
 import { describeHouseholdError } from '@/utils/householdError';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 const INVITABLE_ROLES = invitableRoleSchema.options;
-
-function isInvitableRole(value: string): value is InvitableRole {
-  return invitableRoleSchema.safeParse(value).success;
-}
 
 /** The owner manages members and invites; anyone else sees who is in and can leave. */
 export default function HouseholdSettings() {
@@ -418,5 +415,9 @@ function ConfirmDialog({
 }
 
 function inviteLink(code: string): string {
-  return `${window.location.origin}/join?code=${encodeURIComponent(code)}`;
+  return `${window.location.origin}/join?${INVITE_CODE_PARAM}=${encodeURIComponent(code)}`;
+}
+
+function isInvitableRole(value: string): value is InvitableRole {
+  return invitableRoleSchema.safeParse(value).success;
 }

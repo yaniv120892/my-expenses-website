@@ -26,6 +26,11 @@ export const RATE_LIMITS = {
   mcp: { limit: 300, windowSeconds: 300 },
 } satisfies Record<string, { limit: number; windowSeconds: number }>;
 
+/** Previewing and redeeming share one budget, so a guesser cannot spend each separately. */
+export function householdInviteRateLimit(userId: string): RateLimitRule {
+  return { key: `householdInvite:user:${userId}`, ...RATE_LIMITS.householdInvite };
+}
+
 export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
   if (rules.length === 0) {
     return;

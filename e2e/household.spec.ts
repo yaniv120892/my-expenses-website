@@ -140,9 +140,9 @@ test.describe('household sharing', () => {
     ]);
   });
 
-  async function signedInPage(user: HouseholdUser, path = '/login'): Promise<Page> {
+  async function signedInPage(user: HouseholdUser): Promise<Page> {
     const page = await (await browser.newContext()).newPage();
-    await page.goto(path);
+    await page.goto('/login');
     await submitLogin(page, user);
     await expect(page).toHaveURL(/\/dashboard/);
     return page;

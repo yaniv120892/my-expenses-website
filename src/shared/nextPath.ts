@@ -12,7 +12,8 @@ const DELETE_CODE = 0x7f;
  * origin.
  */
 export function safeNextPath(value: string | null | undefined): string | null {
-  if (!value || !value.startsWith('/') || hasControlCharacter(value)) {
+  const isPlainSitePath = !!value && value.startsWith('/') && !hasControlCharacter(value);
+  if (!isPlainSitePath) {
     return null;
   }
   let resolved: URL;

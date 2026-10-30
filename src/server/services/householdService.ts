@@ -24,9 +24,7 @@ class HouseholdService {
     const now = new Date();
     const [members, invites] = await Promise.all([
       householdRepository.findMembers(actor.householdId),
-      actor.role === 'OWNER'
-        ? householdRepository.findPendingInvites(actor.householdId, now)
-        : Promise.resolve([]),
+      this.pendingInvitesFor({ actor, now }),
     ]);
     return {
       role: actor.role,
@@ -82,7 +80,7 @@ class HouseholdService {
     return {
       code: invite.code,
       ownerName: ownerName ?? '',
-      role: toInvitableRole(invite.role, invite.id),
+      role: this.toInvitableRole({ role: invite.role, inviteId: invite.id }),
       eligibility,
     };
   }
@@ -232,23 +230,41 @@ class HouseholdService {
     }
   }
 
+  private pendingInvitesFor({
+    actor,
+    now,
+  }: {
+    actor: MemberActor;
+    now: Date;
+  }): Promise<PendingInviteRow[]> {
+    return actor.role === 'OWNER'
+      ? householdRepository.findPendingInvites(actor.householdId, now)
+      : Promise.resolve([]);
+  }
+
   private toInviteView(invite: PendingInviteRow): HouseholdInviteView {
     return {
       id: invite.id,
       code: invite.code,
-      role: toInvitableRole(invite.role, invite.id),
+      role: this.toInvitableRole({ role: invite.role, inviteId: invite.id }),
       expiresAt: invite.expiresAt.toISOString(),
       createdAt: invite.createdAt.toISOString(),
     };
   }
-}
 
-/** Every invite is written with an invitable role, so an owner one is corrupt data. */
-function toInvitableRole(role: HouseholdRole, inviteId: string): InvitableRole {
-  if (role === 'OWNER') {
-    throw new Error(`Invite ${inviteId} carries the owner role, which no invite may grant`);
+  /** Every invite is written with an invitable role, so an owner one is corrupt data. */
+  private toInvitableRole({
+    role,
+    inviteId,
+  }: {
+    role: HouseholdRole;
+    inviteId: string;
+  }): InvitableRole {
+    if (role === 'OWNER') {
+      throw new Error(`Invite ${inviteId} carries the owner role, which no invite may grant`);
+    }
+    return role;
   }
-  return role;
 }
 
 const householdService = new HouseholdService();

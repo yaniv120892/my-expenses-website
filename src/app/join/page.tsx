@@ -7,12 +7,12 @@ import { Alert, Button, CircularProgress, Stack, Typography } from '@mui/materia
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useInvitePreviewQuery, useJoinHouseholdMutation } from '@/hooks/useHouseholdQuery';
 import { useT } from '@/i18n/useT';
-import type { InvitePreview } from '@/shared/types/household';
+import { INVITE_CODE_PARAM, type InvitePreview } from '@/shared/types/household';
 import { describeHouseholdError } from '@/utils/householdError';
 
 function JoinHousehold() {
   const t = useT();
-  const code = useSearchParams().get('code')?.trim() ?? '';
+  const code = useSearchParams().get(INVITE_CODE_PARAM)?.trim() ?? '';
   const preview = useInvitePreviewQuery(code);
 
   if (code === '') {

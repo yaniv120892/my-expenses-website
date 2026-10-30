@@ -407,9 +407,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   (`{error, message, code}`), and the client localizes by the code. `/join?code=` (outside both
   route groups) previews and confirms; signed out, the proxy sends it to
   `/login?next=`, and login, signup and verify follow only a same-site
-  `next` (`src/shared/nextPath.ts`: resolved against a placeholder origin,
-  which must not change, and refused if it holds a control character, since a
-  browser strips those). Joining moves the member and drops the household they
+  `next` (`src/shared/nextPath.ts`). Joining moves the member and drops the household they
   leave, which is allowed only while it holds no other member and no live row
   (`hasAnythingAJoinWouldOrphan`; a soft-deleted import or imported row does
   not count); one transaction claims the invite (guarded on it still being

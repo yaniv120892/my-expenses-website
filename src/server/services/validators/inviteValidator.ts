@@ -15,7 +15,8 @@ export class InviteValidator {
     const code = normalizeInviteCode(rawCode);
     const invite =
       code.length === INVITE_CODE_LENGTH ? await householdRepository.findInviteByCode(code) : null;
-    if (!invite || !this.isOpen(invite, now)) {
+    const isRedeemable = invite !== null && this.isOpen(invite, now);
+    if (!isRedeemable) {
       throw new HouseholdRefusal({
         status: 404,
         message: 'This invite link is not valid. It may have expired or been used.',

@@ -44,6 +44,13 @@ const SCOPE_SERVES_A_VIEWER = {
   AGENT: true,
 } as const satisfies Record<ApiTokenScope, boolean>;
 
+function scopeDescriptionKey({ scope, canWrite }: { scope: ApiTokenScope; canWrite: boolean }) {
+  if (!canWrite && scope === 'AGENT') {
+    return 'settings.tokens.scope.AGENT.viewerDescription' as const;
+  }
+  return `settings.tokens.scope.${scope}.description` as const;
+}
+
 export default function ApiTokenManager() {
   const t = useT();
   const formatter = useAppFormat();
@@ -132,7 +139,7 @@ export default function ApiTokenManager() {
             }
             label={t('settings.tokens.scopeOption', {
               label: t(`settings.tokens.scope.${scope}`),
-              description: t(`settings.tokens.scope.${scope}.description`),
+              description: t(scopeDescriptionKey({ scope, canWrite })),
             })}
           />
         ))}

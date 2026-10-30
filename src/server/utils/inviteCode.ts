@@ -5,7 +5,7 @@ import { randomInt } from 'node:crypto';
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const INVITE_CODE_LENGTH = 8;
 
-export const INVITE_TTL_DAYS = 14;
+const INVITE_TTL_DAYS = 14;
 
 export function generateInviteCode(): string {
   let code = '';

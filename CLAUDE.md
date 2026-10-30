@@ -405,7 +405,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `/login?next=`, and login, signup and verify follow only a same-site
   `next` (`src/shared/nextPath.ts`). Joining moves the member and drops the
   household they leave, which is allowed only while it holds no other member
-  and no row (`countWhatAJoinWouldOrphan`); one transaction claims the invite
+  and no row (`hasAnythingAJoinWouldOrphan`); one transaction claims the invite
   (guarded on it still being open) and deletes that household, whose
   restricting foreign keys fail the move if it gained anything meanwhile. The
   owner cannot leave or change their own membership; a member who leaves, or is

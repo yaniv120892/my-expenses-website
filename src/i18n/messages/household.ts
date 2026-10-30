@@ -34,7 +34,6 @@ const en = {
   'household.leaveConfirm':
     'Leave this household? You will start again with an empty household of your own.',
   'household.leaveFailed': 'Failed to leave the household',
-  'household.cancel': 'Cancel',
 
   'join.title': 'Join a household',
   'join.checking': 'Checking the invite…',
@@ -84,7 +83,6 @@ export const householdMessages: Dictionary<typeof en> = {
     'household.leave': 'עזיבת משק הבית',
     'household.leaveConfirm': 'לעזוב את משק הבית? תתחילו מחדש עם משק בית ריק משלכם.',
     'household.leaveFailed': 'עזיבת משק הבית נכשלה',
-    'household.cancel': 'ביטול',
 
     'join.title': 'הצטרפות למשק בית',
     'join.checking': 'בודקים את ההזמנה…',

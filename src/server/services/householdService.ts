@@ -21,16 +21,15 @@ const HOUSEHOLD_IN_USE_MESSAGE =
 class HouseholdService {
   public async getHousehold(actor: MemberActor): Promise<HouseholdView> {
     const now = new Date();
-    const [members, ownerName, invites] = await Promise.all([
+    const [members, invites] = await Promise.all([
       householdRepository.findMembers(actor.householdId),
-      householdRepository.findOwnerName(actor.householdId),
       actor.role === 'OWNER'
         ? householdRepository.findPendingInvites(actor.householdId, now)
         : Promise.resolve([]),
     ]);
     return {
       role: actor.role,
-      ownerName: ownerName ?? '',
+      ownerName: members.find((member) => member.householdRole === 'OWNER')?.username ?? '',
       members: members.map((member) => ({
         id: member.id,
         username: member.username,
@@ -151,7 +150,6 @@ class HouseholdService {
   ): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    await inviteValidator.assertIsMember({ householdId: actor.householdId, memberId });
     const changed = await householdRepository.changeMemberRole({
       householdId: actor.householdId,
       memberId,

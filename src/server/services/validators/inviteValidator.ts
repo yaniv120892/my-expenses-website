@@ -1,5 +1,5 @@
 import type { Invite } from '@/generated/prisma/client';
-import type { HouseholdId, MemberActor } from '@/server/auth/householdActor.types';
+import type { MemberActor } from '@/server/auth/householdActor.types';
 import { HttpError } from '@/server/http/errors';
 import householdRepository from '@/server/repositories/householdRepository';
 import { INVITE_CODE_LENGTH, normalizeInviteCode } from '@/server/utils/inviteCode';
@@ -31,11 +31,11 @@ export class InviteValidator {
     if (actor.householdId === targetHouseholdId) {
       return 'already-member';
     }
-    const orphaned = await householdRepository.countWhatAJoinWouldOrphan({
+    const wouldOrphan = await householdRepository.hasAnythingAJoinWouldOrphan({
       householdId: actor.householdId,
       memberId: actor.userId,
     });
-    return orphaned === 0 ? 'can-join' : 'household-in-use';
+    return wouldOrphan ? 'household-in-use' : 'can-join';
   }
 
   public assertIsOwner(actor: MemberActor): void {
@@ -60,19 +60,6 @@ export class InviteValidator {
         409,
         'The owner cannot leave the household; remove the other members first',
       );
-    }
-  }
-
-  public async assertIsMember({
-    householdId,
-    memberId,
-  }: {
-    householdId: HouseholdId;
-    memberId: string;
-  }): Promise<void> {
-    const member = await householdRepository.findMember(householdId, memberId);
-    if (!member) {
-      throw new HttpError(404, 'No such member in this household');
     }
   }
 

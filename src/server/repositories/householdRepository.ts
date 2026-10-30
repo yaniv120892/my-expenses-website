@@ -2,6 +2,7 @@ import type { HouseholdRole, Invite } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
+import type { IS_HOUSEHOLD_OWNED } from '@/server/db/householdScope';
 import type { InvitableRole } from '@/shared/types/household';
 
 export type HouseholdMemberRow = {
@@ -26,6 +27,43 @@ const MEMBER_SELECT = {
   householdRole: true,
 } as const;
 
+const INVITE_SELECT = {
+  id: true,
+  code: true,
+  role: true,
+  expiresAt: true,
+  createdAt: true,
+} as const;
+
+type HouseholdOwnedModel = {
+  [Model in keyof typeof IS_HOUSEHOLD_OWNED]: (typeof IS_HOUSEHOLD_OWNED)[Model] extends true
+    ? Model
+    : never;
+}[keyof typeof IS_HOUSEHOLD_OWNED];
+
+const ANY_ROW = { select: { id: true } } as const;
+
+// Keyed by every household-owned model, so a new one fails to compile until the
+// join check covers it.
+const FIND_ANY_OWNED_ROW: Record<
+  HouseholdOwnedModel,
+  (householdId: HouseholdId) => Promise<unknown>
+> = {
+  Transaction: (householdId) =>
+    prisma.transaction.findFirst({ where: { householdId }, ...ANY_ROW }),
+  Import: (householdId) => prisma.import.findFirst({ where: { householdId }, ...ANY_ROW }),
+  ImportedTransaction: (householdId) =>
+    prisma.importedTransaction.findFirst({ where: { householdId }, ...ANY_ROW }),
+  ScheduledTransaction: (householdId) =>
+    prisma.scheduledTransaction.findFirst({ where: { householdId }, ...ANY_ROW }),
+  UserCategoryMapping: (householdId) =>
+    prisma.userCategoryMapping.findFirst({ where: { householdId }, ...ANY_ROW }),
+  AutoApproveRule: (householdId) =>
+    prisma.autoApproveRule.findFirst({ where: { householdId }, ...ANY_ROW }),
+  DetectedSubscription: (householdId) =>
+    prisma.detectedSubscription.findFirst({ where: { householdId }, ...ANY_ROW }),
+};
+
 class HouseholdRepository {
   public async listIds(): Promise<HouseholdId[]> {
     const households = await prisma.household.findMany({ select: { id: true } });
@@ -48,13 +86,6 @@ class HouseholdRepository {
     });
   }
 
-  public async findMember(
-    householdId: HouseholdId,
-    memberId: string,
-  ): Promise<HouseholdMemberRow | null> {
-    return prisma.user.findFirst({ where: { id: memberId, householdId }, select: MEMBER_SELECT });
-  }
-
   public async findOwnerName(householdId: HouseholdId): Promise<string | null> {
     const owner = await prisma.user.findFirst({
       where: { householdId, householdRole: 'OWNER' },
@@ -63,25 +94,27 @@ class HouseholdRepository {
     return owner?.username ?? null;
   }
 
-  /** Other members plus every household-owned row, so a household with any of them is kept. */
-  public async countWhatAJoinWouldOrphan({
+  /** Another member or any household-owned row, either of which keeps the household. */
+  public async hasAnythingAJoinWouldOrphan({
     householdId,
     memberId,
   }: {
     householdId: HouseholdId;
     memberId: string;
-  }): Promise<number> {
-    const counts = await Promise.all([
-      prisma.user.count({ where: { householdId, id: { not: memberId } } }),
-      prisma.transaction.count({ where: { householdId } }),
-      prisma.import.count({ where: { householdId } }),
-      prisma.importedTransaction.count({ where: { householdId } }),
-      prisma.scheduledTransaction.count({ where: { householdId } }),
-      prisma.userCategoryMapping.count({ where: { householdId } }),
-      prisma.autoApproveRule.count({ where: { householdId } }),
-      prisma.detectedSubscription.count({ where: { householdId } }),
-    ]);
-    return counts.reduce((total, count) => total + count, 0);
+  }): Promise<boolean> {
+    const otherMember = await prisma.user.findFirst({
+      where: { householdId, id: { not: memberId } },
+      select: { id: true },
+    });
+    if (otherMember) {
+      return true;
+    }
+    for (const findAnyRow of Object.values(FIND_ANY_OWNED_ROW)) {
+      if (await findAnyRow(householdId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public async createInvite(data: {
@@ -93,7 +126,7 @@ class HouseholdRepository {
   }): Promise<PendingInviteRow> {
     return prisma.invite.create({
       data,
-      select: { id: true, code: true, role: true, expiresAt: true, createdAt: true },
+      select: INVITE_SELECT,
     });
   }
 
@@ -103,7 +136,7 @@ class HouseholdRepository {
   ): Promise<PendingInviteRow[]> {
     return prisma.invite.findMany({
       where: { householdId, usedAt: null, revokedAt: null, expiresAt: { gt: now } },
-      select: { id: true, code: true, role: true, expiresAt: true, createdAt: true },
+      select: INVITE_SELECT,
       orderBy: { createdAt: 'desc' },
     });
   }

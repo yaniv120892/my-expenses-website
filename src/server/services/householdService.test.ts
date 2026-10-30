@@ -4,11 +4,10 @@ import type { Invite } from '@/generated/prisma/client';
 const { repository } = vi.hoisted(() => ({
   repository: {
     findMembers: vi.fn(),
-    findMember: vi.fn(),
     findOwnerName: vi.fn(),
     findPendingInvites: vi.fn(),
     findInviteByCode: vi.fn(),
-    countWhatAJoinWouldOrphan: vi.fn(),
+    hasAnythingAJoinWouldOrphan: vi.fn(),
     createInvite: vi.fn(),
     revokeInvite: vi.fn(),
     joinHousehold: vi.fn(),
@@ -112,7 +111,7 @@ describe('createInvite', () => {
 describe('acceptInvite', () => {
   it('moves an empty-handed member into the invite household', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockResolvedValue('joined');
 
     await householdService.acceptInvite(NEWCOMER, 'ABCD2345');
@@ -132,7 +131,7 @@ describe('acceptInvite', () => {
 
   it('refuses a member whose own household would be orphaned', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(1);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(true);
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
       status: 409,
@@ -142,7 +141,7 @@ describe('acceptInvite', () => {
 
   it('reports an invite another member claimed first as a conflict', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockResolvedValue('invite-taken');
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
@@ -152,7 +151,7 @@ describe('acceptInvite', () => {
 
   it('reports a household that gained data mid-join as a conflict, not a 500', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockRejectedValue(foreignKeyViolation());
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
@@ -202,16 +201,22 @@ describe('membership changes', () => {
   });
 
   it('changes the role of a member of the owner household only', async () => {
-    repository.findMember.mockResolvedValue({ id: 'editor' });
     repository.changeMemberRole.mockResolvedValue(true);
 
     await householdService.changeMemberRole(OWNER, 'editor', 'VIEWER');
 
-    expect(repository.findMember).toHaveBeenCalledWith(OWNER.householdId, 'editor');
     expect(repository.changeMemberRole).toHaveBeenCalledWith({
       householdId: OWNER.householdId,
       memberId: 'editor',
       role: 'VIEWER',
     });
+  });
+
+  it('refuses a role change for someone outside the household', async () => {
+    repository.changeMemberRole.mockResolvedValue(false);
+
+    await expect(
+      householdService.changeMemberRole(OWNER, 'stranger', 'VIEWER'),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });

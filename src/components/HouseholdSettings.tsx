@@ -39,12 +39,13 @@ import type {
   HouseholdView,
   InvitableRole,
 } from '@/shared/types/household';
+import { invitableRoleSchema } from '@/shared/schemas/household';
 import { describeApiError } from '@/utils/api';
 
-const INVITABLE_ROLES: InvitableRole[] = ['EDITOR', 'VIEWER'];
+const INVITABLE_ROLES = invitableRoleSchema.options;
 
 function isInvitableRole(value: string): value is InvitableRole {
-  return INVITABLE_ROLES.some((role) => role === value);
+  return invitableRoleSchema.safeParse(value).success;
 }
 
 /** The owner manages members and invites; anyone else sees who is in and can leave. */
@@ -352,7 +353,7 @@ function ConfirmDialog({
         <DialogContentText>{text}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>{t('household.cancel')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
         <Button color="error" onClick={onConfirm}>
           {confirmLabel}
         </Button>

@@ -4,8 +4,7 @@ import type { Invite } from '@/generated/prisma/client';
 const { repository } = vi.hoisted(() => ({
   repository: {
     findInviteByCode: vi.fn(),
-    countWhatAJoinWouldOrphan: vi.fn(),
-    findMember: vi.fn(),
+    hasAnythingAJoinWouldOrphan: vi.fn(),
   },
 }));
 
@@ -75,23 +74,23 @@ describe('joinEligibility', () => {
     await expect(
       inviteValidator.joinEligibility({ actor: OWNER, targetHouseholdId: OWNER.householdId }),
     ).resolves.toBe('already-member');
-    expect(repository.countWhatAJoinWouldOrphan).not.toHaveBeenCalled();
+    expect(repository.hasAnythingAJoinWouldOrphan).not.toHaveBeenCalled();
   });
 
   it('lets a member whose household holds nothing but them join', async () => {
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
 
     await expect(
       inviteValidator.joinEligibility({ actor: OWNER, targetHouseholdId: 'household-target' }),
     ).resolves.toBe('can-join');
-    expect(repository.countWhatAJoinWouldOrphan).toHaveBeenCalledWith({
+    expect(repository.hasAnythingAJoinWouldOrphan).toHaveBeenCalledWith({
       householdId: OWNER.householdId,
       memberId: 'owner',
     });
   });
 
   it('refuses a member whose household has data or other members', async () => {
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(3);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(true);
 
     await expect(
       inviteValidator.joinEligibility({ actor: OWNER, targetHouseholdId: 'household-target' }),
@@ -123,14 +122,5 @@ describe('role checks', () => {
     expect(() =>
       inviteValidator.assertCanLeave(testMemberActor({ userId: 'u', role: 'VIEWER' })),
     ).not.toThrow();
-  });
-
-  it('finds a member only within the actor household', async () => {
-    repository.findMember.mockResolvedValue(null);
-
-    await expect(
-      inviteValidator.assertIsMember({ householdId: OWNER.householdId, memberId: 'stranger' }),
-    ).rejects.toMatchObject({ status: 404 });
-    expect(repository.findMember).toHaveBeenCalledWith(OWNER.householdId, 'stranger');
   });
 });

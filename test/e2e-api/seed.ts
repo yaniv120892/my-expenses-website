@@ -118,6 +118,7 @@ export async function seed(): Promise<SeedResult> {
         password: passwordHash,
         verified: true,
         household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
     const userB = await prisma.user.create({
@@ -127,13 +128,20 @@ export async function seed(): Promise<SeedResult> {
         password: passwordHash,
         verified: true,
         household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
 
     const householdUsers = await Promise.all(
       Object.values(HOUSEHOLD_E2E_USERS).map((user) =>
         prisma.user.create({
-          data: { ...user, password: passwordHash, verified: true, household: { create: {} } },
+          data: {
+            ...user,
+            password: passwordHash,
+            verified: true,
+            household: { create: {} },
+            householdRole: 'OWNER',
+          },
         }),
       ),
     );

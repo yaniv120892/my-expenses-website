@@ -55,8 +55,7 @@ export type HandlerContext<TBody, TQuery, TParams = Record<string, string>> = {
   params: TParams;
 };
 
-// A session or API token route also knows the member and their household.
-export type MemberHandlerContext<TBody, TQuery, TParams = Record<string, string>> = HandlerContext<
+type MemberHandlerContext<TBody, TQuery, TParams = Record<string, string>> = HandlerContext<
   TBody,
   TQuery,
   TParams
@@ -172,10 +171,7 @@ async function resolveAuth({
       if (!options.apiTokenScope) {
         throw new AuthError('API_TOKEN_NOT_ACCEPTED', 'This route does not accept an API token');
       }
-      return withActor({
-        ...(await authenticateApiToken(credential.token, options.apiTokenScope)),
-        sessionTokenVersion: null,
-      });
+      return apiTokenMember({ token: credential.token, scope: options.apiTokenScope });
     }
     case 'apiToken': {
       const token = bearerApiToken(request);
@@ -185,10 +181,7 @@ async function resolveAuth({
           'This route requires an API token as an Authorization: Bearer header',
         );
       }
-      return withActor({
-        ...(await authenticateApiToken(token, options.apiTokenScope)),
-        sessionTokenVersion: null,
-      });
+      return apiTokenMember({ token, scope: options.apiTokenScope });
     }
     case 'cron': {
       const authHeader = request.headers.get('authorization');
@@ -225,24 +218,48 @@ async function withActor(identity: {
   };
 }
 
+async function apiTokenMember({
+  token,
+  scope,
+}: {
+  token: string;
+  scope: ApiTokenScope;
+}): Promise<AuthResult> {
+  const identity = await authenticateApiToken(token, scope);
+  return withActor({ ...identity, sessionTokenVersion: null });
+}
+
+// Runs before the body is parsed or a rate-limit slot is spent, so a viewer's
+// write is a 403 whatever it carries.
 function assertMayWrite({
   request,
-  actor,
-  writes,
+  options,
+  auth,
 }: {
   request: NextRequest;
-  actor: MemberActor;
-  writes: WriteTarget | undefined;
+  options: HandlerOptions<unknown, unknown, unknown, unknown>;
+  auth: AuthResult;
 }): void {
-  const isHouseholdWrite =
-    !READ_ONLY_METHODS.has(request.method) && (writes ?? 'household') === 'household';
-  if (isHouseholdWrite) {
-    assertCanWrite(actor);
+  switch (options.auth) {
+    case 'session':
+    case 'apiToken': {
+      const isHouseholdWrite =
+        !READ_ONLY_METHODS.has(request.method) && (options.writes ?? 'household') === 'household';
+      if (isHouseholdWrite) {
+        assertCanWrite(requireActor(auth));
+      }
+      return;
+    }
+    case 'cron':
+    case 'telegram':
+    case 'public':
+      return;
+    default:
+      assertNever({ value: options, what: 'auth mode' });
   }
 }
 
-// Narrowed per auth mode, so only a member route's handler is handed the actor,
-// and only after the write guard has passed.
+// Narrowed per auth mode, so only a member route's handler is handed the actor.
 async function runHandler({
   options,
   handlerContext,
@@ -256,7 +273,6 @@ async function runHandler({
     case 'session':
     case 'apiToken': {
       const actor = requireActor(auth);
-      assertMayWrite({ request: handlerContext.request, actor, writes: options.writes });
       return runAsActor(actor, () => options.handler({ ...handlerContext, actor }));
     }
     case 'cron':
@@ -273,6 +289,13 @@ function requireActor({ actor, userId }: AuthResult): MemberActor {
     throw new Error(`A member route resolved user ${userId} without loading their household`);
   }
   return actor;
+}
+
+function householdLogFields(actor: MemberActor | undefined): {
+  householdId?: string;
+  householdRole?: MemberActor['role'];
+} {
+  return actor ? { householdId: actor.householdId, householdRole: actor.role } : {};
 }
 
 function bearerApiToken(request: NextRequest): string | null {
@@ -357,11 +380,13 @@ export function createHandler(
     let response: Response;
     let userId = '';
     let apiTokenId: string | undefined;
+    let actor: MemberActor | undefined;
     let params: Record<string, string> = {};
 
     try {
       const auth = await resolveAuth({ request, options });
-      ({ userId, apiTokenId } = auth);
+      ({ userId, apiTokenId, actor } = auth);
+      assertMayWrite({ request, options, auth });
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = (options.paramsSchema ?? uuidRouteParamsSchema).parse(params);
       let body: unknown;
@@ -408,13 +433,19 @@ export function createHandler(
             err,
             ...(userId && { userId }),
             ...(apiTokenId && { apiTokenId }),
+            ...householdLogFields(actor),
           },
           'Request failed',
         );
         // The error becomes a response here, so Next's onRequestError never
         // sees it.
         Sentry.captureException(err, {
-          tags: { path, requestId, ...(apiTokenId && { apiTokenId }) },
+          tags: {
+            path,
+            requestId,
+            ...(apiTokenId && { apiTokenId }),
+            ...householdLogFields(actor),
+          },
           ...(userId && { user: { id: userId } }),
         });
         // Raw params, not parsed: the replace must match the exact path text.
@@ -437,6 +468,7 @@ export function createHandler(
         durationMs: Date.now() - started,
         ...(userId && { userId }),
         ...(apiTokenId && { apiTokenId }),
+        ...householdLogFields(actor),
         // A cron's request line ships even though info normally does not: its
         // only other signal is a heartbeat that cannot say why it went silent.
         ...(options.auth === 'cron' && { ship: true }),

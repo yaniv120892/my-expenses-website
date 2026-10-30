@@ -224,7 +224,6 @@ function textOf(frames: Frame[]): string {
     .join('');
 }
 
-// Every account owns a household of its own, as signup opens one.
 async function insertVerifiedUser({
   username,
   email,
@@ -233,13 +232,13 @@ async function insertVerifiedUser({
   username: string;
   email: string;
   passwordHash: string;
-}): Promise<{ id: string; householdId: string }> {
+}): Promise<{ id: string }> {
   return firstRow({
-    rows: await query<{ id: string; householdId: string }>(
+    rows: await query<{ id: string }>(
       `with household as (insert into "Household" (id) values (gen_random_uuid()) returning id)
-       insert into "User" (id, username, email, password, verified, "householdId")
-       select gen_random_uuid(), $1, $2, $3, true, household.id from household
-       returning id, "householdId"`,
+       insert into "User" (id, username, email, password, verified, "householdId", "householdRole")
+       select gen_random_uuid(), $1, $2, $3, true, household.id, 'OWNER' from household
+       returning id`,
       [username, email, passwordHash],
     ),
     what: `the user ${email}`,

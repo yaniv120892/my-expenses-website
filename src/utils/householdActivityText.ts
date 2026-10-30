@@ -60,8 +60,9 @@ export function describeHouseholdActivity({
         detail: null,
       };
     case 'API_TOKEN_REVOKED':
+    case 'API_TOKEN_REVOKED_ON_REMOVAL':
       return {
-        sentence: t('household.activity.sentence.API_TOKEN_REVOKED', { name }),
+        sentence: t(`household.activity.sentence.${item.action}`, { actor, name }),
         detail: null,
       };
     default:

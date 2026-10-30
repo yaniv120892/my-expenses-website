@@ -501,6 +501,7 @@ enum HouseholdActivityAction {
   MEMBER_REMOVED
   ROLE_CHANGED
   API_TOKEN_REVOKED
+  API_TOKEN_REVOKED_ON_REMOVAL
 }
 
 enum HouseholdEntityType {

@@ -196,13 +196,13 @@ describe('membership changes', () => {
     expect(activity.entries).toEqual([
       { action: 'MEMBER_REMOVED', entityType: 'MEMBER', entityId: 'editor', summary: 'Dana' },
       {
-        action: 'API_TOKEN_REVOKED',
+        action: 'API_TOKEN_REVOKED_ON_REMOVAL',
         entityType: 'API_TOKEN',
         entityId: 'token-1',
         summary: 'agent',
       },
       {
-        action: 'API_TOKEN_REVOKED',
+        action: 'API_TOKEN_REVOKED_ON_REMOVAL',
         entityType: 'API_TOKEN',
         entityId: 'token-2',
         summary: 'script',

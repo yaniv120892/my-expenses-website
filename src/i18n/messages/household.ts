@@ -88,7 +88,9 @@ const en = {
   'household.activity.sentence.MEMBER_REMOVED': '{actor} removed {name} from the household',
   'household.activity.sentence.ROLE_CHANGED': "{actor} changed {name}'s role to {role}",
   'household.activity.sentence.API_TOKEN_REVOKED':
-    'The API token "{name}" was revoked, since its owner left the household',
+    '{actor} left the household, so their API token "{name}" was revoked',
+  'household.activity.sentence.API_TOKEN_REVOKED_ON_REMOVAL':
+    'The API token "{name}" was revoked, because {actor} removed the member who created it',
   'household.activity.entity.TRANSACTION': 'a transaction',
   'household.activity.entity.IMPORT': 'an import',
   'household.activity.entity.IMPORTED_TRANSACTION': 'an imported row',
@@ -189,7 +191,9 @@ export const householdMessages: Dictionary<typeof en> = {
     'household.activity.sentence.MEMBER_REMOVED': '{actor} הסיר/ה את {name} ממשק הבית',
     'household.activity.sentence.ROLE_CHANGED': '{actor} שינה/תה את התפקיד של {name} ל{role}',
     'household.activity.sentence.API_TOKEN_REVOKED':
-      'אסימון ה-API "{name}" בוטל, כי בעליו עזב/ה את משק הבית',
+      '{actor} עזב/ה את משק הבית, ולכן אסימון ה-API "{name}" שלו/ה בוטל',
+    'household.activity.sentence.API_TOKEN_REVOKED_ON_REMOVAL':
+      'אסימון ה-API "{name}" בוטל, כי {actor} הסיר/ה את החבר/ה שיצר/ה אותו',
     'household.activity.entity.TRANSACTION': 'עסקה',
     'household.activity.entity.IMPORT': 'ייבוא',
     'household.activity.entity.IMPORTED_TRANSACTION': 'שורה מיובאת',

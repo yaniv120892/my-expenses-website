@@ -68,13 +68,25 @@ describe('describeHouseholdActivity', () => {
     expect(text).toEqual({ sentence: 'Dana deleted a transaction', detail: 'Coffee' });
   });
 
-  it('names a revoked API token', () => {
+  it('says whose leaving revoked an API token', () => {
     const text = describeHouseholdActivity({
       item: entry({ action: 'API_TOKEN_REVOKED', entityType: 'API_TOKEN', summary: 'agent' }),
       t: englishT,
     });
-    expect(text.sentence).toBe(
-      'The API token "agent" was revoked, since its owner left the household',
+    expect(text.sentence).toBe('Dana left the household, so their API token "agent" was revoked');
+  });
+
+  it('words a removal’s token revocation apart from a leave, naming who removed', () => {
+    const item = entry({
+      action: 'API_TOKEN_REVOKED_ON_REMOVAL',
+      entityType: 'API_TOKEN',
+      summary: 'agent',
+    });
+    expect(describeHouseholdActivity({ item, t: englishT }).sentence).toBe(
+      'The API token "agent" was revoked, because Dana removed the member who created it',
+    );
+    expect(describeHouseholdActivity({ item, t: hebrewT }).sentence).toBe(
+      'אסימון ה-API "agent" בוטל, כי Dana הסיר/ה את החבר/ה שיצר/ה אותו',
     );
   });
 

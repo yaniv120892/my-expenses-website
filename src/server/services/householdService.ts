@@ -180,7 +180,7 @@ class HouseholdService {
       describe: (memberMove) =>
         memberMove && [
           { action: 'MEMBER_LEFT', entityType: 'MEMBER', entityId: actor.userId, summary: null },
-          ...this.tokenRevocations(memberMove),
+          ...this.tokenRevocations({ memberMove, action: 'API_TOKEN_REVOKED' }),
         ],
     });
     if (!move) {
@@ -227,7 +227,10 @@ class HouseholdService {
             entityId: removed.member.id,
             summary: removed.member.username,
           },
-          ...this.tokenRevocations(removed.memberMove),
+          ...this.tokenRevocations({
+            memberMove: removed.memberMove,
+            action: 'API_TOKEN_REVOKED_ON_REMOVAL',
+          }),
         ],
     });
     if (!removal) {
@@ -293,9 +296,15 @@ class HouseholdService {
     logger.info({ householdId: actor.householdId, memberId, role }, 'Member role changed');
   }
 
-  private tokenRevocations(memberMove: MemberMove): ActivityEntry[] {
+  private tokenRevocations({
+    memberMove,
+    action,
+  }: {
+    memberMove: MemberMove;
+    action: 'API_TOKEN_REVOKED' | 'API_TOKEN_REVOKED_ON_REMOVAL';
+  }): ActivityEntry[] {
     return memberMove.revokedApiTokens.map((token) => ({
-      action: 'API_TOKEN_REVOKED',
+      action,
       entityType: 'API_TOKEN',
       entityId: token.id,
       summary: token.name,

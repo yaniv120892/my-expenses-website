@@ -2,12 +2,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithClient } from '@/test/renderWithClient';
+import { createTestQueryClient, renderWithClient } from '@/test/renderWithClient';
 import PendingPage from '@/app/(app)/pending/page';
+import type { HouseholdRole } from '@/generated/prisma/enums';
+import type { MeResponse } from '@/shared/types/household';
 import type { Transaction } from '@/types';
 
-function renderPage() {
-  return renderWithClient(<PendingPage />);
+function renderPage(role: HouseholdRole = 'EDITOR') {
+  const queryClient = createTestQueryClient();
+  const session: MeResponse = { userId: 'user-1', email: null, role };
+  queryClient.setQueryData(['session'], session);
+  return renderWithClient(<PendingPage />, queryClient);
 }
 
 const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } = vi.hoisted(() => ({

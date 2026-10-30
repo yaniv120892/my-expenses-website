@@ -1,4 +1,3 @@
-import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -43,10 +42,9 @@ const {
   };
 });
 
-vi.mock('@/server/auth/householdActor', async () => ({
-  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
-  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
-}));
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/services/authService', () => ({ default: authService }));
 vi.mock('@/server/services/transactionService', () => ({ default: transactionService }));
 vi.mock('@/server/services/importService', () => ({ importService }));

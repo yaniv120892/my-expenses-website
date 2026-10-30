@@ -40,12 +40,9 @@ describe('the role check', () => {
     const viewer = testMemberActor({ userId: USER_ID, role: 'VIEWER' });
 
     expect(() => assertCanWrite(viewer)).toThrow(HttpError);
-    expect(() => assertCanWrite(viewer)).toThrow(/viewer/);
-    try {
-      assertCanWrite(viewer);
-    } catch (error) {
-      expect(error).toMatchObject({ status: 403 });
-    }
+    expect(() => assertCanWrite(viewer)).toThrow(
+      expect.objectContaining({ status: 403, message: expect.stringMatching(/viewer/) }),
+    );
   });
 
   it('lets an editor through', () => {
@@ -104,5 +101,13 @@ describe('resolveMemberActor', () => {
     await expect(
       resolveMemberActor({ userId: USER_ID, apiTokenId: null, sessionTokenVersion: 0 }),
     ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+  });
+
+  it('refuses an API token whose user no longer exists as an invalid token', async () => {
+    findMembership.mockResolvedValue(null);
+
+    await expect(
+      resolveMemberActor({ userId: USER_ID, apiTokenId: 'token-1', sessionTokenVersion: null }),
+    ).rejects.toMatchObject({ code: 'INVALID_API_TOKEN' });
   });
 });

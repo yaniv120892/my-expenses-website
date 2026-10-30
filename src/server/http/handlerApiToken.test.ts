@@ -1,4 +1,3 @@
-import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiTokensModule from '@/server/auth/apiTokens';
 import type * as SessionModule from '@/server/auth/session';
@@ -11,10 +10,9 @@ const { authenticateApiToken, requireUser } = vi.hoisted(() => ({
   requireUser: vi.fn(),
 }));
 
-vi.mock('@/server/auth/householdActor', async () => ({
-  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
-  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
-}));
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/auth/apiTokens', async () => ({
   ...(await vi.importActual<typeof ApiTokensModule>('@/server/auth/apiTokens')),
   authenticateApiToken,

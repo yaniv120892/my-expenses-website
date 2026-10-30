@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify, errors as joseErrors } from 'jose';
 import { requireEnv } from '@/server/env';
+import type { SessionClaims } from '@/server/auth/tokens.types';
 
 const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -9,8 +10,6 @@ export class InvalidTokenError extends Error {}
 function secretKey(): Uint8Array {
   return new TextEncoder().encode(requireEnv('JWT_SECRET'));
 }
-
-export type SessionClaims = { userId: string; tokenVersion: number };
 
 export async function signToken({ userId, tokenVersion }: SessionClaims): Promise<string> {
   return new SignJWT({ userId, tokenVersion })

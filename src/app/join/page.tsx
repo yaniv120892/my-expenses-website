@@ -16,7 +16,12 @@ function JoinHousehold() {
   const preview = useInvitePreviewQuery(code);
 
   if (code === '') {
-    return <Alert severity="error">{t('join.missingCode')}</Alert>;
+    return (
+      <Stack spacing={2.5}>
+        <Alert severity="error">{t('join.missingCode')}</Alert>
+        <DashboardLink />
+      </Stack>
+    );
   }
   if (preview.isLoading) {
     return (
@@ -28,9 +33,12 @@ function JoinHousehold() {
   }
   if (preview.error || !preview.data) {
     return (
-      <Alert severity="error">
-        {describeHouseholdError({ error: preview.error, fallback: t('join.invalid'), t })}
-      </Alert>
+      <Stack spacing={2.5}>
+        <Alert severity="error">
+          {describeHouseholdError({ error: preview.error, fallback: t('join.invalid'), t })}
+        </Alert>
+        <DashboardLink />
+      </Stack>
     );
   }
   return <JoinOffer invite={preview.data} />;

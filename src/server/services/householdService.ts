@@ -255,27 +255,35 @@ class HouseholdService {
   ): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    const changed = await householdActivityService.record({
+    const outcome = await householdActivityService.record({
       actor,
       write: async () => {
         const member = await householdRepository.findMember(actor.householdId, memberId);
+        if (!member) {
+          return null;
+        }
+        if (member.householdRole === role) {
+          return { member, changed: false };
+        }
         const updated = await householdRepository.changeMemberRole({
           householdId: actor.householdId,
           memberId,
           role,
         });
-        return updated ? member : null;
+        return updated ? { member, changed: true } : null;
       },
-      describe: (member) =>
-        member && {
-          action: 'ROLE_CHANGED',
-          entityType: 'MEMBER',
-          entityId: member.id,
-          summary: member.username,
-          role,
-        },
+      describe: (result) =>
+        result?.changed
+          ? {
+              action: 'ROLE_CHANGED',
+              entityType: 'MEMBER',
+              entityId: result.member.id,
+              summary: result.member.username,
+              role,
+            }
+          : null,
     });
-    if (!changed) {
+    if (!outcome) {
       throw new HouseholdRefusal({
         status: 404,
         message: MEMBER_NOT_FOUND_MESSAGE,

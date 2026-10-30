@@ -305,7 +305,22 @@ describe('membership changes', () => {
     });
   });
 
+  it('records nothing and writes nothing when the member already holds that role', async () => {
+    repository.findMember.mockResolvedValue({
+      id: 'editor',
+      username: 'Dana',
+      householdRole: 'EDITOR',
+    });
+    repository.changeMemberRole.mockResolvedValue(true);
+
+    await householdService.changeMemberRole(OWNER, 'editor', 'EDITOR');
+
+    expect(activity.entries).toEqual([]);
+    expect(repository.changeMemberRole).not.toHaveBeenCalled();
+  });
+
   it('refuses a role change for someone outside the household', async () => {
+    repository.findMember.mockResolvedValue(null);
     repository.changeMemberRole.mockResolvedValue(false);
 
     await expect(

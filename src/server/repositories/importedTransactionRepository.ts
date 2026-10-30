@@ -51,6 +51,7 @@ type ImportedTransactionCreateRow = ImportedAmountColumns & {
   rawData: Prisma.InputJsonValue;
   householdId: HouseholdId;
   userId: string | null;
+  createdById: string | null;
 };
 
 const PENDING_ROW = {

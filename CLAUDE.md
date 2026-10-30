@@ -427,7 +427,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `userId`), stamped by the `attributionStamp` Prisma extension
   (`src/server/db/attribution.ts`) from the actor in
   `src/server/db/actorContext.ts`, which `createHandler` sets for every member
-  request, so no write path can skip it. A system job marks the rows it
+  request, so no write path can skip it; the extraction callback, which
+  carries no member, credits its rows to the import's uploader. A system job marks the rows it
   creates `createdBySystem` and leaves a row it updates alone. Transactions
   show "Added by / Edited by", or "Added automatically", in the list, the
   Pending list and the edit dialog. Each member-visible change is

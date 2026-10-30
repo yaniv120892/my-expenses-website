@@ -28,7 +28,6 @@ export function safeNextPath(value: string | null | undefined): string | null {
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
-/** Appends the post-login destination to an auth page's URL, when there is one. */
 export function withNextPath({ path, next }: { path: string; next: string | null }): string {
   if (!next) {
     return path;

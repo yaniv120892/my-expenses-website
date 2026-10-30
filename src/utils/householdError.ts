@@ -6,7 +6,6 @@ import { describeApiError } from '@/utils/api';
 
 const householdErrorBodySchema = z.object({ code: z.enum(HOUSEHOLD_ERROR_CODES) });
 
-/** The household refusal a failed request carries, or null for any other failure. */
 export function householdErrorCode(error: unknown): HouseholdErrorCode | null {
   if (!isAxiosError(error)) {
     return null;

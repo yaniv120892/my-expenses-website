@@ -47,7 +47,6 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 const INVITABLE_ROLES = invitableRoleSchema.options;
 
-/** The owner manages members and invites; anyone else sees who is in and can leave. */
 export default function HouseholdSettings() {
   const t = useT();
   const { data: household, isLoading, error } = useHouseholdQuery();

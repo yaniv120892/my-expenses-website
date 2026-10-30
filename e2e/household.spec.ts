@@ -115,7 +115,6 @@ test.describe('household sharing', () => {
       owner.getByTestId(`household-member-${HOUSEHOLD_E2E_USERS.editor.username}`),
     ).toHaveCount(0);
 
-    // Removal ends every session the member holds.
     const afterRemoval = await editor.request.get('/api/transactions');
     expect(afterRemoval.status()).toBe(401);
 

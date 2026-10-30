@@ -15,7 +15,6 @@ export type PendingInviteRow = {
   createdAt: Date;
 };
 
-/** A member moved to a household of their own, and the API tokens that went with the move. */
 export type MemberMove = {
   apiTokensRevoked: number;
 };

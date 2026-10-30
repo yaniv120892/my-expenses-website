@@ -7,7 +7,7 @@ import PendingTransactionsList from '@/components/PendingTransactionsList';
 import PendingTransactionListSkeleton from '@/components/PendingTransactionListSkeleton';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import { PageHeader } from '@yaniv120892/my-ui';
-import { useCanWrite, useIsViewer } from '@/hooks/useSession';
+import { useCanWrite } from '@/hooks/useSession';
 import { describeApiError } from '@/utils/api';
 import {
   usePendingTransactionsQuery,
@@ -22,7 +22,6 @@ type Notice = { message: string; severity: 'success' | 'error' };
 export default function PendingPage() {
   const t = useT();
   const canWrite = useCanWrite();
-  const isViewer = useIsViewer();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   // Remounts the snackbar per notice, restarting its auto-hide timer and
@@ -81,7 +80,7 @@ export default function PendingPage() {
     <>
       <PageHeader
         title={t('pending.title')}
-        subtitle={t(isViewer ? 'pending.subtitleReadOnly' : 'pending.subtitle')}
+        subtitle={t(canWrite ? 'pending.subtitle' : 'pending.subtitleReadOnly')}
       />
       <FixedExpensesSummary scheduledTransactions={scheduledTransactions} today={new Date()} />
       {isLoading ? (

@@ -8,10 +8,12 @@ import type { HouseholdRole } from '@/generated/prisma/enums';
 import type { MeResponse } from '@/shared/types/household';
 import type { Transaction } from '@/types';
 
-function renderPage(role: HouseholdRole = 'EDITOR') {
+function renderPage(role: HouseholdRole | null = 'EDITOR') {
   const queryClient = createTestQueryClient();
-  const session: MeResponse = { userId: 'user-1', email: null, role };
-  queryClient.setQueryData(['session'], session);
+  if (role) {
+    const session: MeResponse = { userId: 'user-1', email: null, role };
+    queryClient.setQueryData(['session'], session);
+  }
   return renderWithClient(<PendingPage />, queryClient);
 }
 
@@ -127,6 +129,12 @@ describe('pending page for a viewer', () => {
     ).toBeTruthy();
     expect(screen.queryByText(/waiting for your approval/i)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Approve transaction' })).toBeNull();
+  });
+
+  it('asks no one for approval until the role is known', () => {
+    renderPage(null);
+
+    expect(screen.queryByText(/waiting for your approval/i)).toBeNull();
   });
 
   it('keeps asking an editor for approval', () => {

@@ -12,9 +12,9 @@ export class AuthRequestError extends Error {
   }
 }
 
-async function post(path: string, body: Record<string, unknown>) {
+async function send(method: 'POST' | 'PUT', path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
@@ -29,15 +29,47 @@ async function post(path: string, body: Record<string, unknown>) {
 }
 
 export async function login(email: string, password: string): Promise<void> {
-  await post('/api/auth/login', { email, password });
+  await send('POST', '/api/auth/login', { email, password });
 }
 
-export async function signup(email: string, password: string): Promise<void> {
-  await post('/api/auth/signup', { email, username: email, password });
+export async function signup(email: string): Promise<void> {
+  await send('POST', '/api/auth/signup', { email, username: email });
 }
 
-export async function verifyCode(code: string, email: string): Promise<void> {
-  await post('/api/auth/verify', { code, email });
+export async function verifyCode({
+  code,
+  email,
+  password,
+}: {
+  code: string;
+  email: string;
+  password: string;
+}): Promise<void> {
+  await send('POST', '/api/auth/verify', { code, email, password });
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await send('POST', '/api/auth/password-reset/request', { email });
+}
+
+export async function resetPassword({
+  token,
+  password,
+}: {
+  token: string;
+  password: string;
+}): Promise<void> {
+  await send('POST', '/api/auth/password-reset/confirm', { token, password });
+}
+
+export async function changePassword({
+  currentPassword,
+  newPassword,
+}: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await send('PUT', '/api/auth/password', { currentPassword, newPassword });
 }
 
 export async function logout(): Promise<void> {

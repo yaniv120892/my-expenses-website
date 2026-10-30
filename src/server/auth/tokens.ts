@@ -11,8 +11,11 @@ function secretKey(): Uint8Array {
 }
 
 export async function signToken(userId: string): Promise<string> {
+  // The random id keeps two tokens signed for one user in the same second
+  // distinct, so ending every session never spares a token reissued after it.
   return new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
+    .setJti(crypto.randomUUID())
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
     .sign(secretKey());

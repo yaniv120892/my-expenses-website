@@ -77,7 +77,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login/signup/verify; `(app)/` the 8
+- `src/app/` — App Router. `(auth)/` login/signup/verify/forgot-password/reset-password; `(app)/` the 8
   authenticated pages (dashboard, transactions, pending, scheduled,
   subscriptions, imports, trends, settings) inside `ExpensesShell`, the
   shared `AppShell` from `@yaniv120892/my-ui` (drawer on desktop; top bar and
@@ -342,7 +342,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   validation, preview, download and delete still accept; import objects are
   never deleted, and an old import URL still passes the bucket-prefix check.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
-  `session:<userId>:<token>` must exist (logout deletes it). API routes also
+  `session:<userId>:<token>` must exist (logout deletes it); every token
+  carries a random `jti`, so no two are equal. API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
   An **API token** (`mxk_…`, created and revoked in Settings, one year, only
@@ -362,6 +363,24 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   preview, approve). A session cookie on the same request wins. An
   `auth: 'apiToken'` route takes only an API token — a cookie or session JWT
   is refused with 401 `API_TOKEN_REQUIRED` — and must declare its scope.
+- **A password is chosen only by whoever reads the mailbox.** A signup
+  (`/api/auth/signup`) takes no password — anyone can send one for someone
+  else's address — and creates a pending account with an unusable one. It mails
+  a 6-digit code; up to three stay live (`MAX_PENDING_CODES`), so a stranger's
+  signup does not void the owner's, and all share one attempts counter that a
+  signup never resets and a wrong guess never burns. `/api/auth/verify` takes
+  the code _and_ the password, which becomes the account's; the signup page
+  keeps the password in memory and sends it there, and the mailed link's
+  `/verify` page asks for it. Forgot password (`/api/auth/password-reset/request`)
+  answers `{success: true}` whatever the address, mailing a verified account a
+  `/reset-password#token=…` link — 32 random bytes in the fragment, so no
+  request log or Referer carries it — stored only as its SHA-256 for 30
+  minutes, taken with one GETDEL by `/confirm`, and superseded by the next
+  request. Change password (`PUT /api/auth/password`, session only, five tries
+  per user per 15 minutes) needs the current one. A reset or change ends every
+  session of the user (`invalidateAllSessions`, a SCAN over
+  `session:<userId>:`) and voids an outstanding reset link; a change then
+  issues the caller a fresh session. API tokens are not revoked by either.
 - **The personal agent reaches the app only through `/api/mcp`.** It is an
   `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
   issues, and answers every refusal as a JSON-RPC error rather than a redirect

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { deleteValue, getValue, setValue } from '@/server/redis';
+import { deleteKeysWithPrefix, deleteValue, getValue, setValue } from '@/server/redis';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
@@ -12,8 +12,12 @@ export class AuthError extends Error {
   }
 }
 
+function sessionKeyPrefix(userId: string): string {
+  return `session:${userId}:`;
+}
+
 function sessionKey(userId: string, token: string): string {
-  return `session:${userId}:${token}`;
+  return `${sessionKeyPrefix(userId)}${token}`;
 }
 
 export async function storeSession(
@@ -26,6 +30,10 @@ export async function storeSession(
 
 export async function invalidateSession(userId: string, token: string): Promise<void> {
   await deleteValue(sessionKey(userId, token), 'branch');
+}
+
+export async function invalidateAllSessions(userId: string): Promise<void> {
+  await deleteKeysWithPrefix(sessionKeyPrefix(userId), 'branch');
 }
 
 async function isSessionActive(userId: string, token: string): Promise<boolean> {

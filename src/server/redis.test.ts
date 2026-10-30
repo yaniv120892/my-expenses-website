@@ -8,6 +8,7 @@ const commands = {
   del: vi.fn(),
   getdel: vi.fn(),
   incr: vi.fn(),
+  scan: vi.fn(),
   pipeline: () => ({
     incr: vi.fn(),
     expire: vi.fn(),
@@ -205,5 +206,75 @@ describe('incrementManyWithTtl guarantees one count per increment', () => {
 
     await expect(incrementManyWithTtl([])).resolves.toEqual([]);
     expect(pipelineExec).not.toHaveBeenCalled();
+  });
+});
+
+// Redis's own MATCH semantics, so a pattern the module failed to escape
+// matches here exactly as it would on the server.
+function redisGlobMatches(pattern: string, key: string): boolean {
+  let source = '';
+  for (let index = 0; index < pattern.length; index++) {
+    const character = pattern[index] ?? '';
+    switch (character) {
+      case '\\':
+        index++;
+        source += (pattern[index] ?? '').replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+        break;
+      case '*':
+        source += '.*';
+        break;
+      case '?':
+        source += '.';
+        break;
+      case '[': {
+        const close = pattern.indexOf(']', index);
+        source += pattern.slice(index, close + 1);
+        index = close;
+        break;
+      }
+      default:
+        source += character.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    }
+  }
+  return new RegExp(`^${source}$`).test(key);
+}
+
+describe('deleteKeysWithPrefix', () => {
+  const BRANCH_WITH_GLOB = 'fix/[x]*';
+  const KEYS = [
+    'preview:fix/[x]*:session:user-1:a',
+    'preview:fix/[x]*:session:user-1:b',
+    'preview:fix/[x]*:session:user-2:a',
+    'preview:fix/x-other:session:user-1:c',
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('VERCEL_GIT_COMMIT_REF', BRANCH_WITH_GLOB);
+    // Two pages, as SCAN returns a cursor until the walk is done.
+    commands.scan.mockImplementation(async (cursor: string, { match }: { match: string }) => {
+      const page = cursor === '0' ? KEYS.slice(0, 2) : KEYS.slice(2);
+      const next = cursor === '0' ? '7' : '0';
+      return [next, page.filter((key) => redisGlobMatches(match, key))];
+    });
+    commands.del.mockImplementation(async (...keys: string[]) => keys.length);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('deletes every key under the prefix across scan pages, and no other', async () => {
+    const { deleteKeysWithPrefix } = await import('@/server/redis');
+
+    const deleted = await deleteKeysWithPrefix('session:user-1:', 'branch');
+
+    expect(deleted).toBe(2);
+    expect(commands.del.mock.calls.flat()).toEqual([
+      'preview:fix/[x]*:session:user-1:a',
+      'preview:fix/[x]*:session:user-1:b',
+    ]);
+    expect(commands.scan).toHaveBeenCalledTimes(2);
   });
 });

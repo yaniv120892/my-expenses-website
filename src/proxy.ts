@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
-const AUTH_PAGES = ['/login', '/signup', '/verify'];
+const AUTH_PAGES = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password'];
 
 // Signature/expiry check only — the full Redis session check runs in every
 // API handler, keeping Redis off the page navigation hot path. A missing

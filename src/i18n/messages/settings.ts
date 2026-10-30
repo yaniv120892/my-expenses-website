@@ -15,6 +15,14 @@ const en = {
 
   'settings.account.title': 'Account',
   'settings.account.email': 'Email',
+  'settings.password.title': 'Password',
+  'settings.password.current': 'Current password',
+  'settings.password.new': 'New password',
+  'settings.password.newHint': 'At least 8 characters',
+  'settings.password.submit': 'Change password',
+  'settings.password.submitting': 'Changing…',
+  'settings.password.changed': 'Password changed. Every other device was signed out.',
+  'settings.password.failed': 'Failed to change the password',
 
   'settings.notifications.title': 'Notifications',
   'settings.notifications.createTransaction': 'Notify on new transaction creation',
@@ -148,6 +156,14 @@ export const settingsMessages: Dictionary<typeof en> = {
 
     'settings.account.title': 'חשבון',
     'settings.account.email': 'אימייל',
+    'settings.password.title': 'סיסמה',
+    'settings.password.current': 'סיסמה נוכחית',
+    'settings.password.new': 'סיסמה חדשה',
+    'settings.password.newHint': '8 תווים לפחות',
+    'settings.password.submit': 'שינוי סיסמה',
+    'settings.password.submitting': 'משנה…',
+    'settings.password.changed': 'הסיסמה שונתה. כל שאר המכשירים נותקו.',
+    'settings.password.failed': 'שינוי הסיסמה נכשל',
 
     'settings.notifications.title': 'התראות',
     'settings.notifications.createTransaction': 'התראה על כל תנועה חדשה',

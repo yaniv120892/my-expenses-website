@@ -96,6 +96,9 @@ export type Transaction = {
     name: string;
   };
   files?: TransactionFile[];
+  /** Usernames of the member who added the row and who last edited it, where known. */
+  addedBy?: string | null;
+  editedBy?: string | null;
 } & TransactionAmount;
 
 export type TransactionSummary = {

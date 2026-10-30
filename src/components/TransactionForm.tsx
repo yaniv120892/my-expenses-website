@@ -1,5 +1,6 @@
 'use client';
 
+import AttributionLine from '@/components/transactions/AttributionLine';
 import React, { useState } from 'react';
 import {
   Box,
@@ -57,6 +58,8 @@ type TransactionFormType = {
   categoryId: string;
   type: 'EXPENSE' | 'INCOME';
   date: string;
+  addedBy?: string | null;
+  editedBy?: string | null;
 };
 
 // The amount field is in `currency`; `baseValue` is the ILS charged, asked
@@ -367,7 +370,10 @@ export default function TransactionForm({
         fullWidth
         fullScreen={fullScreen}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>{getDialogTitle()}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {getDialogTitle()}
+          <AttributionLine addedBy={initialData?.addedBy} editedBy={initialData?.editedBy} />
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField

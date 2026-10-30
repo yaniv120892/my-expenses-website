@@ -48,7 +48,7 @@ test.describe('household sharing', () => {
     ).toBeVisible();
   });
 
-  test('3. the editor sees and edits the owner row, and the owner sees the edit', async () => {
+  test('3. the editor edits the owner row; the owner sees the edit, who made it, and its activity record', async () => {
     await editor.goto('/transactions');
     await editor.getByText(SHARED_ROW, { exact: true }).click();
     await editor.getByRole('textbox', { name: /description/i }).fill(EDITED_ROW);
@@ -57,6 +57,18 @@ test.describe('household sharing', () => {
 
     await owner.goto('/transactions');
     await expect(owner.getByText(EDITED_ROW, { exact: true })).toBeVisible();
+    await expect(
+      owner.getByRole('row').filter({ hasText: EDITED_ROW }).getByTestId('transaction-attribution'),
+    ).toHaveText(
+      `Added by ${HOUSEHOLD_E2E_USERS.owner.username} · Edited by ${HOUSEHOLD_E2E_USERS.editor.username}`,
+    );
+
+    await owner.goto('/settings/activity');
+    const editRecord = owner
+      .getByTestId('household-activity-item')
+      .filter({ hasText: EDITED_ROW })
+      .filter({ hasText: 'edited a transaction' });
+    await expect(editRecord).toContainText(HOUSEHOLD_E2E_USERS.editor.username);
   });
 
   test('4. a viewer sees the data but cannot write, in the UI or the API', async () => {

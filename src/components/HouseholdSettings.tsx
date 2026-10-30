@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Alert,
   Button,
@@ -63,6 +64,14 @@ export default function HouseholdSettings() {
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         {t('household.intro')}
       </Typography>
+      <Button
+        component={Link}
+        href="/settings/activity"
+        variant="outlined"
+        sx={{ alignSelf: 'flex-start' }}
+      >
+        {t('household.activity.open')}
+      </Button>
       {household.role === 'OWNER' ? (
         <OwnerView household={household} />
       ) : (

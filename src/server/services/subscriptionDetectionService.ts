@@ -8,6 +8,8 @@ import type {
   SubscriptionAuditRow,
 } from '@/server/repositories/subscriptionRepository';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
+import householdActivityService from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService';
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import type {
@@ -149,14 +151,22 @@ class SubscriptionDetectionService {
     actor: HouseholdActor,
     id: string,
   ): Promise<DetectedSubscriptionDomain> {
-    return subscriptionRepository.updateStatus(actor.householdId, id, 'CONFIRMED');
+    return householdActivityService.record({
+      actor,
+      write: () => subscriptionRepository.updateStatus(actor.householdId, id, 'CONFIRMED'),
+      describe: (confirmed) => subscriptionActivity('CONFIRM', confirmed),
+    });
   }
 
   public async dismissSubscription(
     actor: HouseholdActor,
     id: string,
   ): Promise<DetectedSubscriptionDomain> {
-    return subscriptionRepository.updateStatus(actor.householdId, id, 'DISMISSED');
+    return householdActivityService.record({
+      actor,
+      write: () => subscriptionRepository.updateStatus(actor.householdId, id, 'DISMISSED'),
+      describe: (dismissed) => subscriptionActivity('DISMISS', dismissed),
+    });
   }
 
   /**
@@ -184,14 +194,19 @@ class SubscriptionDetectionService {
       (rescheduled ? nextExpectedDateAfter(lastChargeDate, frequency) : existing.nextExpectedDate);
 
     try {
-      return await subscriptionRepository.update(actor.householdId, id, {
-        displayName: input.displayName,
-        categoryId: input.categoryId,
-        averageAmount: roundToCents(averageAmount),
-        frequency,
-        lastChargeDate,
-        nextExpectedDate,
-        annualCost: roundToCents(toAnnualAmount(averageAmount, frequency)),
+      return await householdActivityService.record({
+        actor,
+        write: () =>
+          subscriptionRepository.update(actor.householdId, id, {
+            displayName: input.displayName,
+            categoryId: input.categoryId,
+            averageAmount: roundToCents(averageAmount),
+            frequency,
+            lastChargeDate,
+            nextExpectedDate,
+            annualCost: roundToCents(toAnnualAmount(averageAmount, frequency)),
+          }),
+        describe: (updated) => subscriptionActivity('UPDATE', updated),
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -226,21 +241,31 @@ class SubscriptionDetectionService {
       throw new HttpError(400, 'A category is required to schedule this');
     }
 
-    const scheduledId = await scheduledTransactionService.createScheduledTransaction(actor, {
-      description: subscription.displayName,
-      value: subscription.averageAmount,
-      type: 'EXPENSE',
-      categoryId: targetCategoryId,
-      scheduleType: subscription.frequency,
-      dayOfMonth:
-        subscription.frequency === 'MONTHLY' ? subscription.lastChargeDate.getDate() : undefined,
-      // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
-      // getDay() is 0-based.
-      dayOfWeek:
-        subscription.frequency === 'WEEKLY' ? subscription.lastChargeDate.getDay() + 1 : undefined,
+    // The schedule records its own CREATE, inside this record's transaction.
+    return householdActivityService.record({
+      actor,
+      write: async () => {
+        const scheduledId = await scheduledTransactionService.createScheduledTransaction(actor, {
+          description: subscription.displayName,
+          value: subscription.averageAmount,
+          type: 'EXPENSE',
+          categoryId: targetCategoryId,
+          scheduleType: subscription.frequency,
+          dayOfMonth:
+            subscription.frequency === 'MONTHLY'
+              ? subscription.lastChargeDate.getDate()
+              : undefined,
+          // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
+          // getDay() is 0-based.
+          dayOfWeek:
+            subscription.frequency === 'WEEKLY'
+              ? subscription.lastChargeDate.getDay() + 1
+              : undefined,
+        });
+        return subscriptionRepository.linkScheduledTransaction(actor.householdId, id, scheduledId);
+      },
+      describe: (linked) => subscriptionActivity('UPDATE', linked),
     });
-
-    return subscriptionRepository.linkScheduledTransaction(actor.householdId, id, scheduledId);
   }
 
   public async getDashboardSnapshot(
@@ -338,6 +363,18 @@ class SubscriptionDetectionService {
 
     return Array.from(groups.values());
   }
+}
+
+function subscriptionActivity(
+  action: 'CONFIRM' | 'DISMISS' | 'UPDATE',
+  subscription: DetectedSubscriptionDomain,
+): ActivityEntry {
+  return {
+    action,
+    entityType: 'SUBSCRIPTION',
+    entityId: subscription.id,
+    summary: subscription.displayName,
+  };
 }
 
 const subscriptionDetectionService = new SubscriptionDetectionService();

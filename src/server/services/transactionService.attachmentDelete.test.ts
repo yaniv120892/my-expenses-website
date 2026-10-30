@@ -20,6 +20,13 @@ const {
   reportError: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/transactionRepository', () => ({
   default: { deleteTransaction, getTransactionItem },
 }));

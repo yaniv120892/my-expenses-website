@@ -99,6 +99,7 @@ model Household {
   categoryMappings      UserCategoryMapping[]
   autoApproveRules      AutoApproveRule[]
   detectedSubscriptions DetectedSubscription[]
+  activities            HouseholdActivity[]
 }
 
 model Invite {
@@ -120,29 +121,44 @@ model Invite {
 }
 
 model User {
-  id                        String                @id @default(uuid()) @db.Uuid
-  username                  String                @unique
-  email                     String                @unique
-  password                  String
-  verified                  Boolean               @default(false)
-  householdId               String                @db.Uuid
-  household                 Household             @relation(fields: [householdId], references: [id])
-  householdRole             HouseholdRole         @default(OWNER)
+  id                           String                      @id @default(uuid()) @db.Uuid
+  username                     String                      @unique
+  email                        String                      @unique
+  password                     String
+  verified                     Boolean                     @default(false)
+  householdId                  String                      @db.Uuid
+  household                    Household                   @relation(fields: [householdId], references: [id])
+  householdRole                HouseholdRole               @default(OWNER)
   // Bumped to end every session at once, e.g. when the member is removed.
-  tokenVersion              Int                   @default(0)
-  invitesCreated            Invite[]              @relation("InvitesCreated")
-  invitesUsed               Invite[]              @relation("InvitesUsed")
-  transactions              Transaction[]
-  scheduledTransactions     ScheduledTransaction[]
-  userNotification          UserNotificationPreference?
-  userNotificationProviders UserNotificationProvider[]
-  imports                   Import[]
-  importedTransactions      ImportedTransaction[]
-  autoApproveRules          AutoApproveRule[]
-  categoryMappings          UserCategoryMapping[]
-  detectedSubscriptions     DetectedSubscription[]
-  announcementAcks          AnnouncementAck[]
-  apiTokens                 ApiToken[]
+  tokenVersion                 Int                         @default(0)
+  invitesCreated               Invite[]                    @relation("InvitesCreated")
+  invitesUsed                  Invite[]                    @relation("InvitesUsed")
+  transactions                 Transaction[]
+  scheduledTransactions        ScheduledTransaction[]
+  userNotification             UserNotificationPreference?
+  userNotificationProviders    UserNotificationProvider[]
+  imports                      Import[]
+  importedTransactions         ImportedTransaction[]
+  autoApproveRules             AutoApproveRule[]
+  categoryMappings             UserCategoryMapping[]
+  detectedSubscriptions        DetectedSubscription[]
+  announcementAcks             AnnouncementAck[]
+  apiTokens                    ApiToken[]
+  transactionsCreated          Transaction[]               @relation("TransactionCreatedBy")
+  transactionsUpdated          Transaction[]               @relation("TransactionUpdatedBy")
+  importsCreated               Import[]                    @relation("ImportCreatedBy")
+  importsUpdated               Import[]                    @relation("ImportUpdatedBy")
+  importedTransactionsCreated  ImportedTransaction[]       @relation("ImportedTransactionCreatedBy")
+  importedTransactionsUpdated  ImportedTransaction[]       @relation("ImportedTransactionUpdatedBy")
+  scheduledTransactionsCreated ScheduledTransaction[]      @relation("ScheduledTransactionCreatedBy")
+  scheduledTransactionsUpdated ScheduledTransaction[]      @relation("ScheduledTransactionUpdatedBy")
+  userCategoryMappingsCreated  UserCategoryMapping[]       @relation("UserCategoryMappingCreatedBy")
+  userCategoryMappingsUpdated  UserCategoryMapping[]       @relation("UserCategoryMappingUpdatedBy")
+  autoApproveRulesCreated      AutoApproveRule[]           @relation("AutoApproveRuleCreatedBy")
+  autoApproveRulesUpdated      AutoApproveRule[]           @relation("AutoApproveRuleUpdatedBy")
+  detectedSubscriptionsCreated DetectedSubscription[]      @relation("DetectedSubscriptionCreatedBy")
+  detectedSubscriptionsUpdated DetectedSubscription[]      @relation("DetectedSubscriptionUpdatedBy")
+  householdActivities          HouseholdActivity[]
 
   @@index([householdId])
 }
@@ -160,51 +176,57 @@ model AnnouncementAck {
 }
 
 model UserNotificationPreference {
-  userId             String   @id @db.Uuid
-  user               User     @relation(fields: [userId], references: [id])
-  createTransaction  Boolean  @default(false)
-  dailySummary       Boolean  @default(false)
-  subscriptionAudit  Boolean  @default(false)
-  monthlyReport      Boolean  @default(false)
+  userId            String  @id @db.Uuid
+  user              User    @relation(fields: [userId], references: [id])
+  createTransaction Boolean @default(false)
+  dailySummary      Boolean @default(false)
+  subscriptionAudit Boolean @default(false)
+  monthlyReport     Boolean @default(false)
 }
 
 model UserNotificationProvider {
-  userId    String              @db.Uuid
-  user      User               @relation(fields: [userId], references: [id])
-  provider  NotificationProvider
-  data      Json
-  enabled   Boolean            @default(true)
+  userId   String               @db.Uuid
+  user     User                 @relation(fields: [userId], references: [id])
+  provider NotificationProvider
+  data     Json
+  enabled  Boolean              @default(true)
 
   @@id([userId, provider])
 }
 
 model Transaction {
-  id                    String               @id @default(uuid()) @db.Uuid
-  description           String
+  id                     String                @id @default(uuid()) @db.Uuid
+  description            String
   // The amount in the reporting currency (ILS) that every total sums.
-  value                Float
+  value                  Float
   // What was actually charged, in its own ISO 4217 currency; for an ILS row
   // the same amount as value.
-  currency             String               @default("ILS") @db.Char(3)
-  originalAmount       Decimal              @db.Decimal(14, 2)
+  currency               String                @default("ILS") @db.Char(3)
+  originalAmount         Decimal               @db.Decimal(14, 2)
   // How a foreign amount became value; all three are set exactly when
   // currency is not ILS (enforced by a CHECK constraint in the migration).
-  exchangeRate         Decimal?             @db.Decimal(18, 8)
-  exchangeRateDate     DateTime?            @db.Date
-  exchangeRateSource   ExchangeRateSource?
-  date                 DateTime
-  categoryId           String               @db.Uuid
-  category             Category             @relation(fields: [categoryId], references: [id])
-  type                 TransactionType
-  status               TransactionStatus    @default(APPROVED)
+  exchangeRate           Decimal?              @db.Decimal(18, 8)
+  exchangeRateDate       DateTime?             @db.Date
+  exchangeRateSource     ExchangeRateSource?
+  date                   DateTime
+  categoryId             String                @db.Uuid
+  category               Category              @relation(fields: [categoryId], references: [id])
+  type                   TransactionType
+  status                 TransactionStatus     @default(APPROVED)
   scheduledTransactionId String?               @db.Uuid
   scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id], onDelete: SetNull)
-  userId               String?              @db.Uuid
-  user                 User?                @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  importedTransactions ImportedTransaction[]
-  files                TransactionFile[]
+  userId                 String?               @db.Uuid
+  user                   User?                 @relation(fields: [userId], references: [id])
+  householdId            String                @db.Uuid
+  household              Household             @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById            String?               @db.Uuid
+  createdBy              User?                 @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById            String?               @db.Uuid
+  updatedBy              User?                 @relation("TransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  importedTransactions   ImportedTransaction[]
+  files                  TransactionFile[]
 
   @@index([householdId, status, date])
   @@index([categoryId])
@@ -212,22 +234,22 @@ model Transaction {
 }
 
 model Import {
-  id            String               @id @default(uuid()) @db.Uuid
-  userId        String?              @db.Uuid
-  fileUrl       String
+  id               String                @id @default(uuid()) @db.Uuid
+  userId           String?               @db.Uuid
+  fileUrl          String
   originalFileName String
-  importType               ImportFileType?
-  bankSourceType           ImportBankSourceType?
-  status        ImportStatus         @default(PENDING)
-  error         String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  completedAt   DateTime?
-  transactions  ImportedTransaction[]
-  
+  importType       ImportFileType?
+  bankSourceType   ImportBankSourceType?
+  status           ImportStatus          @default(PENDING)
+  error            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  completedAt      DateTime?
+  transactions     ImportedTransaction[]
+
   creditCardLastFourDigits String? /// encrypted by src/server/db/cardDigitsEncryption.ts
   paymentMonth             String? // Format: MM/YYYY
-  deleted                  Boolean @default(false)
+  deleted                  Boolean   @default(false)
   excelExtractionRequestId String?   @unique
   // Claimed by the first extraction callback, so a redelivery is a no-op.
   extractionCompletedAt    DateTime?
@@ -237,39 +259,51 @@ model Import {
   mergedInto               Import?   @relation("ImportMerges", fields: [mergedIntoImportId], references: [id], onDelete: SetNull)
   mergedFrom               Import[]  @relation("ImportMerges")
   user                     User?     @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  householdId              String    @db.Uuid
+  household                Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById              String?   @db.Uuid
+  createdBy                User?     @relation("ImportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById              String?   @db.Uuid
+  updatedBy                User?     @relation("ImportUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([householdId, deleted, createdAt])
   @@index([mergedIntoImportId])
 }
 
 model ImportedTransaction {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  importId             String                   @db.Uuid
-  description          String
+  id                    String                    @id @default(uuid()) @db.Uuid
+  importId              String                    @db.Uuid
+  description           String
   // Null when the ILS amount is not known yet: a foreign charge the statement
   // did not bill and no rate covers, or a row whose currency is ambiguous.
   // Such a row cannot be approved until one is entered.
-  value                Float?
+  value                 Float?
   // Null when the statement does not tell which currency the row is in.
-  currency             String?                  @db.Char(3)
-  originalAmount       Decimal                  @db.Decimal(14, 2)
-  exchangeRate         Decimal?                 @db.Decimal(18, 8)
-  exchangeRateDate     DateTime?                @db.Date
-  exchangeRateSource   ExchangeRateSource?
-  date                 DateTime
-  type                 TransactionType
-  status               ImportedTransactionStatus @default(PENDING)
-  matchingTransactionId String?                 @db.Uuid
-  rawData              Json
-  userId               String?                  @db.Uuid
-  deleted              Boolean                  @default(false)
-  import               Import                   @relation(fields: [importId], references: [id])
-  user                 User?                    @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  matchingTransaction  Transaction?             @relation(fields: [matchingTransactionId], references: [id])
+  currency              String?                   @db.Char(3)
+  originalAmount        Decimal                   @db.Decimal(14, 2)
+  exchangeRate          Decimal?                  @db.Decimal(18, 8)
+  exchangeRateDate      DateTime?                 @db.Date
+  exchangeRateSource    ExchangeRateSource?
+  date                  DateTime
+  type                  TransactionType
+  status                ImportedTransactionStatus @default(PENDING)
+  matchingTransactionId String?                   @db.Uuid
+  rawData               Json
+  userId                String?                   @db.Uuid
+  deleted               Boolean                   @default(false)
+  import                Import                    @relation(fields: [importId], references: [id])
+  user                  User?                     @relation(fields: [userId], references: [id])
+  householdId           String                    @db.Uuid
+  household             Household                 @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById           String?                   @db.Uuid
+  createdBy             User?                     @relation("ImportedTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById           String?                   @db.Uuid
+  updatedBy             User?                     @relation("ImportedTransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  matchingTransaction   Transaction?              @relation(fields: [matchingTransactionId], references: [id])
 
   @@index([importId])
   @@index([householdId])
@@ -277,11 +311,11 @@ model ImportedTransaction {
 }
 
 model Category {
-  id                    String                @id @default(uuid()) @db.Uuid
-  name                  String                @unique
-  parentId              String?              @db.Uuid
-  parent                Category?            @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children              Category[]           @relation("CategoryToCategory")
+  id                    String                 @id @default(uuid()) @db.Uuid
+  name                  String                 @unique
+  parentId              String?                @db.Uuid
+  parent                Category?              @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children              Category[]             @relation("CategoryToCategory")
   transactions          Transaction[]
   scheduledTransactions ScheduledTransaction[]
   autoApproveRules      AutoApproveRule[]
@@ -290,27 +324,33 @@ model Category {
 }
 
 model ScheduledTransaction {
-  id            String          @id @default(uuid()) @db.Uuid
-  description   String
-  value         Float
-  type          TransactionType
-  categoryId    String          @db.Uuid
-  category      Category        @relation(fields: [categoryId], references: [id])
-  scheduleType  ScheduleType
-  interval      Int?
-  dayOfWeek     Int?
-  dayOfMonth    Int?
-  monthOfYear   Int?
+  id                    String          @id @default(uuid()) @db.Uuid
+  description           String
+  value                 Float
+  type                  TransactionType
+  categoryId            String          @db.Uuid
+  category              Category        @relation(fields: [categoryId], references: [id])
+  scheduleType          ScheduleType
+  interval              Int?
+  dayOfWeek             Int?
+  dayOfMonth            Int?
+  monthOfYear           Int?
   // Set when the amount varies: imports match this schedule's pending rows by
   // this description prefix instead of by value.
   bankDescriptionPrefix String?
-  lastRunDate   DateTime?
-  nextRunDate   DateTime?
-  userId        String?         @db.Uuid
-  user          User?           @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  transactions  Transaction[]
+  lastRunDate           DateTime?
+  nextRunDate           DateTime?
+  userId                String?         @db.Uuid
+  user                  User?           @relation(fields: [userId], references: [id])
+  householdId           String          @db.Uuid
+  household             Household       @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById           String?         @db.Uuid
+  createdBy             User?           @relation("ScheduledTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById           String?         @db.Uuid
+  updatedBy             User?           @relation("ScheduledTransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  transactions          Transaction[]
 
   // The cron scans nextRunDate across all households, so it cannot use the
   // householdId-prefixed index.
@@ -326,26 +366,32 @@ model TransactionFile {
   fileSize      Int
   mimeType      String
   status        TransactionFileStatus @default(ACTIVE)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  transaction   Transaction          @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  transaction   Transaction           @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([transactionId])
   @@index([status])
 }
 
 model UserCategoryMapping {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String?  @db.Uuid
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String?   @db.Uuid
   descriptionPattern String
-  categoryId         String   @db.Uuid
-  hitCount           Int      @default(1)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  user               User?    @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  category           Category @relation(fields: [categoryId], references: [id])
+  categoryId         String    @db.Uuid
+  hitCount           Int       @default(1)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User?     @relation(fields: [userId], references: [id])
+  householdId        String    @db.Uuid
+  household          Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById        String?   @db.Uuid
+  createdBy          User?     @relation("UserCategoryMappingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById        String?   @db.Uuid
+  updatedBy          User?     @relation("UserCategoryMappingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  category           Category  @relation(fields: [categoryId], references: [id])
 
   @@unique([householdId, descriptionPattern])
 }
@@ -379,8 +425,14 @@ model AutoApproveRule {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   user               User?           @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  householdId        String          @db.Uuid
+  household          Household       @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById        String?         @db.Uuid
+  createdBy          User?           @relation("AutoApproveRuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById        String?         @db.Uuid
+  updatedBy          User?           @relation("AutoApproveRuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   category           Category        @relation(fields: [categoryId], references: [id])
 
   @@index([householdId])
@@ -410,14 +462,71 @@ model DetectedSubscription {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
-  user                   User?                 @relation(fields: [userId], references: [id])
-  householdId          String               @db.Uuid
-  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  category               Category?             @relation(fields: [categoryId], references: [id])
+  user        User?     @relation(fields: [userId], references: [id])
+  householdId String    @db.Uuid
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  // Who made the row and who last changed it; null for system writes and rows
+  // older than attribution, whose creator was backfilled from userId.
+  createdById String?   @db.Uuid
+  createdBy   User?     @relation("DetectedSubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?   @db.Uuid
+  updatedBy   User?     @relation("DetectedSubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  category    Category? @relation(fields: [categoryId], references: [id])
 
   // Frequency is part of the key but is user-editable, so detection resolves
   // an edited row by merchantName alone before falling back to this key.
   @@unique([householdId, merchantName, frequency])
   @@index([status])
   @@index([categoryId])
+}
+
+enum HouseholdActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  MERGE
+  IGNORE
+  CONFIRM
+  DISMISS
+  INVITE_CREATED
+  INVITE_REVOKED
+  MEMBER_JOINED
+  MEMBER_LEFT
+  MEMBER_REMOVED
+  ROLE_CHANGED
+}
+
+enum HouseholdEntityType {
+  TRANSACTION
+  IMPORT
+  IMPORTED_TRANSACTION
+  SCHEDULED_TRANSACTION
+  CATEGORY_MAPPING
+  AUTO_APPROVE_RULE
+  SUBSCRIPTION
+  INVITE
+  MEMBER
+}
+
+// Append-only: who did what in a household, written in the same transaction
+// as the change. A delete is traceable only here.
+model HouseholdActivity {
+  id           String                  @id @default(uuid()) @db.Uuid
+  householdId  String                  @db.Uuid
+  household    Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Null for a system write, which names its job instead.
+  actorUserId  String?                 @db.Uuid
+  actorUser    User?                   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  // The API token the write came through (agent, script); not a foreign key,
+  // so revoking the token keeps the record of what it did.
+  actorTokenId String?                 @db.Uuid
+  systemJob    String?
+  action       HouseholdActivityAction
+  entityType   HouseholdEntityType
+  entityId     String
+  summary      String
+  createdAt    DateTime                @default(now())
+
+  @@index([householdId, createdAt])
 }

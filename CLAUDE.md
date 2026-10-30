@@ -404,11 +404,32 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `e2e/household.spec.ts` drives the whole flow in a browser with the seed's
   data-free `hh-*` users (`test/e2e-api/householdUsers.ts`), which no other
   spec may use.
+- **Every household write is attributed; nothing is restricted by it.** The
+  seven data models carry `createdById`/`updatedById` (null for system writes
+  and for rows older than the columns, whose creator was backfilled from
+  `userId`), stamped by the `attributionStamp` Prisma extension
+  (`src/server/db/attribution.ts`) from the actor `createHandler` puts in
+  `src/server/db/actorContext.ts` for every member request, so no write path
+  can skip it; a system job stamps nothing. Transactions show "Added by /
+  Edited by" in the list and the edit dialog. Each member-visible change is
+  also appended to `HouseholdActivity` (actor user, API token when the write
+  came through one, or the system job; action, entity, summary) through the
+  one helper `householdActivityService.record({ actor, write, describe })`:
+  `write` runs in an interactive transaction that every repository call made
+  inside it joins — the default `prisma` export resolves to that transaction
+  while one is open, and a repository's own `$transaction` nests in it — so a
+  change and its record commit together. Only database work goes inside
+  `write`: model calls, storage and notifications stay outside, since the
+  transaction holds the instance's one connection. Membership events (invite
+  created or revoked, joined, left, removed, role changed) are recorded the
+  same way. Settings → Activity (`/settings/activity`,
+  `GET /api/household/activity`) pages it newest first; it is the only trace
+  of a delete.
 - **Every household-owned row is read and written by `householdId`.** The
-  seven models whose `IS_HOUSEHOLD_OWNED` entry is true
+  models whose `IS_HOUSEHOLD_OWNED` entry is true
   (`src/server/db/householdScope.ts`: Transaction, Import,
   ImportedTransaction, ScheduledTransaction, UserCategoryMapping,
-  AutoApproveRule, DetectedSubscription) carry a required `householdId`, and
+  AutoApproveRule, DetectedSubscription, HouseholdActivity) carry a required `householdId`, and
   their uniques and indexes lead with it. Repositories take the `HouseholdId`
   as their first argument; services take it for reads and the actor
   (`HouseholdActor`, member or system) for writes. `userId` on those rows only
@@ -481,9 +502,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
   `prisma generate` writes the client to `src/generated/prisma` (gitignored;
   server code imports `@/generated/prisma/client`, code a browser can reach only
-  `@/generated/prisma/enums`). The app client is that client with two
-  extensions, `src/server/db/cardDigitsEncryption.ts` and the household scope
-  guard (`systemPrisma` has only the first), connected through
+  `@/generated/prisma/enums`). The app client is that client with three
+  extensions, `src/server/db/cardDigitsEncryption.ts`, the attribution stamp
+  and the household scope guard (`systemPrisma` has the first two), connected through
   `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
   every statement is unnamed and safe in a pooler's reused sessions. Every URL
   handed to `pg` goes through `withVerifyFullSslMode` (`src/server/db/sslMode.ts`),
@@ -572,8 +593,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 
 Models: Household, Invite, User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
-AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
-AnnouncementAck, ApiToken.
+AutoApproveRule, DetectedSubscription, HouseholdActivity,
+UserNotificationPreference/Provider, AnnouncementAck, ApiToken.
 Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
 ## Crons (vercel.json)

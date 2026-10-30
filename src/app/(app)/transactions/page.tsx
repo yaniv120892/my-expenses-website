@@ -304,6 +304,8 @@ function TransactionsPageContent() {
                 categoryId: editTx.category.id,
                 type: editTx.type,
                 date: editTx.date,
+                addedBy: editTx.addedBy,
+                editedBy: editTx.editedBy,
               }
             : null
         }

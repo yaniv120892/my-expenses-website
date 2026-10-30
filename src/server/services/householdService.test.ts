@@ -17,6 +17,13 @@ const { repository } = vi.hoisted(() => ({
   },
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/householdRepository', () => ({ default: repository }));
 
 import householdService from '@/server/services/householdService';
@@ -48,6 +55,7 @@ function foreignKeyViolation() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  activity.entries.length = 0;
   repository.findMembers.mockResolvedValue([]);
   repository.findOwnerName.mockResolvedValue('owner-name');
   repository.findPendingInvites.mockResolvedValue([]);
@@ -117,6 +125,13 @@ describe('acceptInvite', () => {
 
     await householdService.acceptInvite(NEWCOMER, 'ABCD2345');
 
+    expect(activity.entries).toEqual([
+      expect.objectContaining({
+        action: 'MEMBER_JOINED',
+        entityId: 'newcomer',
+        householdId: OWNER.householdId,
+      }),
+    ]);
     expect(repository.joinHousehold).toHaveBeenCalledWith(
       expect.objectContaining({ memberId: 'newcomer', leavingHouseholdId: NEWCOMER.householdId }),
     );
@@ -162,10 +177,20 @@ describe('acceptInvite', () => {
 });
 
 describe('membership changes', () => {
-  it('removes a member and ends their sessions', async () => {
+  it('removes a member, ends their sessions and records it', async () => {
+    repository.findMember.mockResolvedValue({ id: 'editor', username: 'Dana' });
     repository.moveToOwnHousehold.mockResolvedValue(true);
 
     await householdService.removeMember(OWNER, 'editor');
+
+    expect(activity.entries).toEqual([
+      {
+        action: 'MEMBER_REMOVED',
+        entityType: 'MEMBER',
+        entityId: 'editor',
+        summary: 'Removed Dana',
+      },
+    ]);
 
     expect(repository.moveToOwnHousehold).toHaveBeenCalledWith({
       fromHouseholdId: OWNER.householdId,

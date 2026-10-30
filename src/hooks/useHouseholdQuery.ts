@@ -1,8 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
+import type { HouseholdActivityPage } from '@/shared/types/householdActivity';
 import {
   changeMemberRole,
   createInvite,
   getHousehold,
+  getHouseholdActivity,
   joinHousehold,
   leaveHousehold,
   previewInvite,
@@ -14,10 +17,25 @@ export const householdKeys = {
   all: ['household'] as const,
   detail: () => [...householdKeys.all, 'detail'] as const,
   preview: (code: string) => [...householdKeys.all, 'preview', code] as const,
+  activity: () => [...householdKeys.all, 'activity'] as const,
 };
 
 export const useHouseholdQuery = () =>
   useQuery({ queryKey: householdKeys.detail(), queryFn: getHousehold });
+
+export const useHouseholdActivityQuery = () =>
+  useInfiniteQuery<
+    HouseholdActivityPage,
+    Error,
+    InfiniteData<HouseholdActivityPage, string | null>,
+    ReturnType<typeof householdKeys.activity>,
+    string | null
+  >({
+    queryKey: householdKeys.activity(),
+    queryFn: ({ pageParam }) => getHouseholdActivity(pageParam),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
 
 export const useInvitePreviewQuery = (code: string) =>
   useQuery({

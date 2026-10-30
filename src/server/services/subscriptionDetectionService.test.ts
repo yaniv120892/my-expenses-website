@@ -13,6 +13,8 @@ const {
     getByHousehold: vi.fn(),
     getById: vi.fn(),
     update: vi.fn(),
+    updateStatus: vi.fn(),
+    linkScheduledTransaction: vi.fn(),
     applyDetectionResults: vi.fn(),
   },
   prismaMock: { transaction: { findMany: vi.fn() } },
@@ -25,6 +27,13 @@ const {
   listHouseholdIds: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/subscriptionRepository', () => ({
   default: subRepo,
 }));
@@ -83,6 +92,7 @@ const messageFor = (userId: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  activity.entries.length = 0;
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-15T12:00:00Z'));
   activeByHousehold = {};
@@ -272,6 +282,16 @@ function isSub(value: unknown): value is Sub {
 }
 
 describe('updateSubscription', () => {
+  it('records the updated subscription', async () => {
+    subRepo.getById.mockResolvedValue(stored());
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
+      displayName: 'Spotify',
+    });
+    expect(activity.entries).toEqual([
+      { action: 'UPDATE', entityType: 'SUBSCRIPTION', entityId: 'sub-1', summary: 'Spotify' },
+    ]);
+  });
+
   it('derives the annual cost from the new amount and frequency', async () => {
     subRepo.getById.mockResolvedValue(stored());
     await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
@@ -415,7 +435,45 @@ describe('getSubscriptions', () => {
   });
 });
 
+describe('confirmSubscription and dismissSubscription', () => {
+  it('records a confirmed subscription under its display name', async () => {
+    subRepo.updateStatus.mockResolvedValue(sub({ status: 'CONFIRMED' }));
+
+    await subscriptionDetectionService.confirmSubscription(ACTOR, 's1');
+
+    expect(subRepo.updateStatus).toHaveBeenCalledWith(HOUSEHOLD_1, 's1', 'CONFIRMED');
+    expect(activity.entries).toEqual([
+      { action: 'CONFIRM', entityType: 'SUBSCRIPTION', entityId: 's1', summary: 'Netflix' },
+    ]);
+  });
+
+  it('records a dismissed subscription', async () => {
+    subRepo.updateStatus.mockResolvedValue(sub({ status: 'DISMISSED' }));
+
+    await subscriptionDetectionService.dismissSubscription(ACTOR, 's1');
+
+    expect(activity.entries).toEqual([
+      { action: 'DISMISS', entityType: 'SUBSCRIPTION', entityId: 's1', summary: 'Netflix' },
+    ]);
+  });
+});
+
 describe('convertToScheduledTransaction', () => {
+  it('records the subscription it linked to the new schedule', async () => {
+    subRepo.getById.mockResolvedValue(
+      sub({ categoryId: 'cat-1', scheduledTransactionId: null, lastChargeDate: new Date() }),
+    );
+    scheduledService.createScheduledTransaction.mockResolvedValue('sched-1');
+    subRepo.linkScheduledTransaction.mockResolvedValue(sub({ scheduledTransactionId: 'sched-1' }));
+
+    await subscriptionDetectionService.convertToScheduledTransaction(ACTOR, 's1');
+
+    expect(subRepo.linkScheduledTransaction).toHaveBeenCalledWith(HOUSEHOLD_1, 's1', 'sched-1');
+    expect(activity.entries).toEqual([
+      { action: 'UPDATE', entityType: 'SUBSCRIPTION', entityId: 's1', summary: 'Netflix' },
+    ]);
+  });
+
   it('409s for a subscription that is already scheduled, creating nothing', async () => {
     subRepo.getById.mockResolvedValue(
       sub({ categoryId: 'cat-1', scheduledTransactionId: 'sched-1' }),

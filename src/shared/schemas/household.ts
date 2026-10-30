@@ -20,3 +20,10 @@ export const changeMemberRoleSchema = z.object({ role: invitableRoleSchema });
 export const memberIdParamsSchema = z.object({ memberId: recordIdSchema });
 
 export const inviteIdParamsSchema = z.object({ inviteId: recordIdSchema });
+
+export const ACTIVITY_PAGE_SIZE = 25;
+
+export const householdActivityQuerySchema = z.object({
+  cursor: recordIdSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(ACTIVITY_PAGE_SIZE),
+});

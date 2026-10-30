@@ -5,6 +5,7 @@ import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors
 import { HttpError } from '@/server/http/errors';
 import { logger } from '@/server/observability';
 import householdRepository from '@/server/repositories/householdRepository';
+import householdActivityService from '@/server/services/householdActivityService';
 import type { PendingInviteRow } from '@/server/repositories/householdRepository';
 import { inviteValidator } from '@/server/services/validators/inviteValidator';
 import { generateInviteCode, inviteExpiryFrom } from '@/server/utils/inviteCode';
@@ -44,12 +45,22 @@ class HouseholdService {
 
   public async createInvite(actor: MemberActor, role: InvitableRole): Promise<HouseholdInviteView> {
     inviteValidator.assertIsOwner(actor);
-    const invite = await householdRepository.createInvite({
-      householdId: actor.householdId,
-      code: generateInviteCode(),
-      role,
-      createdById: actor.userId,
-      expiresAt: inviteExpiryFrom(new Date()),
+    const invite = await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.createInvite({
+          householdId: actor.householdId,
+          code: generateInviteCode(),
+          role,
+          createdById: actor.userId,
+          expiresAt: inviteExpiryFrom(new Date()),
+        }),
+      describe: (created) => ({
+        action: 'INVITE_CREATED',
+        entityType: 'INVITE',
+        entityId: created.id,
+        summary: `Invite to join as ${role}`,
+      }),
     });
     logger.info({ householdId: actor.householdId, inviteId: invite.id, role }, 'Invite created');
     return this.toInviteView(invite);
@@ -57,10 +68,23 @@ class HouseholdService {
 
   public async revokeInvite(actor: MemberActor, inviteId: string): Promise<void> {
     inviteValidator.assertIsOwner(actor);
-    const revoked = await householdRepository.revokeInvite({
-      householdId: actor.householdId,
-      inviteId,
-      now: new Date(),
+    const revoked = await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.revokeInvite({
+          householdId: actor.householdId,
+          inviteId,
+          now: new Date(),
+        }),
+      describe: (wasRevoked) =>
+        wasRevoked
+          ? {
+              action: 'INVITE_REVOKED',
+              entityType: 'INVITE',
+              entityId: inviteId,
+              summary: 'Invite revoked',
+            }
+          : null,
     });
     if (!revoked) {
       throw new HttpError(404, 'No open invite with that id in this household');
@@ -105,7 +129,20 @@ class HouseholdService {
         throw new Error(`Unhandled join eligibility: ${eligibility satisfies never}`);
     }
 
-    const outcome = await this.joinOrConflict({ actor, invite, now });
+    const outcome = await householdActivityService.record({
+      actor,
+      write: () => this.joinOrConflict({ actor, invite, now }),
+      describe: (joined) =>
+        joined === 'joined'
+          ? {
+              action: 'MEMBER_JOINED',
+              entityType: 'MEMBER',
+              entityId: actor.userId,
+              summary: `Joined as ${invite.role}`,
+              householdId: toHouseholdId(invite.householdId),
+            }
+          : null,
+    });
     if (outcome === 'invite-taken') {
       throw new HttpError(409, 'This invite was just used by someone else');
     }
@@ -118,10 +155,23 @@ class HouseholdService {
   /** A non-owner leaves for a fresh, empty household of their own. */
   public async leave(actor: MemberActor): Promise<void> {
     inviteValidator.assertCanLeave(actor);
-    await householdRepository.moveToOwnHousehold({
-      fromHouseholdId: actor.householdId,
-      memberId: actor.userId,
-      endSessions: false,
+    await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.moveToOwnHousehold({
+          fromHouseholdId: actor.householdId,
+          memberId: actor.userId,
+          endSessions: false,
+        }),
+      describe: (left) =>
+        left
+          ? {
+              action: 'MEMBER_LEFT',
+              entityType: 'MEMBER',
+              entityId: actor.userId,
+              summary: 'Left the household',
+            }
+          : null,
     });
     logger.info(
       { userId: actor.userId, householdId: actor.householdId },
@@ -133,10 +183,24 @@ class HouseholdService {
   public async removeMember(actor: MemberActor, memberId: string): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    const removed = await householdRepository.moveToOwnHousehold({
-      fromHouseholdId: actor.householdId,
-      memberId,
-      endSessions: true,
+    const removed = await householdActivityService.record({
+      actor,
+      write: async () => {
+        const member = await householdRepository.findMember(actor.householdId, memberId);
+        const moved = await householdRepository.moveToOwnHousehold({
+          fromHouseholdId: actor.householdId,
+          memberId,
+          endSessions: true,
+        });
+        return moved ? member : null;
+      },
+      describe: (member) =>
+        member && {
+          action: 'MEMBER_REMOVED',
+          entityType: 'MEMBER',
+          entityId: member.id,
+          summary: `Removed ${member.username}`,
+        },
     });
     if (!removed) {
       throw new HttpError(404, 'No such member in this household');
@@ -152,10 +216,24 @@ class HouseholdService {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
     await inviteValidator.assertIsMember({ householdId: actor.householdId, memberId });
-    const changed = await householdRepository.changeMemberRole({
-      householdId: actor.householdId,
-      memberId,
-      role,
+    const changed = await householdActivityService.record({
+      actor,
+      write: async () => {
+        const member = await householdRepository.findMember(actor.householdId, memberId);
+        const updated = await householdRepository.changeMemberRole({
+          householdId: actor.householdId,
+          memberId,
+          role,
+        });
+        return updated ? member : null;
+      },
+      describe: (member) =>
+        member && {
+          action: 'ROLE_CHANGED',
+          entityType: 'MEMBER',
+          entityId: member.id,
+          summary: `${member.username} is now ${role}`,
+        },
     });
     if (!changed) {
       throw new HttpError(404, 'No such member in this household');

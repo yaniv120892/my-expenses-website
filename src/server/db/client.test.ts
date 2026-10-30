@@ -39,6 +39,9 @@ vi.mock('@/server/db/cardDigitsEncryption', () => ({
 vi.mock('@/server/db/householdScope', () => ({
   householdScopeGuard: () => ({}),
 }));
+vi.mock('@/server/db/attribution', () => ({
+  attributionStamp: () => ({}),
+}));
 
 const POSTGRES_URL = 'postgresql://user:pass@host/db';
 

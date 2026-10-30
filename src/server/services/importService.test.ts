@@ -35,6 +35,7 @@ const {
     softDeleteByImportIdOp: vi.fn(),
     updateStatusBatch: vi.fn(),
     updateStatus: vi.fn(),
+    softDelete: vi.fn(),
   },
   prismaMock: {
     importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
@@ -60,6 +61,13 @@ const {
   autoApproveRuleRepo: { findActiveByHousehold: vi.fn() },
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
 }));
@@ -162,6 +170,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  activity.entries.length = 0;
   process.env.IMPORTS_S3_BUCKET = 'bucket';
   process.env.IMPORTS_S3_REGION = 'us-east-1';
   importRepo.findById.mockResolvedValue({
@@ -385,7 +394,7 @@ describe('processImport', () => {
   const run = (fileUrl = url) => importService.processImport(actor, fileUrl, 'f.xlsx', '03/2026');
 
   beforeEach(() => {
-    importRepo.create.mockResolvedValue({ id: 'imp-1' });
+    importRepo.create.mockResolvedValue({ id: 'imp-1', originalFileName: 'f.xlsx' });
     agentClient.submitExtractionRequest.mockResolvedValue({
       requestId: 'req-9',
     });
@@ -403,7 +412,10 @@ describe('processImport', () => {
 
   it('submits the extraction and records the request id', async () => {
     const result = await run();
-    expect(result).toEqual({ id: 'imp-1' });
+    expect(result).toEqual({ id: 'imp-1', originalFileName: 'f.xlsx' });
+    expect(activity.entries).toEqual([
+      { action: 'CREATE', entityType: 'IMPORT', entityId: 'imp-1', summary: 'f.xlsx' },
+    ]);
     expect(importRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ householdId: HOUSEHOLD, userId: 'user-1' }),
     );
@@ -1048,7 +1060,7 @@ describe('batchApproveImportedTransactions', () => {
 describe('batchIgnoreImportedTransactions', () => {
   it('reports a stale id as a failure instead of shrinking the total', async () => {
     importedTxRepo.findPendingByIds.mockResolvedValue([{ id: 'r1' }]);
-    importedTxRepo.updateStatusBatch.mockResolvedValue(1);
+    importedTxRepo.updateStatusBatch.mockResolvedValue([{ id: 'r1', description: 'Coffee' }]);
 
     const result = await importService.batchIgnoreImportedTransactions(actor, 'imp-1', [
       'r1',
@@ -1069,7 +1081,10 @@ describe('batchIgnoreImportedTransactions', () => {
 
   it("ignores every currently-pending row when 'all' is requested", async () => {
     importedTxRepo.findPendingByImportId.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }]);
-    importedTxRepo.updateStatusBatch.mockResolvedValue(2);
+    importedTxRepo.updateStatusBatch.mockResolvedValue([
+      { id: 'r1', description: 'Coffee' },
+      { id: 'r2', description: 'Bread' },
+    ]);
 
     const result = await importService.batchIgnoreImportedTransactions(actor, 'imp-1', 'all');
 
@@ -1080,6 +1095,18 @@ describe('batchIgnoreImportedTransactions', () => {
       errors: [],
     });
     expect(importedTxRepo.findPendingByIds).not.toHaveBeenCalled();
+  });
+
+  it('records one IGNORE per row it moved, not per row it asked for', async () => {
+    importedTxRepo.findPendingByImportId.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }]);
+    importedTxRepo.updateStatusBatch.mockResolvedValue([{ id: 'r2', description: 'Bread' }]);
+
+    const result = await importService.batchIgnoreImportedTransactions(actor, 'imp-1', 'all');
+
+    expect(result).toMatchObject({ total: 2, succeeded: 1, failed: 1 });
+    expect(activity.entries).toEqual([
+      { action: 'IGNORE', entityType: 'IMPORTED_TRANSACTION', entityId: 'r2', summary: 'Bread' },
+    ]);
   });
 });
 
@@ -1124,6 +1151,9 @@ describe('a batch applies the rows it already loaded', () => {
       expect.objectContaining({ status: 'APPROVED' }),
     );
     expect(updateStatusOp).toHaveBeenCalledWith(HOUSEHOLD, 'r1', 'MERGED');
+    expect(activity.entries).toEqual([
+      { action: 'MERGE', entityType: 'IMPORTED_TRANSACTION', entityId: 'r1', summary: 'Coffee' },
+    ]);
     expect(createTransactionOp).not.toHaveBeenCalled();
     expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledWith(HOUSEHOLD, ['tx-1']);
   });
@@ -1180,6 +1210,14 @@ describe('a batch applies the rows it already loaded', () => {
 
     await importService.batchApproveImportedTransactions(actor, 'imp-1', ['r1', 'r2', 'r3']);
 
+    expect(activity.entries).toEqual(
+      ['r1', 'r2', 'r3'].map((entityId) => ({
+        action: 'APPROVE',
+        entityType: 'IMPORTED_TRANSACTION',
+        entityId,
+        summary: 'Coffee',
+      })),
+    );
     expect(txService.notifyTransactionsCreatedSafe).toHaveBeenCalledTimes(1);
     expect(txService.notifyTransactionCreatedSafe).not.toHaveBeenCalled();
   });
@@ -1260,6 +1298,9 @@ describe('single-row approve, merge and ignore', () => {
     await approve();
 
     expect(markApprovedOp).toHaveBeenCalledWith(HOUSEHOLD, 'r1');
+    expect(activity.entries).toEqual([
+      { action: 'APPROVE', entityType: 'IMPORTED_TRANSACTION', entityId: 'r1', summary: 'Coffee' },
+    ]);
     expect(txService.notifyTransactionCreatedSafe).toHaveBeenCalledWith(HOUSEHOLD, 'created-1');
   });
 
@@ -1270,6 +1311,9 @@ describe('single-row approve, merge and ignore', () => {
     await ignore();
 
     expect(importedTxRepo.updateStatus).toHaveBeenCalledWith(HOUSEHOLD, 'r1', 'IGNORED');
+    expect(activity.entries).toEqual([
+      { action: 'IGNORE', entityType: 'IMPORTED_TRANSACTION', entityId: 'r1', summary: 'Coffee' },
+    ]);
   });
 
   it('409s when a concurrent action takes the row between the read and the write', async () => {
@@ -1300,6 +1344,7 @@ describe('single-row approve, merge and ignore', () => {
     await expect(approve()).rejects.toMatchObject({ status: 409 });
     await expect(merge()).rejects.toMatchObject({ status: 409 });
     await expect(ignore()).rejects.toMatchObject({ status: 409 });
+    expect(activity.entries).toEqual([]);
   });
 
   it('404s a merge whose matched transaction vanished inside the batch', async () => {
@@ -1343,14 +1388,35 @@ describe('deleteImport', () => {
   it('deletes the rows with the import in one batch, so none stays approvable', async () => {
     importRepo.softDeleteOp.mockReturnValue({ op: 'deleteImport' });
     importedTxRepo.softDeleteByImportIdOp.mockReturnValue({ op: 'deleteRows' });
+    prismaMock.$transaction.mockResolvedValue([
+      { id: 'imp-1', originalFileName: 'march.xlsx' },
+      { count: 3 },
+    ]);
 
     await importService.deleteImport(actor, 'imp-1');
+
+    expect(activity.entries).toEqual([
+      { action: 'DELETE', entityType: 'IMPORT', entityId: 'imp-1', summary: 'march.xlsx' },
+    ]);
 
     expect(importRepo.softDeleteOp).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
     expect(importedTxRepo.softDeleteByImportIdOp).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'deleteImport' },
       { op: 'deleteRows' },
+    ]);
+  });
+});
+
+describe('deleteImportedTransaction', () => {
+  it('records the deleted row under the description it had', async () => {
+    importedTxRepo.findById.mockResolvedValue(pendingRow({ deleted: false }));
+
+    await importService.deleteImportedTransaction(actor, 'r1');
+
+    expect(importedTxRepo.softDelete).toHaveBeenCalledWith(HOUSEHOLD, 'r1');
+    expect(activity.entries).toEqual([
+      { action: 'DELETE', entityType: 'IMPORTED_TRANSACTION', entityId: 'r1', summary: 'Coffee' },
     ]);
   });
 });
@@ -1370,6 +1436,14 @@ describe('applyAutoApproveRules', () => {
     expect(result.total).toBe(1);
     expect(markApprovedOp).toHaveBeenCalledTimes(1);
     expect(markApprovedOp).toHaveBeenCalledWith(HOUSEHOLD, 'r2');
+    expect(activity.entries).toEqual([
+      {
+        action: 'APPROVE',
+        entityType: 'IMPORTED_TRANSACTION',
+        entityId: 'r2',
+        summary: 'Salary ACME',
+      },
+    ]);
     expect(autoApproveRuleRepo.findActiveByHousehold).toHaveBeenCalledWith(HOUSEHOLD);
     expect(importedTxRepo.findPendingByImportId).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
   });

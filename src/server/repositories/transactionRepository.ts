@@ -50,9 +50,16 @@ function throwNotFoundOnMissingRow(err: unknown): never {
   throw err;
 }
 
+const ATTRIBUTION_INCLUDE = {
+  createdBy: { select: { username: true } },
+  updatedBy: { select: { username: true } },
+} as const;
+
 type TransactionRow = PrismaTransaction & {
   category: PrismaCategory;
   files?: PrismaTransactionFile[];
+  createdBy?: { username: string } | null;
+  updatedBy?: { username: string } | null;
 };
 
 type Comparison = 'lt' | 'gt' | 'equals';
@@ -220,7 +227,7 @@ class TransactionRepository {
   public async createTransaction(data: CreateTransactionDbModel): Promise<Transaction> {
     const transaction = await prisma.transaction.create({
       data: this.toCreateData(data),
-      include: { category: true },
+      include: { category: true, ...ATTRIBUTION_INCLUDE },
     });
     return this.mapToDomain(transaction);
   }
@@ -242,7 +249,7 @@ class TransactionRepository {
 
     const transactions = await prisma.transaction.findMany({
       where: this.buildListWhere(householdId, filters, startDate, endDate),
-      include: { category: true },
+      include: { category: true, ...ATTRIBUTION_INCLUDE },
       orderBy: [{ date: 'desc' }, { id: 'desc' }],
       skip: (filters.page - 1) * filters.perPage,
       take: filters.perPage,
@@ -262,7 +269,7 @@ class TransactionRepository {
         ...this.buildListWhere(householdId, filters, startDate, endDate),
         ...this.buildCursorWhere(ordering, filters.cursor),
       },
-      include: { category: true },
+      include: { category: true, ...ATTRIBUTION_INCLUDE },
       orderBy: ordering.map(([column, direction]) => column.orderBy(direction)),
       // One extra row answers "is there another page?" without a count query.
       take: filters.limit + 1,
@@ -281,7 +288,7 @@ class TransactionRepository {
   public async getPendingTransactions(householdId: HouseholdId): Promise<Transaction[]> {
     const transactions = await prisma.transaction.findMany({
       where: { status: TransactionStatus.PENDING_APPROVAL, householdId },
-      include: { category: true },
+      include: { category: true, ...ATTRIBUTION_INCLUDE },
       orderBy: { date: 'desc' },
     });
     return transactions.map(this.mapToDomain);
@@ -309,6 +316,7 @@ class TransactionRepository {
       where: { id: transactionId, householdId },
       include: {
         category: true,
+        ...ATTRIBUTION_INCLUDE,
         files: {
           where: { status: 'ACTIVE' },
           orderBy: { createdAt: 'desc' },
@@ -331,6 +339,8 @@ class TransactionRepository {
         id: transaction.category.id,
         name: transaction.category.name,
       },
+      addedBy: transaction.createdBy?.username ?? null,
+      editedBy: transaction.updatedBy?.username ?? null,
       files:
         transaction.files?.map((file) => ({
           id: file.id,
@@ -355,7 +365,7 @@ class TransactionRepository {
       .update({
         where: { id, householdId },
         data: this.toUpdateData(data),
-        include: { category: true },
+        include: { category: true, ...ATTRIBUTION_INCLUDE },
       })
       .catch(throwNotFoundOnMissingRow);
     return this.mapToDomain(transaction);

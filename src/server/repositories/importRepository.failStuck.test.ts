@@ -5,7 +5,8 @@ const { findMany, updateMany } = vi.hoisted(() => ({
   updateMany: vi.fn(),
 }));
 vi.mock('@/server/db/client', () => ({
-  default: { import: { findMany, updateMany } },
+  default: {},
+  systemPrisma: { import: { findMany, updateMany } },
 }));
 
 import { importRepository } from '@/server/repositories/importRepository';

@@ -6,6 +6,9 @@ vi.mock('@/server/db/client', () => ({
 }));
 
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
+import { toHouseholdId } from '@/server/auth/householdId';
+
+const HOUSEHOLD_ID = toHouseholdId('household-1');
 
 // An import deleted before its rows were deleted with it left them live.
 describe('reads of pending rows skip the rows of a deleted import', () => {
@@ -17,24 +20,25 @@ describe('reads of pending rows skip the rows of a deleted import', () => {
   const where = () => findMany.mock.calls[0]?.[0].where;
 
   it('in the claims a re-import must not be blocked by', async () => {
-    const claimed = await importedTransactionRepository.findClaimedMatchingTransactionIds('user-1');
+    const claimed =
+      await importedTransactionRepository.findClaimedMatchingTransactionIds(HOUSEHOLD_ID);
 
     expect(claimed).toEqual(['tx-1']);
     expect(where()).toMatchObject({
-      userId: 'user-1',
+      householdId: HOUSEHOLD_ID,
       deleted: false,
       import: { deleted: false },
     });
   });
 
   it('in the rows a batch approves by id', async () => {
-    await importedTransactionRepository.findPendingByIds('imp-1', ['r1'], 'user-1');
+    await importedTransactionRepository.findPendingByIds(HOUSEHOLD_ID, 'imp-1', ['r1']);
 
     expect(where()).toMatchObject({ import: { deleted: false } });
   });
 
   it('in the rows a batch approves in full', async () => {
-    await importedTransactionRepository.findPendingByImportId('imp-1', 'user-1');
+    await importedTransactionRepository.findPendingByImportId(HOUSEHOLD_ID, 'imp-1');
 
     expect(where()).toMatchObject({ import: { deleted: false } });
   });

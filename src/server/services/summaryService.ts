@@ -1,5 +1,7 @@
 import transactionService from '@/server/services/transactionService';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import userSettingsService from '@/server/services/userSettingsService';
+import userRepository from '@/server/repositories/userRepository';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
@@ -35,7 +37,11 @@ class SummaryService {
   }
 
   private async getTodaySummaryMessage(userId: string): Promise<string> {
-    const transactions = await this.getTodayTransactions(userId);
+    const householdId = await userRepository.findHouseholdId(userId);
+    if (!householdId) {
+      throw new Error(`No household for user ${userId}`);
+    }
+    const transactions = await this.getTodayTransactions(householdId);
     if (transactions.length === 0) {
       return 'לא נוספו הוצאות היום.';
     }
@@ -51,15 +57,14 @@ class SummaryService {
     return formatSummaryMessage(transactions, total, aiInsights);
   }
 
-  private async getTodayTransactions(userId: string): Promise<SummaryTransaction[]> {
+  private async getTodayTransactions(householdId: HouseholdId): Promise<SummaryTransaction[]> {
     // One normalizer owns both bounds: the repository floors startDate to
     // startOfDay and widens endDate to endOfDay.
     const today = new Date();
-    return transactionService.getAllTransactions({
+    return transactionService.getAllTransactions(householdId, {
       startDate: today,
       endDate: today,
       transactionType: TransactionType.EXPENSE,
-      userId,
     });
   }
 }

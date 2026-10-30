@@ -6,6 +6,8 @@ import { importedTransactionRepository } from '@/server/repositories/importedTra
 import type { Import } from '@/generated/prisma/client';
 import { ImportStatus, ImportBankSourceType } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import { toHouseholdId } from '@/server/auth/householdId';
 import { importService } from '@/server/services/importService';
 import importedAmountService from '@/server/services/importedAmountService';
 import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
@@ -26,6 +28,9 @@ const webhookEnvelopeSchema = z.object({
   result: z.unknown().optional(),
   error: z.string().optional(),
 });
+
+/** The import a callback is about, in the household that owns it. */
+type ImportInHousehold = { householdId: HouseholdId; importId: string };
 
 type ReportedCurrencies = {
   originalCurrency?: string;
@@ -92,7 +97,7 @@ export async function processExcelExtractionWebhook(
   query: Record<string, string>,
 ): Promise<WebhookResult> {
   let payload: WebhookPayload | undefined;
-  let importId: string | undefined;
+  let target: ImportInHousehold | undefined;
   try {
     const authParams = extractWebhookParams(query);
     if (!authParams) {
@@ -138,9 +143,10 @@ export async function processExcelExtractionWebhook(
     // The signed importId resolves the callback without depending on the
     // requestId having been persisted yet; the lookup by requestId remains for
     // callbacks issued before importId was part of the webhook URL.
-    const importRecord = authParams.importId
-      ? await importRepository.findById(authParams.importId)
-      : await importRepository.findByExtractionRequestId(payload.requestId);
+    const importRecord = await importRepository.findForExtractionCallback({
+      importId: authParams.importId ?? null,
+      excelExtractionRequestId: payload.requestId,
+    });
     if (!importRecord) {
       logger.error(
         { requestId: payload.requestId, importId: authParams.importId },
@@ -167,10 +173,11 @@ export async function processExcelExtractionWebhook(
       };
     }
 
-    importId = importRecord.id;
+    target = { householdId: toHouseholdId(importRecord.householdId), importId: importRecord.id };
+    const { householdId, importId } = target;
 
     // A redelivered callback must not re-create rows or re-run the merge.
-    const claimed = await importRepository.claimExtraction(importId);
+    const claimed = await importRepository.claimExtraction(householdId, importId);
     if (!claimed) {
       logger.info(
         { requestId: payload.requestId, importId },
@@ -192,6 +199,7 @@ export async function processExcelExtractionWebhook(
           'Unusable extraction result in webhook',
         );
         await importRepository.updateStatus(
+          householdId,
           importId,
           ImportStatus.FAILED,
           'The extraction service returned a result this app could not read',
@@ -201,9 +209,9 @@ export async function processExcelExtractionWebhook(
           body: { success: false, error: 'Invalid extraction result' },
         };
       }
-      await handleCompletedExtraction(importRecord, result.data);
+      await handleCompletedExtraction(householdId, importRecord, result.data);
     } else {
-      await handleFailedExtraction(importId, payload);
+      await handleFailedExtraction(target, payload);
     }
 
     logger.info(
@@ -222,13 +230,13 @@ export async function processExcelExtractionWebhook(
     observability.reportError({
       error: err,
       where: 'Error processing webhook',
-      context: { requestId: payload?.requestId, importId },
+      context: { requestId: payload?.requestId, importId: target?.importId },
     });
     // Only this callback moves an import out of PROCESSING and the service does
     // not retry, so a crash must fail the import. The claim stays taken because
     // a redelivery would insert every row again.
-    if (importId) {
-      await recoverImportAfterFailureSafe(importId);
+    if (target) {
+      await recoverImportAfterFailureSafe(target);
     }
     return {
       status: 500,
@@ -237,9 +245,11 @@ export async function processExcelExtractionWebhook(
   }
 }
 
-async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
+async function recoverImportAfterFailureSafe(target: ImportInHousehold): Promise<void> {
+  const { householdId, importId } = target;
   try {
     const failed = await importRepository.markFailedIfProcessing(
+      householdId,
       importId,
       'Processing the extraction result failed',
     );
@@ -250,7 +260,7 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
       { importId },
       'Webhook failed after the import left PROCESSING; keeping its status',
     );
-    await releaseMergeSurvivorOf(importId);
+    await releaseMergeSurvivorOf(target);
   } catch (err) {
     observability.reportError({
       error: err,
@@ -261,17 +271,21 @@ async function recoverImportAfterFailureSafe(importId: string): Promise<void> {
 }
 
 /** A crash after the merge committed would otherwise hold the survivor in REMATCHING for good. */
-async function releaseMergeSurvivorOf(importId: string): Promise<void> {
-  const mergedImport = await importRepository.findById(importId);
+async function releaseMergeSurvivorOf({ householdId, importId }: ImportInHousehold) {
+  const mergedImport = await importRepository.findById(householdId, importId);
   const survivorId =
     mergedImport?.status === ImportStatus.MERGED ? mergedImport.mergedIntoImportId : null;
   if (survivorId) {
-    await releaseMergeSurvivor(survivorId);
+    await releaseMergeSurvivor({ householdId, importId: survivorId });
   }
 }
 
-async function releaseMergeSurvivor(survivorId: string): Promise<void> {
+async function releaseMergeSurvivor({
+  householdId,
+  importId: survivorId,
+}: ImportInHousehold): Promise<void> {
   const released = await importRepository.transitionStatus(
+    householdId,
     survivorId,
     ImportStatus.REMATCHING,
     ImportStatus.COMPLETED,
@@ -282,6 +296,7 @@ async function releaseMergeSurvivor(survivorId: string): Promise<void> {
 }
 
 async function handleCompletedExtraction(
+  householdId: HouseholdId,
   importRecord: Import,
   result: ExtractionResult,
 ): Promise<void> {
@@ -300,7 +315,7 @@ async function handleCompletedExtraction(
   const transactions = await toImportedTransactionRows(result, importId);
   const metadata = reconcileMetadata(importRecord, result.metadata);
 
-  await writeExtractionMetadata(importId, metadata);
+  await writeExtractionMetadata({ householdId, importId }, metadata);
 
   // Rows are written to their own import first so that a concurrent callback
   // merging into this one sees them and can de-duplicate against them.
@@ -308,25 +323,22 @@ async function handleCompletedExtraction(
     await importedTransactionRepository.createMany(
       transactions.map((transaction) => ({
         ...transaction,
+        householdId,
         userId: importRecord.userId,
       })),
     );
   }
 
-  const mergedIntoImportId = await mergeIntoDuplicateImport(
-    importId,
-    importRecord.userId,
-    metadata,
-  );
+  const mergedIntoImportId = await mergeIntoDuplicateImport({ householdId, importId }, metadata);
   const finalImportId = mergedIntoImportId ?? importId;
 
-  await findPotentialMatchesSafe(finalImportId, importRecord.userId);
+  await findPotentialMatchesSafe({ householdId, importId: finalImportId });
 
   // COMPLETED tells a poller the preview is now the whole story.
   if (mergedIntoImportId) {
-    await releaseMergeSurvivor(mergedIntoImportId);
+    await releaseMergeSurvivor({ householdId, importId: mergedIntoImportId });
   } else {
-    await importRepository.updateStatus(importId, ImportStatus.COMPLETED);
+    await importRepository.updateStatus(householdId, importId, ImportStatus.COMPLETED);
   }
 
   logger.info(
@@ -416,11 +428,11 @@ function readPaymentMonth(
 }
 
 async function writeExtractionMetadata(
-  importId: string,
+  { householdId, importId }: ImportInHousehold,
   metadata: ExtractionMetadata,
 ): Promise<void> {
   await prisma.import.update({
-    where: { id: importId },
+    where: { id: importId, householdId },
     data: {
       creditCardLastFourDigits: metadata.creditCardLastFour ?? null,
       paymentMonth: metadata.paymentMonth ?? null,
@@ -453,8 +465,7 @@ function toImportBankSourceType(
  * can never merge into each other.
  */
 async function mergeIntoDuplicateImport(
-  importId: string,
-  userId: string,
+  { householdId, importId }: ImportInHousehold,
   metadata: ExtractionMetadata,
 ): Promise<string | null> {
   // Without a card and a month there is nothing to identify a duplicate by,
@@ -466,7 +477,7 @@ async function mergeIntoDuplicateImport(
   // Excluding the import being processed — the caller has just written its
   // metadata, so it would otherwise match itself and the merge never fire.
   const existingImport = await importRepository.findExisting(
-    userId,
+    householdId,
     metadata.paymentMonth,
     metadata.creditCardLastFour,
     importId,
@@ -485,8 +496,9 @@ async function mergeIntoDuplicateImport(
     'Found duplicate import, merging transactions',
   );
 
-  const ownRows = await importedTransactionRepository.findByImportId(importId);
+  const ownRows = await importedTransactionRepository.findByImportId(householdId, importId);
   const nonDuplicateRows = await importedTransactionRepository.filterDuplicates(
+    householdId,
     existingImport.id,
     ownRows,
   );
@@ -495,16 +507,17 @@ async function mergeIntoDuplicateImport(
   // the survivor is held out of COMPLETED until the moved rows are matched.
   await prisma.$transaction([
     ...importedTransactionRepository.moveToImportOps(
+      householdId,
       nonDuplicateRows.map((row) => row.id),
       existingImport.id,
     ),
-    importedTransactionRepository.deleteByImportIdOp(importId),
+    importedTransactionRepository.deleteByImportIdOp(householdId, importId),
     prisma.import.update({
-      where: { id: existingImport.id },
+      where: { id: existingImport.id, householdId },
       data: { status: ImportStatus.REMATCHING },
     }),
     prisma.import.update({
-      where: { id: importId },
+      where: { id: importId, householdId },
       data: {
         status: ImportStatus.MERGED,
         mergedIntoImportId: existingImport.id,
@@ -526,9 +539,12 @@ async function mergeIntoDuplicateImport(
   return existingImport.id;
 }
 
-async function findPotentialMatchesSafe(importId: string, userId: string): Promise<void> {
+async function findPotentialMatchesSafe({
+  householdId,
+  importId,
+}: ImportInHousehold): Promise<void> {
   try {
-    await importService.findPotentialMatchesForImport(importId, userId);
+    await importService.findPotentialMatchesForImport(householdId, importId);
   } catch (err) {
     // Matching is best-effort; the import itself already succeeded.
     observability.reportError({
@@ -539,10 +555,13 @@ async function findPotentialMatchesSafe(importId: string, userId: string): Promi
   }
 }
 
-async function handleFailedExtraction(importId: string, payload: WebhookPayload): Promise<void> {
+async function handleFailedExtraction(
+  { householdId, importId }: ImportInHousehold,
+  payload: WebhookPayload,
+): Promise<void> {
   const errorMessage = payload.error || 'Unknown extraction error';
 
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
 
-  await importRepository.updateStatus(importId, ImportStatus.FAILED, errorMessage);
+  await importRepository.updateStatus(householdId, importId, ImportStatus.FAILED, errorMessage);
 }

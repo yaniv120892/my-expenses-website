@@ -20,6 +20,7 @@ import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
+import type { HouseholdActor, HouseholdId, MemberActor } from '@/server/auth/householdActor.types';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import { resolveMatchedTransactionId } from '@/server/services/ai/prompts';
 import { lazy } from '@/server/lib/lazy';
@@ -120,12 +121,13 @@ class ImportService {
   private getAiProvider = lazy(() => aiServiceFactory.getAIService());
 
   public async processImport(
+    actor: MemberActor,
     fileUrl: string,
-    userId: string,
     originalFileName: string,
     paymentMonthFromRequest?: string,
   ): Promise<Import> {
     assertUploadedImportUrl(fileUrl);
+    const { userId, householdId } = actor;
 
     try {
       logger.info(
@@ -139,6 +141,7 @@ class ImportService {
       const importRecord = await importRepository.create({
         fileUrl,
         originalFileName,
+        householdId,
         userId,
         importType: null,
         bankSourceType: null,
@@ -149,7 +152,13 @@ class ImportService {
 
       logger.info({ importId: importRecord.id, userId }, 'Created import record');
 
-      await this.submitExtraction(importRecord.id, fileUrl, originalFileName, userId);
+      await this.submitExtraction({
+        householdId,
+        importId: importRecord.id,
+        fileUrl,
+        originalFileName,
+        userId,
+      });
 
       return importRecord;
     } catch (error) {
@@ -159,12 +168,19 @@ class ImportService {
   }
 
   /** Marks the import FAILED before rethrowing, so a rejected submit is visible. */
-  private async submitExtraction(
-    importId: string,
-    fileUrl: string,
-    originalFileName: string,
-    userId: string,
-  ): Promise<void> {
+  private async submitExtraction({
+    householdId,
+    importId,
+    fileUrl,
+    originalFileName,
+    userId,
+  }: {
+    householdId: HouseholdId;
+    importId: string;
+    fileUrl: string;
+    originalFileName: string;
+    userId: string;
+  }): Promise<void> {
     try {
       const extractionResponse = await excelExtractionAgentClient.submitExtractionRequest({
         fileUrl,
@@ -185,33 +201,51 @@ class ImportService {
 
       // The signed callback may already have completed or merged the import, so
       // only the request id is recorded, and only while the import still waits.
-      await this.recordExtractionRequestId(importId, extractionResponse.requestId);
+      await this.recordExtractionRequestId({
+        householdId,
+        importId,
+        extractionRequestId: extractionResponse.requestId,
+      });
     } catch (error) {
       logger.error({ importId, err: error }, 'Failed to submit extraction request');
 
-      await this.failUnprocessedImport(
+      await this.failUnprocessedImport({
+        householdId,
         importId,
-        getErrorMessage(error, 'Failed to submit extraction request'),
-      );
+        error: getErrorMessage(error, 'Failed to submit extraction request'),
+      });
 
       throw error;
     }
   }
 
-  private async recordExtractionRequestId(
-    importId: string,
-    extractionRequestId: string,
-  ): Promise<void> {
+  private async recordExtractionRequestId({
+    householdId,
+    importId,
+    extractionRequestId,
+  }: {
+    householdId: HouseholdId;
+    importId: string;
+    extractionRequestId: string;
+  }): Promise<void> {
     await prisma.import.updateMany({
-      where: { id: importId, extractionCompletedAt: null },
+      where: { id: importId, householdId, extractionCompletedAt: null },
       data: { excelExtractionRequestId: extractionRequestId },
     });
   }
 
   /** No-op once a callback has claimed the import, or if it merged away. */
-  private async failUnprocessedImport(importId: string, error: string): Promise<void> {
+  private async failUnprocessedImport({
+    householdId,
+    importId,
+    error,
+  }: {
+    householdId: HouseholdId;
+    importId: string;
+    error: string;
+  }): Promise<void> {
     await prisma.import.updateMany({
-      where: { id: importId, extractionCompletedAt: null },
+      where: { id: importId, householdId, extractionCompletedAt: null },
       data: { status: ImportStatus.FAILED, error },
     });
   }
@@ -233,13 +267,13 @@ class ImportService {
     return { failedImportCount: failedCount };
   }
 
-  public async getImports(userId: string) {
-    const imports = await importRepository.findByUserId(userId);
+  public async getImports(householdId: HouseholdId) {
+    const imports = await importRepository.findByHousehold(householdId);
     return imports.map((imp) => this.toImportListItem(imp));
   }
 
-  public async getImport(importId: string, userId: string) {
-    const importRecord = await importRepository.findByIdForUser(importId, userId);
+  public async getImport(householdId: HouseholdId, importId: string) {
+    const importRecord = await importRepository.findLiveById(householdId, importId);
     if (!importRecord) {
       throw new HttpError(404, 'Import not found');
     }
@@ -255,8 +289,8 @@ class ImportService {
     };
   }
 
-  public async getImportedTransactions(importId: string, userId: string) {
-    const rows = await importedTransactionRepository.findByUserIdAndImportId(userId, importId);
+  public async getImportedTransactions(householdId: HouseholdId, importId: string) {
+    const rows = await importedTransactionRepository.findByImport(householdId, importId);
     // Decimal columns would serialize as strings; the client reads numbers.
     return rows.map((row) => ({
       ...row,
@@ -269,34 +303,34 @@ class ImportService {
   }
 
   public async approveImportedTransaction(
+    actor: HouseholdActor,
     importedTransactionId: string,
-    userId: string,
     transactionData: ApproveImportedTransactionData,
   ) {
-    const record = await this.loadOwnedRow(importedTransactionId, userId);
-    const notifyTransactionId = await this.applyCreate(record, transactionData);
-    await transactionService.notifyTransactionCreatedSafe(notifyTransactionId, userId);
+    const record = await this.loadOwnedRow(actor.householdId, importedTransactionId);
+    const notifyTransactionId = await this.applyCreate(actor, record, transactionData);
+    await transactionService.notifyTransactionCreatedSafe(actor.householdId, notifyTransactionId);
   }
 
   public async mergeImportedTransaction(
+    actor: HouseholdActor,
     importedTransactionId: string,
-    userId: string,
     transactionData: MergeImportedTransactionData,
   ) {
-    const record = await this.loadOwnedRow(importedTransactionId, userId);
-    const notifyTransactionId = await this.applyMerge(record, transactionData);
+    const record = await this.loadOwnedRow(actor.householdId, importedTransactionId);
+    const notifyTransactionId = await this.applyMerge(actor, record, transactionData);
     if (notifyTransactionId) {
-      await transactionService.notifyTransactionCreatedSafe(notifyTransactionId, userId);
+      await transactionService.notifyTransactionCreatedSafe(actor.householdId, notifyTransactionId);
     }
   }
 
   private async loadOwnedRow(
+    householdId: HouseholdId,
     importedTransactionId: string,
-    userId: string,
   ): Promise<ImportedTransactionWithMatch> {
-    const record = await importedTransactionRepository.findById(importedTransactionId);
+    const record = await importedTransactionRepository.findById(householdId, importedTransactionId);
 
-    if (!record || record.userId !== userId || record.deleted) {
+    if (!record || record.deleted) {
       throw new HttpError(404, 'Imported transaction not found');
     }
 
@@ -308,12 +342,13 @@ class ImportService {
   }
 
   private async applyCreate(
+    actor: HouseholdActor,
     record: ImportedTransactionWithMatch,
     transactionData: ApproveImportedTransactionData,
   ): Promise<string> {
     // Categorization may call the AI service, so it runs before the batch:
     // network work has no place inside a database transaction.
-    const transactionModel = await transactionService.prepareCreateTransaction({
+    const transactionModel = await transactionService.prepareCreateTransaction(actor, {
       description: transactionData.description,
       resolvedAmount: importedAmountService.resolveApprovedAmount(
         this.toImportedAmountAt(record),
@@ -321,7 +356,6 @@ class ImportService {
       ),
       date: transactionData.date,
       type: transactionData.type,
-      userId: record.userId,
       status: TransactionStatus.APPROVED,
       categoryId: transactionData.categoryId,
     });
@@ -331,7 +365,7 @@ class ImportService {
     const [createdTransaction] = await prisma
       .$transaction([
         transactionRepository.createTransactionOp(transactionModel),
-        importedTransactionRepository.markApprovedOp(record.id, record.userId),
+        importedTransactionRepository.markApprovedOp(actor.householdId, record.id),
       ])
       .catch(throwOnMissingRow);
 
@@ -340,23 +374,25 @@ class ImportService {
 
   /** Returns the transaction to notify about only if the merge approved it. */
   private async applyMerge(
+    actor: HouseholdActor,
     record: ImportedTransactionWithMatch,
     transactionData: MergeImportedTransactionData,
   ): Promise<string | null> {
-    const { matchingTransaction, matchingTransactionId, userId } = record;
+    const { matchingTransaction, matchingTransactionId } = record;
+    const { householdId } = actor;
 
     if (!matchingTransactionId) {
       throw new HttpError(409, 'No matching transaction to merge with');
     }
 
-    if (!matchingTransaction || matchingTransaction.userId !== userId) {
+    if (!matchingTransaction || matchingTransaction.householdId !== householdId) {
       logger.warn(
         {
-          userId,
+          householdId,
           importedTransactionId: record.id,
           matchingTransactionId,
         },
-        'Stored matching transaction is missing or not owned by the user',
+        'Stored matching transaction is missing or not in the household',
       );
       throw new HttpError(404, 'Matching transaction not found');
     }
@@ -365,7 +401,7 @@ class ImportService {
     // this charge will carry, not on the hand-logged one the merge replaces.
     if (transactionData.categoryId) {
       await transactionService.learnCategoryMappingSafe({
-        userId,
+        actor,
         description: record.description,
         previousCategoryId: matchingTransaction.categoryId,
         categoryId: transactionData.categoryId,
@@ -383,21 +419,17 @@ class ImportService {
     // imported row stays PENDING and re-mergeable.
     await prisma
       .$transaction([
-        transactionRepository.updateTransactionOp(
-          matchingTransactionId,
-          {
-            description: transactionData.description,
-            type: transactionData.type,
-            amount,
-            date: transactionData.date,
-            categoryId: transactionData.categoryId,
-            ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
-          },
-          userId,
-        ),
+        transactionRepository.updateTransactionOp(householdId, matchingTransactionId, {
+          description: transactionData.description,
+          type: transactionData.type,
+          amount,
+          date: transactionData.date,
+          categoryId: transactionData.categoryId,
+          ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+        }),
         importedTransactionRepository.updateStatusOp(
+          householdId,
           record.id,
-          userId,
           ImportedTransactionStatus.MERGED,
         ),
       ])
@@ -406,35 +438,35 @@ class ImportService {
     return approveMatch ? matchingTransactionId : null;
   }
 
-  public async ignoreImportedTransaction(importedTransactionId: string, userId: string) {
-    await this.loadOwnedRow(importedTransactionId, userId);
+  public async ignoreImportedTransaction(actor: HouseholdActor, importedTransactionId: string) {
+    await this.loadOwnedRow(actor.householdId, importedTransactionId);
     await importedTransactionRepository
-      .updateStatus(importedTransactionId, userId, ImportedTransactionStatus.IGNORED)
+      .updateStatus(actor.householdId, importedTransactionId, ImportedTransactionStatus.IGNORED)
       .catch(throwOnMissingRow);
   }
 
   // The rows go with the import, so none can still be approved or hold a
   // claim on a transaction that a re-import of the statement should match.
-  public async deleteImport(importId: string, userId: string) {
+  public async deleteImport(actor: HouseholdActor, importId: string) {
     await prisma.$transaction([
-      importRepository.softDeleteOp(importId, userId),
-      importedTransactionRepository.softDeleteByImportIdOp(importId, userId),
+      importRepository.softDeleteOp(actor.householdId, importId),
+      importedTransactionRepository.softDeleteByImportIdOp(actor.householdId, importId),
     ]);
   }
 
-  public async deleteImportedTransaction(importedTransactionId: string, userId: string) {
-    await importedTransactionRepository.softDelete(importedTransactionId, userId);
+  public async deleteImportedTransaction(actor: HouseholdActor, importedTransactionId: string) {
+    await importedTransactionRepository.softDelete(actor.householdId, importedTransactionId);
   }
 
   /** Writes nothing; batchApproveImportedTransactions commits the same plan. */
   public async buildReconciliationPlan(
+    householdId: HouseholdId,
     importId: string,
-    userId: string,
     transactionIds: string[] | 'all' = 'all',
   ): Promise<ReconciliationPreviewItem[]> {
-    const { pending } = await this.loadPendingSelection(importId, userId, transactionIds);
+    const { pending } = await this.loadPendingSelection(householdId, importId, transactionIds);
     const plan = pending.map((transaction) => this.toReconciliationPlanItem(transaction));
-    const candidates = await this.findUnclaimedCandidatesForCreates(plan, userId);
+    const candidates = await this.findUnclaimedCandidatesForCreates(householdId, plan);
 
     return plan.map((item) => ({
       ...item,
@@ -444,13 +476,13 @@ class ImportService {
   }
 
   public async batchApproveImportedTransactions(
+    actor: HouseholdActor,
     importId: string,
-    userId: string,
     transactionIds: string[] | 'all',
   ): Promise<BatchResult> {
     const { pending, missingIds } = await this.loadPendingSelection(
+      actor.householdId,
       importId,
-      userId,
       transactionIds,
     );
     const plan = pending.map((record) => ({
@@ -458,24 +490,24 @@ class ImportService {
       item: this.toReconciliationPlanItem(record),
     }));
 
-    return this.runReconciliationPlan(plan, userId, missingIds);
+    return this.runReconciliationPlan(actor, plan, missingIds);
   }
 
   public async batchIgnoreImportedTransactions(
+    actor: HouseholdActor,
     importId: string,
-    userId: string,
     transactionIds: string[] | 'all',
   ): Promise<BatchResult> {
     const { pending, missingIds } = await this.loadPendingSelection(
+      actor.householdId,
       importId,
-      userId,
       transactionIds,
     );
     const ids = pending.map((t) => t.id);
 
     const count = await importedTransactionRepository.updateStatusBatch(
+      actor.householdId,
       ids,
-      userId,
       ImportedTransactionStatus.IGNORED,
     );
 
@@ -490,10 +522,13 @@ class ImportService {
     };
   }
 
-  public async applyAutoApproveRules(importId: string, userId: string): Promise<BatchResult> {
+  public async applyAutoApproveRules(
+    actor: HouseholdActor,
+    importId: string,
+  ): Promise<BatchResult> {
     const [{ pending: pendingTransactions }, rules] = await Promise.all([
-      this.loadPendingSelection(importId, userId, 'all'),
-      autoApproveRuleRepository.findActiveByUserId(userId),
+      this.loadPendingSelection(actor.householdId, importId, 'all'),
+      autoApproveRuleRepository.findActiveByHousehold(actor.householdId),
     ]);
 
     const plan: PlannedRow[] = [];
@@ -515,26 +550,29 @@ class ImportService {
       });
     }
 
-    return this.runReconciliationPlan(plan, userId);
+    return this.runReconciliationPlan(actor, plan);
   }
 
   private async loadPendingSelection(
+    householdId: HouseholdId,
     importId: string,
-    userId: string,
     transactionIds: string[] | 'all',
   ): Promise<{
     pending: ImportedTransactionWithMatch[];
     missingIds: string[];
   }> {
     if (transactionIds === 'all') {
-      const pending = await importedTransactionRepository.findPendingByImportId(importId, userId);
+      const pending = await importedTransactionRepository.findPendingByImportId(
+        householdId,
+        importId,
+      );
       return { pending, missingIds: [] };
     }
 
     const pending = await importedTransactionRepository.findPendingByIds(
+      householdId,
       importId,
       transactionIds,
-      userId,
     );
     const foundIds = new Set(pending.map((transaction) => transaction.id));
     const missingIds = transactionIds.filter((id) => !foundIds.has(id));
@@ -545,8 +583,8 @@ class ImportService {
   // A transaction another pending row already claims is left out: that row's
   // merge will consume it, so it cannot be this row's missed match.
   private async findUnclaimedCandidatesForCreates(
+    householdId: HouseholdId,
     plan: ReconciliationPlanItem[],
-    userId: string,
   ): Promise<MatchCandidateTransaction[]> {
     const creates = plan.filter((item) => item.action === 'CREATE');
     if (creates.length === 0) {
@@ -554,8 +592,8 @@ class ImportService {
     }
 
     const [candidates, claimedIds] = await Promise.all([
-      transactionRepository.findPotentialMatchesForCharges(userId, creates),
-      importedTransactionRepository.findClaimedMatchingTransactionIds(userId),
+      transactionRepository.findPotentialMatchesForCharges(householdId, creates),
+      importedTransactionRepository.findClaimedMatchingTransactionIds(householdId),
     ]);
     const claimed = new Set(claimedIds);
 
@@ -608,8 +646,8 @@ class ImportService {
   }
 
   private async runReconciliationPlan(
+    actor: HouseholdActor,
     plannedRows: PlannedRow[],
-    userId: string,
     missingIds: string[] = [],
   ): Promise<BatchResult> {
     const result: BatchResult = {
@@ -625,7 +663,7 @@ class ImportService {
     const notifyTransactionIds: string[] = [];
     for (const entry of plannedRows) {
       try {
-        const notifyTransactionId = await this.applyPlannedRow(entry);
+        const notifyTransactionId = await this.applyPlannedRow(actor, entry);
         if (notifyTransactionId) {
           notifyTransactionIds.push(notifyTransactionId);
         }
@@ -639,12 +677,15 @@ class ImportService {
       }
     }
 
-    await transactionService.notifyTransactionsCreatedSafe(notifyTransactionIds, userId);
+    await transactionService.notifyTransactionsCreatedSafe(actor.householdId, notifyTransactionIds);
 
     return result;
   }
 
-  private async applyPlannedRow({ record, item }: PlannedRow): Promise<string | null> {
+  private async applyPlannedRow(
+    actor: HouseholdActor,
+    { record, item }: PlannedRow,
+  ): Promise<string | null> {
     const payload = {
       description: item.description,
       date: item.date,
@@ -653,12 +694,12 @@ class ImportService {
 
     switch (item.action) {
       case 'MERGE':
-        return this.applyMerge(record, {
+        return this.applyMerge(actor, record, {
           ...payload,
           categoryId: item.categoryId ?? undefined,
         });
       case 'CREATE':
-        return this.applyCreate(record, {
+        return this.applyCreate(actor, record, {
           ...payload,
           categoryId: item.categoryId,
         });
@@ -667,9 +708,10 @@ class ImportService {
     }
   }
 
-  public async rematchImport(importId: string, userId: string): Promise<void> {
-    const importRecord = await importRepository.findById(importId);
-    if (!importRecord || importRecord.userId !== userId || importRecord.deleted) {
+  public async rematchImport(actor: HouseholdActor, importId: string): Promise<void> {
+    const { householdId } = actor;
+    const importRecord = await importRepository.findById(householdId, importId);
+    if (!importRecord || importRecord.deleted) {
       throw new HttpError(404, 'Import not found');
     }
 
@@ -680,6 +722,7 @@ class ImportService {
     // Claimed before the rows are read, so rows a merge moved in before the
     // claim are in the snapshot rather than cleared and never re-matched.
     const claimed = await importRepository.transitionStatus(
+      householdId,
       importId,
       ImportStatus.COMPLETED,
       ImportStatus.REMATCHING,
@@ -691,19 +734,16 @@ class ImportService {
     // Back to COMPLETED on failure too: the rows a failed run left unmatched
     // are still PENDING, and COMPLETED is the status a retry needs.
     try {
-      await this.rematchClaimedImport(importId, userId);
-      await this.releaseRematch(importId);
+      await this.rematchClaimedImport(householdId, importId);
+      await this.releaseRematch(householdId, importId);
     } catch (error) {
-      await this.releaseRematchSafe(importId);
+      await this.releaseRematchSafe(householdId, importId);
       throw error;
     }
   }
 
-  private async rematchClaimedImport(importId: string, userId: string): Promise<void> {
-    const allTransactions = await importedTransactionRepository.findByUserIdAndImportId(
-      userId,
-      importId,
-    );
+  private async rematchClaimedImport(householdId: HouseholdId, importId: string): Promise<void> {
+    const allTransactions = await importedTransactionRepository.findByImport(householdId, importId);
 
     const pendingTransactions = allTransactions.filter(
       (t) => t.status === ImportedTransactionStatus.PENDING,
@@ -713,7 +753,12 @@ class ImportService {
       throw new HttpError(409, NO_PENDING_TRANSACTIONS_TO_REMATCH_ERROR);
     }
 
-    await this.rematchPendingTransactions(importId, userId, allTransactions, pendingTransactions);
+    await this.rematchPendingTransactions({
+      householdId,
+      importId,
+      allTransactions,
+      pendingTransactions,
+    });
 
     logger.info(
       { importId, pendingCount: pendingTransactions.length },
@@ -721,8 +766,9 @@ class ImportService {
     );
   }
 
-  private async releaseRematch(importId: string): Promise<void> {
+  private async releaseRematch(householdId: HouseholdId, importId: string): Promise<void> {
     const released = await importRepository.transitionStatus(
+      householdId,
       importId,
       ImportStatus.REMATCHING,
       ImportStatus.COMPLETED,
@@ -736,9 +782,9 @@ class ImportService {
   }
 
   /** Never replaces the re-match's own error with the release's. */
-  private async releaseRematchSafe(importId: string): Promise<void> {
+  private async releaseRematchSafe(householdId: HouseholdId, importId: string): Promise<void> {
     try {
-      await this.releaseRematch(importId);
+      await this.releaseRematch(householdId, importId);
     } catch (err) {
       observability.reportError({
         error: err,
@@ -752,12 +798,17 @@ class ImportService {
    * Excludes every transaction another row already claims, so two rows cannot
    * land on the same one.
    */
-  private async rematchPendingTransactions(
-    importId: string,
-    userId: string,
-    allTransactions: ImportedTransactionWithMatch[],
-    pendingTransactions: ImportedTransactionWithMatch[],
-  ): Promise<void> {
+  private async rematchPendingTransactions({
+    householdId,
+    importId,
+    allTransactions,
+    pendingTransactions,
+  }: {
+    householdId: HouseholdId;
+    importId: string;
+    allTransactions: ImportedTransactionWithMatch[];
+    pendingTransactions: ImportedTransactionWithMatch[];
+  }): Promise<void> {
     const excludedTransactionIds = new Set(
       allTransactions.flatMap((t) =>
         t.status !== ImportedTransactionStatus.PENDING && t.matchingTransactionId
@@ -769,37 +820,37 @@ class ImportService {
     await prisma.importedTransaction.updateMany({
       where: {
         importId,
-        userId,
+        householdId,
         status: ImportedTransactionStatus.PENDING,
       },
       data: { matchingTransactionId: null },
     });
 
     const claimedElsewhere =
-      await importedTransactionRepository.findClaimedMatchingTransactionIds(userId);
+      await importedTransactionRepository.findClaimedMatchingTransactionIds(householdId);
     for (const transactionId of claimedElsewhere) {
       excludedTransactionIds.add(transactionId);
     }
 
     await this.matchSequentially(
+      householdId,
       pendingTransactions.map((row) => this.toMatchable(row)),
-      userId,
       excludedTransactionIds,
       'Error re-matching transaction',
     );
   }
 
   private async matchSequentially(
+    householdId: HouseholdId,
     transactions: MatchableTransaction[],
-    userId: string,
     excludedTransactionIds: Set<string>,
     errorMessage: string,
   ): Promise<void> {
     for (const transaction of transactions) {
       try {
         const matchedId = await this.matchSingleTransaction(
+          householdId,
           transaction,
-          userId,
           excludedTransactionIds,
         );
 
@@ -812,11 +863,17 @@ class ImportService {
     }
   }
 
-  public async findPotentialMatchesForImport(importId: string, userId: string): Promise<void> {
+  public async findPotentialMatchesForImport(
+    householdId: HouseholdId,
+    importId: string,
+  ): Promise<void> {
     try {
-      logger.info({ importId, userId }, 'Finding potential matches for import');
+      logger.info({ importId, householdId }, 'Finding potential matches for import');
 
-      const importedTransactions = await importedTransactionRepository.findByImportId(importId);
+      const importedTransactions = await importedTransactionRepository.findByImportId(
+        householdId,
+        importId,
+      );
 
       logger.info(
         { importId, count: importedTransactions.length },
@@ -824,16 +881,16 @@ class ImportService {
       );
 
       const excludedTransactionIds = new Set(
-        await importedTransactionRepository.findClaimedMatchingTransactionIds(userId),
+        await importedTransactionRepository.findClaimedMatchingTransactionIds(householdId),
       );
 
       // Rows merged in from a duplicate import keep the match they already
       // hold, and rows already approved or ignored are decided.
       await this.matchSequentially(
+        householdId,
         importedTransactions
           .filter((t) => t.status === ImportedTransactionStatus.PENDING && !t.matchingTransactionId)
           .map((row) => this.toMatchable(row)),
-        userId,
         excludedTransactionIds,
         'Error finding match for transaction',
       );
@@ -846,11 +903,11 @@ class ImportService {
   }
 
   private async matchSingleTransaction(
+    householdId: HouseholdId,
     transaction: MatchableTransaction,
-    userId: string,
     excludedIds?: Set<string>,
   ): Promise<string | null> {
-    const matches = await transactionRepository.findPotentialMatches(userId, transaction);
+    const matches = await transactionRepository.findPotentialMatches(householdId, transaction);
 
     const isCandidate = matchCandidateFilter(transaction);
     const availableMatches = matches.filter(
@@ -863,7 +920,11 @@ class ImportService {
 
     const exactMatchId = findExactNormalizedMatch(transaction.description, availableMatches);
     if (exactMatchId) {
-      await this.claimMatch(transaction.id, exactMatchId);
+      await this.claimMatch({
+        householdId,
+        importedTransactionId: transaction.id,
+        matchingTransactionId: exactMatchId,
+      });
       return exactMatchId;
     }
 
@@ -877,7 +938,11 @@ class ImportService {
       (placeholders.length > 0 ? pickPlaceholder(transaction, placeholders).id : null);
 
     if (matchingTransactionId) {
-      await this.claimMatch(transaction.id, matchingTransactionId);
+      await this.claimMatch({
+        householdId,
+        importedTransactionId: transaction.id,
+        matchingTransactionId,
+      });
     }
 
     return matchingTransactionId;
@@ -915,12 +980,17 @@ class ImportService {
     return { ...fromImportedAmountColumns(row), date: row.date };
   }
 
-  private async claimMatch(
-    importedTransactionId: string,
-    matchingTransactionId: string,
-  ): Promise<void> {
+  private async claimMatch({
+    householdId,
+    importedTransactionId,
+    matchingTransactionId,
+  }: {
+    householdId: HouseholdId;
+    importedTransactionId: string;
+    matchingTransactionId: string;
+  }): Promise<void> {
     await prisma.importedTransaction.update({
-      where: { id: importedTransactionId },
+      where: { id: importedTransactionId, householdId },
       data: { matchingTransactionId },
     });
   }

@@ -5,7 +5,7 @@ import trendService from '@/server/services/trendService';
 export const GET = createHandler({
   auth: 'session',
   querySchema: getSpendingTrendsQuerySchema,
-  handler: async ({ userId, query }) =>
+  handler: async ({ actor, query }) =>
     trendService.getSpendingTrends(
       {
         startDate: query.startDate,
@@ -14,6 +14,6 @@ export const GET = createHandler({
         categoryId: query.categoryId,
         transactionType: query.transactionType,
       },
-      userId,
+      actor.householdId,
     ),
 });

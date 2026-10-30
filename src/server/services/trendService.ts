@@ -1,4 +1,5 @@
 import { subDays, subMonths } from 'date-fns';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import type {
   GetSpendingTrendsRequest,
   SpendingTrend,
@@ -18,7 +19,7 @@ import { bucketKeyFor } from '@/shared/periodBuckets';
 type PeriodQuery = {
   startDate: Date;
   endDate: Date;
-  userId: string;
+  householdId: HouseholdId;
   transactionType?: TransactionType;
   categoryId?: string;
   categoryIds?: string[];
@@ -34,13 +35,13 @@ type CategoryTrendData = {
 class TrendService {
   public async getSpendingTrends(
     request: GetSpendingTrendsRequest,
-    userId: string,
+    householdId: HouseholdId,
   ): Promise<SpendingTrend> {
     const { startDate, endDate } = this.getDateRange(request);
     const periodQuery: PeriodQuery = {
       startDate,
       endDate,
-      userId,
+      householdId,
       transactionType: request.transactionType,
       categoryId: request.categoryId,
       categoryIds: request.categoryIds,
@@ -69,13 +70,13 @@ class TrendService {
 
   public async getCategorySpendingTrends(
     request: GetSpendingTrendsRequest,
-    userId: string,
+    householdId: HouseholdId,
   ): Promise<CategorySpendingTrend[]> {
     const { startDate, endDate } = this.getDateRange(request);
     const periodQuery: PeriodQuery = {
       startDate,
       endDate,
-      userId,
+      householdId,
       transactionType: request.transactionType,
       categoryId: request.categoryId,
       categoryIds: request.categoryIds,
@@ -202,7 +203,7 @@ class TrendService {
   private async fetchTransactionsForPeriod({
     startDate,
     endDate,
-    userId,
+    householdId,
     transactionType,
     categoryId,
     categoryIds,
@@ -213,12 +214,11 @@ class TrendService {
     const perPage = 1000;
     let isLastPage = false;
     for (let page = 1; !isLastPage; page += 1) {
-      const batch = await transactionRepository.getTransactions({
+      const batch = await transactionRepository.getTransactions(householdId, {
         startDate,
         endDate,
         categoryId,
         categoryIds,
-        userId,
         status: TransactionStatus.APPROVED,
         page,
         perPage,

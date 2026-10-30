@@ -8,6 +8,6 @@ export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSummarySchema,
   status: 201,
-  handler: async ({ userId, query }) =>
-    transactionService.getTransactionsSummary(toTransactionFilters(query, userId)),
+  handler: async ({ actor, query }) =>
+    transactionService.getTransactionsSummary(actor.householdId, toTransactionFilters(query)),
 });

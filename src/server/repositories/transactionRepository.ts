@@ -8,6 +8,7 @@ import type {
 } from '@/generated/prisma/client';
 import { TransactionType, TransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import {
   canMatch,
   type MatchableCharge,
@@ -41,7 +42,7 @@ import {
 const MATCHABLE_STATUSES = [TransactionStatus.APPROVED, TransactionStatus.PENDING_APPROVAL];
 
 // An update/delete matching no row means the transaction does not exist or
-// belongs to another user.
+// belongs to another household.
 function throwNotFoundOnMissingRow(err: unknown): never {
   if (getPrismaErrorCode(err) === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
     throw new HttpError(404, 'Transaction not found');
@@ -175,6 +176,7 @@ function decodeCursor(cursor: string, ordering: OrderedColumn[]): CursorKey[] {
 
 class TransactionRepository {
   public async getTransactionsSummary(
+    householdId: HouseholdId,
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
     const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
@@ -182,7 +184,7 @@ class TransactionRepository {
       by: ['type'],
       _sum: { value: true },
       _count: { _all: true },
-      where: this.buildListWhere(filters, startDate, endDate),
+      where: this.buildListWhere(householdId, filters, startDate, endDate),
     });
 
     const incomeGroup = groups.find((group) => group.type === TransactionType.INCOME);
@@ -199,12 +201,15 @@ class TransactionRepository {
     };
   }
 
-  public async getCategoryTotals(filters: TransactionSummaryFilters): Promise<CategoryTotal[]> {
+  public async getCategoryTotals(
+    householdId: HouseholdId,
+    filters: TransactionSummaryFilters,
+  ): Promise<CategoryTotal[]> {
     const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
     const groups = await prisma.transaction.groupBy({
       by: ['categoryId'],
       _sum: { value: true },
-      where: this.buildListWhere(filters, startDate, endDate),
+      where: this.buildListWhere(householdId, filters, startDate, endDate),
     });
     return groups.map((group) => ({
       categoryId: group.categoryId,
@@ -229,11 +234,14 @@ class TransactionRepository {
    * Offset paging for callers that address pages by number; new callers should
    * prefer getTransactionsList.
    */
-  public async getTransactions(filters: TransactionFilters): Promise<Transaction[]> {
+  public async getTransactions(
+    householdId: HouseholdId,
+    filters: TransactionFilters,
+  ): Promise<Transaction[]> {
     const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
 
     const transactions = await prisma.transaction.findMany({
-      where: this.buildListWhere(filters, startDate, endDate),
+      where: this.buildListWhere(householdId, filters, startDate, endDate),
       include: { category: true },
       orderBy: [{ date: 'desc' }, { id: 'desc' }],
       skip: (filters.page - 1) * filters.perPage,
@@ -242,13 +250,16 @@ class TransactionRepository {
     return transactions.map(this.mapToDomain);
   }
 
-  public async getTransactionsList(filters: TransactionListFilters): Promise<TransactionListPage> {
+  public async getTransactionsList(
+    householdId: HouseholdId,
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
     const { startDate, endDate } = normalizeDateRange(filters.startDate, filters.endDate);
 
     const ordering = listOrdering(filters);
     const transactions = await prisma.transaction.findMany({
       where: {
-        ...this.buildListWhere(filters, startDate, endDate),
+        ...this.buildListWhere(householdId, filters, startDate, endDate),
         ...this.buildCursorWhere(ordering, filters.cursor),
       },
       include: { category: true },
@@ -267,9 +278,9 @@ class TransactionRepository {
     };
   }
 
-  public async getPendingTransactions(userId: string): Promise<Transaction[]> {
+  public async getPendingTransactions(householdId: HouseholdId): Promise<Transaction[]> {
     const transactions = await prisma.transaction.findMany({
-      where: { status: TransactionStatus.PENDING_APPROVAL, userId },
+      where: { status: TransactionStatus.PENDING_APPROVAL, householdId },
       include: { category: true },
       orderBy: { date: 'desc' },
     });
@@ -277,13 +288,13 @@ class TransactionRepository {
   }
 
   public async updateTransactionStatus(
+    householdId: HouseholdId,
     id: string,
     status: TransactionStatus,
-    userId: string,
   ): Promise<string> {
     const transaction = await prisma.transaction
       .update({
-        where: { id, userId },
+        where: { id, householdId },
         data: { status },
       })
       .catch(throwNotFoundOnMissingRow);
@@ -291,11 +302,11 @@ class TransactionRepository {
   }
 
   public async getTransactionItem(
+    householdId: HouseholdId,
     transactionId: string,
-    userId: string,
   ): Promise<Transaction | null> {
     const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId, userId },
+      where: { id: transactionId, householdId },
       include: {
         category: true,
         files: {
@@ -336,13 +347,13 @@ class TransactionRepository {
   }
 
   public async updateTransaction(
+    householdId: HouseholdId,
     id: string,
     data: UpdateTransactionDbModel,
-    userId: string,
   ): Promise<Transaction> {
     const transaction = await prisma.transaction
       .update({
-        where: { id, userId },
+        where: { id, householdId },
         data: this.toUpdateData(data),
         include: { category: true },
       })
@@ -351,18 +362,18 @@ class TransactionRepository {
   }
 
   /** Unawaited for batching; a missing row fails as a raw Prisma error, not a 404. */
-  public updateTransactionOp(id: string, data: UpdateTransactionDbModel, userId: string) {
+  public updateTransactionOp(householdId: HouseholdId, id: string, data: UpdateTransactionDbModel) {
     return prisma.transaction.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: this.toUpdateData(data),
     });
   }
 
   /** Returns the attachment keys the cascade dropped, read by the delete itself. */
-  public async deleteTransaction(id: string, userId: string): Promise<string[]> {
+  public async deleteTransaction(householdId: HouseholdId, id: string): Promise<string[]> {
     const deleted = await prisma.transaction
       .delete({
-        where: { id, userId },
+        where: { id, householdId },
         select: { files: { select: { fileKey: true } } },
       })
       .catch(throwNotFoundOnMissingRow);
@@ -371,7 +382,7 @@ class TransactionRepository {
 
   /** The caller folds the day rows into whatever period buckets it needs. */
   public async getCategoryPeriodTotals(params: {
-    userId: string;
+    householdId: HouseholdId;
     startDate: Date;
     endDate: Date;
     categoryIds: string[];
@@ -392,7 +403,7 @@ class TransactionRepository {
       _sum: { value: true },
       _count: { _all: true },
       where: {
-        userId: params.userId,
+        householdId: params.householdId,
         status: TransactionStatus.APPROVED,
         categoryId: { in: params.categoryIds },
         type: params.transactionType,
@@ -410,17 +421,17 @@ class TransactionRepository {
   }
 
   public async findPotentialMatches(
-    userId: string,
+    householdId: HouseholdId,
     charge: MatchableCharge,
   ): Promise<MatchCandidateTransaction[]> {
-    return this.findPotentialMatchesForCharges(userId, [charge]);
+    return this.findPotentialMatchesForCharges(householdId, [charge]);
   }
 
   // Which charge each returned transaction belongs to is left to the caller,
   // and so is the description test a variable-amount placeholder must pass:
   // matchCandidateFilter holds both.
   public async findPotentialMatchesForCharges(
-    userId: string,
+    householdId: HouseholdId,
     charges: MatchableCharge[],
   ): Promise<MatchCandidateTransaction[]> {
     const windows = charges.map(matchWindow).filter(canMatch);
@@ -430,7 +441,7 @@ class TransactionRepository {
 
     const potentialTransactions = await prisma.transaction.findMany({
       where: {
-        userId,
+        householdId,
         status: { in: MATCHABLE_STATUSES },
         OR: [
           ...windows.map((window) => this.buildAmountWindowWhere(window)),
@@ -459,6 +470,7 @@ class TransactionRepository {
       type: data.type,
       status: data.status || TransactionStatus.APPROVED,
       scheduledTransactionId: data.scheduledTransactionId ?? null,
+      householdId: data.householdId,
       userId: data.userId,
     };
   }
@@ -529,6 +541,7 @@ class TransactionRepository {
    * the list pages through.
    */
   private buildListWhere(
+    householdId: HouseholdId,
     filters: TransactionSummaryFilters,
     startDate: Date | undefined,
     endDate: Date | undefined,
@@ -554,7 +567,7 @@ class TransactionRepository {
           }
         : {}),
       status: filters.status || TransactionStatus.APPROVED,
-      userId: filters.userId,
+      householdId,
     };
   }
 

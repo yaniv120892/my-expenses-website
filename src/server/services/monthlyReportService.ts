@@ -1,4 +1,6 @@
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import userRepository from '@/server/repositories/userRepository';
 import transactionService from '@/server/services/transactionService';
 import userSettingsService from '@/server/services/userSettingsService';
 import emailService from '@/server/services/emailService';
@@ -85,9 +87,13 @@ class MonthlyReportService {
       };
     }
 
+    const householdId = await userRepository.findHouseholdId(userId);
+    if (!householdId) {
+      throw new Error(`No household for user ${userId}`);
+    }
     const [transactions, previousTransactions] = await Promise.all([
-      this.getMonthTransactions(userId, reportMonth),
-      this.getMonthTransactions(userId, subMonths(reportMonth, 1)),
+      this.getMonthTransactions(householdId, reportMonth),
+      this.getMonthTransactions(householdId, subMonths(reportMonth, 1)),
     ]);
 
     if (transactions.length === 0 && !options.sendWhenEmpty) {
@@ -129,9 +135,8 @@ class MonthlyReportService {
     };
   }
 
-  private getMonthTransactions(userId: string, month: Date): Promise<Transaction[]> {
-    return transactionService.getAllTransactions({
-      userId,
+  private getMonthTransactions(householdId: HouseholdId, month: Date): Promise<Transaction[]> {
+    return transactionService.getAllTransactions(householdId, {
       status: 'APPROVED',
       startDate: startOfMonth(month),
       endDate: endOfMonth(month),

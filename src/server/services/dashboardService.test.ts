@@ -25,6 +25,10 @@ vi.mock('@/server/repositories/dashboardRepository', () => ({
 }));
 
 import dashboardService from './dashboardService';
+import dashboardRepository from '@/server/repositories/dashboardRepository';
+import { toHouseholdId } from '@/server/auth/householdId';
+
+const HOUSEHOLD_ID = toHouseholdId('household-1');
 
 const INSIGHTS = { unusualSpending: [], summary: 'ok' };
 
@@ -39,14 +43,23 @@ describe('dashboardService.getInsights', () => {
     ['he', 'Hebrew'],
     ['en', 'English'],
   ] as const)('asks for %s insights and caches them per locale', async (locale, language) => {
-    await expect(dashboardService.getInsights({ userId: 'user-1', locale })).resolves.toEqual(
-      INSIGHTS,
-    );
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale }),
+    ).resolves.toEqual(INSIGHTS);
 
     expect(analyzeExpenses.mock.calls[0]?.[0]).toContain(
       `Write every insight and the summary in ${language}`,
     );
-    expect(getValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
-    expect(setValue.mock.calls[0]?.[0]).toContain(`:user-1:${locale}:`);
+    expect(getValue.mock.calls[0]?.[0]).toContain(`:${HOUSEHOLD_ID}:${locale}:`);
+    expect(setValue.mock.calls[0]?.[0]).toContain(`:${HOUSEHOLD_ID}:${locale}:`);
+    for (const [householdId] of vi.mocked(dashboardRepository.getMonthSummary).mock.calls) {
+      expect(householdId).toBe(HOUSEHOLD_ID);
+    }
+    expect(dashboardRepository.getTopCategoriesForMonth).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
+      expect.any(Number),
+      expect.any(Number),
+      7,
+    );
   });
 });

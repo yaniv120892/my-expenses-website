@@ -6,6 +6,6 @@ export const GET = createHandler({
   auth: 'session',
   paramsSchema: importIdParamsSchema,
   apiTokenScope: 'IMPORTS',
-  handler: async ({ userId, params }) =>
-    importService.buildReconciliationPlan(params.importId, userId),
+  handler: async ({ actor, params }) =>
+    importService.buildReconciliationPlan(actor.householdId, params.importId),
 });

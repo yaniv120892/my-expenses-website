@@ -12,7 +12,6 @@ export type CreateScheduledTransaction = {
   dayOfMonth?: number;
   monthOfYear?: number;
   bankDescriptionPrefix?: string;
-  userId: string;
 };
 
 export type UpdateScheduledTransaction = {
@@ -42,5 +41,4 @@ export type ScheduledTransactionDomain = {
   bankDescriptionPrefix?: string;
   lastRunDate?: Date;
   nextRunDate?: Date;
-  userId: string;
 };

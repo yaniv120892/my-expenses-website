@@ -6,6 +6,10 @@ vi.mock('@/server/db/client', () => ({
 }));
 
 import transactionRepository from '@/server/repositories/transactionRepository';
+import { toHouseholdId } from '@/server/auth/householdId';
+
+const HOUSEHOLD_ID = toHouseholdId('household-1');
+
 import { TransactionType } from '@/generated/prisma/client';
 
 const DAY = new Date(2026, 5, 16);
@@ -19,7 +23,7 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
   const windowsQueried = () => findMany.mock.calls[0]?.[0].where.OR;
 
   it('queries a foreign charge whose ILS amount is unknown by currency and original amount', async () => {
-    await transactionRepository.findPotentialMatchesForCharges('user-1', [
+    await transactionRepository.findPotentialMatchesForCharges(HOUSEHOLD_ID, [
       {
         date: DAY,
         type: TransactionType.EXPENSE,
@@ -54,7 +58,7 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
       originalAmount: 101.98,
     });
 
-    await transactionRepository.findPotentialMatchesForCharges('user-1', [
+    await transactionRepository.findPotentialMatchesForCharges(HOUSEHOLD_ID, [
       charge(new Date(2026, 5, 10)),
       charge(new Date(2026, 5, 20)),
     ]);
@@ -73,7 +77,7 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
   });
 
   it('queries a billed foreign charge by its ILS value or its original amount', async () => {
-    await transactionRepository.findPotentialMatchesForCharges('user-1', [
+    await transactionRepository.findPotentialMatchesForCharges(HOUSEHOLD_ID, [
       {
         date: DAY,
         type: TransactionType.EXPENSE,
@@ -90,7 +94,7 @@ describe('transactionRepository.findPotentialMatchesForCharges', () => {
   });
 
   it('skips the query when no charge can match', async () => {
-    const matches = await transactionRepository.findPotentialMatchesForCharges('user-1', [
+    const matches = await transactionRepository.findPotentialMatchesForCharges(HOUSEHOLD_ID, [
       {
         date: DAY,
         type: TransactionType.EXPENSE,

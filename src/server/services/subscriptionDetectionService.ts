@@ -1,5 +1,8 @@
 import type { SubscriptionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
+import householdRepository from '@/server/repositories/householdRepository';
+import userRepository from '@/server/repositories/userRepository';
 import type {
   DetectionInput,
   SubscriptionAuditRow,
@@ -30,16 +33,6 @@ import { findScheduleMatch, indexSchedules } from '@/server/utils/scheduleMatchi
 import { formatCurrencyPlain } from '@/utils/format';
 
 const DETECTION_WINDOW_MONTHS = 12;
-
-function groupByUser(subscriptions: SubscriptionAuditRow[]): Map<string, SubscriptionAuditRow[]> {
-  const byUser = new Map<string, SubscriptionAuditRow[]>();
-  for (const sub of subscriptions) {
-    const existing = byUser.get(sub.userId) || [];
-    existing.push(sub);
-    byUser.set(sub.userId, existing);
-  }
-  return byUser;
-}
 
 /** Null when this user has nothing worth notifying about. */
 function buildAuditMessage(subs: SubscriptionAuditRow[]): string | null {
@@ -88,34 +81,36 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 class SubscriptionDetectionService {
-  public async runDetectionForAllUsers(): Promise<void> {
-    const userIds = await subscriptionRepository.getAllUserIds();
+  public async runDetectionForAllHouseholds(): Promise<void> {
+    const householdIds = await householdRepository.listIds();
     let failed = 0;
-    for (const userId of userIds) {
+    for (const householdId of householdIds) {
       try {
-        await this.detectForUser(userId);
+        await this.detectForHousehold(householdId);
       } catch (error) {
         failed += 1;
-        logger.error({ err: error, userId }, 'Subscription detection failed for user');
+        logger.error({ err: error, householdId }, 'Subscription detection failed for household');
       }
     }
 
     logger.info(
-      { total: userIds.length, succeeded: userIds.length - failed, failed },
+      { total: householdIds.length, succeeded: householdIds.length - failed, failed },
       'Subscription detection run finished',
     );
     if (failed > 0) {
-      throw new Error(`Subscription detection failed for ${failed} of ${userIds.length} user(s)`);
+      throw new Error(
+        `Subscription detection failed for ${failed} of ${householdIds.length} household(s)`,
+      );
     }
   }
 
   public async getSubscriptions(
-    userId: string,
+    householdId: HouseholdId,
     status?: SubscriptionStatus,
   ): Promise<SubscriptionSummary> {
     const [stored, schedules] = await Promise.all([
-      subscriptionRepository.getByUserId(userId, status),
-      scheduledTransactionService.listScheduledTransactions(userId),
+      subscriptionRepository.getByHousehold(householdId, status),
+      scheduledTransactionService.listScheduledTransactions(householdId),
     ]);
 
     const indexed = indexSchedules(schedules);
@@ -151,17 +146,17 @@ class SubscriptionDetectionService {
   }
 
   public async confirmSubscription(
+    actor: HouseholdActor,
     id: string,
-    userId: string,
   ): Promise<DetectedSubscriptionDomain> {
-    return subscriptionRepository.updateStatus(id, userId, 'CONFIRMED');
+    return subscriptionRepository.updateStatus(actor.householdId, id, 'CONFIRMED');
   }
 
   public async dismissSubscription(
+    actor: HouseholdActor,
     id: string,
-    userId: string,
   ): Promise<DetectedSubscriptionDomain> {
-    return subscriptionRepository.updateStatus(id, userId, 'DISMISSED');
+    return subscriptionRepository.updateStatus(actor.householdId, id, 'DISMISSED');
   }
 
   /**
@@ -169,11 +164,11 @@ class SubscriptionDetectionService {
    * (possibly new) frequency unless the caller gave one explicitly.
    */
   public async updateSubscription(
+    actor: HouseholdActor,
     id: string,
-    userId: string,
     input: UpdateSubscriptionInput,
   ): Promise<DetectedSubscriptionDomain> {
-    const existing = await subscriptionRepository.getById(id, userId);
+    const existing = await subscriptionRepository.getById(actor.householdId, id);
     if (!existing) {
       throw new HttpError(404, 'Subscription not found');
     }
@@ -189,7 +184,7 @@ class SubscriptionDetectionService {
       (rescheduled ? nextExpectedDateAfter(lastChargeDate, frequency) : existing.nextExpectedDate);
 
     try {
-      return await subscriptionRepository.update(id, userId, {
+      return await subscriptionRepository.update(actor.householdId, id, {
         displayName: input.displayName,
         categoryId: input.categoryId,
         averageAmount: roundToCents(averageAmount),
@@ -210,11 +205,11 @@ class SubscriptionDetectionService {
   }
 
   public async convertToScheduledTransaction(
+    actor: HouseholdActor,
     id: string,
-    userId: string,
     categoryId?: string,
   ): Promise<DetectedSubscriptionDomain> {
-    const subscription = await subscriptionRepository.getById(id, userId);
+    const subscription = await subscriptionRepository.getById(actor.householdId, id);
     if (!subscription) {
       throw new HttpError(404, 'Subscription not found');
     }
@@ -231,13 +226,12 @@ class SubscriptionDetectionService {
       throw new HttpError(400, 'A category is required to schedule this');
     }
 
-    const scheduledId = await scheduledTransactionService.createScheduledTransaction({
+    const scheduledId = await scheduledTransactionService.createScheduledTransaction(actor, {
       description: subscription.displayName,
       value: subscription.averageAmount,
       type: 'EXPENSE',
       categoryId: targetCategoryId,
       scheduleType: subscription.frequency,
-      userId,
       dayOfMonth:
         subscription.frequency === 'MONTHLY' ? subscription.lastChargeDate.getDate() : undefined,
       // The app-wide dayOfWeek convention is 1=Sunday..7=Saturday, while
@@ -246,27 +240,24 @@ class SubscriptionDetectionService {
         subscription.frequency === 'WEEKLY' ? subscription.lastChargeDate.getDay() + 1 : undefined,
     });
 
-    return subscriptionRepository.linkScheduledTransaction(id, userId, scheduledId);
+    return subscriptionRepository.linkScheduledTransaction(actor.householdId, id, scheduledId);
   }
 
-  public async getDashboardSnapshot(userId: string): Promise<SubscriptionDashboardSnapshot> {
-    return subscriptionRepository.getSnapshotByUserId(userId);
+  public async getDashboardSnapshot(
+    householdId: HouseholdId,
+  ): Promise<SubscriptionDashboardSnapshot> {
+    return subscriptionRepository.getSnapshot(householdId);
   }
 
+  /** Each opted-in member hears about their own household's subscriptions. */
   public async sendMonthlyAuditNotifications(): Promise<void> {
-    const byUser = groupByUser(await subscriptionRepository.getActiveForAllUsers());
-    const enabledUserIds = await this.getAuditEnabledUserIds(Array.from(byUser.keys()));
-
+    const recipients = await userRepository.findSubscriptionAuditRecipients();
     const notifier = transactionNotifierFactory.getNotifier();
 
     let failed = 0;
-    for (const [userId, subs] of byUser) {
+    for (const { userId, householdId } of recipients) {
       try {
-        if (!enabledUserIds.has(userId)) {
-          continue;
-        }
-
-        const message = buildAuditMessage(subs);
+        const message = buildAuditMessage(await subscriptionRepository.getActive(householdId));
         if (!message) {
           continue;
         }
@@ -279,29 +270,22 @@ class SubscriptionDetectionService {
     }
 
     logger.info(
-      { total: byUser.size, succeeded: byUser.size - failed, failed },
+      { total: recipients.length, succeeded: recipients.length - failed, failed },
       'Subscription audit run finished',
     );
     if (failed > 0) {
-      throw new Error(`Subscription audit failed for ${failed} of ${byUser.size} user(s)`);
+      throw new Error(`Subscription audit failed for ${failed} of ${recipients.length} user(s)`);
     }
   }
 
-  private async getAuditEnabledUserIds(userIds: string[]): Promise<Set<string>> {
-    const prefs = await prisma.userNotificationPreference.findMany({
-      where: { userId: { in: userIds }, subscriptionAudit: true },
-    });
-    return new Set(prefs.map((p) => p.userId));
-  }
-
-  private async detectForUser(userId: string): Promise<void> {
+  private async detectForHousehold(householdId: HouseholdId): Promise<void> {
     const analyzedTo = new Date();
     const analyzedFrom = new Date(analyzedTo);
     analyzedFrom.setMonth(analyzedFrom.getMonth() - DETECTION_WINDOW_MONTHS);
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        userId,
+        householdId,
         type: 'EXPENSE',
         status: 'APPROVED',
         date: { gte: analyzedFrom },
@@ -318,7 +302,6 @@ class SubscriptionDetectionService {
       }
 
       results.push({
-        userId,
         merchantName: pattern.merchantKey,
         displayName: pattern.displayName,
         averageAmount: pattern.averageAmount,
@@ -333,7 +316,7 @@ class SubscriptionDetectionService {
       });
     }
 
-    await subscriptionRepository.applyDetectionResults(userId, results);
+    await subscriptionRepository.applyDetectionResults(householdId, results);
   }
 
   private groupByMerchant(transactions: MerchantCharge[]): MerchantGroup[] {

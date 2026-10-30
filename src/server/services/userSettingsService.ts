@@ -1,3 +1,4 @@
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import {
   NotificationProvider,
   type Prisma,
@@ -15,8 +16,8 @@ class UserSettingsService {
     return userRepository.getUsersRequiredMonthlyReport();
   }
 
-  public async isCreateTransactionNotificationEnabled(userId: string) {
-    return userRepository.isCreateTransactionNotificationEnabled(userId);
+  public async findMembersNotifiedOfNewTransactions(householdId: HouseholdId): Promise<string[]> {
+    return userRepository.findMembersNotifiedOfNewTransactions(householdId);
   }
 
   public async getUserSettings(userId: string): Promise<UserSettingsView | null> {

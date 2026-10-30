@@ -4,16 +4,14 @@ import scheduledTransactionService from '@/server/services/scheduledTransactionS
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ userId }) => scheduledTransactionService.listScheduledTransactions(userId),
+  handler: async ({ actor }) =>
+    scheduledTransactionService.listScheduledTransactions(actor.householdId),
 });
 
 export const POST = createHandler({
   auth: 'session',
   bodySchema: createScheduledTransactionSchema,
   status: 201,
-  handler: async ({ userId, body }) =>
-    scheduledTransactionService.createScheduledTransaction({
-      ...body,
-      userId,
-    }),
+  handler: async ({ actor, body }) =>
+    scheduledTransactionService.createScheduledTransaction(actor, body),
 });

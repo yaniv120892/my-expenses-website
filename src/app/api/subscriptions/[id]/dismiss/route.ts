@@ -5,6 +5,6 @@ import subscriptionDetectionService from '@/server/services/subscriptionDetectio
 export const PATCH = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
-  handler: async ({ userId, params }) =>
-    subscriptionDetectionService.dismissSubscription(params.id, userId),
+  handler: async ({ actor, params }) =>
+    subscriptionDetectionService.dismissSubscription(actor, params.id),
 });

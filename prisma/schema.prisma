@@ -199,23 +199,21 @@ model Transaction {
   status               TransactionStatus    @default(APPROVED)
   scheduledTransactionId String?               @db.Uuid
   scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id], onDelete: SetNull)
-  userId               String               @db.Uuid
-  user                 User                 @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  userId               String?              @db.Uuid
+  user                 User?                @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   importedTransactions ImportedTransaction[]
   files                TransactionFile[]
 
-  @@index([userId])
+  @@index([householdId, status, date])
   @@index([categoryId])
-  @@index([userId, status, date])
   @@index([scheduledTransactionId])
 }
 
 model Import {
   id            String               @id @default(uuid()) @db.Uuid
-  userId        String               @db.Uuid
+  userId        String?              @db.Uuid
   fileUrl       String
   originalFileName String
   importType               ImportFileType?
@@ -238,12 +236,11 @@ model Import {
   mergedIntoImportId       String?   @db.Uuid
   mergedInto               Import?   @relation("ImportMerges", fields: [mergedIntoImportId], references: [id], onDelete: SetNull)
   mergedFrom               Import[]  @relation("ImportMerges")
-  user                     User      @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user                     User?     @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
 
-  @@index([userId, deleted, createdAt])
+  @@index([householdId, deleted, createdAt])
   @@index([mergedIntoImportId])
 }
 
@@ -266,17 +263,16 @@ model ImportedTransaction {
   status               ImportedTransactionStatus @default(PENDING)
   matchingTransactionId String?                 @db.Uuid
   rawData              Json
-  userId               String                   @db.Uuid
+  userId               String?                  @db.Uuid
   deleted              Boolean                  @default(false)
   import               Import                   @relation(fields: [importId], references: [id])
-  user                 User                     @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user                 User?                    @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   matchingTransaction  Transaction?             @relation(fields: [matchingTransactionId], references: [id])
 
   @@index([importId])
-  @@index([userId])
+  @@index([householdId])
   @@index([matchingTransactionId])
 }
 
@@ -310,17 +306,16 @@ model ScheduledTransaction {
   bankDescriptionPrefix String?
   lastRunDate   DateTime?
   nextRunDate   DateTime?
-  userId        String          @db.Uuid
-  user          User            @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  userId        String?         @db.Uuid
+  user          User?           @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   transactions  Transaction[]
 
-  // The cron scans nextRunDate across all users, so it cannot use the
-  // userId-prefixed index.
+  // The cron scans nextRunDate across all households, so it cannot use the
+  // householdId-prefixed index.
   @@index([nextRunDate])
-  @@index([userId, nextRunDate])
+  @@index([householdId, nextRunDate])
 }
 
 model TransactionFile {
@@ -341,20 +336,18 @@ model TransactionFile {
 
 model UserCategoryMapping {
   id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @db.Uuid
+  userId             String?  @db.Uuid
   descriptionPattern String
   categoryId         String   @db.Uuid
   hitCount           Int      @default(1)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-  user               User     @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user               User?    @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category           Category @relation(fields: [categoryId], references: [id])
 
-  @@unique([userId, descriptionPattern])
-  @@index([userId])
+  @@unique([householdId, descriptionPattern])
 }
 
 enum ApiTokenScope {
@@ -378,25 +371,24 @@ model ApiToken {
 
 model AutoApproveRule {
   id                 String          @id @default(uuid()) @db.Uuid
-  userId             String          @db.Uuid
+  userId             String?         @db.Uuid
   descriptionPattern String
   categoryId         String          @db.Uuid
   type               TransactionType
   isActive           Boolean         @default(true)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
-  user               User            @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user               User?           @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category           Category        @relation(fields: [categoryId], references: [id])
 
-  @@index([userId])
+  @@index([householdId])
 }
 
 model DetectedSubscription {
   id                     String                @id @default(uuid()) @db.Uuid
-  userId                 String                @db.Uuid
+  userId                 String?               @db.Uuid
   merchantName           String
   displayName            String
   averageAmount          Float
@@ -418,16 +410,14 @@ model DetectedSubscription {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
-  user                   User                  @relation(fields: [userId], references: [id])
-  // Nullable until every writer sets it; the next migration requires it.
-  householdId          String?              @db.Uuid
-  household            Household?           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  user                   User?                 @relation(fields: [userId], references: [id])
+  householdId          String               @db.Uuid
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
   category               Category?             @relation(fields: [categoryId], references: [id])
 
   // Frequency is part of the key but is user-editable, so detection resolves
   // an edited row by merchantName alone before falling back to this key.
-  @@unique([userId, merchantName, frequency])
-  @@index([userId])
+  @@unique([householdId, merchantName, frequency])
   @@index([status])
   @@index([categoryId])
 }

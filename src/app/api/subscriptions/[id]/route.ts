@@ -7,6 +7,6 @@ export const PATCH = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: updateSubscriptionSchema,
-  handler: async ({ userId, body, params }) =>
-    subscriptionDetectionService.updateSubscription(params.id, userId, body),
+  handler: async ({ actor, body, params }) =>
+    subscriptionDetectionService.updateSubscription(actor, params.id, body),
 });

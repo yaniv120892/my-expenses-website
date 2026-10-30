@@ -45,7 +45,6 @@ export type SubscriptionScheduleMatch = {
 
 export type DetectedSubscriptionDomain = {
   id: string;
-  userId: string;
   merchantName: string;
   displayName: string;
   averageAmount: number;

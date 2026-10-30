@@ -34,8 +34,10 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { testMemberActor } from '@/test/memberActor';
 import { firstInvocationOrder } from '@/test/mocks';
 
+const ACTOR = testMemberActor({ userId: 'user-1' });
 const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
 const FILE_ID = '22222222-2222-4222-8222-222222222222';
 const FILE_KEY = `transactions/${TRANSACTION_ID}/abc-receipt.pdf`;
@@ -75,7 +77,7 @@ afterEach(() => {
 
 describe('removeFile', () => {
   it('deletes the attachment object after marking the row, then marks it deleted', async () => {
-    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+    await transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID);
 
     expect(deletedKeys()).toEqual([{ Bucket: 'bucket', Key: FILE_KEY }]);
     expect(firstInvocationOrder(markForDeletion)).toBeLessThan(firstInvocationOrder(send));
@@ -83,7 +85,7 @@ describe('removeFile', () => {
   });
 
   it('bounds the storage call with an abort signal', async () => {
-    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+    await transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID);
 
     const [, options] = send.mock.calls[0] ?? [];
     expect(options).toEqual({ abortSignal: expect.any(AbortSignal) });
@@ -94,7 +96,7 @@ describe('removeFile', () => {
     send.mockRejectedValue(storageError);
 
     await expect(
-      transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1'),
+      transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID),
     ).resolves.toBeUndefined();
 
     expect(markForDeletion).toHaveBeenCalledWith(FILE_ID);
@@ -113,7 +115,7 @@ describe('removeFile', () => {
     markDeleted.mockRejectedValue(markError);
 
     await expect(
-      transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1'),
+      transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID),
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(1);
@@ -130,7 +132,7 @@ describe('removeFile', () => {
   it('keeps an object another active attachment still names', async () => {
     hasActiveFileWithKey.mockResolvedValue(true);
 
-    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+    await transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID);
 
     expect(hasActiveFileWithKey).toHaveBeenCalledWith(FILE_KEY);
     expect(send).not.toHaveBeenCalled();
@@ -144,7 +146,7 @@ describe('removeFile', () => {
     });
 
     await expect(
-      transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1'),
+      transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID),
     ).rejects.toMatchObject({ status: 404 });
     expect(send).not.toHaveBeenCalled();
   });
@@ -152,9 +154,9 @@ describe('removeFile', () => {
 
 describe('deleteTransaction', () => {
   it('deletes every attachment object the transaction delete dropped', async () => {
-    await transactionService.deleteTransaction(TRANSACTION_ID, 'user-1');
+    await transactionService.deleteTransaction(ACTOR, TRANSACTION_ID);
 
-    expect(deleteTransaction).toHaveBeenCalledWith(TRANSACTION_ID, 'user-1');
+    expect(deleteTransaction).toHaveBeenCalledWith(ACTOR.householdId, TRANSACTION_ID);
     expect(deletedKeys()).toEqual([
       { Bucket: 'bucket', Key: FILE_KEY },
       { Bucket: 'bucket', Key: OTHER_KEY },
@@ -173,7 +175,7 @@ describe('deleteTransaction', () => {
     });
 
     await expect(
-      transactionService.deleteTransaction(TRANSACTION_ID, 'user-1'),
+      transactionService.deleteTransaction(ACTOR, TRANSACTION_ID),
     ).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(2);
@@ -191,7 +193,10 @@ describe('deleteTransaction', () => {
     deleteTransaction.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404 }));
 
     await expect(
-      transactionService.deleteTransaction(TRANSACTION_ID, 'other-user'),
+      transactionService.deleteTransaction(
+        testMemberActor({ userId: 'other-user' }),
+        TRANSACTION_ID,
+      ),
     ).rejects.toMatchObject({ status: 404 });
     expect(send).not.toHaveBeenCalled();
   });

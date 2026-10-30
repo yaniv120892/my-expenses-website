@@ -1,6 +1,8 @@
 import type { User } from '@/generated/prisma/client';
 import { NotificationProvider } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import { toHouseholdId } from '@/server/auth/householdId';
 import type { UserQuery } from '@/server/repositories/types';
 
 class UserRepository {
@@ -28,13 +30,44 @@ class UserRepository {
     return userNotificationPreferences.map((user) => user.userId);
   }
 
-  public async isCreateTransactionNotificationEnabled(userId: string) {
-    const notificationPreference = await prisma.userNotificationPreference.findUnique({
-      where: { userId },
-      select: { createTransaction: true },
+  /** The members told of every new transaction in their household. */
+  public async findMembersNotifiedOfNewTransactions(householdId: HouseholdId): Promise<string[]> {
+    const members = await prisma.user.findMany({
+      where: { householdId, userNotification: { createTransaction: true } },
+      select: { id: true },
     });
+    return members.map((member) => member.id);
+  }
 
-    return notificationPreference?.createTransaction ?? false;
+  /** Each member who opted into the subscription audit, with the household it covers. */
+  public async findSubscriptionAuditRecipients(): Promise<
+    { userId: string; householdId: HouseholdId }[]
+  > {
+    const members = await prisma.user.findMany({
+      where: { userNotification: { subscriptionAudit: true } },
+      select: { id: true, householdId: true },
+    });
+    return members.map((member) => ({
+      userId: member.id,
+      householdId: toHouseholdId(member.householdId),
+    }));
+  }
+
+  public async findHouseholdsWithVerifiedMembers(): Promise<HouseholdId[]> {
+    const members = await prisma.user.findMany({
+      where: { verified: true },
+      select: { householdId: true },
+      distinct: ['householdId'],
+    });
+    return members.map((member) => toHouseholdId(member.householdId));
+  }
+
+  public async findHouseholdId(userId: string): Promise<HouseholdId | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { householdId: true },
+    });
+    return user ? toHouseholdId(user.householdId) : null;
   }
 
   public async findMembership(userId: string) {

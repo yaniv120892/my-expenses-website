@@ -8,8 +8,8 @@ export const PUT = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: updateTransactionSchema,
-  handler: async ({ userId, body, params }) => {
-    await transactionService.updateTransaction(params.id, body, userId);
+  handler: async ({ userId, actor, body, params }) => {
+    await transactionService.updateTransaction(actor, params.id, body);
     captureProductEvent({ userId, event: 'transaction_updated', properties: { channel: 'web' } });
   },
 });
@@ -17,8 +17,8 @@ export const PUT = createHandler({
 export const DELETE = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
-  handler: async ({ userId, params }) => {
-    await transactionService.deleteTransaction(params.id, userId);
+  handler: async ({ userId, actor, params }) => {
+    await transactionService.deleteTransaction(actor, params.id);
     captureProductEvent({ userId, event: 'transaction_deleted', properties: { channel: 'web' } });
   },
 });

@@ -87,6 +87,7 @@ describe('POST /api/transactions', () => {
     );
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'household-of-user-1' }),
       expect.objectContaining({ date: null }),
     );
   });

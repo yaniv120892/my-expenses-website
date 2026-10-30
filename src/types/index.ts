@@ -64,13 +64,13 @@ export type TransactionFilters = {
 
 export type ScheduleType = ScheduledTransactionDomain['scheduleType'];
 
-export type CreateScheduledTransactionInput = Omit<CreateScheduledTransaction, 'userId'>;
+export type CreateScheduledTransactionInput = CreateScheduledTransaction;
 
 export type UpdateScheduledTransactionInput = UpdateScheduledTransaction;
 
 export type ScheduledTransaction = Omit<
   ScheduledTransactionDomain,
-  'userId' | 'lastRunDate' | 'nextRunDate'
+  'lastRunDate' | 'nextRunDate'
 > & {
   lastRunDate?: string;
   nextRunDate?: string;

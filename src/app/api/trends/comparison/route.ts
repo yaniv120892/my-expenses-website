@@ -5,6 +5,6 @@ import categoryComparisonService from '@/server/services/categoryComparisonServi
 export const GET = createHandler({
   auth: 'session',
   querySchema: getCategoryComparisonQuerySchema,
-  handler: async ({ userId, query }) =>
-    categoryComparisonService.getCategoryComparison(query, userId),
+  handler: async ({ actor, query }) =>
+    categoryComparisonService.getCategoryComparison(query, actor.householdId),
 });

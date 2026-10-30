@@ -30,7 +30,9 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
 }));
 
 import transactionService from '@/server/services/transactionService';
+import { testMemberActor } from '@/test/memberActor';
 
+const ACTOR = testMemberActor({ userId: 'user-1' });
 const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
 const FILE_ID = '22222222-2222-4222-8222-222222222222';
 const FILE_NAME = 'bank-statement-march.pdf';
@@ -85,7 +87,7 @@ afterEach(() => {
 
 describe('a failed attachment-object delete', () => {
   it('keeps the file name out of Sentry and the key in the log when removing a file', async () => {
-    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+    await transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID);
 
     expect(captureException).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Attachment object delete failed: AccessDenied' }),
@@ -101,7 +103,7 @@ describe('a failed attachment-object delete', () => {
   });
 
   it('keeps the file name out of Sentry and the key in the log when deleting a transaction', async () => {
-    await transactionService.deleteTransaction(TRANSACTION_ID, 'user-1');
+    await transactionService.deleteTransaction(ACTOR, TRANSACTION_ID);
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(sentryPayload()).not.toContain(FILE_NAME);
@@ -114,7 +116,7 @@ describe('a failed attachment-object delete', () => {
     send.mockImplementation(async () => ({}));
     markDeleted.mockRejectedValue(new Error('db blip'));
 
-    await transactionService.removeFile(TRANSACTION_ID, FILE_ID, 'user-1');
+    await transactionService.removeFile(ACTOR, TRANSACTION_ID, FILE_ID);
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(sentryPayload()).not.toContain(FILE_NAME);

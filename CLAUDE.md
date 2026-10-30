@@ -36,7 +36,9 @@ repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
 `node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
 typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
 suites against a Postgres service container. Bump the tag in both places
-together.
+together. CI runs on pull requests only, to save Actions minutes on the private
+repo: `e2e` skips docs-only diffs and Dependabot patch/minor bumps but still
+reports success, so the required check passes.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each

@@ -1,13 +1,13 @@
 name: CI
 
+# Pull requests only: main moves by squash-merging a PR whose run already
+# passed on the same tree, so a push run would repeat it for Actions minutes.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -24,6 +24,9 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
     # A real Postgres rather than prisma dev: that server runs every client on
     # one backend session, where the app's and Mastra's unnamed statements
     # interleave. Here each connection has its own session, as on Neon.
@@ -62,16 +65,54 @@ jobs:
       IMPORTS_S3_ACCESS_KEY_ID: e2e
       IMPORTS_S3_SECRET_ACCESS_KEY: e2e
     steps:
+      # Each later step is gated on `scope` rather than the job on a separate
+      # deciding job, which would bill its own runner minute on every run.
+      # Same Dependabot identity gate as dependabot-auto-merge.yml's `decide`.
+      - id: metadata
+        if: >-
+          github.event.pull_request.user.login == 'dependabot[bot]' &&
+          github.actor == 'dependabot[bot]' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        # Dependabot patch/minor bumps keep the `checks` job (audit, lint,
+        # typecheck, unit tests, build); majors still run e2e. A diff that
+        # cannot be listed runs e2e rather than skipping it.
+        run: |
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch | version-update:semver-minor)
+              echo "Dependabot $UPDATE_TYPE: e2e skipped"
+              echo run=false >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+          files="$(gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --name-only || true)"
+          if [ -n "$files" ] && ! grep -qvE '(^docs/|\.md$)' <<< "$files"; then
+            echo 'Docs-only change: e2e skipped'
+            echo run=false >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo run=true >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
+        if: steps.scope.outputs.run == 'true'
       - uses: actions/setup-node@v7
+        if: steps.scope.outputs.run == 'true'
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+        if: steps.scope.outputs.run == 'true'
 
       - run: npx prisma migrate deploy
+        if: steps.scope.outputs.run == 'true'
 
       - name: Start app
+        if: steps.scope.outputs.run == 'true'
         run: |
           npm run dev > next-dev.log 2>&1 &
           for i in $(seq 1 90); do
@@ -82,18 +123,22 @@ jobs:
           { [ -n "$code" ] && [ "$code" != "000" ]; } || { echo 'app never answered /api/health'; tail -n 50 next-dev.log; exit 1; }
 
       - name: API e2e harness
+        if: steps.scope.outputs.run == 'true'
         run: npm run test:e2e:api
 
       - name: Cache Playwright Chromium
+        if: steps.scope.outputs.run == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright Chromium
+        if: steps.scope.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: UI e2e specs
+        if: steps.scope.outputs.run == 'true'
         run: |
           npx tsx test/e2e-api/serve.ts > serve.log 2>&1 &
           for i in $(seq 1 60); do grep -q '^ready$' serve.log && break; sleep 1; done
@@ -104,13 +149,13 @@ jobs:
           E2E_NO_WEBSERVER=1 npm run test:e2e:ui
 
       - name: Surface server logs on failure
-        if: failure()
+        if: ${{ failure() && steps.scope.outputs.run == 'true' }}
         run: tail -n 100 next-dev.log serve.log 2>/dev/null || true
 
       # Not failure()-gated: a flake that passes on retry leaves its trace in
       # the report, and that trace is the whole point of retries.
       - name: Upload Playwright artifacts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: playwright-artifacts

@@ -7,6 +7,14 @@ class HouseholdRepository {
     const households = await prisma.household.findMany({ select: { id: true } });
     return households.map((household) => toHouseholdId(household.id));
   }
+
+  public async listIdsWithVerifiedMember(): Promise<HouseholdId[]> {
+    const households = await prisma.household.findMany({
+      where: { members: { some: { verified: true } } },
+      select: { id: true },
+    });
+    return households.map((household) => toHouseholdId(household.id));
+  }
 }
 
 const householdRepository = new HouseholdRepository();

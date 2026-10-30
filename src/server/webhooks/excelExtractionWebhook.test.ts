@@ -4,6 +4,7 @@ import type * as ObservabilityModule from '@/server/observability';
 const {
   getRateToBase,
   importRepo,
+  crossHouseholdRepo,
   importedTxRepo,
   prismaMock,
   findPotentialMatchesForImport,
@@ -12,7 +13,6 @@ const {
 } = vi.hoisted(() => ({
   getRateToBase: vi.fn(),
   importRepo: {
-    findForExtractionCallback: vi.fn(),
     findById: vi.fn(),
     findExisting: vi.fn(),
     updateStatus: vi.fn(),
@@ -20,6 +20,7 @@ const {
     markFailedIfProcessing: vi.fn(),
     claimExtraction: vi.fn(),
   },
+  crossHouseholdRepo: { findImportForExtractionCallback: vi.fn() },
   importedTxRepo: {
     filterDuplicates: vi.fn(),
     createMany: vi.fn(),
@@ -42,6 +43,9 @@ vi.mock('@/server/utils/webhookAuth', () => ({
 }));
 vi.mock('@/server/repositories/importRepository', () => ({
   importRepository: importRepo,
+}));
+vi.mock('@/server/repositories/crossHouseholdRepository', () => ({
+  default: crossHouseholdRepo,
 }));
 vi.mock('@/server/repositories/importedTransactionRepository', () => ({
   importedTransactionRepository: importedTxRepo,
@@ -119,7 +123,7 @@ beforeEach(() => {
     userId: 'user-1',
     timestamp: 123,
   });
-  importRepo.findForExtractionCallback.mockResolvedValue({
+  crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
     id: 'imp-1',
     householdId: HOUSEHOLD,
     userId: 'user-1',
@@ -297,7 +301,7 @@ describe('completed extraction', () => {
   });
 
   it('keeps the payment month the import was submitted with when extraction disagrees', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'user-1',
@@ -315,7 +319,7 @@ describe('completed extraction', () => {
   });
 
   it('a null month from extraction does not wipe the submitted one', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'user-1',
@@ -341,7 +345,7 @@ describe('completed extraction', () => {
   });
 
   it('fills the payment month from extraction when the import was submitted without one', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'user-1',
@@ -384,7 +388,7 @@ describe('completed extraction', () => {
   });
 
   it('pads a submitted month stored before writes were normalized', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'user-1',
@@ -398,7 +402,7 @@ describe('completed extraction', () => {
   });
 
   it('uses the extracted month when the submitted one names no month', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'user-1',
@@ -522,7 +526,7 @@ describe('completed extraction', () => {
 
   it('a missing import record fails the webhook', async () => {
     importRepo.findById.mockResolvedValue(null);
-    importRepo.findForExtractionCallback.mockResolvedValue(null);
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue(null);
     const response = await run(payload([tx()]));
     expect(response.status).toBe(404);
   });
@@ -619,7 +623,7 @@ describe('callback resolution', () => {
     const response = await run(payload([tx()]));
 
     expect(response.status).toBe(200);
-    expect(importRepo.findForExtractionCallback).toHaveBeenCalledWith({
+    expect(crossHouseholdRepo.findImportForExtractionCallback).toHaveBeenCalledWith({
       importId: 'imp-1',
       excelExtractionRequestId: 'req-1',
     });
@@ -629,14 +633,14 @@ describe('callback resolution', () => {
     const response = await run(payload([tx()]));
 
     expect(response.status).toBe(200);
-    expect(importRepo.findForExtractionCallback).toHaveBeenCalledWith({
+    expect(crossHouseholdRepo.findImportForExtractionCallback).toHaveBeenCalledWith({
       importId: null,
       excelExtractionRequestId: 'req-1',
     });
   });
 
   it('scopes every write to the household of the import it found', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: 'household-2',
       userId: 'user-1',
@@ -653,7 +657,7 @@ describe('callback resolution', () => {
   });
 
   it('rejects a callback for another user', async () => {
-    importRepo.findForExtractionCallback.mockResolvedValue({
+    crossHouseholdRepo.findImportForExtractionCallback.mockResolvedValue({
       id: 'imp-1',
       householdId: HOUSEHOLD,
       userId: 'someone-else',

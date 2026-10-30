@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { logger, observability } from '@/server/observability';
 import { verifyWebhookToken, extractWebhookParams } from '@/server/utils/webhookAuth';
 import { importRepository } from '@/server/repositories/importRepository';
+import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 import { importedTransactionRepository } from '@/server/repositories/importedTransactionRepository';
 import type { Import } from '@/generated/prisma/client';
 import { ImportStatus, ImportBankSourceType } from '@/generated/prisma/client';
@@ -29,7 +30,6 @@ const webhookEnvelopeSchema = z.object({
   error: z.string().optional(),
 });
 
-/** The import a callback is about, in the household that owns it. */
 type ImportInHousehold = { householdId: HouseholdId; importId: string };
 
 type ReportedCurrencies = {
@@ -143,7 +143,7 @@ export async function processExcelExtractionWebhook(
     // The signed importId resolves the callback without depending on the
     // requestId having been persisted yet; the lookup by requestId remains for
     // callbacks issued before importId was part of the webhook URL.
-    const importRecord = await importRepository.findForExtractionCallback({
+    const importRecord = await crossHouseholdRepository.findImportForExtractionCallback({
       importId: authParams.importId ?? null,
       excelExtractionRequestId: payload.requestId,
     });

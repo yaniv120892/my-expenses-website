@@ -5,7 +5,7 @@ const {
   prismaMock,
   sendDailySummary,
   scheduledService,
-  findSubscriptionAuditRecipients,
+  findReportRecipients,
   listHouseholdIds,
 } = vi.hoisted(() => ({
   subRepo: {
@@ -21,7 +21,7 @@ const {
     listScheduledTransactions: vi.fn(),
     createScheduledTransaction: vi.fn(),
   },
-  findSubscriptionAuditRecipients: vi.fn(),
+  findReportRecipients: vi.fn(),
   listHouseholdIds: vi.fn(),
 }));
 
@@ -29,7 +29,7 @@ vi.mock('@/server/repositories/subscriptionRepository', () => ({
   default: subRepo,
 }));
 vi.mock('@/server/repositories/userRepository', () => ({
-  default: { findSubscriptionAuditRecipients },
+  default: { findReportRecipients },
 }));
 vi.mock('@/server/repositories/householdRepository', () => ({
   default: { listIds: listHouseholdIds },
@@ -69,7 +69,7 @@ const header = 'Subscription Audit — March 2026';
 let activeByHousehold: Record<string, Sub[]>;
 
 const recipients = (...members: { userId: string; householdId: string }[]) =>
-  findSubscriptionAuditRecipients.mockResolvedValue(members);
+  findReportRecipients.mockResolvedValue(members);
 
 const run = () => subscriptionDetectionService.sendMonthlyAuditNotifications();
 
@@ -142,6 +142,7 @@ describe('sendMonthlyAuditNotifications', () => {
     activeByHousehold[HOUSEHOLD_1] = [sub()];
     recipients({ userId: 'user-2', householdId: HOUSEHOLD_2 });
     await run();
+    expect(findReportRecipients).toHaveBeenCalledWith('subscriptionAudit');
     expect(subRepo.getActive).not.toHaveBeenCalledWith(HOUSEHOLD_1);
     expect(sendDailySummary).not.toHaveBeenCalled();
   });
@@ -190,6 +191,7 @@ describe('sendMonthlyAuditNotifications', () => {
       { userId: 'user-3', householdId: HOUSEHOLD_1 },
     );
     await run();
+    expect(subRepo.getActive).toHaveBeenCalledTimes(1);
     expect(sendDailySummary).toHaveBeenCalledTimes(2);
     expect(messageFor('user-3')).toBe(messageFor('user-1'));
   });

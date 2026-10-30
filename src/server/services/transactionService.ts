@@ -469,16 +469,18 @@ class TransactionService {
     try {
       recipientIds = await userSettingsService.findMembersNotifiedOfNewTransactions(householdId);
     } catch (error) {
-      logger.error(
-        { err: error, householdId },
-        'Failed to read the create-transaction notification preference',
-      );
+      observability.reportError({
+        error,
+        where: 'Failed to read the create-transaction notification preference',
+        context: { householdId },
+      });
       return;
     }
 
     if (recipientIds.length === 0) {
       logger.debug(
-        `skipped ${transactionIds.length} notification(s) - not enabled in household ${householdId}`,
+        { householdId, count: transactionIds.length },
+        'Skipped new-transaction notifications, no member opted in',
       );
       return;
     }
@@ -513,19 +515,30 @@ class TransactionService {
         return;
       }
 
-      // One member's broken channel must not silence the others.
-      for (const userId of recipientIds) {
-        try {
-          await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
-        } catch (error) {
-          logger.error(
-            { err: error, transactionId, userId },
-            'Failed to notify a member of a created transaction',
-          );
-        }
-      }
+      await Promise.all(
+        recipientIds.map((userId) => this.notifyMemberSafe({ transaction, userId })),
+      );
     } catch (error) {
       logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
+    }
+  }
+
+  /** One member's broken channel must not silence the others. */
+  private async notifyMemberSafe({
+    transaction,
+    userId,
+  }: {
+    transaction: Transaction;
+    userId: string;
+  }): Promise<void> {
+    try {
+      await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
+    } catch (error) {
+      observability.reportError({
+        error,
+        where: 'Failed to notify a member of a created transaction',
+        context: { transactionId: transaction.id, userId },
+      });
     }
   }
 

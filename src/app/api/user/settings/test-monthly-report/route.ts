@@ -6,9 +6,11 @@ import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 export const POST = createHandler({
   auth: 'session',
   writes: 'ownAccount',
-  handler: async ({ userId }): Promise<TestMonthlyReportResult> => {
+  handler: async ({ userId, actor }): Promise<TestMonthlyReportResult> => {
     try {
-      const outcome = await monthlyReportService.sendMonthlyReportForUser(userId, {
+      const outcome = await monthlyReportService.sendMonthlyReportForUser({
+        userId,
+        householdId: actor.householdId,
         sendWhenEmpty: true,
       });
       if (!outcome.sent || !outcome.recipient) {

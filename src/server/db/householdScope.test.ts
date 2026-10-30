@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -6,19 +6,16 @@ import {
   IS_HOUSEHOLD_OWNED,
   UnscopedHouseholdQueryError,
 } from '@/server/db/householdScope';
+import { filesUnder, isNonTestSource } from '@/test/sourceFiles';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
-// The only files that may skip the household check, each for a job that works
-// across households by nature. A new entry is a decision a reviewer must see.
-const SYSTEM_PRISMA_IMPORTERS = [
-  'src/server/repositories/importRepository.ts',
-  'src/server/repositories/scheduledTransactionRepository.ts',
-];
+// The one file that may skip the household check, so every query that does sits
+// where a reviewer sees it.
+const SYSTEM_PRISMA_IMPORTERS = ['src/server/repositories/crossHouseholdRepository.ts'];
 
 const IMPORTS_SYSTEM_PRISMA = /import[^;]*\bsystemPrisma\b[^;]*from '@\/server\/db\/client'/;
 
-// Carry a householdId but are looked up across households by design.
 const HOUSEHOLD_REFERENCING_BUT_UNGUARDED = ['Invite', 'User'];
 
 function scoped(operation: string, args: Record<string, unknown>) {
@@ -105,21 +102,10 @@ describe('the household-owned model list', () => {
 
 describe('systemPrisma', () => {
   it('is imported only by the files allowed to work across households', () => {
-    const importers = listSourceFiles(path.join(REPO_ROOT, 'src'))
-      .filter((file) => !file.endsWith('.test.ts') && !file.includes('/generated/'))
+    const importers = filesUnder(path.join(REPO_ROOT, 'src'), isNonTestSource)
       .filter((file) => IMPORTS_SYSTEM_PRISMA.test(readFileSync(file, 'utf8')))
       .map((file) => path.relative(REPO_ROOT, file));
 
     expect(importers.sort()).toEqual([...SYSTEM_PRISMA_IMPORTERS].sort());
   });
 });
-
-function listSourceFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return listSourceFiles(fullPath);
-    }
-    return /\.tsx?$/.test(entry.name) ? [fullPath] : [];
-  });
-}

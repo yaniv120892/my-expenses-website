@@ -3,15 +3,14 @@ import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
 import { logger } from '@/server/observability';
 import backupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
-import userRepository from '@/server/repositories/userRepository';
+import householdRepository from '@/server/repositories/householdRepository';
 import { lazy } from '@/server/lib/lazy';
 
 class BackupService {
   private getStorageProvider = lazy(() => backupStorageProviderFactory.getProvider());
 
-  /** Once per household, however many members it has. */
   public async getHouseholdsRequiringBackup(): Promise<HouseholdId[]> {
-    return userRepository.findHouseholdsWithVerifiedMembers();
+    return householdRepository.listIdsWithVerifiedMember();
   }
 
   public async backupTransactionsToCsvAndUpload(householdId: HouseholdId) {

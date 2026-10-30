@@ -372,7 +372,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
   role has no default, so a member written without one fails rather than
   becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does. A
+  for a user inserted without one, as code predating households does, and
+  `row_inherit_household` fills an owned row's `householdId` from its `userId`
+  for code predating scoping; both go once no such deployment can serve. A
   session or API-token route's handler receives `actor` (`MemberActor`,
   `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
   token), which `resolveAuth` loads from the user's row on every request —
@@ -389,10 +391,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   either is pinned in `src/app/api/householdWrites.test.ts`. A viewer is
   refused with 403.
 - **Every household-owned row is read and written by `householdId`.** The
-  seven models whose `IS_HOUSEHOLD_OWNED` entry is true
-  (`src/server/db/householdScope.ts`: Transaction, Import,
-  ImportedTransaction, ScheduledTransaction, UserCategoryMapping,
-  AutoApproveRule, DetectedSubscription) carry a required `householdId`, and
+  models whose `IS_HOUSEHOLD_OWNED` entry is true
+  (`src/server/db/householdScope.ts`) carry a required `householdId`, and
   their uniques and indexes lead with it. Repositories take the `HouseholdId`
   as their first argument; services take it for reads and the actor
   (`HouseholdActor`, member or system) for writes. `userId` on those rows only
@@ -401,11 +401,13 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   client enforces this at runtime: a query on one of those models whose
   `where` (directly, in a compound unique key, or in an `AND`) does not name
   one household as a plain value, or a create without one, throws
-  `UnscopedHouseholdQueryError`. `systemPrisma` skips the check, for the jobs
-  that work across households (the cron sweeps, the extraction callback
-  finding its import); which files import it, and that the owned-model list
-  matches every schema model with a `householdId` column, are pinned in
-  `src/server/db/householdScope.test.ts`. The assistant reads the household
+  `UnscopedHouseholdQueryError`. It checks only the queried model's own
+  arguments, so owned rows are reached through their own model, never a
+  nested relation read or write or raw SQL. `systemPrisma` skips the check,
+  for the jobs that work across households (the cron sweeps, the extraction
+  callback finding its import), and only `crossHouseholdRepository` imports
+  it; that, and that the owned-model list matches every schema model with a
+  `householdId` column, are pinned in `src/server/db/householdScope.test.ts`. The assistant reads the household
   from its request context (`HOUSEHOLD_ID_CONTEXT_KEY`), while its chat thread
   stays per member. Crons run per household (subscription detection, backup)
   or per opted-in member over their own household (daily summary, monthly

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { scheduledRepo, createTransaction } = vi.hoisted(() => ({
+const { scheduledRepo, findDueScheduledTransactions, createTransaction } = vi.hoisted(() => ({
   scheduledRepo: {
-    getDueScheduledTransactions: vi.fn(),
     claimDueRun: vi.fn(),
     updateLastRunAndNextRun: vi.fn(),
     createScheduledTransaction: vi.fn(),
@@ -10,6 +9,7 @@ const { scheduledRepo, createTransaction } = vi.hoisted(() => ({
     getScheduledTransactionById: vi.fn(),
     deleteScheduledTransaction: vi.fn(),
   },
+  findDueScheduledTransactions: vi.fn(),
   createTransaction: vi.fn(),
 }));
 
@@ -22,6 +22,9 @@ vi.mock('@/server/services/householdActivityService', async () =>
 );
 vi.mock('@/server/repositories/scheduledTransactionRepository', () => ({
   default: scheduledRepo,
+}));
+vi.mock('@/server/repositories/crossHouseholdRepository', () => ({
+  default: { findDueScheduledTransactions },
 }));
 vi.mock('@/server/services/transactionService', () => ({
   default: { createTransaction },
@@ -55,7 +58,7 @@ const schedule = (id: string, householdId = HOUSEHOLD_A) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   activity.entries.length = 0;
-  scheduledRepo.getDueScheduledTransactions.mockResolvedValue([schedule('s1'), schedule('s2')]);
+  findDueScheduledTransactions.mockResolvedValue([schedule('s1'), schedule('s2')]);
   scheduledRepo.claimDueRun.mockResolvedValue(true);
 });
 
@@ -97,7 +100,7 @@ describe('processDueScheduledTransactions', () => {
   });
 
   it("writes each occurrence as the cron's system actor in the schedule's own household", async () => {
-    scheduledRepo.getDueScheduledTransactions.mockResolvedValue([
+    findDueScheduledTransactions.mockResolvedValue([
       schedule('s1', HOUSEHOLD_A),
       schedule('s2', HOUSEHOLD_B),
     ]);

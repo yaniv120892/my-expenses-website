@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getAllTransactions, findHouseholdId } = vi.hoisted(() => ({
+const { getAllTransactions, findReportRecipients, sendDailySummary } = vi.hoisted(() => ({
   getAllTransactions: vi.fn(),
-  findHouseholdId: vi.fn(),
+  findReportRecipients: vi.fn(),
+  sendDailySummary: vi.fn(),
 }));
 
 vi.mock('@/server/services/transactionService', () => ({
   default: { getAllTransactions },
 }));
 vi.mock('@/server/repositories/userRepository', () => ({
-  default: { findHouseholdId },
+  default: { findReportRecipients },
+}));
+vi.mock('@/server/services/transactionNotification/transactionNotifierFactory', () => ({
+  default: { getNotifier: () => ({ sendDailySummary }) },
 }));
 
 import summaryService from '@/server/services/summaryService';
@@ -48,30 +52,32 @@ describe('getTodayTransactions', () => {
   });
 });
 
-describe('getTodaySummaryMessage', () => {
+describe('sendTodaySummaryToAllUsers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAllTransactions.mockResolvedValue([]);
   });
 
-  it("reads today's expenses of the household the user belongs to", async () => {
-    findHouseholdId.mockResolvedValue(HOUSEHOLD_ID);
+  it("sends each member their own household's summary, built once per household", async () => {
+    const otherHousehold = toHouseholdId('household-2');
+    findReportRecipients.mockResolvedValue([
+      { userId: 'user-1', householdId: HOUSEHOLD_ID },
+      { userId: 'user-2', householdId: HOUSEHOLD_ID },
+      { userId: 'user-3', householdId: otherHousehold },
+    ]);
 
-    await expect(summaryService['getTodaySummaryMessage']('user-1')).resolves.toBe(
-      'לא נוספו הוצאות היום.',
-    );
+    await summaryService.sendTodaySummaryToAllUsers();
 
-    expect(findHouseholdId).toHaveBeenCalledWith('user-1');
-    expect(getAllTransactions).toHaveBeenCalledWith(HOUSEHOLD_ID, expect.any(Object));
-  });
-
-  it('refuses a user with no household instead of summarizing nothing', async () => {
-    findHouseholdId.mockResolvedValue(null);
-
-    await expect(summaryService['getTodaySummaryMessage']('user-1')).rejects.toThrow(
-      'No household for user user-1',
-    );
-    expect(getAllTransactions).not.toHaveBeenCalled();
+    expect(findReportRecipients).toHaveBeenCalledWith('dailySummary');
+    expect(getAllTransactions.mock.calls.map(([householdId]) => householdId)).toEqual([
+      HOUSEHOLD_ID,
+      otherHousehold,
+    ]);
+    expect(sendDailySummary.mock.calls.map(([, userId]) => userId)).toEqual([
+      'user-1',
+      'user-2',
+      'user-3',
+    ]);
   });
 });
 

@@ -73,7 +73,7 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  public async findByImport(
+  public async findByImportWithMatch(
     householdId: HouseholdId,
     importId: string,
   ): Promise<ImportedTransactionWithMatch[]> {

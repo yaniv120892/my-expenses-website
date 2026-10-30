@@ -1,4 +1,5 @@
 import { Prisma } from '@/generated/prisma/client';
+import { isHouseholdId } from '@/server/auth/householdId';
 
 // Every model, classified, so a new one fails to compile until someone decides
 // whether its rows belong to a household. Invite and User carry a householdId
@@ -25,6 +26,12 @@ export const IS_HOUSEHOLD_OWNED = {
   HouseholdActivity: true,
 } satisfies Record<Prisma.ModelName, boolean>;
 
+const HOUSEHOLD_OWNED_MODELS = new Set(
+  Object.entries(IS_HOUSEHOLD_OWNED)
+    .filter(([, isOwned]) => isOwned)
+    .map(([name]) => name),
+);
+
 type QueryArguments = {
   where?: unknown;
   data?: unknown;
@@ -39,6 +46,8 @@ export class UnscopedHouseholdQueryError extends Error {}
  * compound unique key), and every row it creates must carry one. A household
  * query written without it throws instead of reading or writing across
  * households. Cross-household jobs use systemPrisma, which skips this check.
+ * Only the queried model's own arguments are checked: a nested relation read
+ * or write, or raw SQL, reaches owned rows unchecked, so none may be written.
  */
 export function assertHouseholdScoped({
   model,
@@ -75,7 +84,7 @@ export function householdScopeGuard() {
 }
 
 export function isHouseholdOwnedModel(model: string | undefined): boolean {
-  return Object.entries(IS_HOUSEHOLD_OWNED).some(([name, isOwned]) => isOwned && name === model);
+  return model !== undefined && HOUSEHOLD_OWNED_MODELS.has(model);
 }
 
 function scopeFailure(operation: string, args: QueryArguments): string | null {
@@ -97,7 +106,7 @@ function filterWithoutHousehold(where: unknown): string | null {
 }
 
 function rowsWithoutHousehold(rows: unknown[]): string | null {
-  const isEveryRowScoped = rows.every((row) => isRecord(row) && isHouseholdValue(row.householdId));
+  const isEveryRowScoped = rows.every((row) => isRecord(row) && isHouseholdId(row.householdId));
   return isEveryRowScoped ? null : 'a row it creates carries no householdId';
 }
 
@@ -105,21 +114,17 @@ function namesOneHousehold(where: unknown): boolean {
   if (!isRecord(where)) {
     return false;
   }
-  if (isHouseholdValue(where.householdId)) {
+  if (isHouseholdId(where.householdId)) {
     return true;
   }
   const compoundKeys = Object.entries(where).filter(([key]) =>
     key.split('_').includes('householdId'),
   );
   const isScopedByCompoundKey = compoundKeys.some(
-    ([, value]) => isRecord(value) && isHouseholdValue(value.householdId),
+    ([, value]) => isRecord(value) && isHouseholdId(value.householdId),
   );
   const isScopedByConjunct = Array.isArray(where.AND) && where.AND.some(namesOneHousehold);
   return isScopedByCompoundKey || isScopedByConjunct;
-}
-
-function isHouseholdValue(value: unknown): boolean {
-  return typeof value === 'string' && value.length > 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

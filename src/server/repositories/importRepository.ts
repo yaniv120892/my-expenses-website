@@ -5,12 +5,8 @@ import type {
   ImportBankSourceType,
 } from '@/generated/prisma/client';
 import { ImportStatus, ImportedTransactionStatus } from '@/generated/prisma/client';
-import prisma, { systemPrisma } from '@/server/db/client';
+import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
-
-// Longer than the platform lets any function run, so a claim older than this
-// belongs to a callback that died mid-write.
-const CALLBACK_CLAIM_GRACE_MS = 15 * 60 * 1000;
 
 export type ImportWithPendingCount = Import & {
   _count: {
@@ -18,8 +14,6 @@ export type ImportWithPendingCount = Import & {
   };
   mergedInto: { originalFileName: string } | null;
 };
-
-type StuckImportSweep = { importIds: string[]; failedCount: number };
 
 const listItemInclude = {
   _count: {
@@ -58,22 +52,6 @@ export class ImportRepository {
   public async findById(householdId: HouseholdId, id: string): Promise<Import | null> {
     return prisma.import.findUnique({
       where: { id, householdId },
-    });
-  }
-
-  /**
-   * Across households: the extraction callback names only the import, and
-   * learns its household from the row it finds.
-   */
-  public async findForExtractionCallback({
-    importId,
-    excelExtractionRequestId,
-  }: {
-    importId: string | null;
-    excelExtractionRequestId: string;
-  }): Promise<Import | null> {
-    return systemPrisma.import.findUnique({
-      where: importId ? { id: importId } : { excelExtractionRequestId },
     });
   }
 
@@ -180,42 +158,6 @@ export class ImportRepository {
       },
     });
     return moved.count > 0;
-  }
-
-  /**
-   * The write is scoped to PROCESSING again, so a callback that completes or
-   * merges an import between the read and the write keeps its status. It claims
-   * the extraction too, so a callback signed moments before the cutoff is a
-   * no-op rather than rows written into a FAILED import. A callback that has
-   * claimed the extraction is left to finish unless its claim has outlived any
-   * function. Across households: a sweep.
-   */
-  public async failStuckProcessing(createdBefore: Date, error: string): Promise<StuckImportSweep> {
-    const stuck = await systemPrisma.import.findMany({
-      where: {
-        status: ImportStatus.PROCESSING,
-        createdAt: { lt: createdBefore },
-      },
-      select: { id: true },
-    });
-    const importIds = stuck.map((stuckImport) => stuckImport.id);
-    if (importIds.length === 0) {
-      return { importIds, failedCount: 0 };
-    }
-    const claimedBefore = new Date(Date.now() - CALLBACK_CLAIM_GRACE_MS);
-    const failed = await systemPrisma.import.updateMany({
-      where: {
-        id: { in: importIds },
-        status: ImportStatus.PROCESSING,
-        OR: [{ extractionCompletedAt: null }, { extractionCompletedAt: { lt: claimedBefore } }],
-      },
-      data: {
-        status: ImportStatus.FAILED,
-        error,
-        extractionCompletedAt: new Date(),
-      },
-    });
-    return { importIds, failedCount: failed.count };
   }
 
   public async updateStatus(

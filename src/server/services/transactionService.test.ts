@@ -479,6 +479,11 @@ describe('notifyTransactionsCreatedSafe', () => {
 
     expect(notifyTransactionCreated).toHaveBeenLastCalledWith(approved, 'user-2');
     expect(notifyTransactionCreated).toHaveBeenCalledTimes(2);
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'Failed to notify a member of a created transaction',
+      context: { transactionId: 'tx-1', userId: 'user-1' },
+    });
   });
 
   it('reads no transaction when no member asked to be told', async () => {

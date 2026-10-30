@@ -60,13 +60,13 @@ function lazily<Client extends object>(
 ): Client {
   const lazyClientTarget: Client = Object.create(Object.prototype);
   return new Proxy(lazyClientTarget, {
-    get(_target, prop) {
+    get(_target, property) {
       const transaction = joinedTransaction();
-      if (transaction && prop === '$transaction') {
+      if (transaction && property === '$transaction') {
         return runNestedIn(transaction);
       }
       const client: object = transaction ?? getClient();
-      const value = Reflect.get(client, prop);
+      const value = Reflect.get(client, property);
       return typeof value === 'function' ? value.bind(client) : value;
     },
   });
@@ -97,8 +97,8 @@ const prisma = lazily(getScopedClient, () => currentActorContext()?.transaction)
 
 /**
  * Skips the household check, for the few jobs that work across households —
- * a cron's sweep, the extraction callback finding its import. Which files may
- * import it is pinned in householdScope.test.ts.
+ * a cron's sweep, the extraction callback finding its import. Only
+ * crossHouseholdRepository imports it, as householdScope.test.ts pins.
  */
 export const systemPrisma = lazily(getSystemClient);
 

@@ -24,7 +24,6 @@ export type SystemActor = {
   job: SystemJob;
 };
 
-export type SystemJob =
-  'scheduled-transactions' | 'excel-extraction' | 'subscription-detection' | 'import-sweep';
+export type SystemJob = 'scheduled-transactions';
 
 export type HouseholdActor = MemberActor | SystemActor;

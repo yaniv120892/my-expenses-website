@@ -27,7 +27,7 @@ const {
   },
   importedTxRepo: {
     findById: vi.fn(),
-    findByImport: vi.fn(),
+    findByImportWithMatch: vi.fn(),
     findByImportId: vi.fn(),
     findPendingByImportId: vi.fn(),
     findPendingByIds: vi.fn(),
@@ -181,7 +181,7 @@ beforeEach(() => {
     status: 'COMPLETED',
   });
   importRepo.transitionStatus.mockResolvedValue(true);
-  importedTxRepo.findByImport.mockResolvedValue([row()]);
+  importedTxRepo.findByImportWithMatch.mockResolvedValue([row()]);
   importedTxRepo.findByImportId.mockResolvedValue([row()]);
   importedTxRepo.findClaimedMatchingTransactionIds.mockResolvedValue([]);
   matchSingleTransaction.mockResolvedValue(null);
@@ -227,7 +227,7 @@ describe('rematchImport', () => {
     await expect(run()).rejects.toMatchObject({ status: 409 });
 
     expect(importRepo.transitionStatus).toHaveBeenCalledTimes(1);
-    expect(importedTxRepo.findByImport).not.toHaveBeenCalled();
+    expect(importedTxRepo.findByImportWithMatch).not.toHaveBeenCalled();
     expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
   });
 
@@ -235,12 +235,12 @@ describe('rematchImport', () => {
     await run();
 
     expect(firstInvocationOrder(importRepo.transitionStatus)).toBeLessThan(
-      firstInvocationOrder(importedTxRepo.findByImport),
+      firstInvocationOrder(importedTxRepo.findByImportWithMatch),
     );
   });
 
   it('409s when nothing is pending, and hands the import back', async () => {
-    importedTxRepo.findByImport.mockResolvedValue([row({ status: 'APPROVED' })]);
+    importedTxRepo.findByImportWithMatch.mockResolvedValue([row({ status: 'APPROVED' })]);
     await expect(run()).rejects.toMatchObject({ status: 409 });
     expect(importRepo.transitionStatus.mock.calls).toEqual([
       [HOUSEHOLD, 'imp-1', 'COMPLETED', 'REMATCHING'],
@@ -252,7 +252,7 @@ describe('rematchImport', () => {
   it('clears pending matches, re-matches, and returns to COMPLETED', async () => {
     await run();
 
-    expect(importedTxRepo.findByImport).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
+    expect(importedTxRepo.findByImportWithMatch).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
     expect(importedTxRepo.findClaimedMatchingTransactionIds).toHaveBeenCalledWith(HOUSEHOLD);
     expect(matchSingleTransaction.mock.calls[0]?.[0]).toBe(HOUSEHOLD);
 
@@ -275,7 +275,7 @@ describe('rematchImport', () => {
   });
 
   it('excludes transactions already claimed by non-pending rows', async () => {
-    importedTxRepo.findByImport.mockResolvedValue([
+    importedTxRepo.findByImportWithMatch.mockResolvedValue([
       row(),
       row({ id: 'r2', status: 'APPROVED', matchingTransactionId: 'tx-taken' }),
       row({ id: 'r3', status: 'IGNORED', matchingTransactionId: null }),
@@ -298,7 +298,7 @@ describe('rematchImport', () => {
   });
 
   it('a match found mid-run is excluded from later rows', async () => {
-    importedTxRepo.findByImport.mockResolvedValue([row(), row({ id: 'r2' })]);
+    importedTxRepo.findByImportWithMatch.mockResolvedValue([row(), row({ id: 'r2' })]);
     matchSingleTransaction.mockResolvedValueOnce('tx-a');
 
     await run();
@@ -306,7 +306,7 @@ describe('rematchImport', () => {
   });
 
   it('one failing row does not abort the rest, and the import completes', async () => {
-    importedTxRepo.findByImport.mockResolvedValue([row(), row({ id: 'r2' })]);
+    importedTxRepo.findByImportWithMatch.mockResolvedValue([row(), row({ id: 'r2' })]);
     matchSingleTransaction.mockRejectedValueOnce(new Error('boom'));
 
     await run();

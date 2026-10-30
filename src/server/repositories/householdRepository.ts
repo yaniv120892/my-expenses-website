@@ -32,6 +32,14 @@ class HouseholdRepository {
     return households.map((household) => toHouseholdId(household.id));
   }
 
+  public async listIdsWithVerifiedMember(): Promise<HouseholdId[]> {
+    const households = await prisma.household.findMany({
+      where: { members: { some: { verified: true } } },
+      select: { id: true },
+    });
+    return households.map((household) => toHouseholdId(household.id));
+  }
+
   public async findMembers(householdId: HouseholdId): Promise<HouseholdMemberRow[]> {
     return prisma.user.findMany({
       where: { householdId },

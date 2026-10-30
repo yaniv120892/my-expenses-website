@@ -1,4 +1,5 @@
 import scheduledTransactionRepository from '@/server/repositories/scheduledTransactionRepository';
+import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 import householdActivityService from '@/server/services/householdActivityService';
 import type { ActivityEntry } from '@/server/services/householdActivityService';
 import transactionService from '@/server/services/transactionService';
@@ -11,12 +12,12 @@ import type {
 import { logger } from '@/server/observability';
 import { actingUserId, systemActor } from '@/server/auth/householdActor';
 import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
-import type { ScheduledHouseholdTransaction } from '@/server/repositories/scheduledTransactionRepository';
+import type { ScheduledHouseholdTransaction } from '@/server/repositories/scheduledTransactionRepository.types';
 
 class ScheduledTransactionService {
   public async processDueScheduledTransactions(date: Date) {
     const dueScheduledTransactions =
-      await scheduledTransactionRepository.getDueScheduledTransactions(date);
+      await crossHouseholdRepository.findDueScheduledTransactions(date);
     let failed = 0;
     let skipped = 0;
     for (const scheduled of dueScheduledTransactions) {

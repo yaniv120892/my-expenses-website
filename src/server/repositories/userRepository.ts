@@ -3,48 +3,12 @@ import { NotificationProvider } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
-import type { UserQuery } from '@/server/repositories/types';
+import type { ReportRecipient, ScheduledReport } from '@/server/repositories/userRepository.types';
 
 class UserRepository {
-  public async getUsersRequiredDailySummary() {
-    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
-      where: {
-        dailySummary: true,
-      },
-      select: {
-        userId: true,
-      },
-    });
-    return userNotificationPreferences.map((user) => user.userId);
-  }
-
-  public async getUsersRequiredMonthlyReport() {
-    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
-      where: {
-        monthlyReport: true,
-      },
-      select: {
-        userId: true,
-      },
-    });
-    return userNotificationPreferences.map((user) => user.userId);
-  }
-
-  /** The members told of every new transaction in their household. */
-  public async findMembersNotifiedOfNewTransactions(householdId: HouseholdId): Promise<string[]> {
+  public async findReportRecipients(report: ScheduledReport): Promise<ReportRecipient[]> {
     const members = await prisma.user.findMany({
-      where: { householdId, userNotification: { createTransaction: true } },
-      select: { id: true },
-    });
-    return members.map((member) => member.id);
-  }
-
-  /** Each member who opted into the subscription audit, with the household it covers. */
-  public async findSubscriptionAuditRecipients(): Promise<
-    { userId: string; householdId: HouseholdId }[]
-  > {
-    const members = await prisma.user.findMany({
-      where: { userNotification: { subscriptionAudit: true } },
+      where: { userNotification: { [report]: true } },
       select: { id: true, householdId: true },
     });
     return members.map((member) => ({
@@ -53,21 +17,12 @@ class UserRepository {
     }));
   }
 
-  public async findHouseholdsWithVerifiedMembers(): Promise<HouseholdId[]> {
+  public async findMembersNotifiedOfNewTransactions(householdId: HouseholdId): Promise<string[]> {
     const members = await prisma.user.findMany({
-      where: { verified: true },
-      select: { householdId: true },
-      distinct: ['householdId'],
+      where: { householdId, userNotification: { createTransaction: true } },
+      select: { id: true },
     });
-    return members.map((member) => toHouseholdId(member.householdId));
-  }
-
-  public async findHouseholdId(userId: string): Promise<HouseholdId | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { householdId: true },
-    });
-    return user ? toHouseholdId(user.householdId) : null;
+    return members.map((member) => member.id);
   }
 
   public async findMembership(userId: string) {
@@ -185,21 +140,6 @@ class UserRepository {
       update: provider,
       create: { userId, provider: NotificationProvider.TELEGRAM, ...provider },
     });
-  }
-
-  public async list(query: UserQuery) {
-    const users = await prisma.user.findMany({
-      where: {
-        verified: query.isVerified ? true : undefined,
-      },
-    });
-
-    return users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      verified: user.verified,
-    }));
   }
 }
 

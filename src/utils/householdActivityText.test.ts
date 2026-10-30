@@ -49,6 +49,17 @@ describe('describeHouseholdActivity', () => {
     );
   });
 
+  it('words a system job as the app doing it, in a readable sentence', () => {
+    const projected = entry({ actorName: null, systemJob: 'scheduled-transactions' });
+
+    expect(describeHouseholdActivity({ item: projected, t: englishT }).sentence).toBe(
+      'The app added a transaction',
+    );
+    expect(describeHouseholdActivity({ item: projected, t: hebrewT }).sentence).toBe(
+      'האפליקציה הוסיף/ה עסקה',
+    );
+  });
+
   it('keeps a changed row’s own words as the detail', () => {
     const text = describeHouseholdActivity({
       item: entry({ action: 'DELETE', summary: 'Coffee' }),

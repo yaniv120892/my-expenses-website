@@ -1,5 +1,7 @@
 import type { HouseholdRole } from '@/generated/prisma/enums';
 
+export const INVITE_CODE_PARAM = 'code';
+
 /** An invite never makes a second owner: a household has exactly one. */
 export type InvitableRole = Exclude<HouseholdRole, 'OWNER'>;
 
@@ -46,3 +48,20 @@ export type MeResponse = {
   email: string | null;
   role: HouseholdRole;
 };
+
+/**
+ * Sent as `code` beside a household refusal's `message`, so the client shows
+ * its own localized text rather than the server's English.
+ */
+export const HOUSEHOLD_ERROR_CODES = [
+  'INVITE_INVALID',
+  'INVITE_TAKEN',
+  'INVITE_NOT_FOUND',
+  'HOUSEHOLD_IN_USE',
+  'NOT_HOUSEHOLD_OWNER',
+  'OWNER_CANNOT_LEAVE',
+  'OWNER_OWN_MEMBERSHIP',
+  'MEMBER_NOT_FOUND',
+] as const;
+
+export type HouseholdErrorCode = (typeof HOUSEHOLD_ERROR_CODES)[number];

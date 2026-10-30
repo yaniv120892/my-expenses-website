@@ -265,3 +265,38 @@ describe('createHandler body validation', () => {
     });
   });
 });
+
+describe('createHandler error body', () => {
+  it('sends a coded HttpError with its code beside the message', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw new HttpError(404, 'No such member in this household', 'MEMBER_NOT_FOUND');
+      },
+    });
+
+    const response = await handler(get(), routeContext);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: 'No such member in this household',
+      message: 'No such member in this household',
+      code: 'MEMBER_NOT_FOUND',
+    });
+  });
+
+  it('sends an uncoded HttpError as a bare message', async () => {
+    const handler = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async () => {
+        throw new HttpError(404, 'Not found');
+      },
+    });
+
+    const response = await handler(get(), routeContext);
+
+    expect(await response.json()).toEqual({ message: 'Not found' });
+  });
+});

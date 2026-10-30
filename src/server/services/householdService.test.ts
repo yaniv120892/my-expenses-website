@@ -8,7 +8,7 @@ const { repository } = vi.hoisted(() => ({
     findOwnerName: vi.fn(),
     findPendingInvites: vi.fn(),
     findInviteByCode: vi.fn(),
-    countWhatAJoinWouldOrphan: vi.fn(),
+    hasAnythingAJoinWouldOrphan: vi.fn(),
     createInvite: vi.fn(),
     revokeInvite: vi.fn(),
     joinHousehold: vi.fn(),
@@ -120,7 +120,7 @@ describe('createInvite', () => {
 describe('acceptInvite', () => {
   it('moves an empty-handed member into the invite household', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockResolvedValue('joined');
 
     await householdService.acceptInvite(NEWCOMER, 'ABCD2345');
@@ -147,31 +147,34 @@ describe('acceptInvite', () => {
 
   it('refuses a member whose own household would be orphaned', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(1);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(true);
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
       status: 409,
+      code: 'HOUSEHOLD_IN_USE',
     });
     expect(repository.joinHousehold).not.toHaveBeenCalled();
   });
 
   it('reports an invite another member claimed first as a conflict', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockResolvedValue('invite-taken');
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
       status: 409,
+      code: 'INVITE_TAKEN',
     });
   });
 
   it('reports a household that gained data mid-join as a conflict, not a 500', async () => {
     repository.findInviteByCode.mockResolvedValue(openInvite());
-    repository.countWhatAJoinWouldOrphan.mockResolvedValue(0);
+    repository.hasAnythingAJoinWouldOrphan.mockResolvedValue(false);
     repository.joinHousehold.mockRejectedValue(foreignKeyViolation());
 
     await expect(householdService.acceptInvite(NEWCOMER, 'ABCD2345')).rejects.toMatchObject({
       status: 409,
+      code: 'HOUSEHOLD_IN_USE',
     });
   });
 });
@@ -179,7 +182,7 @@ describe('acceptInvite', () => {
 describe('membership changes', () => {
   it('removes a member, ends their sessions and records it', async () => {
     repository.findMember.mockResolvedValue({ id: 'editor', username: 'Dana' });
-    repository.moveToOwnHousehold.mockResolvedValue(true);
+    repository.moveToOwnHousehold.mockResolvedValue({ apiTokensRevoked: 2 });
 
     await householdService.removeMember(OWNER, 'editor');
 
@@ -200,22 +203,24 @@ describe('membership changes', () => {
   });
 
   it('answers 404 when there is no such member to remove', async () => {
-    repository.moveToOwnHousehold.mockResolvedValue(false);
+    repository.moveToOwnHousehold.mockResolvedValue(null);
 
     await expect(householdService.removeMember(OWNER, 'stranger')).rejects.toMatchObject({
       status: 404,
+      code: 'MEMBER_NOT_FOUND',
     });
   });
 
   it('refuses an editor removing anyone', async () => {
     await expect(householdService.removeMember(EDITOR, 'owner')).rejects.toMatchObject({
       status: 403,
+      code: 'NOT_HOUSEHOLD_OWNER',
     });
     expect(repository.moveToOwnHousehold).not.toHaveBeenCalled();
   });
 
   it('lets a non-owner leave without ending their session', async () => {
-    repository.moveToOwnHousehold.mockResolvedValue(true);
+    repository.moveToOwnHousehold.mockResolvedValue({ apiTokensRevoked: 0 });
 
     await householdService.leave(EDITOR);
 
@@ -226,17 +231,59 @@ describe('membership changes', () => {
     });
   });
 
+  it('answers 404 when the leaving member was already moved out', async () => {
+    repository.moveToOwnHousehold.mockResolvedValue(null);
+
+    await expect(householdService.leave(EDITOR)).rejects.toMatchObject({
+      status: 404,
+      code: 'MEMBER_NOT_FOUND',
+    });
+  });
+
+  it('refuses the owner leaving', async () => {
+    await expect(householdService.leave(OWNER)).rejects.toMatchObject({
+      status: 409,
+      code: 'OWNER_CANNOT_LEAVE',
+      message: 'The owner cannot leave their own household',
+    });
+    expect(repository.moveToOwnHousehold).not.toHaveBeenCalled();
+  });
+
+  it('refuses the owner removing themselves', async () => {
+    await expect(householdService.removeMember(OWNER, 'owner')).rejects.toMatchObject({
+      status: 400,
+      code: 'OWNER_OWN_MEMBERSHIP',
+    });
+  });
+
   it('changes the role of a member of the owner household only', async () => {
-    repository.findMember.mockResolvedValue({ id: 'editor' });
     repository.changeMemberRole.mockResolvedValue(true);
 
     await householdService.changeMemberRole(OWNER, 'editor', 'VIEWER');
 
-    expect(repository.findMember).toHaveBeenCalledWith(OWNER.householdId, 'editor');
     expect(repository.changeMemberRole).toHaveBeenCalledWith({
       householdId: OWNER.householdId,
       memberId: 'editor',
       role: 'VIEWER',
+    });
+  });
+
+  it('refuses a role change for someone outside the household', async () => {
+    repository.changeMemberRole.mockResolvedValue(false);
+
+    await expect(
+      householdService.changeMemberRole(OWNER, 'stranger', 'VIEWER'),
+    ).rejects.toMatchObject({ status: 404, code: 'MEMBER_NOT_FOUND' });
+  });
+});
+
+describe('revokeInvite', () => {
+  it('answers 404 for an invite that is not open in this household', async () => {
+    repository.revokeInvite.mockResolvedValue(false);
+
+    await expect(householdService.revokeInvite(OWNER, 'invite-1')).rejects.toMatchObject({
+      status: 404,
+      code: 'INVITE_NOT_FOUND',
     });
   });
 });

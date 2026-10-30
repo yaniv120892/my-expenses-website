@@ -43,6 +43,7 @@ import type { ImportedTransaction } from '../types/import';
 import { ImportedTransactionStatus, TransactionApprovalStatus } from '../types/import';
 import TransactionForm from './TransactionForm';
 import BatchActionToolbar from './BatchActionToolbar';
+import { useCanWrite } from '@/hooks/useSession';
 import NotificationSnackbar from './NotificationSnackbar';
 import { describeApiError } from '../utils/api';
 import { omitKey } from '@/utils/omitKey';
@@ -313,6 +314,7 @@ function RowActions({
 
 const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ importId }) => {
   const t = useT();
+  const canWrite = useCanWrite();
   const { data: transactions = [], isLoading } = useImportedTransactionsQuery(importId);
   const approveMutation = useApproveImportedTransactionMutation(importId);
   const mergeMutation = useMergeImportedTransactionMutation(importId);
@@ -519,18 +521,21 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
   };
 
   const noMatches = sections.length === 0;
+  const tableColumnCount = canWrite ? 5 : 3;
 
   return (
     <>
-      <BatchActionToolbar
-        importId={importId}
-        selectedIds={Array.from(effectiveSelectedIds)}
-        pendingCount={pendingTransactions.length}
-        onSelectAll={handleSelectAll}
-        onClearSelection={handleClearSelection}
-        hasAutoApproveRules={autoApproveRules.length > 0}
-        onErrorAction={showError}
-      />
+      {canWrite && (
+        <BatchActionToolbar
+          importId={importId}
+          selectedIds={Array.from(effectiveSelectedIds)}
+          pendingCount={pendingTransactions.length}
+          onSelectAll={handleSelectAll}
+          onClearSelection={handleClearSelection}
+          hasAutoApproveRules={autoApproveRules.length > 0}
+          onErrorAction={showError}
+        />
+      )}
       <Box sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>{t('imports.list.status')}</InputLabel>
@@ -587,7 +592,7 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
                         alignItems: 'flex-start',
                       }}
                     >
-                      {transaction.status === ImportedTransactionStatus.PENDING && (
+                      {canWrite && transaction.status === ImportedTransactionStatus.PENDING && (
                         <Checkbox
                           size="small"
                           sx={{ p: 0.5, mt: -0.25 }}
@@ -624,20 +629,22 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
                         size="small"
                       />
                     </Stack>
-                    <Stack
-                      direction="row"
-                      sx={{
-                        justifyContent: 'flex-end',
-                        mt: 1,
-                      }}
-                    >
-                      <RowActions
-                        transaction={transaction}
-                        disabled={rowDisabled(transaction)}
-                        compact
-                        {...actionHandlers}
-                      />
-                    </Stack>
+                    {canWrite && (
+                      <Stack
+                        direction="row"
+                        sx={{
+                          justifyContent: 'flex-end',
+                          mt: 1,
+                        }}
+                      >
+                        <RowActions
+                          transaction={transaction}
+                          disabled={rowDisabled(transaction)}
+                          compact
+                          {...actionHandlers}
+                        />
+                      </Stack>
+                    )}
                   </Card>
                 ))}
               </Stack>
@@ -651,35 +658,37 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    indeterminate={
-                      effectiveSelectedIds.size > 0 &&
-                      effectiveSelectedIds.size < visiblePendingTransactions.length
-                    }
-                    checked={
-                      visiblePendingTransactions.length > 0 &&
-                      effectiveSelectedIds.size === visiblePendingTransactions.length
-                    }
-                    onChange={(e) =>
-                      e.target.checked ? handleSelectAll() : handleClearSelection()
-                    }
-                    slotProps={{
-                      input: { 'aria-label': t('imports.row.selectAllRows') },
-                    }}
-                  />
-                </TableCell>
+                {canWrite && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={
+                        effectiveSelectedIds.size > 0 &&
+                        effectiveSelectedIds.size < visiblePendingTransactions.length
+                      }
+                      checked={
+                        visiblePendingTransactions.length > 0 &&
+                        effectiveSelectedIds.size === visiblePendingTransactions.length
+                      }
+                      onChange={(e) =>
+                        e.target.checked ? handleSelectAll() : handleClearSelection()
+                      }
+                      slotProps={{
+                        input: { 'aria-label': t('imports.row.selectAllRows') },
+                      }}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>{t('imports.row.details')}</TableCell>
                 <TableCell>{t('imports.row.matching')}</TableCell>
                 <TableCell>{t('imports.list.status')}</TableCell>
-                <TableCell>{t('imports.row.actions')}</TableCell>
+                {canWrite && <TableCell>{t('imports.row.actions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sections.map((section) => (
                 <React.Fragment key={section.label}>
                   <TableRow>
-                    <TableCell colSpan={5} sx={sectionHeaderSx(section.color)}>
+                    <TableCell colSpan={tableColumnCount} sx={sectionHeaderSx(section.color)}>
                       {section.label}
                     </TableCell>
                   </TableRow>
@@ -688,21 +697,23 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
                       key={transaction.id}
                       selected={effectiveSelectedIds.has(transaction.id)}
                     >
-                      <TableCell padding="checkbox">
-                        {transaction.status === ImportedTransactionStatus.PENDING ? (
-                          <Checkbox
-                            checked={effectiveSelectedIds.has(transaction.id)}
-                            onChange={() => handleToggleSelect(transaction.id)}
-                            slotProps={{
-                              input: {
-                                'aria-label': t('imports.row.selectRow', {
-                                  description: transaction.description,
-                                }),
-                              },
-                            }}
-                          />
-                        ) : null}
-                      </TableCell>
+                      {canWrite && (
+                        <TableCell padding="checkbox">
+                          {transaction.status === ImportedTransactionStatus.PENDING ? (
+                            <Checkbox
+                              checked={effectiveSelectedIds.has(transaction.id)}
+                              onChange={() => handleToggleSelect(transaction.id)}
+                              slotProps={{
+                                input: {
+                                  'aria-label': t('imports.row.selectRow', {
+                                    description: transaction.description,
+                                  }),
+                                },
+                              }}
+                            />
+                          ) : null}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <TransactionDetails transaction={transaction} />
                       </TableCell>
@@ -716,14 +727,16 @@ const ImportedTransactionList: React.FC<ImportedTransactionListProps> = ({ impor
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
-                        <RowActions
-                          transaction={transaction}
-                          disabled={rowDisabled(transaction)}
-                          compact={false}
-                          {...actionHandlers}
-                        />
-                      </TableCell>
+                      {canWrite && (
+                        <TableCell>
+                          <RowActions
+                            transaction={transaction}
+                            disabled={rowDisabled(transaction)}
+                            compact={false}
+                            {...actionHandlers}
+                          />
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </React.Fragment>

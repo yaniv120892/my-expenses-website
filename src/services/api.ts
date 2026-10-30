@@ -7,13 +7,16 @@ import { redirectToSessionExpired } from '@/utils/hardNavigate';
 const api = axios.create();
 
 // A blob responseType applies to errors too, so their JSON can arrive as a
-// Blob.
-async function serverMessage(data: unknown): Promise<string | null> {
+// Blob. It is parsed once here, so every reader of the body sees an object.
+async function parseErrorBody(data: unknown): Promise<unknown> {
+  if (!(data instanceof Blob)) {
+    return data;
+  }
   try {
-    const body: unknown = data instanceof Blob ? JSON.parse(await data.text()) : data;
-    return messageField(body);
+    const parsed: unknown = JSON.parse(await data.text());
+    return parsed;
   } catch {
-    return null;
+    return data;
   }
 }
 
@@ -52,9 +55,12 @@ api.interceptors.response.use(
     ) {
       await expireSession();
     }
+    if (error.response) {
+      error.response.data = await parseErrorBody(error.response.data);
+    }
     // Without this every caller reports axios's "Request failed with status
     // code 4xx" instead of the message the server took care to write.
-    const message = await serverMessage(error.response?.data);
+    const message = messageField(error.response?.data);
     if (message) {
       error.message = message;
     }

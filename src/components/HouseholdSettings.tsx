@@ -22,6 +22,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CopyableText from '@/components/CopyableText';
 import {
@@ -34,21 +35,19 @@ import {
 } from '@/hooks/useHouseholdQuery';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import type {
-  HouseholdInviteView,
-  HouseholdMemberView,
-  HouseholdView,
-  InvitableRole,
+import {
+  INVITE_CODE_PARAM,
+  type HouseholdInviteView,
+  type HouseholdMemberView,
+  type HouseholdView,
+  type InvitableRole,
 } from '@/shared/types/household';
-import { describeApiError } from '@/utils/api';
+import { invitableRoleSchema } from '@/shared/schemas/household';
+import { describeHouseholdError } from '@/utils/householdError';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
-const INVITABLE_ROLES: InvitableRole[] = ['EDITOR', 'VIEWER'];
+const INVITABLE_ROLES = invitableRoleSchema.options;
 
-function isInvitableRole(value: string): value is InvitableRole {
-  return INVITABLE_ROLES.some((role) => role === value);
-}
-
-/** The owner manages members and invites; anyone else sees who is in and can leave. */
 export default function HouseholdSettings() {
   const t = useT();
   const { data: household, isLoading, error } = useHouseholdQuery();
@@ -57,7 +56,11 @@ export default function HouseholdSettings() {
     return <CircularProgress size={24} />;
   }
   if (error || !household) {
-    return <Alert severity="error">{describeApiError(error, t('household.loadFailed'))}</Alert>;
+    return (
+      <Alert severity="error">
+        {describeHouseholdError({ error, fallback: t('household.loadFailed'), t })}
+      </Alert>
+    );
   }
   return (
     <Stack spacing={3}>
@@ -115,7 +118,11 @@ function MemberView({ household }: { household: HouseholdView }) {
       <MemberList members={household.members} manageable={false} />
       {leaveMutation.error && (
         <Alert severity="error">
-          {describeApiError(leaveMutation.error, t('household.leaveFailed'))}
+          {describeHouseholdError({
+            error: leaveMutation.error,
+            fallback: t('household.leaveFailed'),
+            t,
+          })}
         </Alert>
       )}
       <Button
@@ -168,12 +175,20 @@ function MemberList({
       <Typography variant="h6">{t('household.members')}</Typography>
       {roleMutation.error && (
         <Alert severity="error">
-          {describeApiError(roleMutation.error, t('household.roleChangeFailed'))}
+          {describeHouseholdError({
+            error: roleMutation.error,
+            fallback: t('household.roleChangeFailed'),
+            t,
+          })}
         </Alert>
       )}
       {removeMutation.error && (
         <Alert severity="error">
-          {describeApiError(removeMutation.error, t('household.removeFailed'))}
+          {describeHouseholdError({
+            error: removeMutation.error,
+            fallback: t('household.removeFailed'),
+            t,
+          })}
         </Alert>
       )}
       <List dense disablePadding>
@@ -263,7 +278,11 @@ function InviteCreator() {
       <Typography variant="h6">{t('household.invite.title')}</Typography>
       {createMutation.error && (
         <Alert severity="error">
-          {describeApiError(createMutation.error, t('household.invite.createFailed'))}
+          {describeHouseholdError({
+            error: createMutation.error,
+            fallback: t('household.invite.createFailed'),
+            t,
+          })}
         </Alert>
       )}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
@@ -302,6 +321,14 @@ function PendingInvites({ invites }: { invites: HouseholdInviteView[] }) {
   const t = useT();
   const formatter = useAppFormat();
   const revokeMutation = useRevokeInviteMutation();
+  const [pendingRevoke, setPendingRevoke] = useState<HouseholdInviteView | null>(null);
+
+  function confirmRevoke() {
+    if (pendingRevoke) {
+      revokeMutation.mutate(pendingRevoke.id);
+    }
+    setPendingRevoke(null);
+  }
 
   if (invites.length === 0) {
     return null;
@@ -311,33 +338,58 @@ function PendingInvites({ invites }: { invites: HouseholdInviteView[] }) {
       <Typography variant="h6">{t('household.invite.pending')}</Typography>
       {revokeMutation.error && (
         <Alert severity="error">
-          {describeApiError(revokeMutation.error, t('household.invite.revokeFailed'))}
+          {describeHouseholdError({
+            error: revokeMutation.error,
+            fallback: t('household.invite.revokeFailed'),
+            t,
+          })}
         </Alert>
       )}
       <List dense disablePadding>
         {invites.map((invite) => (
-          <ListItem
-            key={invite.id}
-            disableGutters
-            secondaryAction={
-              <Button
-                color="error"
-                size="small"
-                onClick={() => revokeMutation.mutate(invite.id)}
-                disabled={revokeMutation.isPending}
-              >
-                {t('household.invite.revoke')}
-              </Button>
-            }
-          >
+          <ListItem key={invite.id} disableGutters sx={{ flexWrap: 'wrap', columnGap: 1 }}>
             <ListItemText
               primary={t(`household.role.${invite.role}`)}
               secondary={t('household.invite.expires', { date: formatter.day(invite.expiresAt) })}
             />
+            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+              <CopyInviteLinkButton code={invite.code} />
+              <Button
+                color="error"
+                size="small"
+                onClick={() => setPendingRevoke(invite)}
+                disabled={revokeMutation.isPending}
+              >
+                {t('household.invite.revoke')}
+              </Button>
+            </Stack>
           </ListItem>
         ))}
       </List>
+      <ConfirmDialog
+        open={pendingRevoke !== null}
+        text={t('household.invite.revokeConfirm')}
+        confirmLabel={t('household.invite.revoke')}
+        onCancel={() => setPendingRevoke(null)}
+        onConfirm={confirmRevoke}
+      />
     </Stack>
+  );
+}
+
+/** Where the clipboard is refused, the link is shown instead so it can be copied by hand. */
+function CopyInviteLinkButton({ code }: { code: string }) {
+  const t = useT();
+  const link = inviteLink(code);
+  const { copyState, copy } = useCopyToClipboard(link);
+
+  if (copyState === 'failed') {
+    return <CopyableText label={t('household.invite.link')} value={link} />;
+  }
+  return (
+    <Button size="small" startIcon={<ContentCopyIcon />} onClick={copy}>
+      {copyState === 'copied' ? t('common.copied') : t('household.invite.copyLink')}
+    </Button>
   );
 }
 
@@ -361,7 +413,7 @@ function ConfirmDialog({
         <DialogContentText>{text}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>{t('household.cancel')}</Button>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
         <Button color="error" onClick={onConfirm}>
           {confirmLabel}
         </Button>
@@ -371,5 +423,9 @@ function ConfirmDialog({
 }
 
 function inviteLink(code: string): string {
-  return `${window.location.origin}/join?code=${encodeURIComponent(code)}`;
+  return `${window.location.origin}/join?${INVITE_CODE_PARAM}=${encodeURIComponent(code)}`;
+}
+
+function isInvitableRole(value: string): value is InvitableRole {
+  return invitableRoleSchema.safeParse(value).success;
 }

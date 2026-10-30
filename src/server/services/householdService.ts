@@ -2,11 +2,11 @@ import type { HouseholdRole, Invite } from '@/generated/prisma/client';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
 import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors';
-import { HttpError } from '@/server/http/errors';
+import { HouseholdRefusal } from '@/server/services/householdRefusal';
 import { logger } from '@/server/observability';
 import householdRepository from '@/server/repositories/householdRepository';
 import householdActivityService from '@/server/services/householdActivityService';
-import type { PendingInviteRow } from '@/server/repositories/householdRepository';
+import type { PendingInviteRow } from '@/server/repositories/householdRepository.types';
 import { inviteValidator } from '@/server/services/validators/inviteValidator';
 import { generateInviteCode, inviteExpiryFrom } from '@/server/utils/inviteCode';
 import type {
@@ -18,20 +18,18 @@ import type {
 
 const HOUSEHOLD_IN_USE_MESSAGE =
   'You already have data or other members in your own household, so you cannot join another one';
+const MEMBER_NOT_FOUND_MESSAGE = 'No such member in this household';
 
 class HouseholdService {
   public async getHousehold(actor: MemberActor): Promise<HouseholdView> {
     const now = new Date();
-    const [members, ownerName, invites] = await Promise.all([
+    const [members, invites] = await Promise.all([
       householdRepository.findMembers(actor.householdId),
-      householdRepository.findOwnerName(actor.householdId),
-      actor.role === 'OWNER'
-        ? householdRepository.findPendingInvites(actor.householdId, now)
-        : Promise.resolve([]),
+      this.pendingInvitesFor({ actor, now }),
     ]);
     return {
       role: actor.role,
-      ownerName: ownerName ?? '',
+      ownerName: members.find((member) => member.householdRole === 'OWNER')?.username ?? '',
       members: members.map((member) => ({
         id: member.id,
         username: member.username,
@@ -87,8 +85,13 @@ class HouseholdService {
           : null,
     });
     if (!revoked) {
-      throw new HttpError(404, 'No open invite with that id in this household');
+      throw new HouseholdRefusal({
+        status: 404,
+        message: 'No open invite with that id in this household',
+        code: 'INVITE_NOT_FOUND',
+      });
     }
+    logger.info({ householdId: actor.householdId, inviteId }, 'Invite revoked');
   }
 
   /** What /join shows before the member confirms; throws for a code that cannot be redeemed. */
@@ -101,7 +104,7 @@ class HouseholdService {
     return {
       code: invite.code,
       ownerName: ownerName ?? '',
-      role: toInvitableRole(invite.role, invite.id),
+      role: this.toInvitableRole({ role: invite.role, inviteId: invite.id }),
       eligibility,
     };
   }
@@ -122,7 +125,11 @@ class HouseholdService {
       case 'already-member':
         return;
       case 'household-in-use':
-        throw new HttpError(409, HOUSEHOLD_IN_USE_MESSAGE);
+        throw new HouseholdRefusal({
+          status: 409,
+          message: HOUSEHOLD_IN_USE_MESSAGE,
+          code: 'HOUSEHOLD_IN_USE',
+        });
       case 'can-join':
         break;
       default:
@@ -144,7 +151,11 @@ class HouseholdService {
           : null,
     });
     if (outcome === 'invite-taken') {
-      throw new HttpError(409, 'This invite was just used by someone else');
+      throw new HouseholdRefusal({
+        status: 409,
+        message: 'This invite was just used by someone else',
+        code: 'INVITE_TAKEN',
+      });
     }
     logger.info(
       { userId: actor.userId, householdId: invite.householdId, inviteId: invite.id },
@@ -152,10 +163,10 @@ class HouseholdService {
     );
   }
 
-  /** A non-owner leaves for a fresh, empty household of their own. */
+  /** A non-owner leaves for a fresh, empty household of their own, keeping this session. */
   public async leave(actor: MemberActor): Promise<void> {
     inviteValidator.assertCanLeave(actor);
-    await householdActivityService.record({
+    const move = await householdActivityService.record({
       actor,
       write: () =>
         householdRepository.moveToOwnHousehold({
@@ -163,8 +174,8 @@ class HouseholdService {
           memberId: actor.userId,
           endSessions: false,
         }),
-      describe: (left) =>
-        left
+      describe: (memberMove) =>
+        memberMove
           ? {
               action: 'MEMBER_LEFT',
               entityType: 'MEMBER',
@@ -173,39 +184,66 @@ class HouseholdService {
             }
           : null,
     });
+    if (!move) {
+      throw new HouseholdRefusal({
+        status: 404,
+        message: MEMBER_NOT_FOUND_MESSAGE,
+        code: 'MEMBER_NOT_FOUND',
+      });
+    }
     logger.info(
-      { userId: actor.userId, householdId: actor.householdId },
+      {
+        userId: actor.userId,
+        householdId: actor.householdId,
+        apiTokensRevoked: move.apiTokensRevoked,
+        sessionsEnded: false,
+      },
       'Member left a household',
     );
   }
 
-  /** The removed member gets a fresh household, and every session they hold ends. */
+  /** The removed member gets a fresh household, and every session and API token they hold ends. */
   public async removeMember(actor: MemberActor, memberId: string): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    const removed = await householdActivityService.record({
+    const removal = await householdActivityService.record({
       actor,
       write: async () => {
         const member = await householdRepository.findMember(actor.householdId, memberId);
-        const moved = await householdRepository.moveToOwnHousehold({
+        if (!member) {
+          return null;
+        }
+        const memberMove = await householdRepository.moveToOwnHousehold({
           fromHouseholdId: actor.householdId,
           memberId,
           endSessions: true,
         });
-        return moved ? member : null;
+        return memberMove ? { member, memberMove } : null;
       },
-      describe: (member) =>
-        member && {
+      describe: (removed) =>
+        removed && {
           action: 'MEMBER_REMOVED',
           entityType: 'MEMBER',
-          entityId: member.id,
-          summary: `Removed ${member.username}`,
+          entityId: removed.member.id,
+          summary: `Removed ${removed.member.username}`,
         },
     });
-    if (!removed) {
-      throw new HttpError(404, 'No such member in this household');
+    if (!removal) {
+      throw new HouseholdRefusal({
+        status: 404,
+        message: MEMBER_NOT_FOUND_MESSAGE,
+        code: 'MEMBER_NOT_FOUND',
+      });
     }
-    logger.info({ householdId: actor.householdId, memberId }, 'Member removed from a household');
+    logger.info(
+      {
+        householdId: actor.householdId,
+        memberId,
+        apiTokensRevoked: removal.memberMove.apiTokensRevoked,
+        sessionsEnded: true,
+      },
+      'Member removed from a household',
+    );
   }
 
   public async changeMemberRole(
@@ -215,7 +253,6 @@ class HouseholdService {
   ): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    await inviteValidator.assertIsMember({ householdId: actor.householdId, memberId });
     const changed = await householdActivityService.record({
       actor,
       write: async () => {
@@ -236,8 +273,13 @@ class HouseholdService {
         },
     });
     if (!changed) {
-      throw new HttpError(404, 'No such member in this household');
+      throw new HouseholdRefusal({
+        status: 404,
+        message: MEMBER_NOT_FOUND_MESSAGE,
+        code: 'MEMBER_NOT_FOUND',
+      });
     }
+    logger.info({ householdId: actor.householdId, memberId, role }, 'Member role changed');
   }
 
   private async joinOrConflict({
@@ -259,29 +301,51 @@ class HouseholdService {
     } catch (error) {
       // The household gained a member or a row between the check and the drop.
       if (getPrismaErrorCode(error) === PRISMA_ERROR_CODES.FOREIGN_KEY_CONSTRAINT_VIOLATION) {
-        throw new HttpError(409, HOUSEHOLD_IN_USE_MESSAGE);
+        throw new HouseholdRefusal({
+          status: 409,
+          message: HOUSEHOLD_IN_USE_MESSAGE,
+          code: 'HOUSEHOLD_IN_USE',
+        });
       }
       throw error;
     }
+  }
+
+  private pendingInvitesFor({
+    actor,
+    now,
+  }: {
+    actor: MemberActor;
+    now: Date;
+  }): Promise<PendingInviteRow[]> {
+    return actor.role === 'OWNER'
+      ? householdRepository.findPendingInvites(actor.householdId, now)
+      : Promise.resolve([]);
   }
 
   private toInviteView(invite: PendingInviteRow): HouseholdInviteView {
     return {
       id: invite.id,
       code: invite.code,
-      role: toInvitableRole(invite.role, invite.id),
+      role: this.toInvitableRole({ role: invite.role, inviteId: invite.id }),
       expiresAt: invite.expiresAt.toISOString(),
       createdAt: invite.createdAt.toISOString(),
     };
   }
-}
 
-/** Every invite is written with an invitable role, so an owner one is corrupt data. */
-function toInvitableRole(role: HouseholdRole, inviteId: string): InvitableRole {
-  if (role === 'OWNER') {
-    throw new Error(`Invite ${inviteId} carries the owner role, which no invite may grant`);
+  /** Every invite is written with an invitable role, so an owner one is corrupt data. */
+  private toInvitableRole({
+    role,
+    inviteId,
+  }: {
+    role: HouseholdRole;
+    inviteId: string;
+  }): InvitableRole {
+    if (role === 'OWNER') {
+      throw new Error(`Invite ${inviteId} carries the owner role, which no invite may grant`);
+    }
+    return role;
   }
-  return role;
 }
 
 const householdService = new HouseholdService();

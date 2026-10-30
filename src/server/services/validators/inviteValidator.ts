@@ -1,6 +1,6 @@
 import type { Invite } from '@/generated/prisma/client';
-import type { HouseholdId, MemberActor } from '@/server/auth/householdActor.types';
-import { HttpError } from '@/server/http/errors';
+import type { MemberActor } from '@/server/auth/householdActor.types';
+import { HouseholdRefusal } from '@/server/services/householdRefusal';
 import householdRepository from '@/server/repositories/householdRepository';
 import { INVITE_CODE_LENGTH, normalizeInviteCode } from '@/server/utils/inviteCode';
 import type { JoinEligibility } from '@/shared/types/household';
@@ -15,8 +15,13 @@ export class InviteValidator {
     const code = normalizeInviteCode(rawCode);
     const invite =
       code.length === INVITE_CODE_LENGTH ? await householdRepository.findInviteByCode(code) : null;
-    if (!invite || !this.isOpen(invite, now)) {
-      throw new HttpError(404, 'This invite link is not valid. It may have expired or been used.');
+    const isRedeemable = invite !== null && this.isOpen(invite, now);
+    if (!isRedeemable) {
+      throw new HouseholdRefusal({
+        status: 404,
+        message: 'This invite link is not valid. It may have expired or been used.',
+        code: 'INVITE_INVALID',
+      });
     }
     return invite;
   }
@@ -31,48 +36,41 @@ export class InviteValidator {
     if (actor.householdId === targetHouseholdId) {
       return 'already-member';
     }
-    const orphaned = await householdRepository.countWhatAJoinWouldOrphan({
+    const wouldOrphan = await householdRepository.hasAnythingAJoinWouldOrphan({
       householdId: actor.householdId,
       memberId: actor.userId,
     });
-    return orphaned === 0 ? 'can-join' : 'household-in-use';
+    return wouldOrphan ? 'household-in-use' : 'can-join';
   }
 
   public assertIsOwner(actor: MemberActor): void {
     if (actor.role !== 'OWNER') {
-      throw new HttpError(
-        403,
-        'Only the owner of this household can manage its members and invites',
-      );
+      throw new HouseholdRefusal({
+        status: 403,
+        message: 'Only the owner of this household can manage its members and invites',
+        code: 'NOT_HOUSEHOLD_OWNER',
+      });
     }
   }
 
   /** The owner manages others; their own membership is not theirs to remove or demote. */
   public assertManagesSomeoneElse({ actor, memberId }: { actor: MemberActor; memberId: string }) {
     if (actor.userId === memberId) {
-      throw new HttpError(400, 'The owner cannot change their own membership');
+      throw new HouseholdRefusal({
+        status: 400,
+        message: 'The owner cannot change their own membership',
+        code: 'OWNER_OWN_MEMBERSHIP',
+      });
     }
   }
 
   public assertCanLeave(actor: MemberActor): void {
     if (actor.role === 'OWNER') {
-      throw new HttpError(
-        409,
-        'The owner cannot leave the household; remove the other members first',
-      );
-    }
-  }
-
-  public async assertIsMember({
-    householdId,
-    memberId,
-  }: {
-    householdId: HouseholdId;
-    memberId: string;
-  }): Promise<void> {
-    const member = await householdRepository.findMember(householdId, memberId);
-    if (!member) {
-      throw new HttpError(404, 'No such member in this household');
+      throw new HouseholdRefusal({
+        status: 409,
+        message: 'The owner cannot leave their own household',
+        code: 'OWNER_CANNOT_LEAVE',
+      });
     }
   }
 

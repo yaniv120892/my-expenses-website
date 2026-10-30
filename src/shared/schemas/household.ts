@@ -11,9 +11,7 @@ export const createInviteSchema = z.object({
 // spaces, dashes or lowercase still reaches the lookup.
 const inviteCodeSchema = z.string().trim().min(1).max(32);
 
-export const inviteCodeQuerySchema = z.object({ code: inviteCodeSchema });
-
-export const joinHouseholdSchema = z.object({ code: inviteCodeSchema });
+export const inviteCodeRequestSchema = z.object({ code: inviteCodeSchema });
 
 export const changeMemberRoleSchema = z.object({ role: invitableRoleSchema });
 

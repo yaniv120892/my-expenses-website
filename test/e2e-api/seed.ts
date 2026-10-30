@@ -10,8 +10,6 @@ import { HOUSEHOLD_E2E_USERS, SEED_PASSWORD } from './householdUsers';
 // User A's figures make the comparison exact (Jan ₪4,100 → Feb ₪5,200: +₪1,100,
 // +26.83%); user B exists so a check can assert A's answers never contain B's.
 
-// Hashed, so a local run can sign in through the login form.
-
 export type SeededUser = {
   id: string;
   householdId: string;
@@ -110,6 +108,7 @@ export async function seed(): Promise<SeedResult> {
     });
     const rent = await prisma.category.create({ data: { name: 'Rent' } });
 
+    // Hashed, so a local run can sign in through the login form.
     const passwordHash = await hash(SEED_PASSWORD, 10);
     const userA = await prisma.user.create({
       data: {

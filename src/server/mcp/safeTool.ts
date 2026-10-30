@@ -39,8 +39,7 @@ export const READ_ONLY = {
  * failure, while a returned one ("Unknown category …, close matches: …") is
  * something the agent can correct or relay. A 4xx is written for the caller,
  * so its message passes through; anything else is reported and kept neutral.
- * Every call logs one line with its outcome. A tool not annotated read-only is
- * a write, so a viewer's token is refused it like any other write.
+ * Every call logs one line with its outcome.
  */
 export function registerSafeTool<TShape extends ZodRawShapeCompat>(
   registration: SafeToolRegistration<TShape>,

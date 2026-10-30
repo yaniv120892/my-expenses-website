@@ -86,7 +86,6 @@ enum TransactionFileStatus {
   DELETED
 }
 
-// Owns every household-scoped row; each user belongs to exactly one.
 model Household {
   id                    String                 @id @default(uuid()) @db.Uuid
   createdAt             DateTime               @default(now())
@@ -127,8 +126,7 @@ model User {
   verified                  Boolean               @default(false)
   householdId               String                @db.Uuid
   household                 Household             @relation(fields: [householdId], references: [id])
-  householdRole             HouseholdRole         @default(OWNER)
-  // Bumped to end every session at once, e.g. when the member is removed.
+  householdRole             HouseholdRole
   tokenVersion              Int                   @default(0)
   invitesCreated            Invite[]              @relation("InvitesCreated")
   invitesUsed               Invite[]              @relation("InvitesUsed")

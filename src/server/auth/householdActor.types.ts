@@ -2,9 +2,9 @@ import type { HouseholdRole } from '@/generated/prisma/enums';
 
 declare const householdIdBrand: unique symbol;
 
-// Branded so a user id cannot be passed where the scoping key belongs: every
-// household-owned query takes one of these, and only an actor or a row that
-// already belongs to the household can produce it.
+// Branded so a bare string, a user id included, cannot be passed where the
+// scoping key belongs: every household-owned query takes one of these, and
+// only toHouseholdId makes one, from an actor or a row already loaded.
 export type HouseholdId = string & { readonly [householdIdBrand]: true };
 
 // Who a request acts as. Loaded from the database on every request, never

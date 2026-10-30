@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { deleteValue, getValue, setValue } from '@/server/redis';
-import type { SessionClaims } from '@/server/auth/tokens';
+import type { SessionClaims } from '@/server/auth/tokens.types';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 

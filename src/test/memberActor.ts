@@ -1,4 +1,6 @@
+import { vi } from 'vitest';
 import type { HouseholdRole } from '@/generated/prisma/enums';
+import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { toHouseholdId } from '@/server/auth/householdId';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 
@@ -16,10 +18,16 @@ export function testMemberActor({
   return { userId, householdId: toHouseholdId(`household-of-${userId}`), role, apiTokenId };
 }
 
-/** Stands in for resolveMemberActor, which reads the user's row. */
 export async function resolveTestMemberActor(identity: {
   userId: string;
   apiTokenId: string | null;
 }): Promise<MemberActor> {
   return testMemberActor(identity);
+}
+
+export async function householdActorWithTestMembers(): Promise<typeof HouseholdActorModule> {
+  return {
+    ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
+    resolveMemberActor: resolveTestMemberActor,
+  };
 }

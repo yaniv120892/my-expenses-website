@@ -54,7 +54,6 @@ class UserRepository {
     });
   }
 
-  /** A new account always opens a household of its own, as its owner. */
   public async createUser(email: string, username: string, hashedPassword: string): Promise<User> {
     return prisma.user.create({
       data: {
@@ -63,6 +62,7 @@ class UserRepository {
         password: hashedPassword,
         verified: false,
         household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
   }

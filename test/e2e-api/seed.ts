@@ -112,6 +112,7 @@ export async function seed(): Promise<SeedResult> {
         password: passwordHash,
         verified: true,
         household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
     const userB = await prisma.user.create({
@@ -121,6 +122,7 @@ export async function seed(): Promise<SeedResult> {
         password: passwordHash,
         verified: true,
         household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
 

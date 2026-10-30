@@ -21,9 +21,29 @@ ADD COLUMN "tokenVersion" INTEGER NOT NULL DEFAULT 0;
 UPDATE "User" SET "householdId" = gen_random_uuid();
 INSERT INTO "Household" ("id") SELECT "householdId" FROM "User";
 
-ALTER TABLE "User" ALTER COLUMN "householdId" SET NOT NULL;
+-- The default serves the backfill only: a member written without a role must
+-- fail rather than become an owner.
+ALTER TABLE "User" ALTER COLUMN "householdId" SET NOT NULL,
+ALTER COLUMN "householdRole" DROP DEFAULT;
 ALTER TABLE "User" ADD CONSTRAINT "User_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "Household"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 CREATE INDEX "User_householdId_idx" ON "User"("householdId");
+
+-- The deployment still serving while this one builds signs users up without a
+-- household; the database opens one for each, as the code now does. Drop it
+-- once no deployment that predates households can serve.
+CREATE FUNCTION "user_open_own_household"() RETURNS trigger AS $$
+BEGIN
+  IF NEW."householdId" IS NULL THEN
+    NEW."householdId" := gen_random_uuid();
+    NEW."householdRole" := 'OWNER';
+    INSERT INTO "Household" ("id") VALUES (NEW."householdId");
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "User_open_own_household" BEFORE INSERT ON "User"
+FOR EACH ROW EXECUTE FUNCTION "user_open_own_household"();
 
 ALTER TABLE "Transaction" ADD COLUMN "householdId" UUID;
 ALTER TABLE "Import" ADD COLUMN "householdId" UUID;

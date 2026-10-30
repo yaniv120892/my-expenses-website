@@ -1,4 +1,3 @@
-import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as RateLimitModule from '@/server/http/rateLimit';
 import type * as NextServerModule from 'next/server';
@@ -11,10 +10,9 @@ const { apiTokenRepository, enforceRateLimits, logger } = vi.hoisted(() => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('@/server/auth/householdActor', async () => ({
-  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
-  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
-}));
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository,
 }));

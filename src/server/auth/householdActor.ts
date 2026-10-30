@@ -21,7 +21,6 @@ export function canWriteHouseholdData(role: HouseholdRole): boolean {
   return CAN_WRITE_HOUSEHOLD_DATA[role];
 }
 
-/** The one write guard: every channel that writes household data calls it. */
 export function assertCanWrite(actor: MemberActor): void {
   if (!canWriteHouseholdData(actor.role)) {
     throw new HttpError(
@@ -45,12 +44,14 @@ export async function resolveMemberActor({
   sessionTokenVersion: number | null;
 }): Promise<MemberActor> {
   const membership = await userRepository.findMembership(userId);
-  if (!membership) {
-    throw new AuthError('SESSION_EXPIRED', 'Session expired');
-  }
   const isSessionRevoked =
-    sessionTokenVersion !== null && sessionTokenVersion !== membership.tokenVersion;
-  if (isSessionRevoked) {
+    sessionTokenVersion !== null && sessionTokenVersion !== membership?.tokenVersion;
+  const isOrphanedApiToken = !membership && apiTokenId !== null;
+  if (isOrphanedApiToken) {
+    throw new AuthError('INVALID_API_TOKEN', 'Invalid API token');
+  }
+  const isSessionInvalid = !membership || isSessionRevoked;
+  if (isSessionInvalid) {
     throw new AuthError('SESSION_EXPIRED', 'Session expired');
   }
   return {

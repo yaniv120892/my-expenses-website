@@ -1,4 +1,3 @@
-import type * as HouseholdActorModule from '@/server/auth/householdActor';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
@@ -9,10 +8,9 @@ const { requireUser, transactionService } = vi.hoisted(() => ({
   transactionService: { createTransaction: vi.fn() },
 }));
 
-vi.mock('@/server/auth/householdActor', async () => ({
-  ...(await vi.importActual<typeof HouseholdActorModule>('@/server/auth/householdActor')),
-  resolveMemberActor: (await import('@/test/memberActor')).resolveTestMemberActor,
-}));
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import type { HouseholdRole } from '@/generated/prisma/enums';
 
 const { requireUser, resolveMemberActor } = vi.hoisted(() => ({
@@ -64,38 +65,33 @@ describe('the central write guard', () => {
     },
   );
 
-  it('lets a viewer read', async () => {
+  it("refuses a viewer's write before its body is validated or rate-limited", async () => {
     signInAs('VIEWER');
-    const route = createHandler({ auth: 'session', handler });
-
-    const response = await route(request('GET'), ROUTE_CONTEXT);
-
-    expect(response.status).toBe(200);
-  });
-
-  it('lets a viewer write their own account', async () => {
-    signInAs('VIEWER');
-    const route = createHandler({ auth: 'session', writes: 'ownAccount', handler });
+    const rateLimit = vi.fn(() => []);
+    const route = createHandler({
+      auth: 'session',
+      bodySchema: z.object({ amount: z.number() }),
+      rateLimit,
+      handler,
+    });
 
     const response = await route(request('POST'), ROUTE_CONTEXT);
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(403);
+    expect(rateLimit).not.toHaveBeenCalled();
   });
 
-  it('leaves a per-operation channel to check its own writes', async () => {
-    signInAs('VIEWER');
-    const route = createHandler({ auth: 'session', writes: 'perOperation', handler });
-
-    const response = await route(request('POST'), ROUTE_CONTEXT);
-
-    expect(response.status).toBe(200);
-  });
-
-  it.each(['OWNER', 'EDITOR'] as const)('lets an %s write', async (role) => {
+  it.each([
+    ['VIEWER', 'GET', undefined],
+    ['VIEWER', 'POST', 'ownAccount'],
+    ['VIEWER', 'POST', 'perOperation'],
+    ['OWNER', 'POST', undefined],
+    ['EDITOR', 'POST', undefined],
+  ] as const)('lets a %s %s a route declaring writes=%s', async (role, method, writes) => {
     signInAs(role);
-    const route = createHandler({ auth: 'session', handler });
+    const route = createHandler({ auth: 'session', writes, handler });
 
-    const response = await route(request('POST'), ROUTE_CONTEXT);
+    const response = await route(request(method), ROUTE_CONTEXT);
 
     expect(response.status).toBe(200);
   });

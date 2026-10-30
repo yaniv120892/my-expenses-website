@@ -117,3 +117,21 @@ describe('pending page fixed expenses summary', () => {
     expect(screen.queryByText('Fixed expenses per month')).toBeNull();
   });
 });
+
+describe('pending page for a viewer', () => {
+  it('describes the rows without asking the viewer to approve them', () => {
+    renderPage('VIEWER');
+
+    expect(
+      screen.getByText('Transactions recorded from your schedules, not yet approved'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/waiting for your approval/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Approve transaction' })).toBeNull();
+  });
+
+  it('keeps asking an editor for approval', () => {
+    renderPage('EDITOR');
+
+    expect(screen.getByText('Transactions waiting for your approval')).toBeTruthy();
+  });
+});

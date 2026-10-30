@@ -53,7 +53,7 @@ vi.mock('@/server/services/transactionNotification/transactionNotifierFactory', 
 
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import { toHouseholdId } from '@/server/auth/householdId';
-import { currentActorContext } from '@/server/db/actorContext';
+import householdActivityService from '@/server/services/householdActivityService';
 import { testMemberActor } from '@/test/memberActor';
 
 type Sub = Record<string, unknown>;
@@ -94,6 +94,7 @@ const messageFor = (userId: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   activity.entries.length = 0;
+  subRepo.applyDetectionResults.mockResolvedValue([]);
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-15T12:00:00Z'));
   activeByHousehold = {};
@@ -244,16 +245,33 @@ describe('runDetectionForAllHouseholds', () => {
   it('stores what it found as the detection job, so new rows read as added automatically', async () => {
     listHouseholdIds.mockResolvedValue([HOUSEHOLD_1]);
     prismaMock.transaction.findMany.mockResolvedValue([]);
-    const actors: unknown[] = [];
-    subRepo.applyDetectionResults.mockImplementation(async () => {
-      actors.push(currentActorContext()?.actor);
-    });
+    subRepo.applyDetectionResults.mockResolvedValue([]);
 
     await subscriptionDetectionService.runDetectionForAllHouseholds();
 
-    expect(actors).toEqual([
-      { kind: 'system', householdId: HOUSEHOLD_1, job: 'subscription-detection' },
+    expect(vi.mocked(householdActivityService.record).mock.calls[0]?.[0].actor).toEqual({
+      kind: 'system',
+      householdId: HOUSEHOLD_1,
+      job: 'subscription-detection',
+    });
+  });
+
+  it('records each subscription it found for the first time, and nothing for one it refreshed', async () => {
+    listHouseholdIds.mockResolvedValue([HOUSEHOLD_1]);
+    prismaMock.transaction.findMany.mockResolvedValue([]);
+    subRepo.applyDetectionResults.mockResolvedValueOnce([{ id: 'sub-1', displayName: 'Netflix' }]);
+
+    await subscriptionDetectionService.runDetectionForAllHouseholds();
+
+    expect(activity.entries).toEqual([
+      { action: 'DETECT', entityType: 'SUBSCRIPTION', entityId: 'sub-1', summary: 'Netflix' },
     ]);
+
+    activity.entries.length = 0;
+    subRepo.applyDetectionResults.mockResolvedValueOnce([]);
+    await subscriptionDetectionService.runDetectionForAllHouseholds();
+
+    expect(activity.entries).toEqual([]);
   });
 
   it('carries on past a failing household, but fails the run', async () => {

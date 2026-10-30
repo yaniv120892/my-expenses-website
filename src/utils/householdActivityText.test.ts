@@ -60,6 +60,24 @@ describe('describeHouseholdActivity', () => {
     );
   });
 
+  it('says the app found a subscription, keeping its name as the detail', () => {
+    const found = entry({
+      action: 'DETECT',
+      entityType: 'SUBSCRIPTION',
+      summary: 'Netflix',
+      actorName: null,
+      systemJob: 'subscription-detection',
+    });
+
+    expect(describeHouseholdActivity({ item: found, t: englishT })).toEqual({
+      sentence: 'The app found a subscription',
+      detail: 'Netflix',
+    });
+    expect(describeHouseholdActivity({ item: found, t: hebrewT }).sentence).toBe(
+      'האפליקציה מצא/ה מינוי',
+    );
+  });
+
   it('keeps a changed row’s own words as the detail', () => {
     const text = describeHouseholdActivity({
       item: entry({ action: 'DELETE', summary: 'Coffee' }),

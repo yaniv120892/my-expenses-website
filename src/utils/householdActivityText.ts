@@ -26,6 +26,7 @@ export function describeHouseholdActivity({
     case 'IGNORE':
     case 'CONFIRM':
     case 'DISMISS':
+    case 'DETECT':
       return {
         sentence: t(`household.activity.sentence.${item.action}`, {
           actor,

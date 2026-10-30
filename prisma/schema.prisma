@@ -502,6 +502,7 @@ enum HouseholdActivityAction {
   ROLE_CHANGED
   API_TOKEN_REVOKED
   API_TOKEN_REVOKED_ON_REMOVAL
+  DETECT
 }
 
 enum HouseholdEntityType {

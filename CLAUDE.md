@@ -429,8 +429,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `src/server/db/actorContext.ts`, which `createHandler` sets for every member
   request, so no write path can skip it. A system job marks the rows it
   creates `createdBySystem` and leaves a row it updates alone. Transactions
-  show "Added by / Edited by", or "Added automatically", in the list and the
-  edit dialog. Each member-visible change is
+  show "Added by / Edited by", or "Added automatically", in the list, the
+  Pending list and the edit dialog. Each member-visible change is
   also appended to `HouseholdActivity` (actor user, API token when the write
   came through one, or the system job; action, entity) through the
   one helper `householdActivityService.record({ actor, write, describe })`:
@@ -441,8 +441,10 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `write`: model calls, storage and notifications stay outside, since the
   transaction holds the instance's one connection. Membership events (invite
   created or revoked, joined, left, removed, role changed, and each API token
-  a leave or removal revokes) are recorded the same way. A delete that
-  changes nothing records nothing. An entry stores only the entity's own
+  a leave or removal revokes, each worded for which it was) are recorded the
+  same way. A delete or role change that changes nothing records nothing, and
+  subscription detection records only the subscriptions a run creates, so a
+  re-run adds no entry. An entry stores only the entity's own
   words (`summary`: a description, file name, member or token name) and a
   `role`; Settings → Activity (`/settings/activity`,
   `GET /api/household/activity`) words the sentence in the reader's language

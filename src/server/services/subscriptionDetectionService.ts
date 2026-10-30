@@ -8,7 +8,6 @@ import type {
   SubscriptionAuditRow,
 } from '@/server/repositories/subscriptionRepository';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
-import { runAsActor } from '@/server/db/actorContext';
 import { systemActor } from '@/server/auth/householdActor';
 import householdActivityService from '@/server/services/householdActivityService';
 import type { ActivityEntry } from '@/server/services/householdActivityService.types';
@@ -347,9 +346,17 @@ class SubscriptionDetectionService {
       });
     }
 
-    await runAsActor(systemActor({ householdId, job: 'subscription-detection' }), () =>
-      subscriptionRepository.applyDetectionResults(householdId, results),
-    );
+    await householdActivityService.record({
+      actor: systemActor({ householdId, job: 'subscription-detection' }),
+      write: () => subscriptionRepository.applyDetectionResults(householdId, results),
+      describe: (found) =>
+        found.map((subscription) => ({
+          action: 'DETECT',
+          entityType: 'SUBSCRIPTION',
+          entityId: subscription.id,
+          summary: subscription.displayName,
+        })),
+    });
   }
 
   private groupByMerchant(transactions: MerchantCharge[]): MerchantGroup[] {

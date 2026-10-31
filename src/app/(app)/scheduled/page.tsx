@@ -40,7 +40,7 @@ export default function ScheduledPage() {
   const updateMutation = useUpdateScheduledTransactionMutation();
   const deleteMutation = useDeleteScheduledTransactionMutation();
 
-  // Must not catch: the form reports the outcome (see CLAUDE.md).
+  // Must not catch: the form reports the outcome (see .claude/rules/ui-components.md).
   async function handleFormSubmit(data: CreateScheduledTransactionInput) {
     if (editTx) {
       await updateMutation.mutateAsync({ id: editTx.id, data });

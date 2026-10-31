@@ -41,8 +41,8 @@ assistant's memory store.
 
 ## Scripts
 
-See `package.json`; the ones worth knowing are described in `CLAUDE.md` →
-Commands. `npm test` runs unit and type tests, `npm run test:e2e:api` and
+See `package.json`; the ones worth knowing are described in
+`docs/local-development.md`. `npm test` runs unit and type tests, `npm run test:e2e:api` and
 `npm run test:e2e:ui` the two e2e suites.
 
 ## Deployment (Vercel)

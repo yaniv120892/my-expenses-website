@@ -42,7 +42,8 @@ concurrency problems that matter most.
 ## 3. Rules (highest priority, reported separately)
 
 The craft rules are `.claude/rules/*.md` and the system's own invariants are
-`CLAUDE.md` → Key invariants; read both and check the diff against them. Cite
+`CLAUDE.md` → Key invariants plus the topic doc under `docs/` that `CLAUDE.md`'s
+index points the touched subsystem at; read them and check the diff against them. Cite
 `file:line`. Keep these in a section **separate** from correctness findings.
 `npm run lint` already enforces the mechanically checkable rules (`curly`,
 `array-type`, `explicit-member-accessibility`), so CI catches those; report
@@ -59,7 +60,7 @@ stack you actually found; skip the rest rather than padding the report.
 - **Guards narrow at the boundary.** `if (!x) { throw }` is this repo's narrowing pattern (`.claude/rules/typescript.md`); a downstream `!` or `as` to recover the type is the symptom of a missing guard.
 - **Error handling**: user-facing errors surfaced with actionable messages, not swallowed.
 - **Security**: no secrets in code or client bundles, input validated at the boundary, no injection via string-built queries or commands.
-- **Invariants**: every `CLAUDE.md` → Key invariants bullet whose subsystem the diff touches still holds.
+- **Invariants**: every `CLAUDE.md` → Key invariants bullet, and every invariant in the matching `docs/` topic doc, whose subsystem the diff touches still holds.
 
 ### Frontend (React / Next.js)
 
@@ -92,7 +93,7 @@ already true? A change that could be reverted with every test still green is a
 ### CI and local-stack config
 
 When the diff touches `.github/workflows/ci.yml` or `scripts/dev-local.sh`,
-check both against the rule `CLAUDE.md` states for them; a wait loop that falls
+check both against the rules `CLAUDE.md` and `docs/local-development.md` state for them; a wait loop that falls
 through on timeout or a health gate that checks reachable rather than ready is
 a finding on its own.
 
@@ -176,8 +177,8 @@ table. Tag only the findings that have one.
 
 ### C. Docs alignment — <owner/repo>#<n>
 
-| CLAUDE.md section | what the diff contradicts | what to update |
-| ----------------- | ------------------------- | -------------- |
+| doc / section | what the diff contradicts | what to update |
+| ------------- | ------------------------- | -------------- |
 
 ### D. CI — <owner/repo>#<n>
 

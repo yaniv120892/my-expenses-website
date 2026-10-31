@@ -16,7 +16,7 @@ export function registerInsightTools({
   server: McpServer;
   actor: McpActor;
 }): void {
-  const { userId } = actor;
+  const { householdId } = actor;
 
   registerSafeTool({
     server,
@@ -52,7 +52,7 @@ export function registerInsightTools({
     handler: async (input) =>
       withCategoryNote(
         await financeQueryService.summarize({
-          userId,
+          householdId,
           filters: input,
           aggregation: input.aggregation,
         }),
@@ -71,7 +71,7 @@ export function registerInsightTools({
       annotations: READ_ONLY,
     },
     handler: async (input) =>
-      withCategoryNote(await financeQueryService.comparePeriods({ userId, input })),
+      withCategoryNote(await financeQueryService.comparePeriods({ householdId, input })),
   });
 
   registerSafeTool({
@@ -86,7 +86,7 @@ export function registerInsightTools({
       annotations: READ_ONLY,
     },
     handler: async (input) =>
-      withCategoryNote(await financeQueryService.describeSpendingTrends({ userId, input })),
+      withCategoryNote(await financeQueryService.describeSpendingTrends({ householdId, input })),
   });
 }
 

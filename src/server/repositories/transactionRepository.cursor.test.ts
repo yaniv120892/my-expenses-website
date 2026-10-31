@@ -6,6 +6,7 @@ vi.mock('@/server/db/client', () => ({
 }));
 
 import transactionRepository from '@/server/repositories/transactionRepository';
+import { toHouseholdId } from '@/server/auth/householdId';
 
 const DATE = '2026-01-15T00:00:00.000Z';
 const ID = '3f2f1a10-6a37-4dc5-9c5e-1f8a5f4d2b6a';
@@ -15,8 +16,7 @@ function amountCursor(amount: string): string {
 }
 
 function listByAmount(cursor: string) {
-  return transactionRepository.getTransactionsList({
-    userId: 'user-1',
+  return transactionRepository.getTransactionsList(toHouseholdId('household-1'), {
     sortBy: 'amount',
     sortOrder: 'desc',
     limit: 10,

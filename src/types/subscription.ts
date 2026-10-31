@@ -16,7 +16,6 @@ export type ScheduleMatch = Omit<SubscriptionScheduleMatch, 'nextRunDate'> & {
 
 export type DetectedSubscription = Omit<
   SubscriptionListItem,
-  | 'userId'
   | 'createdAt'
   | 'updatedAt'
   | 'lastChargeDate'

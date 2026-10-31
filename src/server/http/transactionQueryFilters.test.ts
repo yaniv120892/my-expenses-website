@@ -3,28 +3,25 @@ import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 
 describe('toTransactionFilters', () => {
   it('renames type to transactionType', () => {
-    const filters = toTransactionFilters({ type: 'EXPENSE' }, 'user-1');
+    const filters = toTransactionFilters({ type: 'EXPENSE' });
 
     expect(filters.transactionType).toBe('EXPENSE');
     expect('type' in filters).toBe(false);
   });
 
-  it('attaches the userId and passes the rest through untouched', () => {
+  it('passes the rest through untouched, naming no owner', () => {
     const startDate = new Date('2026-08-01');
     const endDate = new Date('2026-08-31');
 
     expect(
-      toTransactionFilters(
-        {
-          startDate,
-          endDate,
-          categoryId: 'cat-1',
-          searchTerm: 'coffee',
-          cursor: 'abc',
-          limit: 50,
-        },
-        'user-1',
-      ),
+      toTransactionFilters({
+        startDate,
+        endDate,
+        categoryId: 'cat-1',
+        searchTerm: 'coffee',
+        cursor: 'abc',
+        limit: 50,
+      }),
     ).toEqual({
       startDate,
       endDate,
@@ -33,7 +30,6 @@ describe('toTransactionFilters', () => {
       cursor: 'abc',
       limit: 50,
       transactionType: undefined,
-      userId: 'user-1',
     });
   });
 });

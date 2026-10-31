@@ -4,14 +4,15 @@ import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRule
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ userId }) => autoApproveRuleRepository.findByUserId(userId),
+  handler: async ({ actor }) => autoApproveRuleRepository.findByHousehold(actor.householdId),
 });
 
 export const POST = createHandler({
   auth: 'session',
   bodySchema: createAutoApproveRuleSchema,
-  handler: async ({ userId, body }) =>
+  handler: async ({ userId, actor, body }) =>
     autoApproveRuleRepository.create({
+      householdId: actor.householdId,
       userId,
       descriptionPattern: body.descriptionPattern,
       categoryId: body.categoryId,

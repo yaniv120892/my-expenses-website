@@ -7,15 +7,15 @@ export const PUT = createHandler({
   auth: 'session',
   paramsSchema: ruleIdParamsSchema,
   bodySchema: updateAutoApproveRuleSchema,
-  handler: async ({ userId, body, params }) =>
-    autoApproveRuleRepository.update(params.ruleId, userId, body),
+  handler: async ({ actor, body, params }) =>
+    autoApproveRuleRepository.update(actor.householdId, params.ruleId, body),
 });
 
 export const DELETE = createHandler({
   auth: 'session',
   paramsSchema: ruleIdParamsSchema,
-  handler: async ({ userId, params }) => {
-    await autoApproveRuleRepository.delete(params.ruleId, userId);
+  handler: async ({ actor, params }) => {
+    await autoApproveRuleRepository.delete(actor.householdId, params.ruleId);
     return { success: true };
   },
 });

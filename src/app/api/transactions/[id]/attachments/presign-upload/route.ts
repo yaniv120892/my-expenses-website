@@ -7,6 +7,6 @@ export const POST = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: getPresignedUploadUrlSchema,
-  handler: async ({ userId, body, params }) =>
-    transactionService.getPresignedUploadUrl(params.id, userId, body),
+  handler: async ({ actor, body, params }) =>
+    transactionService.getPresignedUploadUrl(actor, params.id, body),
 });

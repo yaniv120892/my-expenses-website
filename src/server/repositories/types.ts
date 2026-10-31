@@ -5,6 +5,7 @@ import type {
   TransactionStatus,
 } from '@/shared/types/transaction';
 import type { ScheduleType } from '@/generated/prisma/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 
 export type CreateTransactionDbModel = {
   description: string;
@@ -13,7 +14,9 @@ export type CreateTransactionDbModel = {
   date: Date;
   status?: TransactionStatus;
   scheduledTransactionId?: string;
-  userId: string;
+  householdId: HouseholdId;
+  /** The member who wrote it; null for a write no member made. */
+  userId: string | null;
 } & TransactionAmount;
 
 export type MatchCandidateTransaction = Transaction & {
@@ -55,8 +58,4 @@ export type ScheduledTransaction = {
   monthOfYear?: number;
   lastRunDate?: Date;
   nextRunDate?: Date;
-};
-
-export type UserQuery = {
-  isVerified?: boolean;
 };

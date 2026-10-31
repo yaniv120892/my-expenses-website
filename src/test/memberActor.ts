@@ -15,7 +15,13 @@ export function testMemberActor({
   apiTokenId?: string | null;
   role?: HouseholdRole;
 }): MemberActor {
-  return { userId, householdId: toHouseholdId(`household-of-${userId}`), role, apiTokenId };
+  return {
+    kind: 'member',
+    userId,
+    householdId: toHouseholdId(`household-of-${userId}`),
+    role,
+    apiTokenId,
+  };
 }
 
 export async function resolveTestMemberActor(identity: {

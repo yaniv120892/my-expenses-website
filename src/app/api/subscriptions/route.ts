@@ -5,6 +5,6 @@ import subscriptionDetectionService from '@/server/services/subscriptionDetectio
 export const GET = createHandler({
   auth: 'session',
   querySchema: getSubscriptionsQuerySchema,
-  handler: async ({ userId, query }) =>
-    subscriptionDetectionService.getSubscriptions(userId, query.status),
+  handler: async ({ actor, query }) =>
+    subscriptionDetectionService.getSubscriptions(actor.householdId, query.status),
 });

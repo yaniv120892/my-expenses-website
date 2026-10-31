@@ -1,7 +1,8 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { getFinancialAssistant } from '@/server/services/assistant/financialAssistant';
 import { getThreadId, isMemoryEnabled } from '@/server/services/assistant/memory';
-import { USER_ID_CONTEXT_KEY } from '@/server/services/assistant/tools';
+import { HOUSEHOLD_ID_CONTEXT_KEY } from '@/server/services/assistant/tools';
+import type { MemberActor } from '@/server/auth/householdActor.types';
 import type { ChatMessage } from '@/shared/schemas/chat';
 
 export type { ChatMessage };
@@ -11,14 +12,16 @@ type OutgoingMessage = { role: 'user'; content: string } | { role: 'assistant'; 
 class ChatService {
   public async streamChatResponse(
     messages: ChatMessage[],
-    userId: string,
+    actor: MemberActor,
     abortSignal?: AbortSignal,
   ): Promise<AsyncIterable<string>> {
     const assistant = getFinancialAssistant();
+    const { userId } = actor;
 
-    // Injected server-side so the model cannot choose whose data it reads.
+    // Injected server-side so the model cannot choose whose data it reads. The
+    // figures are the household's; the conversation thread stays the member's own.
     const requestContext = new RequestContext();
-    requestContext.set(USER_ID_CONTEXT_KEY, userId);
+    requestContext.set(HOUSEHOLD_ID_CONTEXT_KEY, actor.householdId);
 
     const result = await assistant.stream(this.toModelMessages(messages), {
       memory: {

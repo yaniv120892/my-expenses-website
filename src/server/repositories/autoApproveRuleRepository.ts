@@ -1,8 +1,10 @@
 import type { AutoApproveRule, TransactionType } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 
 export class AutoApproveRuleRepository {
   public async create(data: {
+    householdId: HouseholdId;
     userId: string;
     descriptionPattern: string;
     categoryId: string;
@@ -11,17 +13,17 @@ export class AutoApproveRuleRepository {
     return prisma.autoApproveRule.create({ data });
   }
 
-  public async findByUserId(userId: string): Promise<AutoApproveRule[]> {
+  public async findByHousehold(householdId: HouseholdId): Promise<AutoApproveRule[]> {
     return prisma.autoApproveRule.findMany({
-      where: { userId },
+      where: { householdId },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   public async update(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     data: Partial<{
       descriptionPattern: string;
       categoryId: string;
@@ -30,20 +32,20 @@ export class AutoApproveRuleRepository {
     }>,
   ): Promise<AutoApproveRule> {
     return prisma.autoApproveRule.update({
-      where: { id, userId },
+      where: { id, householdId },
       data,
     });
   }
 
-  public async delete(id: string, userId: string): Promise<void> {
+  public async delete(householdId: HouseholdId, id: string): Promise<void> {
     await prisma.autoApproveRule.delete({
-      where: { id, userId },
+      where: { id, householdId },
     });
   }
 
-  public async findActiveByUserId(userId: string): Promise<AutoApproveRule[]> {
+  public async findActiveByHousehold(householdId: HouseholdId): Promise<AutoApproveRule[]> {
     return prisma.autoApproveRule.findMany({
-      where: { userId, isActive: true },
+      where: { householdId, isActive: true },
     });
   }
 }

@@ -1,4 +1,5 @@
 import { TransactionType } from '@/generated/prisma/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import type {
   CategoryComparison,
   ComparisonBucket,
@@ -36,7 +37,7 @@ function addToCell(
 class CategoryComparisonService {
   public async getCategoryComparison(
     request: GetCategoryComparisonRequest,
-    userId: string,
+    householdId: HouseholdId,
   ): Promise<CategoryComparison> {
     const [allCategories, descendantMap] = await Promise.all([
       categoryRepository.getAllCategories(),
@@ -68,7 +69,7 @@ class CategoryComparisonService {
     });
 
     const rows = await transactionRepository.getCategoryPeriodTotals({
-      userId,
+      householdId,
       startDate: request.startDate,
       endDate: request.endDate,
       categoryIds: Array.from(seriesIndexesByCategoryId.keys()),
@@ -85,7 +86,7 @@ class CategoryComparisonService {
     const grandTotal = this.sumCells(buckets.map((bucket) => bucket.rowTotal));
 
     logger.debug(
-      { userId, seriesCount: series.length, bucketCount: buckets.length },
+      { householdId, seriesCount: series.length, bucketCount: buckets.length },
       'Category comparison computed',
     );
 

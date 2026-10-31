@@ -6,6 +6,6 @@ import { toTransactionFilters } from '@/server/http/transactionQueryFilters';
 export const GET = createHandler({
   auth: 'session',
   querySchema: getTransactionsSummarySchema,
-  handler: async ({ userId, query }) =>
-    transactionService.getCategoryBreakdown(toTransactionFilters(query, userId)),
+  handler: async ({ actor, query }) =>
+    transactionService.getCategoryBreakdown(actor.householdId, toTransactionFilters(query)),
 });

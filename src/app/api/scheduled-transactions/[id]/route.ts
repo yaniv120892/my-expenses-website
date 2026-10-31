@@ -7,15 +7,15 @@ export const PUT = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: updateScheduledTransactionSchema,
-  handler: async ({ userId, body, params }) =>
-    scheduledTransactionService.updateScheduledTransaction(params.id, body, userId),
+  handler: async ({ actor, body, params }) =>
+    scheduledTransactionService.updateScheduledTransaction(actor, params.id, body),
 });
 
 export const DELETE = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   status: 204,
-  handler: async ({ userId, params }) => {
-    await scheduledTransactionService.deleteScheduledTransaction(params.id, userId);
+  handler: async ({ actor, params }) => {
+    await scheduledTransactionService.deleteScheduledTransaction(actor, params.id);
   },
 });

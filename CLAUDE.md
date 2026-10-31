@@ -372,7 +372,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
   role has no default, so a member written without one fails rather than
   becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does. A
+  for a user inserted without one, as code predating households does, and
+  `row_inherit_household` fills an owned row's `householdId` from its `userId`
+  for code predating scoping; both go once no such deployment can serve. A
   session or API-token route's handler receives `actor` (`MemberActor`,
   `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
   token), which `resolveAuth` loads from the user's row on every request —
@@ -388,15 +390,40 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   it for every tool not annotated `readOnlyHint`). Which handlers declare
   either is pinned in `src/app/api/householdWrites.test.ts`. A viewer is
   refused with 403.
+- **Every household-owned row is read and written by `householdId`.** The
+  models whose `IS_HOUSEHOLD_OWNED` entry is true
+  (`src/server/db/householdScope.ts`) carry a required `householdId`, and
+  their uniques and indexes lead with it. Repositories take the `HouseholdId`
+  as their first argument; services take it for reads and the actor
+  (`HouseholdActor`, member or system) for writes. `userId` on those rows only
+  records which member wrote it — null for a cron's write (`systemActor`) or
+  once the member is deleted — and never scopes a query. The default `prisma`
+  client enforces this at runtime: a query on one of those models whose
+  `where` (directly, in a compound unique key, or in an `AND`) does not name
+  one household as a plain value, or a create without one, throws
+  `UnscopedHouseholdQueryError`. It checks only the queried model's own
+  arguments, so owned rows are reached through their own model, never a
+  nested relation read or write or raw SQL. `systemPrisma` skips the check,
+  for the jobs that work across households (the cron sweeps, the extraction
+  callback finding its import), and only `crossHouseholdRepository` imports
+  it; that, and that the owned-model list matches every schema model with a
+  `householdId` column, are pinned in `src/server/db/householdScope.test.ts`. The assistant reads the household
+  from its request context (`HOUSEHOLD_ID_CONTEXT_KEY`), while its chat thread
+  stays per member. Crons run per household (subscription detection, backup)
+  or per opted-in member over their own household (daily summary, monthly
+  report, subscription audit); a new transaction is announced to every member
+  who opted in. `test/e2e-api/run.ts`'s household leak guard aims every
+  household route at another household's ids and checks each answers as if
+  the row did not exist and leaves that household's rows unchanged.
 - **The personal agent reaches the app only through `/api/mcp`.** It is an
   `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
   or `{error}` body, so an MCP client can read it. The server is stateless
   (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
-  `createMcpServer({ userId })`, answers one message and closes; a JSON-RPC
+  `createMcpServer(actor)`, answers one message and closes; a JSON-RPC
   batch is a 400 (`-32600`), since the rate limit counts requests; GET and
-  DELETE are 405. The user id is captured in every tool's closure, so no tool takes
-  one. Tools are adapters over existing services — reads through
+  DELETE are 405. The actor — and so the household — is captured in every
+  tool's closure, so no tool takes one. Tools are adapters over existing services — reads through
   `financeQueryService` (the same code the Mastra tools call) and the
   transaction/schedule services, writes through `transactionService`, whose
   amounts go through `currencyConversionService` like any other create or
@@ -440,8 +467,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
   `prisma generate` writes the client to `src/generated/prisma` (gitignored;
   server code imports `@/generated/prisma/client`, code a browser can reach only
-  `@/generated/prisma/enums`). The app client is that client with one
-  extension, `src/server/db/cardDigitsEncryption.ts`, connected through
+  `@/generated/prisma/enums`). The app client is that client with two
+  extensions, `src/server/db/cardDigitsEncryption.ts` and the household scope
+  guard (`systemPrisma` has only the first), connected through
   `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
   every statement is unnamed and safe in a pooler's reused sessions. Every URL
   handed to `pg` goes through `withVerifyFullSslMode` (`src/server/db/sslMode.ts`),

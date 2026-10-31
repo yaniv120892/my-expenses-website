@@ -19,7 +19,7 @@ export const POST = createHandler({
   writes: 'ownAccount',
   bodySchema: chatRequestSchema,
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
-  handler: async ({ request, body, userId }) => {
+  handler: async ({ request, body, userId, actor }) => {
     logger.debug({ userId }, 'Start handle chat message');
 
     const stream = new ReadableStream<Uint8Array>({
@@ -27,7 +27,7 @@ export const POST = createHandler({
         try {
           const textStream = await chatService.streamChatResponse(
             body.messages,
-            userId,
+            actor,
             request.signal,
           );
 

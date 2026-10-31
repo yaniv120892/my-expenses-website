@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import financeQueryService from '@/server/services/assistant/financeQueries';
 import transactionService from '@/server/services/transactionService';
@@ -34,7 +35,7 @@ export function registerTransactionTools({
   server: McpServer;
   actor: McpActor;
 }): void {
-  const { userId } = actor;
+  const { userId, householdId } = actor;
 
   registerSafeTool({
     server,
@@ -49,7 +50,7 @@ export function registerTransactionTools({
     },
     handler: async ({ limit, ...filters }) => {
       const { transactions, hasMore } = await financeQueryService.findTransactions({
-        userId,
+        householdId,
         filters,
         limit,
       });
@@ -81,7 +82,7 @@ export function registerTransactionTools({
       },
     },
     handler: async (input) => {
-      const { transaction } = await transactionService.createTransaction({
+      const { transaction } = await transactionService.createTransaction(actor, {
         description: input.description,
         ...toAmountInput(input),
         type: input.type,
@@ -90,7 +91,6 @@ export function registerTransactionTools({
           fallback: toAppWallClock(new Date()),
         }),
         categoryId: (await resolveCategoryId(input.categoryName)) ?? null,
-        userId,
       });
       captureProductEvent({
         userId,
@@ -122,20 +122,16 @@ export function registerTransactionTools({
     },
     handler: async (input) => {
       const [existing, namedCategoryId] = await Promise.all([
-        requireTransaction({ id: input.id, userId }),
+        requireTransaction({ id: input.id, householdId }),
         resolveCategoryId(input.categoryName),
       ]);
-      const updated = await transactionService.updateTransaction(
-        existing.id,
-        {
-          description: input.description ?? existing.description,
-          ...toUpdatedAmountInput({ input, existing }),
-          categoryId: namedCategoryId ?? existing.category.id,
-          type: input.type ?? existing.type,
-          date: toTransactionDate({ day: input.date, fallback: existing.date }),
-        },
-        userId,
-      );
+      const updated = await transactionService.updateTransaction(actor, existing.id, {
+        description: input.description ?? existing.description,
+        ...toUpdatedAmountInput({ input, existing }),
+        categoryId: namedCategoryId ?? existing.category.id,
+        type: input.type ?? existing.type,
+        date: toTransactionDate({ day: input.date, fallback: existing.date }),
+      });
       captureProductEvent({
         userId,
         event: 'transaction_updated',
@@ -165,8 +161,8 @@ export function registerTransactionTools({
       },
     },
     handler: async (input) => {
-      const existing = await requireTransaction({ id: input.id, userId });
-      await transactionService.deleteTransaction(existing.id, userId);
+      const existing = await requireTransaction({ id: input.id, householdId });
+      await transactionService.deleteTransaction(actor, existing.id);
       captureProductEvent({
         userId,
         event: 'transaction_deleted',
@@ -193,12 +189,12 @@ async function resolveCategoryId(categoryName: string | undefined): Promise<stri
 
 async function requireTransaction({
   id,
-  userId,
+  householdId,
 }: {
   id: string;
-  userId: string;
+  householdId: HouseholdId;
 }): Promise<Transaction> {
-  const transaction = await transactionService.getTransactionItem(id, userId);
+  const transaction = await transactionService.getTransactionItem(householdId, id);
   if (!transaction) {
     throw new HttpError(404, `No transaction with id ${id}. Use find_transactions to look it up.`);
   }

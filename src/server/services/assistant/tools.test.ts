@@ -21,7 +21,7 @@ vi.mock('@/server/repositories/transactionRepository', () => ({
 import { buildAssistantTools } from '@/server/services/assistant/tools';
 
 const requestContext = new RequestContext();
-requestContext.set('userId', 'user-1');
+requestContext.set('householdId', 'household-1');
 const CONTEXT: ToolExecutionContext = { requestContext, observe: noopObserve };
 
 // Covers both the summary and the trend output: the trend has no transactionCount.
@@ -114,11 +114,22 @@ describe('category resolution', () => {
     // Fast Food is a child of Food & Groceries, so the figures cover it too,
     // matching how the transactions list expands a parent category.
     expect(getTransactionsSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        categoryIds: ['c-food', 'c-fast'],
-      }),
+      'household-1',
+      expect.objectContaining({ categoryIds: ['c-food', 'c-fast'] }),
     );
+  });
+
+  it('refuses to read without a household in the request context', async () => {
+    const userOnly = new RequestContext();
+    userOnly.set('userId', 'user-1');
+
+    await expect(
+      tools.summarizeTransactions.execute?.(
+        { aggregation: 'total' },
+        { requestContext: userOnly, observe: noopObserve },
+      ),
+    ).rejects.toThrow('without an authenticated household');
+    expect(getTransactionsSummary).not.toHaveBeenCalled();
   });
 
   it('reports null resolvedCategory when no filter was asked for', async () => {

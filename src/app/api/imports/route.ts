@@ -4,5 +4,5 @@ import { importService } from '@/server/services/importService';
 export const GET = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
-  handler: async ({ userId }) => importService.getImports(userId),
+  handler: async ({ actor }) => importService.getImports(actor.householdId),
 });

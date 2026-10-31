@@ -5,14 +5,15 @@ const { findMany, updateMany } = vi.hoisted(() => ({
   updateMany: vi.fn(),
 }));
 vi.mock('@/server/db/client', () => ({
-  default: { import: { findMany, updateMany } },
+  default: {},
+  systemPrisma: { import: { findMany, updateMany } },
 }));
 
-import { importRepository } from '@/server/repositories/importRepository';
+import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 
 const cutoff = new Date('2026-10-24T00:00:00Z');
 
-describe('importRepository.failStuckProcessing', () => {
+describe('crossHouseholdRepository.failStuckImports', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -21,7 +22,7 @@ describe('importRepository.failStuckProcessing', () => {
     findMany.mockResolvedValue([{ id: 'imp-1' }, { id: 'imp-2' }]);
     updateMany.mockResolvedValue({ count: 1 });
 
-    const sweep = await importRepository.failStuckProcessing(cutoff, 'stuck');
+    const sweep = await crossHouseholdRepository.failStuckImports(cutoff, 'stuck');
 
     expect(findMany).toHaveBeenCalledWith({
       where: { status: 'PROCESSING', createdAt: { lt: cutoff } },
@@ -47,7 +48,7 @@ describe('importRepository.failStuckProcessing', () => {
     findMany.mockResolvedValue([{ id: 'imp-1' }]);
     updateMany.mockResolvedValue({ count: 0 });
 
-    await importRepository.failStuckProcessing(cutoff, 'stuck');
+    await crossHouseholdRepository.failStuckImports(cutoff, 'stuck');
 
     const where = updateMany.mock.calls[0]?.[0]?.where;
     expect(where?.OR[1].extractionCompletedAt.lt).toEqual(new Date('2026-10-24T05:45:00Z'));
@@ -57,7 +58,7 @@ describe('importRepository.failStuckProcessing', () => {
   it('writes nothing when no import is stuck', async () => {
     findMany.mockResolvedValue([]);
 
-    const sweep = await importRepository.failStuckProcessing(cutoff, 'stuck');
+    const sweep = await crossHouseholdRepository.failStuckImports(cutoff, 'stuck');
 
     expect(updateMany).not.toHaveBeenCalled();
     expect(sweep).toEqual({ importIds: [], failedCount: 0 });

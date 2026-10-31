@@ -1,4 +1,5 @@
 import scheduledTransactionRepository from '@/server/repositories/scheduledTransactionRepository';
+import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
 import transactionService from '@/server/services/transactionService';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
 import type {
@@ -7,11 +8,14 @@ import type {
   ScheduledTransactionDomain,
 } from '@/shared/types/scheduledTransaction';
 import { logger } from '@/server/observability';
+import { actingUserId, systemActor } from '@/server/auth/householdActor';
+import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
+import type { ScheduledHouseholdTransaction } from '@/server/repositories/scheduledTransactionRepository.types';
 
 class ScheduledTransactionService {
   public async processDueScheduledTransactions(date: Date) {
     const dueScheduledTransactions =
-      await scheduledTransactionRepository.getDueScheduledTransactions(date);
+      await crossHouseholdRepository.findDueScheduledTransactions(date);
     let failed = 0;
     let skipped = 0;
     for (const scheduled of dueScheduledTransactions) {
@@ -26,33 +30,26 @@ class ScheduledTransactionService {
         // Advanced before creation and rolled back on failure, so a crash
         // between the two skips one occurrence instead of duplicating it every
         // run.
-        const claimed = await scheduledTransactionRepository.claimDueRun(
-          scheduled.id,
-          scheduled.nextRunDate ?? null,
-          date,
+        const claimed = await scheduledTransactionRepository.claimDueRun({
+          householdId: scheduled.householdId,
+          id: scheduled.id,
+          readNextRunDate: scheduled.nextRunDate ?? null,
+          lastRunDate: date,
           nextRunDate,
-        );
+        });
         if (!claimed) {
           skipped += 1;
           continue;
         }
         try {
-          await transactionService.createTransaction({
-            description: scheduled.description,
-            value: scheduled.value,
-            categoryId: scheduled.categoryId,
-            type: scheduled.type,
-            date,
-            status: 'PENDING_APPROVAL',
-            scheduledTransactionId: scheduled.id,
-            userId: scheduled.userId,
-          });
+          await this.projectOccurrence(scheduled, date);
         } catch (err) {
-          await scheduledTransactionRepository.updateLastRunAndNextRun(
-            scheduled.id,
-            scheduled.lastRunDate ?? null,
-            scheduled.nextRunDate ?? date,
-          );
+          await scheduledTransactionRepository.updateLastRunAndNextRun({
+            householdId: scheduled.householdId,
+            id: scheduled.id,
+            lastRunDate: scheduled.lastRunDate ?? null,
+            nextRunDate: scheduled.nextRunDate ?? date,
+          });
           throw err;
         }
       } catch (err) {
@@ -61,7 +58,7 @@ class ScheduledTransactionService {
           {
             err,
             scheduledTransactionId: scheduled.id,
-            userId: scheduled.userId,
+            householdId: scheduled.householdId,
           },
           'Failed to process scheduled transaction',
         );
@@ -84,7 +81,10 @@ class ScheduledTransactionService {
     }
   }
 
-  public async createScheduledTransaction(data: CreateScheduledTransaction): Promise<string> {
+  public async createScheduledTransaction(
+    actor: HouseholdActor,
+    data: CreateScheduledTransaction,
+  ): Promise<string> {
     const nextRunDate = calculateNextRunDate(
       data.scheduleType,
       data.interval,
@@ -92,16 +92,21 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.createScheduledTransaction(data, nextRunDate);
+    return scheduledTransactionRepository.createScheduledTransaction({
+      householdId: actor.householdId,
+      userId: actingUserId(actor),
+      data,
+      nextRunDate,
+    });
   }
 
   public async updateScheduledTransaction(
+    actor: HouseholdActor,
     id: string,
     data: UpdateScheduledTransaction,
-    userId: string,
   ): Promise<string> {
     const oldScheduledTransaction =
-      await scheduledTransactionRepository.getScheduledTransactionById(id, userId);
+      await scheduledTransactionRepository.getScheduledTransactionById(actor.householdId, id);
     const nextRunDate = calculateNextRunDate(
       data.scheduleType,
       data.interval,
@@ -109,15 +114,38 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.updateScheduledTransaction(id, data, userId, nextRunDate);
+    return scheduledTransactionRepository.updateScheduledTransaction({
+      householdId: actor.householdId,
+      id,
+      data,
+      nextRunDate,
+    });
   }
 
-  public async listScheduledTransactions(userId: string): Promise<ScheduledTransactionDomain[]> {
-    return scheduledTransactionRepository.getAllScheduledTransactions(userId);
+  public async listScheduledTransactions(
+    householdId: HouseholdId,
+  ): Promise<ScheduledTransactionDomain[]> {
+    return scheduledTransactionRepository.getAllScheduledTransactions(householdId);
   }
 
-  public async deleteScheduledTransaction(id: string, userId: string): Promise<void> {
-    return scheduledTransactionRepository.deleteScheduledTransaction(id, userId);
+  public async deleteScheduledTransaction(actor: HouseholdActor, id: string): Promise<void> {
+    return scheduledTransactionRepository.deleteScheduledTransaction(actor.householdId, id);
+  }
+
+  // The occurrence lands in the schedule's own household, written by the cron.
+  private async projectOccurrence(scheduled: ScheduledHouseholdTransaction, date: Date) {
+    await transactionService.createTransaction(
+      systemActor({ householdId: scheduled.householdId, job: 'scheduled-transactions' }),
+      {
+        description: scheduled.description,
+        value: scheduled.value,
+        categoryId: scheduled.categoryId,
+        type: scheduled.type,
+        date,
+        status: 'PENDING_APPROVAL',
+        scheduledTransactionId: scheduled.id,
+      },
+    );
   }
 }
 

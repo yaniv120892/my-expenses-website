@@ -5,8 +5,8 @@ import { importService } from '@/server/services/importService';
 export const POST = createHandler({
   auth: 'session',
   paramsSchema: importIdParamsSchema,
-  handler: async ({ userId, params }) => {
-    await importService.rematchImport(params.importId, userId);
+  handler: async ({ actor, params }) => {
+    await importService.rematchImport(actor, params.importId);
     return { success: true };
   },
 });

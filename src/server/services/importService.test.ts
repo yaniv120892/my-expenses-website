@@ -24,7 +24,7 @@ const {
     transitionStatus: vi.fn(),
     create: vi.fn(),
     softDeleteOp: vi.fn(),
-    recordExtractionRequestId: vi.fn(),
+    recordExtractionRequestIdIfUnclaimed: vi.fn(),
     markFailedIfUnclaimed: vi.fn(),
   },
   importedTxRepo: {
@@ -432,7 +432,11 @@ describe('processImport', () => {
     // The callback may already have completed the import, so the status is not
     // re-stated.
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
-    expect(importRepo.recordExtractionRequestId).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1', 'req-9');
+    expect(importRepo.recordExtractionRequestIdIfUnclaimed).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      'req-9',
+    );
   });
 
   it('a rejected submit marks the import FAILED and rethrows', async () => {

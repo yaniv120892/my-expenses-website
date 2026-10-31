@@ -16,7 +16,7 @@ describe('importRepository extraction writes', () => {
   });
 
   it('records the request id only while no callback has claimed the import', async () => {
-    await importRepository.recordExtractionRequestId(HOUSEHOLD_ID, 'imp-1', 'req-9');
+    await importRepository.recordExtractionRequestIdIfUnclaimed(HOUSEHOLD_ID, 'imp-1', 'req-9');
 
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 'imp-1', householdId: HOUSEHOLD_ID, extractionCompletedAt: null },

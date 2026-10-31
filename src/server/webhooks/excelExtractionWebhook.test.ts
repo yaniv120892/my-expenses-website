@@ -32,6 +32,7 @@ const {
     deleteByImportIdOp: vi.fn(),
   },
   prismaMock: {
+    import: { delete: vi.fn() },
     $transaction: vi.fn(),
   },
   findPotentialMatchesForImport: vi.fn(),
@@ -290,6 +291,7 @@ describe('completed extraction', () => {
     ]);
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
     expect(importRepo.updateStatus).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1', 'COMPLETED');
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
   });
 
   it('writes metadata before looking for a duplicate', async () => {
@@ -479,6 +481,7 @@ describe('completed extraction', () => {
       { op: 'markRematching', householdId: HOUSEHOLD, id: 'imp-old' },
       { op: 'markMergedInto', householdId: HOUSEHOLD, id: 'imp-1', survivorImportId: 'imp-old' },
     ]);
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(HOUSEHOLD, 'imp-old');
     // The survivor is released only once the moved rows are matched.
     const matchOrder = firstInvocationOrder(findPotentialMatchesForImport);
@@ -679,6 +682,7 @@ describe('redelivered callbacks', () => {
     expect(response.status).toBe(200);
     expect(importedTxRepo.createMany).not.toHaveBeenCalled();
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
+    expect(prismaMock.import.delete).not.toHaveBeenCalled();
   });
 
   it('marks FAILED but keeps the claim when processing throws', async () => {

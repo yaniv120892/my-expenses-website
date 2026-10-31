@@ -206,7 +206,7 @@ class ImportService {
 
       // The signed callback may already have completed or merged the import, so
       // only the request id is recorded, and only while the import still waits.
-      await importRepository.recordExtractionRequestId(
+      await importRepository.recordExtractionRequestIdIfUnclaimed(
         householdId,
         importId,
         extractionResponse.requestId,

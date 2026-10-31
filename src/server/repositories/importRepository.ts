@@ -116,20 +116,20 @@ export class ImportRepository {
   /** The conditional update is what makes a redelivered webhook a no-op. */
   public async claimExtraction(householdId: HouseholdId, id: string): Promise<boolean> {
     const claimed = await prisma.import.updateMany({
-      where: { id, householdId, extractionCompletedAt: null },
+      where: this.unclaimedWhere(householdId, id),
       data: { extractionCompletedAt: new Date() },
     });
 
     return claimed.count > 0;
   }
 
-  public async recordExtractionRequestId(
+  public async recordExtractionRequestIdIfUnclaimed(
     householdId: HouseholdId,
     id: string,
     extractionRequestId: string,
   ): Promise<void> {
     await prisma.import.updateMany({
-      where: { id, householdId, extractionCompletedAt: null },
+      where: this.unclaimedWhere(householdId, id),
       data: { excelExtractionRequestId: extractionRequestId },
     });
   }
@@ -141,7 +141,7 @@ export class ImportRepository {
     error: string,
   ): Promise<void> {
     await prisma.import.updateMany({
-      where: { id, householdId, extractionCompletedAt: null },
+      where: this.unclaimedWhere(householdId, id),
       data: { status: ImportStatus.FAILED, error },
     });
   }
@@ -234,6 +234,10 @@ export class ImportRepository {
       where: { id, householdId },
       data,
     });
+  }
+
+  private unclaimedWhere(householdId: HouseholdId, id: string) {
+    return { id, householdId, extractionCompletedAt: null };
   }
 }
 

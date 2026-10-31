@@ -15,6 +15,12 @@ export type ImportWithPendingCount = Import & {
   mergedInto: { originalFileName: string } | null;
 };
 
+type ImportExtractionMetadata = {
+  creditCardLastFourDigits: string | null;
+  paymentMonth: string | null;
+  bankSourceType: ImportBankSourceType | null;
+};
+
 const listItemInclude = {
   _count: {
     select: {
@@ -115,6 +121,58 @@ export class ImportRepository {
     });
 
     return claimed.count > 0;
+  }
+
+  public async recordExtractionRequestId(
+    householdId: HouseholdId,
+    id: string,
+    extractionRequestId: string,
+  ): Promise<void> {
+    await prisma.import.updateMany({
+      where: { id, householdId, extractionCompletedAt: null },
+      data: { excelExtractionRequestId: extractionRequestId },
+    });
+  }
+
+  /** No-op once a callback has claimed the import, or if it merged away. */
+  public async markFailedIfUnclaimed(
+    householdId: HouseholdId,
+    id: string,
+    error: string,
+  ): Promise<void> {
+    await prisma.import.updateMany({
+      where: { id, householdId, extractionCompletedAt: null },
+      data: { status: ImportStatus.FAILED, error },
+    });
+  }
+
+  public async updateExtractionMetadata(
+    householdId: HouseholdId,
+    id: string,
+    metadata: ImportExtractionMetadata,
+  ): Promise<void> {
+    await prisma.import.update({
+      where: { id, householdId },
+      data: metadata,
+    });
+  }
+
+  public markRematchingOp(householdId: HouseholdId, id: string) {
+    return prisma.import.update({
+      where: { id, householdId },
+      data: { status: ImportStatus.REMATCHING },
+    });
+  }
+
+  public markMergedIntoOp(householdId: HouseholdId, id: string, survivorImportId: string) {
+    return prisma.import.update({
+      where: { id, householdId },
+      data: {
+        status: ImportStatus.MERGED,
+        mergedIntoImportId: survivorImportId,
+        completedAt: new Date(),
+      },
+    });
   }
 
   public softDeleteOp(householdId: HouseholdId, id: string) {

@@ -143,6 +143,24 @@ export class ImportedTransactionRepository {
     });
   }
 
+  public async clearPendingMatches(householdId: HouseholdId, importId: string): Promise<void> {
+    await prisma.importedTransaction.updateMany({
+      where: { importId, householdId, status: ImportedTransactionStatus.PENDING },
+      data: { matchingTransactionId: null },
+    });
+  }
+
+  public async setMatchingTransaction(
+    householdId: HouseholdId,
+    id: string,
+    matchingTransactionId: string,
+  ): Promise<void> {
+    await prisma.importedTransaction.update({
+      where: { id, householdId },
+      data: { matchingTransactionId },
+    });
+  }
+
   public async softDelete(householdId: HouseholdId, id: string): Promise<void> {
     await prisma.importedTransaction.update({
       where: { id, householdId },

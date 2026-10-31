@@ -1,12 +1,12 @@
 ---
 name: pr-review
-description: Use when asked to review one or more pull requests, given PR numbers or URLs to review, or asked whether a PR is safe to merge. Also use when a review must check that CLAUDE.md still matches the code.
+description: Use when asked to review one or more pull requests, given PR numbers or URLs to review, or asked whether a PR is safe to merge. Also use when a review must check that the repo docs (CLAUDE.md, DECISIONS.md and docs/) still match the code.
 ---
 
 # Pull Request Review
 
 Reviews a batch of pull requests. One subagent per PR, all in parallel. Every
-PR gets a code review, a rules check and a CLAUDE.md drift check. Findings
+PR gets a code review, a rules check and a docs drift check. Findings
 merge into one report, you approve once, everything posts.
 
 Canonical source: `plugins/pr-workflows/skills/pr-review/` in
@@ -74,7 +74,7 @@ Then:
 
 - **Rule violations** — a separate table. A style violation is not a bug, and
   mixing them buries the bugs.
-- **Docs alignment** — per PR: the `CLAUDE.md` section, the sentence the diff
+- **Docs alignment** — per PR: the doc and section, the sentence the diff
   contradicts, one line on what to update.
 - **CI** — per PR: which checks, which commit, green or not. Say plainly when you
   could not verify.

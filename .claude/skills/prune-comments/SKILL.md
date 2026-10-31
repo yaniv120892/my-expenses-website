@@ -55,11 +55,14 @@ For each comment, in order:
 - Comments describing behaviour that the code no longer has. These are the reason
   the rule exists; flag them loudly, since a stale comment is worse than none.
 
-**Docs are not comments.** `CLAUDE.md` is this repo's one design document and the
-right home for the context you are stripping out of code. When deleting a
-comment that carries real architectural reasoning — an invariant, a rule future
-work must follow — move it into the matching `CLAUDE.md` section rather than
-dropping it. Do not move the story of a change; git log holds that.
+**Docs are not comments.** This repo's design lives in `CLAUDE.md` (essentials
+and an index), `DECISIONS.md` and the topic docs under `docs/` — the maintained
+home for the context you are stripping out of code. When deleting a comment that
+carries real architectural reasoning — an invariant, a rule future work must
+follow — move it to the matching topic doc under `docs/`, or to a `DECISIONS.md`
+row when it records a decision, rather than dropping it. With no topic doc for
+it, use the README or `CLAUDE.md`. Do not move the story of a change; git log
+holds that.
 
 ## Applying
 

@@ -10,23 +10,9 @@ One sibling service stays external and is reached over HTTP: `excel-extraction-s
 
 ## Commands
 
-```bash
-npm run dev              # Next.js dev server with Turbopack (port 3000)
-npm run dev:local        # whole local stack in one command (see below)
-npm run build            # prisma generate && next build
-npm run typecheck        # tsc --noEmit
-npm run lint             # eslint .
-npm run format           # prettier --write .
-npm run format:check     # prettier --check .
-npm run db:migrate       # prisma migrate deploy (uses DIRECT_URL)
-npm test                 # vitest unit + type tests (*.test.{ts,tsx}, *.test-d.ts)
-npm run test:types       # vitest type tests only (src/**/*.test-d.ts)
-npm run test:e2e:api     # API/chat harness (see test/e2e-api/README.md)
-npm run test:e2e:ui      # Playwright specs in e2e/
-npm run statements:import -- <dir> [--dry-run] [--resubmit] [--base-url=<url>]   # bulk import + reconcile
-npm run statements:due -- [--sources=<json>] [--base-url=<url>]   # closed statements not yet imported, per card login
-npm run categories:compare -- [--samples=<json>] [--out=<json>] [--only=jev|llm] [--repeat=<n>]  # Jev vs LLM categorization benchmark
-```
+Scripts are in `package.json`. `npm run dev:local` is the supported way to run the app →
+[docs/local-development.md](docs/local-development.md), also for the statement and benchmark
+scripts' arguments.
 
 ESLint, Prettier, tsconfig and lint-staged come from the shared
 `@yaniv120892/dev-config` package (pinned by tag in `package.json`);
@@ -38,134 +24,75 @@ typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
 suites against a Postgres service container. Bump the tag in both places
 together.
 
-Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
-version updates are weekly, minors and patches grouped per ecosystem and each
-major on its own — a lockstep family's majors together — behind a release-age
-cooldown and an open-PR cap. Security updates come from Dependabot alerts as
-soon as an advisory lands, outside that schedule, cooldown and cap.
-`.github/workflows/dependabot-auto-merge.yml` queues a squash auto-merge on a
-Dependabot PR whose every dependency is a patch or minor
-(`scripts/dependabot/autoMergePolicy.ts`, read from the base branch), and only
-while the base branch's ruleset requires the `checks / Quality gate` and `e2e`
-checks; a major, a 0.x minor or 0.0.x patch, an unknown update type or previous version, or a mixed
-PR waits for a human, and a later push that fails the policy withdraws a queued
-auto-merge. Dependabot also raises `@yaniv120892/my-ui`'s release-tag
-bumps, and the policy judges them like any other dependency's — a patch of the
-shared design merges on green CI unreviewed.
+## Docs
 
-`npm run dev:local` (`scripts/dev-local.sh`) is the supported way to run the
-app: database, migrations, mock services, and the dev server, blocking until
-`/api/health/deep` is green. Its env block mirrors the `env:` block of CI's e2e
-job — change both together. It restarts `prisma dev` each run, because that
-server's pooler hands `migrate deploy` the previous run's session and it dies
-on an already-prepared statement.
+Short docs, one topic each. Load the one whose trigger matches your task.
 
-Presetting `DATABASE_URL` and `DIRECT_URL` (plus `REMOTE_DATABASE_OK=1` and
-`SESSION_USER_EMAIL`) runs the same stack over that database with no seed —
-how a statement backfill is rehearsed on a branch of production
-(`.claude/skills/collect-statements/SKILL.md`). The seed refuses any
-non-local `DIRECT_URL`, since it wipes every table.
+- [DECISIONS.md](DECISIONS.md) — the hard-to-reverse decisions and why. Load before reversing or
+  adding one.
+- [docs/api-routes.md](docs/api-routes.md) — `createHandler`, rate limits, `recordIdSchema`, the
+  special routes, proxy and headers. Load before adding or changing an API route.
+- [docs/auth-and-api-tokens.md](docs/auth-and-api-tokens.md) — sessions, `tokenVersion`, API-token
+  scopes. Load before changing sign-in, a route's `auth` or `apiTokenScope`.
+- [docs/households.md](docs/households.md) — household scoping, roles and the write guard. Load
+  before any repository or service query, a write route, a new model, or a cron.
+- [docs/household-membership.md](docs/household-membership.md) — invites, joining, leaving,
+  removal. Load before changing household membership or `/join`.
+- [docs/household-activity.md](docs/household-activity.md) — write attribution and the activity
+  log. Load before adding a write to household data or a system job that writes.
+- [docs/money-and-currency.md](docs/money-and-currency.md) — ILS `value`, original currency,
+  exchange rates, amount bounds. Load before touching an amount, a rate or a total.
+- [docs/import-matching.md](docs/import-matching.md) — matching, merge-vs-create, preview hints,
+  duplicate rows. Load before changing how an imported row is matched or approved.
+- [docs/import-lifecycle.md](docs/import-lifecycle.md) — import statuses, duplicate imports, the
+  extraction webhook, stuck and failed imports. Load before changing an import's status flow.
+- [docs/ai-categorization.md](docs/ai-categorization.md) — AI providers, category suggesters,
+  request limits, the assistant. Load before changing a model call or a prompt.
+- [docs/personal-agent-mcp.md](docs/personal-agent-mcp.md) — `/api/mcp` and its tools, agent
+  dates. Load before changing an MCP tool or the agent briefing.
+- [docs/uploads-and-storage.md](docs/uploads-and-storage.md) — the upload cap, S3 keys and
+  attachment deletion. Load before changing an upload or a delete path.
+- [docs/telegram.md](docs/telegram.md) — chat linking and the bot webhook. Load before changing
+  Telegram notifications or Settings → Telegram.
+- [docs/redis.md](docs/redis.md) — key namespacing across previews. Load before writing a Redis
+  key or cache.
+- [docs/database.md](docs/database.md) — Prisma client, connections, SSL, encryption at rest. Load
+  before a schema change, a migration, or database connection code.
+- [docs/observability.md](docs/observability.md) — log shipping, Sentry, product events,
+  heartbeats. Load before adding error reporting, a product event or a cron heartbeat.
+- [docs/deployment.md](docs/deployment.md) — Vercel, env vars, the site origin, region, crons.
+  Load before changing `vercel.json`, a cron or per-environment config.
+- [docs/ui.md](docs/ui.md) — shell, i18n, formatting, RTL, polling. Load before adding a page,
+  user-visible text or a formatted value.
+- [docs/testing.md](docs/testing.md) — Vitest environments, render helpers, the e2e suites. Load
+  before writing or fixing a test.
+- [docs/local-development.md](docs/local-development.md) — `dev:local`, running over another
+  database, script arguments. Load before running the app or a statement backfill.
+- [docs/dependency-updates.md](docs/dependency-updates.md) — Dependabot and the auto-merge
+  policy. Load before changing either, or judging a Dependabot PR.
+- [docs/claude-tooling.md](docs/claude-tooling.md) — plugins, vendored skills and rules. Load
+  before editing anything under `.claude/`.
 
-Vitest runs on `node`; a component or hook test opts into a DOM with a
-`// @vitest-environment jsdom` docblock and renders through
-`src/test/renderWithClient.tsx`, which supplies the shared theme and English
-messages (`DesignTestProvider locale="he"` renders Hebrew). Keep DOM-free logic
-in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
-(`server.deps.inline`), as is `@yaniv120892/observability`, and `src/test/setup.ts` stubs `next/navigation`, whose
-`useRouter` its `I18nProvider` calls.
-`*.test-d.ts` type assertions run inside `npm test`.
+`.claude/rules/` holds path-scoped rules that load when you open a matching file;
+`ui-components.md` is this repo's styling and mutation-outcome rule for `.tsx` files.
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login/signup/verify; `join/` redeems a
-  household invite; `(app)/` the 8
-  authenticated pages (dashboard, transactions, pending, scheduled,
-  subscriptions, imports, trends, settings) inside `ExpensesShell`, the
-  shared `AppShell` from `@yaniv120892/my-ui` (drawer on desktop; top bar and
-  a four-item bottom bar plus "More" on phones). Auth pages sit in its
-  `AuthCard`.
-- `src/app/api/**/route.ts` — all API endpoints. Most are built with
-  `createHandler` (`src/server/http/handler.ts`) which resolves auth
-  (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
-  validates dynamic route params as uuids by default through
-  `recordIdSchema` (a route with a non-uuid segment must declare its own
-  `paramsSchema`),
-  enforces per-route rate limits (`src/server/http/rateLimit.ts`; required
-  on `public` routes — declare rules or an explicit `'none'`),
-  maps errors to `{message}`/`{error, message, code}` (or a JSON-RPC error envelope
-  on a route declaring `errorFormat: 'json-rpc'`), and logs one pino line per
-  request. Every error it maps to a 5xx is also reported to Sentry and alerted
-  to the Telegram ops chat (README "Alerting (Telegram)"). Special routes: `/api/chat` (SSE streaming), `/api/mcp` (the personal
-  agent's MCP server; below), `/api/webhook`
-  (Telegram, secret-token header; the bot only sends, except that
-  `/start <code>` binds the chat it arrives from to the user who issued the
-  code — see the Telegram invariant below), `/api/excel-extraction-agent/webhook`
-  (HMAC in query params over `userId:timestamp:importId`, so a callback is
-  bound to the import it was submitted for),
-  `/api/imports/[importId]/reconciliation-preview` (GET; what approving the
-  import would do, writing nothing, each row with a `reviewHint` naming a
-  close call and a `cardHoldingFee` flag marking the issuer's monthly charge
-  for holding the card — recognized from the description alone by
-  `src/shared/cardFees.ts`, with no model call and no extra query. It is its
-  own field rather than a hint reason because it never bears on the
-  MERGE/CREATE decision), `/api/imports/[importId]` (GET; one
-  import with its pending count and, when merged, the import it merged into),
-  `/api/auth/*` (cookie handling), `/api/health` (liveness only — touches no
-  dependency, so Neon can scale to zero) and `/api/health/deep` (polled at
-  most hourly; each instance reuses its last outcome, failures included, for
-  60s and runs one check for concurrent misses, so a caller polling it
-  reaches the database at most once a minute per instance).
-- `src/server/` — backend logic: `services/` (business logic; singletons),
-  `repositories/` (Prisma),
-  `services/assistant/` (Mastra agent, tools, PG-backed memory, and
-  `financeQueries.ts`, the read-side figures both assistants share),
-  `mcp/` (the MCP server behind `/api/mcp`),
-  `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
+- `src/app/` — App Router. `(auth)/` login/signup/verify; `join/` redeems a household invite;
+  `(app)/` the authenticated pages inside `ExpensesShell`.
+- `src/app/api/**/route.ts` — all API endpoints, most built with `createHandler`
+  (`src/server/http/handler.ts`).
+- `src/server/` — backend logic: `services/` (business logic; singletons), `repositories/`
+  (Prisma), `services/assistant/` (Mastra agent, tools, PG-backed memory, and
+  `financeQueries.ts`, the read-side figures both assistants share), `mcp/` (the MCP server
+  behind `/api/mcp`), `auth/` (jose JWT + Upstash Redis sessions + httpOnly cookie),
   `integrations` live inside services as `lazy()` fields.
-- `src/shared/` — code both routes and client import: zod request schemas
-  (`schemas/`, with inferred types), domain types (`types/`), and cross-cutting
-  constants and pure helpers (`dates.ts`, `csv.ts`, `periodBuckets.ts`).
-  `uploadLimits.ts` is the one file-size cap (4 MB, under a function's ~4.5 MB
-  request body) that every upload path checks, client before any bytes move
-  and server with a 413; an attachment's declared size is signed into its
-  presigned upload URL, so the store holds the bytes to it.
-- `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories),
-  `src/services/` (thin axios client, SSE chat client), `src/utils/` (pure
-  helpers — components and hooks import from here, never the reverse),
-  `src/test/` (test-only render helpers), `src/config/appUrls.ts` (the sibling
-  apps the drawer links to).
-- **Design and language** come from `@yaniv120892/my-ui`, shared with My
-  Investments and My Shopping: the root layout reads the locale with
-  `getLocale()` (a `locale` cookie, then `Accept-Language`, default Hebrew),
-  sets `<html lang dir>`, and renders `DesignProvider` (theme, RTL emotion
-  cache, i18n). Every user-visible string is a key in
-  `src/i18n/messages/<area>.ts` — English the source, Hebrew beside it, merged
-  in `src/i18n/messages/index.ts`, held equal by `messages.test.ts` — read with
-  `useT()`. Numbers, money and dates go through `useAppFormat()`
-  (`src/i18n/useAppFormat.ts`, built on the package's `useFormat`, which
-  caches each Intl formatter per locale and options and formats dates in one
-  shared time zone); a pure
-  helper that builds UI text takes `t` and the formatter as arguments. Data
-  (descriptions, categories, announcements, assistant replies) and text sent to
-  Telegram, email or agents is not translated; the server formatters in
-  `src/utils/format.ts` are for those. Layout is written for LTR and the RTL
-  plugin flips physical sides. What it cannot flip is mirrored from the
-  locale's direction: an icon pointing along the reading direction takes
-  `MIRROR_IN_RTL_SX` (`src/components/rtlStyles.ts`), and a chart sets its
-  axes from `useI18n().direction` (`src/components/trends/trendFilters.ts`).
-  Dashboard AI
-  insights are generated in the request's locale and cached per locale.
-- Server state that changes without the client acting — extraction webhooks
-  and a Telegram chat being linked — is observed by polling: `useImportsQuery`
-  sets a `refetchInterval` while any import is in flight and `false` otherwise
-  (see `src/utils/importStatus.ts`), overriding the global 60s `staleTime`;
-  `useUserSettingsQuery` does the same while a link code is out.
-- `src/proxy.ts` — page-level auth (verifies the `session` cookie JWT,
-  redirects), plus an Origin check on non-GET `/api/*`.
-- `next.config.ts` — security response headers on every route via `headers()`
-  (`frame-ancestors 'none'` + `X-Frame-Options`, nosniff, referrer,
-  permissions) and `poweredByHeader: false`; not the proxy, whose matcher
-  skips static assets.
+- `src/shared/` — code both routes and client import: zod request schemas (`schemas/`, with
+  inferred types), domain types (`types/`), and cross-cutting constants and pure helpers
+  (`dates.ts`, `csv.ts`, `periodBuckets.ts`).
+- `src/components/`, `src/hooks/` (TanStack Query v5, query-key factories), `src/services/` (thin
+  axios client, SSE chat client), `src/utils/` (pure helpers — components and hooks import from
+  here, never the reverse), `src/test/` (test-only render helpers).
 
 ## Key invariants
 
@@ -175,525 +102,39 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `src/server/lib/lazy.ts` and reads env inside the factory — `requireEnv`, or
   `optionalEnv` where unset means the feature is off. A missing env var fails
   the call, never the import.
-- **Every model call made per transaction row is bounded.** The OpenAI and
-  Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their
-  timeout (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
-  (`src/server/services/ai/requestLimits.ts`), never an SDK default, because
-  those calls run one row at a time inside a batch request. A timeout is an ordinary provider failure that fails its row; the limit is per
-  call, so a batch against a degraded provider can still outrun the function.
-  The assistant's Mastra model is a separate streaming client and is not bound
-  by these limits.
-- **Only the category decision may leave the `AI_PROVIDER` model.**
-  `AIServiceFactory.getCategorySuggester()` is the one place that decides,
-  on `AI_CATEGORY_SUGGESTER`; the prose-producing methods have no such flag.
-  Every suggester offers exactly the option list
-  `src/server/services/ai/prompts.ts` builds and ends in its
-  `buildCategoryEvaluation`, so the flag changes the model and never the
-  question or the record.
-- **Import matching**: an imported row is paired with an existing transaction
-  by `transactionRepository.findPotentialMatches` — ±5 days, and a _relative_
-  value tolerance of `max(2, 1%)` (`matchValueTolerance`) — a card dates a row
-  by settlement, not purchase, and a flat tolerance does not scale. Among the candidates a single normalized-equal
-  description wins outright (`findExactNormalizedMatch`,
-  `src/server/utils/transactionMatching.ts`) and never reaches the model; a tie
-  or no exact hit does. That short-circuit keeps a multi-month backfill
-  affordable. A recurring charge whose amount drifts is declared on its
-  schedule as a `bankDescriptionPrefix`; each pending transaction the cron
-  projects links back to its schedule (`scheduledTransactionId`), so the
-  prefix is read through that link and an edit reaches rows already projected.
-  While such a transaction is pending it is a candidate at any value — date
-  window and direction still apply — but only for a row whose normalized
-  description starts with the prefix. The model judges the row's other
-  candidates first and never sees a placeholder, whose projected value means
-  nothing; the placeholder takes the row only when none of them does (the
-  longest prefix, then the nearest date), so a charge already logged by hand is
-  not doubled. Such a merge is not flagged `unrelated-merge`.
-  `matchCandidateFilter` (`src/server/utils/transactionMatching.ts`) is the one
-  predicate the matcher and the preview hints share.
-- **One function decides merge-vs-create.**
-  `importService.toReconciliationPlanItem` derives every server path's
-  MERGE/CREATE (preview, `batchApproveImportedTransactions`,
-  `applyAutoApproveRules`); `ImportedTransactionList` keeps its own client view.
-  Commits take row ids, not a plan, so `scripts/import-statements.ts` approves
-  the rows it previewed. Applying goes through `applyCreate`/`applyMerge` on the
-  row `loadPendingSelection` loaded — never a loop over the public
-  `approveImportedTransaction`/`mergeImportedTransaction` — and they return what
-  to notify so the batch calls `notifyTransactionsCreatedSafe` once. A merge acts
-  on the match as loaded, so a concurrent rematch is not seen. Approve, merge
-  and ignore act only on a PENDING, non-deleted row (409 otherwise, 404 once
-  deleted), and the write itself is scoped to PENDING, so of two concurrent
-  submits one wins and the other gets 409 — in a batch, only that row fails.
-- **A preview flags close calls without deciding them.** Each preview item
-  carries a `reviewHint` derived after `toReconciliationPlanItem` has fixed the
-  action, from database lookups only and never a model call:
-  `unmatched-candidate` when a CREATE row still has an unclaimed transaction
-  inside its match window (fetched for every CREATE row in one query), and
-  `unrelated-merge` when a MERGE's two descriptions share no normalized word.
-  The window is `matchWindow` (`src/server/utils/transactionMatching.ts`), the
-  same bounds `findPotentialMatches` queries by. Neither hint changes what the
-  commit does;
-  `scripts/import-statements.ts` prints flagged rows as `CREATE?`/`MERGE?`
-  with the other side's description.
-- **Money: `value` is always ILS; the original currency rides beside it.**
-  Every report, chart, chat figure and summary sums `Transaction.value`, which
-  is the amount in the reporting currency (`BASE_CURRENCY`, ILS, in
-  `src/shared/currency.ts`), so no total ever adds two currencies. Each row also
-  stores `currency` (ISO 4217) and `originalAmount` (`NUMERIC(14,2)`); a
-  non-ILS row carries `exchangeRate` (`NUMERIC(18,8)`), `exchangeRateDate` and
-  `exchangeRateSource`, and a CHECK constraint holds those three set exactly
-  when the currency is foreign. Conversion arithmetic goes through
-  `src/server/utils/money.ts` (decimal.js, rounded once, half away from zero);
-  decimals are written as strings via `src/server/repositories/amountColumns.ts`.
-  `currencyConversionService.resolveAmount` decides a create or edit: a rate
-  the caller gives, else an ILS amount the caller gives (`MANUAL`), else the
-  Bank of Israel representative rate for the transaction date
-  (`exchangeRateService`, 5s timeout, cached in Redis for a day — an hour when
-  today's rate is not out yet and an earlier day's stands in), else a 422 —
-  never 1:1. An edit that leaves currency, original amount and day alone keeps
-  its conversion. A payload with only `value` is ILS, as before currencies.
-  Rows predating the feature were backfilled as ILS by migration
-  `20261008000000_transaction_currency`. Scheduled transactions are ILS-only.
-  Every amount a request carries is between `MINIMUM_AMOUNT` (a cent, the
-  smallest the column stores) and `MAXIMUM_AMOUNT`; the transaction type
-  carries the direction. REST schemas build on
-  `src/shared/schemas/amount.ts`, which refuses a blank or non-numeric field
-  rather than coercing it, and the MCP tools take the same bounds.
-- **An imported row's billed ILS is its conversion.** The extraction service
-  reports each row's `originalAmount`/`originalCurrency` and
-  `chargedAmount`/`chargedCurrency` (additive to `value`), and
-  `importedAmountService.resolveExtractedAmounts` stores a billed ILS amount as
-  the conversion (`STATEMENT`) without converting it again; only an unbilled
-  foreign amount is converted, one rate lookup per currency and day. An amount
-  with no currency named is the statement's own (ILS), as an instalment's full
-  price beside its payment is. With no rate, or a row the service marks
-  `currencyAmbiguous` (as is one whose currency code is not ISO 4217 — never
-  read as ILS), `ImportedTransaction.value` is null (and `currency` null when
-  unknown); the UI flags it and approve and batch fail that row with a 422
-  until an ILS amount is entered. A merge into a transaction holding the same
-  currency and original amount takes that transaction's conversion instead.
-  Matching and duplicate detection compare currency and original amount as
-  well as `value`, so a foreign charge matches a hand-logged entry converted
-  at another rate.
-- **Duplicate import rows are matched up to a shortened merchant name.**
-  `isSameCharge` (`src/server/utils/transactionMatching.ts`) requires equal date,
-  value, currency, original amount and type, and the shorter normalized
-  description to be whole words from either end of the longer one (the
-  extractor drops a trailing branch, mall or
-  city, and sometimes a leading "refund"), or a leading prefix past half the
-  longer one when the cut lands mid-word. A side under three characters never
-  matches. `selectNonDuplicateRows` claims each existing row at most once, so a
-  genuinely repeated charge still imports.
-- **A duplicate import is kept as a pointer, and its survivor is held until
-  the moved rows are matched.** When the extraction webhook finds a COMPLETED
-  import for the same card and month — the oldest, whichever upload came
-  first, since the one being processed is not yet COMPLETED and two callbacks
-  therefore never merge into each other — one transaction moves the
-  non-duplicate rows there, puts the survivor in `REMATCHING`, and marks the
-  duplicate `MERGED` with `mergedIntoImportId`; the survivor returns to
-  `COMPLETED` only after `findPotentialMatchesForImport` has run over it. So
-  `COMPLETED` means "no matching is running", the web UI and
-  `scripts/import-statements.ts` both wait on that status rather than racing
-  it, and the script follows the recorded pointer (`GET /api/imports/[id]`)
-  instead of reconstructing the survivor from the filename. A `MERGED` import
-  holds no rows and never becomes a merge target (`findExisting` requires
-  `COMPLETED`). Every exit from `REMATCHING`, success or failure, is back to
-  `COMPLETED`, written only while the status is still `REMATCHING`
-  (`importRepository.transitionStatus`), and a release that fails is tried
-  once more and reported; only a function killed mid-run, or a release that
-  fails twice, leaves an import there. A re-match (`rematchImport`) enters it the same way
-  from `COMPLETED`, so of two concurrent calls one gets 409, and reads its rows
-  only after; a failed one leaves the rows it had not reached unmatched for a
-  retry. A webhook that fails after its merge committed releases the survivor
-  its `MERGED` import points to. The submitted payment month wins over the one
-  extraction reports, since card + month is the duplicate key. That key is
-  compared as stored, so every write stores the month as `MM/YYYY` through
-  `normalizePaymentMonth` (`src/shared/paymentMonth.ts`): an upload with any other
-  month is a 400 (the upload form checks first, before any bytes move), and the
-  webhook reads both the submitted and the extracted month through it, ignoring
-  one that names no month. A FAILED import keeps its
-  extraction claim, since a redelivery after a partial write would insert every
-  row again, so recovery is delete and re-import. An extraction callback's
-  token lives `WEBHOOK_TOKEN_EXPIRY_MS` (6 hours, `src/server/utils/webhookAuth.ts`),
-  so an import still `PROCESSING` that long after it was created can never
-  complete; the `/api/imports/fail-stuck` cron fails it, claiming the
-  extraction as it does, and the user deletes and re-imports. It skips an
-  import a callback claimed within the last 15 minutes, longer than any
-  function runs, so a callback mid-write finishes. Deleting an import deletes
-  its rows with it, so none can still be approved or hold a match a re-import
-  needs.
-- **An attachment's S3 object goes with its row.** Removing an attachment
-  marks its `TransactionFile` `MARKED_FOR_DELETION`, then `DELETED` once the
-  object is gone; deleting a transaction returns the keys its cascade dropped,
-  read by the delete itself. `transactionService` deletes each object only after
-  the database write, keeps one another `ACTIVE` row still names, and bounds the
-  call at 5s. Storage is best effort: a failure logs a warning carrying the key,
-  so the orphan can be found and removed, is reported via
-  `observability.reportError` with no key or file name (a storage error can
-  quote one), never fails the request, and leaves a removed row
-  `MARKED_FOR_DELETION`. Only
-  `transactionService` knows the keys, so a path that deletes transactions or
-  files goes through it, and a database-level delete it does not drive orphans
-  their objects.
-- **An S3 key never holds the user's file name.** Import and attachment keys
-  are a random id plus the lowercased extension
-  (`src/server/utils/storageObjectName.ts`), since a key is logged and travels
-  in URLs; the name lives in `Import.originalFileName` and
-  `TransactionFile.fileName`, and the extraction service gets it as
-  `filename`. Attachments uploaded before keep their name-bearing keys, which
-  validation, preview, download and delete still accept; import objects are
-  never deleted, and an old import URL still passes the bucket-prefix check.
-- **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
-  `session:<userId>:<token>` must exist (logout deletes it), and the JWT's
-  `tokenVersion` must equal the user's (a token signed before versions is 0),
-  so bumping `User.tokenVersion` refuses every session's API calls at once.
-  The proxy and `pageViewLayout` check only the signature, so a revoked
-  session still loads a page shell whose data calls fail, and API tokens are
-  revoked on their own. API routes also
-  accept `Authorization: Bearer` (scripts/e2e). Cron routes require
-  `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
-  An **API token** (`mxk_…`, created and revoked in Settings, one year, only
-  its SHA-256 stored in `ApiToken`) is a bearer for scripts, carrying a list of
-  scopes (`ApiTokenScope`). It is read from the `Authorization` header only,
-  never the cookie, and ends in an HMAC keyed by `JWT_SECRET`, so a forged one
-  is refused before any database lookup — rotating that secret revokes every
-  token along with every session. A request made with a token logs its
-  `apiTokenId`. A route opts in by declaring the one scope it
-  needs, `apiTokenScope: 'IMPORTS'` on an `auth: 'session'` route; a token
-  without that scope gets 403, and every `auth: 'session'` route that declares
-  none answers 401 `API_TOKEN_NOT_ACCEPTED` — `/api/api-tokens` included, so a token cannot
-  mint another. Which handler needs which scope is pinned in
-  `src/app/api/apiTokenScope.test.ts`; a new scope is a new enum value plus
-  the routes it opens. A scope names a whole capability, not a read/write
-  half: `IMPORTS` drives the import workflow end to end (list, upload,
-  preview, approve). A session cookie on the same request wins. An
-  `auth: 'apiToken'` route takes only an API token — a cookie or session JWT
-  is refused with 401 `API_TOKEN_REQUIRED` — and must declare its scope.
-- **Households own the data; a member acts in one.** Every user belongs to
-  exactly one `Household` (`User.householdId`) with a `householdRole`
-  (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
-  role has no default, so a member written without one fails rather than
-  becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does, and
-  `row_inherit_household` fills an owned row's `householdId` from its `userId`
-  for code predating scoping; both go once no such deployment can serve. A
-  session or API-token route's handler receives `actor` (`MemberActor`,
-  `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
-  token), which `resolveAuth` loads from the user's row on every request —
-  never from the JWT — so a role change or removal applies at once; an API
-  token follows its user into their current household. `HouseholdId` is a
-  branded string made only by `toHouseholdId`, so a user id cannot stand in
-  for one unconverted. The one write guard is
-  `assertCanWrite` (`src/server/auth/householdActor.ts`): `createHandler` calls
-  it before any non-GET member handler, ahead of body parsing and rate
-  limits, unless the route declares
-  `writes: 'ownAccount'` (it changes only the caller's own settings, tokens or
-  chat) or `'perOperation'` (the MCP endpoint, where `registerSafeTool` calls
-  it for every tool not annotated `readOnlyHint`). Which handlers declare
-  either is pinned in `src/app/api/householdWrites.test.ts`. A viewer is
-  refused with 403; the client hides write controls from one through
-  `useCanWrite` (`src/hooks/useSession.ts`, the role from `/api/auth/me`),
-  which only spares a click.
-- **A member joins a household only by redeeming an invite, and nothing is
-  merged.** The owner issues invites under Settings → Share household
-  (`/api/household/*`, `householdService`, checks in
-  `src/server/services/validators/inviteValidator.ts`): an 8-character code
-  from an unambiguous alphabet, single use, 14 days, granting `EDITOR` (the
-  default) or `VIEWER` — never `OWNER`, so a household keeps exactly one and
-  ownership is not transferable. Every code that cannot be redeemed — unknown,
-  used, revoked, expired — gets the same 404. Every household refusal is a
-  `HouseholdRefusal` (`src/server/services/householdRefusal.ts`) carrying a
-  `code` from `HOUSEHOLD_ERROR_CODES` (`src/shared/types/household.ts`);
-  `createHandler` sends any `HttpError`'s code beside its message
-  (`{error, message, code}`), and the client localizes by the code. `/join?code=` (outside both
-  route groups) previews and confirms; signed out, the proxy sends it to
-  `/login?next=`, and login, signup and verify follow only a same-site
-  `next` (`src/shared/nextPath.ts`). Joining moves the member and drops the household they
-  leave, which is allowed only while it holds no other member and no live row
-  (`hasAnythingAJoinWouldOrphan`; a soft-deleted import or imported row does
-  not count); one transaction claims the invite (guarded on it still being
-  open), hard-deletes those soft-deleted rows, and deletes that household,
-  whose restricting foreign keys fail the move if it gained anything
-  meanwhile. The owner cannot leave or change their own membership; a member
-  who leaves, or is removed, gets a fresh empty household as its owner and, in
-  the same transaction, loses every API token, since a token follows its user
-  into whatever household they are in; removal also bumps their
-  `tokenVersion`, ending every session. Invite routes take no API token.
-  `e2e/household.spec.ts` drives the whole flow in a browser with the seed's
-  data-free `hh-*` users (`test/e2e-api/householdUsers.ts`), which no other
-  spec may use.
-- **Every household write is attributed; nothing is restricted by it.** The
-  seven data models carry `createdById`/`updatedById` (null for system writes
-  and for rows older than the columns, whose creator was backfilled from
-  `userId`), stamped by the `attributionStamp` Prisma extension
-  (`src/server/db/attribution.ts`) from the actor in
-  `src/server/db/actorContext.ts`, which `createHandler` sets for every member
-  request, so no write path can skip it; the extraction callback, which
-  carries no member, credits its rows to the import's uploader. A system job marks the rows it
-  creates `createdBySystem` and leaves a row it updates alone. Transactions
-  show "Added by / Edited by", or "Added automatically", in the list, the
-  Pending list and the edit dialog. Each member-visible change is
-  also appended to `HouseholdActivity` (actor user, API token when the write
-  came through one, or the system job; action, entity) through the
-  one helper `householdActivityService.record({ actor, write, describe })`:
-  `write` runs in an interactive transaction that every repository call made
-  inside it joins — the default `prisma` export resolves to that transaction
-  while one is open, and a repository's own `$transaction` nests in it — so a
-  change and its record commit together. Only database work goes inside
-  `write`: model calls, storage and notifications stay outside, since the
-  transaction holds the instance's one connection. Membership events (invite
-  created or revoked, joined, left, removed, role changed, and each API token
-  a leave or removal revokes, each worded for which it was) are recorded the
-  same way. A delete or role change that changes nothing records nothing, and
-  subscription detection records only the subscriptions a run creates, so a
-  re-run adds no entry. An entry stores only the entity's own
-  words (`summary`: a description, file name, member or token name) and a
-  `role`; Settings → Activity (`/settings/activity`,
-  `GET /api/household/activity`) words the sentence in the reader's language
-  (`src/utils/householdActivityText.ts`) and pages it newest first. It is the
-  only trace of a delete.
-- **Every household-owned row is read and written by `householdId`.** The
-  models whose `IS_HOUSEHOLD_OWNED` entry is true
-  (`src/server/db/householdScope.ts`) carry a required `householdId`, and
-  their uniques and indexes lead with it. Repositories take the `HouseholdId`
-  as their first argument; services take it for reads and the actor
-  (`HouseholdActor`, member or system) for writes. `userId` on those rows only
-  records which member wrote it — null for a cron's write (`systemActor`) or
-  once the member is deleted — and never scopes a query. The default `prisma`
-  client enforces this at runtime: a query on one of those models whose
-  `where` (directly, in a compound unique key, or in an `AND`) does not name
-  one household as a plain value, or a create without one, throws
-  `UnscopedHouseholdQueryError`. It checks only the queried model's own
-  arguments, so owned rows are reached through their own model, never a
-  nested relation read or write or raw SQL. `systemPrisma` skips the check,
-  for the jobs that work across households (the cron sweeps, the extraction
-  callback finding its import), and only `crossHouseholdRepository` imports
-  it; that, and that the owned-model list matches every schema model with a
-  `householdId` column, are pinned in `src/server/db/householdScope.test.ts`. The assistant reads the household
-  from its request context (`HOUSEHOLD_ID_CONTEXT_KEY`), while its chat thread
-  stays per member. Crons run per household (subscription detection, backup)
-  or per opted-in member over their own household (daily summary, monthly
-  report, subscription audit); a new transaction is announced to every member
-  who opted in. `test/e2e-api/run.ts`'s household leak guard aims every
-  household route at another household's ids and checks each answers as if
-  the row did not exist and leaves that household's rows unchanged.
-- **The personal agent reaches the app only through `/api/mcp`.** It is an
-  `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
-  issues, and answers every refusal as a JSON-RPC error rather than a redirect
-  or `{error}` body, so an MCP client can read it. The server is stateless
-  (`src/server/mcp/handleMcpRequest.ts`): each POST builds one
-  `createMcpServer(actor)`, answers one message and closes; a JSON-RPC
-  batch is a 400 (`-32600`), since the rate limit counts requests; GET and
-  DELETE are 405. The actor — and so the household — is captured in every
-  tool's closure, so no tool takes one. Tools are adapters over existing services — reads through
-  `financeQueryService` (the same code the Mastra tools call) and the
-  transaction/schedule services, writes through `transactionService`, whose
-  amounts go through `currencyConversionService` like any other create or
-  edit. Every tool is registered through `registerSafeTool`
-  (`src/server/mcp/safeTool.ts`), so a tool never throws: a 4xx comes back as
-  an `isError` result with its message, anything else is reported via
-  `observability.reportError` and returned neutrally, and each call logs one
-  `MCP tool call` line with its outcome (and, on a write, the transaction id).
-  Every date an agent sends must be a real calendar day; an undated
-  `add_transaction` — like any undated create
-  (`transactionService.prepareCreateTransaction`) — takes the current Israel
-  wall-clock time, stored as the form stores it (`toAppWallClock`,
-  `src/shared/dates.ts`). A day either
-  assistant prints from a stored transaction date reads its UTC fields
-  (`toUtcDayString`), so it is right on a host off UTC; a schedule's
-  `nextRunDate` is local midnight and stays on `toDayString`. The settings briefing names the tools from
-  `src/shared/agentTools.ts`, which `src/server/mcp/mcpTools.test.ts` holds
-  equal to the registered set.
-- **Redis keys**: every key written through `src/server/redis.ts` is namespaced
-  by `redisKeyPrefix(scope)`, because previews share production's one Upstash
-  database. Only production is bare; everything else, an unconfigured local
-  process included, is namespaced. Preview caches key on the commit
-  (`preview:<sha>:`) so a fix is never served a buggy commit's value; sessions
-  and login and Telegram link codes pass `'branch'` (`preview:<branch>:`) to
-  survive pushes.
-  Superseded namespaces expire by TTL, except a counter killed between
-  INCR and EXPIRE, which has none.
-- **A Telegram chat is linked only by the bot hearing from it.** No request
-  names a chat id: the settings PUT schema has no provider field (an older
-  client's `provider.telegramChatId` is stripped), GET reports only
-  `telegramLinked`, and the test send goes to the linked chat. Settings →
-  Telegram asks `POST /api/user/settings/telegram-link` for a random code
-  (Redis `telegramLinkCode:<code>` → user id, 10 minutes) and shows
-  `/start <code>`, plus a `t.me` deep link when `TELEGRAM_BOT_USERNAME` is set.
-  The webhook takes the code with one GETDEL (`takeValue`), so it binds at most
-  once, writes `{ chatId }` to the user's `UserNotificationProvider` through
-  `userRepository.setTelegramChat` — its one writer — and replies in the chat;
-  an unknown, expired or used code binds nothing and gets the same neutral
-  reply. `DELETE` on the same route unlinks.
-- **Prisma**: schema + migrations in `prisma/`; the schema names no URL —
-  `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
-  `prisma generate` writes the client to `src/generated/prisma` (gitignored;
-  server code imports `@/generated/prisma/client`, code a browser can reach only
-  `@/generated/prisma/enums`). The app client is that client with three
-  extensions, `src/server/db/cardDigitsEncryption.ts`, the attribution stamp
-  and the household scope guard (`systemPrisma` has the first two), connected through
-  `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
-  every statement is unnamed and safe in a pooler's reused sessions. Every URL
-  handed to `pg` goes through `withVerifyFullSslMode` (`src/server/db/sslMode.ts`),
-  which pins `sslmode=require` (and `prefer`, `verify-ca`) to `verify-full`, as
-  pg 8 already treats them, unless `uselibpqcompat=true`; the env vars stay as the Prisma
-  CLI reads them. On Vercel `DATABASE_URL` is Neon's
-  pooled endpoint; `DIRECT_URL` is the direct endpoint, used by migrations, the
-  seed, and Mastra's memory store. Both are scoped per environment, since
-  `vercel-build` runs `prisma migrate deploy` against `DIRECT_URL`. CI's e2e job
-  runs on a Postgres service container; `dev:local` runs on `prisma dev`'s plain
-  TCP address, which multiplexes every client onto one backend session, so
-  Mastra's statements can interleave with the app's there
-  (`bind message supplies N parameters`); a real Postgres never does that.
-- **Encryption at rest**: `Import.creditCardLastFourDigits` is the one
-  encrypted column. `cardDigitsEncryption` encrypts it with
-  `PRISMA_FIELD_ENCRYPTION_KEY` (cloak's `v1.aesgcm256` format) on every Import
-  write that takes data, refusing anything but a plain string, and decrypts it
-  as a computed result field, so every Import a query returns carries the
-  digits. Each write gets a random IV, so the column cannot be filtered on —
-  `importRepository.findExisting` matches it in memory. A new encrypted column
-  goes through the same extension.
-- **Styling**: MUI `sx` + theme tokens only — no inline `style=`, no CSS
-  custom properties, no global utility classes, no hardcoded hex in
-  components (colours read `(theme.vars ?? theme).palette`, so dark mode resolves; charts use `.charts`: `positive` for money in, `negative` for money out).
-- **Observability** comes from the shared `@yaniv120892/observability`
-  package, wired once in `src/server/observability.ts` (`logger`,
-  `observability`); its README is the reference for shipping, Sentry, heartbeats
-  and alerts. Only app wiring lives here: the Redis `alertCounter`, the health
-  probes, and the call sites.
-- **Logging**: `logger` from `@/server/observability`, metadata object first:
-  `logger.info({ userId }, 'msg')`; errors under the `err` key. `level` is a
-  label (`"warn"`) and every record carries `service`. Outside development
-  warn and above ship to Better Stack, plus any record marked `ship: true` —
-  how a healthy cron's request line gets out; `createHandler` also flushes
-  before a cron's heartbeat ping. Unset `BETTERSTACK_SOURCE_URL`/`_TOKEN` turns
-  shipping off. README "Log shipping".
-- **Error tracking**: Sentry, inert unless `NEXT_PUBLIC_SENTRY_DSN` is set;
-  errors only, no tracing or replay, and no identifying request data — its
-  `dataCollection` sends no cookies, bodies, stack-frame locals, IP or
-  forwarding headers, or user identity, which the SDK otherwise collects by
-  default. Outgoing request breadcrumbs keep only the URL's origin, method,
-  status and body sizes, so an S3 call's key (an older one ends with the file
-  name) never reaches Sentry, and no URL keeps its query string;
-  `src/instrumentation.test.ts` pins this for the server init. The package's `initSentry` holds the single `Sentry.init`, run by
-  `src/instrumentation.ts` (Node, edge) and `src/instrumentation-client.ts`
-  (browser). `createHandler` reports every 5xx it turns an error into;
-  `onRequestError` covers what escapes a route; React boundaries report via
-  `src/components/ErrorFallback.tsx`, skipping errors with a `digest`. A path
-  that catches an error and returns a fallback calls
-  `observability.reportError({ error, where, context })`, not `logger.error`,
-  so the error outlives Better Stack's retention; Sentry gets the `context` as
-  `extra` and its short values as tags beside `where`, so the ids a call site
-  passes are searchable there. Only ids and fixed labels go in `context` —
-  never a file name, an attachment key (an older one ends with one), an email or free
-  text; what a human needs beyond the ids goes in a separate `logger` line.
-  `reportError` sets no Sentry user, so `createHandler` and the chat stream
-  keep their own `Sentry.captureException`, which attaches the user id.
-- **Product events** go to PostHog through `captureProductEvent`
-  (`src/server/productEvents.ts`), server-side only, after the action has
-  succeeded; the package sends them once the response is out and never throws,
-  and `POSTHOG_PROJECT_KEY` unset turns them off. The catalog is the
-  `ProductEvent` union (`productEvents.types.ts`); a new event is a new member.
-  The user is the internal user id, and a property is a fixed label, never an
-  email, name, amount, merchant or description. A transaction write carries
-  `channel`: `web` from the REST routes, `agent` from the MCP tools. A page view
-  is recorded by the page's own `layout.tsx`, built by `pageViewLayout`
-  (`src/server/pageViews.ts`), so a search-param change is not another view; it
-  checks only the JWT signature, as the proxy does.
-- **Who reports a mutation's outcome is per component, not per prop name.**
-  `TransactionForm` and `ScheduledTransactionForm` own it: they read a resolved
-  `onSubmitAction`/`onDeleteAction` as success, show the snackbar and call
-  `onCloseAction`, so a handler passed to them must let the rejection propagate
-  or the form reports success on a failed save and closes over the unsaved edit.
-  `PendingTransactionsList` is the opposite — it has no error surface, so its
-  handlers must not reject and the page catches (`runWithNotice`). A new dialog
-  picks one and says which in its props.
+- **Every household-owned row is read and written by `householdId`.**
+  Repositories take the `HouseholdId` first; the default `prisma` client throws
+  `UnscopedHouseholdQueryError` on a query that does not name one →
+  [docs/households.md](docs/households.md), before any query or write route.
+- **Money: `value` is always ILS; the original currency rides beside it.** No
+  total adds two currencies, and no rate falls back to 1:1 →
+  [docs/money-and-currency.md](docs/money-and-currency.md), before touching an
+  amount.
 - **A uuid-checked id goes through `recordIdSchema`**
-  (`src/shared/schemas/common.ts`) — route params, request schemas and MCP
-  tool schemas alike. It checks the uuid shape only, since the categories the
-  first migrations seeded carry ids without the RFC 9562 version and variant
-  bits that `z.uuid()` requires.
+  (`src/shared/schemas/common.ts`) — route params, request schemas and MCP tool
+  schemas alike.
+- **Logging**: `logger` from `@/server/observability`, metadata object first:
+  `logger.info({ userId }, 'msg')`; errors under the `err` key. A path that
+  catches an error and returns a fallback calls `observability.reportError`
+  instead, with only ids and fixed labels in `context` →
+  [docs/observability.md](docs/observability.md).
 - **Comments** only where code cannot explain itself — a surprising why, 1–2
-  sentences. Names carry the what; this file carries the design.
-
-## Database (Prisma)
-
-Models: Household, Invite, User, Transaction, Category (hierarchical), ScheduledTransaction,
-Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
-AutoApproveRule, DetectedSubscription, HouseholdActivity,
-UserNotificationPreference/Provider, AnnouncementAck, ApiToken.
-Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
-
-## Crons (vercel.json)
-
-| Path                                | Schedule         |
-| ----------------------------------- | ---------------- |
-| /api/scheduled-transactions/process | 07:00 daily      |
-| /api/summary/today                  | 21:00 daily      |
-| /api/backup/transactions            | 03:00 daily      |
-| /api/subscriptions/detect           | 04:00 Mondays    |
-| /api/subscriptions/audit-notify     | 08:00 Mondays    |
-| /api/reports/monthly                | 06:00 on the 1st |
-| /api/imports/fail-stuck             | 05:00 daily      |
-
-Each cron route passes its `heartbeatEnvVar` to `createHandler`, which pings
-that Better Stack URL after a <400 response (unset var = off); the option
-exists only on the `auth: 'cron'` arm of `HandlerOptions`. README "Cron
-heartbeats".
-
-## Deployment
-
-Vercel. `vercel-build` runs `prisma generate && prisma migrate deploy && next build`.
-Set all env vars from `.env.example`; `CRON_SECRET` must be set or scheduled
-jobs 401. Anything that has to name the site's own origin — extraction webhook
-callbacks, verification links — goes through `requireSiteUrl()`
-(`src/server/env.ts`), never a bare `WEBSITE_URL` read. Set that var on
-production and nowhere else: previews leave it unset and derive the origin from
-`VERCEL_BRANCH_URL`; production has that fallback gated off so a missing value
-fails loudly, and it is resolved before a signup's first write. The Telegram
-webhook must be registered with
-`setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
-
-Functions run in `fra1` (`regions` in `vercel.json`), co-located with Neon and
-Upstash so each query and session read stays a same-region round trip. Moving
-either store's region moves this one with it.
+  sentences. Names carry the what; the docs carry the design.
 
 ## Documentation
 
-This file is the only design document. Per-feature plans, specs, and handover
-notes are not committed — `.superpowers/`, `docs/superpowers/`, and
-`.claude/worktrees/` are gitignored, while `.claude/skills/` and
-`.claude/rules/` stay tracked because they are tooling, not scratch. A spec for
-shipped work drifts and reads as current intent, so it is not kept.
+Docs are [DECISIONS.md](DECISIONS.md) plus one short `docs/<topic>.md` per area,
+each listed above with the task that should load it. A rule that must load
+whenever certain files are touched goes in `.claude/rules/` with a `paths:` list.
+Per-feature plans, specs, and handover notes are not committed — `.superpowers/`,
+`docs/superpowers/`, and `.claude/worktrees/` are gitignored, while
+`.claude/skills/` and `.claude/rules/` stay tracked because they are tooling, not
+scratch. A spec for shipped work drifts and reads as current intent, so it is not
+kept.
 
-`.claude/skills/collect-statements/` holds the per-portal recipes for pulling
-statements out of Cal, Isracard and Amex IL with Claude in Chrome. Credentials
-and one-time passwords are always the human's; the skill records only
-navigation, and marks what has not been observed rather than guessing it.
-
-`settings.json` references the `yaniv120892/claude-config` marketplace and
-enables `pr-workflows` and `dev-workflows`, so those skills, commands and hooks
-are fetched rather than copied and stay current; `CLAUDE_CODE_PLUGIN_PREFER_HTTPS`
-keeps that fetch on HTTPS, since a fresh container has no SSH key. `pr-review` and
-`prune-comments` stay vendored under `.claude/skills/` as MCP-driven variants,
-because this repo's sessions have no `gh` CLI; `steward` stays vendored because
-remote sessions read it from the head branch. Each names its upstream in a
-`Canonical source` line; edit there first, then re-vendor. Where a vendored
-skill shares a name with a plugin skill, follow the vendored copy.
-`proof-of-work` and the examples under `pr-description/references/` are this
-repo's own — how to prove a change here, and what a good description of one
-looks like — and the plugin's `writing-pr-description` reads both.
-
-`.claude/rules/` holds the craft rules (comments, control flow, naming, errors,
-typing, env wiring, secrets), vendored from `yaniv120892/claude-config`; each
-loads by its `paths:` list. This file is what is true of _this_ system; the
-rules are how code gets written anywhere. Edit a rule upstream first, then
-re-vendor. The mechanically
-checkable ones (braces, casts, `interface`, abbreviations, array syntax, member
-accessibility, promise chains) are enforced by the dev-config ESLint preset, so
-CI fails on them rather than review.
-
-So a PR that changes anything this file states — architecture, an invariant, a
-command, a route, a cron, a model — updates the matching section in the same
-PR. Record the rule the code now follows, not the story of the change; git log
-already holds that. If a change fits no existing section and is not a rule
-future work must follow, it does not belong here.
+So a PR that changes anything a doc states — architecture, an invariant, a
+command, a route, a cron, a model — updates the matching doc in the same PR, and a
+new hard-to-reverse decision adds a `DECISIONS.md` row. A new topic gets its own
+doc and an index line above. Record the rule the code now follows, not the story
+of the change; git log already holds that. If a change fits no existing doc and
+is not a rule future work must follow, it does not belong in the docs.

@@ -4,8 +4,8 @@ import { lazy } from '@/server/lib/lazy';
 import { requireEnv } from '@/server/env';
 import { importObjectUrl } from '@/server/utils/importObjectKey';
 
-// Long enough for the extraction service to start on a submitted import; it
-// downloads the file before any model call.
+// Long enough for a reader to start on a submitted import, which downloads the
+// file before any model call.
 const EXTRACTION_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
 const getS3Client = lazy(
@@ -41,7 +41,9 @@ export async function putImportObject({
 }
 
 // The bucket is private, so a reader holding no credentials of its own needs
-// this signed, expiring URL rather than the plain one.
+// this signed, expiring URL. Today's extraction service ignores the signature:
+// it takes the key from the path and reads it with its own credentials, so the
+// ownership check, not this URL, is what keeps users apart.
 export async function presignImportDownload(key: string): Promise<string> {
   return getSignedUrl(
     getS3Client(),

@@ -351,7 +351,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `..` and escapes), because the extraction service reads whatever key the
   path names with its own credentials. It hands that service a GET URL
   presigned for 15 minutes (`presignImportDownload`,
-  `src/server/services/importFileStorage.ts`), whose path is the same key.
+  `src/server/services/importFileStorage.ts`), whose path is the same key; the
+  service ignores the signature today, so the URL must stay virtual-hosted
+  (a bucket name with a dot would sign path-style and break the key).
   Imports uploaded before the per-user folders cannot be resubmitted; their
   rows are unaffected.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key

@@ -83,6 +83,22 @@ test.describe('household sharing', () => {
     await expect(viewer.getByText(EDITED_ROW, { exact: true })).toBeVisible();
     await expect(viewer.getByRole('button', { name: /add transaction/i })).toHaveCount(0);
 
+    // Hold the role back: the rows load first, and no write control may show meanwhile.
+    let releaseRole = () => {};
+    const roleHeld = new Promise<void>((resolve) => {
+      releaseRole = resolve;
+    });
+    await viewer.route('**/api/auth/me', async (route) => {
+      await roleHeld;
+      // A request the page dropped while held is already settled.
+      await route.continue().catch(() => undefined);
+    });
+    await viewer.reload();
+    await expect(viewer.getByText(EDITED_ROW, { exact: true })).toBeVisible();
+    await expect(viewer.getByRole('button', { name: /add transaction/i })).toHaveCount(0);
+    releaseRole();
+    await viewer.unrouteAll({ behavior: 'ignoreErrors' });
+
     const categories: { id: string }[] = await (await viewer.request.get('/api/categories')).json();
     const refused = await viewer.request.post('/api/transactions', {
       data: {

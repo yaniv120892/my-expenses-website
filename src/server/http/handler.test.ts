@@ -190,32 +190,26 @@ describe('createHandler form body', () => {
     return new NextRequest('http://localhost/api/form', { method: 'POST', ...init });
   }
 
-  it('answers 400 when a form route is sent JSON', async () => {
+  it.each([
+    {
+      caseName: 'a form route is sent JSON',
+      body: JSON.stringify({ name: 'x' }),
+      contentType: 'application/json',
+    },
+    {
+      caseName: 'a multipart body is cut short',
+      body: '--boundary\r\nContent-Disposition: form-data; name="name"\r\n\r\nx',
+      contentType: 'multipart/form-data; boundary=boundary',
+    },
+  ])('answers 400 when $caseName', async ({ body, contentType }) => {
     const response = await route(
-      post({
-        body: JSON.stringify({ name: 'x' }),
-        headers: { 'content-type': 'application/json' },
-      }),
+      post({ body, headers: { 'content-type': contentType } }),
       ROUTE_CONTEXT,
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      message: 'Invalid form body: expected multipart/form-data',
-    });
+    expect(await response.json()).toEqual({ message: 'Invalid multipart/form-data body' });
     expect(loggerMock.error).not.toHaveBeenCalled();
-  });
-
-  it('answers 400 when a multipart body is cut short', async () => {
-    const response = await route(
-      post({
-        body: '--boundary\r\nContent-Disposition: form-data; name="name"\r\n\r\nx',
-        headers: { 'content-type': 'multipart/form-data; boundary=boundary' },
-      }),
-      ROUTE_CONTEXT,
-    );
-
-    expect(response.status).toBe(400);
   });
 
   it('still reads a well-formed form', async () => {
@@ -226,5 +220,22 @@ describe('createHandler form body', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ name: 'x' });
+  });
+
+  it('keeps a second read of a consumed body a 500', async () => {
+    const readsTwice = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async ({ request }) => {
+        await request.text();
+        return { name: (await request.formData()).get('name') };
+      },
+    });
+    const form = new FormData();
+    form.append('name', 'x');
+
+    const response = await readsTwice(post({ body: form }), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(500);
   });
 });

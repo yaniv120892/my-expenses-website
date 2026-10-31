@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
-import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
 
 const { requireUser, loggerMock } = vi.hoisted(() => ({
@@ -18,10 +17,6 @@ vi.mock('@/server/auth/session', async () => ({
 vi.mock('@/server/observability', () => ({
   logger: loggerMock,
   observability: { scheduleOpsAlert: vi.fn() },
-}));
-vi.mock('next/server', async () => ({
-  ...(await vi.importActual<typeof NextServerModule>('next/server')),
-  after: vi.fn(),
 }));
 
 import { POST } from '@/app/api/imports/upload/route';
@@ -45,9 +40,7 @@ describe('POST /api/imports/upload with a body that is not a form', () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      message: 'Invalid form body: expected multipart/form-data',
-    });
+    expect(await response.json()).toEqual({ message: 'Invalid multipart/form-data body' });
     expect(loggerMock.error).not.toHaveBeenCalled();
   });
 });

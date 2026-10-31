@@ -14,6 +14,9 @@ const { requireUser, userRepository, telegramService } = vi.hoisted(() => ({
   telegramService: { sendMessage: vi.fn() },
 }));
 
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
@@ -67,7 +70,7 @@ function jsonRequest(path: string, method: string, body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireUser.mockResolvedValue('user-1');
+  requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
   useStoredProvider({ enabled: true, data: { chatId: LINKED_CHAT_ID } });
 });
 

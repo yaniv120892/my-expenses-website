@@ -100,7 +100,7 @@ class AuthService {
     if (user.verified === false) {
       return { error: 'User not verified' };
     }
-    const token = await signToken(user.id);
+    const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await storeSession(user.id, token, tokenTtlSeconds());
     return { token, userId: user.id };
   }
@@ -132,7 +132,7 @@ class AuthService {
       return { error: 'Invalid or expired code' };
     }
     await userRepository.verifyUser(email, matchedCode.passwordHash);
-    const token = await signToken(user.id);
+    const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await deleteValue(loginCodeKey(email), 'branch');
     await deleteValue(attemptsKey, 'branch');
     await storeSession(user.id, token, tokenTtlSeconds());

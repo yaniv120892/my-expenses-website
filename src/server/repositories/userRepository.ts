@@ -37,6 +37,13 @@ class UserRepository {
     return notificationPreference?.createTransaction ?? false;
   }
 
+  public async findMembership(userId: string) {
+    return prisma.user.findUnique({
+      where: { id: userId },
+      select: { householdId: true, householdRole: true, tokenVersion: true },
+    });
+  }
+
   public async findById(userId: string): Promise<User | null> {
     return prisma.user.findUnique({ where: { id: userId } });
   }
@@ -49,7 +56,14 @@ class UserRepository {
 
   public async createUser(email: string, username: string, hashedPassword: string): Promise<User> {
     return prisma.user.create({
-      data: { email, username, password: hashedPassword, verified: false },
+      data: {
+        email,
+        username,
+        password: hashedPassword,
+        verified: false,
+        household: { create: {} },
+        householdRole: 'OWNER',
+      },
     });
   }
 

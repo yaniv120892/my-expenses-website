@@ -8,6 +8,9 @@ const { requireUser, transactionService } = vi.hoisted(() => ({
   transactionService: { createTransaction: vi.fn() },
 }));
 
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
@@ -31,7 +34,7 @@ const CATEGORY = { id: 'c-food', name: 'Food & Groceries' };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireUser.mockResolvedValue('user-1');
+  requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
 });
 
 describe('POST /api/transactions', () => {

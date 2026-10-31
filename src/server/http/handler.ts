@@ -12,6 +12,8 @@ import {
 } from '@/server/auth/session';
 import { isApiToken } from '@/server/auth/apiTokenFormat';
 import { authenticateApiToken } from '@/server/auth/apiTokens';
+import { assertCanWrite, resolveMemberActor } from '@/server/auth/householdActor';
+import type { MemberActor } from '@/server/auth/householdActor.types';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
@@ -28,6 +30,12 @@ type AuthMode = 'session' | 'apiToken' | 'cron' | 'telegram' | 'public';
 // The body a protocol client parses: `json-rpc` keeps an MCP client reading a
 // refusal as a JSON-RPC error instead of failing to parse it.
 type ErrorFormat = 'json' | 'json-rpc';
+
+// What a non-GET request on a member route writes. `household` (the default)
+// is refused to a viewer before the handler runs; `ownAccount` touches only the
+// caller's own settings, sessions or chat; `perOperation` is a channel that
+// carries both reads and writes, whose writes call assertCanWrite themselves.
+type WriteTarget = 'household' | 'ownAccount' | 'perOperation';
 
 type AuthOptions =
   | { auth: 'session'; apiTokenScope?: ApiTokenScope }
@@ -46,29 +54,32 @@ export type HandlerContext<TBody, TQuery, TParams = Record<string, string>> = {
   params: TParams;
 };
 
-type BaseHandlerOptions<TBody, TQuery, TResult, TParams> = {
+type MemberHandlerContext<TBody, TQuery, TParams = Record<string, string>> = HandlerContext<
+  TBody,
+  TQuery,
+  TParams
+> & { actor: MemberActor };
+
+type BaseHandlerOptions<TBody, TQuery, TParams> = {
   // Input is `unknown` because request data arrives as strings/JSON and the
   // schemas coerce (z.coerce, transforms), so schema input differs from output.
   bodySchema?: ZodType<TBody, unknown>;
   querySchema?: ZodType<TQuery, unknown>;
   paramsSchema?: ZodType<TParams, unknown>;
   status?: number;
-  handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<TResult>;
 };
+
+type Handler<TContext, TResult> = (handlerContext: TContext) => Promise<TResult>;
 
 type RateLimitResolver<TBody, TQuery, TParams = Record<string, string>> = (
   handlerContext: HandlerContext<TBody, TQuery, TParams>,
 ) => RateLimitRule[];
 
-type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
-  TBody,
-  TQuery,
-  TResult,
-  TParams
-> &
+type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<TBody, TQuery, TParams> &
   (
     | {
         auth: 'cron';
+        handler: Handler<HandlerContext<TBody, TQuery, TParams>, TResult>;
         heartbeatEnvVar?: string;
         rateLimit?: never;
         apiTokenScope?: never;
@@ -76,6 +87,7 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
       }
     | {
         auth: 'public';
+        handler: Handler<HandlerContext<TBody, TQuery, TParams>, TResult>;
         rateLimit: RateLimitResolver<TBody, TQuery, TParams> | 'none';
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
@@ -83,6 +95,8 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
       }
     | {
         auth: 'session';
+        handler: Handler<MemberHandlerContext<TBody, TQuery, TParams>, TResult>;
+        writes?: WriteTarget;
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: ApiTokenScope;
@@ -90,6 +104,7 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
       }
     | {
         auth: 'telegram';
+        handler: Handler<HandlerContext<TBody, TQuery, TParams>, TResult>;
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
         apiTokenScope?: never;
@@ -98,6 +113,8 @@ type HandlerOptions<TBody, TQuery, TResult, TParams> = BaseHandlerOptions<
     | {
         // Bearer API token only; a session cookie on the request is ignored.
         auth: 'apiToken';
+        handler: Handler<MemberHandlerContext<TBody, TQuery, TParams>, TResult>;
+        writes?: WriteTarget;
         apiTokenScope: ApiTokenScope;
         rateLimit?: RateLimitResolver<TBody, TQuery, TParams>;
         heartbeatEnvVar?: never;
@@ -117,7 +134,9 @@ function toRoutePattern(path: string, params: Record<string, string>): string {
   );
 }
 
-type AuthResult = { userId: string; apiTokenId?: string };
+type AuthResult = { userId: string; apiTokenId?: string; actor?: MemberActor };
+
+const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // Only routes with a correcting client get the 4xx mapping. A cron or Telegram
 // caller cannot correct a bad id, so its Prisma failures stay 500s and keep
@@ -145,12 +164,13 @@ async function resolveAuth({
       const credential = extractCredential(request);
       const isApiTokenBearer = credential?.source === 'bearer' && isApiToken(credential.token);
       if (!isApiTokenBearer) {
-        return { userId: await requireUser(request) };
+        const { userId, tokenVersion } = await requireUser(request);
+        return withActor({ userId, apiTokenId: null, sessionTokenVersion: tokenVersion });
       }
       if (!options.apiTokenScope) {
         throw new AuthError('API_TOKEN_NOT_ACCEPTED', 'This route does not accept an API token');
       }
-      return authenticateApiToken(credential.token, options.apiTokenScope);
+      return apiTokenMember({ token: credential.token, scope: options.apiTokenScope });
     }
     case 'apiToken': {
       const token = bearerApiToken(request);
@@ -160,7 +180,7 @@ async function resolveAuth({
           'This route requires an API token as an Authorization: Bearer header',
         );
       }
-      return authenticateApiToken(token, options.apiTokenScope);
+      return apiTokenMember({ token, scope: options.apiTokenScope });
     }
     case 'cron': {
       const authHeader = request.headers.get('authorization');
@@ -182,6 +202,98 @@ async function resolveAuth({
     default:
       return assertNever({ value: authMode, what: 'auth mode' });
   }
+}
+
+async function withActor(identity: {
+  userId: string;
+  apiTokenId: string | null;
+  sessionTokenVersion: number | null;
+}): Promise<AuthResult> {
+  const actor = await resolveMemberActor(identity);
+  return {
+    userId: identity.userId,
+    ...(identity.apiTokenId && { apiTokenId: identity.apiTokenId }),
+    actor,
+  };
+}
+
+async function apiTokenMember({
+  token,
+  scope,
+}: {
+  token: string;
+  scope: ApiTokenScope;
+}): Promise<AuthResult> {
+  const identity = await authenticateApiToken(token, scope);
+  return withActor({ ...identity, sessionTokenVersion: null });
+}
+
+// Runs before the body is parsed or a rate-limit slot is spent, so a viewer's
+// write is a 403 whatever it carries.
+function assertMayWrite({
+  request,
+  options,
+  auth,
+}: {
+  request: NextRequest;
+  options: HandlerOptions<unknown, unknown, unknown, unknown>;
+  auth: AuthResult;
+}): void {
+  switch (options.auth) {
+    case 'session':
+    case 'apiToken': {
+      const isHouseholdWrite =
+        !READ_ONLY_METHODS.has(request.method) && (options.writes ?? 'household') === 'household';
+      if (isHouseholdWrite) {
+        assertCanWrite(requireActor(auth));
+      }
+      return;
+    }
+    case 'cron':
+    case 'telegram':
+    case 'public':
+      return;
+    default:
+      assertNever({ value: options, what: 'auth mode' });
+  }
+}
+
+// Narrowed per auth mode, so only a member route's handler is handed the actor.
+async function runHandler({
+  options,
+  handlerContext,
+  auth,
+}: {
+  options: HandlerOptions<unknown, unknown, unknown, unknown>;
+  handlerContext: HandlerContext<unknown, unknown, unknown>;
+  auth: AuthResult;
+}): Promise<unknown> {
+  switch (options.auth) {
+    case 'session':
+    case 'apiToken': {
+      return options.handler({ ...handlerContext, actor: requireActor(auth) });
+    }
+    case 'cron':
+    case 'telegram':
+    case 'public':
+      return options.handler(handlerContext);
+    default:
+      return assertNever({ value: options, what: 'auth mode' });
+  }
+}
+
+function requireActor({ actor, userId }: AuthResult): MemberActor {
+  if (!actor) {
+    throw new Error(`A member route resolved user ${userId} without loading their household`);
+  }
+  return actor;
+}
+
+function householdLogFields(actor: MemberActor | undefined): {
+  householdId?: string;
+  householdRole?: MemberActor['role'];
+} {
+  return actor ? { householdId: actor.householdId, householdRole: actor.role } : {};
 }
 
 function bearerApiToken(request: NextRequest): string | null {
@@ -266,10 +378,13 @@ export function createHandler(
     let response: Response;
     let userId = '';
     let apiTokenId: string | undefined;
+    let actor: MemberActor | undefined;
     let params: Record<string, string> = {};
 
     try {
-      ({ userId, apiTokenId } = await resolveAuth({ request, options }));
+      const auth = await resolveAuth({ request, options });
+      ({ userId, apiTokenId, actor } = auth);
+      assertMayWrite({ request, options, auth });
       params = (routeContext ? await routeContext.params : undefined) ?? {};
       const parsedParams = (options.paramsSchema ?? uuidRouteParamsSchema).parse(params);
       let body: unknown;
@@ -291,7 +406,7 @@ export function createHandler(
         await enforceRateLimits(options.rateLimit(handlerContext));
       }
 
-      const result = await options.handler(handlerContext);
+      const result = await runHandler({ options, handlerContext, auth });
       if (result instanceof Response) {
         response = result;
       } else {
@@ -316,13 +431,19 @@ export function createHandler(
             err,
             ...(userId && { userId }),
             ...(apiTokenId && { apiTokenId }),
+            ...householdLogFields(actor),
           },
           'Request failed',
         );
         // The error becomes a response here, so Next's onRequestError never
         // sees it.
         Sentry.captureException(err, {
-          tags: { path, requestId, ...(apiTokenId && { apiTokenId }) },
+          tags: {
+            path,
+            requestId,
+            ...(apiTokenId && { apiTokenId }),
+            ...householdLogFields(actor),
+          },
           ...(userId && { user: { id: userId } }),
         });
         // Raw params, not parsed: the replace must match the exact path text.
@@ -345,6 +466,7 @@ export function createHandler(
         durationMs: Date.now() - started,
         ...(userId && { userId }),
         ...(apiTokenId && { apiTokenId }),
+        ...householdLogFields(actor),
         // A cron's request line ships even though info normally does not: its
         // only other signal is a heartbeat that cannot say why it went silent.
         ...(options.auth === 'cron' && { ship: true }),

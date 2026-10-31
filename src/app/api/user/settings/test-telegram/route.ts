@@ -4,6 +4,7 @@ import telegramLinkService from '@/server/services/telegramLinkService';
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   rateLimit: ({ userId }) => [{ key: `testTelegram:user:${userId}`, ...RATE_LIMITS.testTelegram }],
   handler: async ({ userId }) => telegramLinkService.sendTestMessage(userId),
 });

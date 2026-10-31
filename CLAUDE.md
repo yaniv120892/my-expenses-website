@@ -342,7 +342,12 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   validation, preview, download and delete still accept; import objects are
   never deleted, and an old import URL still passes the bucket-prefix check.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
-  `session:<userId>:<token>` must exist (logout deletes it). API routes also
+  `session:<userId>:<token>` must exist (logout deletes it), and the JWT's
+  `tokenVersion` must equal the user's (a token signed before versions is 0),
+  so bumping `User.tokenVersion` refuses every session's API calls at once.
+  The proxy and `pageViewLayout` check only the signature, so a revoked
+  session still loads a page shell whose data calls fail, and API tokens are
+  revoked on their own. API routes also
   accept `Authorization: Bearer` (scripts/e2e). Cron routes require
   `Authorization: Bearer ${CRON_SECRET}`; Vercel sends it automatically.
   An **API token** (`mxk_…`, created and revoked in Settings, one year, only
@@ -362,6 +367,27 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   preview, approve). A session cookie on the same request wins. An
   `auth: 'apiToken'` route takes only an API token — a cookie or session JWT
   is refused with 401 `API_TOKEN_REQUIRED` — and must declare its scope.
+- **Households own the data; a member acts in one.** Every user belongs to
+  exactly one `Household` (`User.householdId`) with a `householdRole`
+  (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
+  role has no default, so a member written without one fails rather than
+  becoming an owner; a trigger (`user_open_own_household`) opens a household
+  for a user inserted without one, as code predating households does. A
+  session or API-token route's handler receives `actor` (`MemberActor`,
+  `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
+  token), which `resolveAuth` loads from the user's row on every request —
+  never from the JWT — so a role change or removal applies at once; an API
+  token follows its user into their current household. `HouseholdId` is a
+  branded string made only by `toHouseholdId`, so a user id cannot stand in
+  for one unconverted. The one write guard is
+  `assertCanWrite` (`src/server/auth/householdActor.ts`): `createHandler` calls
+  it before any non-GET member handler, ahead of body parsing and rate
+  limits, unless the route declares
+  `writes: 'ownAccount'` (it changes only the caller's own settings, tokens or
+  chat) or `'perOperation'` (the MCP endpoint, where `registerSafeTool` calls
+  it for every tool not annotated `readOnlyHint`). Which handlers declare
+  either is pinned in `src/app/api/householdWrites.test.ts`. A viewer is
+  refused with 403.
 - **The personal agent reaches the app only through `/api/mcp`.** It is an
   `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
   issues, and answers every refusal as a JSON-RPC error rather than a redirect
@@ -502,7 +528,7 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 
 ## Database (Prisma)
 
-Models: User, Transaction, Category (hierarchical), ScheduledTransaction,
+Models: Household, Invite, User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
 AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
 AnnouncementAck, ApiToken.

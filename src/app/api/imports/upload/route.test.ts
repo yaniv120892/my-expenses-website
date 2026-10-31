@@ -8,6 +8,9 @@ const { requireUser, send } = vi.hoisted(() => ({
   send: vi.fn(),
 }));
 
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/auth/session', async () => ({
   ...(await vi.importActual<typeof SessionModule>('@/server/auth/session')),
   requireUser,
@@ -35,7 +38,7 @@ const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireUser.mockResolvedValue('user-1');
+  requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
   send.mockResolvedValue({});
   process.env.IMPORTS_S3_BUCKET = 'bucket';
   process.env.IMPORTS_S3_REGION = 'eu-central-1';

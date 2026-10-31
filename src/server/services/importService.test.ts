@@ -24,6 +24,8 @@ const {
     transitionStatus: vi.fn(),
     create: vi.fn(),
     softDeleteOp: vi.fn(),
+    recordExtractionRequestIdIfUnclaimed: vi.fn(),
+    markFailedIfUnclaimed: vi.fn(),
   },
   importedTxRepo: {
     findById: vi.fn(),
@@ -36,10 +38,10 @@ const {
     updateStatusBatch: vi.fn(),
     updateStatus: vi.fn(),
     softDelete: vi.fn(),
+    clearPendingMatches: vi.fn(),
+    setMatchingTransaction: vi.fn(),
   },
   prismaMock: {
-    importedTransaction: { updateMany: vi.fn(), update: vi.fn() },
-    import: { updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
   agentClient: { submitExtractionRequest: vi.fn() },
@@ -228,7 +230,7 @@ describe('rematchImport', () => {
 
     expect(importRepo.transitionStatus).toHaveBeenCalledTimes(1);
     expect(importedTxRepo.findByImportWithMatch).not.toHaveBeenCalled();
-    expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
+    expect(importedTxRepo.clearPendingMatches).not.toHaveBeenCalled();
   });
 
   it('reads the rows only after claiming the import', async () => {
@@ -246,7 +248,7 @@ describe('rematchImport', () => {
       [HOUSEHOLD, 'imp-1', 'COMPLETED', 'REMATCHING'],
       [HOUSEHOLD, 'imp-1', 'REMATCHING', 'COMPLETED'],
     ]);
-    expect(prismaMock.importedTransaction.updateMany).not.toHaveBeenCalled();
+    expect(importedTxRepo.clearPendingMatches).not.toHaveBeenCalled();
   });
 
   it('clears pending matches, re-matches, and returns to COMPLETED', async () => {
@@ -262,10 +264,7 @@ describe('rematchImport', () => {
       'COMPLETED',
       'REMATCHING',
     ]);
-    expect(prismaMock.importedTransaction.updateMany).toHaveBeenCalledWith({
-      where: { importId: 'imp-1', householdId: HOUSEHOLD, status: 'PENDING' },
-      data: { matchingTransactionId: null },
-    });
+    expect(importedTxRepo.clearPendingMatches).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
     expect(importRepo.transitionStatus.mock.calls[1]).toEqual([
       HOUSEHOLD,
       'imp-1',
@@ -292,7 +291,7 @@ describe('rematchImport', () => {
 
     await run();
     expect(excludedIdsOfCall(0)).toEqual(['tx-other-import']);
-    expect(firstInvocationOrder(prismaMock.importedTransaction.updateMany)).toBeLessThan(
+    expect(firstInvocationOrder(importedTxRepo.clearPendingMatches)).toBeLessThan(
       firstInvocationOrder(importedTxRepo.findClaimedMatchingTransactionIds),
     );
   });
@@ -344,7 +343,7 @@ describe('rematchImport', () => {
     });
 
     it('returns the import to COMPLETED, so a retry can re-match it', async () => {
-      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(new Error('db down'));
+      importedTxRepo.clearPendingMatches.mockRejectedValueOnce(new Error('db down'));
 
       await expect(run()).rejects.toThrow('db down');
       expect(status).toBe('COMPLETED');
@@ -370,7 +369,7 @@ describe('rematchImport', () => {
     });
 
     it('keeps the re-match error when handing the import back fails too', async () => {
-      prismaMock.importedTransaction.updateMany.mockRejectedValueOnce(new Error('db down'));
+      importedTxRepo.clearPendingMatches.mockRejectedValueOnce(new Error('db down'));
       importRepo.transitionStatus
         .mockImplementationOnce(async () => {
           status = 'REMATCHING';
@@ -433,19 +432,17 @@ describe('processImport', () => {
     // The callback may already have completed the import, so the status is not
     // re-stated.
     expect(importRepo.updateStatus).not.toHaveBeenCalled();
-    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD, extractionCompletedAt: null },
-      data: { excelExtractionRequestId: 'req-9' },
-    });
+    expect(importRepo.recordExtractionRequestIdIfUnclaimed).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      'req-9',
+    );
   });
 
   it('a rejected submit marks the import FAILED and rethrows', async () => {
     agentClient.submitExtractionRequest.mockRejectedValue(new Error('agent down'));
     await expect(run()).rejects.toThrow('agent down');
-    expect(prismaMock.import.updateMany).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD, extractionCompletedAt: null },
-      data: { status: 'FAILED', error: 'agent down' },
-    });
+    expect(importRepo.markFailedIfUnclaimed).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1', 'agent down');
   });
 
   it('a failed create never reaches the agent', async () => {
@@ -587,7 +584,6 @@ describe('matchSingleTransaction', () => {
     importService['matchSingleTransaction'] = originalMatchSingleTransaction;
     importService['getAiProvider'] = () => matchingProvider;
     findPotentialMatches.mockResolvedValue(candidates);
-    prismaMock.importedTransaction.update.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -602,10 +598,7 @@ describe('matchSingleTransaction', () => {
     const matched = await importService['matchSingleTransaction'](HOUSEHOLD, ambiguousRow());
 
     expect(matched).toBe('tx-b');
-    expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
-      where: { id: 'r1', householdId: HOUSEHOLD },
-      data: { matchingTransactionId: 'tx-b' },
-    });
+    expect(importedTxRepo.setMatchingTransaction).toHaveBeenCalledWith(HOUSEHOLD, 'r1', 'tx-b');
   });
 
   it("gives the provider the row's amount, date and type, not just its description", async () => {
@@ -633,7 +626,7 @@ describe('matchSingleTransaction', () => {
     const matched = await importService['matchSingleTransaction'](HOUSEHOLD, ambiguousRow());
 
     expect(matched).toBeNull();
-    expect(prismaMock.importedTransaction.update).not.toHaveBeenCalled();
+    expect(importedTxRepo.setMatchingTransaction).not.toHaveBeenCalled();
   });
 
   it('asks only for candidates of the same direction', async () => {
@@ -654,10 +647,7 @@ describe('matchSingleTransaction', () => {
 
     expect(matched).toBe('tx-a');
     expect(findMatchingTransaction).not.toHaveBeenCalled();
-    expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
-      where: { id: 'r1', householdId: HOUSEHOLD },
-      data: { matchingTransactionId: 'tx-a' },
-    });
+    expect(importedTxRepo.setMatchingTransaction).toHaveBeenCalledWith(HOUSEHOLD, 'r1', 'tx-a');
   });
 
   describe('a variable-amount placeholder', () => {
@@ -682,10 +672,11 @@ describe('matchSingleTransaction', () => {
 
       expect(matched).toBe('tx-google');
       expect(findMatchingTransaction).not.toHaveBeenCalled();
-      expect(prismaMock.importedTransaction.update).toHaveBeenCalledWith({
-        where: { id: 'r1', householdId: HOUSEHOLD },
-        data: { matchingTransactionId: 'tx-google' },
-      });
+      expect(importedTxRepo.setMatchingTransaction).toHaveBeenCalledWith(
+        HOUSEHOLD,
+        'r1',
+        'tx-google',
+      );
     });
 
     it('takes the one nearest in date when several fit', async () => {

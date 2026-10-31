@@ -264,12 +264,18 @@ async function userWithoutHouseholdFlow(): Promise<void> {
       [email],
     );
   } catch (error) {
-    refusal = error instanceof DatabaseError ? (error.code ?? 'no code') : String(error);
+    refusal = error instanceof DatabaseError ? `${error.code} ${error.column}` : String(error);
   }
-  await query(`delete from "User" where email = $1`, [email]);
+  const removed = await query<{ householdId: string }>(
+    `delete from "User" where email = $1 returning "householdId"`,
+    [email],
+  );
+  await query(`delete from "Household" where id = any($1::uuid[])`, [
+    removed.map((user) => user.householdId),
+  ]);
   check(
     'schema: a user inserted without a household is refused',
-    refusal === '23502',
+    refusal === '23502 householdId',
     `got ${refusal}`,
   );
 }

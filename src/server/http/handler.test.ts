@@ -178,3 +178,53 @@ describe('createHandler secret auth', () => {
     expect(accepted.status).toBe(200);
   });
 });
+
+describe('createHandler form body', () => {
+  const route = createHandler({
+    auth: 'public',
+    rateLimit: 'none',
+    handler: async ({ request }) => ({ name: (await request.formData()).get('name') }),
+  });
+
+  function post(init: { body: BodyInit; headers?: Record<string, string> }): NextRequest {
+    return new NextRequest('http://localhost/api/form', { method: 'POST', ...init });
+  }
+
+  it('answers 400 when a form route is sent JSON', async () => {
+    const response = await route(
+      post({
+        body: JSON.stringify({ name: 'x' }),
+        headers: { 'content-type': 'application/json' },
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      message: 'Invalid form body: expected multipart/form-data',
+    });
+    expect(loggerMock.error).not.toHaveBeenCalled();
+  });
+
+  it('answers 400 when a multipart body is cut short', async () => {
+    const response = await route(
+      post({
+        body: '--boundary\r\nContent-Disposition: form-data; name="name"\r\n\r\nx',
+        headers: { 'content-type': 'multipart/form-data; boundary=boundary' },
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('still reads a well-formed form', async () => {
+    const form = new FormData();
+    form.append('name', 'x');
+
+    const response = await route(post({ body: form }), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ name: 'x' });
+  });
+});

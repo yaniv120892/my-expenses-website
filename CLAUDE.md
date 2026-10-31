@@ -87,6 +87,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
+  answers 400 to a body that does not parse — malformed JSON on a `bodySchema`
+  route, or anything but a form when a handler reads `request.formData()` —
   validates dynamic route params as uuids by default through
   `recordIdSchema` (a route with a non-uuid segment must declare its own
   `paramsSchema`),

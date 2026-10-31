@@ -16,6 +16,12 @@ export const RATE_LIMITS = {
   // to keep the owner from being mailed a code, so it only bounds the flood.
   signupPerAddress: { limit: 20, windowSeconds: 3600 },
   verify: { limit: 20, windowSeconds: 900 },
+  passwordResetRequest: { limit: 5, windowSeconds: 3600 },
+  // Above the per-host limit for the same reason as signupPerAddress.
+  passwordResetRequestPerAddress: { limit: 10, windowSeconds: 3600 },
+  passwordReset: { limit: 20, windowSeconds: 900 },
+  // A stolen session must not become an oracle for the current password.
+  changePassword: { limit: 5, windowSeconds: 900 },
   chat: { limit: 20, windowSeconds: 300 },
   testTelegram: { limit: 5, windowSeconds: 3600 },
   telegramLink: { limit: 10, windowSeconds: 3600 },

@@ -1,71 +1,21 @@
 'use client';
 
-import type { FormEvent } from 'react';
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Button, Stack, TextField } from '@mui/material';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
-import { verifyCode } from '@/services/authClient';
+import VerifyCodeForm from '@/components/auth/VerifyCodeForm';
 import { NEXT_PATH_PARAM, safeNextPath } from '@/shared/nextPath';
-import { authErrorMessage } from '@/utils/authErrorMessage';
 
-function VerifyForm() {
+function VerifyCard() {
   const t = useT();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState(searchParams.get('email') ?? '');
-  const next = safeNextPath(searchParams.get(NEXT_PATH_PARAM));
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      await verifyCode(code, email);
-      router.push(next ?? '/dashboard');
-      router.refresh();
-    } catch (err) {
-      setError(authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }));
-      setSubmitting(false);
-    }
-  }
-
   return (
     <AuthCard app="expenses" title={t('auth.verify.title')} subtitle={t('auth.verify.subtitle')}>
-      <Stack component="form" onSubmit={handleSubmit} spacing={2.5}>
-        {error && <Alert severity="error">{error}</Alert>}
-        <TextField
-          label={t('auth.email')}
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-          fullWidth
-        />
-        <TextField
-          label={t('auth.verify.code')}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-          autoFocus
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 6,
-            },
-          }}
-          fullWidth
-        />
-        <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
-          {submitting ? t('auth.verify.submitting') : t('auth.verify.submit')}
-        </Button>
-      </Stack>
+      <VerifyCodeForm
+        initialEmail={searchParams.get('email') ?? ''}
+        next={safeNextPath(searchParams.get(NEXT_PATH_PARAM))}
+      />
     </AuthCard>
   );
 }
@@ -73,7 +23,7 @@ function VerifyForm() {
 export default function VerifyPage() {
   return (
     <Suspense>
-      <VerifyForm />
+      <VerifyCard />
     </Suspense>
   );
 }

@@ -59,6 +59,10 @@ export class ApiTokenRepository {
   public async delete(id: string, userId: string): Promise<void> {
     await prisma.apiToken.delete({ where: { id, userId } });
   }
+
+  public async deleteAllForUser(userId: string): Promise<void> {
+    await prisma.apiToken.deleteMany({ where: { userId } });
+  }
 }
 
 export const apiTokenRepository = new ApiTokenRepository();

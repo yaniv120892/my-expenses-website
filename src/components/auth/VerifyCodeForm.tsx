@@ -16,9 +16,11 @@ import { PASSWORD_MIN_LENGTH } from '@/shared/schemas/auth';
 export default function VerifyCodeForm({
   initialEmail,
   chosenPassword,
+  next,
 }: {
   initialEmail: string;
   chosenPassword?: string;
+  next: string | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function VerifyCodeForm({
     setSubmitting(true);
     try {
       await verifyCode({ code, email, password: chosenPassword ?? password });
-      router.push('/dashboard');
+      router.push(next ?? '/dashboard');
       router.refresh();
     } catch (err) {
       setError(authErrorMessage({ error: err, fallback: t('auth.verify.failed'), t }));

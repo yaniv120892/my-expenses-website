@@ -16,6 +16,7 @@ import { lazy } from '@/server/lib/lazy';
 import { classifyTrend } from '@/server/utils/trendMath';
 import { formatCurrencyPlain } from '@/utils/format';
 import type { Locale } from '@yaniv120892/my-ui';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 
 const INSIGHTS_LANGUAGE: Record<Locale, string> = {
   he: 'Hebrew',
@@ -27,7 +28,7 @@ const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 class DashboardService {
   private getAiService = lazy(() => aiServiceFactory.getAIService());
 
-  public async getDashboard(userId: string): Promise<DashboardResponse> {
+  public async getDashboard(householdId: HouseholdId): Promise<DashboardResponse> {
     const { currentYear, currentMonth, prevYear, prevMonth } = this.getMonthCursors();
 
     const [
@@ -38,12 +39,12 @@ class DashboardService {
       recentTransactions,
       subscriptionSnapshot,
     ] = await Promise.all([
-      dashboardRepository.getMonthSummary(userId, currentYear, currentMonth),
-      dashboardRepository.getMonthSummary(userId, prevYear, prevMonth),
-      dashboardRepository.getTopCategoriesForMonth(userId, currentYear, currentMonth, 7),
-      dashboardRepository.getTopCategoriesForMonth(userId, prevYear, prevMonth, 7),
-      dashboardRepository.getRecentTransactions(userId, 5),
-      subscriptionDetectionService.getDashboardSnapshot(userId),
+      dashboardRepository.getMonthSummary(householdId, currentYear, currentMonth),
+      dashboardRepository.getMonthSummary(householdId, prevYear, prevMonth),
+      dashboardRepository.getTopCategoriesForMonth(householdId, currentYear, currentMonth, 7),
+      dashboardRepository.getTopCategoriesForMonth(householdId, prevYear, prevMonth, 7),
+      dashboardRepository.getRecentTransactions(householdId, 5),
+      subscriptionDetectionService.getDashboardSnapshot(householdId),
     ]);
 
     const monthComparison = this.buildMonthComparison(currentMonthSummary, previousMonthSummary);
@@ -62,14 +63,14 @@ class DashboardService {
   }
 
   public async getInsights({
-    userId,
+    householdId,
     locale,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     locale: Locale;
   }): Promise<DashboardInsightsResponse | null> {
     const now = new Date();
-    const cacheKey = `dashboard-insights:${userId}:${locale}:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const cacheKey = `dashboard-insights:${householdId}:${locale}:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     try {
       const cached = await getValue<unknown>(cacheKey);
@@ -88,9 +89,9 @@ class DashboardService {
 
     try {
       const [currentMonthSummary, previousMonthSummary, topCategories] = await Promise.all([
-        dashboardRepository.getMonthSummary(userId, currentYear, currentMonth),
-        dashboardRepository.getMonthSummary(userId, prevYear, prevMonth),
-        dashboardRepository.getTopCategoriesForMonth(userId, currentYear, currentMonth, 7),
+        dashboardRepository.getMonthSummary(householdId, currentYear, currentMonth),
+        dashboardRepository.getMonthSummary(householdId, prevYear, prevMonth),
+        dashboardRepository.getTopCategoriesForMonth(householdId, currentYear, currentMonth, 7),
       ]);
 
       const result = await this.generateAiInsights({

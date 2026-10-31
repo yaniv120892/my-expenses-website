@@ -5,8 +5,8 @@ import { importService } from '@/server/services/importService';
 export const POST = createHandler({
   auth: 'session',
   paramsSchema: importedTransactionIdParamsSchema,
-  handler: async ({ userId, params }) => {
-    await importService.ignoreImportedTransaction(params.importedTransactionId, userId);
+  handler: async ({ actor, params }) => {
+    await importService.ignoreImportedTransaction(actor, params.importedTransactionId);
     return { success: true };
   },
 });

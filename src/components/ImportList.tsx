@@ -39,6 +39,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import type { Import } from '../types/import';
 import { ImportStatus } from '../types/import';
 import { useIsMobile } from '../hooks/useBreakpoints';
+import { useCanWrite } from '@/hooks/useSession';
 import {
   useImportsQuery,
   useDeleteImportMutation,
@@ -156,6 +157,7 @@ export default function ImportList({ onImportClick, expandedImportId }: ImportLi
   const { data: imports = [], isLoading } = useImportsQuery();
   const deleteImportMutation = useDeleteImportMutation();
   const rematchImportMutation = useRematchImportMutation();
+  const canWrite = useCanWrite();
   const isMobile = useIsMobile();
 
   const [deleteTarget, setDeleteTarget] = useState<Import | null>(null);
@@ -430,12 +432,14 @@ export default function ImportList({ onImportClick, expandedImportId }: ImportLi
                       <CancelOutlinedIcon color="warning" fontSize="small" />
                     )}
                     <Box sx={{ flex: 1 }} />
-                    <RowActions
-                      importItem={importItem}
-                      onDeleteClick={setDeleteTarget}
-                      onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
-                      isRematching={rematchImportMutation.isPending}
-                    />
+                    {canWrite && (
+                      <RowActions
+                        importItem={importItem}
+                        onDeleteClick={setDeleteTarget}
+                        onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
+                        isRematching={rematchImportMutation.isPending}
+                      />
+                    )}
                   </Stack>
                 </Box>
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
@@ -550,12 +554,14 @@ export default function ImportList({ onImportClick, expandedImportId }: ImportLi
                     <TableCell>{formatter.dateTime(importItem.createdAt)}</TableCell>
                     <TableCell>{formatter.dateTime(importItem.updatedAt)}</TableCell>
                     <TableCell align="right">
-                      <RowActions
-                        importItem={importItem}
-                        onDeleteClick={setDeleteTarget}
-                        onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
-                        isRematching={rematchImportMutation.isPending}
-                      />
+                      {canWrite && (
+                        <RowActions
+                          importItem={importItem}
+                          onDeleteClick={setDeleteTarget}
+                          onRematchClick={(imp) => rematchImportMutation.mutate(imp.id)}
+                          isRematching={rematchImportMutation.isPending}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>

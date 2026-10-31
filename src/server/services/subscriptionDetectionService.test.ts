@@ -1,22 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { subRepo, prismaMock, sendDailySummary, scheduledService } = vi.hoisted(() => ({
+const {
+  subRepo,
+  prismaMock,
+  sendDailySummary,
+  scheduledService,
+  findReportRecipients,
+  listHouseholdIds,
+} = vi.hoisted(() => ({
   subRepo: {
-    getActiveForAllUsers: vi.fn(),
-    getByUserId: vi.fn(),
+    getActive: vi.fn(),
+    getByHousehold: vi.fn(),
     getById: vi.fn(),
     update: vi.fn(),
+    applyDetectionResults: vi.fn(),
   },
-  prismaMock: { userNotificationPreference: { findMany: vi.fn() } },
+  prismaMock: { transaction: { findMany: vi.fn() } },
   sendDailySummary: vi.fn(),
   scheduledService: {
     listScheduledTransactions: vi.fn(),
     createScheduledTransaction: vi.fn(),
   },
+  findReportRecipients: vi.fn(),
+  listHouseholdIds: vi.fn(),
 }));
 
 vi.mock('@/server/repositories/subscriptionRepository', () => ({
   default: subRepo,
+}));
+vi.mock('@/server/repositories/userRepository', () => ({
+  default: { findReportRecipients },
+}));
+vi.mock('@/server/repositories/householdRepository', () => ({
+  default: { listIds: listHouseholdIds },
 }));
 vi.mock('@/server/db/client', () => ({ default: prismaMock }));
 vi.mock('@/server/services/scheduledTransactionService', () => ({
@@ -27,12 +43,17 @@ vi.mock('@/server/services/transactionNotification/transactionNotifierFactory', 
 }));
 
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
+import { toHouseholdId } from '@/server/auth/householdId';
+import { testMemberActor } from '@/test/memberActor';
 
 type Sub = Record<string, unknown>;
 
+const ACTOR = testMemberActor({ userId: 'user-1' });
+const HOUSEHOLD_1 = ACTOR.householdId;
+const HOUSEHOLD_2 = toHouseholdId('household-2');
+
 const sub = (over: Sub = {}): Sub => ({
   id: 's1',
-  userId: 'user-1',
   displayName: 'Netflix',
   averageAmount: 10,
   frequency: 'MONTHLY',
@@ -45,10 +66,10 @@ const sub = (over: Sub = {}): Sub => ({
 // recomputed here.
 const header = 'Subscription Audit — March 2026';
 
-const enable = (...ids: string[]) =>
-  prismaMock.userNotificationPreference.findMany.mockResolvedValue(
-    ids.map((userId) => ({ userId })),
-  );
+let activeByHousehold: Record<string, Sub[]>;
+
+const recipients = (...members: { userId: string; householdId: string }[]) =>
+  findReportRecipients.mockResolvedValue(members);
 
 const run = () => subscriptionDetectionService.sendMonthlyAuditNotifications();
 
@@ -64,14 +85,20 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-15T12:00:00Z'));
-  subRepo.getActiveForAllUsers.mockResolvedValue([]);
-  subRepo.getByUserId.mockResolvedValue([]);
-  subRepo.update.mockImplementation(async (id: string, _userId: string, data: Sub) => ({
+  activeByHousehold = {};
+  subRepo.getActive.mockImplementation(
+    async (householdId: string) => activeByHousehold[householdId] ?? [],
+  );
+  subRepo.getByHousehold.mockResolvedValue([]);
+  subRepo.update.mockImplementation(async (_householdId: string, id: string, data: Sub) => ({
     id,
     ...data,
   }));
   scheduledService.listScheduledTransactions.mockResolvedValue([]);
-  enable('user-1', 'user-2');
+  recipients(
+    { userId: 'user-1', householdId: HOUSEHOLD_1 },
+    { userId: 'user-2', householdId: HOUSEHOLD_2 },
+  );
 });
 
 afterEach(() => {
@@ -80,7 +107,7 @@ afterEach(() => {
 
 describe('sendMonthlyAuditNotifications', () => {
   it('builds the confirmed block with per-sub and total figures', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([sub()]);
+    activeByHousehold[HOUSEHOLD_1] = [sub()];
     await run();
     expect(messageFor('user-1')).toBe(
       [
@@ -95,7 +122,7 @@ describe('sendMonthlyAuditNotifications', () => {
   });
 
   it('converts weekly and yearly amounts to a monthly figure', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
+    activeByHousehold[HOUSEHOLD_1] = [
       sub({ frequency: 'WEEKLY', averageAmount: 12, annualCost: 624 }),
       sub({
         id: 's2',
@@ -103,7 +130,7 @@ describe('sendMonthlyAuditNotifications', () => {
         averageAmount: 120,
         annualCost: 120,
       }),
-    ]);
+    ];
     await run();
     const message = messageFor('user-1');
     expect(message).toContain('- Netflix: 52.00 ₪/mo (624.00 ₪/yr)');
@@ -111,21 +138,23 @@ describe('sendMonthlyAuditNotifications', () => {
     expect(message).toContain('Total: 62.00 ₪/month | 744.00 ₪/year');
   });
 
-  it('skips users without the audit preference', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([sub()]);
-    enable('someone-else');
+  it('sends only to the members who opted into the audit', async () => {
+    activeByHousehold[HOUSEHOLD_1] = [sub()];
+    recipients({ userId: 'user-2', householdId: HOUSEHOLD_2 });
     await run();
+    expect(findReportRecipients).toHaveBeenCalledWith('subscriptionAudit');
+    expect(subRepo.getActive).not.toHaveBeenCalledWith(HOUSEHOLD_1);
     expect(sendDailySummary).not.toHaveBeenCalled();
   });
 
-  it('skips users whose subs are neither confirmed nor detected', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([sub({ status: 'CANCELLED' })]);
+  it('skips members whose subs are neither confirmed nor detected', async () => {
+    activeByHousehold[HOUSEHOLD_1] = [sub({ status: 'CANCELLED' })];
     await run();
     expect(sendDailySummary).not.toHaveBeenCalled();
   });
 
   it('detected-only omits the active block', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([sub({ status: 'DETECTED' })]);
+    activeByHousehold[HOUSEHOLD_1] = [sub({ status: 'DETECTED' })];
     await run();
     expect(sendDailySummary).toHaveBeenCalledWith(
       [header, '', '1 new subscription detected — review in app'].join('\n'),
@@ -134,32 +163,42 @@ describe('sendMonthlyAuditNotifications', () => {
   });
 
   it('pluralizes multiple detected subscriptions', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
+    activeByHousehold[HOUSEHOLD_1] = [
       sub({ status: 'DETECTED' }),
       sub({ id: 's2', status: 'DETECTED' }),
-    ]);
+    ];
     await run();
     expect(sendDailySummary.mock.calls[0]?.[0]).toContain('2 new subscriptions detected');
   });
 
-  it('groups per user and queries prefs for every grouped id', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([
-      sub(),
-      sub({ id: 's2', userId: 'user-2', displayName: 'Spotify' }),
-    ]);
+  it("tells each member about their own household's subscriptions", async () => {
+    activeByHousehold[HOUSEHOLD_1] = [sub()];
+    activeByHousehold[HOUSEHOLD_2] = [sub({ id: 's2', displayName: 'Spotify' })];
     await run();
-    expect(prismaMock.userNotificationPreference.findMany).toHaveBeenCalledWith({
-      where: {
-        userId: { in: ['user-1', 'user-2'] },
-        subscriptionAudit: true,
-      },
-    });
+    expect(subRepo.getActive).toHaveBeenCalledWith(HOUSEHOLD_1);
+    expect(subRepo.getActive).toHaveBeenCalledWith(HOUSEHOLD_2);
     expect(sendDailySummary).toHaveBeenCalledTimes(2);
-    expect(sendDailySummary.mock.calls[1]?.[1]).toBe('user-2');
+    expect(messageFor('user-1')).toContain('Netflix');
+    expect(messageFor('user-1')).not.toContain('Spotify');
+    expect(messageFor('user-2')).toContain('Spotify');
+    expect(messageFor('user-2')).not.toContain('Netflix');
+  });
+
+  it('sends the same household audit to every opted-in member of it', async () => {
+    activeByHousehold[HOUSEHOLD_1] = [sub()];
+    recipients(
+      { userId: 'user-1', householdId: HOUSEHOLD_1 },
+      { userId: 'user-3', householdId: HOUSEHOLD_1 },
+    );
+    await run();
+    expect(subRepo.getActive).toHaveBeenCalledTimes(1);
+    expect(sendDailySummary).toHaveBeenCalledTimes(2);
+    expect(messageFor('user-3')).toBe(messageFor('user-1'));
   });
 
   it('one failing send does not stop the rest, but fails the run', async () => {
-    subRepo.getActiveForAllUsers.mockResolvedValue([sub(), sub({ id: 's2', userId: 'user-2' })]);
+    activeByHousehold[HOUSEHOLD_1] = [sub()];
+    activeByHousehold[HOUSEHOLD_2] = [sub({ id: 's2' })];
     sendDailySummary.mockRejectedValueOnce(new Error('telegram down'));
 
     await expect(run()).rejects.toThrow('Subscription audit failed for 1 of 2 user(s)');
@@ -167,14 +206,45 @@ describe('sendMonthlyAuditNotifications', () => {
   });
 
   it('an empty run sends nothing and does not throw', async () => {
+    recipients();
     await expect(run()).resolves.toBeUndefined();
     expect(sendDailySummary).not.toHaveBeenCalled();
   });
 });
 
+describe('runDetectionForAllHouseholds', () => {
+  it("reads each household's own expenses and stores what it found against that household", async () => {
+    listHouseholdIds.mockResolvedValue([HOUSEHOLD_1, HOUSEHOLD_2]);
+    prismaMock.transaction.findMany.mockResolvedValue([]);
+
+    await subscriptionDetectionService.runDetectionForAllHouseholds();
+
+    expect(prismaMock.transaction.findMany).toHaveBeenCalledTimes(2);
+    expect(prismaMock.transaction.findMany.mock.calls.map(([query]) => query.where)).toEqual([
+      expect.objectContaining({ householdId: HOUSEHOLD_1, type: 'EXPENSE', status: 'APPROVED' }),
+      expect.objectContaining({ householdId: HOUSEHOLD_2, type: 'EXPENSE', status: 'APPROVED' }),
+    ]);
+    expect(subRepo.applyDetectionResults.mock.calls).toEqual([
+      [HOUSEHOLD_1, []],
+      [HOUSEHOLD_2, []],
+    ]);
+  });
+
+  it('carries on past a failing household, but fails the run', async () => {
+    listHouseholdIds.mockResolvedValue([HOUSEHOLD_1, HOUSEHOLD_2]);
+    prismaMock.transaction.findMany
+      .mockRejectedValueOnce(new Error('db blip'))
+      .mockResolvedValueOnce([]);
+
+    await expect(subscriptionDetectionService.runDetectionForAllHouseholds()).rejects.toThrow(
+      'Subscription detection failed for 1 of 2 household(s)',
+    );
+    expect(subRepo.applyDetectionResults).toHaveBeenCalledWith(HOUSEHOLD_2, []);
+  });
+});
+
 const stored = (over: Sub = {}) => ({
   id: 'sub-1',
-  userId: 'user-1',
   merchantName: 'netflix',
   displayName: 'Netflix',
   averageAmount: 50,
@@ -206,7 +276,7 @@ function isSub(value: unknown): value is Sub {
 describe('updateSubscription', () => {
   it('derives the annual cost from the new amount and frequency', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       averageAmount: 30,
     });
     expect(updateArgs()).toMatchObject({
@@ -214,11 +284,13 @@ describe('updateSubscription', () => {
       frequency: 'MONTHLY',
       annualCost: 360,
     });
+    expect(subRepo.getById).toHaveBeenCalledWith(HOUSEHOLD_1, 'sub-1');
+    expect(subRepo.update).toHaveBeenCalledWith(HOUSEHOLD_1, 'sub-1', expect.any(Object));
   });
 
   it('moves the next expected date when the frequency changes', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       frequency: 'YEARLY',
     });
     expect(updateArgs()).toMatchObject({
@@ -230,7 +302,7 @@ describe('updateSubscription', () => {
 
   it('keeps the next expected date when only the amount changes', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       averageAmount: 55,
     });
     expect(updateArgs().nextExpectedDate).toEqual(new Date('2026-04-04T00:00:00Z'));
@@ -238,7 +310,7 @@ describe('updateSubscription', () => {
 
   it('honours an explicitly given next expected date', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       frequency: 'WEEKLY',
       nextExpectedDate: new Date('2026-05-01T00:00:00Z'),
     });
@@ -248,7 +320,7 @@ describe('updateSubscription', () => {
   // undefined reaches Prisma as "leave alone"; null is what clears a field.
   it('leaves untouched fields undefined so Prisma skips them', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       averageAmount: 30,
     });
     expect(updateArgs().displayName).toBeUndefined();
@@ -257,7 +329,7 @@ describe('updateSubscription', () => {
 
   it('passes a cleared category through as null', async () => {
     subRepo.getById.mockResolvedValue(stored());
-    await subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+    await subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
       categoryId: null,
     });
     expect(updateArgs().categoryId).toBe(null);
@@ -266,7 +338,7 @@ describe('updateSubscription', () => {
   it('rejects an unknown subscription', async () => {
     subRepo.getById.mockResolvedValue(null);
     await expect(
-      subscriptionDetectionService.updateSubscription('nope', 'user-1', {
+      subscriptionDetectionService.updateSubscription(ACTOR, 'nope', {
         averageAmount: 30,
       }),
     ).rejects.toThrow('Subscription not found');
@@ -276,7 +348,7 @@ describe('updateSubscription', () => {
     subRepo.getById.mockResolvedValue(stored());
     subRepo.update.mockRejectedValue(Object.assign(new Error('db'), { code: 'P2002' }));
     await expect(
-      subscriptionDetectionService.updateSubscription('sub-1', 'user-1', {
+      subscriptionDetectionService.updateSubscription(ACTOR, 'sub-1', {
         frequency: 'WEEKLY',
       }),
     ).rejects.toThrow('Another subscription already tracks this merchant');
@@ -285,7 +357,7 @@ describe('updateSubscription', () => {
 
 describe('getSubscriptions', () => {
   it('totals only detected and confirmed rows', async () => {
-    subRepo.getByUserId.mockResolvedValue([
+    subRepo.getByHousehold.mockResolvedValue([
       stored({
         id: 'a',
         status: 'CONFIRMED',
@@ -300,17 +372,19 @@ describe('getSubscriptions', () => {
         annualCost: 999,
       }),
     ]);
-    const result = await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions(HOUSEHOLD_1);
     expect(result).toMatchObject({
       activeCount: 1,
       detectedCount: 1,
       totalMonthlyEstimate: 60,
       totalAnnualEstimate: 720,
     });
+    expect(subRepo.getByHousehold).toHaveBeenCalledWith(HOUSEHOLD_1, undefined);
+    expect(scheduledService.listScheduledTransactions).toHaveBeenCalledWith(HOUSEHOLD_1);
   });
 
   it('flags a subscription an existing schedule already covers', async () => {
-    subRepo.getByUserId.mockResolvedValue([stored()]);
+    subRepo.getByHousehold.mockResolvedValue([stored()]);
     scheduledService.listScheduledTransactions.mockResolvedValue([
       {
         id: 'sched-1',
@@ -319,7 +393,7 @@ describe('getSubscriptions', () => {
         scheduleType: 'MONTHLY',
       },
     ]);
-    const result = await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions(HOUSEHOLD_1);
     expect(result.subscriptions[0]?.scheduleMatch).toMatchObject({
       id: 'sched-1',
       matchType: 'NAME_MATCH',
@@ -327,7 +401,7 @@ describe('getSubscriptions', () => {
   });
 
   it('leaves scheduleMatch unset when nothing matches', async () => {
-    subRepo.getByUserId.mockResolvedValue([stored()]);
+    subRepo.getByHousehold.mockResolvedValue([stored()]);
     scheduledService.listScheduledTransactions.mockResolvedValue([
       {
         id: 'sched-1',
@@ -336,7 +410,7 @@ describe('getSubscriptions', () => {
         scheduleType: 'MONTHLY',
       },
     ]);
-    const result = await subscriptionDetectionService.getSubscriptions('user-1');
+    const result = await subscriptionDetectionService.getSubscriptions(HOUSEHOLD_1);
     const [subscription] = result.subscriptions;
     expect(subscription).toBeDefined();
     expect(subscription?.scheduleMatch).toBeUndefined();
@@ -350,7 +424,7 @@ describe('convertToScheduledTransaction', () => {
     );
 
     await expect(
-      subscriptionDetectionService.convertToScheduledTransaction('s1', 'user-1'),
+      subscriptionDetectionService.convertToScheduledTransaction(ACTOR, 's1'),
     ).rejects.toMatchObject({ status: 409 });
     expect(scheduledService.createScheduledTransaction).not.toHaveBeenCalled();
   });

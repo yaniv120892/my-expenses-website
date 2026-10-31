@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { filesUnder } from '@/test/sourceFiles';
 
 const API_DIR = join(process.cwd(), 'src/app/api');
 
@@ -10,19 +11,9 @@ const API_DIR = join(process.cwd(), 'src/app/api');
  */
 export function declaredHandlerOptions(option: string): string[] {
   const declaration = new RegExp(`\\b${option}\\s*:\\s*([^,\\n}]+)`);
-  return routeFiles(API_DIR)
+  return filesUnder(API_DIR, (fileName) => fileName === 'route.ts')
     .flatMap((path) => declarationsIn({ path, declaration }))
     .sort();
-}
-
-function routeFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return routeFiles(path);
-    }
-    return entry.name === 'route.ts' ? [path] : [];
-  });
 }
 
 function declarationsIn({ path, declaration }: { path: string; declaration: RegExp }): string[] {

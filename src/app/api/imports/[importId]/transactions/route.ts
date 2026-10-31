@@ -5,6 +5,6 @@ import { importService } from '@/server/services/importService';
 export const GET = createHandler({
   auth: 'session',
   paramsSchema: importIdParamsSchema,
-  handler: async ({ userId, params }) =>
-    importService.getImportedTransactions(params.importId, userId),
+  handler: async ({ actor, params }) =>
+    importService.getImportedTransactions(actor.householdId, params.importId),
 });

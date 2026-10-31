@@ -11,6 +11,8 @@ const VIEWER_CALLABLE_WRITES = [
   "POST announcements/acknowledge/route.ts → 'ownAccount'",
   "POST api-tokens/route.ts → 'ownAccount'",
   "POST chat/route.ts → 'ownAccount'",
+  "POST household/join/route.ts → 'ownAccount'",
+  "POST household/leave/route.ts → 'ownAccount'",
   "POST mcp/route.ts → 'perOperation'",
   "POST user/settings/telegram-link/route.ts → 'ownAccount'",
   "POST user/settings/test-monthly-report/route.ts → 'ownAccount'",

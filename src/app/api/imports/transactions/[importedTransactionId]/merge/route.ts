@@ -7,8 +7,8 @@ export const POST = createHandler({
   auth: 'session',
   paramsSchema: importedTransactionIdParamsSchema,
   bodySchema: mergeImportedTransactionSchema,
-  handler: async ({ userId, body, params }) => {
-    await importService.mergeImportedTransaction(params.importedTransactionId, userId, body);
+  handler: async ({ actor, body, params }) => {
+    await importService.mergeImportedTransaction(actor, params.importedTransactionId, body);
     return { success: true };
   },
 });

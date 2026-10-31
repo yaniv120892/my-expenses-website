@@ -309,7 +309,7 @@ function describeError({ err, auth }: { err: unknown; auth: AuthMode }): ErrorDe
     return { status: 400, message: formatZodIssues(err) };
   }
   if (err instanceof HttpError) {
-    return { status: err.status, message: err.message };
+    return { status: err.status, message: err.message, code: err.code };
   }
   const prismaHttpError = MAPS_PRISMA_ERRORS[auth] ? prismaErrorToHttpError(err) : undefined;
   if (prismaHttpError) {
@@ -346,7 +346,7 @@ function errorResponse({
       });
     case 'json': {
       const body = error.code
-        ? { error: error.message, code: error.code }
+        ? { error: error.message, message: error.message, code: error.code }
         : { message: error.message };
       return NextResponse.json(body, { status: error.status, headers });
     }

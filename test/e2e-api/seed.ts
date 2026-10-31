@@ -5,15 +5,14 @@ import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 import { requireEnv } from '@/server/env';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
+import { HOUSEHOLD_E2E_USERS, SEED_PASSWORD } from './householdUsers';
 
 // User A's figures make the comparison exact (Jan ₪4,100 → Feb ₪5,200: +₪1,100,
 // +26.83%); user B exists so a check can assert A's answers never contain B's.
 
-// Hashed, so a local run can sign in through the login form.
-export const SEED_PASSWORD = 'local-dev-password';
-
 export type SeededUser = {
   id: string;
+  householdId: string;
   email: string;
   token: string;
 };
@@ -70,6 +69,7 @@ export async function sessionForExistingUser(email: string): Promise<SeededUser>
     }
     return {
       id: user.id,
+      householdId: user.householdId,
       email: user.email,
       token: await mintToken(user.id, '12h'),
     };
@@ -91,6 +91,10 @@ export async function seed(): Promise<SeedResult> {
     await prisma.importedTransaction.deleteMany({});
     await prisma.import.deleteMany({});
     await prisma.transaction.deleteMany({});
+    // The household leak guard leaves a mapping and a rule behind, both of
+    // which name a category.
+    await prisma.userCategoryMapping.deleteMany({});
+    await prisma.autoApproveRule.deleteMany({});
     await prisma.category.deleteMany({});
     // Saving settings or linking Telegram during a run leaves these behind.
     await prisma.userNotificationPreference.deleteMany({});
@@ -104,6 +108,7 @@ export async function seed(): Promise<SeedResult> {
     });
     const rent = await prisma.category.create({ data: { name: 'Rent' } });
 
+    // Hashed, so a local run can sign in through the login form.
     const passwordHash = await hash(SEED_PASSWORD, 10);
     const userA = await prisma.user.create({
       data: {
@@ -126,23 +131,38 @@ export async function seed(): Promise<SeedResult> {
       },
     });
 
+    const householdUsers = await Promise.all(
+      Object.values(HOUSEHOLD_E2E_USERS).map((user) =>
+        prisma.user.create({
+          data: {
+            ...user,
+            password: passwordHash,
+            verified: true,
+            household: { create: {} },
+            householdRole: 'OWNER',
+          },
+        }),
+      ),
+    );
+
     // Signup acknowledges every existing announcement, but these users are
     // created straight through Prisma. Without this the What's New dialog
     // opens over the first page a spec visits and hides it.
     await prisma.announcementAck.createMany({
-      data: [userA.id, userB.id].flatMap((userId) =>
+      data: [userA.id, userB.id, ...householdUsers.map((user) => user.id)].flatMap((userId) =>
         ANNOUNCEMENT_IDS.map((announcementId) => ({ userId, announcementId })),
       ),
     });
 
     const tx = (
-      userId: string,
+      user: { id: string; householdId: string },
       value: number,
       date: string,
       categoryId: string,
       description: string,
     ) => ({
-      userId,
+      householdId: user.householdId,
+      userId: user.id,
       value,
       originalAmount: value,
       date: new Date(date),
@@ -154,26 +174,28 @@ export async function seed(): Promise<SeedResult> {
 
     await prisma.transaction.createMany({
       data: [
-        tx(userA.id, 4000, '2026-01-05', groceries.id, 'Weekly shop'),
-        tx(userA.id, 100, '2026-01-09', groceries.id, 'Corner store'),
-        tx(userA.id, 5200, '2026-02-05', groceries.id, 'Monthly shop'),
+        tx(userA, 4000, '2026-01-05', groceries.id, 'Weekly shop'),
+        tx(userA, 100, '2026-01-09', groceries.id, 'Corner store'),
+        tx(userA, 5200, '2026-02-05', groceries.id, 'Monthly shop'),
         // User A — a second category, for percentage-share checks
-        tx(userA.id, 900, '2026-01-15', rent.id, 'Rent'),
+        tx(userA, 900, '2026-01-15', rent.id, 'Rent'),
 
         // User B — amounts that must never surface in user A's answers
-        tx(userB.id, 7777, '2026-01-07', groceries.id, 'B groceries'),
-        tx(userB.id, 8888, '2026-02-07', groceries.id, 'B groceries'),
+        tx(userB, 7777, '2026-01-07', groceries.id, 'B groceries'),
+        tx(userB, 8888, '2026-02-07', groceries.id, 'B groceries'),
       ],
     });
 
     return {
       userA: {
         id: userA.id,
+        householdId: userA.householdId,
         email: userA.email,
         token: await mintToken(userA.id),
       },
       userB: {
         id: userB.id,
+        householdId: userB.householdId,
         email: userB.email,
         token: await mintToken(userB.id),
       },

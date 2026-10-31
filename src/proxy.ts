@@ -2,11 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
+import { NEXT_PATH_PARAM, safeNextPath, withNextPath } from '@/shared/nextPath';
 
 const AUTH_PAGES = ['/login', '/signup', '/verify', '/forgot-password'];
 // Open signed in or out: a reset link opened in a browser still holding a
 // session must not be redirected away, losing the token in its fragment.
 const OPEN_PAGES = ['/reset-password'];
+
+// An invite link opened while signed out comes back to itself after login.
+const RETURN_AFTER_LOGIN_PAGES = ['/join'];
 
 // Signature/expiry check only — the full Redis session check runs in every
 // API handler, keeping Redis off the page navigation hot path. A missing
@@ -59,12 +63,19 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const isAuthPage = AUTH_PAGES.some((page) => pathname.startsWith(page));
 
   if (!authenticated && !isAuthPage) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL(loginPathFor(request), request.url));
   }
   if (authenticated && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const next = safeNextPath(request.nextUrl.searchParams.get(NEXT_PATH_PARAM));
+    return NextResponse.redirect(new URL(next ?? '/dashboard', request.url));
   }
   return NextResponse.next();
+}
+
+function loginPathFor(request: NextRequest): string {
+  const { pathname, search } = request.nextUrl;
+  const returnsHere = RETURN_AFTER_LOGIN_PAGES.some((page) => pathname.startsWith(page));
+  return withNextPath({ path: '/login', next: returnsHere ? `${pathname}${search}` : null });
 }
 
 export const config = {

@@ -36,6 +36,9 @@ vi.mock('@prisma/adapter-pg', () => ({ PrismaPg: FakePrismaPg }));
 vi.mock('@/server/db/cardDigitsEncryption', () => ({
   cardDigitsEncryption: () => ({}),
 }));
+vi.mock('@/server/db/householdScope', () => ({
+  householdScopeGuard: () => ({}),
+}));
 
 const POSTGRES_URL = 'postgresql://user:pass@host/db';
 
@@ -44,6 +47,7 @@ beforeEach(() => {
   constructPrismaClient.mockClear();
   constructAdapter.mockClear();
   globalThis.__prisma = undefined;
+  globalThis.__scopedPrisma = undefined;
   vi.stubEnv('DATABASE_URL', POSTGRES_URL);
   vi.stubEnv('PRISMA_FIELD_ENCRYPTION_KEY', 'test-key');
 });

@@ -2,16 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import type * as ObservabilityModule from '@/server/observability';
 
 const {
-  findByUserAndDescription,
+  findByDescription,
   getTransactionsList,
   getTransactionsSummary,
   getCategoryTotals,
   getAllCategories,
   reportError,
   createTransactionFile,
+  findMembersNotifiedOfNewTransactions,
 } = vi.hoisted(() => ({
+  findMembersNotifiedOfNewTransactions: vi.fn(),
   getCategoryTotals: vi.fn(),
-  findByUserAndDescription: vi.fn(),
+  findByDescription: vi.fn(),
   getTransactionsList: vi.fn(),
   getTransactionsSummary: vi.fn(),
   getAllCategories: vi.fn(),
@@ -20,7 +22,7 @@ const {
 }));
 
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
-  default: { findByUserAndDescription },
+  default: { findByDescription },
 }));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({
@@ -35,6 +37,10 @@ vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: { create: createTransactionFile },
 }));
 
+vi.mock('@/server/services/userSettingsService', () => ({
+  default: { findMembersNotifiedOfNewTransactions },
+}));
+
 vi.mock('@/server/observability', async (importOriginal) => ({
   ...(await importOriginal<typeof ObservabilityModule>()),
   observability: { reportError },
@@ -46,6 +52,12 @@ import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
 import type { CreateTransaction } from '@/shared/types/transaction';
 import type { CategorySuggester } from '@/server/services/ai/aiProvider';
+import { testMemberActor } from '@/test/memberActor';
+import { systemActor } from '@/server/auth/householdActor';
+import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
+
+const ACTOR = testMemberActor({ userId: 'user-1' });
+const HOUSEHOLD_ID = ACTOR.householdId;
 
 const CATEGORIES: Category[] = [
   { id: 'cat-food', name: 'Food' },
@@ -60,11 +72,11 @@ const categorySuggester: CategorySuggester = {
 };
 
 const getSuggestedCategory = () =>
-  transactionService['getSuggestedCategory']('Pizza', 'user-1', CATEGORIES);
+  transactionService['getSuggestedCategory'](HOUSEHOLD_ID, 'Pizza', CATEGORIES);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  findByUserAndDescription.mockResolvedValue(null);
+  findByDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
   transactionService['getCategorySuggester'] = () => categorySuggester;
 });
@@ -80,28 +92,27 @@ describe('getAllTransactions', () => {
       .mockResolvedValueOnce(page(['t1', 't2'], 'cursor-1'))
       .mockResolvedValueOnce(page(['t3'], null));
 
-    const transactions = await transactionService.getAllTransactions({
-      userId: 'user-1',
-    });
+    const transactions = await transactionService.getAllTransactions(HOUSEHOLD_ID, {});
 
     expect(transactions.map((transaction) => transaction.id)).toEqual(['t1', 't2', 't3']);
-    expect(getTransactionsList).toHaveBeenCalled();
-    expect(getTransactionsList.mock.calls[0]?.[0].cursor).toBeUndefined();
-    expect(getTransactionsList.mock.calls[1]?.[0].cursor).toBe('cursor-1');
+    expect(getTransactionsList).toHaveBeenCalledTimes(2);
+    expect(getTransactionsList.mock.calls[0]?.[0]).toBe(HOUSEHOLD_ID);
+    expect(getTransactionsList.mock.calls[1]?.[0]).toBe(HOUSEHOLD_ID);
+    expect(getTransactionsList.mock.calls[0]?.[1].cursor).toBeUndefined();
+    expect(getTransactionsList.mock.calls[1]?.[1].cursor).toBe('cursor-1');
   });
 
   it('carries the caller filters and the approved default into the walk', async () => {
     getTransactionsList.mockResolvedValueOnce(page([], null));
 
-    await transactionService.getAllTransactions({
-      userId: 'user-1',
+    await transactionService.getAllTransactions(HOUSEHOLD_ID, {
       transactionType: 'EXPENSE',
       searchTerm: 'taxi',
     });
 
     expect(getTransactionsList).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
       expect.objectContaining({
-        userId: 'user-1',
         transactionType: 'EXPENSE',
         searchTerm: 'taxi',
         status: 'APPROVED',
@@ -118,7 +129,8 @@ describe('category subtree resolution', () => {
     { id: 'cat-rent', parentId: null },
   ];
   const listArgs = (call = 0) => {
-    const [args] = getTransactionsList.mock.calls[call] ?? [];
+    const [householdId, args] = getTransactionsList.mock.calls[call] ?? [];
+    expect(householdId).toBe(HOUSEHOLD_ID);
     if (!args) {
       throw new Error(`getTransactionsList call ${call} never happened`);
     }
@@ -136,8 +148,7 @@ describe('category subtree resolution', () => {
   });
 
   it('expands a parent category to its whole subtree', async () => {
-    await transactionService.getTransactionsList({
-      userId: 'user-1',
+    await transactionService.getTransactionsList(HOUSEHOLD_ID, {
       categoryId: 'cat-food',
       limit: 50,
     });
@@ -146,8 +157,7 @@ describe('category subtree resolution', () => {
   });
 
   it('resolves a leaf category to itself', async () => {
-    await transactionService.getTransactionsList({
-      userId: 'user-1',
+    await transactionService.getTransactionsList(HOUSEHOLD_ID, {
       categoryId: 'cat-organic',
       limit: 50,
     });
@@ -156,8 +166,7 @@ describe('category subtree resolution', () => {
   });
 
   it('leaves an unfiltered request without category ids', async () => {
-    await transactionService.getTransactionsList({
-      userId: 'user-1',
+    await transactionService.getTransactionsList(HOUSEHOLD_ID, {
       limit: 50,
     });
 
@@ -166,12 +175,12 @@ describe('category subtree resolution', () => {
   });
 
   it('expands the summary the same way as the list', async () => {
-    await transactionService.getTransactionsSummary({
-      userId: 'user-1',
+    await transactionService.getTransactionsSummary(HOUSEHOLD_ID, {
       categoryId: 'cat-groceries',
     });
 
-    expect(getTransactionsSummary.mock.calls[0]?.[0].categoryIds).toEqual([
+    expect(getTransactionsSummary.mock.calls[0]?.[0]).toBe(HOUSEHOLD_ID);
+    expect(getTransactionsSummary.mock.calls[0]?.[1].categoryIds).toEqual([
       'cat-groceries',
       'cat-organic',
     ]);
@@ -182,8 +191,7 @@ describe('category subtree resolution', () => {
       .mockResolvedValueOnce({ items: [{ id: 't1' }], nextCursor: 'cursor-1' })
       .mockResolvedValueOnce({ items: [{ id: 't2' }], nextCursor: null });
 
-    await transactionService.getAllTransactions({
-      userId: 'user-1',
+    await transactionService.getAllTransactions(HOUSEHOLD_ID, {
       categoryId: 'cat-food',
     });
 
@@ -208,8 +216,7 @@ describe('getCategoryBreakdown', () => {
       { categoryId: 'gone', amount: 0 },
     ]);
 
-    const items = await transactionService.getCategoryBreakdown({
-      userId: 'user-1',
+    const items = await transactionService.getCategoryBreakdown(HOUSEHOLD_ID, {
       transactionType: 'EXPENSE',
     });
 
@@ -218,6 +225,7 @@ describe('getCategoryBreakdown', () => {
       { categoryId: 'food', categoryName: 'Food', amount: 400, percentage: 40 },
     ]);
     expect(getCategoryTotals).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
       expect.objectContaining({
         status: 'APPROVED',
         transactionType: 'EXPENSE',
@@ -228,34 +236,29 @@ describe('getCategoryBreakdown', () => {
   it('returns no slices when nothing matched', async () => {
     getAllCategories.mockResolvedValue([]);
     getCategoryTotals.mockResolvedValue([]);
-    await expect(transactionService.getCategoryBreakdown({ userId: 'user-1' })).resolves.toEqual(
-      [],
-    );
+    await expect(transactionService.getCategoryBreakdown(HOUSEHOLD_ID, {})).resolves.toEqual([]);
   });
 });
 
 describe('getSuggestedCategory', () => {
   it('returns a user mapping that resolves to a known category', async () => {
-    findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-rent' });
+    findByDescription.mockResolvedValue({ categoryId: 'cat-rent' });
     expect(await getSuggestedCategory()).toBe('cat-rent');
     expect(suggestCategory).not.toHaveBeenCalled();
   });
 
   it('normalizes the description before looking up a mapping', async () => {
-    await transactionService['getSuggestedCategory']('  PiZZa  ', 'user-1', CATEGORIES);
-    expect(findByUserAndDescription).toHaveBeenCalledWith('user-1', 'pizza');
+    await transactionService['getSuggestedCategory'](HOUSEHOLD_ID, '  PiZZa  ', CATEGORIES);
+    expect(findByDescription).toHaveBeenCalledWith(HOUSEHOLD_ID, 'pizza');
   });
 
   it.each([
-    ['no mapping exists', () => findByUserAndDescription.mockResolvedValue(null)],
+    ['no mapping exists', () => findByDescription.mockResolvedValue(null)],
     [
       'the mapped category no longer exists',
-      () => findByUserAndDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
+      () => findByDescription.mockResolvedValue({ categoryId: 'cat-gone' }),
     ],
-    [
-      'the mapping lookup fails',
-      () => findByUserAndDescription.mockRejectedValue(new Error('db down')),
-    ],
+    ['the mapping lookup fails', () => findByDescription.mockRejectedValue(new Error('db down'))],
   ])('asks the AI service when %s', async (_case, arrange) => {
     arrange();
     expect(await getSuggestedCategory()).toBe('cat-ai');
@@ -264,12 +267,12 @@ describe('getSuggestedCategory', () => {
 
   it('reports a failed mapping lookup instead of only logging it', async () => {
     const err = new Error('db down');
-    findByUserAndDescription.mockRejectedValue(err);
+    findByDescription.mockRejectedValue(err);
     await getSuggestedCategory();
     expect(reportError).toHaveBeenCalledWith({
       error: err,
-      where: 'Failed to check user category mapping',
-      context: { userId: 'user-1' },
+      where: 'Failed to check the category mapping',
+      context: { householdId: HOUSEHOLD_ID },
     });
   });
 
@@ -282,7 +285,7 @@ describe('getSuggestedCategory', () => {
 describe('attachFile', () => {
   const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
   const attach = (fileKey: string, fileSize = 10) =>
-    transactionService.attachFile(TRANSACTION_ID, 'user-1', {
+    transactionService.attachFile(ACTOR, TRANSACTION_ID, {
       fileName: 'receipt.pdf',
       fileKey,
       fileSize,
@@ -339,7 +342,7 @@ describe('attachFile', () => {
 describe('getPresignedUploadUrl', () => {
   const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
   const presign = (fileSize: number) =>
-    transactionService.getPresignedUploadUrl(TRANSACTION_ID, 'user-1', {
+    transactionService.getPresignedUploadUrl(ACTOR, TRANSACTION_ID, {
       fileName: 'receipt.pdf',
       mimeType: 'application/pdf',
       fileSize,
@@ -370,6 +373,30 @@ describe('getPresignedUploadUrl', () => {
 });
 
 describe('prepareCreateTransaction', () => {
+  const FALAFEL: CreateTransaction = {
+    description: 'Falafel',
+    categoryId: 'cat-food',
+    date: new Date('2026-08-26T00:30:00Z'),
+    value: 30,
+    type: 'EXPENSE',
+    resolvedAmount: {
+      value: 30,
+      currency: 'ILS',
+      originalAmount: 30,
+      exchangeRate: null,
+      exchangeRateDate: null,
+      exchangeRateSource: null,
+    },
+  };
+
+  beforeEach(() => {
+    transactionService['updateCategory'] = async (_householdId, data: CreateTransaction) => ({
+      ...data,
+      categoryId: 'cat-food',
+    });
+    transactionService['validateCreateTransaction'] = async () => undefined;
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -378,19 +405,13 @@ describe('prepareCreateTransaction', () => {
     vi.useFakeTimers();
     // 00:30 on the 26th in Israel (UTC+3).
     vi.setSystemTime(new Date('2026-08-25T21:30:00Z'));
-    transactionService['updateCategory'] = async (data: CreateTransaction) => ({
-      ...data,
-      categoryId: 'cat-food',
-    });
-    transactionService['validateCreateTransaction'] = async () => undefined;
 
-    const model = await transactionService.prepareCreateTransaction({
+    const model = await transactionService.prepareCreateTransaction(ACTOR, {
       description: 'Falafel',
       categoryId: 'cat-food',
       date: null,
       value: 30,
       type: 'EXPENSE',
-      userId: 'user-1',
       resolvedAmount: {
         value: 30,
         currency: 'ILS',
@@ -402,5 +423,68 @@ describe('prepareCreateTransaction', () => {
     });
 
     expect(model.date).toEqual(new Date('2026-08-26T00:30:00Z'));
+  });
+
+  it('records a member write in the actor household, against that member', async () => {
+    const model = await transactionService.prepareCreateTransaction(ACTOR, FALAFEL);
+
+    expect(model).toMatchObject({ householdId: HOUSEHOLD_ID, userId: 'user-1' });
+  });
+
+  it('records a system write in its household, against no member', async () => {
+    const model = await transactionService.prepareCreateTransaction(
+      systemActor({ householdId: HOUSEHOLD_ID, job: 'scheduled-transactions' }),
+      FALAFEL,
+    );
+
+    expect(model).toMatchObject({ householdId: HOUSEHOLD_ID, userId: null });
+  });
+});
+
+describe('notifyTransactionsCreatedSafe', () => {
+  const notifyTransactionCreated = vi.fn();
+  const notifier: TransactionNotifier = { notifyTransactionCreated, sendDailySummary: vi.fn() };
+  const approved = { id: 'tx-1', status: 'APPROVED' };
+
+  beforeEach(() => {
+    transactionService['getTransactionNotifier'] = () => notifier;
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue(approved);
+  });
+
+  it('tells every member of the household who asked to hear of new transactions', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
+
+    expect(findMembersNotifiedOfNewTransactions).toHaveBeenCalledWith(HOUSEHOLD_ID);
+    expect(transactionService.getTransactionItem).toHaveBeenCalledWith(HOUSEHOLD_ID, 'tx-1');
+    expect(notifyTransactionCreated.mock.calls).toEqual([
+      [approved, 'user-1'],
+      [approved, 'user-2'],
+    ]);
+  });
+
+  it('still tells the other members when one member cannot be reached', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
+    notifyTransactionCreated.mockRejectedValueOnce(new Error('chat blocked'));
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
+
+    expect(notifyTransactionCreated).toHaveBeenLastCalledWith(approved, 'user-2');
+    expect(notifyTransactionCreated).toHaveBeenCalledTimes(2);
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'Failed to notify a member of a created transaction',
+      context: { transactionId: 'tx-1', userId: 'user-1' },
+    });
+  });
+
+  it('reads no transaction when no member asked to be told', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue([]);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
+
+    expect(transactionService.getTransactionItem).not.toHaveBeenCalled();
+    expect(notifyTransactionCreated).not.toHaveBeenCalled();
   });
 });

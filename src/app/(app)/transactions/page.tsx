@@ -23,6 +23,7 @@ import CategoryBreakdownPieChart from '@/components/CategoryBreakdownPieChart';
 import CategoryConfirmationSnackbar from '@/components/CategoryConfirmationSnackbar';
 import NotificationSnackbar from '@/components/NotificationSnackbar';
 import { PageHeader } from '@yaniv120892/my-ui';
+import { useCanWrite } from '@/hooks/useSession';
 import InfiniteScrollSentinel from '@/components/InfiniteScrollSentinel';
 import {
   useTransactionsInfiniteQuery,
@@ -47,6 +48,7 @@ function TransactionsPageContent() {
   // as query params, but the page owns its filters from then on.
   const searchParams = useSearchParams();
   const t = useT();
+  const canWrite = useCanWrite();
   const formatter = useAppFormat();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
@@ -165,16 +167,18 @@ function TransactionsPageContent() {
             >
               {t('transactions.page.exportCsv')}
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddRoundedIcon />}
-              onClick={() => {
-                setEditTx(null);
-                setFormOpen(true);
-              }}
-            >
-              {t('transactions.page.add')}
-            </Button>
+            {canWrite && (
+              <Button
+                variant="contained"
+                startIcon={<AddRoundedIcon />}
+                onClick={() => {
+                  setEditTx(null);
+                  setFormOpen(true);
+                }}
+              >
+                {t('transactions.page.add')}
+              </Button>
+            )}
           </Stack>
         }
       />
@@ -266,7 +270,10 @@ function TransactionsPageContent() {
                 })}
               </Typography>
             )}
-            <TransactionList transactions={transactions} onEditAction={handleEdit} />
+            <TransactionList
+              transactions={transactions}
+              onEditAction={canWrite ? handleEdit : undefined}
+            />
             <InfiniteScrollSentinel
               hasMore={hasNextPage}
               loading={isFetchingNextPage}

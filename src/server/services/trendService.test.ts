@@ -17,6 +17,9 @@ vi.mock('@/server/utils/categoryHierarchy', () => ({
 }));
 
 import trendService from '@/server/services/trendService';
+import { toHouseholdId } from '@/server/auth/householdId';
+
+const HOUSEHOLD_ID = toHouseholdId('household-1');
 
 const tx = (over: Record<string, unknown> = {}) => ({
   id: 't1',
@@ -32,7 +35,7 @@ const request = {
   endDate: new Date('2026-03-31T00:00:00Z'),
 };
 
-const run = () => trendService.getCategorySpendingTrends(request, 'user-1');
+const run = () => trendService.getCategorySpendingTrends(request, HOUSEHOLD_ID);
 
 // Current-period fetch is call 1; the previous-period fetch is call 2.
 const periods = (current: unknown[], previous: unknown[] = []) => {
@@ -58,11 +61,12 @@ describe('getCategorySpendingTrends', () => {
   it('scopes both periods to the requested categories, as the single-series trend does', async () => {
     await trendService.getCategorySpendingTrends(
       { ...request, categoryIds: ['top-food', 'child-food'] },
-      'user-1',
+      HOUSEHOLD_ID,
     );
 
     expect(txRepo.getTransactions).toHaveBeenCalledTimes(2);
-    for (const [query] of txRepo.getTransactions.mock.calls) {
+    for (const [householdId, query] of txRepo.getTransactions.mock.calls) {
+      expect(householdId).toBe(HOUSEHOLD_ID);
       expect(query.categoryIds).toEqual(['top-food', 'child-food']);
     }
   });
@@ -146,18 +150,19 @@ describe('period fetching', () => {
   it('pages until a short page, so a heavy month is not truncated', async () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => tx({ id: `t${index}`, value: 1 }));
     const currentPeriodPages = [fullPage, [tx({ id: 'last', value: 5 })]];
-    txRepo.getTransactions.mockImplementation(async (query: { startDate: Date; page: number }) =>
-      query.startDate.getTime() === request.startDate.getTime()
-        ? (currentPeriodPages[query.page - 1] ?? [])
-        : [],
+    txRepo.getTransactions.mockImplementation(
+      async (_householdId: string, query: { startDate: Date; page: number }) =>
+        query.startDate.getTime() === request.startDate.getTime()
+          ? (currentPeriodPages[query.page - 1] ?? [])
+          : [],
     );
 
     const [trend] = await run();
 
     expect(trend?.totalAmount).toBe(1005);
     const currentPeriodQueries = txRepo.getTransactions.mock.calls.filter(
-      ([query]) => query.startDate.getTime() === request.startDate.getTime(),
+      ([, query]) => query.startDate.getTime() === request.startDate.getTime(),
     );
-    expect(currentPeriodQueries.map(([query]) => query.page)).toEqual([1, 2]);
+    expect(currentPeriodQueries.map(([, query]) => query.page)).toEqual([1, 2]);
   });
 });

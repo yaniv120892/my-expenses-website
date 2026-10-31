@@ -1,4 +1,5 @@
 import transactionRepository from '@/server/repositories/transactionRepository';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import trendService from '@/server/services/trendService';
 import chatAggregationService from '@/server/services/chatAggregationService';
@@ -97,11 +98,11 @@ class FinanceQueryService {
   }
 
   public async summarize({
-    userId,
+    householdId,
     filters,
     aggregation,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     filters: TransactionFilterInput;
     aggregation: AggregationType;
   }): Promise<SummaryResult> {
@@ -110,10 +111,10 @@ class FinanceQueryService {
 
     const result = this.isTotalsAggregation(aggregation)
       ? chatAggregationService.aggregateFromTotals(
-          await this.fetchTotals(userId, scoped),
+          await this.fetchTotals(householdId, scoped),
           aggregation,
         )
-      : await this.aggregateRows({ userId, filters: scoped, aggregation });
+      : await this.aggregateRows({ householdId, filters: scoped, aggregation });
 
     return this.toSummaryResult(result, category);
   }
@@ -123,17 +124,17 @@ class FinanceQueryService {
    * without a count query.
    */
   public async findTransactions({
-    userId,
+    householdId,
     filters,
     limit,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     filters: TransactionFilterInput;
     limit: number;
   }): Promise<FoundTransactions> {
     const category = await this.resolveCategory(filters.categoryName);
-    const rows = await transactionRepository.getTransactions({
-      ...this.toRepositoryFilters(userId, this.toResolvedFilters({ filters, category })),
+    const rows = await transactionRepository.getTransactions(householdId, {
+      ...this.toRepositoryFilters(this.toResolvedFilters({ filters, category })),
       page: 1,
       perPage: limit + 1,
     });
@@ -141,10 +142,10 @@ class FinanceQueryService {
   }
 
   public async comparePeriods({
-    userId,
+    householdId,
     input,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     input: ComparePeriodsInput;
   }): Promise<SummaryResult> {
     const category = await this.resolveCategory(input.categoryName);
@@ -154,12 +155,12 @@ class FinanceQueryService {
     };
 
     const [totalsA, totalsB] = await Promise.all([
-      this.fetchTotals(userId, {
+      this.fetchTotals(householdId, {
         ...shared,
         startDate: input.periodA.startDate,
         endDate: input.periodA.endDate,
       }),
-      this.fetchTotals(userId, {
+      this.fetchTotals(householdId, {
         ...shared,
         startDate: input.periodB.startDate,
         endDate: input.periodB.endDate,
@@ -175,10 +176,10 @@ class FinanceQueryService {
   }
 
   public async describeSpendingTrends({
-    userId,
+    householdId,
     input,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     input: SpendingTrendsInput;
   }): Promise<TrendResult> {
     const category = await this.resolveCategory(input.categoryName);
@@ -193,7 +194,7 @@ class FinanceQueryService {
     };
 
     if (input.byCategory) {
-      const trends = await trendService.getCategorySpendingTrends(request, userId);
+      const trends = await trendService.getCategorySpendingTrends(request, householdId);
       const lines = trends.map(
         (trend) =>
           `  ${trend.categoryName}: ${formatCurrencyPlain(trend.totalAmount)} (${chatAggregationService.formatPercentChange(trend.percentageChange)} vs previous period, trending ${trend.trend})`,
@@ -207,7 +208,7 @@ class FinanceQueryService {
       };
     }
 
-    const trend = await trendService.getSpendingTrends(request, userId);
+    const trend = await trendService.getSpendingTrends(request, householdId);
     const firstDay = toUtcDayString(new Date(trend.startDate));
     const lastDay = toUtcDayString(new Date(trend.endDate));
     const points = trend.points.map(
@@ -246,22 +247,22 @@ class FinanceQueryService {
   }
 
   private async aggregateRows({
-    userId,
+    householdId,
     filters,
     aggregation,
   }: {
-    userId: string;
+    householdId: HouseholdId;
     filters: ResolvedTransactionFilters;
     aggregation: RowAggregationType;
   }): Promise<AggregationOutcome> {
-    const transactions = await this.fetchTransactions(userId, filters);
+    const transactions = await this.fetchTransactions(householdId, filters);
     const result = chatAggregationService.aggregate(transactions, aggregation);
     // A short page proves every matching row was read; only a full page needs
     // the count query to say how much is missing.
     if (transactions.length < MAX_TRANSACTIONS) {
       return result;
     }
-    const { count } = await this.fetchTotals(userId, filters);
+    const { count } = await this.fetchTotals(householdId, filters);
     if (count <= transactions.length) {
       return result;
     }
@@ -289,9 +290,8 @@ class FinanceQueryService {
     };
   }
 
-  private toRepositoryFilters(userId: string, filters: ResolvedTransactionFilters) {
+  private toRepositoryFilters(filters: ResolvedTransactionFilters) {
     return {
-      userId,
       ...(filters.startDate ? { startDate: new Date(filters.startDate) } : {}),
       ...(filters.endDate ? { endDate: new Date(filters.endDate) } : {}),
       ...(filters.transactionType ? { transactionType: filters.transactionType } : {}),
@@ -301,18 +301,21 @@ class FinanceQueryService {
   }
 
   private async fetchTotals(
-    userId: string,
+    householdId: HouseholdId,
     filters: ResolvedTransactionFilters,
   ): Promise<TransactionSummary> {
-    return transactionRepository.getTransactionsSummary(this.toRepositoryFilters(userId, filters));
+    return transactionRepository.getTransactionsSummary(
+      householdId,
+      this.toRepositoryFilters(filters),
+    );
   }
 
   private async fetchTransactions(
-    userId: string,
+    householdId: HouseholdId,
     filters: ResolvedTransactionFilters,
   ): Promise<Transaction[]> {
-    return transactionRepository.getTransactions({
-      ...this.toRepositoryFilters(userId, filters),
+    return transactionRepository.getTransactions(householdId, {
+      ...this.toRepositoryFilters(filters),
       page: 1,
       perPage: MAX_TRANSACTIONS,
     });

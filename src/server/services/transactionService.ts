@@ -35,13 +35,15 @@ import { HttpError } from '@/server/http/errors';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { lazy } from '@/server/lib/lazy';
 import { toAppWallClock } from '@/shared/dates';
+import { actingUserId } from '@/server/auth/householdActor';
+import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
 
 // Larger than any UI page: nothing is rendered from this walk, so the only
 // cost that matters is the number of round trips.
 const ALL_TRANSACTIONS_PAGE_SIZE = 1000;
 
 type CategoryMappingChange = {
-  userId: string;
+  actor: HouseholdActor;
   description: string;
   previousCategoryId: string;
   categoryId: string;
@@ -60,12 +62,15 @@ class TransactionService {
   private getCategorySuggester = lazy(() => aiServiceFactory.getCategorySuggester());
   private getTransactionNotifier = lazy(() => transactionNotifierFactory.getNotifier());
 
-  public async createTransaction(data: CreateTransaction): Promise<CreatedTransaction> {
+  public async createTransaction(
+    actor: HouseholdActor,
+    data: CreateTransaction,
+  ): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
-    const transactionModel = await this.prepareCreateTransaction(data);
+    const transactionModel = await this.prepareCreateTransaction(actor, data);
     const transaction = await transactionRepository.createTransaction(transactionModel);
 
-    await this.notifyTransactionCreatedSafe(transaction.id, transactionModel.userId);
+    await this.notifyTransactionCreatedSafe(actor.householdId, transaction.id);
 
     return {
       id: transaction.id,
@@ -79,6 +84,7 @@ class TransactionService {
    * batched via createTransactionOp.
    */
   public async prepareCreateTransaction(
+    actor: HouseholdActor,
     data: CreateTransaction,
   ): Promise<CreateTransactionDbModel> {
     // An undated create is stamped as the form would stamp it: the app's
@@ -86,7 +92,7 @@ class TransactionService {
     const date = data.date || toAppWallClock(new Date());
     const [amount, resolved] = await Promise.all([
       data.resolvedAmount ?? currencyConversionService.resolveAmount(data, date),
-      this.updateCategory(data),
+      this.updateCategory(actor.householdId, data),
     ]);
     await this.validateCreateTransaction(resolved);
     if (!resolved.categoryId) {
@@ -102,7 +108,8 @@ class TransactionService {
       type: resolved.type,
       status: resolved.status || 'APPROVED',
       scheduledTransactionId: resolved.scheduledTransactionId,
-      userId: resolved.userId,
+      householdId: actor.householdId,
+      userId: actingUserId(actor),
     };
   }
 
@@ -120,15 +127,21 @@ class TransactionService {
     };
   }
 
-  private listResolved(filters: TransactionListFilters): Promise<TransactionListPage> {
-    return transactionRepository.getTransactionsList({
+  private listResolved(
+    householdId: HouseholdId,
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    return transactionRepository.getTransactionsList(householdId, {
       ...filters,
       status: filters.status || 'APPROVED',
     });
   }
 
-  public async getTransactionsList(filters: TransactionListFilters): Promise<TransactionListPage> {
-    return this.listResolved(await this.resolveCategoryFilter(filters));
+  public async getTransactionsList(
+    householdId: HouseholdId,
+    filters: TransactionListFilters,
+  ): Promise<TransactionListPage> {
+    return this.listResolved(householdId, await this.resolveCategoryFilter(filters));
   }
 
   /**
@@ -136,6 +149,7 @@ class TransactionService {
    * is refused early.
    */
   public async getAllTransactions(
+    householdId: HouseholdId,
     filters: TransactionSummaryFilters & Partial<TransactionSort>,
     { maxRows }: { maxRows?: number } = {},
   ): Promise<Transaction[]> {
@@ -144,7 +158,7 @@ class TransactionService {
     let cursor: string | undefined;
 
     do {
-      const page = await this.listResolved({
+      const page = await this.listResolved(householdId, {
         ...resolved,
         cursor,
         limit: ALL_TRANSACTIONS_PAGE_SIZE,
@@ -159,46 +173,52 @@ class TransactionService {
     return transactions;
   }
 
-  public async getPendingTransactions(userId: string): Promise<Transaction[]> {
-    return transactionRepository.getPendingTransactions(userId);
+  public async getPendingTransactions(householdId: HouseholdId): Promise<Transaction[]> {
+    return transactionRepository.getPendingTransactions(householdId);
   }
 
   public async updateTransactionStatus(
+    actor: HouseholdActor,
     id: string,
     status: TransactionStatus,
-    userId: string,
   ): Promise<string> {
-    const transactionId = await transactionRepository.updateTransactionStatus(id, status, userId);
+    const transactionId = await transactionRepository.updateTransactionStatus(
+      actor.householdId,
+      id,
+      status,
+    );
     if (status === 'APPROVED') {
-      await this.notifyTransactionCreatedSafe(transactionId, userId);
+      await this.notifyTransactionCreatedSafe(actor.householdId, transactionId);
     }
 
     return transactionId;
   }
 
   public async getTransactionItem(
+    householdId: HouseholdId,
     transactionId: string,
-    userId: string,
   ): Promise<Transaction | null> {
-    return transactionRepository.getTransactionItem(transactionId, userId);
+    return transactionRepository.getTransactionItem(householdId, transactionId);
   }
 
   public async getTransactionsSummary(
+    householdId: HouseholdId,
     filters: TransactionSummaryFilters,
   ): Promise<TransactionSummary> {
     const resolved = await this.resolveCategoryFilter(filters);
-    return transactionRepository.getTransactionsSummary({
+    return transactionRepository.getTransactionsSummary(householdId, {
       ...resolved,
       status: resolved.status || 'APPROVED',
     });
   }
 
   public async getCategoryBreakdown(
+    householdId: HouseholdId,
     filters: TransactionSummaryFilters,
   ): Promise<CategoryBreakdownItem[]> {
     const resolved = await this.resolveCategoryFilter(filters);
     const [totals, categories] = await Promise.all([
-      transactionRepository.getCategoryTotals({
+      transactionRepository.getCategoryTotals(householdId, {
         ...resolved,
         status: resolved.status || 'APPROVED',
       }),
@@ -213,28 +233,24 @@ class TransactionService {
   }
 
   public async updateTransaction(
+    actor: HouseholdActor,
     id: string,
     data: UpdateTransactionRequest,
-    userId: string,
   ): Promise<Transaction> {
-    const existing = await transactionRepository.getTransactionItem(id, userId);
+    const existing = await transactionRepository.getTransactionItem(actor.householdId, id);
     if (!existing) {
       throw new HttpError(404, 'Transaction not found');
     }
     const amount = await currencyConversionService.resolveAmount(data, data.date, existing);
-    const updated = await transactionRepository.updateTransaction(
-      id,
-      {
-        description: data.description,
-        amount,
-        categoryId: data.categoryId,
-        type: data.type,
-        date: data.date,
-      },
-      userId,
-    );
+    const updated = await transactionRepository.updateTransaction(actor.householdId, id, {
+      description: data.description,
+      amount,
+      categoryId: data.categoryId,
+      type: data.type,
+      date: data.date,
+    });
     await this.learnCategoryMappingSafe({
-      userId,
+      actor,
       description: data.description,
       previousCategoryId: existing.category.id,
       categoryId: data.categoryId,
@@ -251,27 +267,28 @@ class TransactionService {
       return;
     }
     try {
-      await userCategoryMappingRepository.upsert(
-        change.userId,
+      await userCategoryMappingRepository.upsert({
+        householdId: change.actor.householdId,
+        userId: actingUserId(change.actor),
         descriptionPattern,
-        change.categoryId,
-      );
+        categoryId: change.categoryId,
+      });
       logger.debug(`Saved category mapping: "${descriptionPattern}" -> ${change.categoryId}`);
     } catch (err) {
       logger.warn({ err }, 'Failed to save category mapping on update');
     }
   }
 
-  public async deleteTransaction(id: string, userId: string): Promise<void> {
-    const fileKeys = await transactionRepository.deleteTransaction(id, userId);
+  public async deleteTransaction(actor: HouseholdActor, id: string): Promise<void> {
+    const fileKeys = await transactionRepository.deleteTransaction(actor.householdId, id);
     await Promise.all(
       fileKeys.map((fileKey) => this.deleteAttachmentObjectSafe({ fileKey, transactionId: id })),
     );
   }
 
   public async attachFile(
+    actor: HouseholdActor,
     transactionId: string,
-    userId: string,
     fileData: {
       fileName: string;
       fileKey: string;
@@ -287,7 +304,7 @@ class TransactionService {
       throw new HttpError(400, `fileKey was not issued for transaction ${transactionId}`);
     }
 
-    await this.assertTransactionExists(transactionId, userId);
+    await this.assertTransactionExists(actor.householdId, transactionId);
 
     await transactionFileRepository.create({
       transactionId,
@@ -306,10 +323,10 @@ class TransactionService {
   }
 
   public async getTransactionFiles(
+    householdId: HouseholdId,
     transactionId: string,
-    userId: string,
   ): Promise<TransactionFileView[]> {
-    await this.assertTransactionExists(transactionId, userId);
+    await this.assertTransactionExists(householdId, transactionId);
 
     const files = await transactionFileRepository.findByTransactionId(transactionId);
 
@@ -332,8 +349,12 @@ class TransactionService {
     );
   }
 
-  public async removeFile(transactionId: string, fileId: string, userId: string): Promise<void> {
-    await this.assertTransactionExists(transactionId, userId);
+  public async removeFile(
+    actor: HouseholdActor,
+    transactionId: string,
+    fileId: string,
+  ): Promise<void> {
+    await this.assertTransactionExists(actor.householdId, transactionId);
     const file = await this.assertTransactionFileExists(fileId, transactionId);
 
     await transactionFileRepository.markForDeletion(fileId);
@@ -346,15 +367,15 @@ class TransactionService {
   }
 
   public async getPresignedUploadUrl(
+    actor: HouseholdActor,
     transactionId: string,
-    userId: string,
     file: { fileName: string; mimeType: string; fileSize: number },
   ) {
     assertWithinUploadLimit({
       fileName: file.fileName,
       sizeInBytes: file.fileSize,
     });
-    await this.assertTransactionExists(transactionId, userId);
+    await this.assertTransactionExists(actor.householdId, transactionId);
     return getPresignedUploadUrl({ transactionId, ...file });
   }
 
@@ -365,7 +386,10 @@ class TransactionService {
     }
   }
 
-  private async updateCategory(transaction: CreateTransaction): Promise<CreateTransaction> {
+  private async updateCategory(
+    householdId: HouseholdId,
+    transaction: CreateTransaction,
+  ): Promise<CreateTransaction> {
     if (transaction.categoryId) {
       return transaction;
     }
@@ -373,8 +397,8 @@ class TransactionService {
     const categories = await categoryRepository.getAllCategories();
 
     const suggestedCategoryId = await this.getSuggestedCategory(
+      householdId,
       transaction.description,
-      transaction.userId,
       categories,
     );
     if (!suggestedCategoryId) {
@@ -390,24 +414,24 @@ class TransactionService {
   }
 
   private async getSuggestedCategory(
+    householdId: HouseholdId,
     description: string,
-    userId: string,
     categories: Category[],
   ): Promise<string | null> {
     return (
-      (await this.findUserMappedCategoryId(description, userId, categories)) ??
+      (await this.findMappedCategoryId(householdId, description, categories)) ??
       this.getCategorySuggester().suggestCategory(description, categories)
     );
   }
 
-  private async findUserMappedCategoryId(
+  private async findMappedCategoryId(
+    householdId: HouseholdId,
     description: string,
-    userId: string,
     categories: Category[],
   ): Promise<string | null> {
     try {
-      const mapping = await userCategoryMappingRepository.findByUserAndDescription(
-        userId,
+      const mapping = await userCategoryMappingRepository.findByDescription(
+        householdId,
         this.toDescriptionPattern(description),
       );
       const mappedCategory = mapping
@@ -420,53 +444,63 @@ class TransactionService {
     } catch (err) {
       observability.reportError({
         error: err,
-        where: 'Failed to check user category mapping',
-        context: { userId },
+        where: 'Failed to check the category mapping',
+        context: { householdId },
       });
     }
     return null;
   }
 
-  public async notifyTransactionCreatedSafe(transactionId: string, userId: string) {
-    await this.notifyTransactionsCreatedSafe([transactionId], userId);
+  public async notifyTransactionCreatedSafe(householdId: HouseholdId, transactionId: string) {
+    await this.notifyTransactionsCreatedSafe(householdId, [transactionId]);
   }
 
   /**
-   * Notifies each transaction on its own, so one failure cannot silence the
-   * rest.
+   * Tells every member who asked to hear of new transactions, whoever added
+   * them. Each transaction is notified on its own, so one failure cannot
+   * silence the rest.
    */
-  public async notifyTransactionsCreatedSafe(transactionIds: string[], userId: string) {
+  public async notifyTransactionsCreatedSafe(householdId: HouseholdId, transactionIds: string[]) {
     if (transactionIds.length === 0) {
       return;
     }
 
-    let isNotificationEnabled: boolean;
+    let recipientIds: string[];
     try {
-      isNotificationEnabled =
-        await userSettingsService.isCreateTransactionNotificationEnabled(userId);
+      recipientIds = await userSettingsService.findMembersNotifiedOfNewTransactions(householdId);
     } catch (error) {
-      logger.error(
-        { err: error, userId },
-        'Failed to read the create-transaction notification preference',
-      );
+      observability.reportError({
+        error,
+        where: 'Failed to read the create-transaction notification preference',
+        context: { householdId },
+      });
       return;
     }
 
-    if (!isNotificationEnabled) {
+    if (recipientIds.length === 0) {
       logger.debug(
-        `skipped ${transactionIds.length} notification(s) - not enabled for user ${userId}`,
+        { householdId, count: transactionIds.length },
+        'Skipped new-transaction notifications, no member opted in',
       );
       return;
     }
 
     for (const transactionId of transactionIds) {
-      await this.notifyOneTransactionCreatedSafe(transactionId, userId);
+      await this.notifyOneTransactionCreatedSafe({ householdId, transactionId, recipientIds });
     }
   }
 
-  private async notifyOneTransactionCreatedSafe(transactionId: string, userId: string) {
+  private async notifyOneTransactionCreatedSafe({
+    householdId,
+    transactionId,
+    recipientIds,
+  }: {
+    householdId: HouseholdId;
+    transactionId: string;
+    recipientIds: string[];
+  }) {
     try {
-      const transaction = await this.getTransactionItem(transactionId, userId);
+      const transaction = await this.getTransactionItem(householdId, transactionId);
       if (!transaction) {
         logger.warn(
           `skipped notification for transaction ${transactionId} - transaction not found`,
@@ -481,17 +515,38 @@ class TransactionService {
         return;
       }
 
-      await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
+      await Promise.all(
+        recipientIds.map((userId) => this.notifyMemberSafe({ transaction, userId })),
+      );
     } catch (error) {
       logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
     }
   }
 
+  /** One member's broken channel must not silence the others. */
+  private async notifyMemberSafe({
+    transaction,
+    userId,
+  }: {
+    transaction: Transaction;
+    userId: string;
+  }): Promise<void> {
+    try {
+      await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
+    } catch (error) {
+      observability.reportError({
+        error,
+        where: 'Failed to notify a member of a created transaction',
+        context: { transactionId: transaction.id, userId },
+      });
+    }
+  }
+
   private async assertTransactionExists(
+    householdId: HouseholdId,
     transactionId: string,
-    userId: string,
   ): Promise<Transaction> {
-    const transaction = await this.getTransactionItem(transactionId, userId);
+    const transaction = await this.getTransactionItem(householdId, transactionId);
     if (!transaction) {
       throw new HttpError(404, 'Transaction not found');
     }

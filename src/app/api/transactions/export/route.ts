@@ -15,10 +15,11 @@ const MAX_EXPORT_ROWS = 50_000;
 export const GET = createHandler({
   auth: 'session',
   querySchema: exportTransactionsSchema,
-  handler: async ({ userId, query }) => {
+  handler: async ({ userId, actor, query }) => {
     const startedAt = Date.now();
     const transactions = await transactionService.getAllTransactions(
-      toTransactionFilters(query, userId),
+      actor.householdId,
+      toTransactionFilters(query),
       { maxRows: MAX_EXPORT_ROWS },
     );
 

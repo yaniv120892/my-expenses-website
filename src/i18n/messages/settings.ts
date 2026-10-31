@@ -61,6 +61,8 @@ const en = {
   'settings.agent.title': 'Personal agent',
   'settings.agent.intro':
     'Connect your personal agent to My Expenses so it can record expenses and income, fix and delete them, and answer questions about your spending — for example from a Telegram voice message. The agent gets its own access, which you can revoke here at any time, and it lasts a year.',
+  'settings.agent.introReadOnly':
+    "Connect your personal agent to My Expenses so it can answer questions about your household's spending — for example from a Telegram voice message. You are a viewer in this household, so the agent can look things up but not record, change or delete anything. It gets its own access, which you can revoke here at any time, and it lasts a year.",
   'settings.agent.name': 'Agent name',
   'settings.agent.create': 'Give the agent access',
   'settings.agent.createFailed': 'Failed to create the access',
@@ -202,6 +204,8 @@ export const settingsMessages: Dictionary<typeof en> = {
     'settings.agent.title': 'סוכן אישי',
     'settings.agent.intro':
       'חברו את הסוכן האישי שלכם ל-My Expenses, כדי שיוכל לרשום הוצאות והכנסות, לתקן ולמחוק אותן ולענות על שאלות על ההוצאות — למשל מהודעה קולית בטלגרם. הסוכן מקבל גישה משלו, שאפשר לבטל כאן בכל רגע, והיא תקפה לשנה.',
+    'settings.agent.introReadOnly':
+      'חברו את הסוכן האישי שלכם ל-My Expenses, כדי שיוכל לענות על שאלות על ההוצאות של משק הבית — למשל מהודעה קולית בטלגרם. אתם צופים במשק הבית הזה, ולכן הסוכן יכול לחפש ולהציג מידע, אבל לא לרשום, לשנות או למחוק. הסוכן מקבל גישה משלו, שאפשר לבטל כאן בכל רגע, והיא תקפה לשנה.',
     'settings.agent.name': 'שם הסוכן',
     'settings.agent.create': 'יצירת גישה לסוכן',
     'settings.agent.createFailed': 'יצירת הגישה נכשלה',

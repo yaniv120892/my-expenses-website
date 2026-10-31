@@ -12,6 +12,7 @@ import { withVerifyFullSslMode } from '../../src/server/db/sslMode';
 import { requireEnv } from '../../src/server/env';
 import { buildImportObjectKey } from '../../src/server/utils/importObjectKey';
 import { ACTIVE_IMPORT_STATUSES } from '../../src/utils/importStatus';
+import { IS_HOUSEHOLD_OWNED } from '../../src/server/db/householdScope';
 import type { ImportStatus } from '../../src/shared/types/import';
 import {
   CIPHERTEXT_FROM_AN_EARLIER_CLIENT,
@@ -205,6 +206,13 @@ async function redisGet(key: string): Promise<unknown> {
   return parsed.result;
 }
 
+async function rentCategory(): Promise<{ id: string }> {
+  return firstRow({
+    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
+    what: 'the Rent category',
+  });
+}
+
 function firstRow<T>({ rows, what }: { rows: T[]; what: string }): T {
   const [row] = rows;
   if (row === undefined) {
@@ -244,6 +252,9 @@ async function insertVerifiedUser({
     what: `the user ${email}`,
   });
 }
+
+/** A member and the household whose rows the harness writes directly. */
+type Owner = { id: string; householdId: string };
 
 // Runs against a user of its own: logout deletes the session key, which would
 // invalidate the token the other checks share.
@@ -600,12 +611,12 @@ async function walkTransactionPages(token: string, sortParams: string): Promise<
 
 // Small pages force many cursor hops, so a keyset that skips or repeats a
 // row on a tie (same amount, same category) shows up as a wrong sequence.
-async function transactionCursorPagingFlow(token: string, userId: string): Promise<void> {
+async function transactionCursorPagingFlow(token: string, owner: Owner): Promise<void> {
   const tiedDescription = 'E2E sort tie';
   await query(
     `insert into "Transaction"
-       (id, description, value, "originalAmount", type, "categoryId", "userId", date)
-     select gen_random_uuid(), $1, tie.value, tie.value, 'EXPENSE', c.id, $2, tie.date
+       (id, description, value, "originalAmount", type, "categoryId", "householdId", "userId", date)
+     select gen_random_uuid(), $1, tie.value, tie.value, 'EXPENSE', c.id, $2, $3, tie.date
      from (values
        (50, 'Rent', timestamp '2026-03-01'), (50, 'Rent', timestamp '2026-03-01'),
        (50, 'Groceries', timestamp '2026-03-01'), (20, 'Groceries', timestamp '2026-03-02'),
@@ -613,7 +624,7 @@ async function transactionCursorPagingFlow(token: string, userId: string): Promi
        (80, 'Groceries', timestamp '2026-03-01')
      ) as tie(value, category, date)
      join "Category" c on c.name = tie.category`,
-    [tiedDescription, userId],
+    [tiedDescription, owner.householdId, owner.id],
   );
 
   try {
@@ -621,9 +632,9 @@ async function transactionCursorPagingFlow(token: string, userId: string): Promi
       const walk = await walkTransactionPages(token, `sortBy=${sortBy}&sortOrder=${sortOrder}`);
       const expected = await query<{ id: string }>(
         `select t.id from "Transaction" t join "Category" c on c.id = t."categoryId"
-         where t.status = 'APPROVED' and t."userId" = $1
+         where t.status = 'APPROVED' and t."householdId" = $1
          order by ${orderSql}`,
-        [userId],
+        [owner.householdId],
       );
       const expectedIds = expected.map((row) => row.id);
       const label = `transactions: cursor paging by ${sortBy} ${sortOrder} returns every row once, in order`;
@@ -639,9 +650,9 @@ async function transactionCursorPagingFlow(token: string, userId: string): Promi
       );
     }
   } finally {
-    await query(`delete from "Transaction" where description = $1 and "userId" = $2`, [
+    await query(`delete from "Transaction" where description = $1 and "householdId" = $2`, [
       tiedDescription,
-      userId,
+      owner.householdId,
     ]);
   }
 
@@ -655,19 +666,16 @@ async function transactionCursorPagingFlow(token: string, userId: string): Promi
   );
 }
 
-async function scheduledCronFlow(userId: string): Promise<void> {
-  const category = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+async function scheduledCronFlow(owner: Owner): Promise<void> {
+  const category = await rentCategory();
   const description = 'E2E due schedule';
   const schedule = firstRow({
     rows: await query<{ id: string }>(
       `insert into "ScheduledTransaction"
-       (id, description, value, type, "categoryId", "scheduleType", "userId", "nextRunDate")
-     values (gen_random_uuid(), $1, 55, 'EXPENSE', $2, 'DAILY', $3, now() - interval '1 day')
+       (id, description, value, type, "categoryId", "scheduleType", "householdId", "userId", "nextRunDate")
+     values (gen_random_uuid(), $1, 55, 'EXPENSE', $2, 'DAILY', $3, $4, now() - interval '1 day')
      returning id`,
-      [description, category.id, userId],
+      [description, category.id, owner.householdId, owner.id],
     ),
     what: 'the due schedule',
   });
@@ -684,17 +692,23 @@ async function scheduledCronFlow(userId: string): Promise<void> {
   });
   check('cron: process with CRON_SECRET succeeds', run.status === 200, `status ${run.status}`);
 
-  const txRows = await query<{ status: string }>(
-    `select status from "Transaction" where "userId" = $1 and description = $2`,
-    [userId, description],
+  const transactionRows = await query<{ status: string; userId: string | null }>(
+    `select status, "userId" from "Transaction" where "householdId" = $1 and description = $2`,
+    [owner.householdId, description],
   );
-  const [firstTransaction] = txRows;
+  const [firstTransaction] = transactionRows;
   check(
     'cron: due schedule created a PENDING_APPROVAL transaction',
-    txRows.length === 1 && firstTransaction?.status === 'PENDING_APPROVAL',
+    transactionRows.length === 1 && firstTransaction?.status === 'PENDING_APPROVAL',
     firstTransaction
-      ? `${txRows.length} row(s), status ${firstTransaction.status}`
+      ? `${transactionRows.length} row(s), status ${firstTransaction.status}`
       : 'no transaction created',
+  );
+
+  check(
+    "cron: the projected transaction is the cron's write, in the schedule's household",
+    transactionRows.length === 1 && firstTransaction?.userId === null,
+    `userId ${firstTransaction?.userId}`,
   );
 
   const [after] = await query<{ future: boolean }>(
@@ -704,16 +718,16 @@ async function scheduledCronFlow(userId: string): Promise<void> {
   check('cron: nextRunDate advanced into the future', after?.future === true);
 }
 
-async function stuckImportSweepFlow(userId: string): Promise<void> {
+async function stuckImportSweepFlow(owner: Owner): Promise<void> {
   const insertImport = async (status: string, ageHours: number) => {
     const row = firstRow({
       rows: await query<{ id: string }>(
         `insert into "Import"
-         (id, "userId", "fileUrl", "originalFileName", status, "createdAt", "updatedAt")
-       values (gen_random_uuid(), $1, 'e2e/stuck.xlsx', 'stuck.xlsx', $2::"ImportStatus",
-               now() - make_interval(hours => $3), now())
+         (id, "householdId", "userId", "fileUrl", "originalFileName", status, "createdAt", "updatedAt")
+       values (gen_random_uuid(), $1, $2, 'e2e/stuck.xlsx', 'stuck.xlsx', $3::"ImportStatus",
+               now() - make_interval(hours => $4), now())
        returning id`,
-        [userId, status, ageHours],
+        [owner.householdId, owner.id, status, ageHours],
       ),
       what: `a ${status} import`,
     });
@@ -1162,7 +1176,7 @@ async function importMergeFlow(token: string): Promise<void> {
 async function variableAmountPlaceholderFlow(
   sessionToken: string,
   apiToken: string,
-  userId: string,
+  owner: Owner,
 ): Promise<void> {
   const bucket = process.env.IMPORTS_S3_BUCKET;
   const region = process.env.IMPORTS_S3_REGION;
@@ -1171,10 +1185,7 @@ async function variableAmountPlaceholderFlow(
   }
   const digits = randomCardDigits();
   const description = `E2E variable ${digits}`;
-  const category = firstRow({
-    rows: await query<{ id: string }>(`select id from "Category" where name = 'Rent'`),
-    what: 'the Rent category',
-  });
+  const category = await rentCategory();
 
   // Created without a prefix and given one after the cron has run, so the
   // check proves an edit reaches a pending transaction already projected.
@@ -1206,8 +1217,8 @@ async function variableAmountPlaceholderFlow(
     id: string;
     scheduledTransactionId: string | null;
   }>(
-    `select id, "scheduledTransactionId" from "Transaction" where "userId" = $1 and description = $2`,
-    [userId, description],
+    `select id, "scheduledTransactionId" from "Transaction" where "householdId" = $1 and description = $2`,
+    [owner.householdId, description],
   );
   check(
     'variable amount: the cron links the pending transaction to its schedule',
@@ -1258,6 +1269,367 @@ async function variableAmountPlaceholderFlow(
       item.match?.transactionId === placeholder.id &&
       item.match.approvesPendingTransaction,
     `action ${item?.action ?? 'none'}, merges into ${item?.match?.transactionId ?? 'nothing'}`,
+  );
+}
+
+type ForeignRows = {
+  transactionId: string;
+  importId: string;
+  importedTransactionId: string;
+  scheduleId: string;
+  mappingId: string;
+  ruleId: string;
+  subscriptionId: string;
+};
+
+// One row of every household-owned model, written straight into the other
+// household so no route of the household under test ever touched them.
+async function insertForeignRows(owner: Owner): Promise<ForeignRows> {
+  const rent = await rentCategory();
+  const insertOne = async (sql: string, params: unknown[], what: string) =>
+    firstRow({ rows: await query<{ id: string }>(sql, params), what }).id;
+  const values = [owner.householdId, owner.id];
+
+  const transactionId = await insertOne(
+    `select id from "Transaction" where "householdId" = $1 order by date limit 1`,
+    [owner.householdId],
+    "the other household's transaction",
+  );
+  const importId = await insertOne(
+    `insert into "Import" (id, "householdId", "userId", "fileUrl", "originalFileName", status, "updatedAt")
+     values (gen_random_uuid(), $1, $2, 'e2e/leak.xlsx', 'leak.xlsx', 'COMPLETED', now()) returning id`,
+    values,
+    "the other household's import",
+  );
+  const importedTransactionId = await insertOne(
+    `insert into "ImportedTransaction"
+       (id, "householdId", "userId", "importId", description, value, currency, "originalAmount", date, type, "rawData")
+     values (gen_random_uuid(), $1, $2, $3, 'LEAK GUARD ROW', 31, 'ILS', 31, now(), 'EXPENSE', '{}') returning id`,
+    [...values, importId],
+    "the other household's imported row",
+  );
+  const scheduleId = await insertOne(
+    `insert into "ScheduledTransaction"
+       (id, "householdId", "userId", description, value, type, "categoryId", "scheduleType", "nextRunDate")
+     values (gen_random_uuid(), $1, $2, 'LEAK GUARD SCHEDULE', 32, 'EXPENSE', $3, 'MONTHLY', now() + interval '10 days')
+     returning id`,
+    [...values, rent.id],
+    "the other household's schedule",
+  );
+  const mappingId = await insertOne(
+    `insert into "UserCategoryMapping" (id, "householdId", "userId", "descriptionPattern", "categoryId", "updatedAt")
+     values (gen_random_uuid(), $1, $2, 'leak guard merchant', $3, now()) returning id`,
+    [...values, rent.id],
+    "the other household's category mapping",
+  );
+  const ruleId = await insertOne(
+    `insert into "AutoApproveRule" (id, "householdId", "userId", "descriptionPattern", "categoryId", type, "updatedAt")
+     values (gen_random_uuid(), $1, $2, 'LEAK GUARD', $3, 'EXPENSE', now()) returning id`,
+    [...values, rent.id],
+    "the other household's auto-approve rule",
+  );
+  const subscriptionId = await insertOne(
+    `insert into "DetectedSubscription"
+       (id, "householdId", "userId", "merchantName", "displayName", "averageAmount", frequency,
+        "lastChargeDate", "nextExpectedDate", "annualCost", "matchingDescriptions", "updatedAt")
+     values (gen_random_uuid(), $1, $2, 'LEAKGUARD', 'Leak Guard', 33, 'MONTHLY', now(),
+             now() + interval '20 days', 396, '{LEAK GUARD}', now()) returning id`,
+    values,
+    "the other household's subscription",
+  );
+  return {
+    transactionId,
+    importId,
+    importedTransactionId,
+    scheduleId,
+    mappingId,
+    ruleId,
+    subscriptionId,
+  };
+}
+
+// Every row of the other household, as one comparable string: a write that
+// crossed households changes it, whatever status the route answered with.
+async function snapshotHousehold(householdId: string): Promise<string> {
+  const tables = Object.entries(IS_HOUSEHOLD_OWNED)
+    .filter(([, isOwned]) => isOwned)
+    .map(([model]) => model);
+  const snapshots = await Promise.all(
+    tables.map(async (table) => {
+      const rows = await query(
+        `select to_jsonb(t) - 'updatedAt' as row from "${table}" t where "householdId" = $1 order by id`,
+        [householdId],
+      );
+      return `${table}:${JSON.stringify(rows)}`;
+    }),
+  );
+  return snapshots.join('\n');
+}
+
+/**
+ * The leak guard: a member of one household aims every household route at the
+ * other household's ids. Each must answer as if the row did not exist — a 404,
+ * or a list without it — and leave every row of the other household as it was.
+ */
+async function householdLeakGuardFlow(attacker: { token: string }, victim: Owner): Promise<void> {
+  const foreign = await insertForeignRows(victim);
+  const before = await snapshotHousehold(victim.householdId);
+  const token = attacker.token;
+  const rent = await rentCategory();
+  const transactionBody = {
+    description: 'hijack',
+    value: 1,
+    type: 'EXPENSE',
+    categoryId: rent.id,
+    date: '2026-01-01',
+  };
+  const importedRowBody = {
+    description: 'hijack',
+    value: 1,
+    date: '2026-01-01',
+    type: 'EXPENSE',
+    categoryId: rent.id,
+  };
+  const scheduleBody = {
+    description: 'hijack',
+    value: 1,
+    type: 'EXPENSE',
+    categoryId: rent.id,
+    scheduleType: 'MONTHLY',
+    dayOfMonth: 1,
+  };
+
+  const writes: [string, string, unknown?][] = [
+    ['PUT', `/api/transactions/${foreign.transactionId}`, transactionBody],
+    ['PATCH', `/api/transactions/${foreign.transactionId}/status`, { status: 'PENDING_APPROVAL' }],
+    ['DELETE', `/api/transactions/${foreign.transactionId}`],
+    [
+      'POST',
+      `/api/transactions/${foreign.transactionId}/attachments/presign-upload`,
+      { fileName: 'a.pdf', mimeType: 'application/pdf', fileSize: 10 },
+    ],
+    ['DELETE', `/api/imports/${foreign.importId}`],
+    ['POST', `/api/imports/${foreign.importId}/rematch`],
+    ['POST', `/api/imports/${foreign.importId}/apply-auto-approve-rules`],
+    ['POST', `/api/imports/transactions/${foreign.importedTransactionId}/approve`, importedRowBody],
+    ['POST', `/api/imports/transactions/${foreign.importedTransactionId}/merge`, importedRowBody],
+    ['POST', `/api/imports/transactions/${foreign.importedTransactionId}/ignore`],
+    ['DELETE', `/api/imports/transactions/${foreign.importedTransactionId}`],
+    ['POST', '/api/imports/batch-action', { importId: foreign.importId, action: 'approve' }],
+    ['POST', '/api/imports/batch-action', { importId: foreign.importId, action: 'ignore' }],
+    ['PUT', `/api/scheduled-transactions/${foreign.scheduleId}`, scheduleBody],
+    ['DELETE', `/api/scheduled-transactions/${foreign.scheduleId}`],
+    ['PUT', `/api/imports/auto-approve-rules/${foreign.ruleId}`, { isActive: false }],
+    ['DELETE', `/api/imports/auto-approve-rules/${foreign.ruleId}`],
+    ['PATCH', `/api/subscriptions/${foreign.subscriptionId}`, { displayName: 'hijack' }],
+    ['PATCH', `/api/subscriptions/${foreign.subscriptionId}/confirm`],
+    ['PATCH', `/api/subscriptions/${foreign.subscriptionId}/dismiss`],
+    ['POST', `/api/subscriptions/${foreign.subscriptionId}/convert`, { categoryId: rent.id }],
+  ];
+  for (const [method, path, body] of writes) {
+    const result = await api(method, path, { token, body });
+    const answeredAsMissing = result.status === 404 || isEmptyBatch(result);
+    check(
+      `household leak guard: ${method} ${path.replace(/[0-9a-f-]{36}/g, ':id')} finds nothing`,
+      answeredAsMissing,
+      `status ${result.status} ${preview(JSON.stringify(result.body))}`,
+    );
+  }
+
+  const reads: [string, (body: unknown) => boolean][] = [
+    [`/api/imports/${foreign.importId}`, () => false],
+    [`/api/imports/${foreign.importId}/transactions`, isEmptyArray],
+    [`/api/imports/${foreign.importId}/reconciliation-preview`, isEmptyArray],
+    [`/api/transactions/${foreign.transactionId}/attachments`, () => false],
+  ];
+  for (const [path, isEmptyAnswer] of reads) {
+    const result = await api('GET', path, { token });
+    check(
+      `household leak guard: GET ${path.replace(/[0-9a-f-]{36}/g, ':id')} shows nothing`,
+      result.status === 404 || (result.status === 200 && isEmptyAnswer(result.body)),
+      `status ${result.status} ${preview(JSON.stringify(result.body))}`,
+    );
+  }
+
+  const lists = await Promise.all(
+    [
+      '/api/transactions?limit=100&startDate=2026-01-01&endDate=2026-12-31',
+      '/api/transactions/pending',
+      '/api/imports',
+      '/api/scheduled-transactions',
+      '/api/imports/auto-approve-rules',
+      '/api/subscriptions',
+      '/api/dashboard',
+    ].map(async (path) => ({ path, result: await api('GET', path, { token }) })),
+  );
+  const foreignIds = Object.values(foreign);
+  for (const { path, result } of lists) {
+    const text = JSON.stringify(result.body);
+    const leakedIds = foreignIds.filter((id) => text.includes(id));
+    const leakedMarkers = ['LEAK GUARD', 'Leak Guard', ...USER_B_MARKERS.slice(0, 2)].filter(
+      (marker) => text.includes(marker),
+    );
+    check(
+      `household leak guard: GET ${path.split('?')[0]} lists only its own household`,
+      result.status === 200 && leakedIds.length === 0 && leakedMarkers.length === 0,
+      `status ${result.status}, leaked ${[...leakedIds, ...leakedMarkers].join(', ') || 'nothing'}`,
+    );
+  }
+
+  const after = await snapshotHousehold(victim.householdId);
+  check(
+    "household leak guard: the other household's rows are untouched",
+    after === before,
+    after === before ? 'unchanged' : 'rows changed',
+  );
+
+  await householdMembershipLeakGuard({ token, victim });
+}
+
+/**
+ * The owner-only member and invite routes, aimed at another household's
+ * invite and member. Invites and users are not household-owned rows, so the
+ * snapshot above does not cover them; this compares them directly.
+ */
+async function householdMembershipLeakGuard({
+  token,
+  victim,
+}: {
+  token: string;
+  victim: Owner;
+}): Promise<void> {
+  const inviteId = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "Invite" (id, "householdId", code, role, "createdById", "expiresAt")
+       values (gen_random_uuid(), $1, 'LEAKGRD2', 'EDITOR', $2, now() + interval '7 days') returning id`,
+      [victim.householdId, victim.id],
+    ),
+    what: "the other household's invite",
+  }).id;
+  const memberId = firstRow({
+    rows: await query<{ id: string }>(
+      `insert into "User" (id, username, email, password, verified, "householdId", "householdRole")
+       values (gen_random_uuid(), 'e2e-leak-member', 'leak-member@e2e.test', 'unused', true, $1, 'EDITOR')
+       returning id`,
+      [victim.householdId],
+    ),
+    what: "the other household's member",
+  }).id;
+  const snapshotMembership = async () =>
+    JSON.stringify([
+      await query(
+        `select id, "usedAt", "revokedAt" from "Invite" where "householdId" = $1 order by id`,
+        [victim.householdId],
+      ),
+      await query(
+        `select id, "householdRole", "tokenVersion" from "User" where "householdId" = $1 order by id`,
+        [victim.householdId],
+      ),
+    ]);
+  const before = await snapshotMembership();
+
+  const writes: [string, string, unknown?][] = [
+    ['DELETE', `/api/household/invites/${inviteId}`],
+    ['PATCH', `/api/household/members/${memberId}`, { role: 'VIEWER' }],
+    ['DELETE', `/api/household/members/${memberId}`],
+  ];
+  for (const [method, path, body] of writes) {
+    const result = await api(method, path, { token, body });
+    check(
+      `household leak guard: ${method} ${path.replace(/[0-9a-f-]{36}/g, ':id')} finds nothing`,
+      result.status === 404,
+      `status ${result.status} ${preview(JSON.stringify(result.body))}`,
+    );
+  }
+
+  const after = await snapshotMembership();
+  check(
+    "household leak guard: the other household's invites and members are untouched",
+    after === before,
+    after === before ? 'unchanged' : 'invites or members changed',
+  );
+}
+
+/**
+ * A member's API tokens carry no household, so they would keep acting for an
+ * agent set up in the household the member left. Leaving and being removed
+ * both revoke them.
+ */
+async function memberTokenRevocationFlow(): Promise<void> {
+  const password = 'e2e-household-password';
+  const passwordHash = await hash(password, 10);
+  const signIn = async (username: string) => {
+    const email = `${username}@e2e.test`;
+    const user = await insertVerifiedUser({ username, email, passwordHash });
+    const login = await api<{ token?: string }>('POST', '/api/auth/login', {
+      body: { email, password },
+    });
+    return { id: user.id, token: login.body?.token ?? '' };
+  };
+  const { token: ownerToken } = await signIn('e2e-token-owner');
+  const { id: memberId, token: memberToken } = await signIn('e2e-token-member');
+
+  const joinAndMintToken = async (): Promise<string> => {
+    const invite = await api<{ code?: string }>('POST', '/api/household/invites', {
+      token: ownerToken,
+      body: { role: 'EDITOR' },
+    });
+    const joined = await api('POST', '/api/household/join', {
+      token: memberToken,
+      body: { code: invite.body?.code ?? '' },
+    });
+    const minted = await api<{ token?: string }>('POST', '/api/api-tokens', {
+      token: memberToken,
+      body: { name: 'member script', scopes: ['IMPORTS'] },
+    });
+    const apiToken = minted.body?.token ?? '';
+    const works = await api('GET', '/api/imports', { token: apiToken });
+    check(
+      "household tokens: a member's API token works while they are in the household",
+      invite.status === 201 && joined.status === 200 && works.status === 200,
+      `invite ${invite.status}, join ${joined.status}, token use ${works.status}`,
+    );
+    return apiToken;
+  };
+
+  const tokenBeforeLeaving = await joinAndMintToken();
+  const left = await api('POST', '/api/household/leave', { token: memberToken });
+  const afterLeaving = await api('GET', '/api/imports', { token: tokenBeforeLeaving });
+  check(
+    "household tokens: leaving revokes the member's API tokens",
+    left.status === 200 &&
+      afterLeaving.status === 401 &&
+      errorCode(afterLeaving) === 'INVALID_API_TOKEN',
+    `leave ${left.status}, then ${afterLeaving.status}`,
+  );
+
+  const tokenBeforeRemoval = await joinAndMintToken();
+  const removed = await api('DELETE', `/api/household/members/${memberId}`, {
+    token: ownerToken,
+  });
+  const afterRemoval = await api('GET', '/api/imports', { token: tokenBeforeRemoval });
+  check(
+    "household tokens: removal revokes the member's API tokens",
+    removed.status === 204 &&
+      afterRemoval.status === 401 &&
+      errorCode(afterRemoval) === 'INVALID_API_TOKEN',
+    `remove ${removed.status}, then ${afterRemoval.status}`,
+  );
+}
+
+function isEmptyArray(body: unknown): boolean {
+  return Array.isArray(body) && body.length === 0;
+}
+
+// A batch over an import the caller cannot see finds no rows to act on.
+function isEmptyBatch(result: ApiResult): boolean {
+  const body = result.body;
+  return (
+    result.status === 200 &&
+    typeof body === 'object' &&
+    body !== null &&
+    'total' in body &&
+    body.total === 0
   );
 }
 
@@ -1437,9 +1809,9 @@ async function main(): Promise<void> {
   await passwordChangeFlow();
   await transactionLifecycleFlow(seeded.userA.token);
   await transactionCategoryBreakdownFlow(seeded.userA.token);
-  await transactionCursorPagingFlow(seeded.userA.token, seeded.userA.id);
-  await scheduledCronFlow(seeded.userA.id);
-  await stuckImportSweepFlow(seeded.userA.id);
+  await transactionCursorPagingFlow(seeded.userA.token, seeded.userA);
+  await scheduledCronFlow(seeded.userA);
+  await stuckImportSweepFlow(seeded.userA);
   await telegramWebhookFlow();
   await excelWebhookFlow(seeded.userA.id);
   // The import flows run on an Imports-scoped API token rather than the
@@ -1447,8 +1819,10 @@ async function main(): Promise<void> {
   const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
   await importEncryptionFlow(apiToken);
   await importMergeFlow(apiToken);
-  await variableAmountPlaceholderFlow(seeded.userA.token, apiToken, seeded.userA.id);
+  await variableAmountPlaceholderFlow(seeded.userA.token, apiToken, seeded.userA);
   await apiTokenRevocationFlow(seeded.userA.token, apiToken);
+  await householdLeakGuardFlow(seeded.userA, seeded.userB);
+  await memberTokenRevocationFlow();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

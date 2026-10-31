@@ -5,8 +5,8 @@ import { importService } from '@/server/services/importService';
 export const DELETE = createHandler({
   auth: 'session',
   paramsSchema: importedTransactionIdParamsSchema,
-  handler: async ({ userId, params }) => {
-    await importService.deleteImportedTransaction(params.importedTransactionId, userId);
+  handler: async ({ actor, params }) => {
+    await importService.deleteImportedTransaction(actor, params.importedTransactionId);
     return { success: true };
   },
 });

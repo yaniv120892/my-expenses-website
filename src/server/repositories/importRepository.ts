@@ -6,10 +6,7 @@ import type {
 } from '@/generated/prisma/client';
 import { ImportStatus, ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-
-// Longer than the platform lets any function run, so a claim older than this
-// belongs to a callback that died mid-write.
-const CALLBACK_CLAIM_GRACE_MS = 15 * 60 * 1000;
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 
 export type ImportWithPendingCount = Import & {
   _count: {
@@ -17,8 +14,6 @@ export type ImportWithPendingCount = Import & {
   };
   mergedInto: { originalFileName: string } | null;
 };
-
-type StuckImportSweep = { importIds: string[]; failedCount: number };
 
 const listItemInclude = {
   _count: {
@@ -40,7 +35,8 @@ export class ImportRepository {
     originalFileName: string;
     importType: ImportFileType | null;
     bankSourceType: ImportBankSourceType | null;
-    userId: string;
+    householdId: HouseholdId;
+    userId: string | null;
     creditCardLastFourDigits?: string | null;
     paymentMonth: string | null;
     excelExtractionRequestId: string | null;
@@ -53,31 +49,28 @@ export class ImportRepository {
     });
   }
 
-  public async findById(id: string): Promise<Import | null> {
+  public async findById(householdId: HouseholdId, id: string): Promise<Import | null> {
     return prisma.import.findUnique({
-      where: { id },
+      where: { id, householdId },
     });
   }
 
-  public async findByUserId(userId: string): Promise<ImportWithPendingCount[]> {
+  public async findByHousehold(householdId: HouseholdId): Promise<ImportWithPendingCount[]> {
     return prisma.import.findMany({
-      where: { userId, deleted: false },
+      where: { householdId, deleted: false },
       // id breaks createdAt ties so the polled list keeps a stable order.
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: listItemInclude,
     });
   }
 
-  public async findByIdForUser(id: string, userId: string): Promise<ImportWithPendingCount | null> {
+  public async findLiveById(
+    householdId: HouseholdId,
+    id: string,
+  ): Promise<ImportWithPendingCount | null> {
     return prisma.import.findFirst({
-      where: { id, userId, deleted: false },
+      where: { id, householdId, deleted: false },
       include: listItemInclude,
-    });
-  }
-
-  public async findByExtractionRequestId(excelExtractionRequestId: string): Promise<Import | null> {
-    return prisma.import.findUnique({
-      where: { excelExtractionRequestId },
     });
   }
 
@@ -87,14 +80,14 @@ export class ImportRepository {
    * several is stable.
    */
   public async findExisting(
-    userId: string,
+    householdId: HouseholdId,
     paymentMonth: string,
     creditCardLastFourDigits: string,
     excludeImportId?: string,
   ): Promise<Import | null> {
     const imports = await prisma.import.findMany({
       where: {
-        userId,
+        householdId,
         paymentMonth,
         deleted: false,
         status: ImportStatus.COMPLETED,
@@ -115,18 +108,18 @@ export class ImportRepository {
   }
 
   /** The conditional update is what makes a redelivered webhook a no-op. */
-  public async claimExtraction(id: string): Promise<boolean> {
+  public async claimExtraction(householdId: HouseholdId, id: string): Promise<boolean> {
     const claimed = await prisma.import.updateMany({
-      where: { id, extractionCompletedAt: null },
+      where: { id, householdId, extractionCompletedAt: null },
       data: { extractionCompletedAt: new Date() },
     });
 
     return claimed.count > 0;
   }
 
-  public softDeleteOp(id: string, userId: string) {
+  public softDeleteOp(householdId: HouseholdId, id: string) {
     return prisma.import.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: { deleted: true },
     });
   }
@@ -135,9 +128,13 @@ export class ImportRepository {
    * Conditional, so a crash after this import was merged away or completed
    * leaves that status alone rather than overwriting it with FAILED.
    */
-  public async markFailedIfProcessing(id: string, error: string): Promise<boolean> {
+  public async markFailedIfProcessing(
+    householdId: HouseholdId,
+    id: string,
+    error: string,
+  ): Promise<boolean> {
     const failed = await prisma.import.updateMany({
-      where: { id, status: ImportStatus.PROCESSING },
+      where: { id, householdId, status: ImportStatus.PROCESSING },
       data: { status: ImportStatus.FAILED, error },
     });
     return failed.count > 0;
@@ -148,12 +145,13 @@ export class ImportRepository {
    * false when the import was not in `from`.
    */
   public async transitionStatus(
+    householdId: HouseholdId,
     id: string,
     from: ImportStatus,
     to: ImportStatus,
   ): Promise<boolean> {
     const moved = await prisma.import.updateMany({
-      where: { id, status: from },
+      where: { id, householdId, status: from },
       data: {
         status: to,
         ...(to === ImportStatus.COMPLETED && { completedAt: new Date() }),
@@ -162,43 +160,12 @@ export class ImportRepository {
     return moved.count > 0;
   }
 
-  /**
-   * The write is scoped to PROCESSING again, so a callback that completes or
-   * merges an import between the read and the write keeps its status. It claims
-   * the extraction too, so a callback signed moments before the cutoff is a
-   * no-op rather than rows written into a FAILED import. A callback that has
-   * claimed the extraction is left to finish unless its claim has outlived any
-   * function.
-   */
-  public async failStuckProcessing(createdBefore: Date, error: string): Promise<StuckImportSweep> {
-    const stuck = await prisma.import.findMany({
-      where: {
-        status: ImportStatus.PROCESSING,
-        createdAt: { lt: createdBefore },
-      },
-      select: { id: true },
-    });
-    const importIds = stuck.map((stuckImport) => stuckImport.id);
-    if (importIds.length === 0) {
-      return { importIds, failedCount: 0 };
-    }
-    const claimedBefore = new Date(Date.now() - CALLBACK_CLAIM_GRACE_MS);
-    const failed = await prisma.import.updateMany({
-      where: {
-        id: { in: importIds },
-        status: ImportStatus.PROCESSING,
-        OR: [{ extractionCompletedAt: null }, { extractionCompletedAt: { lt: claimedBefore } }],
-      },
-      data: {
-        status: ImportStatus.FAILED,
-        error,
-        extractionCompletedAt: new Date(),
-      },
-    });
-    return { importIds, failedCount: failed.count };
-  }
-
-  public async updateStatus(id: string, status: ImportStatus, error?: string): Promise<Import> {
+  public async updateStatus(
+    householdId: HouseholdId,
+    id: string,
+    status: ImportStatus,
+    error?: string,
+  ): Promise<Import> {
     const data: Prisma.ImportUpdateInput = {
       status,
       ...(status === ImportStatus.COMPLETED && { completedAt: new Date() }),
@@ -206,7 +173,7 @@ export class ImportRepository {
     };
 
     return prisma.import.update({
-      where: { id },
+      where: { id, householdId },
       data,
     });
   }

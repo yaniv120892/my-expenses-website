@@ -48,7 +48,6 @@ export type CreateTransaction = {
   date: Date | null;
   status?: TransactionStatus;
   scheduledTransactionId?: string;
-  userId: string;
 } & TransactionAmountInput;
 
 export type TransactionSummaryFilters = {
@@ -63,7 +62,6 @@ export type TransactionSummaryFilters = {
   transactionType?: TransactionType;
   searchTerm?: string;
   status?: TransactionStatus;
-  userId: string;
 };
 
 export type TransactionFilters = {

@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/generated/prisma/client';
 import { cardDigitsEncryption } from '@/server/db/cardDigitsEncryption';
+import { householdScopeGuard } from '@/server/db/householdScope';
 import { requireEnv } from '@/server/env';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
 
@@ -18,25 +19,50 @@ function createPrismaClient() {
   }).$extends(cardDigitsEncryption(requireEnv('PRISMA_FIELD_ENCRYPTION_KEY')));
 }
 
-type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
+type SystemPrismaClient = ReturnType<typeof createPrismaClient>;
 
-declare global {
-  var __prisma: ExtendedPrismaClient | undefined;
+function createScopedClient(system: SystemPrismaClient) {
+  return system.$extends(householdScopeGuard());
 }
 
-function getClient(): ExtendedPrismaClient {
+type ScopedPrismaClient = ReturnType<typeof createScopedClient>;
+
+declare global {
+  var __prisma: SystemPrismaClient | undefined;
+  var __scopedPrisma: ScopedPrismaClient | undefined;
+}
+
+function getSystemClient(): SystemPrismaClient {
   return (globalThis.__prisma ??= createPrismaClient());
+}
+
+// An extension of the same client, so both share one connection.
+function getScopedClient(): ScopedPrismaClient {
+  return (globalThis.__scopedPrisma ??= createScopedClient(getSystemClient()));
 }
 
 // Built on first use, so a missing DATABASE_URL fails the call rather than the
 // import.
-const lazyClientTarget: ExtendedPrismaClient = Object.create(Object.prototype);
-const prisma = new Proxy(lazyClientTarget, {
-  get(_target, prop) {
-    const client = getClient();
-    const value = Reflect.get(client, prop);
-    return typeof value === 'function' ? value.bind(client) : value;
-  },
-});
+function lazily<Client extends object>(getClient: () => Client): Client {
+  const lazyClientTarget: Client = Object.create(Object.prototype);
+  return new Proxy(lazyClientTarget, {
+    get(_target, property) {
+      const client = getClient();
+      const value = Reflect.get(client, property);
+      return typeof value === 'function' ? value.bind(client) : value;
+    },
+  });
+}
+
+// Every household-owned query through this client must name its household
+// (src/server/db/householdScope.ts).
+const prisma = lazily(getScopedClient);
+
+/**
+ * Skips the household check, for the few jobs that work across households —
+ * a cron's sweep, the extraction callback finding its import. Only
+ * crossHouseholdRepository imports it, as householdScope.test.ts pins.
+ */
+export const systemPrisma = lazily(getSystemClient);
 
 export default prisma;

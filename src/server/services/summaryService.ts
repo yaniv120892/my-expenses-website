@@ -1,5 +1,6 @@
 import transactionService from '@/server/services/transactionService';
-import userSettingsService from '@/server/services/userSettingsService';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import userRepository from '@/server/repositories/userRepository';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import { lazy } from '@/server/lib/lazy';
@@ -13,11 +14,15 @@ class SummaryService {
 
   public async sendTodaySummaryToAllUsers(): Promise<void> {
     const notifier = transactionNotifierFactory.getNotifier();
-    const users = await userSettingsService.getUsersRequiredDailySummary();
+    const users = await userRepository.findReportRecipients('dailySummary');
+    // Members of one household share its figures, so the model is asked once.
+    const messageByHousehold = new Map<HouseholdId, string>();
     let failed = 0;
-    for (const userId of users) {
+    for (const { userId, householdId } of users) {
       try {
-        const message = await this.getTodaySummaryMessage(userId);
+        const message =
+          messageByHousehold.get(householdId) ?? (await this.getTodaySummaryMessage(householdId));
+        messageByHousehold.set(householdId, message);
         await notifier.sendDailySummary(message, userId);
       } catch (err) {
         failed += 1;
@@ -34,8 +39,8 @@ class SummaryService {
     }
   }
 
-  private async getTodaySummaryMessage(userId: string): Promise<string> {
-    const transactions = await this.getTodayTransactions(userId);
+  private async getTodaySummaryMessage(householdId: HouseholdId): Promise<string> {
+    const transactions = await this.getTodayTransactions(householdId);
     if (transactions.length === 0) {
       return 'לא נוספו הוצאות היום.';
     }
@@ -51,15 +56,14 @@ class SummaryService {
     return formatSummaryMessage(transactions, total, aiInsights);
   }
 
-  private async getTodayTransactions(userId: string): Promise<SummaryTransaction[]> {
+  private async getTodayTransactions(householdId: HouseholdId): Promise<SummaryTransaction[]> {
     // One normalizer owns both bounds: the repository floors startDate to
     // startOfDay and widens endDate to endOfDay.
     const today = new Date();
-    return transactionService.getAllTransactions({
+    return transactionService.getAllTransactions(householdId, {
       startDate: today,
       endDate: today,
       transactionType: TransactionType.EXPENSE,
-      userId,
     });
   }
 }

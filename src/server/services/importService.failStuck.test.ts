@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { failStuckProcessing } = vi.hoisted(() => ({
-  failStuckProcessing: vi.fn(),
+const { failStuckImports } = vi.hoisted(() => ({
+  failStuckImports: vi.fn(),
 }));
-vi.mock('@/server/repositories/importRepository', () => ({
-  importRepository: { failStuckProcessing },
+vi.mock('@/server/repositories/crossHouseholdRepository', () => ({
+  default: { failStuckImports },
 }));
 
 import { importService } from '@/server/services/importService';
@@ -15,7 +15,7 @@ describe('importService.failStuckImports', () => {
   });
 
   it('fails imports created more than six hours ago, when no callback token can still land', async () => {
-    failStuckProcessing.mockResolvedValue({
+    failStuckImports.mockResolvedValue({
       importIds: ['imp-1'],
       failedCount: 1,
     });
@@ -23,7 +23,7 @@ describe('importService.failStuckImports', () => {
 
     const result = await importService.failStuckImports(now);
 
-    expect(failStuckProcessing).toHaveBeenCalledWith(
+    expect(failStuckImports).toHaveBeenCalledWith(
       new Date('2026-10-24T06:00:00Z'),
       'Extraction did not report back within 6 hours. Delete this import and upload the statement again.',
     );

@@ -53,6 +53,8 @@ import { HttpError } from '@/server/http/errors';
 import { AGENT_TOOL_GUIDE } from '@/shared/agentTools';
 
 const USER_ID = 'user-1';
+const ACTOR = testMemberActor({ userId: USER_ID });
+const HOUSEHOLD_ID = ACTOR.householdId;
 const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
 
 const CATEGORIES = [
@@ -164,6 +166,20 @@ describe('MCP tool surface', () => {
     );
   });
 
+  it('marks read-only exactly the tools the briefing offers a viewer', async () => {
+    const { tools } = await client.listTools();
+
+    const readOnly = tools
+      .filter((tool) => tool.annotations?.readOnlyHint === true)
+      .map((tool) => tool.name)
+      .sort();
+    expect(readOnly).toEqual(
+      AGENT_TOOL_GUIDE.filter((tool) => !tool.writes)
+        .map((tool) => tool.name)
+        .sort(),
+    );
+  });
+
   it('takes no user id from the agent on any tool', async () => {
     const { tools } = await client.listTools();
 
@@ -205,10 +221,8 @@ describe('read tools', () => {
     expect(outcome.text).toContain('1,234.50');
     expect(outcome.text).toContain('Category: Food & Groceries (including its subcategories)');
     expect(transactionRepository.getTransactionsSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: USER_ID,
-        categoryIds: ['c-food', 'c-fast'],
-      }),
+      HOUSEHOLD_ID,
+      expect.objectContaining({ categoryIds: ['c-food', 'c-fast'] }),
     );
   });
 
@@ -260,8 +274,7 @@ describe('read tools', () => {
     expect(outcome.text).toContain('קפה בארומה');
     expect(outcome.text).toContain('Fast Food');
     expect(outcome.text).not.toContain('Note:');
-    expect(transactionRepository.getTransactions).toHaveBeenCalledWith({
-      userId: USER_ID,
+    expect(transactionRepository.getTransactions).toHaveBeenCalledWith(HOUSEHOLD_ID, {
       searchTerm: 'קפה',
       categoryIds: ['c-food', 'c-fast'],
       page: 1,
@@ -326,6 +339,7 @@ describe('read tools', () => {
 
     expect(outcome.text).toContain('Category: Food & Groceries (including its subcategories)');
     expect(transactionRepository.getTransactions).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
       expect.objectContaining({ categoryIds: ['c-food', 'c-fast'] }),
     );
   });
@@ -341,7 +355,6 @@ describe('read tools', () => {
         scheduleType: 'MONTHLY',
         dayOfMonth: 1,
         nextRunDate: new Date('2026-11-01T00:00:00Z'),
-        userId: USER_ID,
       },
     ]);
 
@@ -353,7 +366,9 @@ describe('read tools', () => {
     expect(outcome.text).toContain('Rent | ');
     expect(outcome.text).toContain('Runs every month on day 1.');
     expect(outcome.text).toContain('next 2026-11-01');
-    expect(scheduledTransactionService.listScheduledTransactions).toHaveBeenCalledWith(USER_ID);
+    expect(scheduledTransactionService.listScheduledTransactions).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
+    );
   });
 });
 
@@ -429,14 +444,13 @@ describe('add_transaction', () => {
     expect(outcome.isError).toBe(false);
     expect(outcome.text).toContain('Added:');
     expect(outcome.text).toContain('Fast Food');
-    expect(transactionService.createTransaction).toHaveBeenCalledWith({
+    expect(transactionService.createTransaction).toHaveBeenCalledWith(ACTOR, {
       description: 'קפה בארומה',
       currency: 'ILS',
       value: 18,
       type: 'EXPENSE',
       date: new Date('2026-10-20'),
       categoryId: null,
-      userId: USER_ID,
     });
   });
 
@@ -451,6 +465,7 @@ describe('add_transaction', () => {
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      ACTOR,
       expect.objectContaining({ date: new Date('2026-10-21T01:30:00Z') }),
     );
   });
@@ -506,6 +521,7 @@ describe('add_transaction', () => {
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      ACTOR,
       expect.objectContaining({
         currency: 'USD',
         originalAmount: 25,
@@ -527,6 +543,7 @@ describe('add_transaction', () => {
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      ACTOR,
       expect.objectContaining({
         currency: 'EUR',
         originalAmount: 100,
@@ -559,6 +576,7 @@ describe('add_transaction', () => {
     });
 
     expect(transactionService.createTransaction).toHaveBeenCalledWith(
+      ACTOR,
       expect.objectContaining({ categoryId: 'c-rent' }),
     );
   });
@@ -606,18 +624,14 @@ describe('update_transaction', () => {
       toolArguments: { id: TRANSACTION_ID, description: 'Netflix' },
     });
 
-    expect(transactionService.updateTransaction).toHaveBeenCalledWith(
-      TRANSACTION_ID,
-      {
-        description: 'Netflix',
-        currency: 'USD',
-        originalAmount: 25,
-        categoryId: 'c-fast',
-        type: 'EXPENSE',
-        date: foreign.date,
-      },
-      USER_ID,
-    );
+    expect(transactionService.updateTransaction).toHaveBeenCalledWith(ACTOR, TRANSACTION_ID, {
+      description: 'Netflix',
+      currency: 'USD',
+      originalAmount: 25,
+      categoryId: 'c-fast',
+      type: 'EXPENSE',
+      date: foreign.date,
+    });
   });
 
   it('moves the transaction to a named category', async () => {
@@ -628,13 +642,13 @@ describe('update_transaction', () => {
     });
 
     expect(transactionService.updateTransaction).toHaveBeenCalledWith(
+      ACTOR,
       TRANSACTION_ID,
       expect.objectContaining({
         categoryId: 'c-rent',
         currency: 'ILS',
         value: 20,
       }),
-      USER_ID,
     );
   });
 
@@ -675,7 +689,10 @@ describe('update_transaction', () => {
 
     expect(outcome.isError).toBe(true);
     expect(outcome.text).toContain(`No transaction with id ${TRANSACTION_ID}`);
-    expect(transactionService.getTransactionItem).toHaveBeenCalledWith(TRANSACTION_ID, USER_ID);
+    expect(transactionService.getTransactionItem).toHaveBeenCalledWith(
+      HOUSEHOLD_ID,
+      TRANSACTION_ID,
+    );
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         toolName: 'update_transaction',
@@ -696,7 +713,7 @@ describe('delete_transaction', () => {
 
     expect(outcome.text).toContain('Deleted:');
     expect(outcome.text).toContain('קפה בארומה');
-    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(TRANSACTION_ID, USER_ID);
+    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(ACTOR, TRANSACTION_ID);
   });
 
   it('rejects an id that is not a uuid without touching the service', async () => {

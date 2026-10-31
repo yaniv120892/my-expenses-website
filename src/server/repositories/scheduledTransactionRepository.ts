@@ -1,16 +1,25 @@
 import type { ScheduledTransaction } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import { toHouseholdId } from '@/server/auth/householdId';
 import type {
   CreateScheduledTransaction,
   UpdateScheduledTransaction,
-  ScheduledTransactionDomain,
 } from '@/shared/types/scheduledTransaction';
+import type { ScheduledHouseholdTransaction } from '@/server/repositories/scheduledTransactionRepository.types';
 
 class ScheduledTransactionRepository {
-  public async createScheduledTransaction(
-    data: CreateScheduledTransaction,
-    nextRunDate: Date,
-  ): Promise<string> {
+  public async createScheduledTransaction({
+    householdId,
+    userId,
+    data,
+    nextRunDate,
+  }: {
+    householdId: HouseholdId;
+    userId: string | null;
+    data: CreateScheduledTransaction;
+    nextRunDate: Date;
+  }): Promise<string> {
     const scheduledTransaction = await prisma.scheduledTransaction.create({
       data: {
         ...data,
@@ -20,69 +29,81 @@ class ScheduledTransactionRepository {
         monthOfYear: data.monthOfYear === undefined ? null : data.monthOfYear,
         bankDescriptionPrefix: data.bankDescriptionPrefix ?? null,
         nextRunDate,
-        userId: data.userId,
+        householdId,
+        userId,
       },
     });
     return scheduledTransaction.id;
   }
 
-  public async getAllScheduledTransactions(userId: string): Promise<ScheduledTransactionDomain[]> {
+  public async getAllScheduledTransactions(
+    householdId: HouseholdId,
+  ): Promise<ScheduledHouseholdTransaction[]> {
     const scheduledTransactions = await prisma.scheduledTransaction.findMany({
       where: {
-        userId,
+        householdId,
       },
       orderBy: {
         nextRunDate: 'asc',
       },
     });
-    return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
-  }
-
-  public async getDueScheduledTransactions(date: Date): Promise<ScheduledTransactionDomain[]> {
-    const scheduledTransactions = await prisma.scheduledTransaction.findMany({
-      where: {
-        nextRunDate: { lte: date },
-      },
-    });
-    return scheduledTransactions.map(this.mapScheduledTransactionDbToDomain);
+    return scheduledTransactions.map(toScheduledHouseholdTransaction);
   }
 
   /**
    * Advances only if nextRunDate is still the value the caller read, so of two
    * overlapping runs exactly one claims the occurrence.
    */
-  public async claimDueRun(
-    id: string,
-    readNextRunDate: Date | null,
-    lastRunDate: Date,
-    nextRunDate: Date,
-  ): Promise<boolean> {
+  public async claimDueRun({
+    householdId,
+    id,
+    readNextRunDate,
+    lastRunDate,
+    nextRunDate,
+  }: {
+    householdId: HouseholdId;
+    id: string;
+    readNextRunDate: Date | null;
+    lastRunDate: Date;
+    nextRunDate: Date;
+  }): Promise<boolean> {
     const { count } = await prisma.scheduledTransaction.updateMany({
-      where: { id, nextRunDate: readNextRunDate },
+      where: { id, householdId, nextRunDate: readNextRunDate },
       data: { lastRunDate, nextRunDate },
     });
     return count > 0;
   }
 
-  public async updateLastRunAndNextRun(
-    id: string,
-    lastRunDate: Date | null,
-    nextRunDate: Date,
-  ): Promise<void> {
+  public async updateLastRunAndNextRun({
+    householdId,
+    id,
+    lastRunDate,
+    nextRunDate,
+  }: {
+    householdId: HouseholdId;
+    id: string;
+    lastRunDate: Date | null;
+    nextRunDate: Date;
+  }): Promise<void> {
     await prisma.scheduledTransaction.update({
-      where: { id },
+      where: { id, householdId },
       data: { lastRunDate, nextRunDate },
     });
   }
 
-  public async updateScheduledTransaction(
-    id: string,
-    data: UpdateScheduledTransaction,
-    userId: string,
-    nextRunDate: Date,
-  ): Promise<string> {
+  public async updateScheduledTransaction({
+    householdId,
+    id,
+    data,
+    nextRunDate,
+  }: {
+    householdId: HouseholdId;
+    id: string;
+    data: UpdateScheduledTransaction;
+    nextRunDate: Date;
+  }): Promise<string> {
     const scheduledTransaction = await prisma.scheduledTransaction.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: {
         ...data,
         interval: data.interval === undefined ? null : data.interval,
@@ -96,43 +117,45 @@ class ScheduledTransactionRepository {
     return scheduledTransaction.id;
   }
 
-  public async deleteScheduledTransaction(id: string, userId: string): Promise<void> {
-    await prisma.scheduledTransaction.delete({ where: { id, userId } });
+  public async deleteScheduledTransaction(householdId: HouseholdId, id: string): Promise<void> {
+    await prisma.scheduledTransaction.delete({ where: { id, householdId } });
   }
 
   public async getScheduledTransactionById(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
-  ): Promise<ScheduledTransactionDomain | null> {
+  ): Promise<ScheduledHouseholdTransaction | null> {
     const scheduledTransaction = await prisma.scheduledTransaction.findUnique({
-      where: { id, userId },
+      where: { id, householdId },
     });
 
     if (!scheduledTransaction) {
       return null;
     }
-    return this.mapScheduledTransactionDbToDomain(scheduledTransaction);
-  }
-
-  private mapScheduledTransactionDbToDomain(db: ScheduledTransaction): ScheduledTransactionDomain {
-    return {
-      id: db.id,
-      description: db.description,
-      value: db.value,
-      type: db.type,
-      categoryId: db.categoryId,
-      scheduleType: db.scheduleType,
-      interval: db.interval === null ? undefined : db.interval,
-      dayOfWeek: db.dayOfWeek === null ? undefined : db.dayOfWeek,
-      dayOfMonth: db.dayOfMonth === null ? undefined : db.dayOfMonth,
-      monthOfYear: db.monthOfYear === null ? undefined : db.monthOfYear,
-      bankDescriptionPrefix: db.bankDescriptionPrefix ?? undefined,
-      lastRunDate: db.lastRunDate === null ? undefined : db.lastRunDate,
-      nextRunDate: db.nextRunDate === null ? undefined : db.nextRunDate,
-      userId: db.userId,
-    };
+    return toScheduledHouseholdTransaction(scheduledTransaction);
   }
 }
 
 const scheduledTransactionRepository = new ScheduledTransactionRepository();
 export default scheduledTransactionRepository;
+
+export function toScheduledHouseholdTransaction(
+  db: ScheduledTransaction,
+): ScheduledHouseholdTransaction {
+  return {
+    id: db.id,
+    description: db.description,
+    value: db.value,
+    type: db.type,
+    categoryId: db.categoryId,
+    scheduleType: db.scheduleType,
+    interval: db.interval === null ? undefined : db.interval,
+    dayOfWeek: db.dayOfWeek === null ? undefined : db.dayOfWeek,
+    dayOfMonth: db.dayOfMonth === null ? undefined : db.dayOfMonth,
+    monthOfYear: db.monthOfYear === null ? undefined : db.monthOfYear,
+    bankDescriptionPrefix: db.bankDescriptionPrefix ?? undefined,
+    lastRunDate: db.lastRunDate === null ? undefined : db.lastRunDate,
+    nextRunDate: db.nextRunDate === null ? undefined : db.nextRunDate,
+    householdId: toHouseholdId(db.householdId),
+  };
+}

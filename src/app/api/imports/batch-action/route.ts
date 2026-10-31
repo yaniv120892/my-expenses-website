@@ -6,11 +6,11 @@ export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
   bodySchema: batchActionSchema,
-  handler: async ({ userId, body }) => {
+  handler: async ({ actor, body }) => {
     const transactionIds = body.transactionIds || 'all';
     if (body.action === 'approve') {
-      return importService.batchApproveImportedTransactions(body.importId, userId, transactionIds);
+      return importService.batchApproveImportedTransactions(actor, body.importId, transactionIds);
     }
-    return importService.batchIgnoreImportedTransactions(body.importId, userId, transactionIds);
+    return importService.batchIgnoreImportedTransactions(actor, body.importId, transactionIds);
   },
 });

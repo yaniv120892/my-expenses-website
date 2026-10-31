@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import { isHouseholdId } from '@/server/auth/householdId';
 import { createTool } from '@mastra/core/tools';
 import financeQueryService from '@/server/services/assistant/financeQueries';
 import {
@@ -10,20 +12,22 @@ import {
   trendOutputSchema,
 } from '@/server/services/assistant/financeQuerySchemas';
 
-export const USER_ID_CONTEXT_KEY = 'userId';
+export const HOUSEHOLD_ID_CONTEXT_KEY = 'householdId';
 
 /**
- * The user id comes from the server-side request context, never the
- * inputSchema, so a prompt-injected message cannot read another user's data.
+ * The household comes from the server-side request context, never the
+ * inputSchema, so a prompt-injected message cannot read another household's data.
  */
-function requireUserId(context: { requestContext?: { get: (key: string) => unknown } }): string {
-  const userId = context.requestContext?.get(USER_ID_CONTEXT_KEY);
+function requireHouseholdId(context: {
+  requestContext?: { get: (key: string) => unknown };
+}): HouseholdId {
+  const householdId = context.requestContext?.get(HOUSEHOLD_ID_CONTEXT_KEY);
 
-  if (typeof userId !== 'string' || !userId) {
-    throw new Error('Assistant tool called without an authenticated user');
+  if (!isHouseholdId(householdId)) {
+    throw new Error('Assistant tool called without an authenticated household');
   }
 
-  return userId;
+  return householdId;
 }
 
 export function buildAssistantTools() {
@@ -36,7 +40,7 @@ export function buildAssistantTools() {
       categories: z.array(z.string()),
     }),
     execute: async (_input, context) => {
-      requireUserId(context);
+      requireHouseholdId(context);
       return { categories: await financeQueryService.listCategoryNames() };
     },
   });
@@ -49,7 +53,7 @@ export function buildAssistantTools() {
     outputSchema: summaryOutputSchema,
     execute: async (input, context) =>
       financeQueryService.summarize({
-        userId: requireUserId(context),
+        householdId: requireHouseholdId(context),
         filters: input,
         aggregation: 'list',
       }),
@@ -65,7 +69,7 @@ export function buildAssistantTools() {
     outputSchema: summaryOutputSchema,
     execute: async (input, context) =>
       financeQueryService.summarize({
-        userId: requireUserId(context),
+        householdId: requireHouseholdId(context),
         filters: input,
         aggregation: input.aggregation,
       }),
@@ -79,7 +83,7 @@ export function buildAssistantTools() {
     outputSchema: summaryOutputSchema,
     execute: async (input, context) =>
       financeQueryService.comparePeriods({
-        userId: requireUserId(context),
+        householdId: requireHouseholdId(context),
         input,
       }),
   });
@@ -92,7 +96,7 @@ export function buildAssistantTools() {
     outputSchema: trendOutputSchema,
     execute: async (input, context) =>
       financeQueryService.describeSpendingTrends({
-        userId: requireUserId(context),
+        householdId: requireHouseholdId(context),
         input,
       }),
   });

@@ -56,3 +56,27 @@ describe('proxy on /reset-password', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 });
+
+describe('proxy on an invite link', () => {
+  it('sends a signed-out visitor to login with the link to come back to', async () => {
+    const response = await proxy(
+      new NextRequest('https://expenses.example/join?code=ABCD2345', {
+        headers: { host: 'expenses.example' },
+      }),
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://expenses.example/login?next=%2Fjoin%3Fcode%3DABCD2345',
+    );
+  });
+
+  it('sends a signed-out visitor elsewhere to plain login', async () => {
+    const response = await proxy(
+      new NextRequest('https://expenses.example/dashboard', {
+        headers: { host: 'expenses.example' },
+      }),
+    );
+
+    expect(response.headers.get('location')).toBe('https://expenses.example/login');
+  });
+});

@@ -63,6 +63,7 @@ describe('resolveMemberActor', () => {
     });
 
     expect(actor).toEqual({
+      kind: 'member',
       userId: USER_ID,
       householdId: HOUSEHOLD_ID,
       role: 'EDITOR',

@@ -19,6 +19,9 @@ vi.mock('@/server/services/exchangeRateService', () => ({
 
 import transactionService from '@/server/services/transactionService';
 import type { Transaction } from '@/shared/types/transaction';
+import { testMemberActor } from '@/test/memberActor';
+
+const ACTOR = testMemberActor({ userId: 'user-1' });
 
 const DAY = new Date(2026, 7, 8);
 
@@ -53,10 +56,12 @@ describe('transactionService.updateTransaction', () => {
   });
 
   it('keeps the statement conversion when an edit leaves amount and day alone', async () => {
-    await transactionService.updateTransaction('tx-1', edit({ value: 92.35 }), 'user-1');
+    await transactionService.updateTransaction(ACTOR, 'tx-1', edit({ value: 92.35 }));
 
     expect(getRateToBase).not.toHaveBeenCalled();
+    expect(getTransactionItem).toHaveBeenCalledWith(ACTOR.householdId, 'tx-1');
     expect(updateTransaction).toHaveBeenCalledWith(
+      ACTOR.householdId,
       'tx-1',
       expect.objectContaining({
         description: 'Amazon order',
@@ -69,7 +74,6 @@ describe('transactionService.updateTransaction', () => {
           exchangeRateSource: 'STATEMENT',
         },
       }),
-      'user-1',
     );
   });
 
@@ -80,12 +84,12 @@ describe('transactionService.updateTransaction', () => {
     });
 
     await transactionService.updateTransaction(
+      ACTOR,
       'tx-1',
       edit({ currency: 'USD', originalAmount: 30 }),
-      'user-1',
     );
 
-    expect(updateTransaction.mock.calls[0]?.[1].amount).toMatchObject({
+    expect(updateTransaction.mock.calls[0]?.[2].amount).toMatchObject({
       value: 111,
       originalAmount: 30,
       exchangeRateSource: 'BANK_OF_ISRAEL',
@@ -94,34 +98,44 @@ describe('transactionService.updateTransaction', () => {
 
   it('learns a rename made with a recategorisation under the new description', async () => {
     await transactionService.updateTransaction(
+      ACTOR,
       'tx-1',
       edit({
         description: '  Amazon Prime ',
         categoryId: 'cat-tv',
         value: 92.35,
       }),
-      'user-1',
     );
 
     expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert).toHaveBeenCalledWith('user-1', 'amazon prime', 'cat-tv');
+    expect(upsert).toHaveBeenCalledWith({
+      householdId: ACTOR.householdId,
+      userId: 'user-1',
+      descriptionPattern: 'amazon prime',
+      categoryId: 'cat-tv',
+    });
   });
 
   it('learns a recategorisation alone under the current description', async () => {
     await transactionService.updateTransaction(
+      ACTOR,
       'tx-1',
       edit({ description: 'Amazon', categoryId: 'cat-tv', value: 92.35 }),
-      'user-1',
     );
 
-    expect(upsert).toHaveBeenCalledWith('user-1', 'amazon', 'cat-tv');
+    expect(upsert).toHaveBeenCalledWith({
+      householdId: ACTOR.householdId,
+      userId: 'user-1',
+      descriptionPattern: 'amazon',
+      categoryId: 'cat-tv',
+    });
   });
 
   it('learns nothing from a rename that keeps the category', async () => {
     await transactionService.updateTransaction(
+      ACTOR,
       'tx-1',
       edit({ description: 'Amazon Prime', value: 92.35 }),
-      'user-1',
     );
 
     expect(upsert).not.toHaveBeenCalled();
@@ -129,9 +143,9 @@ describe('transactionService.updateTransaction', () => {
 
   it('learns nothing under a blank description', async () => {
     await transactionService.updateTransaction(
+      ACTOR,
       'tx-1',
       edit({ description: '   ', categoryId: 'cat-tv', value: 92.35 }),
-      'user-1',
     );
 
     expect(upsert).not.toHaveBeenCalled();
@@ -142,20 +156,20 @@ describe('transactionService.updateTransaction', () => {
 
     await expect(
       transactionService.updateTransaction(
+        ACTOR,
         'tx-1',
         edit({ description: 'Netflix', categoryId: 'cat-tv', value: 92.35 }),
-        'user-1',
       ),
     ).rejects.toThrow('write failed');
 
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it('404s an edit of a transaction that is not the user’s', async () => {
+  it('404s an edit of a transaction that is outside the household', async () => {
     getTransactionItem.mockResolvedValue(null);
 
     await expect(
-      transactionService.updateTransaction('tx-1', edit({ value: 1 }), 'user-1'),
+      transactionService.updateTransaction(ACTOR, 'tx-1', edit({ value: 1 })),
     ).rejects.toMatchObject({ status: 404 });
     expect(updateTransaction).not.toHaveBeenCalled();
   });

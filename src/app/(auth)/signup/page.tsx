@@ -1,20 +1,23 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material';
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { signup } from '@/services/authClient';
+import { NEXT_PATH_PARAM, safeNextPath, withNextPath } from '@/shared/nextPath';
 import { authErrorMessage } from '@/utils/authErrorMessage';
 import VerifyCodeForm from '@/components/auth/VerifyCodeForm';
 import { PASSWORD_MIN_LENGTH } from '@/shared/schemas/auth';
 
 // The password stays in this page until the code is entered: the signup
 // request carries none, so a stranger's signup cannot choose it.
-export default function SignupPage() {
+function SignupForm() {
   const t = useT();
+  const next = safeNextPath(useSearchParams().get(NEXT_PATH_PARAM));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -38,7 +41,7 @@ export default function SignupPage() {
   if (codeSent) {
     return (
       <AuthCard app="expenses" title={t('auth.verify.title')} subtitle={t('auth.verify.subtitle')}>
-        <VerifyCodeForm initialEmail={email} chosenPassword={password} />
+        <VerifyCodeForm initialEmail={email} chosenPassword={password} next={next} />
       </AuthCard>
     );
   }
@@ -73,11 +76,19 @@ export default function SignupPage() {
         </Button>
         <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
           {t('auth.signup.haveAccount')}{' '}
-          <MuiLink component={Link} href="/login">
+          <MuiLink component={Link} href={withNextPath({ path: '/login', next })}>
             {t('auth.signup.loginLink')}
           </MuiLink>
         </Typography>
       </Stack>
     </AuthCard>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DetectedSubscription, Prisma } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
 import subscriptionRepository from '@/server/repositories/subscriptionRepository';
+import { toHouseholdId } from '@/server/auth/householdId';
 
 vi.mock('@/server/db/client', () => ({
   default: {
@@ -52,7 +53,10 @@ describe('subscriptionRepository detection evidence', () => {
   it('returns stored evidence', async () => {
     findUniqueMock.mockResolvedValueOnce(storedRow(evidence));
 
-    const subscription = await subscriptionRepository.getById('sub-1', 'user-1');
+    const subscription = await subscriptionRepository.getById(
+      toHouseholdId('household-1'),
+      'sub-1',
+    );
 
     expect(subscription?.detectionEvidence).toEqual(evidence);
   });
@@ -60,7 +64,10 @@ describe('subscriptionRepository detection evidence', () => {
   it('reports no evidence for a row detected before it was recorded', async () => {
     findUniqueMock.mockResolvedValueOnce(storedRow(null));
 
-    const subscription = await subscriptionRepository.getById('sub-1', 'user-1');
+    const subscription = await subscriptionRepository.getById(
+      toHouseholdId('household-1'),
+      'sub-1',
+    );
 
     expect(subscription?.detectionEvidence).toBeUndefined();
   });
@@ -68,7 +75,10 @@ describe('subscriptionRepository detection evidence', () => {
   it('reports no evidence when the column holds something other than an object', async () => {
     findUniqueMock.mockResolvedValueOnce(storedRow(['not', 'evidence']));
 
-    const subscription = await subscriptionRepository.getById('sub-1', 'user-1');
+    const subscription = await subscriptionRepository.getById(
+      toHouseholdId('household-1'),
+      'sub-1',
+    );
 
     expect(subscription?.detectionEvidence).toBeUndefined();
   });

@@ -25,10 +25,17 @@ export const RATE_LIMITS = {
   chat: { limit: 20, windowSeconds: 300 },
   testTelegram: { limit: 5, windowSeconds: 3600 },
   telegramLink: { limit: 10, windowSeconds: 3600 },
+  // Bounds guessing invite codes, which are looked up across households.
+  householdInvite: { limit: 20, windowSeconds: 900 },
   // A single agent turn runs initialize, tools/list and its tool calls, each
   // its own stateless request.
   mcp: { limit: 300, windowSeconds: 300 },
 } satisfies Record<string, { limit: number; windowSeconds: number }>;
+
+/** Previewing and redeeming share one budget, so a guesser cannot spend each separately. */
+export function householdInviteRateLimit(userId: string): RateLimitRule {
+  return { key: `householdInvite:user:${userId}`, ...RATE_LIMITS.householdInvite };
+}
 
 export async function enforceRateLimits(rules: RateLimitRule[]): Promise<void> {
   if (rules.length === 0) {

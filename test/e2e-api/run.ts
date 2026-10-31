@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { hash } from 'bcryptjs';
-import { Client } from 'pg';
+import { Client, DatabaseError } from 'pg';
 import { getRecording, resetRecording, CHUNK_DELAY_MS } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT, EXTRACTION_MOCK_PORT } from './ports';
@@ -251,6 +251,33 @@ async function insertVerifiedUser({
     ),
     what: `the user ${email}`,
   });
+}
+
+// The shape a signup predating households wrote: no household, no role.
+async function userWithoutHouseholdFlow(): Promise<void> {
+  const email = 'no-household@e2e.test';
+  let refusal = 'inserted';
+  try {
+    await query(
+      `insert into "User" (id, username, email, password, verified)
+       values (gen_random_uuid(), 'no-household', $1, 'x', true)`,
+      [email],
+    );
+  } catch (error) {
+    refusal = error instanceof DatabaseError ? `${error.code} ${error.column}` : String(error);
+  }
+  const removed = await query<{ householdId: string }>(
+    `delete from "User" where email = $1 returning "householdId"`,
+    [email],
+  );
+  await query(`delete from "Household" where id = any($1::uuid[])`, [
+    removed.map((user) => user.householdId),
+  ]);
+  check(
+    'schema: a user inserted without a household is refused',
+    refusal === '23502 householdId',
+    `got ${refusal}`,
+  );
 }
 
 /** A member and the household whose rows the harness writes directly. */
@@ -1639,6 +1666,8 @@ async function main(): Promise<void> {
     /up to date/i.test(stdout),
     stdout.trim().split('\n').slice(-1)[0],
   );
+
+  await userWithoutHouseholdFlow();
 
   const unauth = await streamChat(null, 'How much did I spend?');
   check('unauthenticated request rejected', unauth.status === 401, `status ${unauth.status}`);

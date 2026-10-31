@@ -372,17 +372,16 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   exactly one `Household` (`User.householdId`) with a `householdRole`
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
   role has no default, so a member written without one fails rather than
-  becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does, and
-  `row_inherit_household` fills an owned row's `householdId` from its `userId`
-  for code predating scoping; both go once no such deployment can serve. A
-  session or API-token route's handler receives `actor` (`MemberActor`,
-  `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
-  token), which `resolveAuth` loads from the user's row on every request —
-  never from the JWT — so a role change or removal applies at once; an API
-  token follows its user into their current household. `HouseholdId` is a
-  branded string made only by `toHouseholdId`, so a user id cannot stand in
-  for one unconverted. The one write guard is
+  becoming an owner, and a user inserted without a household fails. A trigger
+  (`row_inherit_household`) fills an owned row's `householdId` from its
+  `userId` for code predating scoping; it goes once no such deployment can
+  serve. A session or API-token route's handler receives `actor`
+  (`MemberActor`, `src/server/auth/householdActor.types.ts`: user,
+  `HouseholdId`, role, API token), which `resolveAuth` loads from the user's
+  row on every request — never from the JWT — so a role change or removal
+  applies at once; an API token follows its user into their current
+  household. `HouseholdId` is a branded string made only by `toHouseholdId`,
+  so a user id cannot stand in for one unconverted. The one write guard is
   `assertCanWrite` (`src/server/auth/householdActor.ts`): `createHandler` calls
   it before any non-GET member handler, ahead of body parsing and rate
   limits, unless the route declares

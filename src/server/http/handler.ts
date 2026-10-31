@@ -298,6 +298,25 @@ function householdLogFields(actor: MemberActor | undefined): {
   return actor ? { householdId: actor.householdId, householdRole: actor.role } : {};
 }
 
+// A body that is not a form is the caller's mistake, as malformed JSON is; a
+// second read of a consumed body is the server's, so it stays a 500.
+function refuseUnreadableForm(request: NextRequest): void {
+  const readForm = request.formData.bind(request);
+  request.formData = async () => {
+    if (request.bodyUsed) {
+      return readForm();
+    }
+    try {
+      return await readForm();
+    } catch (err) {
+      if (!(err instanceof TypeError)) {
+        throw err;
+      }
+      throw new HttpError(400, 'Invalid multipart/form-data body');
+    }
+  };
+}
+
 function bearerApiToken(request: NextRequest): string | null {
   const token = extractBearerToken(request);
   return token && isApiToken(token) ? token : null;
@@ -403,6 +422,7 @@ export function createHandler(
         Object.fromEntries(request.nextUrl.searchParams.entries()),
       );
 
+      refuseUnreadableForm(request);
       const handlerContext = { request, userId, body, query, params: parsedParams };
       if (options.rateLimit && options.rateLimit !== 'none') {
         await enforceRateLimits(options.rateLimit(handlerContext));

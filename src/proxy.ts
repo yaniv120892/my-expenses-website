@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server';
 import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 
-const AUTH_PAGES = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password'];
+const AUTH_PAGES = ['/login', '/signup', '/verify', '/forgot-password'];
+// Open signed in or out: a reset link opened in a browser still holding a
+// session must not be redirected away, losing the token in its fragment.
+const OPEN_PAGES = ['/reset-password'];
 
 // Signature/expiry check only — the full Redis session check runs in every
 // API handler, keeping Redis off the page navigation hot path. A missing
@@ -45,6 +48,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (request.method !== 'GET' && isCrossOrigin(request)) {
       return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 });
     }
+    return NextResponse.next();
+  }
+
+  if (OPEN_PAGES.some((page) => pathname.startsWith(page))) {
     return NextResponse.next();
   }
 

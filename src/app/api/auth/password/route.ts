@@ -22,7 +22,7 @@ export const PUT = createHandler({
     if ('error' in result) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, token: result.token });
     setSessionCookie(response, result.token);
     return response;
   },

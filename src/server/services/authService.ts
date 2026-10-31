@@ -5,6 +5,7 @@ import { setValue, getValue, deleteValue, incrementWithTtl, takeValue } from '@/
 import { invalidateAllSessions, invalidateSession, storeSession } from '@/server/auth/session';
 import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
+import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
 import { requireSiteUrl } from '@/server/env';
@@ -88,6 +89,13 @@ class AuthService {
     }
     const token = await signToken(user.id);
     await storeSession(user.id, token, tokenTtlSeconds());
+    // A reset landing during the compare sweeps sessions before this one is
+    // stored; re-reading the hash catches it, so the old password buys nothing.
+    const current = await userRepository.findById(user.id);
+    if (current?.password !== user.password) {
+      await invalidateSession(user.id, token);
+      return { error: 'Invalid credentials' };
+    }
     return { token, userId: user.id };
   }
 
@@ -158,13 +166,20 @@ class AuthService {
   }
 
   public async resetPassword(token: string, newPassword: string) {
+    const tokenHash = this.hashResetToken(token);
     // GETDEL, so of two submits of one link only the first finds a user.
-    const userId = await takeValue<string>(passwordResetKey(this.hashResetToken(token)), 'branch');
-    if (!userId) {
+    const userId = await takeValue<string>(passwordResetKey(tokenHash), 'branch');
+    // The pointer check makes "latest link only" hold even when two requests
+    // race, each revoking the same old link before writing its own.
+    const isLatestLink =
+      !!userId && (await getValue<string>(latestPasswordResetKey(userId), 'branch')) === tokenHash;
+    if (!userId || !isLatestLink) {
       return { error: INVALID_RESET_LINK };
     }
-    await deleteValue(latestPasswordResetKey(userId), 'branch');
     await this.replacePassword(userId, newPassword);
+    // A reset is account recovery, so a credential minted from a stolen
+    // session must not outlive it. Changing the password keeps them.
+    await apiTokenRepository.deleteAllForUser(userId);
     return { userId };
   }
 
@@ -295,7 +310,7 @@ class AuthService {
       '',
       `To choose a new password, open this link within 30 minutes: ${resetUrl}`,
       '',
-      'The link works once. Resetting your password signs you out on every device.',
+      'The link works once. Resetting your password signs you out on every device and revokes your API tokens.',
       '',
       'If you did not ask for this, you can ignore this email; your password stays as it is.',
       '',
@@ -310,7 +325,7 @@ class AuthService {
         <p>Hello,</p>
         <p>We received a request to reset the password for your My Expenses account.</p>
         <p>To choose a new password, open this link within 30 minutes: <a href="${resetUrl}">${resetUrl}</a></p>
-        <p>The link works once. Resetting your password signs you out on every device.</p>
+        <p>The link works once. Resetting your password signs you out on every device and revokes your API tokens.</p>
         <p>If you did not ask for this, you can ignore this email; your password stays as it is.</p>
         <p style="margin-top: 32px;">Best regards,<br>The My Expenses Team</p>
       </div>

@@ -38,7 +38,8 @@ const en = {
   'auth.forgot.failed': 'Failed to send the reset link',
   'auth.forgot.backToLogin': 'Back to log in',
   'auth.reset.title': 'Choose a new password',
-  'auth.reset.subtitle': 'Setting a new password signs you out on every device.',
+  'auth.reset.subtitle':
+    'Setting a new password signs you out on every device and revokes your API tokens.',
   'auth.reset.password': 'New password',
   'auth.reset.submit': 'Set new password',
   'auth.reset.submitting': 'Saving…',
@@ -85,7 +86,7 @@ export const authMessages: Dictionary<typeof en> = {
     'auth.forgot.failed': 'שליחת הקישור לאיפוס נכשלה',
     'auth.forgot.backToLogin': 'חזרה להתחברות',
     'auth.reset.title': 'בחירת סיסמה חדשה',
-    'auth.reset.subtitle': 'קביעת סיסמה חדשה מנתקת אתכם מכל המכשירים.',
+    'auth.reset.subtitle': 'קביעת סיסמה חדשה מנתקת אתכם מכל המכשירים ומבטלת את הטוקנים שלכם ל-API.',
     'auth.reset.password': 'סיסמה חדשה',
     'auth.reset.submit': 'קביעת סיסמה חדשה',
     'auth.reset.submitting': 'שומר…',

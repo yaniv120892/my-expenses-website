@@ -374,13 +374,18 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `/verify` page asks for it. Forgot password (`/api/auth/password-reset/request`)
   answers `{success: true}` whatever the address, mailing a verified account a
   `/reset-password#token=…` link — 32 random bytes in the fragment, so no
-  request log or Referer carries it — stored only as its SHA-256 for 30
-  minutes, taken with one GETDEL by `/confirm`, and superseded by the next
-  request. Change password (`PUT /api/auth/password`, session only, five tries
+  request log or Referer carries it, on a page the proxy serves signed in or
+  out so a browser holding a session keeps the link — stored only as its
+  SHA-256 for 30 minutes, taken with one GETDEL by `/confirm`, and honoured
+  only while `passwordResetFor:<userId>` still names it, so the next request
+  supersedes it even when two race. Change password (`PUT /api/auth/password`, session only, five tries
   per user per 15 minutes) needs the current one. A reset or change ends every
   session of the user (`invalidateAllSessions`, a SCAN over
   `session:<userId>:`) and voids an outstanding reset link; a change then
-  issues the caller a fresh session. API tokens are not revoked by either.
+  issues the caller a fresh session. A login re-reads the hash after storing
+  its session and drops it if the password changed meanwhile, so a sweep
+  racing the compare cannot miss it. A reset also deletes every API token,
+  being account recovery; a change keeps them.
 - **The personal agent reaches the app only through `/api/mcp`.** It is an
   `auth: 'apiToken'` route needing `AGENT`, the token Settings → Personal agent (סוכן אישי)
   issues, and answers every refusal as a JSON-RPC error rather than a redirect

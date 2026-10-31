@@ -38,6 +38,10 @@ function globToRegExp(pattern: string): RegExp {
         break;
       case '[': {
         const close = pattern.indexOf(']', index);
+        if (close === -1) {
+          source += escapeRegExp(character);
+          break;
+        }
         source += pattern.slice(index, close + 1);
         index = close;
         break;

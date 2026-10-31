@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { compare, hash } from 'bcryptjs';
+import crypto from 'crypto';
 import type * as RateLimitModule from '@/server/http/rateLimit';
 import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
@@ -12,7 +13,7 @@ type StoredUser = {
   verified: boolean;
 };
 
-const { store, users, send, enforceRateLimits } = vi.hoisted(() => {
+const { store, users, send, enforceRateLimits, deleteAllApiTokens } = vi.hoisted(() => {
   vi.stubEnv('JWT_SECRET', 'password-ownership-test-secret');
   vi.stubEnv('WEBSITE_URL', 'https://expenses.example');
   return {
@@ -20,6 +21,7 @@ const { store, users, send, enforceRateLimits } = vi.hoisted(() => {
     users: new Map<string, StoredUser>(),
     send: vi.fn(),
     enforceRateLimits: vi.fn(),
+    deleteAllApiTokens: vi.fn(),
   };
 });
 
@@ -82,6 +84,9 @@ vi.mock('@/server/repositories/userRepository', () => {
   };
 });
 
+vi.mock('@/server/repositories/apiTokenRepository', () => ({
+  apiTokenRepository: { deleteAllForUser: deleteAllApiTokens },
+}));
 vi.mock('@/server/services/emailService', () => ({ default: { send } }));
 vi.mock('@/server/services/announcementService', () => ({
   default: { acknowledgeAllForNewUser: vi.fn() },
@@ -102,6 +107,7 @@ import { POST as requestReset } from '@/app/api/auth/password-reset/request/rout
 import { POST as confirmReset } from '@/app/api/auth/password-reset/confirm/route';
 import { PUT as changePassword } from '@/app/api/auth/password/route';
 import { GET as me } from '@/app/api/auth/me/route';
+import userRepository from '@/server/repositories/userRepository';
 
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 const OWNER_EMAIL = 'owner@example.com';
@@ -149,6 +155,10 @@ function mailedResetToken(index: number): string {
     throw new Error(`no reset link in mail ${index}`);
   }
   return token;
+}
+
+function sessionKeys(): string[] {
+  return [...store.keys()].filter((key) => key.startsWith('session:'));
 }
 
 function owner(): StoredUser {
@@ -234,6 +244,27 @@ describe('signup for a pending address', () => {
   });
 });
 
+describe('login racing a password reset', () => {
+  // Regression: the reset swept sessions while the login was still comparing
+  // the old password, so the session it stored afterwards survived the reset.
+  it('stores no session when the password changed during the compare', async () => {
+    await seedVerifiedOwner();
+    vi.spyOn(userRepository, 'findByEmailOrUsername').mockImplementationOnce(async () => {
+      const readBeforeReset = { ...owner() };
+      owner().password = await hash(NEW_PASSWORD, 4);
+      return readBeforeReset;
+    });
+
+    const response = await login(
+      request({ path: '/api/auth/login', body: { email: OWNER_EMAIL, password: OWNER_PASSWORD } }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).not.toBe(200);
+    expect(sessionKeys()).toEqual([]);
+  });
+});
+
 describe('password reset', () => {
   it('answers an unknown address exactly as a registered one, mailing only the registered', async () => {
     await seedVerifiedOwner();
@@ -280,6 +311,7 @@ describe('password reset', () => {
     expect(reused.status).toBe(400);
     expect(await compare(NEW_PASSWORD, owner().password)).toBe(true);
     expect(await meStatus(sessionBefore)).toBe(401);
+    expect(deleteAllApiTokens).toHaveBeenCalledWith(owner().id);
   });
 
   it('honours only the latest link mailed', async () => {
@@ -300,6 +332,32 @@ describe('password reset', () => {
     );
 
     expect(stale.status).toBe(400);
+    expect(await compare(OWNER_PASSWORD, owner().password)).toBe(true);
+  });
+
+  // Two racing requests both revoke the same old link before writing their
+  // own, so both links are stored; only the one the pointer names may work.
+  it('refuses a stored link that a racing request superseded', async () => {
+    await seedVerifiedOwner();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await requestReset(
+        request({ path: '/api/auth/password-reset/request', body: { email: OWNER_EMAIL } }),
+        ROUTE_CONTEXT,
+      );
+    }
+    const superseded = mailedResetToken(0);
+    const supersededHash = crypto.createHash('sha256').update(superseded).digest('hex');
+    store.set(`passwordReset:${supersededHash}`, owner().id);
+
+    const reset = await confirmReset(
+      request({
+        path: '/api/auth/password-reset/confirm',
+        body: { token: superseded, password: STRANGER_PASSWORD },
+      }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(reset.status).toBe(400);
     expect(await compare(OWNER_PASSWORD, owner().password)).toBe(true);
   });
 });
@@ -346,6 +404,8 @@ describe('change password', () => {
     expect(await meStatus(thisDevice)).toBe(401);
     expect(freshSession).toBeDefined();
     expect(await meStatus(freshSession ?? '')).toBe(200);
+    expect((await changed.json()).token).toBe(freshSession);
+    expect(deleteAllApiTokens).not.toHaveBeenCalled();
   });
 
   it('voids a reset link mailed before the change', async () => {

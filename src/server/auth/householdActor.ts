@@ -2,7 +2,13 @@ import { AuthError } from '@/server/auth/session';
 import { HttpError } from '@/server/http/errors';
 import userRepository from '@/server/repositories/userRepository';
 import type { HouseholdRole } from '@/generated/prisma/enums';
-import type { MemberActor } from '@/server/auth/householdActor.types';
+import type {
+  HouseholdActor,
+  HouseholdId,
+  MemberActor,
+  SystemActor,
+  SystemJob,
+} from '@/server/auth/householdActor.types';
 import { toHouseholdId } from '@/server/auth/householdId';
 
 const CAN_WRITE_HOUSEHOLD_DATA = {
@@ -49,9 +55,25 @@ export async function resolveMemberActor({
     throw new AuthError('SESSION_EXPIRED', 'Session expired');
   }
   return {
+    kind: 'member',
     userId,
     householdId: toHouseholdId(membership.householdId),
     role: membership.householdRole,
     apiTokenId,
   };
+}
+
+export function systemActor({
+  householdId,
+  job,
+}: {
+  householdId: HouseholdId;
+  job: SystemJob;
+}): SystemActor {
+  return { kind: 'system', householdId, job };
+}
+
+/** The member a write is recorded against; a system job writes as nobody. */
+export function actingUserId(actor: HouseholdActor): string | null {
+  return actor.kind === 'member' ? actor.userId : null;
 }

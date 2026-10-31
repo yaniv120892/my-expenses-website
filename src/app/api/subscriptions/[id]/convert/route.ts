@@ -7,6 +7,6 @@ export const POST = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: convertSubscriptionSchema,
-  handler: async ({ userId, body, params }) =>
-    subscriptionDetectionService.convertToScheduledTransaction(params.id, userId, body.categoryId),
+  handler: async ({ actor, body, params }) =>
+    subscriptionDetectionService.convertToScheduledTransaction(actor, params.id, body.categoryId),
 });

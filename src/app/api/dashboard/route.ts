@@ -3,5 +3,5 @@ import dashboardService from '@/server/services/dashboardService';
 
 export const GET = createHandler({
   auth: 'session',
-  handler: async ({ userId }) => dashboardService.getDashboard(userId),
+  handler: async ({ actor }) => dashboardService.getDashboard(actor.householdId),
 });

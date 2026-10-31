@@ -8,8 +8,8 @@ export const POST = createHandler({
   paramsSchema: importedTransactionIdParamsSchema,
   apiTokenScope: 'IMPORTS',
   bodySchema: approveImportedTransactionSchema,
-  handler: async ({ userId, body, params }) => {
-    await importService.approveImportedTransaction(params.importedTransactionId, userId, {
+  handler: async ({ actor, body, params }) => {
+    await importService.approveImportedTransaction(actor, params.importedTransactionId, {
       description: body.description,
       value: body.value,
       date: body.date,

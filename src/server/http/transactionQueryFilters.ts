@@ -10,8 +10,7 @@ type TransactionQuery = z.infer<typeof transactionFilterSchema>;
  */
 export function toTransactionFilters<T extends TransactionQuery>(
   query: T,
-  userId: string,
 ): Omit<T, 'type'> & TransactionSummaryFilters {
   const { type, ...rest } = query;
-  return { ...rest, transactionType: type, userId };
+  return { ...rest, transactionType: type };
 }

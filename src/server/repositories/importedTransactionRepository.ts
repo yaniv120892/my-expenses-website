@@ -1,6 +1,7 @@
 import type { Prisma, ImportedTransaction, TransactionType } from '@/generated/prisma/client';
 import { ImportedTransactionStatus } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { isSameCharge } from '@/server/utils/transactionMatching';
 import type { ImportedAmountColumns } from '@/server/repositories/amountColumns.types';
 
@@ -48,7 +49,8 @@ type ImportedTransactionCreateRow = ImportedAmountColumns & {
   type: TransactionType;
   matchingTransactionId: string | null;
   rawData: Prisma.InputJsonValue;
-  userId: string;
+  householdId: HouseholdId;
+  userId: string | null;
 };
 
 const PENDING_ROW = {
@@ -71,13 +73,13 @@ export class ImportedTransactionRepository {
     return result.count;
   }
 
-  public async findByUserIdAndImportId(
-    userId: string,
+  public async findByImportWithMatch(
+    householdId: HouseholdId,
     importId: string,
   ): Promise<ImportedTransactionWithMatch[]> {
     return prisma.importedTransaction.findMany({
       where: {
-        userId,
+        householdId,
         importId,
         deleted: false,
       },
@@ -86,9 +88,13 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async findByImportId(importId: string): Promise<ImportedTransaction[]> {
+  public async findByImportId(
+    householdId: HouseholdId,
+    importId: string,
+  ): Promise<ImportedTransaction[]> {
     return prisma.importedTransaction.findMany({
       where: {
+        householdId,
         importId,
         deleted: false,
       },
@@ -96,9 +102,12 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public async findById(id: string): Promise<ImportedTransactionWithMatch | null> {
+  public async findById(
+    householdId: HouseholdId,
+    id: string,
+  ): Promise<ImportedTransactionWithMatch | null> {
     return prisma.importedTransaction.findUnique({
-      where: { id },
+      where: { id, householdId },
       include: WITH_MATCH,
     });
   }
@@ -107,9 +116,9 @@ export class ImportedTransactionRepository {
    * Pending-scoped, so a concurrent approval fails with P2025 and rolls the
    * batch back instead of creating the transaction twice.
    */
-  public markApprovedOp(id: string, userId: string) {
+  public markApprovedOp(householdId: HouseholdId, id: string) {
     return prisma.importedTransaction.update({
-      where: { id, userId, ...PENDING_ROW },
+      where: { id, householdId, ...PENDING_ROW },
       data: {
         status: ImportedTransactionStatus.APPROVED,
         matchingTransactionId: null,
@@ -118,50 +127,50 @@ export class ImportedTransactionRepository {
   }
 
   public async updateStatus(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     status: ImportedTransactionStatus,
   ): Promise<void> {
-    await this.updateStatusOp(id, userId, status);
+    await this.updateStatusOp(householdId, id, status);
   }
 
   /** Pending-scoped like markApprovedOp. */
-  public updateStatusOp(id: string, userId: string, status: ImportedTransactionStatus) {
+  public updateStatusOp(householdId: HouseholdId, id: string, status: ImportedTransactionStatus) {
     return prisma.importedTransaction.update({
-      where: { id, userId, ...PENDING_ROW },
+      where: { id, householdId, ...PENDING_ROW },
       data: { status },
     });
   }
 
-  public async softDelete(id: string, userId: string): Promise<void> {
+  public async softDelete(householdId: HouseholdId, id: string): Promise<void> {
     await prisma.importedTransaction.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: { deleted: true },
     });
   }
 
   public async updateStatusBatch(
+    householdId: HouseholdId,
     ids: string[],
-    userId: string,
     status: ImportedTransactionStatus,
   ): Promise<number> {
     const result = await prisma.importedTransaction.updateMany({
-      where: { id: { in: ids }, userId, ...PENDING_ROW },
+      where: { id: { in: ids }, householdId, ...PENDING_ROW },
       data: { status },
     });
     return result.count;
   }
 
   public async findPendingByIds(
+    householdId: HouseholdId,
     importId: string,
     ids: string[],
-    userId: string,
   ): Promise<ImportedTransactionWithMatch[]> {
     return prisma.importedTransaction.findMany({
       where: {
         importId,
         id: { in: ids },
-        userId,
+        householdId,
         ...PENDING_ROW_OF_LIVE_IMPORT,
       },
       include: WITH_MATCH,
@@ -170,13 +179,13 @@ export class ImportedTransactionRepository {
   }
 
   public async findPendingByImportId(
+    householdId: HouseholdId,
     importId: string,
-    userId: string,
   ): Promise<ImportedTransactionWithMatch[]> {
     return prisma.importedTransaction.findMany({
       where: {
         importId,
-        userId,
+        householdId,
         ...PENDING_ROW_OF_LIVE_IMPORT,
       },
       include: WITH_MATCH,
@@ -184,35 +193,35 @@ export class ImportedTransactionRepository {
     });
   }
 
-  public moveToImportOps(ids: string[], importId: string) {
+  public moveToImportOps(householdId: HouseholdId, ids: string[], importId: string) {
     if (ids.length === 0) {
       return [];
     }
 
     return [
       prisma.importedTransaction.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, householdId },
         data: { importId },
       }),
     ];
   }
 
-  public softDeleteByImportIdOp(importId: string, userId: string) {
+  public softDeleteByImportIdOp(householdId: HouseholdId, importId: string) {
     return prisma.importedTransaction.updateMany({
-      where: { importId, userId },
+      where: { importId, householdId },
       data: { deleted: true },
     });
   }
 
   /** Hard delete: the parent import row is about to go, and the FK is Restrict. */
-  public deleteByImportIdOp(importId: string) {
-    return prisma.importedTransaction.deleteMany({ where: { importId } });
+  public deleteByImportIdOp(householdId: HouseholdId, importId: string) {
+    return prisma.importedTransaction.deleteMany({ where: { importId, householdId } });
   }
 
-  public async findClaimedMatchingTransactionIds(userId: string): Promise<string[]> {
+  public async findClaimedMatchingTransactionIds(householdId: HouseholdId): Promise<string[]> {
     const claimed = await prisma.importedTransaction.findMany({
       where: {
-        userId,
+        householdId,
         ...PENDING_ROW_OF_LIVE_IMPORT,
         matchingTransactionId: { not: null },
       },
@@ -225,6 +234,7 @@ export class ImportedTransactionRepository {
   }
 
   public async filterDuplicates<T extends DuplicateComparable>(
+    householdId: HouseholdId,
     importId: string,
     transactions: T[],
   ): Promise<T[]> {
@@ -232,7 +242,7 @@ export class ImportedTransactionRepository {
       return [];
     }
 
-    const existingTransactions = await this.findExistingTransactions(importId);
+    const existingTransactions = await this.findExistingTransactions(householdId, importId);
 
     return selectNonDuplicateRows(existingTransactions, transactions);
   }
@@ -240,9 +250,12 @@ export class ImportedTransactionRepository {
   // The whole import rather than an OR per row: selectNonDuplicateRows re-
   // derives the comparison anyway, and a hand-built OR would have to stay in
   // sync with it.
-  private async findExistingTransactions(importId: string): Promise<ImportedTransaction[]> {
+  private async findExistingTransactions(
+    householdId: HouseholdId,
+    importId: string,
+  ): Promise<ImportedTransaction[]> {
     return prisma.importedTransaction.findMany({
-      where: { importId, deleted: false },
+      where: { importId, householdId, deleted: false },
     });
   }
 }

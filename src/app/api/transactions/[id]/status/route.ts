@@ -7,6 +7,6 @@ export const PATCH = createHandler({
   auth: 'session',
   paramsSchema: idParamsSchema,
   bodySchema: updateTransactionStatusSchema,
-  handler: async ({ userId, body, params }) =>
-    transactionService.updateTransactionStatus(params.id, body.status, userId),
+  handler: async ({ actor, body, params }) =>
+    transactionService.updateTransactionStatus(actor, params.id, body.status),
 });

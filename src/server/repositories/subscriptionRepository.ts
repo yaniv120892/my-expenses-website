@@ -6,6 +6,7 @@ import type {
   Prisma,
 } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import type {
   DetectedSubscriptionDomain,
   SubscriptionDashboardSnapshot,
@@ -19,7 +20,6 @@ type DetectedSubscriptionRow = DetectedSubscription & {
 };
 
 export type DetectionInput = {
-  userId: string;
   merchantName: string;
   displayName: string;
   averageAmount: number;
@@ -46,7 +46,6 @@ type ExistingDetectionRow = {
 
 /** What buildAuditMessage needs; the evidence blob would dwarf it. */
 export type SubscriptionAuditRow = {
-  userId: string;
   displayName: string;
   averageAmount: number;
   frequency: SubscriptionFrequency;
@@ -70,13 +69,13 @@ function detectionOwnedFields(data: DetectionInput) {
 }
 
 class SubscriptionRepository {
-  public async getByUserId(
-    userId: string,
+  public async getByHousehold(
+    householdId: HouseholdId,
     status?: SubscriptionStatus,
   ): Promise<DetectedSubscriptionDomain[]> {
     const subscriptions = await prisma.detectedSubscription.findMany({
       where: {
-        userId,
+        householdId,
         ...(status ? { status } : {}),
       },
       include: withCategory,
@@ -85,13 +84,16 @@ class SubscriptionRepository {
     return subscriptions.map(mapToDomain);
   }
 
-  public async applyDetectionResults(userId: string, results: DetectionInput[]): Promise<void> {
+  public async applyDetectionResults(
+    householdId: HouseholdId,
+    results: DetectionInput[],
+  ): Promise<void> {
     if (results.length === 0) {
       return;
     }
 
     const existing = await prisma.detectedSubscription.findMany({
-      where: { userId },
+      where: { householdId },
       select: {
         id: true,
         merchantName: true,
@@ -108,7 +110,7 @@ class SubscriptionRepository {
 
     await Promise.all(
       results.map((result) =>
-        this.applyDetection(result, byMerchant.get(result.merchantName) ?? []),
+        this.applyDetection(householdId, result, byMerchant.get(result.merchantName) ?? []),
       ),
     );
   }
@@ -118,13 +120,14 @@ class SubscriptionRepository {
    * edited keeps its figures and frequency; anything else is fully refreshed.
    */
   private async applyDetection(
+    householdId: HouseholdId,
     data: DetectionInput,
     existing: ExistingDetectionRow[],
   ): Promise<void> {
     const edited = existing.find((row) => row.userEditedAt);
     if (edited) {
       await prisma.detectedSubscription.update({
-        where: { id: edited.id },
+        where: { id: edited.id, householdId },
         data: {
           ...detectionOwnedFields(data),
           nextExpectedDate: nextExpectedDateAfter(data.lastChargeDate, edited.frequency),
@@ -150,8 +153,8 @@ class SubscriptionRepository {
 
     await prisma.detectedSubscription.upsert({
       where: {
-        userId_merchantName_frequency: {
-          userId: data.userId,
+        householdId_merchantName_frequency: {
+          householdId,
           merchantName: data.merchantName,
           frequency: data.frequency,
         },
@@ -164,7 +167,7 @@ class SubscriptionRepository {
       },
       create: {
         ...fields,
-        userId: data.userId,
+        householdId,
         merchantName: data.merchantName,
         frequency: data.frequency,
         categoryId: data.categoryId,
@@ -173,51 +176,47 @@ class SubscriptionRepository {
   }
 
   public async update(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     data: UpdateSubscriptionFields,
   ): Promise<DetectedSubscriptionDomain> {
-    return this.applyUpdate(id, userId, { ...data, userEditedAt: new Date() });
+    return this.applyUpdate(householdId, id, { ...data, userEditedAt: new Date() });
   }
 
   public async updateStatus(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     status: SubscriptionStatus,
   ): Promise<DetectedSubscriptionDomain> {
-    return this.applyUpdate(id, userId, { status });
+    return this.applyUpdate(householdId, id, { status });
   }
 
   public async linkScheduledTransaction(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     scheduledTransactionId: string,
   ): Promise<DetectedSubscriptionDomain> {
-    return this.applyUpdate(id, userId, {
+    return this.applyUpdate(householdId, id, {
       scheduledTransactionId,
       status: 'CONFIRMED',
     });
   }
 
-  public async getById(id: string, userId: string): Promise<DetectedSubscriptionDomain | null> {
+  public async getById(
+    householdId: HouseholdId,
+    id: string,
+  ): Promise<DetectedSubscriptionDomain | null> {
     const result = await prisma.detectedSubscription.findUnique({
-      where: { id, userId },
+      where: { id, householdId },
       include: withCategory,
     });
     return result ? mapToDomain(result) : null;
   }
 
-  public async getAllUserIds(): Promise<string[]> {
-    const users = await prisma.user.findMany({
-      select: { id: true },
-    });
-    return users.map((u) => u.id);
-  }
-
-  public async getSnapshotByUserId(userId: string): Promise<SubscriptionDashboardSnapshot> {
+  public async getSnapshot(householdId: HouseholdId): Promise<SubscriptionDashboardSnapshot> {
     const subscriptions = await prisma.detectedSubscription.findMany({
       where: {
-        userId,
+        householdId,
         status: { in: ['CONFIRMED', 'DETECTED'] },
       },
       select: {
@@ -252,30 +251,30 @@ class SubscriptionRepository {
     };
   }
 
-  public async getActiveForAllUsers(): Promise<SubscriptionAuditRow[]> {
+  public async getActive(householdId: HouseholdId): Promise<SubscriptionAuditRow[]> {
     return prisma.detectedSubscription.findMany({
       where: {
+        householdId,
         status: { in: ['DETECTED', 'CONFIRMED'] },
       },
       select: {
-        userId: true,
         displayName: true,
         averageAmount: true,
         frequency: true,
         annualCost: true,
         status: true,
       },
-      orderBy: { userId: 'asc' },
+      orderBy: { displayName: 'asc' },
     });
   }
 
   private async applyUpdate(
+    householdId: HouseholdId,
     id: string,
-    userId: string,
     data: Prisma.DetectedSubscriptionUpdateInput,
   ): Promise<DetectedSubscriptionDomain> {
     const result = await prisma.detectedSubscription.update({
-      where: { id, userId },
+      where: { id, householdId },
       data,
       include: withCategory,
     });
@@ -294,7 +293,6 @@ function isDetectionEvidence(
 function mapToDomain(db: DetectedSubscriptionRow): DetectedSubscriptionDomain {
   return {
     id: db.id,
-    userId: db.userId,
     merchantName: db.merchantName,
     displayName: db.displayName,
     averageAmount: db.averageAmount,

@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { declaredHandlerOptions } from '@/test/routeDeclarations';
+import { filesUnder, isNonTestSource } from '@/test/sourceFiles';
 
 // Every handler an API token can reach, with the scope it needs. Opening a
 // route to a token is a decision made here as well as in the route. IMPORTS
@@ -24,25 +25,13 @@ const LITERAL_DECLARATION = /^\s*apiTokenScope: '[A-Z_]+',$/;
 
 const NON_GRANTING_FILES = ['server/http/handler.ts'];
 
-function sourceFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return entry.name === 'generated' ? [] : sourceFiles(path);
-    }
-    const isSource = /\.tsx?$/.test(entry.name);
-    const isTest = /\.test(-d)?\.tsx?$/.test(entry.name);
-    return isSource && !isTest ? [path] : [];
-  });
-}
-
 describe('API token scopes', () => {
   it('are declared on exactly the listed handlers', () => {
     expect(declaredHandlerOptions('apiTokenScope')).toEqual([...HANDLER_SCOPES].sort());
   });
 
   it('are granted only by a literal declaration in a route file', () => {
-    const grantsOutsideTheLedger = sourceFiles(SOURCE_DIR).flatMap((path) => {
+    const grantsOutsideTheLedger = filesUnder(SOURCE_DIR, isNonTestSource).flatMap((path) => {
       const file = relative(SOURCE_DIR, path);
       if (NON_GRANTING_FILES.includes(file)) {
         return [];

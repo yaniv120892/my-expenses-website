@@ -1,4 +1,5 @@
 import prisma from '@/server/db/client';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { TransactionStatus, TransactionType } from '@/generated/prisma/client';
 import type { MonthSummary, RecentTransaction } from '@/shared/types/dashboard';
 import categoryRepository from '@/server/repositories/categoryRepository';
@@ -13,14 +14,18 @@ class DashboardRepository {
     };
   }
 
-  public async getMonthSummary(userId: string, year: number, month: number): Promise<MonthSummary> {
+  public async getMonthSummary(
+    householdId: HouseholdId,
+    year: number,
+    month: number,
+  ): Promise<MonthSummary> {
     const { startOfMonth, endOfMonth } = this.monthBounds(year, month);
 
     const groups = await prisma.transaction.groupBy({
       by: ['type'],
       _sum: { value: true },
       where: {
-        userId,
+        householdId,
         status: TransactionStatus.APPROVED,
         date: { gte: startOfMonth, lte: endOfMonth },
       },
@@ -43,7 +48,7 @@ class DashboardRepository {
   }
 
   public async getTopCategoriesForMonth(
-    userId: string,
+    householdId: HouseholdId,
     year: number,
     month: number,
     limit: number = 7,
@@ -54,7 +59,7 @@ class DashboardRepository {
       by: ['categoryId'],
       _sum: { value: true },
       where: {
-        userId,
+        householdId,
         status: TransactionStatus.APPROVED,
         type: TransactionType.EXPENSE,
         date: { gte: startOfMonth, lte: endOfMonth },
@@ -71,11 +76,11 @@ class DashboardRepository {
   }
 
   public async getRecentTransactions(
-    userId: string,
+    householdId: HouseholdId,
     limit: number = 5,
   ): Promise<RecentTransaction[]> {
     const transactions = await prisma.transaction.findMany({
-      where: { userId, status: TransactionStatus.APPROVED },
+      where: { householdId, status: TransactionStatus.APPROVED },
       orderBy: { date: 'desc' },
       take: limit,
       include: { category: { select: { name: true } } },

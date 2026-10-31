@@ -1,28 +1,24 @@
 import transactionService from '@/server/services/transactionService';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
 import { buildTransactionsBackupCsv } from '@/server/utils/transactionCsv';
 import { logger } from '@/server/observability';
 import backupStorageProviderFactory from '@/server/services/backup/backupStorageProviderFactory';
-import userRepository from '@/server/repositories/userRepository';
+import householdRepository from '@/server/repositories/householdRepository';
 import { lazy } from '@/server/lib/lazy';
 
 class BackupService {
   private getStorageProvider = lazy(() => backupStorageProviderFactory.getProvider());
 
-  public async getUsersRequiredBackup() {
-    const users = await userRepository.list({
-      isVerified: true,
-    });
-
-    return users;
+  public async getHouseholdsRequiringBackup(): Promise<HouseholdId[]> {
+    return householdRepository.listIdsWithVerifiedMember();
   }
 
-  public async backupTransactionsToCsvAndUpload(userId: string) {
-    const transactions = await transactionService.getAllTransactions({
+  public async backupTransactionsToCsvAndUpload(householdId: HouseholdId) {
+    const transactions = await transactionService.getAllTransactions(householdId, {
       status: 'APPROVED',
-      userId,
     });
     const csv = buildTransactionsBackupCsv(transactions);
-    const fileName = `transactions-backup_${userId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const fileName = `transactions-backup_${householdId}-${new Date().toISOString().slice(0, 10)}.csv`;
     const fileBuffer = Buffer.from(csv, 'utf8');
     const mimeType = 'text/csv';
     logger.debug({ fileName }, 'Uploading backup file');

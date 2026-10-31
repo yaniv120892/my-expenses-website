@@ -7,6 +7,6 @@ export function toHouseholdId(value: string): HouseholdId {
   return value;
 }
 
-function isHouseholdId(value: string): value is HouseholdId {
-  return value.length > 0;
+export function isHouseholdId(value: unknown): value is HouseholdId {
+  return typeof value === 'string' && value.length > 0;
 }

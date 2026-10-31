@@ -16,7 +16,7 @@ export function registerScheduleTools({
   server: McpServer;
   actor: McpActor;
 }): void {
-  const { userId } = actor;
+  const { householdId } = actor;
 
   registerSafeTool({
     server,
@@ -31,7 +31,7 @@ export function registerScheduleTools({
     },
     handler: async () =>
       describeTransactions({
-        transactions: await transactionService.getPendingTransactions(userId),
+        transactions: await transactionService.getPendingTransactions(householdId),
         emptyText: 'Nothing is waiting for approval.',
       }),
   });
@@ -49,7 +49,7 @@ export function registerScheduleTools({
     },
     handler: async () => {
       const [schedules, categories] = await Promise.all([
-        scheduledTransactionService.listScheduledTransactions(userId),
+        scheduledTransactionService.listScheduledTransactions(householdId),
         categoryRepository.getAllCategories(),
       ]);
       if (schedules.length === 0) {

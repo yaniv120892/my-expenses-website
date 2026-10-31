@@ -1,40 +1,28 @@
 import type { User } from '@/generated/prisma/client';
 import { NotificationProvider } from '@/generated/prisma/client';
 import prisma from '@/server/db/client';
-import type { UserQuery } from '@/server/repositories/types';
+import type { HouseholdId } from '@/server/auth/householdActor.types';
+import { toHouseholdId } from '@/server/auth/householdId';
+import type { ReportRecipient, ScheduledReport } from '@/server/repositories/userRepository.types';
 
 class UserRepository {
-  public async getUsersRequiredDailySummary() {
-    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
-      where: {
-        dailySummary: true,
-      },
-      select: {
-        userId: true,
-      },
+  public async findReportRecipients(report: ScheduledReport): Promise<ReportRecipient[]> {
+    const members = await prisma.user.findMany({
+      where: { userNotification: { [report]: true } },
+      select: { id: true, householdId: true },
     });
-    return userNotificationPreferences.map((user) => user.userId);
+    return members.map((member) => ({
+      userId: member.id,
+      householdId: toHouseholdId(member.householdId),
+    }));
   }
 
-  public async getUsersRequiredMonthlyReport() {
-    const userNotificationPreferences = await prisma.userNotificationPreference.findMany({
-      where: {
-        monthlyReport: true,
-      },
-      select: {
-        userId: true,
-      },
+  public async findMembersNotifiedOfNewTransactions(householdId: HouseholdId): Promise<string[]> {
+    const members = await prisma.user.findMany({
+      where: { householdId, userNotification: { createTransaction: true } },
+      select: { id: true },
     });
-    return userNotificationPreferences.map((user) => user.userId);
-  }
-
-  public async isCreateTransactionNotificationEnabled(userId: string) {
-    const notificationPreference = await prisma.userNotificationPreference.findUnique({
-      where: { userId },
-      select: { createTransaction: true },
-    });
-
-    return notificationPreference?.createTransaction ?? false;
+    return members.map((member) => member.id);
   }
 
   public async findMembership(userId: string) {
@@ -152,21 +140,6 @@ class UserRepository {
       update: provider,
       create: { userId, provider: NotificationProvider.TELEGRAM, ...provider },
     });
-  }
-
-  public async list(query: UserQuery) {
-    const users = await prisma.user.findMany({
-      where: {
-        verified: query.isVerified ? true : undefined,
-      },
-    });
-
-    return users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      verified: user.verified,
-    }));
   }
 }
 

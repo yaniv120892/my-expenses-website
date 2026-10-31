@@ -52,6 +52,7 @@ class AuthService {
     // Before any write: throwing after createUser would leave an unverified
     // account the retry path cannot rescue.
     const websiteUrl = requireSiteUrl();
+    emailService.assertConfigured();
     const existingUser = await userRepository.findByEmailOrUsername(email, username);
     if (existingUser) {
       // The email check is because the lookup also matches username.

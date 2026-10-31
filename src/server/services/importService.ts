@@ -206,53 +206,22 @@ class ImportService {
 
       // The signed callback may already have completed or merged the import, so
       // only the request id is recorded, and only while the import still waits.
-      await this.recordExtractionRequestId({
+      await importRepository.recordExtractionRequestId(
         householdId,
         importId,
-        extractionRequestId: extractionResponse.requestId,
-      });
+        extractionResponse.requestId,
+      );
     } catch (error) {
       logger.error({ importId, err: error }, 'Failed to submit extraction request');
 
-      await this.failUnprocessedImport({
+      await importRepository.markFailedIfUnclaimed(
         householdId,
         importId,
-        error: getErrorMessage(error, 'Failed to submit extraction request'),
-      });
+        getErrorMessage(error, 'Failed to submit extraction request'),
+      );
 
       throw error;
     }
-  }
-
-  private async recordExtractionRequestId({
-    householdId,
-    importId,
-    extractionRequestId,
-  }: {
-    householdId: HouseholdId;
-    importId: string;
-    extractionRequestId: string;
-  }): Promise<void> {
-    await prisma.import.updateMany({
-      where: { id: importId, householdId, extractionCompletedAt: null },
-      data: { excelExtractionRequestId: extractionRequestId },
-    });
-  }
-
-  /** No-op once a callback has claimed the import, or if it merged away. */
-  private async failUnprocessedImport({
-    householdId,
-    importId,
-    error,
-  }: {
-    householdId: HouseholdId;
-    importId: string;
-    error: string;
-  }): Promise<void> {
-    await prisma.import.updateMany({
-      where: { id: importId, householdId, extractionCompletedAt: null },
-      data: { status: ImportStatus.FAILED, error },
-    });
   }
 
   public async failStuckImports(now: Date = new Date()) {
@@ -875,14 +844,7 @@ class ImportService {
       ),
     );
 
-    await prisma.importedTransaction.updateMany({
-      where: {
-        importId,
-        householdId,
-        status: ImportedTransactionStatus.PENDING,
-      },
-      data: { matchingTransactionId: null },
-    });
+    await importedTransactionRepository.clearPendingMatches(householdId, importId);
 
     const claimedElsewhere =
       await importedTransactionRepository.findClaimedMatchingTransactionIds(householdId);
@@ -978,11 +940,11 @@ class ImportService {
 
     const exactMatchId = findExactNormalizedMatch(transaction.description, availableMatches);
     if (exactMatchId) {
-      await this.claimMatch({
+      await importedTransactionRepository.setMatchingTransaction(
         householdId,
-        importedTransactionId: transaction.id,
-        matchingTransactionId: exactMatchId,
-      });
+        transaction.id,
+        exactMatchId,
+      );
       return exactMatchId;
     }
 
@@ -996,11 +958,11 @@ class ImportService {
       (placeholders.length > 0 ? pickPlaceholder(transaction, placeholders).id : null);
 
     if (matchingTransactionId) {
-      await this.claimMatch({
+      await importedTransactionRepository.setMatchingTransaction(
         householdId,
-        importedTransactionId: transaction.id,
+        transaction.id,
         matchingTransactionId,
-      });
+      );
     }
 
     return matchingTransactionId;
@@ -1036,21 +998,6 @@ class ImportService {
 
   private toImportedAmountAt(row: ImportedTransaction): DatedImportedAmount {
     return { ...fromImportedAmountColumns(row), date: row.date };
-  }
-
-  private async claimMatch({
-    householdId,
-    importedTransactionId,
-    matchingTransactionId,
-  }: {
-    householdId: HouseholdId;
-    importedTransactionId: string;
-    matchingTransactionId: string;
-  }): Promise<void> {
-    await prisma.importedTransaction.update({
-      where: { id: importedTransactionId, householdId },
-      data: { matchingTransactionId },
-    });
   }
 }
 

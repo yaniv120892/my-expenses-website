@@ -42,6 +42,9 @@ const {
   };
 });
 
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/services/authService', () => ({ default: authService }));
 vi.mock('@/server/services/transactionService', () => ({ default: transactionService }));
 vi.mock('@/server/services/importService', () => ({ importService }));
@@ -78,6 +81,7 @@ import {
 } from '@/app/api/transactions/[id]/route';
 import { POST as processImport } from '@/app/api/imports/process/route';
 import { POST as chat } from '@/app/api/chat/route';
+import { testMemberActor } from '@/test/memberActor';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { signToken } from '@/server/auth/tokens';
 import { SESSION_COOKIE } from '@/server/auth/cookies';
@@ -143,7 +147,7 @@ async function sentEvents(): Promise<SentEvent[]> {
 }
 
 async function connectAgent(): Promise<Client> {
-  const server = createMcpServer({ userId: USER_ID });
+  const server = createMcpServer(testMemberActor({ userId: USER_ID }));
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-agent', version: '1.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -154,7 +158,7 @@ beforeEach(async () => {
   await observability.flushRemoteLogs();
   vi.clearAllMocks();
   requestCookies.clear();
-  requireUser.mockResolvedValue(USER_ID);
+  requireUser.mockResolvedValue({ userId: USER_ID, tokenVersion: 0 });
 });
 
 afterAll(() => {
@@ -366,7 +370,7 @@ describe('product events', () => {
   ])(
     'records a %s page view for the signed-in user when the page is entered',
     async (page, Layout) => {
-      requestCookies.set(SESSION_COOKIE, await signToken(USER_ID));
+      requestCookies.set(SESSION_COOKIE, await signToken({ userId: USER_ID, tokenVersion: 0 }));
 
       await Layout({ children: null });
 

@@ -1,8 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const API_DIR = join(process.cwd(), 'src/app/api');
+import { declaredHandlerOptions } from '@/test/routeDeclarations';
 
 // Every handler an API token can reach, with the scope it needs. Opening a
 // route to a token is a decision made here as well as in the route. IMPORTS
@@ -19,30 +18,6 @@ const HANDLER_SCOPES = [
   "POST imports/upload/route.ts → 'IMPORTS'",
   "POST mcp/route.ts → 'AGENT'",
 ];
-
-const SCOPE_DECLARATION = /\bapiTokenScope\s*:\s*([^,\n}]+)/;
-
-function routeFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return routeFiles(path);
-    }
-    return entry.name === 'route.ts' ? [path] : [];
-  });
-}
-
-function declaredScopes(path: string): string[] {
-  const route = relative(API_DIR, path);
-  return readFileSync(path, 'utf8')
-    .split(/^export const /m)
-    .slice(1)
-    .flatMap((handler) => {
-      const scope = SCOPE_DECLARATION.exec(handler)?.[1]?.trim();
-      const method = handler.slice(0, handler.indexOf(' '));
-      return scope ? [`${method} ${route} → ${scope}`] : [];
-    });
-}
 
 const SOURCE_DIR = join(process.cwd(), 'src');
 const LITERAL_DECLARATION = /^\s*apiTokenScope: '[A-Z_]+',$/;
@@ -63,9 +38,7 @@ function sourceFiles(directory: string): string[] {
 
 describe('API token scopes', () => {
   it('are declared on exactly the listed handlers', () => {
-    const declared = routeFiles(API_DIR).flatMap(declaredScopes).sort();
-
-    expect(declared).toEqual([...HANDLER_SCOPES].sort());
+    expect(declaredHandlerOptions('apiTokenScope')).toEqual([...HANDLER_SCOPES].sort());
   });
 
   it('are granted only by a literal declaration in a route file', () => {

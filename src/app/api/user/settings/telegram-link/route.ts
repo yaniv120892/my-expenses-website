@@ -4,12 +4,14 @@ import telegramLinkService from '@/server/services/telegramLinkService';
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   rateLimit: ({ userId }) => [{ key: `telegramLink:user:${userId}`, ...RATE_LIMITS.telegramLink }],
   handler: async ({ userId }) => telegramLinkService.issueLinkCode(userId),
 });
 
 export const DELETE = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   status: 204,
   handler: async ({ userId }) => {
     await telegramLinkService.unlink(userId);

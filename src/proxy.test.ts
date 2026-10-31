@@ -42,7 +42,9 @@ describe('proxy on /reset-password', () => {
       vi.unstubAllEnvs();
     });
 
-    const response = await proxy(pageRequest('/reset-password', await signToken('user-1')));
+    const response = await proxy(
+      pageRequest('/reset-password', await signToken({ userId: 'user-1', tokenVersion: 0 })),
+    );
 
     expect(response.headers.get('x-middleware-next')).toBe('1');
     expect(response.headers.get('location')).toBeNull();

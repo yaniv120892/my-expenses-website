@@ -87,7 +87,7 @@ class AuthService {
     if (user.verified === false) {
       return { error: 'User not verified' };
     }
-    const token = await signToken(user.id);
+    const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await storeSession(user.id, token, tokenTtlSeconds());
     // A reset landing during the compare sweeps sessions before this one is
     // stored; re-reading the hash catches it, so the old password buys nothing.
@@ -126,7 +126,7 @@ class AuthService {
       return { error: 'Invalid or expired code' };
     }
     await userRepository.verifyUser(email, await hash(password, BCRYPT_ROUNDS));
-    const token = await signToken(user.id);
+    const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await deleteValue(loginCodeKey(email), 'branch');
     await deleteValue(attemptsKey, 'branch');
     await storeSession(user.id, token, tokenTtlSeconds());
@@ -193,13 +193,12 @@ class AuthService {
     newPassword: string;
   }) {
     const user = await userRepository.findById(userId);
-    const currentPasswordMatches = !!user && (await compare(currentPassword, user.password));
-    if (!currentPasswordMatches) {
+    if (!user || !(await compare(currentPassword, user.password))) {
       return { error: 'Current password is incorrect' };
     }
     await this.replacePassword(userId, newPassword);
     await this.revokePasswordReset(userId);
-    const token = await signToken(userId);
+    const token = await signToken({ userId, tokenVersion: user.tokenVersion });
     await storeSession(userId, token, tokenTtlSeconds());
     return { token, userId };
   }

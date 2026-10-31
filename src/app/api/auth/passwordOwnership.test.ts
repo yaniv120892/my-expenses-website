@@ -11,6 +11,9 @@ type StoredUser = {
   username: string;
   password: string;
   verified: boolean;
+  householdId: string;
+  householdRole: 'OWNER';
+  tokenVersion: number;
 };
 
 const { store, users, send, enforceRateLimits, deleteAllApiTokens } = vi.hoisted(() => {
@@ -51,6 +54,10 @@ vi.mock('@/server/redis', () => ({
   },
 }));
 
+function memberOf(id: string) {
+  return { id, householdId: `household-${id}`, householdRole: 'OWNER' as const, tokenVersion: 0 };
+}
+
 vi.mock('@/server/repositories/userRepository', () => {
   const byEmail = (email: string) => [...users.values()].find((user) => user.email === email);
   return {
@@ -60,8 +67,10 @@ vi.mock('@/server/repositories/userRepository', () => {
         null,
       findByEmail: async (email: string) => byEmail(email) ?? null,
       findById: async (id: string) => users.get(id) ?? null,
+      findMembership: async (id: string) => users.get(id) ?? null,
       createUser: async (email: string, username: string, password: string) => {
-        const user = { id: `user-${users.size + 1}`, email, username, password, verified: false };
+        const id = `user-${users.size + 1}`;
+        const user = { ...memberOf(id), email, username, password, verified: false };
         users.set(user.id, user);
         return user;
       },
@@ -171,7 +180,7 @@ function owner(): StoredUser {
 
 async function seedVerifiedOwner(): Promise<void> {
   users.set('user-1', {
-    id: 'user-1',
+    ...memberOf('user-1'),
     email: OWNER_EMAIL,
     username: OWNER_EMAIL,
     password: await hash(OWNER_PASSWORD, 4),

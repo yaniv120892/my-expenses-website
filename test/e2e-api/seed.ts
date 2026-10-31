@@ -95,7 +95,9 @@ export async function seed(): Promise<SeedResult> {
     // Saving settings or linking Telegram during a run leaves these behind.
     await prisma.userNotificationPreference.deleteMany({});
     await prisma.userNotificationProvider.deleteMany({});
+    await prisma.invite.deleteMany({});
     await prisma.user.deleteMany({});
+    await prisma.household.deleteMany({});
 
     const groceries = await prisma.category.create({
       data: { name: 'Groceries' },
@@ -109,6 +111,8 @@ export async function seed(): Promise<SeedResult> {
         email: 'a@e2e.test',
         password: passwordHash,
         verified: true,
+        household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
     const userB = await prisma.user.create({
@@ -117,6 +121,8 @@ export async function seed(): Promise<SeedResult> {
         email: 'b@e2e.test',
         password: passwordHash,
         verified: true,
+        household: { create: {} },
+        householdRole: 'OWNER',
       },
     });
 

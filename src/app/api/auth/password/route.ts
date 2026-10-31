@@ -9,6 +9,7 @@ import { RATE_LIMITS } from '@/server/http/rateLimit';
 // with a fresh one rather than signing them out too.
 export const PUT = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   bodySchema: changePasswordSchema,
   rateLimit: ({ userId }) => [
     { key: `changePassword:user:${userId}`, ...RATE_LIMITS.changePassword },

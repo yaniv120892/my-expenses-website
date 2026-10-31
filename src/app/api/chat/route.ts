@@ -16,6 +16,7 @@ function sseFrame(payload: Record<string, unknown>): Uint8Array {
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   bodySchema: chatRequestSchema,
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
   handler: async ({ request, body, userId }) => {

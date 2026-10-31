@@ -45,14 +45,19 @@ describe('streamMessage', () => {
   });
 
   it('sends a 401 to the login page without reading a body', async () => {
-    const location = { origin: 'https://app.test', href: 'https://app.test/chat' };
+    const location = {
+      origin: 'https://app.test',
+      pathname: '/chat',
+      search: '',
+      href: 'https://app.test/chat',
+    };
     vi.stubGlobal('window', { location });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
     const streamHandlers = handlers();
 
     await streamMessage([], streamHandlers);
 
-    expect(location.href).toBe('https://app.test/login?reason=session-expired');
+    expect(location.href).toBe('https://app.test/login?reason=session-expired&next=%2Fchat');
     expect(streamHandlers.onDone).not.toHaveBeenCalled();
   });
 });

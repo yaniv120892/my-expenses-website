@@ -7,6 +7,7 @@ import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { PageHeader } from '@yaniv120892/my-ui';
+import { useCanWrite } from '@/hooks/useSession';
 import FileUpload from '@/components/FileUpload';
 import ImportList from '@/components/ImportList';
 import AutoApproveRuleManager from '@/components/AutoApproveRuleManager';
@@ -66,6 +67,7 @@ function ClosableDialog({
 
 export default function ImportsPage() {
   const t = useT();
+  const canWrite = useCanWrite();
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [isUploadRunning, setUploadRunning] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -80,22 +82,24 @@ export default function ImportsPage() {
       <PageHeader
         title={t('imports.title')}
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<AutoFixHighOutlinedIcon />}
-              onClick={() => setRulesOpen(true)}
-            >
-              {t('imports.rules')}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<UploadFileOutlinedIcon />}
-              onClick={() => setUploadOpen(true)}
-            >
-              {t('imports.uploadAction')}
-            </Button>
-          </Stack>
+          canWrite && (
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<AutoFixHighOutlinedIcon />}
+                onClick={() => setRulesOpen(true)}
+              >
+                {t('imports.rules')}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<UploadFileOutlinedIcon />}
+                onClick={() => setUploadOpen(true)}
+              >
+                {t('imports.uploadAction')}
+              </Button>
+            </Stack>
+          )
         }
       />
 

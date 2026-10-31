@@ -15,11 +15,13 @@ import { RecentTransactionsQuickView } from '@/components/dashboard/RecentTransa
 import { SubscriptionsCard } from '@/components/dashboard/SubscriptionsCard';
 import TransactionForm from '@/components/TransactionForm';
 import { PageHeader } from '@yaniv120892/my-ui';
+import { useCanWrite } from '@/hooks/useSession';
 import type { CreateTransactionInput } from '@/types';
 import { useT } from '@/i18n/useT';
 
 export default function DashboardPage() {
   const t = useT();
+  const canWrite = useCanWrite();
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
 
@@ -37,13 +39,15 @@ export default function DashboardPage() {
     <PageHeader
       title={t('nav.dashboard')}
       actions={
-        <Button
-          variant="contained"
-          startIcon={<AddRoundedIcon />}
-          onClick={() => setFormOpen(true)}
-        >
-          {t('dashboard.addTransaction')}
-        </Button>
+        canWrite && (
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => setFormOpen(true)}
+          >
+            {t('dashboard.addTransaction')}
+          </Button>
+        )
       }
     />
   );

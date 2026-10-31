@@ -5,12 +5,10 @@ import { SignJWT } from 'jose';
 import { ANNOUNCEMENT_IDS } from '@/shared/announcements';
 import { requireEnv } from '@/server/env';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
+import { HOUSEHOLD_E2E_USERS, SEED_PASSWORD } from './householdUsers';
 
 // User A's figures make the comparison exact (Jan ₪4,100 → Feb ₪5,200: +₪1,100,
 // +26.83%); user B exists so a check can assert A's answers never contain B's.
-
-// Hashed, so a local run can sign in through the login form.
-export const SEED_PASSWORD = 'local-dev-password';
 
 export type SeededUser = {
   id: string;
@@ -110,6 +108,7 @@ export async function seed(): Promise<SeedResult> {
     });
     const rent = await prisma.category.create({ data: { name: 'Rent' } });
 
+    // Hashed, so a local run can sign in through the login form.
     const passwordHash = await hash(SEED_PASSWORD, 10);
     const userA = await prisma.user.create({
       data: {
@@ -132,11 +131,25 @@ export async function seed(): Promise<SeedResult> {
       },
     });
 
+    const householdUsers = await Promise.all(
+      Object.values(HOUSEHOLD_E2E_USERS).map((user) =>
+        prisma.user.create({
+          data: {
+            ...user,
+            password: passwordHash,
+            verified: true,
+            household: { create: {} },
+            householdRole: 'OWNER',
+          },
+        }),
+      ),
+    );
+
     // Signup acknowledges every existing announcement, but these users are
     // created straight through Prisma. Without this the What's New dialog
     // opens over the first page a spec visits and hides it.
     await prisma.announcementAck.createMany({
-      data: [userA.id, userB.id].flatMap((userId) =>
+      data: [userA.id, userB.id, ...householdUsers.map((user) => user.id)].flatMap((userId) =>
         ANNOUNCEMENT_IDS.map((announcementId) => ({ userId, announcementId })),
       ),
     });

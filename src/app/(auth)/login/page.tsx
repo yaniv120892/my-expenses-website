@@ -8,6 +8,7 @@ import { Alert, Button, Link as MuiLink, Stack, TextField, Typography } from '@m
 import { AuthCard } from '@yaniv120892/my-ui';
 import { useT } from '@/i18n/useT';
 import { login } from '@/services/authClient';
+import { NEXT_PATH_PARAM, safeNextPath, withNextPath } from '@/shared/nextPath';
 import { authErrorMessage } from '@/utils/authErrorMessage';
 
 function LoginForm() {
@@ -15,6 +16,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('reason') === 'session-expired';
+  const next = safeNextPath(searchParams.get(NEXT_PATH_PARAM));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ function LoginForm() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push('/dashboard');
+      router.push(next ?? '/dashboard');
       router.refresh();
     } catch (err) {
       setError(authErrorMessage({ error: err, fallback: t('auth.login.failed'), t }));
@@ -65,7 +67,7 @@ function LoginForm() {
         </Button>
         <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
           {t('auth.login.noAccount')}{' '}
-          <MuiLink component={Link} href="/signup">
+          <MuiLink component={Link} href={withNextPath({ path: '/signup', next })}>
             {t('auth.login.signupLink')}
           </MuiLink>
         </Typography>

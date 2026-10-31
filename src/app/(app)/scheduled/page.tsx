@@ -7,6 +7,7 @@ import ScheduledTransactionList from '@/components/ScheduledTransactionList';
 import ScheduledTransactionForm from '@/components/ScheduledTransactionForm';
 import ScheduledTransactionListSkeleton from '@/components/ScheduledTransactionListSkeleton';
 import { PageHeader } from '@yaniv120892/my-ui';
+import { useCanWrite } from '@/hooks/useSession';
 import type { CreateScheduledTransactionInput, ScheduledTransaction } from '@/types';
 import {
   useScheduledTransactionsQuery,
@@ -19,8 +20,14 @@ import { useT } from '@/i18n/useT';
 
 export default function ScheduledPage() {
   const t = useT();
+  const canWrite = useCanWrite();
   const [formOpen, setFormOpen] = useState(false);
   const [editTx, setEditTx] = useState<ScheduledTransaction | null>(null);
+
+  function openEditor(schedule: ScheduledTransaction) {
+    setEditTx(schedule);
+    setFormOpen(true);
+  }
 
   const {
     data: scheduledTransactions = [],
@@ -48,16 +55,18 @@ export default function ScheduledPage() {
         title={t('scheduled.title')}
         subtitle={t('scheduled.subtitle')}
         actions={
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => {
-              setEditTx(null);
-              setFormOpen(true);
-            }}
-          >
-            {t('scheduled.add')}
-          </Button>
+          canWrite && (
+            <Button
+              variant="contained"
+              startIcon={<AddRoundedIcon />}
+              onClick={() => {
+                setEditTx(null);
+                setFormOpen(true);
+              }}
+            >
+              {t('scheduled.add')}
+            </Button>
+          )
         }
       />
 
@@ -69,10 +78,7 @@ export default function ScheduledPage() {
         <ScheduledTransactionList
           scheduledTransactions={scheduledTransactions}
           categories={categories}
-          onEditAction={(tx) => {
-            setEditTx(tx);
-            setFormOpen(true);
-          }}
+          onEditAction={canWrite ? openEditor : undefined}
         />
       )}
 

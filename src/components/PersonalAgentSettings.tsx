@@ -26,6 +26,7 @@ import { buildAgentBriefing } from '@/utils/agentBriefing';
 import { describeApiError } from '@/utils/api';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
+import { useCanWrite } from '@/hooks/useSession';
 import type { T } from '@/i18n/useT.types';
 import CopyableText from '@/components/CopyableText';
 import RevokeTokenDialog from '@/components/RevokeTokenDialog';
@@ -42,11 +43,18 @@ const EXAMPLE_REQUEST_KEYS = [
   'settings.agent.example.delete',
 ] as const;
 
+const READ_EXAMPLE_REQUEST_KEYS = [
+  'settings.agent.example.food',
+  'settings.agent.example.compare',
+  'settings.agent.example.recurring',
+] as const;
+
 type ShownToken = { id: string; token: string };
 
 export default function PersonalAgentSettings() {
   const t = useT();
   const formatter = useAppFormat();
+  const readOnly = !useCanWrite();
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
@@ -84,7 +92,7 @@ export default function PersonalAgentSettings() {
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
-        {t('settings.agent.intro')}
+        {readOnly ? t('settings.agent.introReadOnly') : t('settings.agent.intro')}
       </Typography>
 
       <Stack direction="row" spacing={1}>
@@ -133,6 +141,7 @@ export default function PersonalAgentSettings() {
           value={buildAgentBriefing({
             mcpUrl,
             token: shownToken?.token ?? null,
+            readOnly,
           })}
           multiline
         />
@@ -143,7 +152,7 @@ export default function PersonalAgentSettings() {
           {t('settings.agent.examplesTitle')}
         </Typography>
         <List dense disablePadding>
-          {EXAMPLE_REQUEST_KEYS.map((key) => (
+          {(readOnly ? READ_EXAMPLE_REQUEST_KEYS : EXAMPLE_REQUEST_KEYS).map((key) => (
             <ListItem key={key} disableGutters>
               <ListItemText primary={t('settings.agent.exampleQuote', { request: t(key) })} />
             </ListItem>

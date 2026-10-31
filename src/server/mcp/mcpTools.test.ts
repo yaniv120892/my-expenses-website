@@ -166,6 +166,20 @@ describe('MCP tool surface', () => {
     );
   });
 
+  it('marks read-only exactly the tools the briefing offers a viewer', async () => {
+    const { tools } = await client.listTools();
+
+    const readOnly = tools
+      .filter((tool) => tool.annotations?.readOnlyHint === true)
+      .map((tool) => tool.name)
+      .sort();
+    expect(readOnly).toEqual(
+      AGENT_TOOL_GUIDE.filter((tool) => !tool.writes)
+        .map((tool) => tool.name)
+        .sort(),
+    );
+  });
+
   it('takes no user id from the agent on any tool', async () => {
     const { tools } = await client.listTools();
 

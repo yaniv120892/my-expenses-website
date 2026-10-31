@@ -1,5 +1,7 @@
 import scheduledTransactionRepository from '@/server/repositories/scheduledTransactionRepository';
 import crossHouseholdRepository from '@/server/repositories/crossHouseholdRepository';
+import householdActivityService from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import transactionService from '@/server/services/transactionService';
 import { calculateNextRunDate } from '@/shared/scheduleDates';
 import type {
@@ -92,11 +94,16 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.createScheduledTransaction({
-      householdId: actor.householdId,
-      userId: actingUserId(actor),
-      data,
-      nextRunDate,
+    return householdActivityService.record({
+      actor,
+      write: () =>
+        scheduledTransactionRepository.createScheduledTransaction({
+          householdId: actor.householdId,
+          userId: actingUserId(actor),
+          data,
+          nextRunDate,
+        }),
+      describe: (id) => scheduleActivity({ action: 'CREATE', id, description: data.description }),
     });
   }
 
@@ -114,11 +121,17 @@ class ScheduledTransactionService {
       data.dayOfWeek,
       data.dayOfMonth,
     );
-    return scheduledTransactionRepository.updateScheduledTransaction({
-      householdId: actor.householdId,
-      id,
-      data,
-      nextRunDate,
+    return householdActivityService.record({
+      actor,
+      write: () =>
+        scheduledTransactionRepository.updateScheduledTransaction({
+          householdId: actor.householdId,
+          id,
+          data,
+          nextRunDate,
+        }),
+      describe: (updatedId) =>
+        scheduleActivity({ action: 'UPDATE', id: updatedId, description: data.description }),
     });
   }
 
@@ -129,10 +142,23 @@ class ScheduledTransactionService {
   }
 
   public async deleteScheduledTransaction(actor: HouseholdActor, id: string): Promise<void> {
-    return scheduledTransactionRepository.deleteScheduledTransaction(actor.householdId, id);
+    await householdActivityService.record({
+      actor,
+      write: async () => {
+        const existing = await scheduledTransactionRepository.getScheduledTransactionById(
+          actor.householdId,
+          id,
+        );
+        await scheduledTransactionRepository.deleteScheduledTransaction(actor.householdId, id);
+        return existing;
+      },
+      describe: (deleted) =>
+        deleted && scheduleActivity({ action: 'DELETE', id, description: deleted.description }),
+    });
   }
 
-  // The occurrence lands in the schedule's own household, written by the cron.
+  // The occurrence lands in the schedule's own household, written by the cron;
+  // createTransaction records it as the cron's CREATE.
   private async projectOccurrence(scheduled: ScheduledHouseholdTransaction, date: Date) {
     await transactionService.createTransaction(
       systemActor({ householdId: scheduled.householdId, job: 'scheduled-transactions' }),
@@ -147,6 +173,18 @@ class ScheduledTransactionService {
       },
     );
   }
+}
+
+function scheduleActivity({
+  action,
+  id,
+  description,
+}: {
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  id: string;
+  description: string;
+}): ActivityEntry {
+  return { action, entityType: 'SCHEDULED_TRANSACTION', entityId: id, summary: description };
 }
 
 const scheduledTransactionService = new ScheduledTransactionService();

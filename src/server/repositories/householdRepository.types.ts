@@ -15,6 +15,11 @@ export type PendingInviteRow = {
   createdAt: Date;
 };
 
+export type RevokedApiToken = {
+  id: string;
+  name: string;
+};
+
 export type MemberMove = {
-  apiTokensRevoked: number;
+  revokedApiTokens: RevokedApiToken[];
 };

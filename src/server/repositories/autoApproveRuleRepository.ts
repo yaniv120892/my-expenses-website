@@ -37,8 +37,8 @@ export class AutoApproveRuleRepository {
     });
   }
 
-  public async delete(householdId: HouseholdId, id: string): Promise<void> {
-    await prisma.autoApproveRule.delete({
+  public async delete(householdId: HouseholdId, id: string): Promise<AutoApproveRule> {
+    return prisma.autoApproveRule.delete({
       where: { id, householdId },
     });
   }

@@ -21,6 +21,13 @@ const {
   createTransactionFile: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/userCategoryMappingRepository', () => ({
   default: { findByDescription },
 }));
@@ -76,6 +83,7 @@ const getSuggestedCategory = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  activity.entries.length = 0;
   findByDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
   transactionService['getCategorySuggester'] = () => categorySuggester;
@@ -296,12 +304,16 @@ describe('attachFile', () => {
     transactionService.getTransactionItem = vi.fn().mockResolvedValue({
       id: TRANSACTION_ID,
     });
+    createTransactionFile.mockResolvedValue({ id: 'file-1', fileName: 'receipt.pdf' });
   });
 
-  it('stores a key issued under this transaction', async () => {
+  it('stores a key issued under this transaction and records the attachment', async () => {
     await attach(`transactions/${TRANSACTION_ID}/uuid-receipt.pdf`);
 
     expect(createTransactionFile).toHaveBeenCalledTimes(1);
+    expect(activity.entries).toEqual([
+      { action: 'CREATE', entityType: 'ATTACHMENT', entityId: 'file-1', summary: 'receipt.pdf' },
+    ]);
   });
 
   it('logs the key and size, never the file name', async () => {

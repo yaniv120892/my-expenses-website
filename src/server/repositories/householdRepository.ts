@@ -54,6 +54,8 @@ const FIND_ANY_LIVE_OWNED_ROW: Record<
     prisma.autoApproveRule.findFirst({ where: { householdId }, ...ANY_ROW }),
   DetectedSubscription: (householdId) =>
     prisma.detectedSubscription.findFirst({ where: { householdId }, ...ANY_ROW }),
+  // The log of what happened in the household cascades with it, so it never keeps one.
+  HouseholdActivity: async () => null,
 };
 
 class HouseholdRepository {
@@ -76,6 +78,13 @@ class HouseholdRepository {
       select: MEMBER_SELECT,
       orderBy: [{ householdRole: 'asc' }, { username: 'asc' }],
     });
+  }
+
+  public async findMember(
+    householdId: HouseholdId,
+    memberId: string,
+  ): Promise<HouseholdMemberRow | null> {
+    return prisma.user.findFirst({ where: { id: memberId, householdId }, select: MEMBER_SELECT });
   }
 
   public async findOwnerName(householdId: HouseholdId): Promise<string | null> {
@@ -227,8 +236,14 @@ class HouseholdRepository {
         await transaction.household.delete({ where: { id: household.id } });
         return null;
       }
-      const revoked = await transaction.apiToken.deleteMany({ where: { userId: memberId } });
-      return { apiTokensRevoked: revoked.count };
+      const revokedApiTokens = await transaction.apiToken.findMany({
+        where: { userId: memberId },
+        select: { id: true, name: true },
+      });
+      await transaction.apiToken.deleteMany({
+        where: { id: { in: revokedApiTokens.map((token) => token.id) } },
+      });
+      return { revokedApiTokens };
     });
   }
 

@@ -325,6 +325,8 @@ async function handleCompletedExtraction(
         ...transaction,
         householdId,
         userId: importRecord.userId,
+        // The callback carries no member, so the rows are the uploader's.
+        createdById: importRecord.userId,
       })),
     );
   }

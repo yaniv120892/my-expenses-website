@@ -5,7 +5,9 @@ import { getPrismaErrorCode, PRISMA_ERROR_CODES } from '@/server/db/prismaErrors
 import { HouseholdRefusal } from '@/server/services/householdRefusal';
 import { logger } from '@/server/observability';
 import householdRepository from '@/server/repositories/householdRepository';
-import type { PendingInviteRow } from '@/server/repositories/householdRepository.types';
+import householdActivityService from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
+import type { MemberMove, PendingInviteRow } from '@/server/repositories/householdRepository.types';
 import { inviteValidator } from '@/server/services/validators/inviteValidator';
 import { generateInviteCode, inviteExpiryFrom } from '@/server/utils/inviteCode';
 import type {
@@ -42,12 +44,23 @@ class HouseholdService {
 
   public async createInvite(actor: MemberActor, role: InvitableRole): Promise<HouseholdInviteView> {
     inviteValidator.assertIsOwner(actor);
-    const invite = await householdRepository.createInvite({
-      householdId: actor.householdId,
-      code: generateInviteCode(),
-      role,
-      createdById: actor.userId,
-      expiresAt: inviteExpiryFrom(new Date()),
+    const invite = await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.createInvite({
+          householdId: actor.householdId,
+          code: generateInviteCode(),
+          role,
+          createdById: actor.userId,
+          expiresAt: inviteExpiryFrom(new Date()),
+        }),
+      describe: (created) => ({
+        action: 'INVITE_CREATED',
+        entityType: 'INVITE',
+        entityId: created.id,
+        summary: null,
+        role,
+      }),
     });
     logger.info({ householdId: actor.householdId, inviteId: invite.id, role }, 'Invite created');
     return this.toInviteView(invite);
@@ -55,10 +68,23 @@ class HouseholdService {
 
   public async revokeInvite(actor: MemberActor, inviteId: string): Promise<void> {
     inviteValidator.assertIsOwner(actor);
-    const revoked = await householdRepository.revokeInvite({
-      householdId: actor.householdId,
-      inviteId,
-      now: new Date(),
+    const revoked = await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.revokeInvite({
+          householdId: actor.householdId,
+          inviteId,
+          now: new Date(),
+        }),
+      describe: (wasRevoked) =>
+        wasRevoked
+          ? {
+              action: 'INVITE_REVOKED',
+              entityType: 'INVITE',
+              entityId: inviteId,
+              summary: null,
+            }
+          : null,
     });
     if (!revoked) {
       throw new HouseholdRefusal({
@@ -112,7 +138,21 @@ class HouseholdService {
         throw new Error(`Unhandled join eligibility: ${eligibility satisfies never}`);
     }
 
-    const outcome = await this.joinOrConflict({ actor, invite, now });
+    const outcome = await householdActivityService.record({
+      actor,
+      write: () => this.joinOrConflict({ actor, invite, now }),
+      describe: (joined) =>
+        joined === 'joined'
+          ? {
+              action: 'MEMBER_JOINED',
+              entityType: 'MEMBER',
+              entityId: actor.userId,
+              summary: null,
+              role: invite.role,
+              householdId: toHouseholdId(invite.householdId),
+            }
+          : null,
+    });
     if (outcome === 'invite-taken') {
       throw new HouseholdRefusal({
         status: 409,
@@ -129,10 +169,19 @@ class HouseholdService {
   /** A non-owner leaves for a fresh, empty household of their own, keeping this session. */
   public async leave(actor: MemberActor): Promise<void> {
     inviteValidator.assertCanLeave(actor);
-    const move = await householdRepository.moveToOwnHousehold({
-      fromHouseholdId: actor.householdId,
-      memberId: actor.userId,
-      endSessions: false,
+    const move = await householdActivityService.record({
+      actor,
+      write: () =>
+        householdRepository.moveToOwnHousehold({
+          fromHouseholdId: actor.householdId,
+          memberId: actor.userId,
+          endSessions: false,
+        }),
+      describe: (memberMove) =>
+        memberMove && [
+          { action: 'MEMBER_LEFT', entityType: 'MEMBER', entityId: actor.userId, summary: null },
+          ...this.tokenRevocations({ memberMove, action: 'API_TOKEN_REVOKED' }),
+        ],
     });
     if (!move) {
       throw new HouseholdRefusal({
@@ -145,7 +194,7 @@ class HouseholdService {
       {
         userId: actor.userId,
         householdId: actor.householdId,
-        apiTokensRevoked: move.apiTokensRevoked,
+        apiTokensRevoked: move.revokedApiTokens.length,
         sessionsEnded: false,
       },
       'Member left a household',
@@ -156,12 +205,35 @@ class HouseholdService {
   public async removeMember(actor: MemberActor, memberId: string): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    const move = await householdRepository.moveToOwnHousehold({
-      fromHouseholdId: actor.householdId,
-      memberId,
-      endSessions: true,
+    const removal = await householdActivityService.record({
+      actor,
+      write: async () => {
+        const member = await householdRepository.findMember(actor.householdId, memberId);
+        if (!member) {
+          return null;
+        }
+        const memberMove = await householdRepository.moveToOwnHousehold({
+          fromHouseholdId: actor.householdId,
+          memberId,
+          endSessions: true,
+        });
+        return memberMove ? { member, memberMove } : null;
+      },
+      describe: (removed) =>
+        removed && [
+          {
+            action: 'MEMBER_REMOVED',
+            entityType: 'MEMBER',
+            entityId: removed.member.id,
+            summary: removed.member.username,
+          },
+          ...this.tokenRevocations({
+            memberMove: removed.memberMove,
+            action: 'API_TOKEN_REVOKED_ON_REMOVAL',
+          }),
+        ],
     });
-    if (!move) {
+    if (!removal) {
       throw new HouseholdRefusal({
         status: 404,
         message: MEMBER_NOT_FOUND_MESSAGE,
@@ -172,7 +244,7 @@ class HouseholdService {
       {
         householdId: actor.householdId,
         memberId,
-        apiTokensRevoked: move.apiTokensRevoked,
+        apiTokensRevoked: removal.memberMove.revokedApiTokens.length,
         sessionsEnded: true,
       },
       'Member removed from a household',
@@ -186,12 +258,35 @@ class HouseholdService {
   ): Promise<void> {
     inviteValidator.assertIsOwner(actor);
     inviteValidator.assertManagesSomeoneElse({ actor, memberId });
-    const changed = await householdRepository.changeMemberRole({
-      householdId: actor.householdId,
-      memberId,
-      role,
+    const outcome = await householdActivityService.record({
+      actor,
+      write: async () => {
+        const member = await householdRepository.findMember(actor.householdId, memberId);
+        if (!member) {
+          return null;
+        }
+        if (member.householdRole === role) {
+          return { member, changed: false };
+        }
+        const updated = await householdRepository.changeMemberRole({
+          householdId: actor.householdId,
+          memberId,
+          role,
+        });
+        return updated ? { member, changed: true } : null;
+      },
+      describe: (result) =>
+        result?.changed
+          ? {
+              action: 'ROLE_CHANGED',
+              entityType: 'MEMBER',
+              entityId: result.member.id,
+              summary: result.member.username,
+              role,
+            }
+          : null,
     });
-    if (!changed) {
+    if (!outcome) {
       throw new HouseholdRefusal({
         status: 404,
         message: MEMBER_NOT_FOUND_MESSAGE,
@@ -199,6 +294,21 @@ class HouseholdService {
       });
     }
     logger.info({ householdId: actor.householdId, memberId, role }, 'Member role changed');
+  }
+
+  private tokenRevocations({
+    memberMove,
+    action,
+  }: {
+    memberMove: MemberMove;
+    action: 'API_TOKEN_REVOKED' | 'API_TOKEN_REVOKED_ON_REMOVAL';
+  }): ActivityEntry[] {
+    return memberMove.revokedApiTokens.map((token) => ({
+      action,
+      entityType: 'API_TOKEN',
+      entityId: token.id,
+      summary: token.name,
+    }));
   }
 
   private async joinOrConflict({

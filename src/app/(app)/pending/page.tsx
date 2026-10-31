@@ -78,7 +78,10 @@ export default function PendingPage() {
 
   return (
     <>
-      <PageHeader title={t('pending.title')} subtitle={t('pending.subtitle')} />
+      <PageHeader
+        title={t('pending.title')}
+        subtitle={t(canWrite ? 'pending.subtitle' : 'pending.subtitleReadOnly')}
+      />
       <FixedExpensesSummary scheduledTransactions={scheduledTransactions} today={new Date()} />
       {isLoading ? (
         <PendingTransactionListSkeleton rows={6} />

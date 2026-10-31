@@ -19,6 +19,8 @@ import {
 import { autoApproveRuleRepository } from '@/server/repositories/autoApproveRuleRepository';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionService from '@/server/services/transactionService';
+import householdActivityService from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import { excelExtractionAgentClient } from '@/server/clients/excelExtractionAgentClient';
 import prisma from '@/server/db/client';
 import type { HouseholdActor, HouseholdId, MemberActor } from '@/server/auth/householdActor.types';
@@ -139,16 +141,21 @@ class ImportService {
         'Starting import with excel extraction agent',
       );
 
-      const importRecord = await importRepository.create({
-        fileUrl,
-        originalFileName,
-        householdId,
-        userId,
-        importType: null,
-        bankSourceType: null,
-        creditCardLastFourDigits: null,
-        paymentMonth: paymentMonthFromRequest || null,
-        excelExtractionRequestId: null,
+      const importRecord = await householdActivityService.record({
+        actor,
+        write: () =>
+          importRepository.create({
+            fileUrl,
+            originalFileName,
+            householdId,
+            userId,
+            importType: null,
+            bankSourceType: null,
+            creditCardLastFourDigits: null,
+            paymentMonth: paymentMonthFromRequest || null,
+            excelExtractionRequestId: null,
+          }),
+        describe: (created) => importActivity('CREATE', created),
       });
 
       logger.info({ importId: importRecord.id, userId }, 'Created import record');
@@ -360,11 +367,16 @@ class ImportService {
 
     // One batch, so a failure cannot create the transaction while the imported
     // row stays PENDING — retrying that state would create it a second time.
-    const [createdTransaction] = await prisma
-      .$transaction([
-        transactionRepository.createTransactionOp(transactionModel),
-        importedTransactionRepository.markApprovedOp(actor.householdId, record.id),
-      ])
+    const [createdTransaction] = await householdActivityService
+      .record({
+        actor,
+        write: () =>
+          prisma.$transaction([
+            transactionRepository.createTransactionOp(transactionModel),
+            importedTransactionRepository.markApprovedOp(actor.householdId, record.id),
+          ]),
+        describe: () => importedRowActivity('APPROVE', record),
+      })
       .catch(throwOnMissingRow);
 
     return createdTransaction.id;
@@ -415,45 +427,84 @@ class ImportService {
 
     // One batch, so the matched transaction cannot end up updated while the
     // imported row stays PENDING and re-mergeable.
-    await prisma
-      .$transaction([
-        transactionRepository.updateTransactionOp(householdId, matchingTransactionId, {
-          description: transactionData.description,
-          type: transactionData.type,
-          amount,
-          date: transactionData.date,
-          categoryId: transactionData.categoryId,
-          ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
-        }),
-        importedTransactionRepository.updateStatusOp(
-          householdId,
-          record.id,
-          ImportedTransactionStatus.MERGED,
-        ),
-      ])
+    await householdActivityService
+      .record({
+        actor,
+        write: () =>
+          prisma.$transaction([
+            transactionRepository.updateTransactionOp(householdId, matchingTransactionId, {
+              description: transactionData.description,
+              type: transactionData.type,
+              amount,
+              date: transactionData.date,
+              categoryId: transactionData.categoryId,
+              ...(approveMatch ? { status: TransactionStatus.APPROVED } : {}),
+            }),
+            importedTransactionRepository.updateStatusOp(
+              householdId,
+              record.id,
+              ImportedTransactionStatus.MERGED,
+            ),
+          ]),
+        describe: () => importedRowActivity('MERGE', record),
+      })
       .catch(throwOnMissingRow);
 
     return approveMatch ? matchingTransactionId : null;
   }
 
   public async ignoreImportedTransaction(actor: HouseholdActor, importedTransactionId: string) {
-    await this.loadOwnedRow(actor.householdId, importedTransactionId);
-    await importedTransactionRepository
-      .updateStatus(actor.householdId, importedTransactionId, ImportedTransactionStatus.IGNORED)
+    const record = await this.loadOwnedRow(actor.householdId, importedTransactionId);
+    await householdActivityService
+      .record({
+        actor,
+        write: () =>
+          importedTransactionRepository.updateStatus(
+            actor.householdId,
+            importedTransactionId,
+            ImportedTransactionStatus.IGNORED,
+          ),
+        describe: () => importedRowActivity('IGNORE', record),
+      })
       .catch(throwOnMissingRow);
   }
 
   // The rows go with the import, so none can still be approved or hold a
   // claim on a transaction that a re-import of the statement should match.
   public async deleteImport(actor: HouseholdActor, importId: string) {
-    await prisma.$transaction([
-      importRepository.softDeleteOp(actor.householdId, importId),
-      importedTransactionRepository.softDeleteByImportIdOp(actor.householdId, importId),
-    ]);
+    await householdActivityService.record({
+      actor,
+      write: async () => {
+        const existing = await importRepository.findById(actor.householdId, importId);
+        await prisma.$transaction([
+          importRepository.softDeleteOp(actor.householdId, importId),
+          importedTransactionRepository.softDeleteByImportIdOp(actor.householdId, importId),
+        ]);
+        return existing;
+      },
+      describe: (existing) => {
+        const wasLive = existing !== null && !existing.deleted;
+        return wasLive ? importActivity('DELETE', existing) : null;
+      },
+    });
   }
 
   public async deleteImportedTransaction(actor: HouseholdActor, importedTransactionId: string) {
-    await importedTransactionRepository.softDelete(actor.householdId, importedTransactionId);
+    await householdActivityService.record({
+      actor,
+      write: async () => {
+        const existing = await importedTransactionRepository.findById(
+          actor.householdId,
+          importedTransactionId,
+        );
+        await importedTransactionRepository.softDelete(actor.householdId, importedTransactionId);
+        return existing;
+      },
+      describe: (existing) => {
+        const wasLive = existing !== null && !existing.deleted;
+        return wasLive ? importedRowActivity('DELETE', existing) : null;
+      },
+    });
   }
 
   /** Writes nothing; batchApproveImportedTransactions commits the same plan. */
@@ -503,11 +554,17 @@ class ImportService {
     );
     const ids = pending.map((t) => t.id);
 
-    const count = await importedTransactionRepository.updateStatusBatch(
-      actor.householdId,
-      ids,
-      ImportedTransactionStatus.IGNORED,
-    );
+    const ignored = await householdActivityService.record({
+      actor,
+      write: () =>
+        importedTransactionRepository.updateStatusBatch(
+          actor.householdId,
+          ids,
+          ImportedTransactionStatus.IGNORED,
+        ),
+      describe: (rows) => rows.map((row) => importedRowActivity('IGNORE', row)),
+    });
+    const count = ignored.length;
 
     return {
       total: ids.length + missingIds.length,
@@ -995,6 +1052,28 @@ class ImportService {
       data: { matchingTransactionId },
     });
   }
+}
+
+// The file name only: the card's digits are a separate, encrypted column.
+function importActivity(action: 'CREATE' | 'DELETE', importRecord: Import): ActivityEntry {
+  return {
+    action,
+    entityType: 'IMPORT',
+    entityId: importRecord.id,
+    summary: importRecord.originalFileName,
+  };
+}
+
+function importedRowActivity(
+  action: 'APPROVE' | 'MERGE' | 'IGNORE' | 'DELETE',
+  row: { id: string; description: string },
+): ActivityEntry {
+  return {
+    action,
+    entityType: 'IMPORTED_TRANSACTION',
+    entityId: row.id,
+    summary: row.description,
+  };
 }
 
 export const importService = new ImportService();

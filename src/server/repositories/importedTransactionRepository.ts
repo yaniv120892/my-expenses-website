@@ -51,6 +51,7 @@ type ImportedTransactionCreateRow = ImportedAmountColumns & {
   rawData: Prisma.InputJsonValue;
   householdId: HouseholdId;
   userId: string | null;
+  createdById: string | null;
 };
 
 const PENDING_ROW = {
@@ -149,16 +150,17 @@ export class ImportedTransactionRepository {
     });
   }
 
+  /** Returns the rows it moved, which a concurrent action may have thinned. */
   public async updateStatusBatch(
     householdId: HouseholdId,
     ids: string[],
     status: ImportedTransactionStatus,
-  ): Promise<number> {
-    const result = await prisma.importedTransaction.updateMany({
+  ): Promise<{ id: string; description: string }[]> {
+    return prisma.importedTransaction.updateManyAndReturn({
       where: { id: { in: ids }, householdId, ...PENDING_ROW },
       data: { status },
+      select: { id: true, description: true },
     });
-    return result.count;
   }
 
   public async findPendingByIds(

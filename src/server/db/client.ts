@@ -1,9 +1,13 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/generated/prisma/client';
+import { currentActorContext } from '@/server/db/actorContext';
+import { attributionStamp } from '@/server/db/attribution';
 import { cardDigitsEncryption } from '@/server/db/cardDigitsEncryption';
 import { householdScopeGuard } from '@/server/db/householdScope';
 import { requireEnv } from '@/server/env';
 import { withVerifyFullSslMode } from '@/server/db/sslMode';
+
+export const CONNECTION_WAIT_MS = 10_000;
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -13,10 +17,12 @@ function createPrismaClient() {
     adapter: new PrismaPg({
       connectionString: withVerifyFullSslMode(requireEnv('DATABASE_URL')),
       max: 1,
-      connectionTimeoutMillis: 10_000,
+      connectionTimeoutMillis: CONNECTION_WAIT_MS,
     }),
     log: ['warn', 'error'],
-  }).$extends(cardDigitsEncryption(requireEnv('PRISMA_FIELD_ENCRYPTION_KEY')));
+  })
+    .$extends(cardDigitsEncryption(requireEnv('PRISMA_FIELD_ENCRYPTION_KEY')))
+    .$extends(attributionStamp());
 }
 
 type SystemPrismaClient = ReturnType<typeof createPrismaClient>;
@@ -26,6 +32,13 @@ function createScopedClient(system: SystemPrismaClient) {
 }
 
 type ScopedPrismaClient = ReturnType<typeof createScopedClient>;
+
+// What an interactive transaction hands its callback: the client without the
+// members that manage connections and transactions.
+export type ScopedTransactionClient = Omit<
+  ScopedPrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
+>;
 
 declare global {
   var __prisma: SystemPrismaClient | undefined;
@@ -42,21 +55,47 @@ function getScopedClient(): ScopedPrismaClient {
 }
 
 // Built on first use, so a missing DATABASE_URL fails the call rather than the
-// import.
-function lazily<Client extends object>(getClient: () => Client): Client {
+// import. `joinedTransaction`, when it returns one, answers in the client's place.
+function lazily<Client extends object>(
+  getClient: () => Client,
+  joinedTransaction: () => ScopedTransactionClient | undefined = () => undefined,
+): Client {
   const lazyClientTarget: Client = Object.create(Object.prototype);
   return new Proxy(lazyClientTarget, {
     get(_target, property) {
-      const client = getClient();
+      const transaction = joinedTransaction();
+      if (transaction && property === '$transaction') {
+        return runNestedIn(transaction);
+      }
+      const client: object = transaction ?? getClient();
       const value = Reflect.get(client, property);
       return typeof value === 'function' ? value.bind(client) : value;
     },
   });
 }
 
+/**
+ * A transaction client has no `$transaction`; a repository that opens its own
+ * runs inside the joined one instead, which is what nesting means here.
+ */
+function runNestedIn(transaction: ScopedTransactionClient) {
+  return async function runNested(work: unknown) {
+    if (typeof work === 'function') {
+      return work(transaction);
+    }
+    const results: unknown[] = [];
+    for (const operation of Array.isArray(work) ? work : []) {
+      results.push(await operation);
+    }
+    return results;
+  };
+}
+
 // Every household-owned query through this client must name its household
-// (src/server/db/householdScope.ts).
-const prisma = lazily(getScopedClient);
+// (src/server/db/householdScope.ts). Inside householdActivityService.record it
+// is that record's transaction, so the change and its activity row commit
+// together without each repository being handed a transaction client.
+const prisma = lazily(getScopedClient, () => currentActorContext()?.transaction);
 
 /**
  * Skips the household check, for the few jobs that work across households —

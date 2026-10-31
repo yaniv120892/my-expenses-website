@@ -29,7 +29,7 @@ import {
 import { API_TOKEN_SCOPES } from '@/shared/types/apiToken';
 import type { ApiTokenScope, ApiTokenSummary } from '@/types/apiToken';
 import { describeApiError } from '@/utils/api';
-import { useCanWrite } from '@/hooks/useSession';
+import { useCanWrite, useIsViewer } from '@/hooks/useSession';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 import CopyableText from '@/components/CopyableText';
@@ -44,6 +44,13 @@ const SCOPE_SERVES_A_VIEWER = {
   AGENT: true,
 } as const satisfies Record<ApiTokenScope, boolean>;
 
+function scopeDescriptionKey({ scope, isViewer }: { scope: ApiTokenScope; isViewer: boolean }) {
+  if (isViewer && scope === 'AGENT') {
+    return 'settings.tokens.scope.AGENT.viewerDescription' as const;
+  }
+  return `settings.tokens.scope.${scope}.description` as const;
+}
+
 export default function ApiTokenManager() {
   const t = useT();
   const formatter = useAppFormat();
@@ -51,6 +58,7 @@ export default function ApiTokenManager() {
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();
   const canWrite = useCanWrite();
+  const isViewer = useIsViewer();
   const offeredScopes = API_TOKEN_SCOPES.filter(
     (scope) => canWrite || SCOPE_SERVES_A_VIEWER[scope],
   );
@@ -132,7 +140,7 @@ export default function ApiTokenManager() {
             }
             label={t('settings.tokens.scopeOption', {
               label: t(`settings.tokens.scope.${scope}`),
-              description: t(`settings.tokens.scope.${scope}.description`),
+              description: t(scopeDescriptionKey({ scope, isViewer })),
             })}
           />
         ))}

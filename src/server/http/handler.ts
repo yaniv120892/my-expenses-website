@@ -13,6 +13,7 @@ import {
 import { isApiToken } from '@/server/auth/apiTokenFormat';
 import { authenticateApiToken } from '@/server/auth/apiTokens';
 import { assertCanWrite, resolveMemberActor } from '@/server/auth/householdActor';
+import { runAsActor } from '@/server/db/actorContext';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
@@ -271,7 +272,8 @@ async function runHandler({
   switch (options.auth) {
     case 'session':
     case 'apiToken': {
-      return options.handler({ ...handlerContext, actor: requireActor(auth) });
+      const actor = requireActor(auth);
+      return runAsActor(actor, () => options.handler({ ...handlerContext, actor }));
     }
     case 'cron':
     case 'telegram':

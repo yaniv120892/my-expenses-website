@@ -3,6 +3,10 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './helpers';
 
 const TOKEN = process.env.E2E_AUTH_TOKEN || '';
+// The server takes only an upload under the signed-in user's own folder.
+const USER_ID = TOKEN
+  ? JSON.parse(Buffer.from(TOKEN.split('.')[1] ?? '', 'base64url').toString()).userId
+  : '';
 
 const BUCKET = process.env.IMPORTS_S3_BUCKET || 'e2e-imports';
 const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
@@ -12,7 +16,6 @@ const REGION = process.env.IMPORTS_S3_REGION || 'us-east-1';
 const STUBBED_UPLOAD_FAILURE = 'statement.csv is 4.2 MB, over the 4 MB upload limit.';
 
 async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
-  let uploadCount = 0;
   let shouldFail = failFirst;
 
   await page.route('**/api/imports/upload', async (route) => {
@@ -26,12 +29,11 @@ async function stubS3Upload(page: Page, failFirst = false): Promise<void> {
       return;
     }
 
-    uploadCount++;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        fileUrl: `https://${BUCKET}.s3.${REGION}.amazonaws.com/imports/e2e-${uploadCount}-statement.csv`,
+        fileUrl: `https://${BUCKET}.s3.${REGION}.amazonaws.com/imports/${USER_ID}/${crypto.randomUUID()}.csv`,
       }),
     });
   });

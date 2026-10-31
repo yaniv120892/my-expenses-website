@@ -22,6 +22,9 @@ vi.mock('@aws-sdk/client-s3', () => ({
   PutObjectCommand: class {
     public constructor(public readonly input: { Key: string }) {}
   },
+  GetObjectCommand: class {
+    public constructor(public readonly input: { Key: string }) {}
+  },
 }));
 vi.mock('@/server/observability', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -66,7 +69,7 @@ describe('POST /api/imports/upload', () => {
   });
 
   it.each([
-    ['Visa March.XLSX', 200, /^imports\/[0-9a-f-]+\.xlsx$/],
+    ['Visa March.XLSX', 200, /^imports\/user-1\/[0-9a-f-]+\.xlsx$/],
     ['.xlsx', 400, undefined],
   ])(
     'stores %j only under a key ending with the extension it was accepted for',

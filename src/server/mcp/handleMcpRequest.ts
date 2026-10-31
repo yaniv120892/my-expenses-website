@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { logger } from '@/server/observability';
 import { createMcpServer } from '@/server/mcp/createMcpServer';
 import { JSON_RPC_ERROR_CODES, jsonRpcErrorResponse } from '@/server/http/jsonRpc';
+import type { McpActor } from '@/server/mcp/createMcpServer.types';
 
 const jsonRpcRequest = z.object({
   id: z.union([z.string(), z.number()]),
@@ -23,11 +24,12 @@ const jsonRpcError = z.object({
  */
 export async function handleMcpRequest({
   request,
-  userId,
+  actor,
 }: {
   request: Request;
-  userId: string;
+  actor: McpActor;
 }): Promise<Response> {
+  const { userId } = actor;
   const message = await readBody(request);
   if (Array.isArray(message)) {
     logger.warn({ userId }, 'Refused a JSON-RPC batch on the MCP endpoint');
@@ -38,7 +40,7 @@ export async function handleMcpRequest({
     });
   }
 
-  const server = createMcpServer({ userId });
+  const server = createMcpServer(actor);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

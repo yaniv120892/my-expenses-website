@@ -23,6 +23,7 @@ function storedRow(detectionEvidence: Prisma.JsonValue): DetectedSubscription & 
   return {
     id: 'sub-1',
     userId: 'user-1',
+    householdId: 'household-1',
     merchantName: 'NETFLIX',
     displayName: 'Netflix',
     averageAmount: 50,

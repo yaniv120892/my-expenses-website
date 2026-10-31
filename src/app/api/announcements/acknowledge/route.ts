@@ -4,6 +4,7 @@ import { acknowledgeAnnouncementsSchema } from '@/shared/schemas/announcements';
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   bodySchema: acknowledgeAnnouncementsSchema,
   handler: async ({ userId, body }) => ({
     acknowledged: await announcementService.acknowledge(userId, body.ids),

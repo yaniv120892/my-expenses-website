@@ -10,6 +10,9 @@ const { apiTokenRepository, enforceRateLimits, logger } = vi.hoisted(() => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+vi.mock('@/server/auth/householdActor', async () =>
+  (await import('@/test/memberActor')).householdActorWithTestMembers(),
+);
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository,
 }));

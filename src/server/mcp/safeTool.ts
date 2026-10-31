@@ -5,6 +5,7 @@ import type {
 } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { HttpError } from '@/server/http/errors';
+import { assertCanWrite } from '@/server/auth/householdActor';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import { logger, observability } from '@/server/observability';
 import type { McpActor } from '@/server/mcp/createMcpServer.types';
@@ -79,6 +80,9 @@ export function registerSafeTool({
       });
     };
     try {
+      if (config.annotations.readOnlyHint !== true) {
+        assertCanWrite(actor);
+      }
       const reply = await handler(input);
       if (typeof reply === 'string') {
         recordCall({ outcome: 'ok' });

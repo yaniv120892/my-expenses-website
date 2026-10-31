@@ -5,6 +5,7 @@ import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
 
 export const POST = createHandler({
   auth: 'session',
+  writes: 'ownAccount',
   handler: async ({ userId }): Promise<TestMonthlyReportResult> => {
     try {
       const outcome = await monthlyReportService.sendMonthlyReportForUser(userId, {

@@ -17,6 +17,7 @@ const VIEWER_CALLABLE_WRITES = [
   "POST user/settings/telegram-link/route.ts → 'ownAccount'",
   "POST user/settings/test-monthly-report/route.ts → 'ownAccount'",
   "POST user/settings/test-telegram/route.ts → 'ownAccount'",
+  "PUT auth/password/route.ts → 'ownAccount'",
   "PUT user/settings/route.ts → 'ownAccount'",
 ];
 

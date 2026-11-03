@@ -20,6 +20,51 @@ function liveEntry(key: unknown): StoredEntry | null {
   return entry;
 }
 
+// SCAN's MATCH glob: `*`, `?`, `[...]` and backslash escapes, as Redis reads them.
+function globToRegExp(pattern: string): RegExp {
+  let source = '';
+  for (let index = 0; index < pattern.length; index++) {
+    const character = pattern.charAt(index);
+    switch (character) {
+      case '\\':
+        index++;
+        source += escapeRegExp(pattern.charAt(index));
+        break;
+      case '*':
+        source += '.*';
+        break;
+      case '?':
+        source += '.';
+        break;
+      case '[': {
+        const close = pattern.indexOf(']', index);
+        if (close === -1) {
+          source += escapeRegExp(character);
+          break;
+        }
+        source += pattern.slice(index, close + 1);
+        index = close;
+        break;
+      }
+      default:
+        source += escapeRegExp(character);
+    }
+  }
+  return new RegExp(`^${source}$`);
+}
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+}
+
+function matchesScan(key: unknown, options: unknown[]): boolean {
+  const matchIndex = options.findIndex((part) => String(part).toLowerCase() === 'match');
+  if (matchIndex < 0) {
+    return liveEntry(key) !== null;
+  }
+  return liveEntry(key) !== null && globToRegExp(String(options[matchIndex + 1])).test(String(key));
+}
+
 function runCommand(command: unknown[]): unknown {
   const [name, key, value, ...rest] = command;
 
@@ -37,7 +82,10 @@ function runCommand(command: unknown[]): unknown {
     case 'get':
       return liveEntry(key)?.value ?? null;
     case 'del':
-      return store.delete(key) ? 1 : 0;
+      return [key, value, ...rest].filter((deleted) => store.delete(deleted)).length;
+    case 'scan':
+      // One page holds everything, so the cursor always comes back '0'.
+      return ['0', [...store.keys()].filter((stored) => matchesScan(stored, [value, ...rest]))];
     case 'getdel': {
       const taken = liveEntry(key)?.value ?? null;
       store.delete(key);

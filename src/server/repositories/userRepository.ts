@@ -59,11 +59,15 @@ class UserRepository {
     return prisma.user.findUnique({ where: { email } });
   }
 
-  public async verifyUser(email: string, passwordHash: string | null): Promise<User> {
+  public async verifyUser(email: string, passwordHash: string): Promise<User> {
     return prisma.user.update({
       where: { email },
-      data: { verified: true, password: passwordHash ?? undefined },
+      data: { verified: true, password: passwordHash },
     });
+  }
+
+  public async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await prisma.user.update({ where: { id: userId }, data: { password: passwordHash } });
   }
 
   public async getUserSettings(userId: string) {

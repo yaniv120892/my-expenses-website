@@ -1,10 +1,11 @@
 import { hash, compare } from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { setValue, getValue, deleteValue, incrementWithTtl } from '@/server/redis';
-import { invalidateSession, storeSession } from '@/server/auth/session';
+import { setValue, getValue, deleteValue, incrementWithTtl, takeValue } from '@/server/redis';
+import { invalidateAllSessions, invalidateSession, storeSession } from '@/server/auth/session';
 import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
+import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
 import emailService from '@/server/services/emailService';
 import announcementService from '@/server/services/announcementService';
 import { requireSiteUrl } from '@/server/env';
@@ -20,35 +21,43 @@ const MAX_PENDING_CODES = 3;
 // password until a code is verified.
 const UNUSABLE_PASSWORD = '!unverified';
 const VERIFICATION_CODE_SENT = 'Verification code sent to email. Code is valid for 10 minutes.';
+const BCRYPT_ROUNDS = 10;
+const PASSWORD_RESET_TTL_SECONDS = 1800;
+const PASSWORD_RESET_TOKEN_BYTES = 32;
+const INVALID_RESET_LINK = 'This reset link is invalid or has expired. Please request a new one.';
 
 function loginCodeKey(email: string): string {
   return `loginCode:${email}`;
 }
 
-// A code carries the password of the signup that requested it, so the password
-// takes effect only for whoever reads the mail. A bare code string was issued
-// before codes carried one and verifies without changing the password.
-const pendingCodeSchema = z.object({
-  code: z.string(),
-  passwordHash: z.string().nullable(),
-  expiresAt: z.number(),
-});
-type PendingCode = z.infer<typeof pendingCodeSchema>;
-const storedCodesSchema = z.union([
-  z.array(pendingCodeSchema),
-  z
-    .union([z.string(), z.number()])
-    .transform((code): PendingCode[] => [
-      { code: String(code), passwordHash: null, expiresAt: Infinity },
-    ]),
-]);
-
 function loginCodeAttemptsKey(email: string): string {
   return `loginCodeAttempts:${email}`;
 }
 
+// Keyed by the token's hash, so reading Redis does not yield a usable link.
+function passwordResetKey(tokenHash: string): string {
+  return `passwordReset:${tokenHash}`;
+}
+
+function latestPasswordResetKey(userId: string): string {
+  return `passwordResetFor:${userId}`;
+}
+
+// A code proves only that its holder reads the mailbox, so it carries no
+// password. Codes stored before carried the requesting signup's password hash,
+// which this parse drops.
+const pendingCodeSchema = z.object({
+  code: z.string(),
+  expiresAt: z.number(),
+});
+type PendingCode = z.infer<typeof pendingCodeSchema>;
+const storedCodesSchema = z.array(pendingCodeSchema);
+
 class AuthService {
-  public async signupUser(email: string, username: string, password: string) {
+  // Takes no password: anyone can send a signup for someone else's address, so
+  // nothing a signup names may decide the account's password. It is chosen at
+  // verification, by whoever holds a mailed code.
+  public async signupUser(email: string, username: string) {
     // Before any write: throwing after createUser would leave an unverified
     // account the retry path cannot rescue.
     const websiteUrl = requireSiteUrl();
@@ -57,35 +66,13 @@ class AuthService {
       // The email check is because the lookup also matches username.
       const isPendingSignupForThisEmail = !existingUser.verified && existingUser.email === email;
       if (isPendingSignupForThisEmail) {
-        return this.issueVerificationCode(existingUser.email, password, websiteUrl);
+        return this.issueVerificationCode(existingUser.email, websiteUrl);
       }
       return { error: 'User already exists' };
     }
     const user = await userRepository.createUser(email, username, UNUSABLE_PASSWORD);
     await announcementService.acknowledgeAllForNewUser(user.id);
-    return this.issueVerificationCode(email, password, websiteUrl);
-  }
-
-  private async issueVerificationCode(email: string, password: string, websiteUrl: string) {
-    const code = this.generateCode();
-    const pendingCode: PendingCode = {
-      code,
-      passwordHash: await hash(password, 10),
-      expiresAt: Date.now() + CODE_TTL_SECONDS * 1000,
-    };
-    const liveCodes = (await this.readPendingCodes(email)).filter(
-      (pending) => pending.passwordHash !== null,
-    );
-    await setValue(
-      loginCodeKey(email),
-      [...liveCodes, pendingCode].slice(-MAX_PENDING_CODES),
-      CODE_TTL_SECONDS,
-      'branch',
-    );
-    // The attempts counter is left alone: anyone can sign up for a pending
-    // address, so a reset here would let a guesser lift its own cap.
-    await this.sendCodeByEmail(email, code, websiteUrl);
-    return { message: VERIFICATION_CODE_SENT };
+    return this.issueVerificationCode(email, websiteUrl);
   }
 
   public async loginUser(email: string, username: string, password: string) {
@@ -102,10 +89,17 @@ class AuthService {
     }
     const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await storeSession(user.id, token, tokenTtlSeconds());
+    // A reset landing during the compare sweeps sessions before this one is
+    // stored; re-reading the hash catches it, so the old password buys nothing.
+    const current = await userRepository.findById(user.id);
+    if (current?.password !== user.password) {
+      await invalidateSession(user.id, token);
+      return { error: 'Invalid credentials' };
+    }
     return { token, userId: user.id };
   }
 
-  public async verifyLoginCode(email: string, code: string) {
+  public async verifyLoginCode(email: string, code: string, password: string) {
     // The cap locks the code for the counter's window rather than deleting it:
     // /api/auth/verify is public, so burning the code would let anyone strand a
     // pending signup.
@@ -131,7 +125,7 @@ class AuthService {
       await deleteValue(loginCodeKey(email), 'branch');
       return { error: 'Invalid or expired code' };
     }
-    await userRepository.verifyUser(email, matchedCode.passwordHash);
+    await userRepository.verifyUser(email, await hash(password, BCRYPT_ROUNDS));
     const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await deleteValue(loginCodeKey(email), 'branch');
     await deleteValue(attemptsKey, 'branch');
@@ -141,6 +135,116 @@ class AuthService {
 
   public async logoutUser(userId: string, token: string) {
     await invalidateSession(userId, token);
+  }
+
+  // Returns nothing either way, so no response can tell a registered address
+  // from an unknown one.
+  public async requestPasswordReset(email: string): Promise<void> {
+    const websiteUrl = requireSiteUrl();
+    const user = await userRepository.findByEmail(email);
+    if (!user?.verified) {
+      return;
+    }
+    const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString('base64url');
+    const tokenHash = this.hashResetToken(token);
+    // Only the latest link works, so an older mail left in an inbox is dead.
+    await this.revokePasswordReset(user.id);
+    await setValue(passwordResetKey(tokenHash), user.id, PASSWORD_RESET_TTL_SECONDS, 'branch');
+    await setValue(
+      latestPasswordResetKey(user.id),
+      tokenHash,
+      PASSWORD_RESET_TTL_SECONDS,
+      'branch',
+    );
+    const resetUrl = this.passwordResetUrl(websiteUrl, token);
+    await emailService.send({
+      to: email,
+      subject: 'Reset your password',
+      text: this.generatePasswordResetEmailText(resetUrl),
+      html: this.generatePasswordResetEmailHtml(resetUrl),
+    });
+  }
+
+  public async resetPassword(token: string, newPassword: string) {
+    const tokenHash = this.hashResetToken(token);
+    // GETDEL, so of two submits of one link only the first finds a user.
+    const userId = await takeValue<string>(passwordResetKey(tokenHash), 'branch');
+    // The pointer check makes "latest link only" hold even when two requests
+    // race, each revoking the same old link before writing its own.
+    const isLatestLink =
+      !!userId && (await getValue<string>(latestPasswordResetKey(userId), 'branch')) === tokenHash;
+    if (!userId || !isLatestLink) {
+      return { error: INVALID_RESET_LINK };
+    }
+    await this.replacePassword(userId, newPassword);
+    // A reset is account recovery, so a credential minted from a stolen
+    // session must not outlive it. Changing the password keeps them.
+    await apiTokenRepository.deleteAllForUser(userId);
+    return { userId };
+  }
+
+  public async changePassword({
+    userId,
+    currentPassword,
+    newPassword,
+  }: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    const user = await userRepository.findById(userId);
+    if (!user || !(await compare(currentPassword, user.password))) {
+      return { error: 'Current password is incorrect' };
+    }
+    await this.replacePassword(userId, newPassword);
+    await this.revokePasswordReset(userId);
+    const token = await signToken({ userId, tokenVersion: user.tokenVersion });
+    await storeSession(userId, token, tokenTtlSeconds());
+    return { token, userId };
+  }
+
+  private async issueVerificationCode(email: string, websiteUrl: string) {
+    const code = this.generateCode();
+    const pendingCode: PendingCode = {
+      code,
+      expiresAt: Date.now() + CODE_TTL_SECONDS * 1000,
+    };
+    const liveCodes = await this.readPendingCodes(email);
+    await setValue(
+      loginCodeKey(email),
+      [...liveCodes, pendingCode].slice(-MAX_PENDING_CODES),
+      CODE_TTL_SECONDS,
+      'branch',
+    );
+    // The attempts counter is left alone: anyone can sign up for a pending
+    // address, so a reset here would let a guesser lift its own cap.
+    await this.sendCodeByEmail(email, code, websiteUrl);
+    return { message: VERIFICATION_CODE_SENT };
+  }
+
+  // Every session ends, the caller's included: a password is changed or reset
+  // because someone else may know the old one.
+  private async replacePassword(userId: string, newPassword: string): Promise<void> {
+    await userRepository.updatePassword(userId, await hash(newPassword, BCRYPT_ROUNDS));
+    await invalidateAllSessions(userId);
+  }
+
+  private async revokePasswordReset(userId: string): Promise<void> {
+    const previousTokenHash = await getValue<string>(latestPasswordResetKey(userId), 'branch');
+    if (previousTokenHash) {
+      await deleteValue(passwordResetKey(previousTokenHash), 'branch');
+    }
+    await deleteValue(latestPasswordResetKey(userId), 'branch');
+  }
+
+  private hashResetToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  // In the fragment, which a browser never sends, so the token stays out of
+  // request logs and Referer headers.
+  private passwordResetUrl(websiteUrl: string, token: string): string {
+    return `${websiteUrl}/reset-password#token=${token}`;
   }
 
   private async readPendingCodes(email: string): Promise<PendingCode[]> {
@@ -192,6 +296,36 @@ class AuthService {
         <p>This code will expire in 10 minutes. For your security, do not share this code with anyone.</p>
         <p>If you did not request this code, you can safely ignore this email.</p>
         <p>To verify your email address, visit: <a href="${verificationUrl}">${verificationUrl}</a></p>
+        <p style="margin-top: 32px;">Best regards,<br>The My Expenses Team</p>
+      </div>
+    `;
+  }
+
+  private generatePasswordResetEmailText(resetUrl: string) {
+    return [
+      'Hello,',
+      '',
+      'We received a request to reset the password for your My Expenses account.',
+      '',
+      `To choose a new password, open this link within 30 minutes: ${resetUrl}`,
+      '',
+      'The link works once. Resetting your password signs you out on every device and revokes your API tokens.',
+      '',
+      'If you did not ask for this, you can ignore this email; your password stays as it is.',
+      '',
+      'Best regards,',
+      'The My Expenses Team',
+    ].join('\n');
+  }
+
+  private generatePasswordResetEmailHtml(resetUrl: string) {
+    return `
+      <div style="font-family: Arial, sans-serif; color: #222; max-width: 480px; margin: 0 auto;">
+        <p>Hello,</p>
+        <p>We received a request to reset the password for your My Expenses account.</p>
+        <p>To choose a new password, open this link within 30 minutes: <a href="${resetUrl}">${resetUrl}</a></p>
+        <p>The link works once. Resetting your password signs you out on every device and revokes your API tokens.</p>
+        <p>If you did not ask for this, you can ignore this email; your password stays as it is.</p>
         <p style="margin-top: 32px;">Best regards,<br>The My Expenses Team</p>
       </div>
     `;

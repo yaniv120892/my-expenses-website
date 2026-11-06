@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn() }));
+const { sendMail, logError } = vi.hoisted(() => ({ sendMail: vi.fn(), logError: vi.fn() }));
 
 vi.mock('nodemailer', () => ({
   default: { createTransport: () => ({ sendMail }) },
 }));
 vi.mock('@/server/observability', () => ({
-  logger: { error: vi.fn() },
+  logger: { error: logError },
 }));
 
 import emailService, { EmailUnavailableError } from '@/server/services/emailService';
@@ -37,13 +37,42 @@ describe('emailService.send', () => {
     });
   });
 
-  it('refuses before touching the transport when an SMTP variable is unset', async () => {
-    vi.stubEnv('SMTP_PASS', '');
+  it('refuses as a 503 without sending when an SMTP variable is unset', async () => {
+    vi.stubEnv('SMTP_FROM', '');
 
     const sending = emailService.send({ to: 'a@b.c', subject: 's', text: 't', html: 'h' });
 
-    await expect(sending).rejects.toMatchObject({ status: 503, code: 'EMAIL_UNAVAILABLE' });
-    await expect(sending).rejects.toMatchObject({ cause: new Error('Missing SMTP_PASS') });
+    await expect(sending).rejects.toMatchObject({
+      status: 503,
+      code: 'EMAIL_UNAVAILABLE',
+      cause: new Error('Missing required environment variable: SMTP_FROM'),
+    });
     expect(sendMail).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'a@b.c', subject: 's' }),
+      'Failed to send email',
+    );
+  });
+});
+
+describe('emailService.assertConfigured', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('refuses as a 503 naming the unset SMTP variable', () => {
+    vi.stubEnv('SMTP_HOST', 'smtp.test');
+    vi.stubEnv('SMTP_PORT', '587');
+    vi.stubEnv('SMTP_USER', 'user');
+    vi.stubEnv('SMTP_PASS', '');
+    vi.stubEnv('SMTP_FROM', 'noreply@test');
+
+    expect(() => emailService.assertConfigured()).toThrow(
+      expect.objectContaining({
+        status: 503,
+        code: 'EMAIL_UNAVAILABLE',
+        cause: new Error('Missing required environment variable: SMTP_PASS'),
+      }),
+    );
   });
 });

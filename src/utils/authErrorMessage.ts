@@ -14,14 +14,14 @@ export function authErrorMessage({
   fallback: string;
   t: T;
 }): string {
-  if (error instanceof AuthRequestError && error.status === TOO_MANY_REQUESTS) {
+  if (!(error instanceof AuthRequestError)) {
+    return fallback;
+  }
+  if (error.status === TOO_MANY_REQUESTS) {
     return t('auth.error.rateLimited');
   }
-  if (error instanceof AuthRequestError && error.status === SERVICE_UNAVAILABLE) {
+  if (error.status === SERVICE_UNAVAILABLE) {
     return t('auth.error.emailUnavailable');
   }
-  if (error instanceof AuthRequestError && error.serverMessage) {
-    return error.serverMessage;
-  }
-  return fallback;
+  return error.serverMessage || fallback;
 }

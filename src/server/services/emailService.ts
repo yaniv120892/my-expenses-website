@@ -4,8 +4,6 @@ import { optionalEnv, requireEnv } from '@/server/env';
 import { HttpError } from '@/server/http/errors';
 import { logger } from '@/server/observability';
 
-const SMTP_ENV_VARS = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
-
 /** Unset SMTP and a failed send read alike to the caller: nothing was mailed. */
 export class EmailUnavailableError extends HttpError {
   public constructor(options: ErrorOptions) {
@@ -21,23 +19,12 @@ export type EmailAttachment = {
 
 class EmailService {
   public assertConfigured(): void {
-    const missing = SMTP_ENV_VARS.filter((name) => !optionalEnv(name));
-    if (missing.length > 0) {
-      throw new EmailUnavailableError({ cause: new Error(`Missing ${missing.join(', ')}`) });
+    try {
+      this.readSmtpConfig();
+    } catch (err) {
+      throw new EmailUnavailableError({ cause: err });
     }
   }
-
-  private getTransporter = lazy(() =>
-    nodemailer.createTransport({
-      host: requireEnv('SMTP_HOST'),
-      port: Number(requireEnv('SMTP_PORT')),
-      secure: optionalEnv('SMTP_SECURE') === 'true',
-      auth: {
-        user: requireEnv('SMTP_USER'),
-        pass: requireEnv('SMTP_PASS'),
-      },
-    }),
-  );
 
   public async send({
     to,
@@ -52,10 +39,9 @@ class EmailService {
     html: string;
     attachments?: EmailAttachment[];
   }) {
-    this.assertConfigured();
     try {
       await this.getTransporter().sendMail({
-        from: requireEnv('SMTP_FROM'),
+        from: this.readSmtpConfig().from,
         to,
         subject,
         text,
@@ -68,6 +54,22 @@ class EmailService {
       logger.error({ err, to, subject }, 'Failed to send email');
       throw new EmailUnavailableError({ cause: err });
     }
+  }
+
+  private getTransporter = lazy(() => {
+    const { host, port, secure, user, pass } = this.readSmtpConfig();
+    return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  });
+
+  private readSmtpConfig() {
+    return {
+      host: requireEnv('SMTP_HOST'),
+      port: Number(requireEnv('SMTP_PORT')),
+      secure: optionalEnv('SMTP_SECURE') === 'true',
+      user: requireEnv('SMTP_USER'),
+      pass: requireEnv('SMTP_PASS'),
+      from: requireEnv('SMTP_FROM'),
+    };
   }
 }
 

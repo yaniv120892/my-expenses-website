@@ -19,6 +19,9 @@ const {
     transitionStatus: vi.fn(),
     markFailedIfProcessing: vi.fn(),
     claimExtraction: vi.fn(),
+    updateExtractionMetadata: vi.fn(),
+    markRematchingOp: vi.fn(),
+    markMergedIntoOp: vi.fn(),
   },
   crossHouseholdRepo: { findImportForExtractionCallback: vi.fn() },
   importedTxRepo: {
@@ -29,7 +32,7 @@ const {
     deleteByImportIdOp: vi.fn(),
   },
   prismaMock: {
-    import: { update: vi.fn(), delete: vi.fn() },
+    import: { delete: vi.fn() },
     $transaction: vi.fn(),
   },
   findPotentialMatchesForImport: vi.fn(),
@@ -150,14 +153,19 @@ beforeEach(() => {
     householdId,
     id,
   }));
-  prismaMock.import.delete.mockImplementation((args: unknown) => ({
-    op: 'deleteImport',
-    args,
+  importRepo.markRematchingOp.mockImplementation((householdId: string, id: string) => ({
+    op: 'markRematching',
+    householdId,
+    id,
   }));
-  prismaMock.import.update.mockImplementation((args: unknown) => ({
-    op: 'updateImport',
-    args,
-  }));
+  importRepo.markMergedIntoOp.mockImplementation(
+    (householdId: string, id: string, survivorImportId: string) => ({
+      op: 'markMergedInto',
+      householdId,
+      id,
+      survivorImportId,
+    }),
+  );
   prismaMock.$transaction.mockResolvedValue([]);
   findPotentialMatchesForImport.mockResolvedValue(undefined);
 });
@@ -288,15 +296,12 @@ describe('completed extraction', () => {
 
   it('writes metadata before looking for a duplicate', async () => {
     await run(payload([tx()]));
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: {
-        creditCardLastFourDigits: '4242',
-        paymentMonth: '03/2026',
-        bankSourceType: 'BANK_CREDIT',
-      },
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1', {
+      creditCardLastFourDigits: '4242',
+      paymentMonth: '03/2026',
+      bankSourceType: 'BANK_CREDIT',
     });
-    const updateOrder = firstInvocationOrder(prismaMock.import.update);
+    const updateOrder = firstInvocationOrder(importRepo.updateExtractionMetadata);
     const findOrder = firstInvocationOrder(importRepo.findExisting);
     expect(updateOrder).toBeLessThan(findOrder);
   });
@@ -312,10 +317,11 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: '02/2026' }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: '02/2026' }),
+    );
     expect(importRepo.findExisting).toHaveBeenCalledWith(HOUSEHOLD, '02/2026', '4242', 'imp-1');
   });
 
@@ -337,10 +343,11 @@ describe('completed extraction', () => {
       },
     });
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: '02/2026' }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: '02/2026' }),
+    );
     // Duplicate detection needs the month, so it must still run.
     expect(importRepo.findExisting).toHaveBeenCalledWith(HOUSEHOLD, '02/2026', '4242', 'imp-1');
   });
@@ -356,10 +363,11 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: '03/2026' }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: '03/2026' }),
+    );
   });
 
   it('stores an extracted month padded, so it keys the same duplicate as 03/2026', async () => {
@@ -368,10 +376,11 @@ describe('completed extraction', () => {
 
     await run(body);
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: '03/2026' }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: '03/2026' }),
+    );
     expect(importRepo.findExisting).toHaveBeenCalledWith(HOUSEHOLD, '03/2026', '4242', 'imp-1');
   });
 
@@ -381,10 +390,11 @@ describe('completed extraction', () => {
 
     await run(body);
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: null }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: null }),
+    );
     expect(importRepo.findExisting).not.toHaveBeenCalled();
   });
 
@@ -413,10 +423,11 @@ describe('completed extraction', () => {
 
     await run(payload([tx()]));
 
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ paymentMonth: '03/2026' }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ paymentMonth: '03/2026' }),
+    );
   });
 
   it('credits the rows to the member who uploaded the statement', async () => {
@@ -467,21 +478,8 @@ describe('completed extraction', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledWith([
       { op: 'move', householdId: HOUSEHOLD, ids: ['row-1'], to: 'imp-old' },
       { op: 'deleteRows', householdId: HOUSEHOLD, id: 'imp-1' },
-      {
-        op: 'updateImport',
-        args: { where: { id: 'imp-old', householdId: HOUSEHOLD }, data: { status: 'REMATCHING' } },
-      },
-      {
-        op: 'updateImport',
-        args: {
-          where: { id: 'imp-1', householdId: HOUSEHOLD },
-          data: {
-            status: 'MERGED',
-            mergedIntoImportId: 'imp-old',
-            completedAt: expect.any(Date),
-          },
-        },
-      },
+      { op: 'markRematching', householdId: HOUSEHOLD, id: 'imp-old' },
+      { op: 'markMergedInto', householdId: HOUSEHOLD, id: 'imp-1', survivorImportId: 'imp-old' },
     ]);
     expect(prismaMock.import.delete).not.toHaveBeenCalled();
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(HOUSEHOLD, 'imp-old');
@@ -510,13 +508,7 @@ describe('completed extraction', () => {
 
     expect(importedTxRepo.filterDuplicates.mock.calls[0]?.[0]).toBe(HOUSEHOLD);
     expect(importedTxRepo.filterDuplicates.mock.calls[0]?.[1]).toBe('imp-new');
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({
-        status: 'MERGED',
-        mergedIntoImportId: 'imp-new',
-      }),
-    });
+    expect(importRepo.markMergedIntoOp).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1', 'imp-new');
     expect(importRepo.transitionStatus).toHaveBeenCalledWith(
       HOUSEHOLD,
       'imp-new',
@@ -613,10 +605,11 @@ describe('completed extraction', () => {
     const response = await run(body);
 
     expect(response.status).toBe(200);
-    expect(prismaMock.import.update).toHaveBeenCalledWith({
-      where: { id: 'imp-1', householdId: HOUSEHOLD },
-      data: expect.objectContaining({ bankSourceType: null }),
-    });
+    expect(importRepo.updateExtractionMetadata).toHaveBeenCalledWith(
+      HOUSEHOLD,
+      'imp-1',
+      expect.objectContaining({ bankSourceType: null }),
+    );
   });
 });
 

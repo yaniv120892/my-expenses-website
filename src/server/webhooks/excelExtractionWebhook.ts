@@ -315,7 +315,11 @@ async function handleCompletedExtraction(
   const transactions = await toImportedTransactionRows(result, importId);
   const metadata = reconcileMetadata(importRecord, result.metadata);
 
-  await writeExtractionMetadata({ householdId, importId }, metadata);
+  await importRepository.updateExtractionMetadata(householdId, importId, {
+    creditCardLastFourDigits: metadata.creditCardLastFour ?? null,
+    paymentMonth: metadata.paymentMonth ?? null,
+    bankSourceType: toImportBankSourceType(metadata.bankSourceType),
+  });
 
   // Rows are written to their own import first so that a concurrent callback
   // merging into this one sees them and can de-duplicate against them.
@@ -429,20 +433,6 @@ function readPaymentMonth(
   return paymentMonth;
 }
 
-async function writeExtractionMetadata(
-  { householdId, importId }: ImportInHousehold,
-  metadata: ExtractionMetadata,
-): Promise<void> {
-  await prisma.import.update({
-    where: { id: importId, householdId },
-    data: {
-      creditCardLastFourDigits: metadata.creditCardLastFour ?? null,
-      paymentMonth: metadata.paymentMonth ?? null,
-      bankSourceType: toImportBankSourceType(metadata.bankSourceType),
-    },
-  });
-}
-
 function toImportBankSourceType(
   extracted: ExtractionMetadata['bankSourceType'],
 ): ImportBankSourceType | null {
@@ -514,18 +504,8 @@ async function mergeIntoDuplicateImport(
       existingImport.id,
     ),
     importedTransactionRepository.deleteByImportIdOp(householdId, importId),
-    prisma.import.update({
-      where: { id: existingImport.id, householdId },
-      data: { status: ImportStatus.REMATCHING },
-    }),
-    prisma.import.update({
-      where: { id: importId, householdId },
-      data: {
-        status: ImportStatus.MERGED,
-        mergedIntoImportId: existingImport.id,
-        completedAt: new Date(),
-      },
-    }),
+    importRepository.markRematchingOp(householdId, existingImport.id),
+    importRepository.markMergedIntoOp(householdId, importId, existingImport.id),
   ]);
 
   logger.info(

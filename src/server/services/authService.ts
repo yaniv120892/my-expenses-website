@@ -49,9 +49,11 @@ function loginCodeAttemptsKey(email: string): string {
 
 class AuthService {
   public async signupUser(email: string, username: string, password: string) {
-    // Before any write: throwing after createUser would leave an unverified
-    // account the retry path cannot rescue.
+    // Checked before any write, so an environment that cannot build the
+    // verification link or mail the code refuses rather than creating an
+    // account no code reaches.
     const websiteUrl = requireSiteUrl();
+    emailService.assertConfigured();
     const existingUser = await userRepository.findByEmailOrUsername(email, username);
     if (existingUser) {
       // The email check is because the lookup also matches username.

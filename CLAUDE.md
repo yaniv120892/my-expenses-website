@@ -34,8 +34,8 @@ Short docs, one topic each. Load the one whose trigger matches your task.
   adding one.
 - [docs/api-routes.md](docs/api-routes.md) — `createHandler`, rate limits, `recordIdSchema`, the
   special routes, proxy and headers. Load before adding or changing an API route.
-- [docs/auth-and-api-tokens.md](docs/auth-and-api-tokens.md) — sessions, `tokenVersion`, API-token
-  scopes. Load before changing sign-in, a route's `auth` or `apiTokenScope`.
+- [docs/auth-and-api-tokens.md](docs/auth-and-api-tokens.md) — sessions, `tokenVersion`, signup
+  verification, password reset and change, API-token scopes. Load before changing sign-in, a route's `auth` or `apiTokenScope`.
 - [docs/households.md](docs/households.md) — household scoping, roles and the write guard. Load
   before any repository or service query, a write route, a new model, or a cron.
 - [docs/household-membership.md](docs/household-membership.md) — invites, joining, leaving,
@@ -80,7 +80,7 @@ Short docs, one topic each. Load the one whose trigger matches your task.
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login/signup/verify; `join/` redeems a household invite;
+- `src/app/` — App Router. `(auth)/` login/signup/verify/forgot-password/reset-password; `join/` redeems a household invite;
   `(app)/` the authenticated pages inside `ExpensesShell`.
 - `src/app/api/**/route.ts` — all API endpoints, most built with `createHandler`
   (`src/server/http/handler.ts`).

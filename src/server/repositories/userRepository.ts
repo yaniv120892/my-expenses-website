@@ -59,11 +59,21 @@ class UserRepository {
     return prisma.user.findUnique({ where: { email } });
   }
 
-  public async verifyUser(email: string, passwordHash: string | null): Promise<User> {
+  public async verifyUser(email: string, passwordHash: string): Promise<User> {
     return prisma.user.update({
       where: { email },
-      data: { verified: true, password: passwordHash ?? undefined },
+      data: { verified: true, password: passwordHash },
     });
+  }
+
+  /** Bumps `tokenVersion` with the hash, so every session signed before is refused. */
+  public async updatePassword(userId: string, passwordHash: string): Promise<number> {
+    const { tokenVersion } = await prisma.user.update({
+      where: { id: userId },
+      data: { password: passwordHash, tokenVersion: { increment: 1 } },
+      select: { tokenVersion: true },
+    });
+    return tokenVersion;
   }
 
   public async getUserSettings(userId: string) {

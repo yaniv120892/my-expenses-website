@@ -16,9 +16,10 @@ var on production and nowhere else: previews leave it unset and derive the origi
 it is resolved before a signup's first write.
 
 So is SMTP: `emailService` answers an unset `SMTP_*` var or a failed send with a 503
-`EMAIL_UNAVAILABLE` (`EmailUnavailableError`), and signup calls its `assertConfigured()` before any
-write, so an environment without mail refuses signups instead of leaving accounts no code can
-reach.
+`EMAIL_UNAVAILABLE` (`EmailUnavailableError`) — except a password-reset request, which answers as
+sent ([auth-and-api-tokens.md](auth-and-api-tokens.md)) — and signup calls its
+`assertConfigured()` before any write, so an environment without mail refuses signups instead of
+leaving accounts no code can reach.
 
 The Telegram webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.

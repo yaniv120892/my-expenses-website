@@ -17,7 +17,7 @@ export const POST = createHandler({
     },
   ],
   handler: async ({ body }) => {
-    const result = await authService.signupUser(body.email, body.username, body.password);
+    const result = await authService.signupUser(body.email, body.username);
     if ('error' in result) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }

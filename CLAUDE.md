@@ -600,8 +600,10 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   that catches an error and returns a fallback calls
   `observability.reportError({ error, where, context })`, not `logger.error`,
   so the error outlives Better Stack's retention; Sentry gets the `context` as
-  `extra` and its short values as tags beside `where`, so the ids a call site
-  passes are searchable there. Only ids and fixed labels go in `context` —
+  `extra`, and as tags beside `where` its numbers, booleans and the strings
+  under the package's `DEFAULT_SENTRY_TAG_KEYS` plus `importId` and `requestId`
+  (`sentryTagKeys` in `src/server/observability.ts`), so only those ids are
+  searchable there. Only ids and fixed labels go in `context` —
   never a file name, an attachment key (an older one ends with one), an email or free
   text; what a human needs beyond the ids goes in a separate `logger` line.
   `reportError` sets no Sentry user, so `createHandler` and the chat stream

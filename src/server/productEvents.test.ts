@@ -102,7 +102,7 @@ type SentEvent = {
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
-const POSTHOG_BATCH_URL = 'https://eu.i.posthog.com/batch/';
+const POSTHOG_BATCH_URL = 'https://us.i.posthog.com/batch/';
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 const ID_CONTEXT = { params: Promise.resolve({ id: TRANSACTION_ID }) };
 const AGENT_TRANSACTION = {

@@ -5,6 +5,7 @@ import type * as RateLimitModule from '@/server/http/rateLimit';
 import type * as NextServerModule from 'next/server';
 import type * as EmailServiceModule from '@/server/services/emailService';
 import type * as ObservabilityModule from '@/server/observability';
+import type * as UserRepositoryModule from '@/server/repositories/userRepository';
 import { NextRequest } from 'next/server';
 
 type StoredUser = {
@@ -87,7 +88,7 @@ vi.mock('@/server/db/client', () => ({
 }));
 
 vi.mock('@/server/repositories/userRepository', async (importActual) => {
-  const actual = await importActual<{ default: { updatePassword: unknown } }>();
+  const actual = await importActual<typeof UserRepositoryModule>();
   const byEmail = (email: string) => [...users.values()].find((user) => user.email === email);
   return {
     default: {
@@ -323,7 +324,7 @@ describe('password reset', () => {
   // an unknown one, which told a caller the address was registered.
   it('answers a registered address whose mail fails exactly as an unknown one', async () => {
     await seedVerifiedOwner();
-    send.mockRejectedValue(new EmailUnavailableError({ cause: new Error('ECONNREFUSED') }));
+    send.mockRejectedValueOnce(new EmailUnavailableError({ cause: new Error('ECONNREFUSED') }));
 
     const known = await requestReset(
       request({ path: '/api/auth/password-reset/request', body: { email: OWNER_EMAIL } }),

@@ -234,7 +234,7 @@ class AuthService {
   }
 
   // Every session ends, the caller's included: a password is changed or reset
-  // because someone else may know the old one. Returns the new token version.
+  // because someone else may know the old one.
   private async replacePassword(userId: string, newPassword: string): Promise<number> {
     return userRepository.updatePassword(userId, await hash(newPassword, BCRYPT_ROUNDS));
   }

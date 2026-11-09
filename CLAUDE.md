@@ -695,7 +695,8 @@ production and nowhere else: previews leave it unset and derive the origin from
 `VERCEL_BRANCH_URL`; production has that fallback gated off so a missing value
 fails loudly, and it is resolved before a signup's first write. So is SMTP:
 `emailService` answers an unset `SMTP_*` var or a failed send with a 503
-`EMAIL_UNAVAILABLE` (`EmailUnavailableError`), and signup calls its
+`EMAIL_UNAVAILABLE` (`EmailUnavailableError`) — except a password-reset
+request, which answers as sent (see Auth) — and signup calls its
 `assertConfigured()` before any write, so an environment without mail refuses
 signups instead of leaving accounts no code can reach. The Telegram
 webhook must be registered with

@@ -15,7 +15,7 @@ const users = vi.hoisted(() => ({
   findById: vi.fn(),
   createUser: vi.fn(),
   verifyUser: vi.fn(),
-  updatePassword: vi.fn(),
+  updatePassword: vi.fn().mockResolvedValue(1),
 }));
 
 const sessions = vi.hoisted(() => ({

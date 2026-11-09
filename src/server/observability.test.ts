@@ -85,3 +85,28 @@ describe('reportError', () => {
     });
   });
 });
+
+describe('logger', () => {
+  it('withholds a Prisma error message, which quotes query arguments, keeping its code', () => {
+    const quotedEmail = 'alice@example.com';
+    const prismaError = Object.assign(
+      new Error(`Unique constraint failed on the fields: (\`email\`) = ${quotedEmail}`),
+      { code: 'P2002', name: 'PrismaClientKnownRequestError' },
+    );
+    const lines: string[] = [];
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      lines.push(String(chunk));
+      return true;
+    });
+
+    try {
+      observability.logger.error({ err: prismaError }, 'prisma_message_probe');
+    } finally {
+      stdoutWrite.mockRestore();
+    }
+
+    const logged = lines.join('');
+    expect(logged).toContain('P2002');
+    expect(logged).not.toContain(quotedEmail);
+  });
+});

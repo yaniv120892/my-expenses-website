@@ -4,7 +4,10 @@ import { InvalidTokenError, TokenExpiredError, verifyToken } from '@/server/auth
 import { SESSION_COOKIE } from '@/server/auth/cookies';
 import { NEXT_PATH_PARAM, safeNextPath, withNextPath } from '@/shared/nextPath';
 
-const AUTH_PAGES = ['/login', '/signup', '/verify'];
+const AUTH_PAGES = ['/login', '/signup', '/verify', '/forgot-password'];
+// Open signed in or out: a reset link opened in a browser still holding a
+// session must not be redirected away, losing the token in its fragment.
+const OPEN_PAGES = ['/reset-password'];
 
 // An invite link opened while signed out comes back to itself after login.
 const RETURN_AFTER_LOGIN_PAGES = ['/join'];
@@ -49,6 +52,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (request.method !== 'GET' && isCrossOrigin(request)) {
       return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 });
     }
+    return NextResponse.next();
+  }
+
+  if (OPEN_PAGES.some((page) => pathname.startsWith(page))) {
     return NextResponse.next();
   }
 

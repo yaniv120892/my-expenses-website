@@ -26,7 +26,7 @@ import { buildAgentBriefing } from '@/utils/agentBriefing';
 import { describeApiError } from '@/utils/api';
 import { useAppFormat, type AppFormatter } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
-import { useCanWrite } from '@/hooks/useSession';
+import { useIsViewer } from '@/hooks/useSession';
 import type { T } from '@/i18n/useT.types';
 import CopyableText from '@/components/CopyableText';
 import RevokeTokenDialog from '@/components/RevokeTokenDialog';
@@ -54,7 +54,7 @@ type ShownToken = { id: string; token: string };
 export default function PersonalAgentSettings() {
   const t = useT();
   const formatter = useAppFormat();
-  const readOnly = !useCanWrite();
+  const readOnly = useIsViewer();
   const { data: tokens, isLoading, error } = useApiTokensQuery();
   const createMutation = useCreateApiTokenMutation();
   const revokeMutation = useRevokeApiTokenMutation();

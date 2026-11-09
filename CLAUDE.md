@@ -36,7 +36,9 @@ repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
 `node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
 typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
 suites against a Postgres service container. Bump the tag in both places
-together.
+together. CI runs on pull requests only, to save Actions minutes on the private
+repo: `e2e` skips docs-only diffs and Dependabot patch/minor bumps but still
+reports success, so the required check passes.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
@@ -87,6 +89,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
+  answers 400 to a body that does not parse — malformed JSON on a `bodySchema`
+  route, or anything but a form when a handler reads `request.formData()` —
   validates dynamic route params as uuids by default through
   `recordIdSchema` (a route with a non-uuid segment must declare its own
   `paramsSchema`),
@@ -341,7 +345,22 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `TransactionFile.fileName`, and the extraction service gets it as
   `filename`. Attachments uploaded before keep their name-bearing keys, which
   validation, preview, download and delete still accept; import objects are
-  never deleted, and an old import URL still passes the bucket-prefix check.
+  never deleted.
+- **An import is extracted only from its own uploader's folder, through a
+  signed URL.** The imports bucket is private. Upload stores
+  `imports/<userId>/<uuid><ext>` (`buildImportObjectKey`,
+  `src/server/utils/importObjectKey.ts`) and answers the object's plain URL,
+  which `Import.fileUrl` keeps as an identifier. `processImport` accepts only a
+  URL that is, character for character, an object in the caller's own folder
+  (`ownImportObjectKey` — compared as a string, since a URL parser would resolve
+  `..` and escapes), because the extraction service reads whatever key the
+  path names with its own credentials. It hands that service a GET URL
+  presigned for 15 minutes (`presignImportDownload`,
+  `src/server/services/importFileStorage.ts`), whose path is the same key; the
+  service ignores the signature today, so the URL must stay virtual-hosted
+  (a bucket name with a dot would sign path-style and break the key).
+  Imports uploaded before the per-user folders cannot be resubmitted; their
+  rows are unaffected.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it), every token
   carries a random `jti`, so no two are equal, and the JWT's
@@ -396,17 +415,16 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   exactly one `Household` (`User.householdId`) with a `householdRole`
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
   role has no default, so a member written without one fails rather than
-  becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does, and
-  `row_inherit_household` fills an owned row's `householdId` from its `userId`
-  for code predating scoping; both go once no such deployment can serve. A
-  session or API-token route's handler receives `actor` (`MemberActor`,
-  `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
-  token), which `resolveAuth` loads from the user's row on every request —
-  never from the JWT — so a role change or removal applies at once; an API
-  token follows its user into their current household. `HouseholdId` is a
-  branded string made only by `toHouseholdId`, so a user id cannot stand in
-  for one unconverted. The one write guard is
+  becoming an owner, and a user inserted without a household fails. A trigger
+  (`row_inherit_household`) fills an owned row's `householdId` from its
+  `userId` for code predating scoping; it goes once no such deployment can
+  serve. A session or API-token route's handler receives `actor`
+  (`MemberActor`, `src/server/auth/householdActor.types.ts`: user,
+  `HouseholdId`, role, API token), which `resolveAuth` loads from the user's
+  row on every request — never from the JWT — so a role change or removal
+  applies at once; an API token follows its user into their current
+  household. `HouseholdId` is a branded string made only by `toHouseholdId`,
+  so a user id cannot stand in for one unconverted. The one write guard is
   `assertCanWrite` (`src/server/auth/householdActor.ts`): `createHandler` calls
   it before any non-GET member handler, ahead of body parsing and rate
   limits, unless the route declares
@@ -445,6 +463,36 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `e2e/household.spec.ts` drives the whole flow in a browser with the seed's
   data-free `hh-*` users (`test/e2e-api/householdUsers.ts`), which no other
   spec may use.
+- **Every household write is attributed; nothing is restricted by it.** The
+  seven data models carry `createdById`/`updatedById` (null for system writes
+  and for rows older than the columns, whose creator was backfilled from
+  `userId`), stamped by the `attributionStamp` Prisma extension
+  (`src/server/db/attribution.ts`) from the actor in
+  `src/server/db/actorContext.ts`, which `createHandler` sets for every member
+  request, so no write path can skip it; the extraction callback, which
+  carries no member, credits its rows to the import's uploader. A system job marks the rows it
+  creates `createdBySystem` and leaves a row it updates alone. Transactions
+  show "Added by / Edited by", or "Added automatically", in the list, the
+  Pending list and the edit dialog. Each member-visible change is
+  also appended to `HouseholdActivity` (actor user, API token when the write
+  came through one, or the system job; action, entity) through the
+  one helper `householdActivityService.record({ actor, write, describe })`:
+  `write` runs in an interactive transaction that every repository call made
+  inside it joins — the default `prisma` export resolves to that transaction
+  while one is open, and a repository's own `$transaction` nests in it — so a
+  change and its record commit together. Only database work goes inside
+  `write`: model calls, storage and notifications stay outside, since the
+  transaction holds the instance's one connection. Membership events (invite
+  created or revoked, joined, left, removed, role changed, and each API token
+  a leave or removal revokes, each worded for which it was) are recorded the
+  same way. A delete or role change that changes nothing records nothing, and
+  subscription detection records only the subscriptions a run creates, so a
+  re-run adds no entry. An entry stores only the entity's own
+  words (`summary`: a description, file name, member or token name) and a
+  `role`; Settings → Activity (`/settings/activity`,
+  `GET /api/household/activity`) words the sentence in the reader's language
+  (`src/utils/householdActivityText.ts`) and pages it newest first. It is the
+  only trace of a delete.
 - **Every household-owned row is read and written by `householdId`.** The
   models whose `IS_HOUSEHOLD_OWNED` entry is true
   (`src/server/db/householdScope.ts`) carry a required `householdId`, and
@@ -522,9 +570,9 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `prisma.config.ts` hands the CLI `DIRECT_URL`, loading `.env` itself.
   `prisma generate` writes the client to `src/generated/prisma` (gitignored;
   server code imports `@/generated/prisma/client`, code a browser can reach only
-  `@/generated/prisma/enums`). The app client is that client with two
-  extensions, `src/server/db/cardDigitsEncryption.ts` and the household scope
-  guard (`systemPrisma` has only the first), connected through
+  `@/generated/prisma/enums`). The app client is that client with three
+  extensions, `src/server/db/cardDigitsEncryption.ts`, the attribution stamp
+  and the household scope guard (`systemPrisma` has the first two), connected through
   `@prisma/adapter-pg` with a pool of one and no `statementNameGenerator`, so
   every statement is unnamed and safe in a pooler's reused sessions. Every URL
   handed to `pg` goes through `withVerifyFullSslMode` (`src/server/db/sslMode.ts`),
@@ -613,8 +661,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 
 Models: Household, Invite, User, Transaction, Category (hierarchical), ScheduledTransaction,
 Import/ImportedTransaction, TransactionFile, UserCategoryMapping,
-AutoApproveRule, DetectedSubscription, UserNotificationPreference/Provider,
-AnnouncementAck, ApiToken.
+AutoApproveRule, DetectedSubscription, HouseholdActivity,
+UserNotificationPreference/Provider, AnnouncementAck, ApiToken.
 Mastra keeps its own tables in the `mastra` Postgres schema (not Prisma-managed).
 
 ## Crons (vercel.json)
@@ -643,7 +691,11 @@ callbacks, verification links — goes through `requireSiteUrl()`
 (`src/server/env.ts`), never a bare `WEBSITE_URL` read. Set that var on
 production and nowhere else: previews leave it unset and derive the origin from
 `VERCEL_BRANCH_URL`; production has that fallback gated off so a missing value
-fails loudly, and it is resolved before a signup's first write. The Telegram
+fails loudly, and it is resolved before a signup's first write. So is SMTP:
+`emailService` answers an unset `SMTP_*` var or a failed send with a 503
+`EMAIL_UNAVAILABLE` (`EmailUnavailableError`), and signup calls its
+`assertConfigured()` before any write, so an environment without mail refuses
+signups instead of leaving accounts no code can reach. The Telegram
 webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 

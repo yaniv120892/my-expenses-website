@@ -37,6 +37,8 @@ export type UpdateSubscriptionFields = UpdateSubscriptionInput & {
   annualCost?: number;
 };
 
+export type FoundSubscription = { id: string; displayName: string };
+
 type ExistingDetectionRow = {
   id: string;
   frequency: SubscriptionFrequency;
@@ -87,9 +89,9 @@ class SubscriptionRepository {
   public async applyDetectionResults(
     householdId: HouseholdId,
     results: DetectionInput[],
-  ): Promise<void> {
+  ): Promise<FoundSubscription[]> {
     if (results.length === 0) {
-      return;
+      return [];
     }
 
     const existing = await prisma.detectedSubscription.findMany({
@@ -108,22 +110,31 @@ class SubscriptionRepository {
       byMerchant.set(row.merchantName, [...(byMerchant.get(row.merchantName) ?? []), row]);
     }
 
-    await Promise.all(
-      results.map((result) =>
-        this.applyDetection(householdId, result, byMerchant.get(result.merchantName) ?? []),
-      ),
-    );
+    // One at a time: the caller runs this inside a transaction, which holds one connection.
+    const found: FoundSubscription[] = [];
+    for (const result of results) {
+      const created = await this.applyDetection(
+        householdId,
+        result,
+        byMerchant.get(result.merchantName) ?? [],
+      );
+      if (created) {
+        found.push(created);
+      }
+    }
+    return found;
   }
 
   /**
    * A merchant dismissed at this frequency stays untouched; a row the user
    * edited keeps its figures and frequency; anything else is fully refreshed.
+   * Returns the row only when this run created it.
    */
   private async applyDetection(
     householdId: HouseholdId,
     data: DetectionInput,
     existing: ExistingDetectionRow[],
-  ): Promise<void> {
+  ): Promise<FoundSubscription | null> {
     const edited = existing.find((row) => row.userEditedAt);
     if (edited) {
       await prisma.detectedSubscription.update({
@@ -133,15 +144,16 @@ class SubscriptionRepository {
           nextExpectedDate: nextExpectedDateAfter(data.lastChargeDate, edited.frequency),
         },
       });
-      return;
+      return null;
     }
 
     const dismissed = existing.some(
       (row) => row.status === 'DISMISSED' && row.frequency === data.frequency,
     );
     if (dismissed) {
-      return;
+      return null;
     }
+    const isNew = !existing.some((row) => row.frequency === data.frequency);
 
     const fields = {
       ...detectionOwnedFields(data),
@@ -151,7 +163,7 @@ class SubscriptionRepository {
       annualCost: data.annualCost,
     };
 
-    await prisma.detectedSubscription.upsert({
+    const stored = await prisma.detectedSubscription.upsert({
       where: {
         householdId_merchantName_frequency: {
           householdId,
@@ -172,7 +184,9 @@ class SubscriptionRepository {
         frequency: data.frequency,
         categoryId: data.categoryId,
       },
+      select: { id: true, displayName: true },
     });
+    return isNew ? stored : null;
   }
 
   public async update(

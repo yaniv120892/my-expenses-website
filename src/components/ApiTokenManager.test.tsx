@@ -40,4 +40,13 @@ describe('ApiTokenManager scopes', () => {
     expect(await screen.findByLabelText(/^Personal agent/)).toBeTruthy();
     expect(screen.queryByLabelText(/^Imports/)).toBeNull();
   });
+
+  it("describes a viewer's agent scope as read-only", async () => {
+    renderAs('VIEWER');
+
+    expect(
+      await screen.findByLabelText('Personal agent — Read transactions over MCP'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/add, edit and delete/)).toBeNull();
+  });
 });

@@ -1,4 +1,7 @@
+import { TransactionFileStatus } from '@/generated/prisma/client';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import householdActivityService from '@/server/services/householdActivityService';
+import type { ActivityEntry } from '@/server/services/householdActivityService.types';
 import transactionRepository from '@/server/repositories/transactionRepository';
 import transactionFileRepository from '@/server/repositories/transactionFileRepository';
 import type {
@@ -68,7 +71,11 @@ class TransactionService {
   ): Promise<CreatedTransaction> {
     const userProvidedCategory = !!data.categoryId;
     const transactionModel = await this.prepareCreateTransaction(actor, data);
-    const transaction = await transactionRepository.createTransaction(transactionModel);
+    const transaction = await householdActivityService.record({
+      actor,
+      write: () => transactionRepository.createTransaction(transactionModel),
+      describe: (created) => transactionActivity({ action: 'CREATE', transaction: created }),
+    });
 
     await this.notifyTransactionCreatedSafe(actor.householdId, transaction.id);
 
@@ -182,11 +189,16 @@ class TransactionService {
     id: string,
     status: TransactionStatus,
   ): Promise<string> {
-    const transactionId = await transactionRepository.updateTransactionStatus(
-      actor.householdId,
-      id,
-      status,
-    );
+    const { id: transactionId } = await householdActivityService.record({
+      actor,
+      write: () => transactionRepository.updateTransactionStatus(actor.householdId, id, status),
+      describe: (updated) => ({
+        action: status === 'APPROVED' ? 'APPROVE' : 'UPDATE',
+        entityType: 'TRANSACTION',
+        entityId: updated.id,
+        summary: updated.description,
+      }),
+    });
     if (status === 'APPROVED') {
       await this.notifyTransactionCreatedSafe(actor.householdId, transactionId);
     }
@@ -242,12 +254,17 @@ class TransactionService {
       throw new HttpError(404, 'Transaction not found');
     }
     const amount = await currencyConversionService.resolveAmount(data, data.date, existing);
-    const updated = await transactionRepository.updateTransaction(actor.householdId, id, {
-      description: data.description,
-      amount,
-      categoryId: data.categoryId,
-      type: data.type,
-      date: data.date,
+    const updated = await householdActivityService.record({
+      actor,
+      write: () =>
+        transactionRepository.updateTransaction(actor.householdId, id, {
+          description: data.description,
+          amount,
+          categoryId: data.categoryId,
+          type: data.type,
+          date: data.date,
+        }),
+      describe: (transaction) => transactionActivity({ action: 'UPDATE', transaction }),
     });
     await this.learnCategoryMappingSafe({
       actor,
@@ -280,7 +297,15 @@ class TransactionService {
   }
 
   public async deleteTransaction(actor: HouseholdActor, id: string): Promise<void> {
-    const fileKeys = await transactionRepository.deleteTransaction(actor.householdId, id);
+    const { fileKeys } = await householdActivityService.record({
+      actor,
+      write: async () => ({
+        removed: await transactionRepository.getTransactionItem(actor.householdId, id),
+        fileKeys: await transactionRepository.deleteTransaction(actor.householdId, id),
+      }),
+      describe: ({ removed }) =>
+        removed && transactionActivity({ action: 'DELETE', transaction: removed }),
+    });
     await Promise.all(
       fileKeys.map((fileKey) => this.deleteAttachmentObjectSafe({ fileKey, transactionId: id })),
     );
@@ -306,9 +331,10 @@ class TransactionService {
 
     await this.assertTransactionExists(actor.householdId, transactionId);
 
-    await transactionFileRepository.create({
-      transactionId,
-      ...fileData,
+    await householdActivityService.record({
+      actor,
+      write: () => transactionFileRepository.create({ transactionId, ...fileData }),
+      describe: (file) => attachmentActivity({ action: 'CREATE', file }),
     });
 
     logger.debug(
@@ -357,7 +383,14 @@ class TransactionService {
     await this.assertTransactionExists(actor.householdId, transactionId);
     const file = await this.assertTransactionFileExists(fileId, transactionId);
 
-    await transactionFileRepository.markForDeletion(fileId);
+    await householdActivityService.record({
+      actor,
+      write: () => transactionFileRepository.markForDeletion(fileId),
+      describe: () =>
+        file.status === TransactionFileStatus.ACTIVE
+          ? attachmentActivity({ action: 'DELETE', file })
+          : null,
+    });
     logger.debug(`File ${fileId} marked for deletion from transaction ${transactionId}`);
     await this.deleteAttachmentObjectSafe({
       fileKey: file.fileKey,
@@ -616,6 +649,31 @@ class TransactionService {
   private toDescriptionPattern(description: string): string {
     return description.toLowerCase().trim();
   }
+}
+
+function transactionActivity({
+  action,
+  transaction,
+}: {
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  transaction: { id: string; description: string };
+}): ActivityEntry {
+  return {
+    action,
+    entityType: 'TRANSACTION',
+    entityId: transaction.id,
+    summary: transaction.description,
+  };
+}
+
+function attachmentActivity({
+  action,
+  file,
+}: {
+  action: 'CREATE' | 'DELETE';
+  file: { id: string; fileName: string };
+}): ActivityEntry {
+  return { action, entityType: 'ATTACHMENT', entityId: file.id, summary: file.fileName };
 }
 
 const transactionService = new TransactionService();

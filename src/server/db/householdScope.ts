@@ -23,6 +23,7 @@ export const IS_HOUSEHOLD_OWNED = {
   ApiToken: false,
   AutoApproveRule: true,
   DetectedSubscription: true,
+  HouseholdActivity: true,
 } satisfies Record<Prisma.ModelName, boolean>;
 
 const HOUSEHOLD_OWNED_MODELS = new Set(
@@ -82,7 +83,7 @@ export function householdScopeGuard() {
   });
 }
 
-function isHouseholdOwnedModel(model: string | undefined): boolean {
+export function isHouseholdOwnedModel(model: string | undefined): boolean {
   return model !== undefined && HOUSEHOLD_OWNED_MODELS.has(model);
 }
 

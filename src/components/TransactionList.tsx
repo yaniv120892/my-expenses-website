@@ -18,6 +18,7 @@ import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
+import AttributionLine from './transactions/AttributionLine';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
@@ -55,6 +56,11 @@ function MobileRow({
         >
           {transaction.category?.name}
         </Typography>
+        <AttributionLine
+          addedBy={transaction.addedBy}
+          editedBy={transaction.editedBy}
+          addedAutomatically={transaction.addedAutomatically}
+        />
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         <AmountText type={transaction.type} value={transaction.value} original={transaction} />
@@ -132,7 +138,16 @@ export default function TransactionList({
                 '&:last-child td': { border: 0 },
               }}
             >
-              <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>
+                <Box component="span" sx={{ display: 'block' }}>
+                  {tx.description}
+                </Box>
+                <AttributionLine
+                  addedBy={tx.addedBy}
+                  editedBy={tx.editedBy}
+                  addedAutomatically={tx.addedAutomatically}
+                />
+              </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
                 {formatter.day(new Date(tx.date))}

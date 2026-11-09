@@ -15,6 +15,11 @@ function submit() {
   });
 }
 
+function sentHeaders(): unknown {
+  const instance = post.mock.contexts[0];
+  return instance instanceof axios.Axios ? instance.defaults.headers : undefined;
+}
+
 function loggedText(): string {
   return JSON.stringify([vi.mocked(logger.info).mock.calls, vi.mocked(logger.error).mock.calls]);
 }
@@ -22,10 +27,12 @@ function loggedText(): string {
 beforeEach(() => {
   vi.stubEnv('EXCEL_EXTRACTION_AGENT_URL', 'https://extraction.example.com');
   vi.stubEnv('EXCEL_EXTRACTION_AGENT_WEBHOOK_SECRET', 'secret');
+  vi.stubEnv('EXCEL_EXTRACTION_AGENT_API_SECRET', 'service-secret');
   vi.stubEnv('WEBSITE_URL', 'https://expenses.example.com');
   post = vi.spyOn(axios.Axios.prototype, 'post');
   vi.spyOn(logger, 'info');
   vi.spyOn(logger, 'error');
+  vi.spyOn(logger, 'warn');
 });
 
 afterEach(() => {
@@ -59,6 +66,29 @@ describe('submitExtractionRequest', () => {
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ importId: 'imp-1' }),
       'Failed to submit extraction request',
+    );
+  });
+
+  it('authenticates to the service with the shared secret as a bearer token', async () => {
+    post.mockResolvedValue({ data: { requestId: 'req-1', status: 'PENDING' } });
+
+    await submit();
+
+    expect(sentHeaders()).toMatchObject({ Authorization: 'Bearer service-secret' });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('still submits, without a token and with a warning, while the secret is unset', async () => {
+    vi.stubEnv('EXCEL_EXTRACTION_AGENT_API_SECRET', '');
+    post.mockResolvedValue({ data: { requestId: 'req-1', status: 'PENDING' } });
+
+    await expect(submit()).resolves.toMatchObject({ requestId: 'req-1' });
+
+    expect(sentHeaders()).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(sentHeaders()).not.toHaveProperty('Authorization');
+    expect(logger.warn).toHaveBeenCalledWith(
+      { envVar: 'EXCEL_EXTRACTION_AGENT_API_SECRET' },
+      'Extraction service secret unset; calling it without authentication',
     );
   });
 });

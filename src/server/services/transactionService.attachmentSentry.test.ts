@@ -19,6 +19,13 @@ const {
   captureException: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@sentry/nextjs', () => ({ captureException, captureRequestError: vi.fn() }));
 
 vi.mock('@/server/repositories/transactionRepository', () => ({

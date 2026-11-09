@@ -2,12 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithClient } from '@/test/renderWithClient';
+import { createTestQueryClient, renderWithClient } from '@/test/renderWithClient';
 import PendingPage from '@/app/(app)/pending/page';
+import type { HouseholdRole } from '@/generated/prisma/enums';
+import type { MeResponse } from '@/shared/types/household';
 import type { Transaction } from '@/types';
 
-function renderPage() {
-  return renderWithClient(<PendingPage />);
+function renderPage(role: HouseholdRole | null = 'EDITOR') {
+  const queryClient = createTestQueryClient();
+  if (role) {
+    const session: MeResponse = { userId: 'user-1', email: null, role };
+    queryClient.setQueryData(['session'], session);
+  }
+  return renderWithClient(<PendingPage />, queryClient);
 }
 
 const { queryMock, scheduledQueryMock, confirmMutateAsync, deleteMutateAsync } = vi.hoisted(() => ({
@@ -110,5 +117,29 @@ describe('pending page fixed expenses summary', () => {
     renderPage();
 
     expect(screen.queryByText('Fixed expenses per month')).toBeNull();
+  });
+});
+
+describe('pending page for a viewer', () => {
+  it('describes the rows without asking the viewer to approve them', () => {
+    renderPage('VIEWER');
+
+    expect(
+      screen.getByText('Transactions recorded from your schedules, not yet approved'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/waiting for your approval/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Approve transaction' })).toBeNull();
+  });
+
+  it('asks no one for approval until the role is known', () => {
+    renderPage(null);
+
+    expect(screen.queryByText(/waiting for your approval/i)).toBeNull();
+  });
+
+  it('keeps asking an editor for approval', () => {
+    renderPage('EDITOR');
+
+    expect(screen.getByText('Transactions waiting for your approval')).toBeTruthy();
   });
 });

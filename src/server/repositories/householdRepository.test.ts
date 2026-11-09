@@ -25,7 +25,7 @@ const { prisma, calls } = vi.hoisted(() => {
       create: vi.fn(async () => ({ id: 'fresh-household' })),
       delete: recorded('household.delete', {}),
     },
-    apiToken: { deleteMany: vi.fn() },
+    apiToken: { findMany: vi.fn(), deleteMany: vi.fn() },
     $transaction: vi.fn(),
   };
   client.$transaction.mockImplementation(async (work: (transaction: unknown) => unknown) =>
@@ -121,6 +121,11 @@ describe('joinHousehold', () => {
 describe('moveToOwnHousehold', () => {
   it('revokes every API token of the moved member', async () => {
     prisma.user.updateMany.mockResolvedValue({ count: 1 });
+    const tokens = [
+      { id: 'token-1', name: 'agent' },
+      { id: 'token-2', name: 'script' },
+    ];
+    prisma.apiToken.findMany.mockResolvedValue(tokens);
     prisma.apiToken.deleteMany.mockResolvedValue({ count: 2 });
 
     const move = await householdRepository.moveToOwnHousehold({
@@ -129,8 +134,14 @@ describe('moveToOwnHousehold', () => {
       endSessions: false,
     });
 
-    expect(move).toEqual({ apiTokensRevoked: 2 });
-    expect(prisma.apiToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'member' } });
+    expect(move).toEqual({ revokedApiTokens: tokens });
+    expect(prisma.apiToken.findMany).toHaveBeenCalledWith({
+      where: { userId: 'member' },
+      select: { id: true, name: true },
+    });
+    expect(prisma.apiToken.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['token-1', 'token-2'] } },
+    });
   });
 
   it('revokes nothing and drops the fresh household when the member is not there', async () => {

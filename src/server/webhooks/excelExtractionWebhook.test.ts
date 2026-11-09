@@ -278,6 +278,7 @@ describe('completed extraction', () => {
         importId: 'imp-1',
         householdId: HOUSEHOLD,
         userId: 'user-1',
+        createdById: 'user-1',
       },
     ]);
     expect(findPotentialMatchesForImport).toHaveBeenCalledWith(HOUSEHOLD, 'imp-1');
@@ -416,6 +417,14 @@ describe('completed extraction', () => {
       where: { id: 'imp-1', householdId: HOUSEHOLD },
       data: expect.objectContaining({ paymentMonth: '03/2026' }),
     });
+  });
+
+  it('credits the rows to the member who uploaded the statement', async () => {
+    await run(payload([tx()]));
+
+    expect(importedTxRepo.createMany).toHaveBeenCalledWith([
+      expect.objectContaining({ userId: 'user-1', createdById: 'user-1' }),
+    ]);
   });
 
   it('inserts its own rows before looking for a duplicate', async () => {

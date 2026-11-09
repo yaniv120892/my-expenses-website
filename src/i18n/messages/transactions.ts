@@ -11,6 +11,9 @@ const en = {
 
   'transactions.list.empty': 'No transactions found.',
   'transactions.list.edit': 'Edit',
+  'transactions.attribution.addedBy': 'Added by {name}',
+  'transactions.attribution.addedAutomatically': 'Added automatically',
+  'transactions.attribution.editedBy': 'Edited by {name}',
 
   'transactions.datePreset.this-month': 'This month',
   'transactions.datePreset.last-month': 'Last month',
@@ -115,6 +118,9 @@ export const transactionsMessages: Dictionary<typeof en> = {
 
     'transactions.list.empty': 'לא נמצאו תנועות.',
     'transactions.list.edit': 'עריכה',
+    'transactions.attribution.addedBy': 'נוסף על ידי {name}',
+    'transactions.attribution.addedAutomatically': 'נוסף אוטומטית',
+    'transactions.attribution.editedBy': 'נערך על ידי {name}',
 
     'transactions.datePreset.this-month': 'החודש',
     'transactions.datePreset.last-month': 'החודש שעבר',

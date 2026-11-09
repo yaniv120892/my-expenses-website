@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { hash } from 'bcryptjs';
-import { Client } from 'pg';
+import { Client, DatabaseError } from 'pg';
 import { getRecording, resetRecording, CHUNK_DELAY_MS } from './mockModelServer';
 import { USER_B_MARKERS } from './seed';
 import { MOCK_PORT, SHIM_PORT, EXTRACTION_PORT, EXTRACTION_MOCK_PORT } from './ports';
@@ -251,6 +251,33 @@ async function insertVerifiedUser({
     ),
     what: `the user ${email}`,
   });
+}
+
+// The shape a signup predating households wrote: no household, no role.
+async function userWithoutHouseholdFlow(): Promise<void> {
+  const email = 'no-household@e2e.test';
+  let refusal = 'inserted';
+  try {
+    await query(
+      `insert into "User" (id, username, email, password, verified)
+       values (gen_random_uuid(), 'no-household', $1, 'x', true)`,
+      [email],
+    );
+  } catch (error) {
+    refusal = error instanceof DatabaseError ? `${error.code} ${error.column}` : String(error);
+  }
+  const removed = await query<{ householdId: string }>(
+    `delete from "User" where email = $1 returning "householdId"`,
+    [email],
+  );
+  await query(`delete from "Household" where id = any($1::uuid[])`, [
+    removed.map((user) => user.householdId),
+  ]);
+  check(
+    'schema: a user inserted without a household is refused',
+    refusal === '23502 householdId',
+    `got ${refusal}`,
+  );
 }
 
 /** A member and the household whose rows the harness writes directly. */
@@ -1041,7 +1068,45 @@ async function apiTokenRevocationFlow(sessionToken: string, apiToken: string): P
 }
 
 // The raw column read proves the value was encrypted, not stored as plaintext.
-async function importEncryptionFlow(token: string): Promise<void> {
+function importFileUrl({
+  bucket,
+  region,
+  userId,
+  originalFileName,
+}: {
+  bucket: string;
+  region: string;
+  userId: string;
+  originalFileName: string;
+}): string {
+  const key = buildImportObjectKey({ userId, fileName: originalFileName, id: crypto.randomUUID() });
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+}
+
+// The extraction service reads any key in the bucket with its own credentials,
+// so a URL under another user's folder must never become an import.
+async function importOwnershipFlow(otherUserToken: string, ownerId: string): Promise<void> {
+  const bucket = process.env.IMPORTS_S3_BUCKET;
+  const region = process.env.IMPORTS_S3_REGION;
+  if (!bucket || !region) {
+    return;
+  }
+  const originalFileName = 'card-0000_03_2026.csv';
+  const submitted = await api('POST', '/api/imports/process', {
+    token: otherUserToken,
+    body: {
+      fileUrl: importFileUrl({ bucket, region, userId: ownerId, originalFileName }),
+      originalFileName,
+    },
+  });
+  check(
+    'imports: process refuses a file uploaded by another user',
+    submitted.status === 400,
+    `status ${submitted.status}`,
+  );
+}
+
+async function importEncryptionFlow(token: string, userId: string): Promise<void> {
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_03_2026.csv`;
 
@@ -1059,7 +1124,7 @@ async function importEncryptionFlow(token: string): Promise<void> {
     return;
   }
 
-  const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${buildImportObjectKey(originalFileName, crypto.randomUUID())}`;
+  const fileUrl = importFileUrl({ bucket, region, userId, originalFileName });
 
   const created = await api<{ id?: string }>('POST', '/api/imports/process', {
     token,
@@ -1110,7 +1175,7 @@ async function importEncryptionFlow(token: string): Promise<void> {
   );
 }
 
-async function importMergeFlow(token: string): Promise<void> {
+async function importMergeFlow(token: string, userId: string): Promise<void> {
   const bucket = process.env.IMPORTS_S3_BUCKET;
   const region = process.env.IMPORTS_S3_REGION;
   if (!bucket || !region) {
@@ -1118,9 +1183,8 @@ async function importMergeFlow(token: string): Promise<void> {
   }
   const digits = randomCardDigits();
   const originalFileName = `card-${digits}_04_2026.csv`;
-  // An import key from before keys dropped the file name still has to be accepted.
   const body = {
-    fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
+    fileUrl: importFileUrl({ bucket, region, userId, originalFileName }),
     originalFileName,
   };
 
@@ -1244,7 +1308,7 @@ async function variableAmountPlaceholderFlow(
   const submitted = await api<{ id?: string }>('POST', '/api/imports/process', {
     token: apiToken,
     body: {
-      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/imports/${originalFileName}`,
+      fileUrl: importFileUrl({ bucket, region, userId: owner.id, originalFileName }),
       originalFileName,
     },
   });
@@ -1682,6 +1746,8 @@ async function main(): Promise<void> {
     stdout.trim().split('\n').slice(-1)[0],
   );
 
+  await userWithoutHouseholdFlow();
+
   const unauth = await streamChat(null, 'How much did I spend?');
   check('unauthenticated request rejected', unauth.status === 401, `status ${unauth.status}`);
 
@@ -1817,8 +1883,9 @@ async function main(): Promise<void> {
   // The import flows run on an Imports-scoped API token rather than the
   // session, so they prove the routes the statements script drives accept one.
   const apiToken = await apiTokenFlow(seeded.userA.token, seeded.userB.token);
-  await importEncryptionFlow(apiToken);
-  await importMergeFlow(apiToken);
+  await importEncryptionFlow(apiToken, seeded.userA.id);
+  await importMergeFlow(apiToken, seeded.userA.id);
+  await importOwnershipFlow(seeded.userB.token, seeded.userA.id);
   await variableAmountPlaceholderFlow(seeded.userA.token, apiToken, seeded.userA);
   await apiTokenRevocationFlow(seeded.userA.token, apiToken);
   await householdLeakGuardFlow(seeded.userA, seeded.userB);

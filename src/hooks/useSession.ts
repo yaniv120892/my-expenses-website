@@ -11,10 +11,17 @@ export function useSession() {
 }
 
 /**
- * Hides write controls from a viewer. Until the role is known nothing is
- * hidden; the server's write guard is what refuses, this only spares a click.
+ * Shows a write control only once the role is known to allow it, so a viewer
+ * never sees one; the server's write guard is what refuses, this only spares a
+ * click.
  */
 export function useCanWrite(): boolean {
   const { data: session } = useSession();
-  return session?.role !== 'VIEWER';
+  return session !== undefined && session.role !== 'VIEWER';
+}
+
+/** For read-only copy, which waits for the role as write controls do. */
+export function useIsViewer(): boolean {
+  const { data: session } = useSession();
+  return session?.role === 'VIEWER';
 }

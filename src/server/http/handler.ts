@@ -13,6 +13,7 @@ import {
 import { isApiToken } from '@/server/auth/apiTokenFormat';
 import { authenticateApiToken } from '@/server/auth/apiTokens';
 import { assertCanWrite, resolveMemberActor } from '@/server/auth/householdActor';
+import { runAsActor } from '@/server/db/actorContext';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
 import { HttpError, formatZodIssues } from '@/server/http/errors';
@@ -271,7 +272,8 @@ async function runHandler({
   switch (options.auth) {
     case 'session':
     case 'apiToken': {
-      return options.handler({ ...handlerContext, actor: requireActor(auth) });
+      const actor = requireActor(auth);
+      return runAsActor(actor, () => options.handler({ ...handlerContext, actor }));
     }
     case 'cron':
     case 'telegram':
@@ -294,6 +296,25 @@ function householdLogFields(actor: MemberActor | undefined): {
   householdRole?: MemberActor['role'];
 } {
   return actor ? { householdId: actor.householdId, householdRole: actor.role } : {};
+}
+
+// A body that is not a form is the caller's mistake, as malformed JSON is; a
+// second read of a consumed body is the server's, so it stays a 500.
+function refuseUnreadableForm(request: NextRequest): void {
+  const readForm = request.formData.bind(request);
+  request.formData = async () => {
+    if (request.bodyUsed) {
+      return readForm();
+    }
+    try {
+      return await readForm();
+    } catch (err) {
+      if (!(err instanceof TypeError)) {
+        throw err;
+      }
+      throw new HttpError(400, 'Invalid multipart/form-data body');
+    }
+  };
 }
 
 function bearerApiToken(request: NextRequest): string | null {
@@ -401,6 +422,7 @@ export function createHandler(
         Object.fromEntries(request.nextUrl.searchParams.entries()),
       );
 
+      refuseUnreadableForm(request);
       const handlerContext = { request, userId, body, query, params: parsedParams };
       if (options.rateLimit && options.rateLimit !== 'none') {
         await enforceRateLimits(options.rateLimit(handlerContext));

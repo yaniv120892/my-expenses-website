@@ -4,6 +4,7 @@ import type {
   InvitableRole,
   InvitePreview,
 } from '@/shared/types/household';
+import type { HouseholdActivityPage } from '@/shared/types/householdActivity';
 import api from './api';
 
 export async function getHousehold(): Promise<HouseholdView> {
@@ -47,4 +48,11 @@ export async function changeMemberRole({
 
 export async function removeMember(memberId: string): Promise<void> {
   await api.delete(`/api/household/members/${memberId}`);
+}
+
+export async function getHouseholdActivity(cursor: string | null): Promise<HouseholdActivityPage> {
+  const response = await api.get<HouseholdActivityPage>('/api/household/activity', {
+    params: { cursor },
+  });
+  return response.data;
 }

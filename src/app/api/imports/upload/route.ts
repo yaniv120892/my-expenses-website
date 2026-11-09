@@ -1,30 +1,17 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createHandler } from '@/server/http/handler';
 import { HttpError } from '@/server/http/errors';
-import { lazy } from '@/server/lib/lazy';
-import { requireEnv } from '@/server/env';
 import { logger } from '@/server/observability';
 import { buildImportObjectKey } from '@/server/utils/importObjectKey';
 import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
+import { importsBucket, putImportObject } from '@/server/services/importFileStorage';
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
-
-const getS3Client = lazy(
-  () =>
-    new S3Client({
-      region: requireEnv('IMPORTS_S3_REGION'),
-      credentials: {
-        accessKeyId: requireEnv('IMPORTS_S3_ACCESS_KEY_ID'),
-        secretAccessKey: requireEnv('IMPORTS_S3_SECRET_ACCESS_KEY'),
-      },
-    }),
-);
 
 export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
-  handler: async ({ request }) => {
+  handler: async ({ request, userId }) => {
     const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
@@ -36,26 +23,17 @@ export const POST = createHandler({
     }
     assertWithinUploadLimit({ fileName: file.name, sizeInBytes: file.size });
 
-    const bucket = requireEnv('IMPORTS_S3_BUCKET');
-    const region = requireEnv('IMPORTS_S3_REGION');
-    const objectKey = buildImportObjectKey(file.name, crypto.randomUUID());
-
+    const key = buildImportObjectKey({ userId, fileName: file.name, id: crypto.randomUUID() });
     try {
-      await getS3Client().send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: objectKey,
-          Body: Buffer.from(await file.arrayBuffer()),
-          ContentType: file.type,
-        }),
-      );
+      const fileUrl = await putImportObject({
+        key,
+        body: Buffer.from(await file.arrayBuffer()),
+        contentType: file.type,
+      });
+      return { fileUrl };
     } catch (err) {
-      logger.error({ err, bucket, region }, 'S3 upload failed');
+      logger.error({ err, ...importsBucket() }, 'S3 upload failed');
       throw new HttpError(500, 'Failed to upload file');
     }
-
-    return {
-      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${objectKey}`,
-    };
   },
 });

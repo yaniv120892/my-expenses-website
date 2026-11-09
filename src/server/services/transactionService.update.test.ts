@@ -7,6 +7,13 @@ const { getTransactionItem, updateTransaction, upsert, getRateToBase } = vi.hois
   getRateToBase: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/transactionRepository', () => ({
   default: { getTransactionItem, updateTransaction },
 }));
@@ -53,6 +60,17 @@ describe('transactionService.updateTransaction', () => {
     vi.clearAllMocks();
     getTransactionItem.mockResolvedValue(statementUsdCharge);
     updateTransaction.mockResolvedValue('tx-1');
+  });
+
+  it('records the edit in the household activity log', async () => {
+    activity.entries.length = 0;
+    updateTransaction.mockResolvedValue({ ...statementUsdCharge, description: 'Amazon order' });
+
+    await transactionService.updateTransaction(ACTOR, 'tx-1', edit({ value: 92.35 }));
+
+    expect(activity.entries).toEqual([
+      { action: 'UPDATE', entityType: 'TRANSACTION', entityId: 'tx-1', summary: 'Amazon order' },
+    ]);
   });
 
   it('keeps the statement conversion when an edit leaves amount and day alone', async () => {

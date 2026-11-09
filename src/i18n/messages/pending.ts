@@ -3,6 +3,7 @@ import type { Dictionary, Messages } from '@yaniv120892/my-ui';
 const en = {
   'pending.title': 'Pending',
   'pending.subtitle': 'Transactions waiting for your approval',
+  'pending.subtitleReadOnly': 'Transactions recorded from your schedules, not yet approved',
   'pending.loadFailed': 'Failed to load pending transactions. Please try again.',
   'pending.approved': 'Transaction approved successfully',
   'pending.approveFailed': 'Failed to confirm transaction',
@@ -28,6 +29,7 @@ export const pendingMessages: Dictionary<typeof en> = {
   he: {
     'pending.title': 'ממתינות',
     'pending.subtitle': 'תנועות שמחכות לאישור שלך',
+    'pending.subtitleReadOnly': 'תנועות שנרשמו מהתשלומים הקבועים ועדיין לא אושרו',
     'pending.loadFailed': 'טעינת התנועות הממתינות נכשלה. נסו שוב.',
     'pending.approved': 'התנועה אושרה',
     'pending.approveFailed': 'אישור התנועה נכשל',

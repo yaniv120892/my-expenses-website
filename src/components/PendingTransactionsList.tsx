@@ -27,6 +27,7 @@ import { useIsMobile } from '../hooks/useBreakpoints';
 import AmountText from './AmountText';
 import EmptyState from './EmptyState';
 import SwipeableRow from './SwipeableRow';
+import AttributionLine from './transactions/AttributionLine';
 import { useAppFormat } from '@/i18n/useAppFormat';
 import { useT } from '@/i18n/useT';
 
@@ -119,6 +120,11 @@ export default function PendingTransactionsList({
                     >
                       {tx.category?.name}
                     </Typography>
+                    <AttributionLine
+                      addedBy={tx.addedBy}
+                      editedBy={tx.editedBy}
+                      addedAutomatically={tx.addedAutomatically}
+                    />
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                     <AmountText type={tx.type} value={tx.value} original={tx} />
@@ -174,7 +180,14 @@ export default function PendingTransactionsList({
                     '&:last-child td': { border: 0 },
                   }}
                 >
-                  <TableCell sx={{ fontWeight: 500 }}>{tx.description}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>
+                    {tx.description}
+                    <AttributionLine
+                      addedBy={tx.addedBy}
+                      editedBy={tx.editedBy}
+                      addedAutomatically={tx.addedAutomatically}
+                    />
+                  </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>{tx.category?.name}</TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>{formatter.day(tx.date)}</TableCell>
                   <TableCell align="right">

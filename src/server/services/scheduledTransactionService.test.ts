@@ -4,11 +4,22 @@ const { scheduledRepo, findDueScheduledTransactions, createTransaction } = vi.ho
   scheduledRepo: {
     claimDueRun: vi.fn(),
     updateLastRunAndNextRun: vi.fn(),
+    createScheduledTransaction: vi.fn(),
+    updateScheduledTransaction: vi.fn(),
+    getScheduledTransactionById: vi.fn(),
+    deleteScheduledTransaction: vi.fn(),
   },
   findDueScheduledTransactions: vi.fn(),
   createTransaction: vi.fn(),
 }));
 
+const activity = vi.hoisted(() => {
+  const entries: unknown[] = [];
+  return { entries };
+});
+vi.mock('@/server/services/householdActivityService', async () =>
+  (await import('@/test/householdActivity')).householdActivityModule(activity.entries),
+);
 vi.mock('@/server/repositories/scheduledTransactionRepository', () => ({
   default: scheduledRepo,
 }));
@@ -21,6 +32,7 @@ vi.mock('@/server/services/transactionService', () => ({
 
 import scheduledTransactionService from '@/server/services/scheduledTransactionService';
 import { toHouseholdId } from '@/server/auth/householdId';
+import { testMemberActor } from '@/test/memberActor';
 
 const RUN_DATE = new Date(2026, 8, 22, 7);
 const DUE_DATE = new Date(2026, 8, 22);
@@ -45,6 +57,7 @@ const schedule = (id: string, householdId = HOUSEHOLD_A) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  activity.entries.length = 0;
   findDueScheduledTransactions.mockResolvedValue([schedule('s1'), schedule('s2')]);
   scheduledRepo.claimDueRun.mockResolvedValue(true);
 });
@@ -117,5 +130,51 @@ describe('processDueScheduledTransactions', () => {
       nextRunDate: DUE_DATE,
     });
     expect(createTransaction).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('schedule writes', () => {
+  const actor = testMemberActor({ userId: 'user-1' });
+  const input = {
+    description: 'Rent',
+    value: 1000,
+    type: 'EXPENSE' as const,
+    categoryId: 'cat-1',
+    scheduleType: 'MONTHLY' as const,
+    dayOfMonth: 22,
+  };
+
+  it('records a created schedule under its description', async () => {
+    scheduledRepo.createScheduledTransaction.mockResolvedValue('s1');
+
+    await expect(
+      scheduledTransactionService.createScheduledTransaction(actor, input),
+    ).resolves.toBe('s1');
+
+    expect(activity.entries).toEqual([
+      { action: 'CREATE', entityType: 'SCHEDULED_TRANSACTION', entityId: 's1', summary: 'Rent' },
+    ]);
+  });
+
+  it('records an updated schedule', async () => {
+    scheduledRepo.getScheduledTransactionById.mockResolvedValue(schedule('s1'));
+    scheduledRepo.updateScheduledTransaction.mockResolvedValue('s1');
+
+    await scheduledTransactionService.updateScheduledTransaction(actor, 's1', input);
+
+    expect(activity.entries).toEqual([
+      { action: 'UPDATE', entityType: 'SCHEDULED_TRANSACTION', entityId: 's1', summary: 'Rent' },
+    ]);
+  });
+
+  it('records a deleted schedule under the description it had', async () => {
+    scheduledRepo.getScheduledTransactionById.mockResolvedValue(schedule('s1'));
+
+    await scheduledTransactionService.deleteScheduledTransaction(actor, 's1');
+
+    expect(scheduledRepo.deleteScheduledTransaction).toHaveBeenCalledWith(actor.householdId, 's1');
+    expect(activity.entries).toEqual([
+      { action: 'DELETE', entityType: 'SCHEDULED_TRANSACTION', entityId: 's1', summary: 'Rent' },
+    ]);
   });
 });

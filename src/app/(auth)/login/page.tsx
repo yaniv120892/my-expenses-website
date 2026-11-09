@@ -15,7 +15,9 @@ function LoginForm() {
   const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionExpired = searchParams.get('reason') === 'session-expired';
+  const reason = searchParams.get('reason');
+  const sessionExpired = reason === 'session-expired';
+  const passwordWasReset = reason === 'password-reset';
   const next = safeNextPath(searchParams.get(NEXT_PATH_PARAM));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +44,9 @@ function LoginForm() {
         {sessionExpired && !error && (
           <Alert severity="info">{t('auth.login.sessionExpired')}</Alert>
         )}
+        {passwordWasReset && !error && (
+          <Alert severity="success">{t('auth.login.passwordReset')}</Alert>
+        )}
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label={t('auth.email')}
@@ -62,6 +67,11 @@ function LoginForm() {
           autoComplete="current-password"
           fullWidth
         />
+        <Typography variant="body2" sx={{ textAlign: 'end' }}>
+          <MuiLink component={Link} href="/forgot-password">
+            {t('auth.login.forgotPassword')}
+          </MuiLink>
+        </Typography>
         <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
           {submitting ? t('auth.login.submitting') : t('auth.login.submit')}
         </Button>

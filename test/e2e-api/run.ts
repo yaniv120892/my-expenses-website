@@ -329,6 +329,48 @@ async function authLifecycleFlow(): Promise<void> {
   check('auth: me after logout is rejected', meAfter.status === 401, `status ${meAfter.status}`);
 }
 
+// Runs the tokenVersion bump against Postgres, which a unit test's in-memory
+// user cannot stand in for.
+async function passwordChangeFlow(): Promise<void> {
+  const email = 'password-change@e2e.test';
+  const password = 'e2e-old-password';
+  const newPassword = 'e2e-new-password';
+  await insertVerifiedUser({
+    username: 'e2e-password-change',
+    email,
+    passwordHash: await hash(password, 10),
+  });
+  const logIn = async (withPassword: string) =>
+    (
+      await api<{ token?: string }>('POST', '/api/auth/login', {
+        body: { email, password: withPassword },
+      })
+    ).body?.token ?? '';
+  const thisDevice = await logIn(password);
+  const otherDevice = await logIn(password);
+
+  const changed = await api('PUT', '/api/auth/password', {
+    token: thisDevice,
+    body: { currentPassword: password, newPassword },
+  });
+  const freshToken = /session=([^;]+)/.exec(changed.headers.get('set-cookie') || '')?.[1] ?? '';
+  check('auth: change password succeeds', changed.status === 200, `status ${changed.status}`);
+
+  const otherAfter = await api('GET', '/api/auth/me', { token: otherDevice });
+  check(
+    'auth: change password ends the user’s other sessions',
+    otherAfter.status === 401,
+    `status ${otherAfter.status}`,
+  );
+  const freshAfter = await api('GET', '/api/auth/me', { token: freshToken });
+  check(
+    'auth: change password keeps the caller signed in on a fresh session',
+    freshAfter.status === 200,
+    `status ${freshAfter.status}`,
+  );
+  check('auth: the new password logs in', (await logIn(newPassword)) !== '');
+}
+
 async function transactionLifecycleFlow(token: string): Promise<void> {
   const category = firstRow({
     rows: await query<{ id: string }>(`select id from "Category" where name = 'Groceries'`),
@@ -1830,6 +1872,7 @@ async function main(): Promise<void> {
   );
 
   await authLifecycleFlow();
+  await passwordChangeFlow();
   await transactionLifecycleFlow(seeded.userA.token);
   await transactionCategoryBreakdownFlow(seeded.userA.token);
   await transactionCursorPagingFlow(seeded.userA.token, seeded.userA);

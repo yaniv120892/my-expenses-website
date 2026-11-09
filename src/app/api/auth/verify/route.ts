@@ -15,7 +15,7 @@ export const POST = createHandler({
     { key: `verify:ip:${resolveClientIp(request)}`, ...RATE_LIMITS.verify },
   ],
   handler: async ({ body }) => {
-    const result = await authService.verifyLoginCode(body.email, body.code);
+    const result = await authService.verifyLoginCode(body.email, body.code, body.password);
     if (result.error || !result.token) {
       return NextResponse.json({ error: result.error ?? 'Verification failed' }, { status: 400 });
     }

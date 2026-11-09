@@ -208,7 +208,7 @@ describe('product events', () => {
     await verify(
       jsonRequest({
         path: '/api/auth/verify',
-        body: { email: 'someone@example.com', code: '123456' },
+        body: { email: 'someone@example.com', code: '123456', password: 'longenough' },
       }),
       ROUTE_CONTEXT,
     );

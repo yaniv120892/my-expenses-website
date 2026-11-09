@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const { data: insights, isLoading: insightsLoading } = useDashboardInsightsQuery(!!data);
   const createMutation = useCreateTransactionMutation();
 
-  // Must not catch: the form reports the outcome (see CLAUDE.md).
+  // Must not catch: the form reports the outcome (see .claude/rules/ui-components.md).
   const handleCreate = async (input: CreateTransactionInput) => {
     const result = await createMutation.mutateAsync(input);
     return result.id;

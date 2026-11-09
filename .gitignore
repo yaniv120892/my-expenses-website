@@ -54,7 +54,7 @@ playwright-report/
 # never committed alongside the change they illustrate
 /proof-of-work/
 
-# agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
+# agent scratch/design docs: knowledge belongs in DECISIONS.md and docs/, not checked-in plans
 /.superpowers/
 /docs/superpowers/
 

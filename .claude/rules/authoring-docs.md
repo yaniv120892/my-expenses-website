@@ -1,5 +1,5 @@
 ---
-# Vendored from yaniv120892/claude-config rules/authoring-docs.md at acdb1a5 — edit upstream, then re-copy.
+# Vendored from yaniv120892/claude-config rules/authoring-docs.md at bb38b58 — edit upstream, then re-copy.
 paths:
   - "**/*.md"
   - "**/*.mdx"
@@ -41,7 +41,8 @@ repeats cheaply
 config values, or directory layout is a cache that goes stale; the lookup can't go stale
 > Pattern: Document only what looking can't find — the unwritten convention, the why behind a
 > choice, the gotcha no config confesses; point at the file for the rest.
-> Avoid: Command lists and layout maps that duplicate one cheap lookup.
+> Avoid: Command lists, layout maps and hand-kept lists of test files that duplicate one cheap
+> lookup.
 
 **Pointer Wording Decides Whether the Doc Gets Read** — a doc behind a weak pointer is a
 variance bug: some runs reach it, some don't
@@ -49,3 +50,12 @@ variance bug: some runs reach it, some don't
 > should trigger reaching it, one trigger per case. Sharpen the pointer before inlining the
 > material.
 > Avoid: Synonym piles restating one trigger; identity the body already carries.
+
+**Repo Docs Are DECISIONS.md Plus Small Topic Docs** — agents load docs into context, so one big
+spec is paid for whole or skipped whole
+> Pattern: Root `DECISIONS.md`, one row per hard-to-reverse decision with its why and a link to the
+> topic doc. One short `.md` per feature, named for the topic (`docs/households.md`), opening with
+> when to load it. `AGENTS.md`/`CLAUDE.md` lists every doc with its load trigger; every link
+> between docs carries that sentence too.
+> Avoid: `docs/specs/`, design or plan files kept after the work ships; one long doc where several
+> small ones would each load alone.

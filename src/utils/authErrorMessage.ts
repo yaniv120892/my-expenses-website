@@ -2,8 +2,9 @@ import type { T } from '@/i18n/useT.types';
 import { AuthRequestError } from '@/services/authClient';
 
 const TOO_MANY_REQUESTS = 429;
+const SERVICE_UNAVAILABLE = 503;
 
-/** The server's own message where it sent one; rate limiting reads in the user's language. */
+/** The server's own message where it sent one; rate limiting and unsendable mail read in the user's language. */
 export function authErrorMessage({
   error,
   fallback,
@@ -13,11 +14,14 @@ export function authErrorMessage({
   fallback: string;
   t: T;
 }): string {
-  if (error instanceof AuthRequestError && error.status === TOO_MANY_REQUESTS) {
+  if (!(error instanceof AuthRequestError)) {
+    return fallback;
+  }
+  if (error.status === TOO_MANY_REQUESTS) {
     return t('auth.error.rateLimited');
   }
-  if (error instanceof AuthRequestError && error.serverMessage) {
-    return error.serverMessage;
+  if (error.status === SERVICE_UNAVAILABLE) {
+    return t('auth.error.emailUnavailable');
   }
-  return fallback;
+  return error.serverMessage || fallback;
 }

@@ -36,7 +36,9 @@ repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
 `node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
 typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
 suites against a Postgres service container. Bump the tag in both places
-together.
+together. CI runs on pull requests only, to save Actions minutes on the private
+repo: `e2e` skips docs-only diffs and Dependabot patch/minor bumps but still
+reports success, so the required check passes.
 
 Dependabot (`.github/dependabot.yml`) is the only dependency updater. Routine
 version updates are weekly, minors and patches grouped per ecosystem and each
@@ -87,6 +89,8 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
 - `src/app/api/**/route.ts` — all API endpoints. Most are built with
   `createHandler` (`src/server/http/handler.ts`) which resolves auth
   (`session` | `apiToken` | `cron` | `telegram` | `public`), zod-validates body/query,
+  answers 400 to a body that does not parse — malformed JSON on a `bodySchema`
+  route, or anything but a form when a handler reads `request.formData()` —
   validates dynamic route params as uuids by default through
   `recordIdSchema` (a route with a non-uuid segment must declare its own
   `paramsSchema`),
@@ -341,7 +345,22 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   `TransactionFile.fileName`, and the extraction service gets it as
   `filename`. Attachments uploaded before keep their name-bearing keys, which
   validation, preview, download and delete still accept; import objects are
-  never deleted, and an old import URL still passes the bucket-prefix check.
+  never deleted.
+- **An import is extracted only from its own uploader's folder, through a
+  signed URL.** The imports bucket is private. Upload stores
+  `imports/<userId>/<uuid><ext>` (`buildImportObjectKey`,
+  `src/server/utils/importObjectKey.ts`) and answers the object's plain URL,
+  which `Import.fileUrl` keeps as an identifier. `processImport` accepts only a
+  URL that is, character for character, an object in the caller's own folder
+  (`ownImportObjectKey` — compared as a string, since a URL parser would resolve
+  `..` and escapes), because the extraction service reads whatever key the
+  path names with its own credentials. It hands that service a GET URL
+  presigned for 15 minutes (`presignImportDownload`,
+  `src/server/services/importFileStorage.ts`), whose path is the same key; the
+  service ignores the signature today, so the URL must stay virtual-hosted
+  (a bucket name with a dot would sign path-style and break the key).
+  Imports uploaded before the per-user folders cannot be resubmitted; their
+  rows are unaffected.
 - **Auth**: JWT (jose HS256, 7d) in an httpOnly `session` cookie; Redis key
   `session:<userId>:<token>` must exist (logout deletes it), and the JWT's
   `tokenVersion` must equal the user's (a token signed before versions is 0),
@@ -372,17 +391,16 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   exactly one `Household` (`User.householdId`) with a `householdRole`
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The
   role has no default, so a member written without one fails rather than
-  becoming an owner; a trigger (`user_open_own_household`) opens a household
-  for a user inserted without one, as code predating households does, and
-  `row_inherit_household` fills an owned row's `householdId` from its `userId`
-  for code predating scoping; both go once no such deployment can serve. A
-  session or API-token route's handler receives `actor` (`MemberActor`,
-  `src/server/auth/householdActor.types.ts`: user, `HouseholdId`, role, API
-  token), which `resolveAuth` loads from the user's row on every request —
-  never from the JWT — so a role change or removal applies at once; an API
-  token follows its user into their current household. `HouseholdId` is a
-  branded string made only by `toHouseholdId`, so a user id cannot stand in
-  for one unconverted. The one write guard is
+  becoming an owner, and a user inserted without a household fails. A trigger
+  (`row_inherit_household`) fills an owned row's `householdId` from its
+  `userId` for code predating scoping; it goes once no such deployment can
+  serve. A session or API-token route's handler receives `actor`
+  (`MemberActor`, `src/server/auth/householdActor.types.ts`: user,
+  `HouseholdId`, role, API token), which `resolveAuth` loads from the user's
+  row on every request — never from the JWT — so a role change or removal
+  applies at once; an API token follows its user into their current
+  household. `HouseholdId` is a branded string made only by `toHouseholdId`,
+  so a user id cannot stand in for one unconverted. The one write guard is
   `assertCanWrite` (`src/server/auth/householdActor.ts`): `createHandler` calls
   it before any non-GET member handler, ahead of body parsing and rate
   limits, unless the route declares
@@ -649,7 +667,11 @@ callbacks, verification links — goes through `requireSiteUrl()`
 (`src/server/env.ts`), never a bare `WEBSITE_URL` read. Set that var on
 production and nowhere else: previews leave it unset and derive the origin from
 `VERCEL_BRANCH_URL`; production has that fallback gated off so a missing value
-fails loudly, and it is resolved before a signup's first write. The Telegram
+fails loudly, and it is resolved before a signup's first write. So is SMTP:
+`emailService` answers an unset `SMTP_*` var or a failed send with a 503
+`EMAIL_UNAVAILABLE` (`EmailUnavailableError`), and signup calls its
+`assertConfigured()` before any write, so an environment without mail refuses
+signups instead of leaving accounts no code can reach. The Telegram
 webhook must be registered with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})`.
 

@@ -23,6 +23,7 @@ const en = {
   'auth.verify.submit': 'Verify',
   'auth.verify.submitting': 'Verifying…',
   'auth.verify.failed': 'Failed to verify code',
+  'auth.error.emailUnavailable': "We couldn't send the email right now. Please try again later.",
   'auth.error.rateLimited': 'Too many attempts. Please try again later.',
 } satisfies Messages;
 
@@ -51,6 +52,7 @@ export const authMessages: Dictionary<typeof en> = {
     'auth.verify.submit': 'אימות',
     'auth.verify.submitting': 'מאמת…',
     'auth.verify.failed': 'אימות הקוד נכשל',
+    'auth.error.emailUnavailable': 'לא הצלחנו לשלוח את המייל כרגע. נסו שוב מאוחר יותר.',
     'auth.error.rateLimited': 'יותר מדי ניסיונות. נסו שוב מאוחר יותר.',
   },
 };

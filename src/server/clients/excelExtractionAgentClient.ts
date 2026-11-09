@@ -3,19 +3,23 @@ import { logger } from '@/server/observability';
 import { generateWebhookToken } from '@/server/utils/webhookAuth';
 import { lazy } from '@/server/lib/lazy';
 import { keySafeExtension } from '@/server/utils/storageObjectName';
-import { requireEnv, requireSiteUrl } from '@/server/env';
+import { optionalEnv, requireEnv, requireSiteUrl } from '@/server/env';
 import type {
   SubmitExtractionRequest,
   SubmitExtractionResponse,
 } from '@/server/clients/excelExtractionAgentClientTypes';
 
+const API_SECRET_ENV_VAR = 'EXCEL_EXTRACTION_AGENT_API_SECRET';
+
 export class ExcelExtractionAgentClient {
   private webhookBaseUrl: string;
   private serviceUrl: string;
+  private requestHeaders: Record<string, string>;
 
   public constructor() {
     this.serviceUrl = requireEnv('EXCEL_EXTRACTION_AGENT_URL');
     this.webhookBaseUrl = requireSiteUrl();
+    this.requestHeaders = this.buildRequestHeaders(optionalEnv(API_SECRET_ENV_VAR).trim());
   }
 
   public async submitExtractionRequest(
@@ -54,9 +58,7 @@ export class ExcelExtractionAgentClient {
       const client = axios.create({
         baseURL: this.serviceUrl,
         timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.requestHeaders,
       });
 
       const response = await client.post<SubmitExtractionResponse>('/api/extract', payload);
@@ -83,6 +85,20 @@ export class ExcelExtractionAgentClient {
 
       throw this.handleError(error, 'Failed to submit extraction request');
     }
+  }
+
+  // Unset still sends, so the website can deploy before the service starts requiring the secret.
+  private buildRequestHeaders(apiSecret: string): Record<string, string> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (!apiSecret) {
+      logger.warn(
+        { envVar: API_SECRET_ENV_VAR },
+        'Extraction service secret unset; calling it without authentication',
+      );
+      return headers;
+    }
+    headers.Authorization = `Bearer ${apiSecret}`;
+    return headers;
   }
 
   private formatError(error: unknown): unknown {

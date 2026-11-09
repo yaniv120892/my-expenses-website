@@ -1,7 +1,7 @@
 # Uploads and storage
 
-Load before changing a file upload, an attachment, an S3 key or bucket path, or a path that deletes
-transactions or files.
+Load before changing a file upload, an attachment, an S3 key or bucket path, a call to the
+extraction service, or a path that deletes transactions or files.
 
 ## One upload size cap
 
@@ -29,5 +29,21 @@ Import and attachment keys are a random id plus the lowercased extension
 (`src/server/utils/storageObjectName.ts`), since a key is logged and travels in URLs; the name
 lives in `Import.originalFileName` and `TransactionFile.fileName`, and the extraction service gets
 it as `filename`. Attachments uploaded before keep their name-bearing keys, which validation,
-preview, download and delete still accept; import objects are never deleted, and an old import
-URL still passes the bucket-prefix check.
+preview, download and delete still accept; import objects are never deleted.
+
+## An import is extracted only from its own uploader's folder, through a signed URL
+
+- The imports bucket is private. Upload stores `imports/<userId>/<uuid><ext>`
+  (`buildImportObjectKey`, `src/server/utils/importObjectKey.ts`) and answers the object's plain
+  URL, which `Import.fileUrl` keeps as an identifier.
+- `processImport` accepts only a URL that is, character for character, an object in the caller's
+  own folder (`ownImportObjectKey` — compared as a string, since a URL parser would resolve `..`
+  and escapes), because the extraction service reads whatever key the path names with its own
+  credentials.
+- It hands that service a GET URL presigned for 15 minutes (`presignImportDownload`,
+  `src/server/services/importFileStorage.ts`), whose path is the same key; the service ignores the
+  signature today, so the URL must stay virtual-hosted (a bucket name with a dot would sign
+  path-style and break the key).
+- Every call to the service carries `EXCEL_EXTRACTION_AGENT_API_SECRET` as a bearer token
+  (`src/server/clients/excelExtractionAgentClient.ts`); unset, it still submits and logs a warning.
+- Imports uploaded before the per-user folders cannot be resubmitted; their rows are unaffected.

@@ -19,7 +19,9 @@ const send = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/redis', () => redis);
 vi.mock('@/server/repositories/userRepository', () => ({ default: users }));
-vi.mock('@/server/services/emailService', () => ({ default: { send } }));
+vi.mock('@/server/services/emailService', () => ({
+  default: { send, assertConfigured: vi.fn() },
+}));
 vi.mock('@/server/services/announcementService', () => ({
   default: { acknowledgeAllForNewUser: vi.fn() },
 }));

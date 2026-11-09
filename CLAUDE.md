@@ -22,7 +22,9 @@ repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
 `node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
 typecheck, unit tests and the build — and in a parallel `e2e` job both e2e
 suites against a Postgres service container. Bump the tag in both places
-together.
+together. CI runs on pull requests only, to save Actions minutes on the private
+repo: `e2e` skips docs-only diffs and Dependabot patch/minor bumps but still
+reports success, so the required check passes.
 
 ## Docs
 
@@ -50,8 +52,8 @@ Short docs, one topic each. Load the one whose trigger matches your task.
   request limits, the assistant. Load before changing a model call or a prompt.
 - [docs/personal-agent-mcp.md](docs/personal-agent-mcp.md) — `/api/mcp` and its tools, agent
   dates. Load before changing an MCP tool or the agent briefing.
-- [docs/uploads-and-storage.md](docs/uploads-and-storage.md) — the upload cap, S3 keys and
-  attachment deletion. Load before changing an upload or a delete path.
+- [docs/uploads-and-storage.md](docs/uploads-and-storage.md) — the upload cap, S3 keys,
+  import extraction URLs and attachment deletion. Load before changing an upload or a delete path.
 - [docs/telegram.md](docs/telegram.md) — chat linking and the bot webhook. Load before changing
   Telegram notifications or Settings → Telegram.
 - [docs/redis.md](docs/redis.md) — key namespacing across previews. Load before writing a Redis

@@ -10,7 +10,8 @@ All API endpoints live in `src/app/api/**/route.ts`. Most are built with `create
 
 - resolves auth (`session` | `apiToken` | `cron` | `telegram` | `public`) →
   [auth-and-api-tokens.md](auth-and-api-tokens.md), before changing who may call a route;
-- zod-validates body/query;
+- zod-validates body/query, and answers 400 to a body that does not parse — malformed JSON on a
+  `bodySchema` route, or anything but a form when a handler reads `request.formData()`;
 - validates dynamic route params as uuids by default through `recordIdSchema` (a route with a
   non-uuid segment must declare its own `paramsSchema`);
 - enforces per-route rate limits (`src/server/http/rateLimit.ts`; required on `public` routes —

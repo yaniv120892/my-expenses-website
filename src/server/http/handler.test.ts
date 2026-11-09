@@ -178,3 +178,64 @@ describe('createHandler secret auth', () => {
     expect(accepted.status).toBe(200);
   });
 });
+
+describe('createHandler form body', () => {
+  const route = createHandler({
+    auth: 'public',
+    rateLimit: 'none',
+    handler: async ({ request }) => ({ name: (await request.formData()).get('name') }),
+  });
+
+  function post(init: { body: BodyInit; headers?: Record<string, string> }): NextRequest {
+    return new NextRequest('http://localhost/api/form', { method: 'POST', ...init });
+  }
+
+  it.each([
+    {
+      caseName: 'a form route is sent JSON',
+      body: JSON.stringify({ name: 'x' }),
+      contentType: 'application/json',
+    },
+    {
+      caseName: 'a multipart body is cut short',
+      body: '--boundary\r\nContent-Disposition: form-data; name="name"\r\n\r\nx',
+      contentType: 'multipart/form-data; boundary=boundary',
+    },
+  ])('answers 400 when $caseName', async ({ body, contentType }) => {
+    const response = await route(
+      post({ body, headers: { 'content-type': contentType } }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ message: 'Invalid multipart/form-data body' });
+    expect(loggerMock.error).not.toHaveBeenCalled();
+  });
+
+  it('still reads a well-formed form', async () => {
+    const form = new FormData();
+    form.append('name', 'x');
+
+    const response = await route(post({ body: form }), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ name: 'x' });
+  });
+
+  it('keeps a second read of a consumed body a 500', async () => {
+    const readsTwice = createHandler({
+      auth: 'public',
+      rateLimit: 'none',
+      handler: async ({ request }) => {
+        await request.text();
+        return { name: (await request.formData()).get('name') };
+      },
+    });
+    const form = new FormData();
+    form.append('name', 'x');
+
+    const response = await readsTwice(post({ body: form }), ROUTE_CONTEXT);
+
+    expect(response.status).toBe(500);
+  });
+});

@@ -61,8 +61,52 @@ describe('reportError', () => {
     });
 
     expect(captureException).toHaveBeenCalledWith(error, {
-      tags: { userId: 'user-1', toolName: 'add_transaction', where: 'MCP tool failed' },
+      tags: { toolName: 'add_transaction', where: 'MCP tool failed' },
       extra: { userId: 'user-1', toolName: 'add_transaction', token: '[redacted]' },
     });
+  });
+
+  it('keeps importId and requestId as tags, so a failed import stays searchable in Sentry', () => {
+    const error = new Error('extraction failed');
+
+    observability.reportError({
+      error,
+      where: 'Error processing webhook',
+      context: { importId: 'import-1', requestId: 'request-1' },
+    });
+
+    expect(captureException).toHaveBeenCalledWith(error, {
+      tags: {
+        importId: 'import-1',
+        requestId: 'request-1',
+        where: 'Error processing webhook',
+      },
+      extra: { importId: 'import-1', requestId: 'request-1' },
+    });
+  });
+});
+
+describe('logger', () => {
+  it('withholds a Prisma error message, which quotes query arguments, keeping its code', () => {
+    const quotedEmail = 'alice@example.com';
+    const prismaError = Object.assign(
+      new Error(`Unique constraint failed on the fields: (\`email\`) = ${quotedEmail}`),
+      { code: 'P2002', name: 'PrismaClientKnownRequestError' },
+    );
+    const lines: string[] = [];
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      lines.push(String(chunk));
+      return true;
+    });
+
+    try {
+      observability.logger.error({ err: prismaError }, 'prisma_message_probe');
+    } finally {
+      stdoutWrite.mockRestore();
+    }
+
+    const logged = lines.join('');
+    expect(logged).toContain('P2002');
+    expect(logged).not.toContain(quotedEmail);
   });
 });

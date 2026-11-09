@@ -99,7 +99,7 @@ describe('a failed attachment-object delete', () => {
     expect(captureException).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Attachment object delete failed: AccessDenied' }),
       {
-        tags: expect.objectContaining({ transactionId: TRANSACTION_ID, fileId: FILE_ID }),
+        tags: { where: 'Failed to delete attachment object from storage' },
         extra: { transactionId: TRANSACTION_ID, fileId: FILE_ID },
       },
     );

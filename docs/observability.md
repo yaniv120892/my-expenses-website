@@ -32,8 +32,10 @@ line gets out; `createHandler` also flushes before a cron's heartbeat ping. Unse
   `digest`.
 - A path that catches an error and returns a fallback calls
   `observability.reportError({ error, where, context })`, not `logger.error`, so the error
-  outlives Better Stack's retention; Sentry gets the `context` as `extra` and its short values as
-  tags beside `where`, so the ids a call site passes are searchable there.
+  outlives Better Stack's retention; Sentry gets the `context` as `extra`, and as tags beside
+  `where` only the values the package allows plus the keys in `sentryTagKeys`
+  (`src/server/observability.ts`): on a `reportError` event, a string id outside that list is not
+  searchable.
 - Only ids and fixed labels go in `context` — never a file name, an attachment key (an older one
   ends with one), an email or free text; what a human needs beyond the ids goes in a separate
   `logger` line.

@@ -3,6 +3,8 @@ import { compare, hash } from 'bcryptjs';
 import crypto from 'crypto';
 import type * as RateLimitModule from '@/server/http/rateLimit';
 import type * as NextServerModule from 'next/server';
+import type * as EmailServiceModule from '@/server/services/emailService';
+import type * as ObservabilityModule from '@/server/observability';
 import { NextRequest } from 'next/server';
 
 type StoredUser = {
@@ -16,17 +18,20 @@ type StoredUser = {
   tokenVersion: number;
 };
 
-const { store, users, send, enforceRateLimits, deleteAllApiTokens } = vi.hoisted(() => {
-  vi.stubEnv('JWT_SECRET', 'password-ownership-test-secret');
-  vi.stubEnv('WEBSITE_URL', 'https://expenses.example');
-  return {
-    store: new Map<string, unknown>(),
-    users: new Map<string, StoredUser>(),
-    send: vi.fn(),
-    enforceRateLimits: vi.fn(),
-    deleteAllApiTokens: vi.fn(),
-  };
-});
+const { store, users, send, enforceRateLimits, deleteAllApiTokens, reportError } = vi.hoisted(
+  () => {
+    vi.stubEnv('JWT_SECRET', 'password-ownership-test-secret');
+    vi.stubEnv('WEBSITE_URL', 'https://expenses.example');
+    return {
+      store: new Map<string, unknown>(),
+      users: new Map<string, StoredUser>(),
+      send: vi.fn(),
+      enforceRateLimits: vi.fn(),
+      deleteAllApiTokens: vi.fn(),
+      reportError: vi.fn(),
+    };
+  },
+);
 
 // JSON round trip, as the Redis client stores values.
 vi.mock('@/server/redis', () => ({
@@ -42,11 +47,6 @@ vi.mock('@/server/redis', () => ({
   deleteValue: async (key: string) => {
     store.delete(key);
   },
-  deleteKeysWithPrefix: async (prefix: string) => {
-    const matching = [...store.keys()].filter((key) => key.startsWith(prefix));
-    matching.forEach((key) => store.delete(key));
-    return matching.length;
-  },
   incrementWithTtl: async (key: string) => {
     const count = Number(store.get(key) ?? 0) + 1;
     store.set(key, count);
@@ -58,7 +58,36 @@ function memberOf(id: string) {
   return { id, householdId: `household-${id}`, householdRole: 'OWNER' as const, tokenVersion: 0 };
 }
 
-vi.mock('@/server/repositories/userRepository', () => {
+// The repository's own password write runs, so a revert of its tokenVersion
+// bump fails these specs.
+vi.mock('@/server/db/client', () => ({
+  default: {
+    user: {
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { password?: string; tokenVersion?: { increment: number } };
+      }) => {
+        const user = users.get(where.id);
+        if (!user) {
+          throw new Error(`no user ${where.id}`);
+        }
+        if (data.password !== undefined) {
+          user.password = data.password;
+        }
+        if (data.tokenVersion) {
+          user.tokenVersion += data.tokenVersion.increment;
+        }
+        return { ...user };
+      },
+    },
+  },
+}));
+
+vi.mock('@/server/repositories/userRepository', async (importActual) => {
+  const actual = await importActual<{ default: { updatePassword: unknown } }>();
   const byEmail = (email: string) => [...users.values()].find((user) => user.email === email);
   return {
     default: {
@@ -66,7 +95,11 @@ vi.mock('@/server/repositories/userRepository', () => {
         [...users.values()].find((user) => user.email === email || user.username === username) ??
         null,
       findByEmail: async (email: string) => byEmail(email) ?? null,
-      findById: async (id: string) => users.get(id) ?? null,
+      // A copy, as a database read is: a later write must not show through it.
+      findById: async (id: string) => {
+        const user = users.get(id);
+        return user ? { ...user } : null;
+      },
       findMembership: async (id: string) => users.get(id) ?? null,
       createUser: async (email: string, username: string, password: string) => {
         const id = `user-${users.size + 1}`;
@@ -82,13 +115,7 @@ vi.mock('@/server/repositories/userRepository', () => {
         Object.assign(user, { verified: true, password });
         return user;
       },
-      updatePassword: async (id: string, password: string) => {
-        const user = users.get(id);
-        if (!user) {
-          throw new Error(`no user ${id}`);
-        }
-        user.password = password;
-      },
+      updatePassword: actual.default.updatePassword,
     },
   };
 });
@@ -96,7 +123,14 @@ vi.mock('@/server/repositories/userRepository', () => {
 vi.mock('@/server/repositories/apiTokenRepository', () => ({
   apiTokenRepository: { deleteAllForUser: deleteAllApiTokens },
 }));
-vi.mock('@/server/services/emailService', () => ({ default: { send } }));
+vi.mock('@/server/services/emailService', async (importActual) => ({
+  ...(await importActual<typeof EmailServiceModule>()),
+  default: { send, assertConfigured: vi.fn() },
+}));
+vi.mock('@/server/observability', async (importActual) => {
+  const actual = await importActual<typeof ObservabilityModule>();
+  return { ...actual, observability: { ...actual.observability, reportError } };
+});
 vi.mock('@/server/services/announcementService', () => ({
   default: { acknowledgeAllForNewUser: vi.fn() },
 }));
@@ -117,6 +151,7 @@ import { POST as confirmReset } from '@/app/api/auth/password-reset/confirm/rout
 import { PUT as changePassword } from '@/app/api/auth/password/route';
 import { GET as me } from '@/app/api/auth/me/route';
 import userRepository from '@/server/repositories/userRepository';
+import { EmailUnavailableError } from '@/server/services/emailService';
 
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 const OWNER_EMAIL = 'owner@example.com';
@@ -164,10 +199,6 @@ function mailedResetToken(index: number): string {
     throw new Error(`no reset link in mail ${index}`);
   }
   return token;
-}
-
-function sessionKeys(): string[] {
-  return [...store.keys()].filter((key) => key.startsWith('session:'));
 }
 
 function owner(): StoredUser {
@@ -254,23 +285,19 @@ describe('signup for a pending address', () => {
 });
 
 describe('login racing a password reset', () => {
-  // Regression: the reset swept sessions while the login was still comparing
-  // the old password, so the session it stored afterwards survived the reset.
-  it('stores no session when the password changed during the compare', async () => {
+  // A login that read the user before a reset landed holds the old password's
+  // token version, so the session it hands out is refused.
+  it('refuses a session minted with the password a reset replaced mid-compare', async () => {
     await seedVerifiedOwner();
     vi.spyOn(userRepository, 'findByEmailOrUsername').mockImplementationOnce(async () => {
       const readBeforeReset = { ...owner() };
-      owner().password = await hash(NEW_PASSWORD, 4);
+      await userRepository.updatePassword(owner().id, await hash(NEW_PASSWORD, 4));
       return readBeforeReset;
     });
 
-    const response = await login(
-      request({ path: '/api/auth/login', body: { email: OWNER_EMAIL, password: OWNER_PASSWORD } }),
-      ROUTE_CONTEXT,
-    );
+    const token = await logIn(OWNER_PASSWORD);
 
-    expect(response.status).not.toBe(200);
-    expect(sessionKeys()).toEqual([]);
+    expect(await meStatus(token)).toBe(401);
   });
 });
 
@@ -290,6 +317,29 @@ describe('password reset', () => {
     expect(unknown.status).toBe(known.status);
     expect(await unknown.json()).toEqual(await known.json());
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: a failed send answered 503 for a registered address and 200 for
+  // an unknown one, which told a caller the address was registered.
+  it('answers a registered address whose mail fails exactly as an unknown one', async () => {
+    await seedVerifiedOwner();
+    send.mockRejectedValue(new EmailUnavailableError({ cause: new Error('ECONNREFUSED') }));
+
+    const known = await requestReset(
+      request({ path: '/api/auth/password-reset/request', body: { email: OWNER_EMAIL } }),
+      ROUTE_CONTEXT,
+    );
+    const unknown = await requestReset(
+      request({ path: '/api/auth/password-reset/request', body: { email: 'nobody@example.com' } }),
+      ROUTE_CONTEXT,
+    );
+
+    expect(known.status).toBe(200);
+    expect(unknown.status).toBe(known.status);
+    expect(await known.json()).toEqual(await unknown.json());
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ context: { userId: owner().id } }),
+    );
   });
 
   it('sets the new password once, ends every session, and refuses the link a second time', async () => {

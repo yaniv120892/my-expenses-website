@@ -12,8 +12,6 @@ const getClient = lazy(
 
 export type KeyScope = 'build' | 'branch';
 
-const SCAN_BATCH_SIZE = 500;
-
 export function redisKeyPrefix(scope: KeyScope = 'build'): string {
   const environment = process.env.VERCEL_ENV;
   // Production stays bare: prefixing it would orphan every session and cache
@@ -53,26 +51,6 @@ export async function takeValue<T = unknown>(
 
 export async function deleteValue(key: string, scope: KeyScope = 'build'): Promise<void> {
   await getClient().del(namespacedKey(key, scope));
-}
-
-// SCAN walks the whole keyspace, so this is for rare writes (a password change),
-// never a request's hot path.
-export async function deleteKeysWithPrefix(
-  keyPrefix: string,
-  scope: KeyScope = 'build',
-): Promise<number> {
-  const client = getClient();
-  const match = `${escapeGlob(namespacedKey(keyPrefix, scope))}*`;
-  let cursor = '0';
-  let deleted = 0;
-  do {
-    const [nextCursor, keys] = await client.scan(cursor, { match, count: SCAN_BATCH_SIZE });
-    if (keys.length > 0) {
-      deleted += await client.del(...keys);
-    }
-    cursor = nextCursor;
-  } while (cursor !== '0');
-  return deleted;
 }
 
 export async function incrementWithTtl(
@@ -164,9 +142,4 @@ function discriminator(scope: KeyScope, environment: string): string {
 
 function namespacedKey(key: string, scope: KeyScope): string {
   return `${redisKeyPrefix(scope)}${key}`;
-}
-
-// A preview's prefix carries its branch name, which may hold glob syntax.
-function escapeGlob(literal: string): string {
-  return literal.replace(/[*?[\]\\]/g, '\\$&');
 }

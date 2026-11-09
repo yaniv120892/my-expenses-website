@@ -405,12 +405,14 @@ in plain `.ts` modules. `@yaniv120892/my-ui` is inlined for Vite
   only while `passwordResetFor:<userId>` still names it, so the next request
   supersedes it even when two race. Change password (`PUT /api/auth/password`, session only, five tries
   per user per 15 minutes) needs the current one. A reset or change ends every
-  session of the user (`invalidateAllSessions`, a SCAN over
-  `session:<userId>:`) and voids an outstanding reset link; a change then
-  issues the caller a fresh session. A login re-reads the hash after storing
-  its session and drops it if the password changed meanwhile, so a sweep
-  racing the compare cannot miss it. A reset also deletes every API token,
-  being account recovery; a change keeps them.
+  session of the user by bumping `tokenVersion` in the same write as the hash
+  (`userRepository.updatePassword`) and voids an outstanding reset link; a
+  change then issues the caller a fresh session at the new version. A login
+  signs the version it read beside the hash, so a reset racing its compare
+  leaves it a refused session. A reset also deletes every API token, being
+  account recovery; a change keeps them. A reset mail that fails to send is
+  reported and answered as sent, since a 503 only a registered address could
+  get would reveal it.
 - **Households own the data; a member acts in one.** Every user belongs to
   exactly one `Household` (`User.householdId`) with a `householdRole`
   (`OWNER | EDITOR | VIEWER`); signup opens one with the user as owner. The

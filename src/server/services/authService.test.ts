@@ -21,7 +21,6 @@ const users = vi.hoisted(() => ({
 const sessions = vi.hoisted(() => ({
   storeSession: vi.fn(),
   invalidateSession: vi.fn(),
-  invalidateAllSessions: vi.fn(),
 }));
 
 const send = vi.hoisted(() => vi.fn());

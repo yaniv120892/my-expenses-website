@@ -2,11 +2,12 @@ import { hash, compare } from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { setValue, getValue, deleteValue, incrementWithTtl, takeValue } from '@/server/redis';
-import { invalidateAllSessions, invalidateSession, storeSession } from '@/server/auth/session';
+import { invalidateSession, storeSession } from '@/server/auth/session';
 import { signToken, tokenTtlSeconds } from '@/server/auth/tokens';
 import userRepository from '@/server/repositories/userRepository';
 import { apiTokenRepository } from '@/server/repositories/apiTokenRepository';
-import emailService from '@/server/services/emailService';
+import emailService, { EmailUnavailableError } from '@/server/services/emailService';
+import { observability } from '@/server/observability';
 import announcementService from '@/server/services/announcementService';
 import { requireSiteUrl } from '@/server/env';
 import { secretsEqual } from '@/server/utils/webhookAuth';
@@ -89,15 +90,10 @@ class AuthService {
     if (user.verified === false) {
       return { error: 'User not verified' };
     }
+    // Signed with the version read beside the hash, so a reset landing during
+    // the compare bumps it and this session is refused.
     const token = await signToken({ userId: user.id, tokenVersion: user.tokenVersion });
     await storeSession(user.id, token, tokenTtlSeconds());
-    // A reset landing during the compare sweeps sessions before this one is
-    // stored; re-reading the hash catches it, so the old password buys nothing.
-    const current = await userRepository.findById(user.id);
-    if (current?.password !== user.password) {
-      await invalidateSession(user.id, token);
-      return { error: 'Invalid credentials' };
-    }
     return { token, userId: user.id };
   }
 
@@ -159,12 +155,25 @@ class AuthService {
       'branch',
     );
     const resetUrl = this.passwordResetUrl(websiteUrl, token);
-    await emailService.send({
-      to: email,
-      subject: 'Reset your password',
-      text: this.generatePasswordResetEmailText(resetUrl),
-      html: this.generatePasswordResetEmailHtml(resetUrl),
-    });
+    try {
+      await emailService.send({
+        to: email,
+        subject: 'Reset your password',
+        text: this.generatePasswordResetEmailText(resetUrl),
+        html: this.generatePasswordResetEmailHtml(resetUrl),
+      });
+    } catch (error) {
+      // Answered as sent: a 503 only a registered address could trigger would
+      // tell the caller it is registered.
+      if (!(error instanceof EmailUnavailableError)) {
+        throw error;
+      }
+      observability.reportError({
+        error,
+        where: 'Failed to send a password reset email',
+        context: { userId: user.id },
+      });
+    }
   }
 
   public async resetPassword(token: string, newPassword: string) {
@@ -198,9 +207,9 @@ class AuthService {
     if (!user || !(await compare(currentPassword, user.password))) {
       return { error: 'Current password is incorrect' };
     }
-    await this.replacePassword(userId, newPassword);
+    const tokenVersion = await this.replacePassword(userId, newPassword);
     await this.revokePasswordReset(userId);
-    const token = await signToken({ userId, tokenVersion: user.tokenVersion });
+    const token = await signToken({ userId, tokenVersion });
     await storeSession(userId, token, tokenTtlSeconds());
     return { token, userId };
   }
@@ -225,10 +234,9 @@ class AuthService {
   }
 
   // Every session ends, the caller's included: a password is changed or reset
-  // because someone else may know the old one.
-  private async replacePassword(userId: string, newPassword: string): Promise<void> {
-    await userRepository.updatePassword(userId, await hash(newPassword, BCRYPT_ROUNDS));
-    await invalidateAllSessions(userId);
+  // because someone else may know the old one. Returns the new token version.
+  private async replacePassword(userId: string, newPassword: string): Promise<number> {
+    return userRepository.updatePassword(userId, await hash(newPassword, BCRYPT_ROUNDS));
   }
 
   private async revokePasswordReset(userId: string): Promise<void> {

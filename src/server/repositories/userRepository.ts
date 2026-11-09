@@ -66,8 +66,14 @@ class UserRepository {
     });
   }
 
-  public async updatePassword(userId: string, passwordHash: string): Promise<void> {
-    await prisma.user.update({ where: { id: userId }, data: { password: passwordHash } });
+  /** Bumps `tokenVersion` with the hash, so every session signed before is refused. */
+  public async updatePassword(userId: string, passwordHash: string): Promise<number> {
+    const { tokenVersion } = await prisma.user.update({
+      where: { id: userId },
+      data: { password: passwordHash, tokenVersion: { increment: 1 } },
+      select: { tokenVersion: true },
+    });
+    return tokenVersion;
   }
 
   public async getUserSettings(userId: string) {

@@ -329,17 +329,17 @@ async function authLifecycleFlow(): Promise<void> {
   check('auth: me after logout is rejected', meAfter.status === 401, `status ${meAfter.status}`);
 }
 
-// Runs the session sweep against the Redis REST API, which a unit test's
-// in-memory store cannot stand in for.
+// Runs the tokenVersion bump against Postgres, which a unit test's in-memory
+// user cannot stand in for.
 async function passwordChangeFlow(): Promise<void> {
   const email = 'password-change@e2e.test';
   const password = 'e2e-old-password';
   const newPassword = 'e2e-new-password';
-  await query(
-    `insert into "User" (id, username, email, password, verified)
-     values (gen_random_uuid(), 'e2e-password-change', $1, $2, true)`,
-    [email, await hash(password, 10)],
-  );
+  await insertVerifiedUser({
+    username: 'e2e-password-change',
+    email,
+    passwordHash: await hash(password, 10),
+  });
   const logIn = async (withPassword: string) =>
     (
       await api<{ token?: string }>('POST', '/api/auth/login', {

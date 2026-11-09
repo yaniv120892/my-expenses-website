@@ -14,12 +14,12 @@ const API_SECRET_ENV_VAR = 'EXCEL_EXTRACTION_AGENT_API_SECRET';
 export class ExcelExtractionAgentClient {
   private webhookBaseUrl: string;
   private serviceUrl: string;
-  private apiSecret: string;
+  private requestHeaders: Record<string, string>;
 
   public constructor() {
     this.serviceUrl = requireEnv('EXCEL_EXTRACTION_AGENT_URL');
     this.webhookBaseUrl = requireSiteUrl();
-    this.apiSecret = optionalEnv(API_SECRET_ENV_VAR);
+    this.requestHeaders = this.buildRequestHeaders(optionalEnv(API_SECRET_ENV_VAR).trim());
   }
 
   public async submitExtractionRequest(
@@ -58,7 +58,7 @@ export class ExcelExtractionAgentClient {
       const client = axios.create({
         baseURL: this.serviceUrl,
         timeout: 30000,
-        headers: this.requestHeaders(),
+        headers: this.requestHeaders,
       });
 
       const response = await client.post<SubmitExtractionResponse>('/api/extract', payload);
@@ -88,15 +88,16 @@ export class ExcelExtractionAgentClient {
   }
 
   // Unset still sends, so the website can deploy before the service starts requiring the secret.
-  private requestHeaders(): Record<string, string> {
+  private buildRequestHeaders(apiSecret: string): Record<string, string> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (!this.apiSecret) {
+    if (!apiSecret) {
       logger.warn(
-        `${API_SECRET_ENV_VAR} is unset; calling the extraction service without authentication`,
+        { envVar: API_SECRET_ENV_VAR },
+        'Extraction service secret unset; calling it without authentication',
       );
       return headers;
     }
-    headers.Authorization = `Bearer ${this.apiSecret}`;
+    headers.Authorization = `Bearer ${apiSecret}`;
     return headers;
   }
 

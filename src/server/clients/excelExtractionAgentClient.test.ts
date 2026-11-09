@@ -87,7 +87,8 @@ describe('submitExtractionRequest', () => {
     expect(sentHeaders()).toMatchObject({ 'Content-Type': 'application/json' });
     expect(sentHeaders()).not.toHaveProperty('Authorization');
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('EXCEL_EXTRACTION_AGENT_API_SECRET is unset'),
+      { envVar: 'EXCEL_EXTRACTION_AGENT_API_SECRET' },
+      'Extraction service secret unset; calling it without authentication',
     );
   });
 });

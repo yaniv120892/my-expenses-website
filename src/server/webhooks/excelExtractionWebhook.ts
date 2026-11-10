@@ -14,6 +14,7 @@ import importedAmountService from '@/server/services/importedAmountService';
 import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
+import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
 
 export type WebhookResult = {
   status: number;
@@ -60,6 +61,12 @@ function recogniseCurrencies<T extends ReportedCurrencies>(row: T): T {
   };
 }
 
+// A row's description reaches the matching prompt and is sent back on approval, where the
+// request schema refuses anything longer.
+function capDescription(description: string): string {
+  return description.slice(0, DESCRIPTION_MAX_LENGTH);
+}
+
 // Validates only what the handlers consume, and tolerantly: a day written
 // 5/8/2026 or no card digits is still worth importing.
 const extractionResultSchema = z.object({
@@ -67,7 +74,7 @@ const extractionResultSchema = z.object({
     z
       .object({
         date: z.string().regex(/^\d{1,2}\/\d{1,2}\/\d{4}$/),
-        description: z.string(),
+        description: z.string().transform(capDescription),
         value: z.number(),
         type: z.enum(['EXPENSE', 'INCOME']),
         rawData: z

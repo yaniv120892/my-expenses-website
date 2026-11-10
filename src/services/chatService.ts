@@ -1,6 +1,7 @@
 import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
 import { redirectToSessionExpired } from '@/utils/hardNavigate';
+import { messageField } from '@/utils/errorMessageField';
 
 export type StreamHandlers = {
   onDelta: (delta: string) => void;
@@ -27,7 +28,7 @@ export const streamMessage = async (
   }
 
   if (!response.ok || !response.body) {
-    handlers.onError(`Request failed with status ${response.status}`);
+    handlers.onError(await failureMessage(response));
     return;
   }
 
@@ -70,3 +71,13 @@ export const streamMessage = async (
 
   handlers.onDone();
 };
+
+async function failureMessage(response: Response): Promise<string> {
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // A body that is not JSON falls back to the status.
+  }
+  return messageField(body) ?? `Request failed with status ${response.status}`;
+}

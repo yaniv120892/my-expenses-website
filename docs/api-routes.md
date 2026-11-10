@@ -15,7 +15,8 @@ All API endpoints live in `src/app/api/**/route.ts`. Most are built with `create
 - validates dynamic route params as uuids by default through `recordIdSchema` (a route with a
   non-uuid segment must declare its own `paramsSchema`);
 - enforces per-route rate limits (`src/server/http/rateLimit.ts`; required on `public` routes —
-  declare rules or an explicit `'none'`);
+  declare rules or an explicit `'none'`). These fail open; a path that spends money also passes a
+  cost fence that fails closed → [cost-fences.md](cost-fences.md), before adding a paid route;
 - sets the actor for attribution and calls the household write guard before any non-GET member
   handler →
   [households.md](households.md), before adding a write route;

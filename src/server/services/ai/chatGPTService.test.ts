@@ -113,6 +113,21 @@ describe('ChatGPTService.evaluateCategory', () => {
     });
   });
 
+  it('asks a cheap model for a capped answer unless OPENAI_MODEL overrides it', async () => {
+    delete process.env.OPENAI_MODEL;
+    hangingFetch.mockImplementationOnce(async () =>
+      jsonResponse(200, { choices: [{ message: { role: 'assistant', content: 'Food' } }] }),
+    );
+
+    await new ChatGPTService().evaluateCategory('coffee', categories);
+
+    const [, init] = hangingFetch.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: 'gpt-4o-mini',
+      max_tokens: 50,
+    });
+  });
+
   it('returns no name when the completion has no choices', async () => {
     hangingFetch.mockImplementationOnce(async () =>
       jsonResponse(200, { choices: [], usage: { prompt_tokens: 140 } }),

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { recordIdSchema, transactionStatusSchema, transactionTypeSchema } from './common';
+import {
+  descriptionSchema,
+  recordIdSchema,
+  transactionStatusSchema,
+  transactionTypeSchema,
+} from './common';
 import { currencyCodeSchema } from '@/shared/currency';
 import { positiveAmountSchema, positiveRateSchema } from './amount';
 
@@ -29,7 +34,7 @@ function requireAnAmount(
 
 export const createTransactionSchema = z
   .object({
-    description: z.string(),
+    description: descriptionSchema,
     ...transactionAmountFields,
     categoryId: recordIdSchema.optional(),
     type: transactionTypeSchema,
@@ -40,7 +45,7 @@ export type CreateTransactionRequest = z.infer<typeof createTransactionSchema>;
 
 export const updateTransactionSchema = z
   .object({
-    description: z.string(),
+    description: descriptionSchema,
     ...transactionAmountFields,
     categoryId: recordIdSchema,
     type: transactionTypeSchema,

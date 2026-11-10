@@ -149,6 +149,16 @@ describe('GeminiService.evaluateCategory', () => {
     );
   });
 
+  it('caps the output, leaving room for a thinking model to reason', async () => {
+    generateContent.mockResolvedValue(textResponse('Taxi'));
+
+    await new GeminiService().evaluateCategory('GETT', categories);
+
+    expect(generateContent.mock.calls[0]?.[0].generationConfig).toEqual({
+      maxOutputTokens: 2048,
+    });
+  });
+
   it('keeps an answer that names no offered category, without an id', async () => {
     generateContent.mockResolvedValue(textResponse('Transportation'));
 

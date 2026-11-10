@@ -6,6 +6,7 @@ import { resolve } from 'path';
 import { optionalEnv } from '../src/server/env';
 import type { CategorySuggester } from '../src/server/services/ai/aiProvider';
 import AIServiceFactory from '../src/server/services/ai/aiServiceFactory';
+import { DEFAULT_OPENAI_MODEL } from '../src/server/services/ai/chatGPTService';
 import { GeminiService } from '../src/server/services/ai/geminiService';
 import { JevCategorySuggester } from '../src/server/services/ai/jevCategorySuggester';
 import { getErrorMessage } from '../src/server/utils/errorUtils';
@@ -118,7 +119,7 @@ function routeOpenAiThroughGatewayWithoutOwnKey(): void {
       'Set OPENAI_API_KEY for the LLM side, or AI_GATEWAY_API_KEY to route it through Vercel AI Gateway',
     );
   }
-  const model = optionalEnv('OPENAI_MODEL', 'gpt-4-turbo');
+  const model = optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
   process.env.OPENAI_API_KEY = gatewayKey;
   process.env.OPENAI_BASE_URL = GATEWAY_OPENAI_BASE_URL;
   process.env.OPENAI_MODEL = model.startsWith(GATEWAY_MODEL_PREFIX)

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { installFakeCounterStore } from '@/test/fakeCounterStore';
 import type * as ObservabilityModule from '@/server/observability';
 
 const {
@@ -62,6 +63,8 @@ import type { CategorySuggester } from '@/server/services/ai/aiProvider';
 import { testMemberActor } from '@/test/memberActor';
 import { systemActor } from '@/server/auth/householdActor';
 import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
+import { CATEGORIZATION_HOUSEHOLD_DAILY_LIMIT } from '@/server/costFences';
+import { CustomValidationError } from '@/server/errors/validationError';
 
 const ACTOR = testMemberActor({ userId: 'user-1' });
 const HOUSEHOLD_ID = ACTOR.householdId;
@@ -78,11 +81,15 @@ const categorySuggester: CategorySuggester = {
   modelName: () => 'test-model',
 };
 
-const getSuggestedCategory = () =>
-  transactionService['getSuggestedCategory'](HOUSEHOLD_ID, 'Pizza', CATEGORIES);
+const getSuggestedCategory = (householdId = HOUSEHOLD_ID) =>
+  transactionService['getSuggestedCategory'](householdId, 'Pizza', CATEGORIES);
+
+const counters = installFakeCounterStore();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('CATEGORIZATION_ENABLED', '');
+  vi.stubEnv('CATEGORIZATION_GLOBAL_DAILY_LIMIT', '');
   activity.entries.length = 0;
   findByDescription.mockResolvedValue(null);
   suggestCategory.mockResolvedValue('cat-ai');
@@ -287,6 +294,67 @@ describe('getSuggestedCategory', () => {
   it('returns null when the AI service has no answer', async () => {
     suggestCategory.mockResolvedValue(null);
     expect(await getSuggestedCategory()).toBeNull();
+  });
+});
+
+describe('categorization budget', () => {
+  it('asks the model up to the household daily limit, then falls back without asking', async () => {
+    for (let asked = 0; asked < CATEGORIZATION_HOUSEHOLD_DAILY_LIMIT; asked += 1) {
+      expect(await getSuggestedCategory()).toBe('cat-ai');
+    }
+    suggestCategory.mockClear();
+
+    expect(await getSuggestedCategory()).toBeNull();
+    expect(suggestCategory).not.toHaveBeenCalled();
+  });
+
+  it('stops every household once the global daily budget is spent', async () => {
+    vi.stubEnv('CATEGORIZATION_GLOBAL_DAILY_LIMIT', '1');
+    await getSuggestedCategory();
+
+    const otherHousehold = testMemberActor({ userId: 'user-2' }).householdId;
+    const category = await getSuggestedCategory(otherHousehold);
+
+    expect(category).toBeNull();
+    expect(suggestCategory).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks no model when the counter store is down', async () => {
+    counters.goDown();
+
+    expect(await getSuggestedCategory()).toBeNull();
+    expect(suggestCategory).not.toHaveBeenCalled();
+  });
+
+  it('asks no model while CATEGORIZATION_ENABLED is false', async () => {
+    vi.stubEnv('CATEGORIZATION_ENABLED', 'false');
+
+    expect(await getSuggestedCategory()).toBeNull();
+    expect(suggestCategory).not.toHaveBeenCalled();
+  });
+
+  it('spends no budget on a description the household already mapped', async () => {
+    findByDescription.mockResolvedValue({ categoryId: 'cat-rent' });
+
+    await getSuggestedCategory();
+
+    expect(counters.keys()).toEqual([]);
+  });
+
+  it('asks the user to choose a category when the budget refuses, writing nothing', async () => {
+    getAllCategories.mockResolvedValue(CATEGORIES);
+    counters.goDown();
+
+    await expect(
+      transactionService['updateCategory'](HOUSEHOLD_ID, {
+        description: 'Pizza',
+        value: 30,
+        type: 'EXPENSE',
+        categoryId: null,
+        date: null,
+      }),
+    ).rejects.toBeInstanceOf(CustomValidationError);
+    expect(suggestCategory).not.toHaveBeenCalled();
   });
 });
 

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { recordIdSchema, scheduleTypeSchema, transactionTypeSchema } from './common';
+import {
+  descriptionSchema,
+  recordIdSchema,
+  scheduleTypeSchema,
+  transactionTypeSchema,
+} from './common';
 import {
   isUsableBankDescriptionPrefix,
   MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH,
@@ -24,7 +29,7 @@ const hasValidScheduledCombination = (data: {
 };
 
 const scheduledTransactionBaseSchema = z.object({
-  description: z.string(),
+  description: descriptionSchema,
   value: positiveAmountSchema,
   type: transactionTypeSchema,
   categoryId: recordIdSchema,

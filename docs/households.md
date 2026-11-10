@@ -57,6 +57,8 @@ controls from one through `useCanWrite` (`src/hooks/useSession.ts`, the role fro
   its chat thread stays per member.
 - Crons run per household (subscription detection, backup) or per opted-in member over their own
   household (daily summary, monthly report, subscription audit).
+  The backup covers only the households the owner names → [cost-fences.md](cost-fences.md),
+  before changing which households it copies.
 - A new transaction is announced to every member who opted in.
 
 ## Leak guard

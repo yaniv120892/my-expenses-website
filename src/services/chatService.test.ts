@@ -60,4 +60,20 @@ describe('streamMessage', () => {
     expect(location.href).toBe('https://app.test/login?reason=session-expired&next=%2Fchat');
     expect(streamHandlers.onDone).not.toHaveBeenCalled();
   });
+
+  it('shows the message a refusal carries', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ message: "You've reached today's assistant limit." }, { status: 429 }),
+        ),
+    );
+    const streamHandlers = handlers();
+
+    await streamMessage([], streamHandlers);
+
+    expect(streamHandlers.onError).toHaveBeenCalledWith("You've reached today's assistant limit.");
+  });
 });

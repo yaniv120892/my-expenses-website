@@ -52,6 +52,7 @@
     "@upstash/redis": "^1.40.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "@yaniv120892/app-kit": "github:yaniv120892/app-kit#2983f061ca99b2abcabbcd5f56826f2f8c5b46f2",
     "@yaniv120892/my-ui": "github:yaniv120892/my-ui#v0.2.0",
     "@yaniv120892/observability": "github:yaniv120892/observability#v0.3.0",
     "ai": "^7.0.159",

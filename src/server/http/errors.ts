@@ -1,5 +1,7 @@
 import type { ZodError } from 'zod';
 
+type JsonErrorBody = { message: string } | { error: string; message: string; code: string };
+
 /** `code` is a stable, machine-readable reason a client can localize instead of `message`. */
 export class HttpError extends Error {
   public constructor(
@@ -10,6 +12,16 @@ export class HttpError extends Error {
   ) {
     super(message, options);
   }
+}
+
+export function jsonErrorBody({
+  message,
+  code,
+}: {
+  message: string;
+  code?: string;
+}): JsonErrorBody {
+  return code ? { error: message, message, code } : { message };
 }
 
 export function formatZodIssues(err: ZodError): string {

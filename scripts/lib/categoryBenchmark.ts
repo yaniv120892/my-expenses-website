@@ -126,6 +126,7 @@ export function modelPrices(now: Date): Record<string, Price> {
     'typesafe-ai/jev': { input: 0.042, output: 0 },
     'jev-latest': { input: 0.042, output: 0 },
     'gpt-4-turbo': { input: 10, output: 30 },
+    'gpt-4o-mini': { input: 0.15, output: 0.6 },
     'gemini-3.6-flash':
       now.getTime() < geminiIntroductoryPricingEnds
         ? { input: 0.75, output: 3.75 }

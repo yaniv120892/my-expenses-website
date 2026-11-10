@@ -37,6 +37,8 @@ import { CustomValidationError } from '@/server/errors/validationError';
 import { HttpError } from '@/server/http/errors';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { lazy } from '@/server/lib/lazy';
+import { dailyBudget } from '@/server/guards';
+import { categorizationBudget } from '@/server/costFences';
 import { toAppWallClock } from '@/shared/dates';
 import { actingUserId } from '@/server/auth/householdActor';
 import type { HouseholdActor, HouseholdId } from '@/server/auth/householdActor.types';
@@ -451,10 +453,42 @@ class TransactionService {
     description: string,
     categories: Category[],
   ): Promise<string | null> {
-    return (
-      (await this.findMappedCategoryId(householdId, description, categories)) ??
-      this.getCategorySuggester().suggestCategory(description, categories)
-    );
+    const mappedCategoryId = await this.findMappedCategoryId(householdId, description, categories);
+    if (mappedCategoryId) {
+      return mappedCategoryId;
+    }
+    const mayCallModel = await this.reserveCategorization(householdId);
+    if (!mayCallModel) {
+      return null;
+    }
+    return this.getCategorySuggester().suggestCategory(description, categories);
+  }
+
+  /**
+   * A refusal leaves the category unchosen, so the caller falls back to asking for one: nothing
+   * the user entered is lost, the model is just not asked.
+   */
+  private async reserveCategorization(householdId: HouseholdId): Promise<boolean> {
+    try {
+      const decision = await dailyBudget.reserve({
+        budget: categorizationBudget(),
+        subjectId: householdId,
+      });
+      if (!decision.isAllowed) {
+        logger.info(
+          { householdId, reason: decision.reason },
+          'Categorization refused by its budget',
+        );
+      }
+      return decision.isAllowed;
+    } catch (err) {
+      observability.reportError({
+        error: err,
+        where: 'Categorization budget check failed; not calling the model',
+        context: { householdId },
+      });
+      return false;
+    }
   }
 
   private async findMappedCategoryId(

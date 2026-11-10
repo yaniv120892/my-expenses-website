@@ -56,6 +56,9 @@ Short docs, one topic each. Load the one whose trigger matches your task.
   import extraction URLs and attachment deletion. Load before changing an upload or a delete path.
 - [docs/telegram.md](docs/telegram.md) — chat linking and the bot webhook. Load before changing
   Telegram notifications or Settings → Telegram.
+- [docs/cost-fences.md](docs/cost-fences.md) — daily budgets, paid-path rate limits, kill switches,
+  the backup's household list. Load before adding a path that spends money per request or changing
+  a limit.
 - [docs/redis.md](docs/redis.md) — key namespacing across previews. Load before writing a Redis
   key or cache.
 - [docs/database.md](docs/database.md) — Prisma client, connections, SSL, encryption at rest. Load

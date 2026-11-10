@@ -22,7 +22,7 @@ import {
 import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
 
 // Overridable so a retired model is a dashboard edit, not a deploy.
-const DEFAULT_OPENAI_MODEL = 'gpt-4-turbo';
+export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
 export class ChatGPTService implements AIProvider {
   private getOpenAI = lazy(
@@ -116,7 +116,7 @@ export class ChatGPTService implements AIProvider {
           content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
         },
       ],
-      max_tokens: 50,
+      max_tokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
     });
 
     return buildCategoryEvaluation(response.choices[0]?.message?.content, categoryOptions, {

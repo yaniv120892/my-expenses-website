@@ -1,5 +1,5 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { createFakeCounterStore, FAKE_COUNTER_STORE_ENV } from '@/test/fakeCounterStore';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { installFakeCounterStore } from '@/test/fakeCounterStore';
 import type * as ObservabilityModule from '@/server/observability';
 
 const {
@@ -81,21 +81,13 @@ const categorySuggester: CategorySuggester = {
   modelName: () => 'test-model',
 };
 
-const getSuggestedCategory = () =>
-  transactionService['getSuggestedCategory'](HOUSEHOLD_ID, 'Pizza', CATEGORIES);
+const getSuggestedCategory = (householdId = HOUSEHOLD_ID) =>
+  transactionService['getSuggestedCategory'](householdId, 'Pizza', CATEGORIES);
 
-const counters = createFakeCounterStore();
-
-beforeAll(() => {
-  vi.stubGlobal('fetch', counters.fetch);
-  for (const [name, value] of Object.entries(FAKE_COUNTER_STORE_ENV)) {
-    vi.stubEnv(name, value);
-  }
-});
+const counters = installFakeCounterStore();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  counters.reset();
   vi.stubEnv('CATEGORIZATION_ENABLED', '');
   vi.stubEnv('CATEGORIZATION_GLOBAL_DAILY_LIMIT', '');
   activity.entries.length = 0;
@@ -321,11 +313,7 @@ describe('categorization budget', () => {
     await getSuggestedCategory();
 
     const otherHousehold = testMemberActor({ userId: 'user-2' }).householdId;
-    const category = await transactionService['getSuggestedCategory'](
-      otherHousehold,
-      'Pizza',
-      CATEGORIES,
-    );
+    const category = await getSuggestedCategory(otherHousehold);
 
     expect(category).toBeNull();
     expect(suggestCategory).toHaveBeenCalledTimes(1);

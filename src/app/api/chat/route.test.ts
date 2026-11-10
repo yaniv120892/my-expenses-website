@@ -1,9 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
 import type * as RateLimitModule from '@/server/http/rateLimit';
 import { NextRequest } from 'next/server';
-import { createFakeCounterStore, FAKE_COUNTER_STORE_ENV } from '@/test/fakeCounterStore';
+import { installFakeCounterStore } from '@/test/fakeCounterStore';
 
 const { requireUser, streamChatResponse, enforceRateLimits } = vi.hoisted(() => ({
   requireUser: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('next/server', async () => ({
 import { maxDuration, POST } from './route';
 import { CHAT_USER_DAILY_LIMIT } from '@/server/costFences';
 
-const counters = createFakeCounterStore();
+const counters = installFakeCounterStore();
 const ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
 
 async function* reply(): AsyncIterable<string> {
@@ -48,16 +48,8 @@ function sendMessage(): Promise<Response> {
   );
 }
 
-beforeAll(() => {
-  vi.stubGlobal('fetch', counters.fetch);
-  for (const [name, value] of Object.entries(FAKE_COUNTER_STORE_ENV)) {
-    vi.stubEnv(name, value);
-  }
-});
-
 beforeEach(() => {
   vi.clearAllMocks();
-  counters.reset();
   vi.stubEnv('CHAT_ENABLED', '');
   requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
   streamChatResponse.mockImplementation(async () => reply());

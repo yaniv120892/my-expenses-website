@@ -1,19 +1,8 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFakeCounterStore, FAKE_COUNTER_STORE_ENV } from '@/test/fakeCounterStore';
+import { describe, expect, it, vi } from 'vitest';
+import { installFakeCounterStore } from '@/test/fakeCounterStore';
 import { counterStore } from '@/server/guards';
 
-const counters = createFakeCounterStore();
-
-beforeAll(() => {
-  vi.stubGlobal('fetch', counters.fetch);
-  for (const [name, value] of Object.entries(FAKE_COUNTER_STORE_ENV)) {
-    vi.stubEnv(name, value);
-  }
-});
-
-beforeEach(() => {
-  counters.reset();
-});
+const counters = installFakeCounterStore();
 
 describe('counterStore', () => {
   it('namespaces a preview count, since previews share the production store', async () => {

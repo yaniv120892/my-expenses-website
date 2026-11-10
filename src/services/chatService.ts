@@ -1,9 +1,7 @@
 import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
-import { z } from 'zod';
 import { redirectToSessionExpired } from '@/utils/hardNavigate';
-
-const refusalBodySchema = z.object({ message: z.string() });
+import { messageField } from '@/utils/errorMessageField';
 
 export type StreamHandlers = {
   onDelta: (delta: string) => void;
@@ -75,14 +73,11 @@ export const streamMessage = async (
 };
 
 async function failureMessage(response: Response): Promise<string> {
+  let body: unknown = null;
   try {
-    const body: unknown = await response.json();
-    const parsed = refusalBodySchema.safeParse(body);
-    if (parsed.success) {
-      return parsed.data.message;
-    }
+    body = await response.json();
   } catch {
     // A body that is not JSON falls back to the status.
   }
-  return `Request failed with status ${response.status}`;
+  return messageField(body) ?? `Request failed with status ${response.status}`;
 }

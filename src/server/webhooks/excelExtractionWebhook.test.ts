@@ -69,6 +69,7 @@ vi.mock('@/server/services/importService', () => ({
 
 import { processExcelExtractionWebhook } from '@/server/webhooks/excelExtractionWebhook';
 import { firstInvocationOrder } from '@/test/mocks';
+import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
 
 const HOUSEHOLD = 'household-1';
 const CREATED_AT = new Date('2026-03-10T10:00:00.000Z');
@@ -537,6 +538,12 @@ describe('completed extraction', () => {
     const rows = createdRows();
     expect(rows[0].rawData).toEqual({ a: 1 });
     expect(rows[1].rawData).toEqual({});
+  });
+
+  it('caps a row description at the length an approval accepts', async () => {
+    await run(payload([tx('a'.repeat(DESCRIPTION_MAX_LENGTH + 20))]));
+
+    expect(createdRows()[0].description).toHaveLength(DESCRIPTION_MAX_LENGTH);
   });
 
   it('a COMPLETED payload with no result fails the import', async () => {

@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { beforeAll, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
 
 const counterCommandsSchema = z.tuple([
@@ -6,7 +6,7 @@ const counterCommandsSchema = z.tuple([
   z.tuple([z.literal('EXPIRE'), z.string(), z.string()]),
 ]);
 
-export const FAKE_COUNTER_STORE_ENV = {
+const FAKE_COUNTER_STORE_ENV = {
   REDIS_URL: 'https://counters.test',
   REDIS_TOKEN: 'test-token',
 } as const;
@@ -14,11 +14,24 @@ export const FAKE_COUNTER_STORE_ENV = {
 export type FakeCounterStore = ReturnType<typeof createFakeCounterStore>;
 
 /**
- * Answers the counter store's REST `multi-exec` calls from memory, so a spec runs the real guards
- * end to end. Stub it as the global `fetch` and set `FAKE_COUNTER_STORE_ENV` before the first
- * guarded call: the store keeps the `fetch` it was built with.
+ * Points the spec's guards at an in-memory counter store, emptied before each test. Call it at the
+ * top level of the spec: the store keeps the `fetch` and env it was built with on first use.
  */
-export function createFakeCounterStore() {
+export function installFakeCounterStore(): FakeCounterStore {
+  const counters = createFakeCounterStore();
+  beforeAll(() => {
+    vi.stubGlobal('fetch', counters.fetch);
+    for (const [name, value] of Object.entries(FAKE_COUNTER_STORE_ENV)) {
+      vi.stubEnv(name, value);
+    }
+  });
+  beforeEach(() => {
+    counters.reset();
+  });
+  return counters;
+}
+
+function createFakeCounterStore() {
   const counts = new Map<string, number>();
   const state = { isDown: false };
 
@@ -32,15 +45,18 @@ export function createFakeCounterStore() {
     return Response.json([{ result: hits }, { result: 1 }]);
   });
 
-  return {
-    fetch,
-    keys: () => [...counts.keys()],
-    goDown: () => {
-      state.isDown = true;
-    },
-    reset: () => {
-      counts.clear();
-      state.isDown = false;
-    },
-  };
+  function keys(): string[] {
+    return [...counts.keys()];
+  }
+
+  function goDown(): void {
+    state.isDown = true;
+  }
+
+  function reset(): void {
+    counts.clear();
+    state.isDown = false;
+  }
+
+  return { fetch, keys, goDown, reset };
 }

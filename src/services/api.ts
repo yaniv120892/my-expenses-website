@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { z } from 'zod';
 import { logout } from './authClient';
 import { redirectToSessionExpired } from '@/utils/hardNavigate';
+import { messageField } from '@/utils/errorMessageField';
 
 // Same-origin API: the httpOnly session cookie rides along automatically.
 const api = axios.create();
@@ -18,12 +18,6 @@ async function parseErrorBody(data: unknown): Promise<unknown> {
   } catch {
     return data;
   }
-}
-
-const messageBodySchema = z.object({ message: z.string() });
-
-function messageField(body: unknown): string | null {
-  return messageBodySchema.safeParse(body).data?.message ?? null;
 }
 
 let expiringSession: Promise<void> | null = null;

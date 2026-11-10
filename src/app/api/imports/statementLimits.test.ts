@@ -1,8 +1,8 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as SessionModule from '@/server/auth/session';
 import type * as NextServerModule from 'next/server';
 import { NextRequest } from 'next/server';
-import { createFakeCounterStore, FAKE_COUNTER_STORE_ENV } from '@/test/fakeCounterStore';
+import { installFakeCounterStore } from '@/test/fakeCounterStore';
 
 const { requireUser, processImport, rematchImport, putImportObject } = vi.hoisted(() => ({
   requireUser: vi.fn(),
@@ -33,24 +33,20 @@ vi.mock('next/server', async () => ({
 import { POST as upload } from '@/app/api/imports/upload/route';
 import { POST as processStatement } from '@/app/api/imports/process/route';
 import { POST as rematch } from '@/app/api/imports/[importId]/rematch/route';
-import {
-  STATEMENT_PROCESSING_RATE_LIMITS,
-  STATEMENT_UPLOAD_RATE_LIMITS,
-} from '@/server/costFences';
+import { STATEMENTS_PER_DAY, STATEMENTS_PER_HOUR } from '@/server/costFences';
 
-const counters = createFakeCounterStore();
+const counters = installFakeCounterStore();
 const IMPORT_ID = '00000000-0000-4000-8000-000000000001';
-const [UPLOADS_PER_HOUR] = STATEMENT_UPLOAD_RATE_LIMITS.map((policy) => policy.limit);
-const [PROCESSING_PER_HOUR, PROCESSING_PER_DAY] = STATEMENT_PROCESSING_RATE_LIMITS.map(
-  (policy) => policy.limit,
-);
+const STATIC_ROUTE_CONTEXT = { params: Promise.resolve(undefined) };
+const HOUR_MS = 60 * 60 * 1000;
+const START_OF_DAY = Date.UTC(2026, 10, 10);
 
 function uploadStatement(): Promise<Response> {
   const form = new FormData();
   form.append('file', new File(['x'], 'visa.xlsx'));
   return upload(
     new NextRequest('http://localhost/api/imports/upload', { method: 'POST', body: form }),
-    { params: Promise.resolve(undefined) },
+    STATIC_ROUTE_CONTEXT,
   );
 }
 
@@ -63,7 +59,7 @@ function submitStatement(): Promise<Response> {
         originalFileName: 'visa.xlsx',
       }),
     }),
-    { params: Promise.resolve(undefined) },
+    STATIC_ROUTE_CONTEXT,
   );
 }
 
@@ -74,27 +70,32 @@ function rematchStatement(): Promise<Response> {
   );
 }
 
-async function statusesOf(
-  send: () => Promise<Response>,
-  times: number | undefined,
-): Promise<number[]> {
+async function statusesOf(send: () => Promise<Response>, times: number): Promise<number[]> {
   const statuses: number[] = [];
-  for (let sent = 0; sent < (times ?? 0); sent += 1) {
+  for (let sent = 0; sent < times; sent += 1) {
     statuses.push((await send()).status);
   }
   return statuses;
 }
 
-beforeAll(() => {
-  vi.stubGlobal('fetch', counters.fetch);
-  for (const [name, value] of Object.entries(FAKE_COUNTER_STORE_ENV)) {
-    vi.stubEnv(name, value);
+/** Sends a day's quota two an hour, under the hourly limit, then once more late that day. */
+async function statusAfterDailyQuota(send: () => Promise<Response>): Promise<number> {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+    for (let sent = 0; sent < STATEMENTS_PER_DAY; sent += 1) {
+      vi.setSystemTime(START_OF_DAY + sent * HOUR_MS * 0.5);
+      expect((await send()).status).toBe(200);
+    }
+    vi.setSystemTime(START_OF_DAY + 23 * HOUR_MS);
+    vi.clearAllMocks();
+    return (await send()).status;
+  } finally {
+    vi.useRealTimers();
   }
-});
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  counters.reset();
   requireUser.mockResolvedValue({ userId: 'user-1', tokenVersion: 0 });
   processImport.mockResolvedValue({ id: IMPORT_ID });
   rematchImport.mockResolvedValue(undefined);
@@ -103,7 +104,9 @@ beforeEach(() => {
 
 describe('statement upload limits', () => {
   it('stores up to the hourly limit per household and refuses the next upload unstored', async () => {
-    expect(new Set(await statusesOf(uploadStatement, UPLOADS_PER_HOUR))).toEqual(new Set([200]));
+    expect(await statusesOf(uploadStatement, STATEMENTS_PER_HOUR)).toEqual(
+      Array(STATEMENTS_PER_HOUR).fill(200),
+    );
     putImportObject.mockClear();
 
     const refused = await uploadStatement();
@@ -113,8 +116,13 @@ describe('statement upload limits', () => {
     expect(putImportObject).not.toHaveBeenCalled();
   });
 
+  it('holds a daily upload quota across hours', async () => {
+    expect(await statusAfterDailyQuota(uploadStatement)).toBe(429);
+    expect(putImportObject).not.toHaveBeenCalled();
+  });
+
   it('counts by household, so another household still uploads', async () => {
-    await statusesOf(uploadStatement, UPLOADS_PER_HOUR);
+    await statusesOf(uploadStatement, STATEMENTS_PER_HOUR);
     requireUser.mockResolvedValue({ userId: 'user-2', tokenVersion: 0 });
 
     expect((await uploadStatement()).status).toBe(200);
@@ -131,34 +139,22 @@ describe('statement upload limits', () => {
 
 describe('statement processing limits', () => {
   it('processes up to the hourly limit per household and refuses the next without extraction', async () => {
-    expect(new Set(await statusesOf(submitStatement, PROCESSING_PER_HOUR))).toEqual(new Set([200]));
+    expect(await statusesOf(submitStatement, STATEMENTS_PER_HOUR)).toEqual(
+      Array(STATEMENTS_PER_HOUR).fill(200),
+    );
     processImport.mockClear();
 
     expect((await submitStatement()).status).toBe(429);
     expect(processImport).not.toHaveBeenCalled();
   });
 
-  it('holds a daily quota across hours', async () => {
-    const hourMs = 60 * 60 * 1000;
-    const startOfDay = Date.UTC(2026, 10, 10);
-    vi.useFakeTimers({ toFake: ['Date'] });
-    try {
-      for (let sent = 0; sent < (PROCESSING_PER_DAY ?? 0); sent += 1) {
-        vi.setSystemTime(startOfDay + sent * hourMs * 0.5);
-        expect((await submitStatement()).status).toBe(200);
-      }
-      vi.setSystemTime(startOfDay + 23 * hourMs);
-      processImport.mockClear();
-
-      expect((await submitStatement()).status).toBe(429);
-      expect(processImport).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+  it('holds a daily processing quota across hours', async () => {
+    expect(await statusAfterDailyQuota(submitStatement)).toBe(429);
+    expect(processImport).not.toHaveBeenCalled();
   });
 
   it('shares the processing limit with re-matching, which reruns the paid matching', async () => {
-    await statusesOf(submitStatement, PROCESSING_PER_HOUR);
+    await statusesOf(submitStatement, STATEMENTS_PER_HOUR);
 
     expect((await rematchStatement()).status).toBe(429);
     expect(rematchImport).not.toHaveBeenCalled();

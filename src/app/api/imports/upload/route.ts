@@ -5,12 +5,8 @@ import { buildImportObjectKey } from '@/server/utils/importObjectKey';
 import { keySafeExtension } from '@/server/utils/storageObjectName';
 import { assertWithinUploadLimit } from '@/server/utils/uploadLimit';
 import { importsBucket, putImportObject } from '@/server/services/importFileStorage';
-import {
-  householdRateLimitChecks,
-  STATEMENT_LIMIT_MESSAGE,
-  STATEMENT_UPLOAD_RATE_LIMITS,
-} from '@/server/costFences';
-import { refuseIfRateLimited } from '@/server/http/guardRefusal';
+import { STATEMENT_UPLOAD_RATE_LIMITS } from '@/server/costFences';
+import { refuseIfStatementLimited } from '@/server/http/guardRefusal';
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 
@@ -18,12 +14,9 @@ export const POST = createHandler({
   auth: 'session',
   apiTokenScope: 'IMPORTS',
   handler: async ({ request, userId, actor }) => {
-    const refusal = await refuseIfRateLimited({
-      checks: householdRateLimitChecks({
-        policies: STATEMENT_UPLOAD_RATE_LIMITS,
-        householdId: actor.householdId,
-      }),
-      overLimitMessage: STATEMENT_LIMIT_MESSAGE,
+    const refusal = await refuseIfStatementLimited({
+      policies: STATEMENT_UPLOAD_RATE_LIMITS,
+      householdId: actor.householdId,
     });
     if (refusal) {
       return refusal;

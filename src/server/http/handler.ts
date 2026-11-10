@@ -16,7 +16,7 @@ import { assertCanWrite, resolveMemberActor } from '@/server/auth/householdActor
 import { runAsActor } from '@/server/db/actorContext';
 import type { MemberActor } from '@/server/auth/householdActor.types';
 import type { ApiTokenScope } from '@/shared/types/apiToken';
-import { HttpError, formatZodIssues } from '@/server/http/errors';
+import { HttpError, formatZodIssues, jsonErrorBody } from '@/server/http/errors';
 import { prismaErrorToHttpError } from '@/server/db/prismaErrors';
 import type { RateLimitRule } from '@/server/http/rateLimit';
 import { enforceRateLimits } from '@/server/http/rateLimit';
@@ -366,10 +366,10 @@ function errorResponse({
         headers,
       });
     case 'json': {
-      const body = error.code
-        ? { error: error.message, message: error.message, code: error.code }
-        : { message: error.message };
-      return NextResponse.json(body, { status: error.status, headers });
+      return NextResponse.json(jsonErrorBody({ message: error.message, code: error.code }), {
+        status: error.status,
+        headers,
+      });
     }
     default:
       return assertNever({ value: format, what: 'error format' });

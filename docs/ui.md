@@ -16,7 +16,7 @@ apps the drawer links to.
 
 ## Design and language
 
-Design and language come from `@yaniv120892/my-ui`, shared with My Investments and My Shopping.
+Design and language come from `@yaniv120892/my-ui`, shared with every sibling app in its `APP_IDS`.
 
 - The root layout reads the locale with `getLocale()` (a `locale` cookie, then
   `Accept-Language`, default Hebrew), sets `<html lang dir>`, and renders `DesignProvider` (theme,

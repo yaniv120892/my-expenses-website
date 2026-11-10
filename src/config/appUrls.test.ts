@@ -1,9 +1,9 @@
-import { APP_IDS } from '@yaniv120892/my-ui';
+import { APP_IDS, type AppId } from '@yaniv120892/my-ui';
 import { describe, expect, it } from 'vitest';
 
 import { APP_URLS } from './appUrls';
 
-const THIS_APP = 'expenses';
+const THIS_APP: AppId = 'expenses';
 
 describe('APP_URLS', () => {
   it('links to every sibling app and not to this one', () => {

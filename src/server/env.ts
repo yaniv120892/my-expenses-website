@@ -42,6 +42,24 @@ export function optionalEnv(name: string, fallback = ''): string {
   return process.env[name] || fallback;
 }
 
+export function optionalPositiveIntegerEnv({
+  name,
+  fallback,
+}: {
+  name: string;
+  fallback: number;
+}): number {
+  const raw = optionalEnv(name).trim();
+  if (!raw) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive whole number (${name}: ${raw})`);
+  }
+  return value;
+}
+
 export function requireSiteUrl(): string {
   return process.env.WEBSITE_URL || previewSiteUrl() || requireEnv('WEBSITE_URL');
 }

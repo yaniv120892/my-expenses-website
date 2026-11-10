@@ -1,8 +1,13 @@
 import { z } from 'zod';
+import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
 
 // Shape only: the categories the first migrations seeded carry hand-written
 // ids without RFC 9562 version and variant bits, which z.uuid() rejects.
 export const recordIdSchema = z.guid('Invalid uuid');
+
+export const descriptionSchema = z
+  .string()
+  .max(DESCRIPTION_MAX_LENGTH, `Description must be at most ${DESCRIPTION_MAX_LENGTH} characters`);
 
 export const transactionTypeSchema = z.enum(['INCOME', 'EXPENSE']);
 

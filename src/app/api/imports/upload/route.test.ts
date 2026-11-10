@@ -28,6 +28,7 @@ vi.mock('@aws-sdk/client-s3', () => ({
 }));
 vi.mock('@/server/observability', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  observability: { scheduleOpsAlert: vi.fn() },
 }));
 vi.mock('next/server', async () => ({
   ...(await vi.importActual<typeof NextServerModule>('next/server')),

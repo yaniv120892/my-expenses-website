@@ -21,8 +21,15 @@ const {
   // The package sends product events from production only.
   vi.stubEnv('VERCEL_ENV', 'production');
   vi.stubEnv('JWT_SECRET', 'product-events-test-secret');
+  // The cost fences count before a paid route runs, and refuse in production without a store.
+  vi.stubEnv('REDIS_URL', 'https://counters.test');
+  vi.stubEnv('REDIS_TOKEN', 'test-token');
   // The analytics client takes the global fetch when it is built, at import.
-  const fetchMock = vi.fn(async (..._: Parameters<typeof fetch>) => new Response('{}'));
+  const fetchMock = vi.fn(async (...[url]: Parameters<typeof fetch>) =>
+    String(url).endsWith('/multi-exec')
+      ? Response.json([{ result: 1 }, { result: 1 }])
+      : new Response('{}'),
+  );
   vi.stubGlobal('fetch', fetchMock);
   return {
     fetchMock,

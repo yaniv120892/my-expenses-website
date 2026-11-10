@@ -16,3 +16,6 @@ export const MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH = 3;
 export function isUsableBankDescriptionPrefix(prefix: string): boolean {
   return normalizeDescription(prefix).length >= MINIMUM_BANK_DESCRIPTION_PREFIX_LENGTH;
 }
+
+// Every description can reach a model prompt, so its length is the prompt's.
+export const DESCRIPTION_MAX_LENGTH = 500;

@@ -122,6 +122,7 @@ export class GeminiService implements AIProvider {
           ],
         },
       ],
+      generationConfig: { maxOutputTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens },
     });
 
     const usage = response.response?.usageMetadata;

@@ -16,6 +16,10 @@ at a time inside a batch request. A timeout is an ordinary provider failure that
 the limit is per call, so a batch against a degraded provider can still outrun the function. The
 assistant's Mastra model is a separate streaming client and is not bound by these limits.
 
+The category call also caps its output (`AI_REQUEST_LIMITS`), defaults to a cheap model, and is
+asked only within the `categorization` daily budget → [cost-fences.md](cost-fences.md), before
+changing that budget.
+
 ## Only the category decision may leave the `AI_PROVIDER` model
 
 `AIServiceFactory.getCategorySuggester()` is the one place that decides, on

@@ -2,11 +2,20 @@ import { createHandler } from '@/server/http/handler';
 import monthlyReportService from '@/server/services/monthlyReportService';
 import { logger } from '@/server/observability';
 import type { TestMonthlyReportResult } from '@/shared/types/testMonthlyReport';
+import { TEST_MONTHLY_REPORT_RATE_LIMIT } from '@/server/costFences';
+import { refuseIfRateLimited } from '@/server/http/guardRefusal';
 
 export const POST = createHandler({
   auth: 'session',
   writes: 'ownAccount',
-  handler: async ({ userId, actor }): Promise<TestMonthlyReportResult> => {
+  handler: async ({ userId, actor }): Promise<TestMonthlyReportResult | Response> => {
+    const refusal = await refuseIfRateLimited({
+      checks: [{ policy: TEST_MONTHLY_REPORT_RATE_LIMIT, clientId: `user:${userId}` }],
+      overLimitMessage: 'Too many test reports. Try again in an hour.',
+    });
+    if (refusal) {
+      return refusal;
+    }
     try {
       const outcome = await monthlyReportService.sendMonthlyReportForUser({
         userId,

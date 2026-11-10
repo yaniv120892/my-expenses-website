@@ -5,10 +5,13 @@ import chatService from '@/server/services/chatService';
 import { logger } from '@/server/observability';
 import { RATE_LIMITS } from '@/server/http/rateLimit';
 import { captureProductEvent } from '@/server/productEvents';
+import { chatBudget } from '@/server/costFences';
+import { dailyBudget } from '@/server/guards';
+import { dailyBudgetRefusalResponse } from '@/server/http/guardRefusal';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 function sseFrame(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
@@ -20,6 +23,13 @@ export const POST = createHandler({
   bodySchema: chatRequestSchema,
   rateLimit: ({ userId }) => [{ key: `chat:user:${userId}`, ...RATE_LIMITS.chat }],
   handler: async ({ request, body, userId, actor }) => {
+    const decision = await dailyBudget.reserve({ budget: chatBudget(), subjectId: userId });
+    if (!decision.isAllowed) {
+      return dailyBudgetRefusalResponse({
+        decision,
+        subjectLimitMessage: "You've reached today's assistant limit. Try again tomorrow.",
+      });
+    }
     logger.debug({ userId }, 'Start handle chat message');
 
     const stream = new ReadableStream<Uint8Array>({

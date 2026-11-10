@@ -1,6 +1,9 @@
 import type { Message } from '@/hooks/useChat';
 import { fitChatHistory } from '@/utils/chatHistory';
+import { z } from 'zod';
 import { redirectToSessionExpired } from '@/utils/hardNavigate';
+
+const refusalBodySchema = z.object({ message: z.string() });
 
 export type StreamHandlers = {
   onDelta: (delta: string) => void;
@@ -27,7 +30,7 @@ export const streamMessage = async (
   }
 
   if (!response.ok || !response.body) {
-    handlers.onError(`Request failed with status ${response.status}`);
+    handlers.onError(await failureMessage(response));
     return;
   }
 
@@ -70,3 +73,16 @@ export const streamMessage = async (
 
   handlers.onDone();
 };
+
+async function failureMessage(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    const parsed = refusalBodySchema.safeParse(body);
+    if (parsed.success) {
+      return parsed.data.message;
+    }
+  } catch {
+    // A body that is not JSON falls back to the status.
+  }
+  return `Request failed with status ${response.status}`;
+}

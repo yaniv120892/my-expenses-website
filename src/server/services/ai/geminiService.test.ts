@@ -22,14 +22,13 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
-import type { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
+import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
 import {
   SUGGEST_CATEGORY_SYSTEM_PROMPT,
   FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
   buildAnalyzeExpensesPrompt,
   buildFindMatchingTransactionPrompt,
 } from '@/server/services/ai/prompts';
-import type { Transaction } from '@/shared/types/transaction';
 
 const RETIRED_MODEL_ERROR = new Error(
   '[404 Not Found] This model models/gemini-2.0-flash is no longer available.',
@@ -190,30 +189,6 @@ describe('GeminiService.evaluateCategory', () => {
   });
 });
 
-const matchCandidate: Transaction = {
-  id: 'tx-a',
-  description: 'Coffee',
-  value: 10,
-  currency: 'ILS',
-  originalAmount: 10,
-  exchangeRate: null,
-  exchangeRateDate: null,
-  exchangeRateSource: null,
-  date: new Date('2026-03-07T00:00:00Z'),
-  type: 'EXPENSE',
-  status: 'APPROVED',
-  category: { id: 'cat-food', name: 'Food' },
-};
-
-const importedCharge: ImportedChargeToMatch = {
-  description: 'Coffee',
-  value: 10,
-  currency: 'ILS',
-  originalAmount: 10,
-  date: new Date('2026-03-07T00:00:00Z'),
-  type: 'EXPENSE',
-};
-
 describe('GeminiService.generateContent', () => {
   it('sends the prompt as the only user part and returns the raw text', async () => {
     generateContent.mockResolvedValue(textResponse(' "Spend less"\n'));
@@ -222,6 +197,7 @@ describe('GeminiService.generateContent', () => {
     expect(generateContent).toHaveBeenCalledWith({
       contents: [{ role: 'user', parts: [{ text: 'advise me' }] }],
     });
+    expect(Object.keys(generateContent.mock.calls[0]?.[0])).toEqual(['contents']);
   });
 
   it('returns an empty string when the provider answers with no content', async () => {

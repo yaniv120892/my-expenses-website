@@ -1,4 +1,5 @@
 import type {
+  GenerateContentRequest,
   GenerateContentResult,
   GenerationConfig,
   GenerativeModel,
@@ -153,11 +154,14 @@ export class GeminiService implements AIProvider {
     systemInstruction,
     generationConfig,
   }: GeminiRequest): Promise<GenerateContentResult> {
-    return this.generativeModel().generateContent({
-      systemInstruction,
-      contents: [{ role: 'user', parts: [{ text }] }],
-      generationConfig,
-    });
+    const request: GenerateContentRequest = { contents: [{ role: 'user', parts: [{ text }] }] };
+    if (systemInstruction) {
+      request.systemInstruction = systemInstruction;
+    }
+    if (generationConfig) {
+      request.generationConfig = generationConfig;
+    }
+    return this.generativeModel().generateContent(request);
   }
 
   private generativeModel(): GenerativeModel {

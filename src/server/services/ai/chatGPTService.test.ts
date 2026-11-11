@@ -27,9 +27,8 @@ import { APIConnectionTimeoutError } from 'openai';
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
-import type { Transaction } from '@/shared/types/transaction';
-import type { ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
 import { FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
+import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
 import { stalledFetch } from '@/test/stalledFetch';
 import { trackSettled } from '@/test/trackSettled';
 
@@ -157,30 +156,6 @@ describe('ChatGPTService.evaluateCategory', () => {
     hangingFetch.mockImplementation(stalledFetch);
   });
 });
-
-const matchCandidate: Transaction = {
-  id: 'tx-a',
-  description: 'Coffee',
-  value: 10,
-  currency: 'ILS',
-  originalAmount: 10,
-  exchangeRate: null,
-  exchangeRateDate: null,
-  exchangeRateSource: null,
-  date: new Date('2026-03-07T00:00:00Z'),
-  type: 'EXPENSE',
-  status: 'APPROVED',
-  category: { id: 'cat-food', name: 'Food' },
-};
-
-const importedCharge: ImportedChargeToMatch = {
-  description: 'Coffee',
-  value: 10,
-  currency: 'ILS',
-  originalAmount: 10,
-  date: new Date('2026-03-07T00:00:00Z'),
-  type: 'EXPENSE',
-};
 
 function answering(content: string | null): void {
   hangingFetch.mockImplementationOnce(async () =>

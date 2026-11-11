@@ -232,6 +232,7 @@ describe('GeminiService.analyzeExpenses request', () => {
         },
       ],
     });
+    expect(Object.keys(generateContent.mock.calls[0]?.[0])).toEqual(['contents']);
   });
 });
 

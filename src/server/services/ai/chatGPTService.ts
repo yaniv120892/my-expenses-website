@@ -23,6 +23,16 @@ import { ProviderFallback } from '@/server/services/ai/providerFallback';
 // Overridable so a retired model is a dashboard edit, not a deploy.
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
+type AnalysisRequest = {
+  expenseSummary: string;
+  suffixPrompt: string | undefined;
+};
+
+type MatchRequest = {
+  importedCharge: ImportedChargeToMatch;
+  potentialMatches: Transaction[];
+};
+
 type ChatRequest = {
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
   maxTokens: number;
@@ -53,7 +63,7 @@ export class ChatGPTService implements AIProvider {
     suffixPrompt?: string,
   ): Promise<string | null> {
     return this.errorFallback.orFallback({
-      attempt: this.requestAnalysis(expenseSummary, suffixPrompt),
+      attempt: this.requestAnalysis({ expenseSummary, suffixPrompt }),
       fallback: null,
     });
   }
@@ -93,7 +103,7 @@ export class ChatGPTService implements AIProvider {
       return null;
     }
     return this.errorFallback.orFallback({
-      attempt: this.requestMatch(importedCharge, potentialMatches),
+      attempt: this.requestMatch({ importedCharge, potentialMatches }),
       fallback: null,
     });
   }
@@ -110,10 +120,10 @@ export class ChatGPTService implements AIProvider {
     return this.firstChoiceContent(response) || 'No insights available.';
   }
 
-  private async requestAnalysis(
-    expenseSummary: string,
-    suffixPrompt: string | undefined,
-  ): Promise<string | null> {
+  private async requestAnalysis({
+    expenseSummary,
+    suffixPrompt,
+  }: AnalysisRequest): Promise<string | null> {
     const response = await this.complete({
       messages: [
         {
@@ -127,10 +137,10 @@ export class ChatGPTService implements AIProvider {
     return this.firstChoiceContent(response) || null;
   }
 
-  private async requestMatch(
-    importedCharge: ImportedChargeToMatch,
-    potentialMatches: Transaction[],
-  ): Promise<string | null> {
+  private async requestMatch({
+    importedCharge,
+    potentialMatches,
+  }: MatchRequest): Promise<string | null> {
     const response = await this.complete({
       messages: [
         { role: 'system', content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT },

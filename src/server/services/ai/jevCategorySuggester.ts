@@ -10,7 +10,7 @@ import {
   buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
-import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
+import { categoryIdOf, withReportedFallback } from '@/server/services/ai/reportedFallback';
 
 type JevProvider = {
   evaluationModel(modelId: string): Experimental_EvaluationModel;
@@ -43,11 +43,12 @@ export class JevCategorySuggester implements CategorySuggester {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return suggestCategoryOrNull(
-      () => this.evaluateCategory(expenseDescription, categoryOptions),
-      this.modelName(),
-      'Jev API error',
-    );
+    return withReportedFallback({
+      attempt: categoryIdOf(this.evaluateCategory(expenseDescription, categoryOptions)),
+      fallback: null,
+      where: 'Jev API error',
+      model: this.modelName(),
+    });
   }
 
   public async evaluateCategory(

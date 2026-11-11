@@ -18,12 +18,10 @@ import {
   resolveMatchedTransactionId,
   buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
-import { categoryIdOf, withReportedFallback } from '@/server/services/ai/reportedFallback';
+import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 // Overridable so a retired model is a dashboard edit, not a deploy.
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
-
-const ERROR_LABEL = 'ChatGPT API error';
 
 type ChatRequest = {
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
@@ -32,6 +30,11 @@ type ChatRequest = {
 };
 
 export class ChatGPTService implements AIProvider {
+  private errorFallback = new ProviderFallback({
+    where: 'ChatGPT API error',
+    modelName: () => this.modelName(),
+  });
+
   private getOpenAI = lazy(
     () =>
       new OpenAI({
@@ -42,14 +45,14 @@ export class ChatGPTService implements AIProvider {
   );
 
   public async generateContent(prompt: string): Promise<string> {
-    return this.orReportedFallback({ attempt: this.requestContent(prompt), fallback: '' });
+    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string | null> {
-    return this.orReportedFallback({
+    return this.errorFallback.orFallback({
       attempt: this.requestAnalysis(expenseSummary, suffixPrompt),
       fallback: null,
     });
@@ -59,10 +62,9 @@ export class ChatGPTService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return this.orReportedFallback({
-      attempt: categoryIdOf(this.evaluateCategory(expenseDescription, categoryOptions)),
-      fallback: null,
-    });
+    return this.errorFallback.categoryIdOrNull(
+      this.evaluateCategory(expenseDescription, categoryOptions),
+    );
   }
 
   public async evaluateCategory(
@@ -90,7 +92,7 @@ export class ChatGPTService implements AIProvider {
     if (!potentialMatches.length) {
       return null;
     }
-    return this.orReportedFallback({
+    return this.errorFallback.orFallback({
       attempt: this.requestMatch(importedCharge, potentialMatches),
       fallback: null,
     });
@@ -154,16 +156,6 @@ export class ChatGPTService implements AIProvider {
       temperature,
       max_tokens: maxTokens,
     });
-  }
-
-  private async orReportedFallback<T>({
-    attempt,
-    fallback,
-  }: {
-    attempt: Promise<T>;
-    fallback: T;
-  }): Promise<T> {
-    return withReportedFallback({ attempt, fallback, where: ERROR_LABEL, model: this.modelName() });
   }
 
   private firstChoiceContent(

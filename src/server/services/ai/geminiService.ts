@@ -25,13 +25,11 @@ import {
   buildCategoryEvaluation,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
-import { categoryIdOf, withReportedFallback } from '@/server/services/ai/reportedFallback';
+import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 // Google retires Flash generations roughly twice a year, so the id is
 // overridable: the next retirement is a dashboard edit, not a deploy.
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
-
-const ERROR_LABEL = 'Gemini API error';
 
 type GeminiRequest = {
   text: string;
@@ -40,17 +38,22 @@ type GeminiRequest = {
 };
 
 export class GeminiService implements AIProvider {
+  private errorFallback = new ProviderFallback({
+    where: 'Gemini API error',
+    modelName: () => this.modelName(),
+  });
+
   private getGemini = lazy(() => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')));
 
   public async generateContent(prompt: string): Promise<string> {
-    return this.orReportedFallback({ attempt: this.requestContent(prompt), fallback: '' });
+    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string | null> {
-    return this.orReportedFallback({
+    return this.errorFallback.orFallback({
       attempt: this.requestAnalysis(expenseSummary, suffixPrompt),
       fallback: null,
     });
@@ -60,10 +63,9 @@ export class GeminiService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return this.orReportedFallback({
-      attempt: categoryIdOf(this.evaluateCategory(expenseDescription, categoryOptions)),
-      fallback: null,
-    });
+    return this.errorFallback.categoryIdOrNull(
+      this.evaluateCategory(expenseDescription, categoryOptions),
+    );
   }
 
   public async evaluateCategory(
@@ -101,7 +103,7 @@ export class GeminiService implements AIProvider {
     if (!potentialMatches.length) {
       return null;
     }
-    return this.orReportedFallback({
+    return this.errorFallback.orFallback({
       attempt: this.requestMatch(importedCharge, potentialMatches),
       fallback: null,
       where: 'Error finding matching transaction',
@@ -173,18 +175,6 @@ export class GeminiService implements AIProvider {
 
   private firstCandidateText(result: GenerateContentResult): string | undefined {
     return result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  }
-
-  private async orReportedFallback<T>({
-    attempt,
-    fallback,
-    where = ERROR_LABEL,
-  }: {
-    attempt: Promise<T>;
-    fallback: T;
-    where?: string;
-  }): Promise<T> {
-    return withReportedFallback({ attempt, fallback, where, model: this.modelName() });
   }
 
   private cleanGeminiResponse(response: string | undefined): string {

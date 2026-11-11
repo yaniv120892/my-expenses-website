@@ -15,6 +15,24 @@ describe('importRepository extraction writes', () => {
     vi.clearAllMocks();
   });
 
+  it('claims the extraction only while no callback has, so a redelivered webhook is a no-op', async () => {
+    updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const claimed = await importRepository.claimExtraction(HOUSEHOLD_ID, 'imp-1');
+
+    expect(claimed).toBe(true);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'imp-1', householdId: HOUSEHOLD_ID, extractionCompletedAt: null },
+      data: { extractionCompletedAt: expect.any(Date) },
+    });
+  });
+
+  it('reports no claim when the import was already claimed', async () => {
+    updateMany.mockResolvedValueOnce({ count: 0 });
+
+    expect(await importRepository.claimExtraction(HOUSEHOLD_ID, 'imp-1')).toBe(false);
+  });
+
   it('records the request id only while no callback has claimed the import', async () => {
     await importRepository.recordExtractionRequestIdIfUnclaimed(HOUSEHOLD_ID, 'imp-1', 'req-9');
 

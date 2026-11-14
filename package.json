@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "prettier": "@yaniv120892/dev-config/prettier",
   "scripts": {
@@ -52,7 +52,7 @@
     "@upstash/redis": "^1.40.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "@yaniv120892/app-kit": "github:yaniv120892/app-kit#2983f061ca99b2abcabbcd5f56826f2f8c5b46f2",
+    "@yaniv120892/app-kit": "github:yaniv120892/app-kit#v0.1.0",
     "@yaniv120892/my-ui": "github:yaniv120892/my-ui#v0.2.0",
     "@yaniv120892/observability": "github:yaniv120892/observability#v0.3.0",
     "ai": "^7.0.159",
@@ -85,11 +85,11 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.8",
     "@types/json2csv": "^5.0.7",
-    "@types/node": "^24",
+    "@types/node": "^26",
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@yaniv120892/dev-config": "github:yaniv120892/dev-config#v0.1.6",
+    "@yaniv120892/dev-config": "github:yaniv120892/dev-config#v0.1.8",
     "dotenv": "^18.0.9",
     "eslint": "^10",
     "eslint-config-next": "16.4.3",

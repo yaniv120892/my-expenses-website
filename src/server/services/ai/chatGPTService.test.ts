@@ -27,6 +27,8 @@ import { APIConnectionTimeoutError } from 'openai';
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
+import { FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
+import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
 import { stalledFetch } from '@/test/stalledFetch';
 import { trackSettled } from '@/test/trackSettled';
 
@@ -39,6 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   constructedWith.length = 0;
   process.env.OPENAI_API_KEY = 'test-key';
+  delete process.env.OPENAI_MODEL;
 });
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -151,5 +154,124 @@ describe('ChatGPTService.evaluateCategory', () => {
     await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledTimes(1);
     hangingFetch.mockImplementation(stalledFetch);
+  });
+});
+
+function answering(content: string | null): void {
+  hangingFetch.mockImplementationOnce(async () =>
+    jsonResponse(200, { choices: [{ message: { role: 'assistant', content } }] }),
+  );
+}
+
+function failingWithBadRequest(): void {
+  hangingFetch.mockImplementationOnce(async () =>
+    jsonResponse(400, { error: { message: 'bad request' } }),
+  );
+}
+
+function sentBody(): Record<string, unknown> {
+  const [, init] = hangingFetch.mock.calls[0] ?? [];
+  return JSON.parse(String(init?.body));
+}
+
+describe('ChatGPTService.generateContent', () => {
+  it('returns the completion text', async () => {
+    answering('Spend less on coffee');
+
+    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe(
+      'Spend less on coffee',
+    );
+    expect(sentBody()).toMatchObject({
+      messages: [{ role: 'user', content: 'advise me' }],
+      max_tokens: 200,
+    });
+  });
+
+  it('falls back to a placeholder when the completion is empty', async () => {
+    answering('');
+
+    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe(
+      'No insights available.',
+    );
+  });
+
+  it('reports a provider failure and returns an empty string', async () => {
+    failingWithBadRequest();
+
+    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe('');
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'ChatGPT API error',
+      context: { model: 'gpt-4o-mini' },
+    });
+  });
+});
+
+describe('ChatGPTService.analyzeExpenses', () => {
+  it('returns the analysis', async () => {
+    answering('You spent more on food');
+
+    await expect(new ChatGPTService().analyzeExpenses('summary')).resolves.toBe(
+      'You spent more on food',
+    );
+    expect(sentBody()).toMatchObject({
+      messages: [{ role: 'system' }, { role: 'user' }],
+      max_tokens: 200,
+    });
+  });
+
+  it('returns null when the completion is empty', async () => {
+    answering(null);
+
+    await expect(new ChatGPTService().analyzeExpenses('summary')).resolves.toBeNull();
+  });
+
+  it('reports a provider failure and returns null', async () => {
+    failingWithBadRequest();
+
+    await expect(new ChatGPTService().analyzeExpenses('summary')).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'ChatGPT API error',
+      context: { model: 'gpt-4o-mini' },
+    });
+  });
+});
+
+describe('ChatGPTService.findMatchingTransaction', () => {
+  it('makes no call when there is nothing to match against', async () => {
+    await expect(
+      new ChatGPTService().findMatchingTransaction(importedCharge, []),
+    ).resolves.toBeNull();
+    expect(hangingFetch).not.toHaveBeenCalled();
+  });
+
+  it('returns the offered match the model names, asked deterministically', async () => {
+    answering('tx-a');
+
+    await expect(
+      new ChatGPTService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBe('tx-a');
+    expect(sentBody()).toMatchObject({
+      messages: [
+        { role: 'system', content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT },
+        { role: 'user' },
+      ],
+      temperature: 0,
+      max_tokens: 50,
+    });
+  });
+
+  it('reports a provider failure and returns null', async () => {
+    failingWithBadRequest();
+
+    await expect(
+      new ChatGPTService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'ChatGPT API error',
+      context: { model: 'gpt-4o-mini' },
+    });
   });
 });

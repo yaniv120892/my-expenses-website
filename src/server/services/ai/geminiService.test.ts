@@ -22,7 +22,13 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 }));
 
 import { GeminiService } from '@/server/services/ai/geminiService';
-import { SUGGEST_CATEGORY_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
+import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
+import {
+  SUGGEST_CATEGORY_SYSTEM_PROMPT,
+  FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+  buildAnalyzeExpensesPrompt,
+  buildFindMatchingTransactionPrompt,
+} from '@/server/services/ai/prompts';
 
 const RETIRED_MODEL_ERROR = new Error(
   '[404 Not Found] This model models/gemini-2.0-flash is no longer available.',
@@ -180,5 +186,107 @@ describe('GeminiService.evaluateCategory', () => {
 
     await expect(new GeminiService().suggestCategory('GETT', categories)).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('GeminiService.generateContent', () => {
+  it('sends the prompt as the only user part and returns the raw text', async () => {
+    generateContent.mockResolvedValue(textResponse(' "Spend less"\n'));
+
+    await expect(new GeminiService().generateContent('advise me')).resolves.toBe(' "Spend less"\n');
+    expect(generateContent).toHaveBeenCalledWith({
+      contents: [{ role: 'user', parts: [{ text: 'advise me' }] }],
+    });
+    expect(Object.keys(generateContent.mock.calls[0]?.[0])).toEqual(['contents']);
+  });
+
+  it('returns an empty string when the provider answers with no content', async () => {
+    generateContent.mockResolvedValue({ response: { candidates: [] } });
+
+    await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
+  });
+
+  it('reports a provider failure and returns an empty string', async () => {
+    generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
+
+    await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
+    expect(reportError).toHaveBeenCalledWith({
+      error: RETIRED_MODEL_ERROR,
+      where: 'Gemini API error',
+      context: { model: 'gemini-3.6-flash' },
+    });
+  });
+});
+
+describe('GeminiService.analyzeExpenses request', () => {
+  it('sends the analysis prompt as the only user part, with no system instruction', async () => {
+    generateContent.mockResolvedValue(textResponse('Food went up'));
+
+    await new GeminiService().analyzeExpenses('summary', 'in one line');
+
+    expect(generateContent).toHaveBeenCalledWith({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: buildAnalyzeExpensesPrompt('summary', 'in one line') }],
+        },
+      ],
+    });
+    expect(Object.keys(generateContent.mock.calls[0]?.[0])).toEqual(['contents']);
+  });
+});
+
+describe('GeminiService.findMatchingTransaction', () => {
+  it('makes no call when there is nothing to match against', async () => {
+    await expect(
+      new GeminiService().findMatchingTransaction(importedCharge, []),
+    ).resolves.toBeNull();
+    expect(generateContent).not.toHaveBeenCalled();
+  });
+
+  it('returns the quoted match the model names, asked deterministically', async () => {
+    generateContent.mockResolvedValue(textResponse(' "tx-a"\n'));
+
+    await expect(
+      new GeminiService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBe('tx-a');
+    expect(generateContent).toHaveBeenCalledWith({
+      systemInstruction: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: buildFindMatchingTransactionPrompt(importedCharge, [matchCandidate]) }],
+        },
+      ],
+      generationConfig: { temperature: 0 },
+    });
+  });
+
+  it('reports a provider failure under its own label and returns null', async () => {
+    generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
+
+    await expect(
+      new GeminiService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith({
+      error: RETIRED_MODEL_ERROR,
+      where: 'Error finding matching transaction',
+      context: { model: 'gemini-3.6-flash' },
+    });
+  });
+});
+
+describe('GeminiService.suggestCategory', () => {
+  it('reports a provider failure with the model and returns null', async () => {
+    generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
+
+    await expect(
+      new GeminiService().suggestCategory('GETT', [{ id: 'cat-taxi', name: 'Taxi' }]),
+    ).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith({
+      error: RETIRED_MODEL_ERROR,
+      where: 'Gemini API error',
+      context: { model: 'gemini-3.6-flash' },
+    });
   });
 });

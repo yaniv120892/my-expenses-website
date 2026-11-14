@@ -10,7 +10,7 @@ import {
   buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
-import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
+import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 type JevProvider = {
   evaluationModel(modelId: string): Experimental_EvaluationModel;
@@ -23,6 +23,11 @@ const DEFAULT_TYPESAFE_JEV_MODEL = 'jev-latest';
 // Jev returns a probability per offered category instead of text, so it can
 // make the category decision but none of the prose-producing AIProvider calls.
 export class JevCategorySuggester implements CategorySuggester {
+  private errorFallback = new ProviderFallback({
+    where: 'Jev API error',
+    modelName: () => this.modelName(),
+  });
+
   // Dynamic imports: the AI SDK costs ~110 ms at load, and every transactions
   // route imports this class whether or not the flag is on.
   private getEvaluate = lazy(async () => {
@@ -43,10 +48,8 @@ export class JevCategorySuggester implements CategorySuggester {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return suggestCategoryOrNull(
-      () => this.evaluateCategory(expenseDescription, categoryOptions),
-      this.modelName(),
-      'Jev API error',
+    return this.errorFallback.categoryIdOrNull(
+      this.evaluateCategory(expenseDescription, categoryOptions),
     );
   }
 

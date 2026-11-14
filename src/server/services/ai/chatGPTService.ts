@@ -9,7 +9,6 @@ import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
-import { observability } from '@/server/observability';
 import {
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
@@ -19,12 +18,33 @@ import {
   resolveMatchedTransactionId,
   buildCategoryEvaluation,
 } from '@/server/services/ai/prompts';
-import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
+import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 // Overridable so a retired model is a dashboard edit, not a deploy.
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
+type AnalysisRequest = {
+  expenseSummary: string;
+  suffixPrompt: string | undefined;
+};
+
+type MatchRequest = {
+  importedCharge: ImportedChargeToMatch;
+  potentialMatches: Transaction[];
+};
+
+type ChatRequest = {
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
+  maxTokens: number;
+  temperature?: number;
+};
+
 export class ChatGPTService implements AIProvider {
+  private errorFallback = new ProviderFallback({
+    where: 'ChatGPT API error',
+    modelName: () => this.modelName(),
+  });
+
   private getOpenAI = lazy(
     () =>
       new OpenAI({
@@ -35,68 +55,25 @@ export class ChatGPTService implements AIProvider {
   );
 
   public async generateContent(prompt: string): Promise<string> {
-    try {
-      const response = await this.getOpenAI().chat.completions.create({
-        model: this.modelName(),
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 200,
-      });
-
-      return this.firstChoiceContent(response) || 'No insights available.';
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'ChatGPT API error',
-        context: { model: this.modelName() },
-      });
-      return '';
-    }
+    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string | null> {
-    try {
-      const response = await this.getOpenAI().chat.completions.create({
-        model: this.modelName(),
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a financial assistant helping users analyze their expenses.',
-          },
-          {
-            role: 'user',
-            content: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
-          },
-        ],
-        max_tokens: 200,
-      });
-
-      return this.firstChoiceContent(response) || null;
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'ChatGPT API error',
-        context: { model: this.modelName() },
-      });
-      return null;
-    }
+    return this.errorFallback.orFallback({
+      attempt: this.requestAnalysis({ expenseSummary, suffixPrompt }),
+      fallback: null,
+    });
   }
 
   public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return suggestCategoryOrNull(
-      () => this.evaluateCategory(expenseDescription, categoryOptions),
-      this.modelName(),
-      'ChatGPT API error',
+    return this.errorFallback.categoryIdOrNull(
+      this.evaluateCategory(expenseDescription, categoryOptions),
     );
   }
 
@@ -104,19 +81,12 @@ export class ChatGPTService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
-    const response = await this.getOpenAI().chat.completions.create({
-      model: this.modelName(),
+    const response = await this.complete({
       messages: [
-        {
-          role: 'system',
-          content: SUGGEST_CATEGORY_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
-        },
+        { role: 'system', content: SUGGEST_CATEGORY_SYSTEM_PROMPT },
+        { role: 'user', content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions) },
       ],
-      max_tokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
+      maxTokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
     });
 
     return buildCategoryEvaluation(response.choices[0]?.message?.content, categoryOptions, {
@@ -129,40 +99,73 @@ export class ChatGPTService implements AIProvider {
     importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
-    try {
-      if (!potentialMatches.length) {
-        return null;
-      }
-
-      const response = await this.getOpenAI().chat.completions.create({
-        model: this.modelName(),
-        messages: [
-          {
-            role: 'system',
-            content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
-          },
-          {
-            role: 'user',
-            content: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
-          },
-        ],
-        temperature: 0,
-        max_tokens: 50,
-      });
-
-      return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'ChatGPT API error',
-        context: { model: this.modelName() },
-      });
+    if (!potentialMatches.length) {
       return null;
     }
+    return this.errorFallback.orFallback({
+      attempt: this.requestMatch({ importedCharge, potentialMatches }),
+      fallback: null,
+    });
   }
 
   public modelName(): string {
     return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
+  }
+
+  private async requestContent(prompt: string): Promise<string> {
+    const response = await this.complete({
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 200,
+    });
+    return this.firstChoiceContent(response) || 'No insights available.';
+  }
+
+  private async requestAnalysis({
+    expenseSummary,
+    suffixPrompt,
+  }: AnalysisRequest): Promise<string | null> {
+    const response = await this.complete({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a financial assistant helping users analyze their expenses.',
+        },
+        { role: 'user', content: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt) },
+      ],
+      maxTokens: 200,
+    });
+    return this.firstChoiceContent(response) || null;
+  }
+
+  private async requestMatch({
+    importedCharge,
+    potentialMatches,
+  }: MatchRequest): Promise<string | null> {
+    const response = await this.complete({
+      messages: [
+        { role: 'system', content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
+        },
+      ],
+      temperature: 0,
+      maxTokens: 50,
+    });
+    return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
+  }
+
+  private async complete({
+    messages,
+    maxTokens,
+    temperature,
+  }: ChatRequest): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    return this.getOpenAI().chat.completions.create({
+      model: this.modelName(),
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    });
   }
 
   private firstChoiceContent(

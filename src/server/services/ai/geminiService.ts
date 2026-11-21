@@ -162,7 +162,7 @@ export class GeminiService implements AIProvider {
     systemInstruction,
     generationConfig,
   }: GeminiRequest): Promise<GenerateContentResult> {
-    // Unset keys stay absent, as in the request literals this method replaced.
+    // Omitted rather than undefined, so the request carries only the keys a caller set.
     return this.generativeModel().generateContent({
       ...(systemInstruction !== undefined && { systemInstruction }),
       contents: [{ role: 'user', parts: [{ text }] }],

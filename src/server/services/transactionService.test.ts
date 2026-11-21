@@ -10,6 +10,7 @@ const {
   getAllCategories,
   reportError,
   createTransactionFile,
+  findTransactionFilesByTransactionId,
   findMembersNotifiedOfNewTransactions,
 } = vi.hoisted(() => ({
   findMembersNotifiedOfNewTransactions: vi.fn(),
@@ -20,6 +21,7 @@ const {
   getAllCategories: vi.fn(),
   reportError: vi.fn(),
   createTransactionFile: vi.fn(),
+  findTransactionFilesByTransactionId: vi.fn(),
 }));
 
 const activity = vi.hoisted(() => {
@@ -42,7 +44,10 @@ vi.mock('@/server/repositories/categoryRepository', () => ({
 }));
 
 vi.mock('@/server/repositories/transactionFileRepository', () => ({
-  default: { create: createTransactionFile },
+  default: {
+    create: createTransactionFile,
+    findByTransactionId: findTransactionFilesByTransactionId,
+  },
 }));
 
 vi.mock('@/server/services/userSettingsService', () => ({
@@ -58,7 +63,7 @@ import transactionService from '@/server/services/transactionService';
 import { logger } from '@/server/observability';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
-import type { CreateTransaction } from '@/shared/types/transaction';
+import type { CreateTransaction, TransactionFile } from '@/shared/types/transaction';
 import type { CategorySuggester } from '@/server/services/ai/aiProvider';
 import { testMemberActor } from '@/test/memberActor';
 import { systemActor } from '@/server/auth/householdActor';
@@ -416,6 +421,84 @@ describe('attachFile', () => {
       message: 'receipt.pdf is 4.1 MB, over the 4 MB upload limit.',
     });
     expect(createTransactionFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('getTransactionFiles', () => {
+  const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
+  const fileRow = (id: string, createdAt: string): TransactionFile => ({
+    id,
+    transactionId: TRANSACTION_ID,
+    fileName: `${id}.pdf`,
+    fileKey: `transactions/${TRANSACTION_ID}/${id}.pdf`,
+    fileSize: 120,
+    mimeType: 'application/pdf',
+    status: 'ACTIVE',
+    createdAt: new Date(createdAt),
+    updatedAt: new Date(createdAt),
+  });
+  const givenTransactionWithFiles = (files: TransactionFile[]) => {
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockResolvedValue({ id: TRANSACTION_ID, files });
+    findTransactionFilesByTransactionId.mockResolvedValue(files);
+  };
+
+  beforeEach(() => {
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME', 'attachments-bucket');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_REGION', 'eu-west-1');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID', 'test-key-id');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY', 'test-secret');
+  });
+
+  it("lists the transaction's active files, newest first, with signed preview and download urls", async () => {
+    givenTransactionWithFiles([
+      fileRow('newer', '2026-11-02T10:00:00Z'),
+      fileRow('older', '2026-11-01T10:00:00Z'),
+    ]);
+
+    const views = await transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID);
+
+    expect(views).toEqual([
+      expect.objectContaining({
+        id: 'newer',
+        fileName: 'newer.pdf',
+        fileSize: 120,
+        mimeType: 'application/pdf',
+      }),
+      expect.objectContaining({
+        id: 'older',
+        fileName: 'older.pdf',
+        fileSize: 120,
+        mimeType: 'application/pdf',
+      }),
+    ]);
+    const [newer] = views;
+    if (!newer) {
+      throw new Error('expected the newer file first');
+    }
+    const preview = new URL(newer.previewFileUrl);
+    const download = new URL(newer.downloadableFileUrl);
+    expect(preview.pathname).toBe(`/transactions/${TRANSACTION_ID}/newer.pdf`);
+    expect(preview.searchParams.get('response-content-disposition')).toMatch(/^inline/);
+    expect(download.pathname).toBe(`/transactions/${TRANSACTION_ID}/newer.pdf`);
+    expect(download.searchParams.get('response-content-disposition')).toMatch(/^attachment/);
+  });
+
+  it('returns an empty list for a transaction with no files', async () => {
+    givenTransactionWithFiles([]);
+
+    await expect(
+      transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID),
+    ).resolves.toEqual([]);
+  });
+
+  it('404s for a transaction outside the household', async () => {
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue(null);
+
+    await expect(
+      transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 

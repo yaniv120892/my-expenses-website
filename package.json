@@ -89,7 +89,7 @@
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@yaniv120892/dev-config": "github:yaniv120892/dev-config#v0.1.8",
+    "@yaniv120892/dev-config": "github:yaniv120892/dev-config#v0.2.0",
     "dotenv": "^18.0.10",
     "eslint": "^10",
     "eslint-config-next": "16.4.6",

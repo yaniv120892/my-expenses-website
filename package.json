@@ -53,7 +53,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.1.0",
     "@yaniv120892/app-kit": "github:yaniv120892/app-kit#v0.1.0",
-    "@yaniv120892/my-ui": "github:yaniv120892/my-ui#v0.2.0",
+    "@yaniv120892/my-ui": "github:yaniv120892/my-ui#v0.2.1",
     "@yaniv120892/observability": "github:yaniv120892/observability#v0.3.0",
     "ai": "^7.0.176",
     "axios": "^1.21.1",

@@ -113,9 +113,11 @@ describe('JevCategorySuggester', () => {
     expect(reportError).not.toHaveBeenCalled();
 
     await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
-    expect(reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.any(Error), where: 'Jev API error' }),
-    );
+    expect(reportError).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      where: 'Jev API error',
+      context: { model: 'typesafe-ai/jev', operation: 'suggestCategory' },
+    });
   });
 
   it.each([

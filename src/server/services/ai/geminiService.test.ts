@@ -50,11 +50,11 @@ function textResponse(
   };
 }
 
-function expectRetiredModelReported(where: string): void {
+function expectRetiredModelReported(operation: string): void {
   expect(reportError).toHaveBeenCalledWith({
     error: RETIRED_MODEL_ERROR,
-    where,
-    context: { model: 'gemini-3.6-flash' },
+    where: 'Gemini API error',
+    context: { model: 'gemini-3.6-flash', operation },
   });
 }
 
@@ -75,9 +75,7 @@ describe('GeminiService.analyzeExpenses', () => {
     const result = await new GeminiService().analyzeExpenses('summary');
 
     expect(result).toBeNull();
-    expect(reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ error: RETIRED_MODEL_ERROR, where: 'Gemini API error' }),
-    );
+    expectRetiredModelReported('analyzeExpenses');
   });
 
   it('returns null when the provider answers with no content', async () => {
@@ -218,7 +216,7 @@ describe('GeminiService.generateContent', () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
     await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
-    expectRetiredModelReported('Gemini API error');
+    expectRetiredModelReported('generateContent');
   });
 });
 
@@ -266,13 +264,13 @@ describe('GeminiService.findMatchingTransaction', () => {
     });
   });
 
-  it('reports a provider failure under its own label and returns null', async () => {
+  it('reports a provider failure under the provider label and returns null', async () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
     await expect(
       new GeminiService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBeNull();
-    expectRetiredModelReported('Error finding matching transaction');
+    expectRetiredModelReported('findMatchingTransaction');
   });
 });
 
@@ -283,6 +281,6 @@ describe('GeminiService.suggestCategory', () => {
     await expect(
       new GeminiService().suggestCategory('GETT', [{ id: 'cat-taxi', name: 'Taxi' }]),
     ).resolves.toBeNull();
-    expectRetiredModelReported('Gemini API error');
+    expectRetiredModelReported('suggestCategory');
   });
 });

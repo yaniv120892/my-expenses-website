@@ -2,10 +2,12 @@ import OpenAI from 'openai';
 import type {
   AIProvider,
   CategoryEvaluation,
-  ExpenseAnalysisRequest,
   ImportedChargeToMatch,
-  TransactionMatchRequest,
 } from '@/server/services/ai/aiProvider';
+import type {
+  ExpenseAnalysisRequest,
+  TransactionMatchRequest,
+} from '@/server/services/ai/providerRequests';
 import type { Category } from '@/shared/types/category';
 import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';

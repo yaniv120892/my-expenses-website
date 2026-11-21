@@ -7,10 +7,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   AIProvider,
   CategoryEvaluation,
-  ExpenseAnalysisRequest,
   ImportedChargeToMatch,
-  TransactionMatchRequest,
 } from '@/server/services/ai/aiProvider';
+import type {
+  ExpenseAnalysisRequest,
+  TransactionMatchRequest,
+} from '@/server/services/ai/providerRequests';
 import { logger } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
 import type { Transaction } from '@/shared/types/transaction';
@@ -44,7 +46,8 @@ export class GeminiService implements AIProvider {
     modelName: () => this.modelName(),
   });
 
-  // Matching has always reported under its own label; renaming it would regroup Sentry issues.
+  // Matching has always reported under its own label; renaming it would regroup the
+  // error tracker's issues.
   private readonly matchFallback = new ProviderFallback({
     where: 'Error finding matching transaction',
     modelName: () => this.modelName(),
@@ -162,7 +165,8 @@ export class GeminiService implements AIProvider {
     systemInstruction,
     generationConfig,
   }: GeminiRequest): Promise<GenerateContentResult> {
-    // Omitted rather than undefined, so the request carries only the keys a caller set.
+    // Omitted, not undefined: the SDK spreads the request over the model's defaults, and an
+    // undefined key would erase one.
     return this.generativeModel().generateContent({
       ...(systemInstruction !== undefined && { systemInstruction }),
       contents: [{ role: 'user', parts: [{ text }] }],

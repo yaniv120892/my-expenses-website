@@ -10,16 +10,6 @@ export type ImportedChargeToMatch = {
   type: TransactionType;
 };
 
-export type ExpenseAnalysisRequest = {
-  expenseSummary: string;
-  suffixPrompt: string | undefined;
-};
-
-export type TransactionMatchRequest = {
-  importedCharge: ImportedChargeToMatch;
-  potentialMatches: Transaction[];
-};
-
 export type CategoryEvaluation = {
   categoryId: string | null;
   /** The model's answer after normalization, kept even when it names no offered category. */

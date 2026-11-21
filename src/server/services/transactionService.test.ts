@@ -10,7 +10,6 @@ const {
   getAllCategories,
   reportError,
   createTransactionFile,
-  findTransactionFilesByTransactionId,
   findMembersNotifiedOfNewTransactions,
 } = vi.hoisted(() => ({
   findMembersNotifiedOfNewTransactions: vi.fn(),
@@ -21,7 +20,6 @@ const {
   getAllCategories: vi.fn(),
   reportError: vi.fn(),
   createTransactionFile: vi.fn(),
-  findTransactionFilesByTransactionId: vi.fn(),
 }));
 
 const activity = vi.hoisted(() => {
@@ -46,7 +44,6 @@ vi.mock('@/server/repositories/categoryRepository', () => ({
 vi.mock('@/server/repositories/transactionFileRepository', () => ({
   default: {
     create: createTransactionFile,
-    findByTransactionId: findTransactionFilesByTransactionId,
   },
 }));
 
@@ -441,7 +438,6 @@ describe('getTransactionFiles', () => {
     transactionService.getTransactionItem = vi
       .fn()
       .mockResolvedValue({ id: TRANSACTION_ID, files });
-    findTransactionFilesByTransactionId.mockResolvedValue(files);
   };
 
   beforeEach(() => {

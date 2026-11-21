@@ -354,9 +354,7 @@ class TransactionService {
     householdId: HouseholdId,
     transactionId: string,
   ): Promise<TransactionFileView[]> {
-    await this.assertTransactionExists(householdId, transactionId);
-
-    const files = await transactionFileRepository.findByTransactionId(transactionId);
+    const { files = [] } = await this.assertTransactionExists(householdId, transactionId);
 
     return Promise.all(
       files.map(async (file) => {

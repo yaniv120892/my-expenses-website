@@ -24,16 +24,6 @@ export class TransactionFileRepository {
     });
   }
 
-  public async findByTransactionId(transactionId: string): Promise<TransactionFile[]> {
-    return prisma.transactionFile.findMany({
-      where: {
-        transactionId,
-        status: TransactionFileStatus.ACTIVE,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
   public async updateStatus(id: string, status: TransactionFileStatus): Promise<TransactionFile> {
     return prisma.transactionFile.update({
       where: { id },

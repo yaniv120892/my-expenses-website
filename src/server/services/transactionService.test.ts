@@ -42,9 +42,7 @@ vi.mock('@/server/repositories/categoryRepository', () => ({
 }));
 
 vi.mock('@/server/repositories/transactionFileRepository', () => ({
-  default: {
-    create: createTransactionFile,
-  },
+  default: { create: createTransactionFile },
 }));
 
 vi.mock('@/server/services/userSettingsService', () => ({
@@ -447,7 +445,7 @@ describe('getTransactionFiles', () => {
     vi.stubEnv('TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY', 'test-secret');
   });
 
-  it("lists the transaction's active files, newest first, with signed preview and download urls", async () => {
+  it("maps the transaction's files, in order, to signed preview and download urls", async () => {
     givenTransactionWithFiles([
       fileRow('newer', '2026-11-02T10:00:00Z'),
       fileRow('older', '2026-11-01T10:00:00Z'),

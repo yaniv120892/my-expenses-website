@@ -30,6 +30,10 @@ reports success, so the required check passes.
 
 Short docs, one topic each. Load the one whose trigger matches your task.
 
+- [Suite architecture](https://github.com/yaniv120892/platform) (locally `../platform`) — how the
+  My apps and shared packages fit together: hosting, data stores, observability, households, agent
+  channels. Load its `CLAUDE.md` before adding a store, cron, external API, alert or agent-facing
+  feature, or code a sibling app could reuse. Update it in the same change when a fact there moves.
 - [DECISIONS.md](DECISIONS.md) — the hard-to-reverse decisions and why. Load before reversing or
   adding one.
 - [docs/api-routes.md](docs/api-routes.md) — `createHandler`, rate limits, `recordIdSchema`, the

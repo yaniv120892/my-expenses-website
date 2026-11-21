@@ -1,11 +1,19 @@
-import type { GenerativeModel } from '@google/generative-ai';
+import type {
+  GenerateContentResult,
+  GenerationConfig,
+  GenerativeModel,
+} from '@google/generative-ai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   AIProvider,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
-import { logger, observability } from '@/server/observability';
+import type {
+  ExpenseAnalysisRequest,
+  TransactionMatchRequest,
+} from '@/server/services/ai/providerRequests';
+import { logger } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
 import type { Transaction } from '@/shared/types/transaction';
 import { lazy } from '@/server/lib/lazy';
@@ -20,88 +28,53 @@ import {
   buildCategoryEvaluation,
   resolveMatchedTransactionId,
 } from '@/server/services/ai/prompts';
-import { suggestCategoryOrNull } from '@/server/services/ai/suggestCategoryOrNull';
+import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 // Google retires Flash generations roughly twice a year, so the id is
 // overridable: the next retirement is a dashboard edit, not a deploy.
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
+type GeminiRequest = {
+  text: string;
+  systemInstruction?: string;
+  generationConfig?: GenerationConfig;
+};
+
 export class GeminiService implements AIProvider {
+  private readonly errorFallback = new ProviderFallback({
+    where: 'Gemini API error',
+    modelName: () => this.modelName(),
+  });
+
+  // Matching has always reported under its own label; renaming it would regroup the
+  // error tracker's issues.
+  private readonly matchFallback = new ProviderFallback({
+    where: 'Error finding matching transaction',
+    modelName: () => this.modelName(),
+  });
+
   private getGemini = lazy(() => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')));
 
   public async generateContent(prompt: string): Promise<string> {
-    try {
-      logger.debug({ prompt }, 'Start generating content');
-      const model = this.generativeModel();
-      const response = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-      });
-      const content = response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-      logger.debug({ prompt }, 'Done generating content');
-      return content || '';
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'Gemini API error',
-        context: { model: this.modelName() },
-      });
-      return '';
-    }
+    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
   }
 
   public async analyzeExpenses(
     expenseSummary: string,
     suffixPrompt?: string,
   ): Promise<string | null> {
-    try {
-      logger.debug('Start analyzing expenses');
-      const model = this.generativeModel();
-      const response = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
-              },
-            ],
-          },
-        ],
-      });
-
-      const analysis = this.cleanGeminiResponse(
-        response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
-      );
-      logger.debug({ analysis }, 'Done analyzing expenses');
-
-      return analysis || null;
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'Gemini API error',
-        context: { model: this.modelName() },
-      });
-      return null;
-    }
+    return this.errorFallback.orFallback({
+      attempt: this.requestAnalysis({ expenseSummary, suffixPrompt }),
+      fallback: null,
+    });
   }
 
   public async suggestCategory(
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return suggestCategoryOrNull(
-      () => this.evaluateCategory(expenseDescription, categoryOptions),
-      this.modelName(),
-      'Gemini API error',
+    return this.errorFallback.categoryIdOrNull(
+      this.evaluateCategory(expenseDescription, categoryOptions),
     );
   }
 
@@ -110,31 +83,18 @@ export class GeminiService implements AIProvider {
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
     logger.debug({ expenseDescription }, 'Start suggesting category for expense');
-    const response = await this.generativeModel().generateContent({
+    const response = await this.generate({
+      text: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
       systemInstruction: SUGGEST_CATEGORY_SYSTEM_PROMPT,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
-            },
-          ],
-        },
-      ],
       generationConfig: { maxOutputTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens },
     });
 
     const usage = response.response?.usageMetadata;
-    const evaluation = buildCategoryEvaluation(
-      response.response?.candidates?.[0]?.content?.parts?.[0]?.text,
-      categoryOptions,
-      {
-        inputTokens: usage?.promptTokenCount ?? null,
-        // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
-        outputTokens: usage ? usage.totalTokenCount - usage.promptTokenCount : null,
-      },
-    );
+    const evaluation = buildCategoryEvaluation(this.firstCandidateText(response), categoryOptions, {
+      inputTokens: usage?.promptTokenCount ?? null,
+      // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
+      outputTokens: usage ? usage.totalTokenCount - usage.promptTokenCount : null,
+    });
     logger.debug(
       { expenseDescription, categoryName: evaluation.categoryName },
       'Done suggesting category for expense',
@@ -146,48 +106,72 @@ export class GeminiService implements AIProvider {
     importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
-    try {
-      logger.debug(
-        { importedDescription: importedCharge.description },
-        'Start finding matching transaction',
-      );
+    return this.matchFallback.orFallback({
+      attempt: this.requestMatch({ importedCharge, potentialMatches }),
+      fallback: null,
+    });
+  }
 
-      if (!potentialMatches.length) {
-        return null;
-      }
+  public modelName(): string {
+    return optionalEnv('GEMINI_MODEL', DEFAULT_GEMINI_MODEL);
+  }
 
-      const model = this.generativeModel();
-      const response = await model.generateContent({
-        systemInstruction: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
-              },
-            ],
-          },
-        ],
-        generationConfig: { temperature: 0 },
-      });
+  private async requestContent(prompt: string): Promise<string> {
+    logger.debug({ prompt }, 'Start generating content');
+    const content = this.firstCandidateText(await this.generate({ text: prompt }));
+    logger.debug({ prompt }, 'Done generating content');
+    return content || '';
+  }
 
-      const result = resolveMatchedTransactionId(
-        this.cleanGeminiResponse(response.response?.candidates?.[0]?.content?.parts?.[0]?.text),
-        potentialMatches,
-      );
+  private async requestAnalysis({
+    expenseSummary,
+    suffixPrompt,
+  }: ExpenseAnalysisRequest): Promise<string | null> {
+    logger.debug('Start analyzing expenses');
+    const response = await this.generate({
+      text: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
+    });
+    const analysis = this.cleanGeminiResponse(this.firstCandidateText(response));
+    logger.debug({ analysis }, 'Done analyzing expenses');
+    return analysis || null;
+  }
 
-      logger.debug({ result }, 'Done finding matching transaction');
-
-      return result;
-    } catch (err) {
-      observability.reportError({
-        error: err,
-        where: 'Error finding matching transaction',
-        context: { model: this.modelName() },
-      });
+  private async requestMatch({
+    importedCharge,
+    potentialMatches,
+  }: TransactionMatchRequest): Promise<string | null> {
+    logger.debug(
+      { importedDescription: importedCharge.description },
+      'Start finding matching transaction',
+    );
+    if (!potentialMatches.length) {
       return null;
     }
+    const response = await this.generate({
+      text: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
+      systemInstruction: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
+      generationConfig: { temperature: 0 },
+    });
+    const result = resolveMatchedTransactionId(
+      this.cleanGeminiResponse(this.firstCandidateText(response)),
+      potentialMatches,
+    );
+    logger.debug({ result }, 'Done finding matching transaction');
+    return result;
+  }
+
+  private async generate({
+    text,
+    systemInstruction,
+    generationConfig,
+  }: GeminiRequest): Promise<GenerateContentResult> {
+    // Omitted, not undefined: the SDK spreads the request over the model's defaults, and an
+    // undefined key would erase one.
+    return this.generativeModel().generateContent({
+      ...(systemInstruction !== undefined && { systemInstruction }),
+      contents: [{ role: 'user', parts: [{ text }] }],
+      ...(generationConfig !== undefined && { generationConfig }),
+    });
   }
 
   private generativeModel(): GenerativeModel {
@@ -197,8 +181,8 @@ export class GeminiService implements AIProvider {
     );
   }
 
-  public modelName(): string {
-    return optionalEnv('GEMINI_MODEL', DEFAULT_GEMINI_MODEL);
+  private firstCandidateText(result: GenerateContentResult): string | undefined {
+    return result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
   }
 
   private cleanGeminiResponse(response: string | undefined): string {

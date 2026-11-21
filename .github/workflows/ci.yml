@@ -14,10 +14,9 @@ permissions:
 
 jobs:
   checks:
-    uses: yaniv120892/dev-config/.github/workflows/node-ci.yml@v0.1.6
+    uses: yaniv120892/dev-config/.github/workflows/node-ci.yml@v0.1.8
     with:
       audit: true
-      node-version: '24'
       # The Sentry-wrapped build worker OOMs on Node's default ~2GB heap.
       build-node-options: --max-old-space-size=4096
 
@@ -103,7 +102,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: steps.scope.outputs.run == 'true'
         with:
-          node-version: 24
+          node-version-file: package.json
           cache: npm
       - run: npm ci
         if: steps.scope.outputs.run == 'true'

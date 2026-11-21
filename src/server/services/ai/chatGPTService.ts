@@ -2,7 +2,9 @@ import OpenAI from 'openai';
 import type {
   AIProvider,
   CategoryEvaluation,
+  ExpenseAnalysisRequest,
   ImportedChargeToMatch,
+  TransactionMatchRequest,
 } from '@/server/services/ai/aiProvider';
 import type { Category } from '@/shared/types/category';
 import type { Transaction } from '@/shared/types/transaction';
@@ -23,24 +25,11 @@ import { ProviderFallback } from '@/server/services/ai/providerFallback';
 // Overridable so a retired model is a dashboard edit, not a deploy.
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
-type AnalysisRequest = {
-  expenseSummary: string;
-  suffixPrompt: string | undefined;
-};
-
-type MatchRequest = {
-  importedCharge: ImportedChargeToMatch;
-  potentialMatches: Transaction[];
-};
-
-type ChatRequest = {
-  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
-  maxTokens: number;
-  temperature?: number;
-};
+// A completion request minus the model, which `complete` always fills from `modelName()`.
+type ChatRequest = Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming, 'model'>;
 
 export class ChatGPTService implements AIProvider {
-  private errorFallback = new ProviderFallback({
+  private readonly errorFallback = new ProviderFallback({
     where: 'ChatGPT API error',
     modelName: () => this.modelName(),
   });
@@ -86,7 +75,7 @@ export class ChatGPTService implements AIProvider {
         { role: 'system', content: SUGGEST_CATEGORY_SYSTEM_PROMPT },
         { role: 'user', content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions) },
       ],
-      maxTokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
+      max_tokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
     });
 
     return buildCategoryEvaluation(response.choices[0]?.message?.content, categoryOptions, {
@@ -99,9 +88,6 @@ export class ChatGPTService implements AIProvider {
     importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
-    if (!potentialMatches.length) {
-      return null;
-    }
     return this.errorFallback.orFallback({
       attempt: this.requestMatch({ importedCharge, potentialMatches }),
       fallback: null,
@@ -115,7 +101,7 @@ export class ChatGPTService implements AIProvider {
   private async requestContent(prompt: string): Promise<string> {
     const response = await this.complete({
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: 200,
+      max_tokens: 200,
     });
     return this.firstChoiceContent(response) || 'No insights available.';
   }
@@ -123,7 +109,7 @@ export class ChatGPTService implements AIProvider {
   private async requestAnalysis({
     expenseSummary,
     suffixPrompt,
-  }: AnalysisRequest): Promise<string | null> {
+  }: ExpenseAnalysisRequest): Promise<string | null> {
     const response = await this.complete({
       messages: [
         {
@@ -132,7 +118,7 @@ export class ChatGPTService implements AIProvider {
         },
         { role: 'user', content: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt) },
       ],
-      maxTokens: 200,
+      max_tokens: 200,
     });
     return this.firstChoiceContent(response) || null;
   }
@@ -140,7 +126,10 @@ export class ChatGPTService implements AIProvider {
   private async requestMatch({
     importedCharge,
     potentialMatches,
-  }: MatchRequest): Promise<string | null> {
+  }: TransactionMatchRequest): Promise<string | null> {
+    if (!potentialMatches.length) {
+      return null;
+    }
     const response = await this.complete({
       messages: [
         { role: 'system', content: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT },
@@ -150,22 +139,13 @@ export class ChatGPTService implements AIProvider {
         },
       ],
       temperature: 0,
-      maxTokens: 50,
+      max_tokens: 50,
     });
     return resolveMatchedTransactionId(this.firstChoiceContent(response), potentialMatches);
   }
 
-  private async complete({
-    messages,
-    maxTokens,
-    temperature,
-  }: ChatRequest): Promise<OpenAI.Chat.Completions.ChatCompletion> {
-    return this.getOpenAI().chat.completions.create({
-      model: this.modelName(),
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-    });
+  private async complete(request: ChatRequest): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    return this.getOpenAI().chat.completions.create({ model: this.modelName(), ...request });
   }
 
   private firstChoiceContent(

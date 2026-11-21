@@ -10,6 +10,18 @@ export type ImportedChargeToMatch = {
   type: TransactionType;
 };
 
+/** The arguments of `AIProvider.analyzeExpenses`, bundled for a provider's private request method. */
+export type ExpenseAnalysisRequest = {
+  expenseSummary: string;
+  suffixPrompt: string | undefined;
+};
+
+/** The arguments of `AIProvider.findMatchingTransaction`, bundled likewise. */
+export type TransactionMatchRequest = {
+  importedCharge: ImportedChargeToMatch;
+  potentialMatches: Transaction[];
+};
+
 export type CategoryEvaluation = {
   categoryId: string | null;
   /** The model's answer after normalization, kept even when it names no offered category. */

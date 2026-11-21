@@ -169,6 +169,14 @@ function failingWithBadRequest(): void {
   );
 }
 
+function expectProviderFailureReported(): void {
+  expect(reportError).toHaveBeenCalledWith({
+    error: expect.any(Error),
+    where: 'ChatGPT API error',
+    context: { model: 'gpt-4o-mini' },
+  });
+}
+
 function sentBody(): Record<string, unknown> {
   const [, init] = hangingFetch.mock.calls[0] ?? [];
   return JSON.parse(String(init?.body));
@@ -199,11 +207,7 @@ describe('ChatGPTService.generateContent', () => {
     failingWithBadRequest();
 
     await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe('');
-    expect(reportError).toHaveBeenCalledWith({
-      error: expect.any(Error),
-      where: 'ChatGPT API error',
-      context: { model: 'gpt-4o-mini' },
-    });
+    expectProviderFailureReported();
   });
 });
 
@@ -230,11 +234,7 @@ describe('ChatGPTService.analyzeExpenses', () => {
     failingWithBadRequest();
 
     await expect(new ChatGPTService().analyzeExpenses('summary')).resolves.toBeNull();
-    expect(reportError).toHaveBeenCalledWith({
-      error: expect.any(Error),
-      where: 'ChatGPT API error',
-      context: { model: 'gpt-4o-mini' },
-    });
+    expectProviderFailureReported();
   });
 });
 
@@ -268,10 +268,6 @@ describe('ChatGPTService.findMatchingTransaction', () => {
     await expect(
       new ChatGPTService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBeNull();
-    expect(reportError).toHaveBeenCalledWith({
-      error: expect.any(Error),
-      where: 'ChatGPT API error',
-      context: { model: 'gpt-4o-mini' },
-    });
+    expectProviderFailureReported();
   });
 });

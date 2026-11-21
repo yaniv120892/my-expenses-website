@@ -23,7 +23,7 @@ const DEFAULT_TYPESAFE_JEV_MODEL = 'jev-latest';
 // Jev returns a probability per offered category instead of text, so it can
 // make the category decision but none of the prose-producing AIProvider calls.
 export class JevCategorySuggester implements CategorySuggester {
-  private errorFallback = new ProviderFallback({
+  private readonly errorFallback = new ProviderFallback({
     where: 'Jev API error',
     modelName: () => this.modelName(),
   });

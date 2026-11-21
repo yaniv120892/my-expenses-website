@@ -11,6 +11,7 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 const PROVIDER_ERROR = new Error('provider down');
+const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -18,8 +19,6 @@ beforeEach(() => {
 
 describe('ProviderFallback.orFallback', () => {
   it('returns the result and reports nothing when the attempt succeeds', async () => {
-    const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
-
     await expect(
       fallback.orFallback({ attempt: Promise.resolve('answer'), fallback: '' }),
     ).resolves.toBe('answer');
@@ -27,8 +26,6 @@ describe('ProviderFallback.orFallback', () => {
   });
 
   it('reports a failure under the bound label and returns the fallback', async () => {
-    const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
-
     await expect(
       fallback.orFallback({ attempt: Promise.reject(PROVIDER_ERROR), fallback: null }),
     ).resolves.toBeNull();
@@ -39,26 +36,12 @@ describe('ProviderFallback.orFallback', () => {
     });
   });
 
-  it('reports under a per-call label when one is given', async () => {
-    const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
-
-    await fallback.orFallback({
-      attempt: Promise.reject(PROVIDER_ERROR),
-      fallback: null,
-      where: 'Error finding matching transaction',
-    });
-
-    expect(reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ where: 'Error finding matching transaction' }),
-    );
-  });
-
   it('reads the model when the failure is reported, not when it is built', async () => {
     let model = 'model-at-construction';
-    const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => model });
+    const lateModel = new ProviderFallback({ where: 'Test API error', modelName: () => model });
     model = 'model-at-failure';
 
-    await fallback.orFallback({ attempt: Promise.reject(PROVIDER_ERROR), fallback: null });
+    await lateModel.orFallback({ attempt: Promise.reject(PROVIDER_ERROR), fallback: null });
 
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({ context: { model: 'model-at-failure' } }),
@@ -67,8 +50,6 @@ describe('ProviderFallback.orFallback', () => {
 });
 
 describe('ProviderFallback.categoryIdOrNull', () => {
-  const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
-
   it('returns the evaluated category id', async () => {
     await expect(
       fallback.categoryIdOrNull(

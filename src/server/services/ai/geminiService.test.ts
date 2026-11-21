@@ -50,6 +50,14 @@ function textResponse(
   };
 }
 
+function expectRetiredModelReported(where: string): void {
+  expect(reportError).toHaveBeenCalledWith({
+    error: RETIRED_MODEL_ERROR,
+    where,
+    context: { model: 'gemini-3.6-flash' },
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.GEMINI_API_KEY = 'test-key';
@@ -210,11 +218,7 @@ describe('GeminiService.generateContent', () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
     await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
-    expect(reportError).toHaveBeenCalledWith({
-      error: RETIRED_MODEL_ERROR,
-      where: 'Gemini API error',
-      context: { model: 'gemini-3.6-flash' },
-    });
+    expectRetiredModelReported('Gemini API error');
   });
 });
 
@@ -268,11 +272,7 @@ describe('GeminiService.findMatchingTransaction', () => {
     await expect(
       new GeminiService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBeNull();
-    expect(reportError).toHaveBeenCalledWith({
-      error: RETIRED_MODEL_ERROR,
-      where: 'Error finding matching transaction',
-      context: { model: 'gemini-3.6-flash' },
-    });
+    expectRetiredModelReported('Error finding matching transaction');
   });
 });
 
@@ -283,10 +283,6 @@ describe('GeminiService.suggestCategory', () => {
     await expect(
       new GeminiService().suggestCategory('GETT', [{ id: 'cat-taxi', name: 'Taxi' }]),
     ).resolves.toBeNull();
-    expect(reportError).toHaveBeenCalledWith({
-      error: RETIRED_MODEL_ERROR,
-      where: 'Gemini API error',
-      context: { model: 'gemini-3.6-flash' },
-    });
+    expectRetiredModelReported('Gemini API error');
   });
 });

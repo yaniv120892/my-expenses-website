@@ -1,5 +1,4 @@
 import type {
-  GenerateContentRequest,
   GenerateContentResult,
   GenerationConfig,
   GenerativeModel,
@@ -8,7 +7,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   AIProvider,
   CategoryEvaluation,
+  ExpenseAnalysisRequest,
   ImportedChargeToMatch,
+  TransactionMatchRequest,
 } from '@/server/services/ai/aiProvider';
 import { logger } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
@@ -31,16 +32,6 @@ import { ProviderFallback } from '@/server/services/ai/providerFallback';
 // overridable: the next retirement is a dashboard edit, not a deploy.
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
-type AnalysisRequest = {
-  expenseSummary: string;
-  suffixPrompt: string | undefined;
-};
-
-type MatchRequest = {
-  importedCharge: ImportedChargeToMatch;
-  potentialMatches: Transaction[];
-};
-
 type GeminiRequest = {
   text: string;
   systemInstruction?: string;
@@ -48,8 +39,14 @@ type GeminiRequest = {
 };
 
 export class GeminiService implements AIProvider {
-  private errorFallback = new ProviderFallback({
+  private readonly errorFallback = new ProviderFallback({
     where: 'Gemini API error',
+    modelName: () => this.modelName(),
+  });
+
+  // Matching has always reported under its own label; renaming it would regroup Sentry issues.
+  private readonly matchFallback = new ProviderFallback({
+    where: 'Error finding matching transaction',
     modelName: () => this.modelName(),
   });
 
@@ -106,17 +103,9 @@ export class GeminiService implements AIProvider {
     importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
-    logger.debug(
-      { importedDescription: importedCharge.description },
-      'Start finding matching transaction',
-    );
-    if (!potentialMatches.length) {
-      return null;
-    }
-    return this.errorFallback.orFallback({
+    return this.matchFallback.orFallback({
       attempt: this.requestMatch({ importedCharge, potentialMatches }),
       fallback: null,
-      where: 'Error finding matching transaction',
     });
   }
 
@@ -134,7 +123,7 @@ export class GeminiService implements AIProvider {
   private async requestAnalysis({
     expenseSummary,
     suffixPrompt,
-  }: AnalysisRequest): Promise<string | null> {
+  }: ExpenseAnalysisRequest): Promise<string | null> {
     logger.debug('Start analyzing expenses');
     const response = await this.generate({
       text: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
@@ -147,7 +136,14 @@ export class GeminiService implements AIProvider {
   private async requestMatch({
     importedCharge,
     potentialMatches,
-  }: MatchRequest): Promise<string | null> {
+  }: TransactionMatchRequest): Promise<string | null> {
+    logger.debug(
+      { importedDescription: importedCharge.description },
+      'Start finding matching transaction',
+    );
+    if (!potentialMatches.length) {
+      return null;
+    }
     const response = await this.generate({
       text: buildFindMatchingTransactionPrompt(importedCharge, potentialMatches),
       systemInstruction: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
@@ -166,14 +162,12 @@ export class GeminiService implements AIProvider {
     systemInstruction,
     generationConfig,
   }: GeminiRequest): Promise<GenerateContentResult> {
-    const request: GenerateContentRequest = { contents: [{ role: 'user', parts: [{ text }] }] };
-    if (systemInstruction !== undefined) {
-      request.systemInstruction = systemInstruction;
-    }
-    if (generationConfig !== undefined) {
-      request.generationConfig = generationConfig;
-    }
-    return this.generativeModel().generateContent(request);
+    // Unset keys stay absent, as in the request literals this method replaced.
+    return this.generativeModel().generateContent({
+      ...(systemInstruction !== undefined && { systemInstruction }),
+      contents: [{ role: 'user', parts: [{ text }] }],
+      ...(generationConfig !== undefined && { generationConfig }),
+    });
   }
 
   private generativeModel(): GenerativeModel {

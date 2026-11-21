@@ -9,19 +9,18 @@ type ProviderFallbackOptions = {
 type FallbackRequest<T> = {
   attempt: Promise<T>;
   fallback: T;
-  where?: string;
 };
 
 export class ProviderFallback {
   public constructor(private readonly options: ProviderFallbackOptions) {}
 
-  public async orFallback<T>({ attempt, fallback, where }: FallbackRequest<T>): Promise<T> {
+  public async orFallback<T>({ attempt, fallback }: FallbackRequest<T>): Promise<T> {
     try {
       return await attempt;
     } catch (err) {
       observability.reportError({
         error: err,
-        where: where ?? this.options.where,
+        where: this.options.where,
         context: { model: this.options.modelName() },
       });
       return fallback;

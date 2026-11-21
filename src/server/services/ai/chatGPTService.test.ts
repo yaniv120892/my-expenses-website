@@ -153,6 +153,7 @@ describe('ChatGPTService.evaluateCategory', () => {
 
     await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledTimes(1);
+    expectProviderFailureReported('suggestCategory');
     hangingFetch.mockImplementation(stalledFetch);
   });
 });
@@ -269,14 +270,5 @@ describe('ChatGPTService.findMatchingTransaction', () => {
       new ChatGPTService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBeNull();
     expectProviderFailureReported('findMatchingTransaction');
-  });
-});
-
-describe('ChatGPTService.suggestCategory', () => {
-  it('reports a provider failure and returns null', async () => {
-    failingWithBadRequest();
-
-    await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
-    expectProviderFailureReported('suggestCategory');
   });
 });

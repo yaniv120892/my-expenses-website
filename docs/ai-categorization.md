@@ -25,7 +25,8 @@ changing that budget.
 A method that turns a provider failure into a fallback reports it through `ProviderFallback`
 (`src/server/services/ai/providerFallback.ts`) under its provider's one `where`
 (`'<Provider> API error'`), with `model` and `operation` (the method's name) in `context`. A new
-feature reuses that label and names itself in `operation`, which Sentry indexes as a tag.
+fallback method reuses that label and adds its name to `ProviderOperation`, so `operation`, which
+Sentry indexes as a tag, tells the features apart.
 
 ## Only the category decision may leave the `AI_PROVIDER` model
 

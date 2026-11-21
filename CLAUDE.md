@@ -17,7 +17,8 @@ scripts' arguments.
 ESLint, Prettier, tsconfig and lint-staged come from the shared
 `@yaniv120892/dev-config` package (pinned by tag in `package.json`);
 `eslint.config.mjs` and `tsconfig.json` only extend its `next` presets with this
-repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky). CI
+repo's ignores and paths. Pre-commit runs lint-staged + typecheck (husky);
+lint-staged's eslint fails on any warning, as CI does. CI
 (`.github/workflows/ci.yml`) runs the `checks` job through dev-config's reusable
 `node-ci.yml` at the same tag — audit, prettier, lint with `--max-warnings=0`,
 typecheck, unit tests and the build — and in a parallel `e2e` job both e2e

@@ -24,7 +24,7 @@ const DEFAULT_TYPESAFE_JEV_MODEL = 'jev-latest';
 // make the category decision but none of the prose-producing AIProvider calls.
 export class JevCategorySuggester implements CategorySuggester {
   private readonly errorFallback = new ProviderFallback({
-    where: 'Jev API error',
+    provider: 'Jev',
     modelName: () => this.modelName(),
   });
 

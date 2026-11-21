@@ -32,7 +32,7 @@ type ChatRequest = Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStr
 
 export class ChatGPTService implements AIProvider {
   private readonly errorFallback = new ProviderFallback({
-    where: 'ChatGPT API error',
+    provider: 'ChatGPT',
     modelName: () => this.modelName(),
   });
 

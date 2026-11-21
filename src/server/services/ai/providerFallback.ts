@@ -8,8 +8,10 @@ type ProviderOperation = Extract<
   'generateContent' | 'analyzeExpenses' | 'suggestCategory' | 'findMatchingTransaction'
 >;
 
+type AIProviderName = 'ChatGPT' | 'Gemini' | 'Jev';
+
 type ProviderFallbackOptions = {
-  where: string;
+  provider: AIProviderName;
   modelName: () => string;
 };
 
@@ -33,7 +35,7 @@ export class ProviderFallback {
     } catch (err) {
       observability.reportError({
         error: err,
-        where: this.options.where,
+        where: `${this.options.provider} API error`,
         context: { model: this.options.modelName(), operation },
       });
       return fallback;

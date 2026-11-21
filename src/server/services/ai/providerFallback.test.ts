@@ -11,7 +11,7 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
 const PROVIDER_ERROR = new Error('provider down');
-const fallback = new ProviderFallback({ where: 'Test API error', modelName: () => 'm1' });
+const fallback = new ProviderFallback({ provider: 'Gemini', modelName: () => 'm1' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -39,14 +39,14 @@ describe('ProviderFallback.orFallback', () => {
     ).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledWith({
       error: PROVIDER_ERROR,
-      where: 'Test API error',
+      where: 'Gemini API error',
       context: { model: 'm1', operation: 'findMatchingTransaction' },
     });
   });
 
   it('reads the model when the failure is reported, not when it is built', async () => {
     let model = 'model-at-construction';
-    const lateModel = new ProviderFallback({ where: 'Test API error', modelName: () => model });
+    const lateModel = new ProviderFallback({ provider: 'Gemini', modelName: () => model });
     model = 'model-at-failure';
 
     await lateModel.orFallback({
@@ -88,7 +88,7 @@ describe('ProviderFallback.categoryIdOrNull', () => {
     ).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledWith({
       error: PROVIDER_ERROR,
-      where: 'Test API error',
+      where: 'Gemini API error',
       context: { model: 'm1', operation: 'suggestCategory' },
     });
   });

@@ -42,7 +42,7 @@ type GeminiRequest = {
 
 export class GeminiService implements AIProvider {
   private readonly errorFallback = new ProviderFallback({
-    where: 'Gemini API error',
+    provider: 'Gemini',
     modelName: () => this.modelName(),
   });
 

@@ -46,17 +46,14 @@ export class GeminiService implements AIProvider {
     modelName: () => this.modelName(),
   });
 
-  // Matching has always reported under its own label; renaming it would regroup the
-  // error tracker's issues.
-  private readonly matchFallback = new ProviderFallback({
-    where: 'Error finding matching transaction',
-    modelName: () => this.modelName(),
-  });
-
   private getGemini = lazy(() => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')));
 
   public async generateContent(prompt: string): Promise<string> {
-    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
+    return this.errorFallback.orFallback({
+      operation: 'generateContent',
+      attempt: this.requestContent(prompt),
+      fallback: '',
+    });
   }
 
   public async analyzeExpenses(
@@ -64,6 +61,7 @@ export class GeminiService implements AIProvider {
     suffixPrompt?: string,
   ): Promise<string | null> {
     return this.errorFallback.orFallback({
+      operation: 'analyzeExpenses',
       attempt: this.requestAnalysis({ expenseSummary, suffixPrompt }),
       fallback: null,
     });
@@ -73,9 +71,10 @@ export class GeminiService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return this.errorFallback.categoryIdOrNull(
-      this.evaluateCategory(expenseDescription, categoryOptions),
-    );
+    return this.errorFallback.categoryIdOrNull({
+      operation: 'suggestCategory',
+      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+    });
   }
 
   public async evaluateCategory(
@@ -106,7 +105,8 @@ export class GeminiService implements AIProvider {
     importedCharge: ImportedChargeToMatch,
     potentialMatches: Transaction[],
   ): Promise<string | null> {
-    return this.matchFallback.orFallback({
+    return this.errorFallback.orFallback({
+      operation: 'findMatchingTransaction',
       attempt: this.requestMatch({ importedCharge, potentialMatches }),
       fallback: null,
     });

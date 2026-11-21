@@ -169,11 +169,11 @@ function failingWithBadRequest(): void {
   );
 }
 
-function expectProviderFailureReported(): void {
+function expectProviderFailureReported(operation: string): void {
   expect(reportError).toHaveBeenCalledWith({
     error: expect.any(Error),
     where: 'ChatGPT API error',
-    context: { model: 'gpt-4o-mini' },
+    context: { model: 'gpt-4o-mini', operation },
   });
 }
 
@@ -207,7 +207,7 @@ describe('ChatGPTService.generateContent', () => {
     failingWithBadRequest();
 
     await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe('');
-    expectProviderFailureReported();
+    expectProviderFailureReported('generateContent');
   });
 });
 
@@ -234,7 +234,7 @@ describe('ChatGPTService.analyzeExpenses', () => {
     failingWithBadRequest();
 
     await expect(new ChatGPTService().analyzeExpenses('summary')).resolves.toBeNull();
-    expectProviderFailureReported();
+    expectProviderFailureReported('analyzeExpenses');
   });
 });
 
@@ -268,6 +268,15 @@ describe('ChatGPTService.findMatchingTransaction', () => {
     await expect(
       new ChatGPTService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBeNull();
-    expectProviderFailureReported();
+    expectProviderFailureReported('findMatchingTransaction');
+  });
+});
+
+describe('ChatGPTService.suggestCategory', () => {
+  it('reports a provider failure and returns null', async () => {
+    failingWithBadRequest();
+
+    await expect(new ChatGPTService().suggestCategory('coffee', categories)).resolves.toBeNull();
+    expectProviderFailureReported('suggestCategory');
   });
 });

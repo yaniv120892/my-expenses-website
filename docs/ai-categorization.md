@@ -20,6 +20,13 @@ The category call also caps its output (`AI_REQUEST_LIMITS`), defaults to a chea
 asked only within the `categorization` daily budget → [cost-fences.md](cost-fences.md), before
 changing that budget.
 
+## A provider failure reports one label per provider
+
+A method that turns a provider failure into a fallback reports it through `ProviderFallback`
+(`src/server/services/ai/providerFallback.ts`) under its provider's one `where`
+(`'<Provider> API error'`), with `model` and `operation` (the method's name) in `context`. A new
+feature reuses that label and names itself in `operation`, which Sentry indexes as a tag.
+
 ## Only the category decision may leave the `AI_PROVIDER` model
 
 `AIServiceFactory.getCategorySuggester()` is the one place that decides, on

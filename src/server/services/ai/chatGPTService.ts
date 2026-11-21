@@ -46,7 +46,11 @@ export class ChatGPTService implements AIProvider {
   );
 
   public async generateContent(prompt: string): Promise<string> {
-    return this.errorFallback.orFallback({ attempt: this.requestContent(prompt), fallback: '' });
+    return this.errorFallback.orFallback({
+      operation: 'generateContent',
+      attempt: this.requestContent(prompt),
+      fallback: '',
+    });
   }
 
   public async analyzeExpenses(
@@ -54,6 +58,7 @@ export class ChatGPTService implements AIProvider {
     suffixPrompt?: string,
   ): Promise<string | null> {
     return this.errorFallback.orFallback({
+      operation: 'analyzeExpenses',
       attempt: this.requestAnalysis({ expenseSummary, suffixPrompt }),
       fallback: null,
     });
@@ -63,9 +68,10 @@ export class ChatGPTService implements AIProvider {
     expenseDescription: string,
     categoryOptions: Category[],
   ): Promise<string | null> {
-    return this.errorFallback.categoryIdOrNull(
-      this.evaluateCategory(expenseDescription, categoryOptions),
-    );
+    return this.errorFallback.categoryIdOrNull({
+      operation: 'suggestCategory',
+      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+    });
   }
 
   public async evaluateCategory(
@@ -91,6 +97,7 @@ export class ChatGPTService implements AIProvider {
     potentialMatches: Transaction[],
   ): Promise<string | null> {
     return this.errorFallback.orFallback({
+      operation: 'findMatchingTransaction',
       attempt: this.requestMatch({ importedCharge, potentialMatches }),
       fallback: null,
     });

@@ -171,7 +171,7 @@ it reaches the database at most once a minute per instance. That bounds the
 cost of a hostile poller; it does not let the compute sleep under one, since
 the idle timeout is longer than the window.
 
-### Do not lower the deep interval
+### Do not shorten the deep interval
 
 Neon Free gives 100 CU-hours/month at 0.25 CU, and scale-to-zero after 5 idle
 minutes cannot be disabled. Every deep check wakes the compute and restarts that

@@ -10,7 +10,7 @@ const PROBE_TIMEOUT_MS = CONNECTION_WAIT_MS + 2_000;
 
 // Every probe wakes a scale-to-zero database, so the route is public but its
 // probes are not: within the package's 60s window every call on this instance
-// gets the last outcome, failures included. See README "Do not lower the deep
+// gets the last outcome, failures included. See README "Do not shorten the deep
 // interval".
 export const GET = observability.createDeepHealthRoute({
   probes: {

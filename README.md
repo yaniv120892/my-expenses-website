@@ -193,9 +193,12 @@ platform timeout. The deep monitor's request timeout must stay above that.
 
 That 404 only covers typos _after_ the `/api/` prefix. A URL that drops the
 prefix — `/health/deep` — misses the `/api/` branch in `src/proxy.ts`,
-redirects to `/login`, and a redirect-following monitor records that page's 200. **Configure the deep monitor to require the string `checks` in the
-response body**, which no other page returns; that is what makes a
-wrong-URL failure visible regardless of how it is wrong.
+redirects to `/login`, and a redirect-following monitor records that page's 200.
+**Configure the deep monitor to require the string `"status":"ok"` in the
+response body.** Only a healthy deep response contains it: the login page does
+not, so a wrong URL goes red however it is wrong, and the 503 body does not
+either, so a failed probe goes red on the body alone, whatever the status code.
+`checks` would not do: it is in the 503 body too.
 
 ## Personal agent (MCP)
 

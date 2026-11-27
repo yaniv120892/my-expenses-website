@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
 import type * as DbClientModule from '@/server/db/client';
@@ -87,6 +89,30 @@ describe('deep check', () => {
 
       expect(response.status).toBe(503);
       await expect(response.json()).resolves.toMatchObject({ checks: { db: 'fail' } });
+    });
+  });
+
+  describe('the keyword the README tells the uptime monitor to require', () => {
+    const keyword = /require the string `([^`]+)`/.exec(
+      readFileSync(join(process.cwd(), 'README.md'), 'utf8'),
+    )?.[1];
+
+    it('is stated in the README', () => {
+      expect(keyword).toBeDefined();
+    });
+
+    it('appears in a healthy body', async () => {
+      const body = await (await GET()).text();
+
+      expect(body).toContain(keyword);
+    });
+
+    it('is missing from an unhealthy body, so the body alone turns the monitor red', async () => {
+      queryRaw.mockRejectedValue(new Error('connection refused'));
+
+      const body = await (await GET()).text();
+
+      expect(body).not.toContain(keyword);
     });
   });
 

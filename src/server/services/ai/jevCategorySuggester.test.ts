@@ -21,6 +21,7 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 
 import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
+import { categoryQuestion } from '@/server/services/ai/prompts';
 
 const categories = [
   { id: 'cat-food', name: 'Food & Drinks' },
@@ -55,7 +56,7 @@ describe('JevCategorySuggester', () => {
     evaluate.mockResolvedValue(jevAnswer('Eating out', 0.91));
 
     const categoryId = await new JevCategorySuggester().suggestCategory(
-      'ארומה תל אביב',
+      { description: 'ארומה תל אביב', type: 'EXPENSE' },
       categories,
     );
 
@@ -65,7 +66,10 @@ describe('JevCategorySuggester', () => {
   it('passes the shared option list through to the evaluation', async () => {
     evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-    await new JevCategorySuggester().suggestCategory('GETT', categories);
+    await new JevCategorySuggester().suggestCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluate.mock.calls[0]?.[0].questions.category.criteria).toEqual({
       'Food & Drinks': null,
@@ -74,11 +78,27 @@ describe('JevCategorySuggester', () => {
     });
   });
 
+  it('asks the income question for an income row', async () => {
+    evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
+
+    await new JevCategorySuggester().suggestCategory(
+      { description: 'החזר CashPro', type: 'INCOME' },
+      categories,
+    );
+
+    const request = evaluate.mock.calls[0]?.[0];
+    expect(request.questions.category.instructions).toBe(categoryQuestion('INCOME'));
+    expect(request.state).toEqual({ transactionDescription: 'החזר CashPro' });
+  });
+
   it('bounds the call by the shared request limits', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-    await new JevCategorySuggester().suggestCategory('GETT', categories);
+    await new JevCategorySuggester().suggestCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluate.mock.calls[0]?.[0].maxRetries).toBe(AI_REQUEST_LIMITS.maxRetries);
     expect(timeout).toHaveBeenCalledWith(AI_REQUEST_LIMITS.timeoutMs);
@@ -87,7 +107,10 @@ describe('JevCategorySuggester', () => {
   it('returns the shared record with Jev probability and token usage', async () => {
     evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-    const evaluation = await new JevCategorySuggester().evaluateCategory('GETT', categories);
+    const evaluation = await new JevCategorySuggester().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluation).toEqual({
       categoryId: 'cat-taxi',
@@ -99,7 +122,10 @@ describe('JevCategorySuggester', () => {
   });
 
   it('answers nothing without a call when no category is offered', async () => {
-    const evaluation = await new JevCategorySuggester().evaluateCategory('GETT', []);
+    const evaluation = await new JevCategorySuggester().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      [],
+    );
 
     expect(evaluation.categoryId).toBeNull();
     expect(evaluate).not.toHaveBeenCalled();
@@ -109,10 +135,14 @@ describe('JevCategorySuggester', () => {
     evaluate.mockRejectedValue(new Error('gateway 503'));
     const suggester = new JevCategorySuggester();
 
-    await expect(suggester.evaluateCategory('GETT', categories)).rejects.toThrow('gateway 503');
+    await expect(
+      suggester.evaluateCategory({ description: 'GETT', type: 'EXPENSE' }, categories),
+    ).rejects.toThrow('gateway 503');
     expect(reportError).not.toHaveBeenCalled();
 
-    await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
+    await expect(
+      suggester.suggestCategory({ description: 'GETT', type: 'EXPENSE' }, categories),
+    ).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledWith({
       error: expect.any(Error),
       where: 'Jev API error',
@@ -139,7 +169,10 @@ describe('JevCategorySuggester', () => {
     Object.entries(env).forEach(([name, value]) => vi.stubEnv(name, value));
     evaluate.mockResolvedValue(jevAnswer('Taxi', 0.7));
 
-    await new JevCategorySuggester().suggestCategory('GETT', categories);
+    await new JevCategorySuggester().suggestCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(factory).toHaveBeenCalledOnce();
     expect(other).not.toHaveBeenCalled();
@@ -152,7 +185,9 @@ describe('JevCategorySuggester', () => {
     const suggester = new JevCategorySuggester();
     expect(createGateway).not.toHaveBeenCalled();
 
-    await expect(suggester.suggestCategory('GETT', categories)).resolves.toBeNull();
+    await expect(
+      suggester.suggestCategory({ description: 'GETT', type: 'EXPENSE' }, categories),
+    ).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({

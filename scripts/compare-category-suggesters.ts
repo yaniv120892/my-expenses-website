@@ -146,7 +146,10 @@ async function runSuggester(
     const startedAt = Date.now();
     let decision: Decision;
     try {
-      const evaluation = await suggester.evaluateCategory(sample.description, categories);
+      const evaluation = await suggester.evaluateCategory(
+        { description: sample.description, type: sample.type },
+        categories,
+      );
       decision = {
         answer: evaluation.categoryName,
         categoryId: evaluation.categoryId,

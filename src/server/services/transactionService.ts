@@ -22,6 +22,7 @@ import type { CreateTransactionDbModel } from '@/server/repositories/types';
 import categoryRepository from '@/server/repositories/categoryRepository';
 import { logger, observability } from '@/server/observability';
 import type { Category } from '@/shared/types/category';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
 import transactionNotifierFactory from '@/server/services/transactionNotification/transactionNotifierFactory';
 import userSettingsService from '@/server/services/userSettingsService';
 import userCategoryMappingRepository from '@/server/repositories/userCategoryMappingRepository';
@@ -433,7 +434,7 @@ class TransactionService {
 
     const suggestedCategoryId = await this.getSuggestedCategory(
       householdId,
-      transaction.description,
+      { description: transaction.description, type: transaction.type },
       categories,
     );
     if (!suggestedCategoryId) {
@@ -450,10 +451,14 @@ class TransactionService {
 
   private async getSuggestedCategory(
     householdId: HouseholdId,
-    description: string,
+    row: CategorizedRow,
     categories: Category[],
   ): Promise<string | null> {
-    const mappedCategoryId = await this.findMappedCategoryId(householdId, description, categories);
+    const mappedCategoryId = await this.findMappedCategoryId(
+      householdId,
+      row.description,
+      categories,
+    );
     if (mappedCategoryId) {
       return mappedCategoryId;
     }
@@ -461,7 +466,7 @@ class TransactionService {
     if (!mayCallModel) {
       return null;
     }
-    return this.getCategorySuggester().suggestCategory(description, categories);
+    return this.getCategorySuggester().suggestCategory(row, categories);
   }
 
   /**

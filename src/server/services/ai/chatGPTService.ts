@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type {
   AIProvider,
+  CategorizedRow,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
@@ -66,23 +67,23 @@ export class ChatGPTService implements AIProvider {
   }
 
   public async suggestCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<string | null> {
     return this.errorFallback.categoryIdOrNull({
       operation: 'suggestCategory',
-      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+      evaluation: this.evaluateCategory(row, categoryOptions),
     });
   }
 
   public async evaluateCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
     const response = await this.complete({
       messages: [
         { role: 'system', content: SUGGEST_CATEGORY_SYSTEM_PROMPT },
-        { role: 'user', content: buildSuggestCategoryPrompt(expenseDescription, categoryOptions) },
+        { role: 'user', content: buildSuggestCategoryPrompt(row, categoryOptions) },
       ],
       max_tokens: AI_REQUEST_LIMITS.categoryMaxOutputTokens,
     });

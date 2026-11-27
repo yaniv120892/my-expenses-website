@@ -73,7 +73,10 @@ describe('ClaudeService', () => {
       messageResponse({ content: [{ type: 'text', text: 'Food' }] }),
     );
 
-    await new ClaudeService().evaluateCategory('coffee', categories);
+    await new ClaudeService().evaluateCategory(
+      { description: 'coffee', type: 'EXPENSE' },
+      categories,
+    );
 
     const { headers, body } = sentRequest();
     expect(body).toMatchObject({
@@ -98,7 +101,10 @@ describe('ClaudeService', () => {
       }),
     );
 
-    const evaluation = await new ClaudeService().evaluateCategory('apartment', categories);
+    const evaluation = await new ClaudeService().evaluateCategory(
+      { description: 'apartment', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluation).toMatchObject({ categoryId: 'cat-rent', inputTokens: 120, outputTokens: 8 });
   });
@@ -108,7 +114,9 @@ describe('ClaudeService', () => {
       messageResponse({ content: [{ type: 'text', text: 'Food' }], stopReason: 'refusal' }),
     );
 
-    await expect(new ClaudeService().suggestCategory('coffee', categories)).resolves.toBeNull();
+    await expect(
+      new ClaudeService().suggestCategory({ description: 'coffee', type: 'EXPENSE' }, categories),
+    ).resolves.toBeNull();
 
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({

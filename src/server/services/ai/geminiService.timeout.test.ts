@@ -35,7 +35,7 @@ afterEach(() => {
 describe('GeminiService against a stalled provider', () => {
   it('fails the one call at the timeout instead of hanging', async () => {
     const { pending, isSettled } = trackSettled(
-      new GeminiService().suggestCategory('coffee', categories),
+      new GeminiService().suggestCategory({ description: 'coffee', type: 'EXPENSE' }, categories),
     );
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);

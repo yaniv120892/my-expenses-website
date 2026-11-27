@@ -140,7 +140,10 @@ describe('GeminiService.evaluateCategory', () => {
       }),
     );
 
-    const evaluation = await new GeminiService().evaluateCategory('GETT', categories);
+    const evaluation = await new GeminiService().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluation).toEqual({
       categoryId: 'cat-taxi',
@@ -154,7 +157,10 @@ describe('GeminiService.evaluateCategory', () => {
   it('sends the same system prompt the OpenAI provider sends', async () => {
     generateContent.mockResolvedValue(textResponse('Taxi'));
 
-    await new GeminiService().evaluateCategory('GETT', categories);
+    await new GeminiService().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(generateContent.mock.calls[0]?.[0].systemInstruction).toBe(
       SUGGEST_CATEGORY_SYSTEM_PROMPT,
@@ -164,7 +170,10 @@ describe('GeminiService.evaluateCategory', () => {
   it('caps the output, leaving room for a thinking model to reason', async () => {
     generateContent.mockResolvedValue(textResponse('Taxi'));
 
-    await new GeminiService().evaluateCategory('GETT', categories);
+    await new GeminiService().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(generateContent.mock.calls[0]?.[0].generationConfig).toEqual({
       maxOutputTokens: 2048,
@@ -174,7 +183,10 @@ describe('GeminiService.evaluateCategory', () => {
   it('keeps an answer that names no offered category, without an id', async () => {
     generateContent.mockResolvedValue(textResponse('Transportation'));
 
-    const evaluation = await new GeminiService().evaluateCategory('GETT', categories);
+    const evaluation = await new GeminiService().evaluateCategory(
+      { description: 'GETT', type: 'EXPENSE' },
+      categories,
+    );
 
     expect(evaluation).toMatchObject({
       categoryId: null,
@@ -185,12 +197,14 @@ describe('GeminiService.evaluateCategory', () => {
   it('rejects on provider failure where suggestCategory swallows', async () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
-    await expect(new GeminiService().evaluateCategory('GETT', categories)).rejects.toBe(
-      RETIRED_MODEL_ERROR,
-    );
+    await expect(
+      new GeminiService().evaluateCategory({ description: 'GETT', type: 'EXPENSE' }, categories),
+    ).rejects.toBe(RETIRED_MODEL_ERROR);
     expect(reportError).not.toHaveBeenCalled();
 
-    await expect(new GeminiService().suggestCategory('GETT', categories)).resolves.toBeNull();
+    await expect(
+      new GeminiService().suggestCategory({ description: 'GETT', type: 'EXPENSE' }, categories),
+    ).resolves.toBeNull();
     expect(reportError).toHaveBeenCalledTimes(1);
   });
 });
@@ -279,7 +293,9 @@ describe('GeminiService.suggestCategory', () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
     await expect(
-      new GeminiService().suggestCategory('GETT', [{ id: 'cat-taxi', name: 'Taxi' }]),
+      new GeminiService().suggestCategory({ description: 'GETT', type: 'EXPENSE' }, [
+        { id: 'cat-taxi', name: 'Taxi' },
+      ]),
     ).resolves.toBeNull();
     expectRetiredModelReported('suggestCategory');
   });

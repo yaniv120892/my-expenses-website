@@ -19,13 +19,16 @@ export type CategoryEvaluation = {
   outputTokens: number | null;
 };
 
+/** The row a category is chosen for; its type decides whether it is money spent or received. */
+export type CategorizedRow = {
+  description: string;
+  type: TransactionType;
+};
+
 export type CategorySuggester = {
-  suggestCategory(expenseDescription: string, categoryOptions: Category[]): Promise<string | null>;
+  suggestCategory(row: CategorizedRow, categoryOptions: Category[]): Promise<string | null>;
   /** Throws on provider failure, where `suggestCategory` swallows. */
-  evaluateCategory(
-    expenseDescription: string,
-    categoryOptions: Category[],
-  ): Promise<CategoryEvaluation>;
+  evaluateCategory(row: CategorizedRow, categoryOptions: Category[]): Promise<CategoryEvaluation>;
   /** The model id this suggester sends, after any env override. */
   modelName(): string;
 };

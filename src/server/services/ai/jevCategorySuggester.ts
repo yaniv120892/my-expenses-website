@@ -1,14 +1,18 @@
 import type { Experimental_EvaluationModel } from 'ai';
-import type { CategoryEvaluation, CategorySuggester } from '@/server/services/ai/aiProvider';
+import type {
+  CategorizedRow,
+  CategoryEvaluation,
+  CategorySuggester,
+} from '@/server/services/ai/aiProvider';
 import type { Category } from '@/shared/types/category';
 import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { logger } from '@/server/observability';
 import {
-  SUGGEST_CATEGORY_QUESTION,
   buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
+  categoryQuestion,
 } from '@/server/services/ai/prompts';
 import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
@@ -45,17 +49,17 @@ export class JevCategorySuggester implements CategorySuggester {
   });
 
   public async suggestCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<string | null> {
     return this.errorFallback.categoryIdOrNull({
       operation: 'suggestCategory',
-      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+      evaluation: this.evaluateCategory(row, categoryOptions),
     });
   }
 
   public async evaluateCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
     // The SDK rejects an empty choice map before any I/O, which would file a
@@ -71,11 +75,11 @@ export class JevCategorySuggester implements CategorySuggester {
     const provider = await this.getProvider();
     const result = await evaluate({
       model: provider.evaluationModel(model),
-      state: { expenseDescription },
+      state: { transactionDescription: row.description },
       questions: {
         category: {
           type: 'choice',
-          instructions: SUGGEST_CATEGORY_QUESTION,
+          instructions: categoryQuestion(row.type),
           criteria: buildCategoryChoiceCriteria(categoryOptions),
         },
       },
@@ -93,7 +97,7 @@ export class JevCategorySuggester implements CategorySuggester {
     });
     logger.debug(
       {
-        expenseDescription,
+        row,
         categoryName: evaluation.categoryName,
         probability: evaluation.probability,
         model,

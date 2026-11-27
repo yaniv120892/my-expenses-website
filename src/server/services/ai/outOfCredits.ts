@@ -23,3 +23,10 @@ export function isOutOfCredits(error: unknown): boolean {
     code === OPENAI_NO_QUOTA_CODE
   );
 }
+
+// A service that relays a provider failure as text keeps the SDK's `[<status> <statusText>]` marker.
+const PAYMENT_REQUIRED_MARKER = /\[402[ \]]/;
+
+export function isOutOfCreditsMessage(message: string): boolean {
+  return PAYMENT_REQUIRED_MARKER.test(message);
+}

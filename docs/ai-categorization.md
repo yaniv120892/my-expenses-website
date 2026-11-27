@@ -34,6 +34,11 @@ Redis, so the account is topped up before users notice. Every call keeps falling
 The claim and the send run after the response. The claim is taken before the send, so a failed
 send (logged as `ops_alert_failed`) or a second run-out the same day waits for the next window.
 
+File imports reach the same alert from the other side. The extraction service calls Gemini itself
+and reports a failure to the webhook as text, so `handleFailedExtraction` checks that text with
+`isOutOfCreditsMessage` (the SDK's `[402 …]` marker) and claims the Gemini alert
+(`src/server/services/ai/creditsAlert.ts`), with `operation: fileExtraction` and the `importId`.
+
 ## Only the category decision may leave the `AI_PROVIDER` model
 
 `AIServiceFactory.getCategorySuggester()` is the one place that decides, on

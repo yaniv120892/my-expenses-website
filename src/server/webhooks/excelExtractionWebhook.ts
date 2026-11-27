@@ -15,6 +15,8 @@ import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
+import { scheduleCreditsAlert } from '@/server/services/ai/creditsAlert';
+import { isOutOfCreditsMessage } from '@/server/services/ai/outOfCredits';
 
 export type WebhookResult = {
   status: number;
@@ -551,6 +553,14 @@ async function handleFailedExtraction(
   const errorMessage = payload.error || 'Unknown extraction error';
 
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
+  if (isOutOfCreditsMessage(errorMessage)) {
+    // The extraction service runs on Gemini, so its empty balance shares the app's Gemini alert.
+    scheduleCreditsAlert({
+      provider: 'Gemini',
+      error: new Error(errorMessage),
+      context: { operation: 'fileExtraction', importId },
+    });
+  }
 
   await importRepository.updateStatus(householdId, importId, ImportStatus.FAILED, errorMessage);
 }

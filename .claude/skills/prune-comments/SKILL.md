@@ -13,7 +13,7 @@ yaniv120892/claude-config — edit there, then sync this copy.
 
 The governing rule is **Self-Documenting Code Over Comments** in
 `.claude/rules/code.md`. Read that file — do not work from memory of it.
-`CLAUDE.md` adds this repo's own bar: comments only where code cannot explain
+`AGENTS.md` adds this repo's own bar: comments only where code cannot explain
 itself, 1–2 sentences max.
 
 ## Scope
@@ -55,13 +55,13 @@ For each comment, in order:
 - Comments describing behaviour that the code no longer has. These are the reason
   the rule exists; flag them loudly, since a stale comment is worse than none.
 
-**Docs are not comments.** This repo's design lives in `CLAUDE.md` (essentials
+**Docs are not comments.** This repo's design lives in `AGENTS.md` (essentials
 and an index), `DECISIONS.md` and the topic docs under `docs/` — the maintained
 home for the context you are stripping out of code. When deleting a comment that
 carries real architectural reasoning — an invariant, a rule future work must
 follow — move it to the matching topic doc under `docs/`, or to a `DECISIONS.md`
 row when it records a decision, rather than dropping it. With no topic doc for
-it, use the README or `CLAUDE.md`. Do not move the story of a change; git log
+it, use the README or `AGENTS.md`. Do not move the story of a change; git log
 holds that.
 
 ## Applying

@@ -31,13 +31,6 @@ const categories: Category[] = [
   { id: 'cat-rent', name: 'Rent' },
 ];
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
-
 function messageResponse({
   content,
   stopReason = 'end_turn',
@@ -45,7 +38,7 @@ function messageResponse({
   content: unknown[];
   stopReason?: string;
 }): Response {
-  return jsonResponse(200, {
+  return Response.json({
     id: 'msg_1',
     type: 'message',
     role: 'assistant',
@@ -57,7 +50,7 @@ function messageResponse({
   });
 }
 
-async function sentRequest(): Promise<{ headers: Headers; body: Record<string, unknown> }> {
+function sentRequest(): { headers: Headers; body: Record<string, unknown> } {
   const [, init] = anthropicFetch.mock.calls[0] ?? [];
   return {
     headers: new Headers(init?.headers),
@@ -80,7 +73,7 @@ describe('ClaudeService', () => {
 
     await new ClaudeService().evaluateCategory('coffee', categories);
 
-    const { headers, body } = await sentRequest();
+    const { headers, body } = sentRequest();
     expect(body).toMatchObject({
       model: 'claude-sonnet-5-5',
       output_config: { effort: 'low' },
@@ -125,12 +118,45 @@ describe('ClaudeService', () => {
     );
   });
 
+  it('falls back and reports a max_tokens stop that left no answer', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [{ type: 'thinking', thinking: 'Rent or food…', signature: 'sig' }],
+        stopReason: 'max_tokens',
+      }),
+    );
+
+    await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBeNull();
+
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: expect.stringContaining('Claude hit max_tokens before answering'),
+        }),
+      }),
+    );
+  });
+
+  it('keeps a max_tokens answer that did reach the text', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [{ type: 'text', text: 'Spending rose' }],
+        stopReason: 'max_tokens',
+      }),
+    );
+
+    await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBe('Spending rose');
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
   it('uses CLAUDE_MODEL when set', async () => {
     vi.stubEnv('CLAUDE_MODEL', 'claude-opus-5-5');
     anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: 'ok' }] }));
 
     await new ClaudeService().generateContent('hello');
 
-    expect((await sentRequest()).body).toMatchObject({ model: 'claude-opus-5-5' });
+    const { body } = sentRequest();
+    expect(body).toMatchObject({ model: 'claude-opus-5-5' });
+    expect(body).not.toHaveProperty('system');
   });
 });

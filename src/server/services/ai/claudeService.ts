@@ -14,6 +14,7 @@ import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import {
+  ANALYZE_EXPENSES_SYSTEM_PROMPT,
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
@@ -29,9 +30,6 @@ export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5-5';
 
 // A model that declines on safety grounds is re-run on a fallback model inside the same call.
 const SERVER_SIDE_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
-
-const ANALYSIS_SYSTEM_PROMPT =
-  'You are a financial assistant helping users analyze their expenses.';
 
 type ClaudeRequest = {
   prompt: string;
@@ -127,7 +125,7 @@ export class ClaudeService implements AIProvider {
   }: ExpenseAnalysisRequest): Promise<string | null> {
     const message = await this.complete({
       prompt: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt),
-      system: ANALYSIS_SYSTEM_PROMPT,
+      system: ANALYZE_EXPENSES_SYSTEM_PROMPT,
       maxTokens: AI_REQUEST_LIMITS.thinkingAnswerMaxOutputTokens,
     });
     return this.answerText(message) || null;
@@ -158,7 +156,7 @@ export class ClaudeService implements AIProvider {
       max_tokens: maxTokens,
       // These are short, bounded answers, so the least thinking that answers them is enough.
       output_config: { effort: 'low' },
-      ...(system !== undefined && { system }),
+      system,
       messages: [{ role: 'user', content: prompt }],
       betas: [SERVER_SIDE_FALLBACK_BETA],
       fallbacks: 'default',
@@ -172,6 +170,10 @@ export class ClaudeService implements AIProvider {
       throw new Error(
         `Claude declined the request (message: ${message.id}, category: ${message.stop_details?.category ?? 'none'})`,
       );
+    }
+    const isCutBeforeAnswer = message.stop_reason === 'max_tokens' && !this.answerText(message);
+    if (isCutBeforeAnswer) {
+      throw new Error(`Claude hit max_tokens before answering (message: ${message.id})`);
     }
   }
 

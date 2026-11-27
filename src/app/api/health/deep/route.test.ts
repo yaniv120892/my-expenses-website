@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
 import type * as DbClientModule from '@/server/db/client';
 import { CONNECTION_WAIT_MS } from '@/server/db/client';
+import { GET as shallowHealthGet } from '@/app/api/health/route';
 
 const { queryRaw, getValue } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
@@ -90,6 +93,33 @@ describe('deep check', () => {
     });
   });
 
+  describe('the keyword the README tells the deep monitor to require', () => {
+    const keyword = readDeepMonitorKeyword();
+
+    it('appears in a healthy body', async () => {
+      const body = await (await GET()).text();
+
+      expect(body).toContain(keyword);
+    });
+
+    it.each([
+      ['the database', () => queryRaw.mockRejectedValue(new Error('connection refused'))],
+      ['redis', () => getValue.mockRejectedValue(new Error('upstash unreachable'))],
+    ])('is missing from the body when %s is down', async (_dependency, breakDependency) => {
+      breakDependency();
+
+      const body = await (await GET()).text();
+
+      expect(body).not.toContain(keyword);
+    });
+
+    it('is missing from the shallow liveness body, so the monitor cannot pass on the wrong route', async () => {
+      const body = await (await shallowHealthGet()).text();
+
+      expect(body).not.toContain(keyword);
+    });
+  });
+
   it('names redis when it is down', async () => {
     getValue.mockRejectedValue(new Error('upstash unreachable'));
 
@@ -103,3 +133,14 @@ describe('deep check', () => {
     });
   });
 });
+
+function readDeepMonitorKeyword(): string {
+  const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
+  const keyword = /deep monitor to require the string `([^`]+)`/.exec(readme)?.[1];
+  if (!keyword) {
+    throw new Error(
+      'README.md no longer says "deep monitor to require the string `<keyword>`", so the keyword specs have nothing to check',
+    );
+  }
+  return keyword;
+}

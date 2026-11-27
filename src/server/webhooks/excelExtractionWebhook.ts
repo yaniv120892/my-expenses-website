@@ -554,11 +554,11 @@ async function handleFailedExtraction(
 
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
   if (isOutOfCreditsMessage(errorMessage)) {
-    // The extraction service runs on Gemini, so its empty balance shares the app's Gemini alert.
+    // Shares the app's Gemini claim on purpose: either balance running out asks for the same top-up.
     scheduleCreditsAlert({
       provider: 'Gemini',
       error: new Error(errorMessage),
-      context: { operation: 'fileExtraction', importId },
+      context: { operation: 'fileExtraction', importId, householdId },
     });
   }
 

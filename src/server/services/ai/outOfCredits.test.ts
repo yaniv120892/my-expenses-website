@@ -47,6 +47,7 @@ describe('isOutOfCreditsMessage', () => {
     ['a server error', 'Error fetching from https://x: [500 Internal Server Error] Internal error'],
     ['a status that starts with 402', 'Error fetching from https://x: [4029 ] Unknown'],
     ['402 outside the marker', 'Statement has 402 rows, too many to read'],
+    ['a 402 marker quoted from file content', 'Could not parse sheet: [402 Q3]'],
     ['an empty message', ''],
   ])('is false for %s', (_label, message) => {
     expect(isOutOfCreditsMessage(message)).toBe(false);

@@ -34,17 +34,14 @@ export class ProviderFallback {
     try {
       return await attempt;
     } catch (err) {
+      const context = { model: this.options.modelName(), operation };
       observability.reportError({
         error: err,
         where: `${this.options.provider} API error`,
-        context: { model: this.options.modelName(), operation },
+        context,
       });
       if (isOutOfCredits(err)) {
-        scheduleCreditsAlert({
-          provider: this.options.provider,
-          error: err,
-          context: { model: this.options.modelName(), operation },
-        });
+        scheduleCreditsAlert({ provider: this.options.provider, error: err, context });
       }
       return fallback;
     }

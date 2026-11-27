@@ -24,8 +24,9 @@ export function isOutOfCredits(error: unknown): boolean {
   );
 }
 
-// A service that relays a provider failure as text keeps the SDK's `[<status> <statusText>]` marker.
-const PAYMENT_REQUIRED_MARKER = /\[402[ \]]/;
+// A service that relays a provider failure as text keeps the SDK's
+// `<url>: [<status> <statusText>]` shape; the URL keeps a status quoted from file content out.
+const PAYMENT_REQUIRED_MARKER = new RegExp(`https?://\\S+: \\[${PAYMENT_REQUIRED_STATUS}[ \\]]`);
 
 export function isOutOfCreditsMessage(message: string): boolean {
   return PAYMENT_REQUIRED_MARKER.test(message);

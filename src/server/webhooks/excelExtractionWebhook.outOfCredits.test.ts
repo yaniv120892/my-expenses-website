@@ -105,6 +105,7 @@ describe('failed extraction when the AI provider is out of credits', () => {
     const [message] = telegramMessages();
     expect(message).toContain('Gemini is out of credits');
     expect(message).toContain('operation: fileExtraction');
+    expect(message).toContain('householdId: household-1');
   });
 
   it('sends no credits alert for any other extraction failure', async () => {

@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import type { AIProvider, CategoryEvaluation } from '@/server/services/ai/aiProvider';
-import { logger, observability } from '@/server/observability';
+import { observability } from '@/server/observability';
 import { incrementWithTtl } from '@/server/redis';
 import { isOutOfCredits } from '@/server/services/ai/outOfCredits';
 
@@ -97,7 +97,11 @@ export class ProviderFallback {
       );
       return count === 1;
     } catch (err) {
-      logger.warn({ err, provider }, 'AI out-of-credits alert claim failed');
+      observability.reportError({
+        error: err,
+        where: 'AI out-of-credits alert claim failed',
+        context: { provider },
+      });
       return true;
     }
   }

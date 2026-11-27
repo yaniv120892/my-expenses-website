@@ -24,6 +24,10 @@ beforeEach(() => {
   incrementWithTtl.mockResolvedValue(1);
 });
 
+async function flushScheduledWork(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function openAIError(errorBody: { code: string; type: string; message: string }): APIError {
   return APIError.generate(429, { error: errorBody }, undefined, new Headers());
 }
@@ -143,6 +147,7 @@ describe('ProviderFallback out-of-credits alert', () => {
     });
 
     await vi.waitFor(() => expect(incrementWithTtl).toHaveBeenCalledTimes(1));
+    await flushScheduledWork();
     expect(notifyOpsAlert).not.toHaveBeenCalled();
   });
 
@@ -156,6 +161,11 @@ describe('ProviderFallback out-of-credits alert', () => {
     });
 
     await vi.waitFor(() => expect(notifyOpsAlert).toHaveBeenCalledTimes(1));
+    expect(reportError).toHaveBeenCalledWith({
+      error: new Error('redis down'),
+      where: 'AI out-of-credits alert claim failed',
+      context: { provider: 'ChatGPT' },
+    });
   });
 
   it('claims nothing for a plain rate limit', async () => {
@@ -167,6 +177,7 @@ describe('ProviderFallback out-of-credits alert', () => {
       fallback: null,
     });
 
+    await flushScheduledWork();
     expect(incrementWithTtl).not.toHaveBeenCalled();
     expect(notifyOpsAlert).not.toHaveBeenCalled();
   });

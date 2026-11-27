@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { isOutOfCredits, outOfCreditsProviderOf } from '@/server/services/ai/outOfCredits';
 
+const ANTHROPIC_LOW_BALANCE =
+  '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_012"}';
+
 class ProviderError extends Error {
-  public constructor(fields: { status?: number; statusCode?: number; code?: string | null }) {
-    super('provider failed');
+  public constructor(
+    fields: { status?: number; statusCode?: number; code?: string | null },
+    message = 'provider failed',
+  ) {
+    super(message);
     Object.assign(this, fields);
   }
 }
@@ -12,9 +18,15 @@ describe('isOutOfCredits', () => {
   it.each([
     ['a 402 status (Google, OpenAI)', new ProviderError({ status: 402 })],
     ['a 402 statusCode (AI SDK gateway)', new ProviderError({ statusCode: 402 })],
+    ['a 402 whose message is not text', Object.assign(new Error(), { status: 402, message: 42 })],
     [
       'an OpenAI insufficient_quota 429',
       new ProviderError({ status: 429, code: 'insufficient_quota' }),
+    ],
+    ['an Anthropic low-balance 400', new ProviderError({ status: 400 }, ANTHROPIC_LOW_BALANCE)],
+    [
+      'a low-balance 400 statusCode (AI SDK)',
+      new ProviderError({ statusCode: 400 }, ANTHROPIC_LOW_BALANCE),
     ],
   ])('is true for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(true);
@@ -23,8 +35,17 @@ describe('isOutOfCredits', () => {
   it.each([
     ['a plain rate limit', new ProviderError({ status: 429, code: 'rate_limit_exceeded' })],
     ['a server error', new ProviderError({ status: 500 })],
+    [
+      'any other 400',
+      new ProviderError({ status: 400 }, '400 {"message":"max_tokens: too large"}'),
+    ],
+    [
+      'the low-balance text without a 400',
+      new ProviderError({ status: 500 }, ANTHROPIC_LOW_BALANCE),
+    ],
     ['an error without a status', new Error('Timed out')],
     ['a non-object', 'boom'],
+    ['a 400 whose message is not text', Object.assign(new Error(), { status: 400, message: 42 })],
     ['null', null],
   ])('is false for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(false);
@@ -38,6 +59,7 @@ describe('outOfCreditsProviderOf', () => {
   it.each([
     ['as the SDK builds it', ANTHROPIC_BILLING_ERROR],
     ['behind a relaying prefix', `AI processing failed: ${ANTHROPIC_BILLING_ERROR}`],
+    ['as a low-balance 400', `AI processing failed: ${ANTHROPIC_LOW_BALANCE}`],
   ])('names Claude for an Anthropic billing error %s', (_label, message) => {
     expect(outOfCreditsProviderOf(message)).toBe('Claude');
   });
@@ -62,6 +84,11 @@ describe('outOfCreditsProviderOf', () => {
       'an Anthropic rate limit',
       '429 {"type":"error","error":{"type":"rate_limit_error","message":"Slow down"}}',
     ],
+    [
+      'any other Anthropic 400',
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: too large"}}',
+    ],
+    ['the low-balance text quoted from file content', 'Row 3: credit balance is too low 400 {'],
     ['a billing_error quoted from file content', 'Row 3: {"type":"billing_error"} 402'],
     ['an empty message', ''],
   ])('names no provider for %s', (_label, message) => {

@@ -37,6 +37,25 @@ describe('resolveMatchedTransactionId', () => {
     expect(resolveMatchedTransactionId('"tx-b"', candidates)).toBe('tx-b');
   });
 
+  it('takes the id from the last line when the model explains first', () => {
+    expect(resolveMatchedTransactionId('The merchant and amount match.\n\ntx-b', candidates)).toBe(
+      'tx-b',
+    );
+  });
+
+  it('ignores an id named only inside the explanation', () => {
+    expect(
+      resolveMatchedTransactionId(
+        'tx-a looks close, but it is a different charge.\nnone',
+        candidates,
+      ),
+    ).toBeNull();
+  });
+
+  it('treats an id the model retracts on a later line as no match', () => {
+    expect(resolveMatchedTransactionId('tx-a\nActually, no match.', candidates)).toBeNull();
+  });
+
   it('rejects an id the model invented', () => {
     expect(
       resolveMatchedTransactionId('99999999-9999-4999-8999-999999999999', candidates),
@@ -129,6 +148,16 @@ describe('resolveSuggestedCategoryId', () => {
 
   it('strips the quotes and whitespace completion styles add', () => {
     expect(resolveSuggestedCategoryId(' "Food & Drinks"\n', categories)).toBe('cat-food');
+  });
+
+  it('takes the name from its own line when the model explains around it', () => {
+    expect(resolveSuggestedCategoryId('A restaurant charge.\n\nFood & Drinks\n', categories)).toBe(
+      'cat-food',
+    );
+  });
+
+  it('ignores a name mentioned only inside the explanation', () => {
+    expect(resolveSuggestedCategoryId('Not Food & Drinks, it is a fee.', categories)).toBeNull();
   });
 
   it('rejects a name that was not offered, and an empty or missing answer', () => {

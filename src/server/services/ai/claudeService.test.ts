@@ -151,6 +151,21 @@ describe('ClaudeService', () => {
     expect(reportError).not.toHaveBeenCalled();
   });
 
+  it('reads an analysis split across text blocks as one continuous text', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [
+          { type: 'text', text: 'You spent ' },
+          { type: 'text', text: 'more on food.' },
+        ],
+      }),
+    );
+
+    await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBe(
+      'You spent more on food.',
+    );
+  });
+
   it('reads an empty analysis as no analysis', async () => {
     anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
 
@@ -173,6 +188,21 @@ describe('ClaudeService', () => {
       new ClaudeService().findMatchingTransaction(importedCharge, [matchCandidate]),
     ).resolves.toBe(matchCandidate.id);
     expect(sentRequest().body).toMatchObject({ system: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT });
+  });
+
+  it('keeps the match when the explanation and the id come in separate text blocks', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [
+          { type: 'text', text: 'The merchant and the amount match.' },
+          { type: 'text', text: matchCandidate.id },
+        ],
+      }),
+    );
+
+    await expect(
+      new ClaudeService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBe(matchCandidate.id);
   });
 
   it('uses CLAUDE_MODEL when set', async () => {

@@ -90,7 +90,7 @@ export class ClaudeService implements AIProvider {
       system: SUGGEST_CATEGORY_SYSTEM_PROMPT,
       maxTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens,
     });
-    return buildCategoryEvaluation(this.answerText(message), categoryOptions, {
+    return buildCategoryEvaluation(this.answerLines(message), categoryOptions, {
       inputTokens: message.usage.input_tokens,
       outputTokens: message.usage.output_tokens,
     });
@@ -143,7 +143,7 @@ export class ClaudeService implements AIProvider {
       system: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT,
       maxTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens,
     });
-    return resolveMatchedTransactionId(this.answerText(message), potentialMatches);
+    return resolveMatchedTransactionId(this.answerLines(message), potentialMatches);
   }
 
   private async complete({
@@ -178,10 +178,16 @@ export class ClaudeService implements AIProvider {
   }
 
   private answerText(message: Anthropic.Beta.BetaMessage): string {
-    return message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
-      .trim();
+    return this.textBlocksOf(message).join('').trim();
+  }
+
+  // Prose split across blocks reads as one text, but a one-value answer must not glue onto the
+  // explanation block before it.
+  private answerLines(message: Anthropic.Beta.BetaMessage): string {
+    return this.textBlocksOf(message).join('\n').trim();
+  }
+
+  private textBlocksOf(message: Anthropic.Beta.BetaMessage): string[] {
+    return message.content.filter((block) => block.type === 'text').map((block) => block.text);
   }
 }

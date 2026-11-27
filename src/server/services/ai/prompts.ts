@@ -22,6 +22,8 @@ export function buildSuggestCategoryPrompt(
   return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
 }
 
+const NO_MATCH_ANSWER = 'none';
+
 export function normalizeModelAnswer(rawAnswer: string | null | undefined): string | null {
   const answer = rawAnswer
     ?.trim()
@@ -38,13 +40,13 @@ export function resolveSuggestedCategoryId(
   rawAnswer: string | null | undefined,
   categoryOptions: Category[],
 ): string | null {
-  const answer = normalizeModelAnswer(rawAnswer);
-  if (answer === null) {
-    return null;
-  }
+  const answer = offeredCategoryNameIn(rawAnswer, categoryOptions);
   const match = categoryOptions.find((category) => category.name === answer);
   if (match) {
     return match.id;
+  }
+  if (normalizeModelAnswer(rawAnswer) === null) {
+    return null;
   }
   logger.warn(
     { rawAnswer },
@@ -64,7 +66,8 @@ export function buildCategoryEvaluation(
 ): CategoryEvaluation {
   return {
     categoryId: resolveSuggestedCategoryId(rawAnswer, categoryOptions),
-    categoryName: normalizeModelAnswer(rawAnswer),
+    categoryName:
+      offeredCategoryNameIn(rawAnswer, categoryOptions) ?? normalizeModelAnswer(rawAnswer),
     probability: measured.probability ?? null,
     inputTokens: measured.inputTokens,
     outputTokens: measured.outputTokens,
@@ -106,17 +109,43 @@ export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
 ): string | null {
-  const answer = normalizeModelAnswer(rawAnswer);
-  if (answer === null || answer === 'none') {
-    return null;
+  const offeredIds = new Set(potentialMatches.map((match) => match.id));
+  const verdict = decisiveLineOf({
+    rawAnswer,
+    isVerdict: (line) => line === NO_MATCH_ANSWER || offeredIds.has(line),
+  });
+  if (verdict !== null) {
+    return verdict === NO_MATCH_ANSWER ? null : verdict;
   }
-  if (potentialMatches.some((match) => match.id === answer)) {
-    return answer;
+  if (normalizeModelAnswer(rawAnswer) === null) {
+    return null;
   }
   // At warn so it ships, keeping a match rate silently dropping to zero
   // diagnosable.
   logger.warn({ rawAnswer }, 'Model answer did not name an offered match; treating as no match');
   return null;
+}
+
+function offeredCategoryNameIn(
+  rawAnswer: string | null | undefined,
+  categoryOptions: Category[],
+): string | null {
+  const offeredNames = new Set(categoryOptions.map((category) => category.name));
+  return decisiveLineOf({ rawAnswer, isVerdict: (line) => offeredNames.has(line) });
+}
+
+// A reasoning model can explain itself before the answer despite the prompt, so only the last
+// line decides; a value named earlier is never taken, since a later line may retract it.
+function decisiveLineOf({
+  rawAnswer,
+  isVerdict,
+}: {
+  rawAnswer: string | null | undefined;
+  isVerdict: (line: string) => boolean;
+}): string | null {
+  const lastLine = normalizeModelAnswer(rawAnswer)?.split('\n').at(-1);
+  const verdict = normalizeModelAnswer(lastLine);
+  return verdict !== null && isVerdict(verdict) ? verdict : null;
 }
 
 function describeCandidate(transaction: Transaction): string {

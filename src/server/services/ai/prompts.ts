@@ -134,8 +134,8 @@ function offeredCategoryNameIn(
   return decisiveLineOf({ rawAnswer, isVerdict: (line) => offeredNames.has(line) });
 }
 
-// A reasoning model can explain itself around the answer despite the prompt, so the verdict is
-// the last line that is an answer on its own; a value named only inside prose is never taken.
+// A reasoning model can explain itself before the answer despite the prompt, so only the last
+// line decides; a value named earlier is never taken, since a later line may retract it.
 function decisiveLineOf({
   rawAnswer,
   isVerdict,
@@ -143,8 +143,9 @@ function decisiveLineOf({
   rawAnswer: string | null | undefined;
   isVerdict: (line: string) => boolean;
 }): string | null {
-  const lines = (rawAnswer ?? '').split('\n').map(normalizeModelAnswer);
-  return lines.findLast((line): line is string => line !== null && isVerdict(line)) ?? null;
+  const lastLine = normalizeModelAnswer(rawAnswer)?.split('\n').at(-1);
+  const verdict = normalizeModelAnswer(lastLine);
+  return verdict !== null && isVerdict(verdict) ? verdict : null;
 }
 
 function describeCandidate(transaction: Transaction): string {

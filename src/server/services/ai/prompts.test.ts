@@ -52,10 +52,8 @@ describe('resolveMatchedTransactionId', () => {
     ).toBeNull();
   });
 
-  it('takes the id when the model adds a note after it', () => {
-    expect(resolveMatchedTransactionId('tx-b\n(same merchant, same amount)', candidates)).toBe(
-      'tx-b',
-    );
+  it('treats an id the model retracts on a later line as no match', () => {
+    expect(resolveMatchedTransactionId('tx-a\nActually, no match.', candidates)).toBeNull();
   });
 
   it('rejects an id the model invented', () => {

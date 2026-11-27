@@ -186,7 +186,7 @@ any database or Redis call.
 The two checks are separate routes rather than one route behind a `?deep=` flag,
 so a mistyped path under `/api/` is a 404 that goes red within one interval
 instead of silently degrading into a second shallow monitor reporting green.
-Each probe gives up 2s after the database client's connection wait (12s), so a
+Each probe gives up 2s after the database client's 10s connection wait, so a
 database waking from suspend has as long as a real request gives it, and a
 blackholed dependency still returns the 503 naming it rather than a bodiless
 platform timeout. The deep monitor's request timeout must stay above that.

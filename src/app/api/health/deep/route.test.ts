@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
+import type * as DbClientModule from '@/server/db/client';
+import { CONNECTION_WAIT_MS } from '@/server/db/client';
 
-const { queryRaw, getValue, CONNECTION_WAIT_MS } = vi.hoisted(() => ({
+const { queryRaw, getValue } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   getValue: vi.fn(),
-  CONNECTION_WAIT_MS: 10_000,
 }));
 
-vi.mock('@/server/db/client', () => ({
-  CONNECTION_WAIT_MS,
+vi.mock('@/server/db/client', async (importOriginal) => ({
+  CONNECTION_WAIT_MS: (await importOriginal<typeof DbClientModule>()).CONNECTION_WAIT_MS,
   default: { $queryRaw: queryRaw },
 }));
 vi.mock('@/server/redis', () => ({ getValue, incrementWithTtl: vi.fn() }));
@@ -67,11 +68,11 @@ describe('deep check', () => {
       );
     }
 
-    it('waits as long as a real connection would, so a slow cold start is healthy', async () => {
-      answerAfter(CONNECTION_WAIT_MS - 1);
+    it('waits out a full connection wait plus the query, so a slow cold start is healthy', async () => {
+      answerAfter(CONNECTION_WAIT_MS + 1_000);
 
       const pending = GET();
-      await vi.advanceTimersByTimeAsync(CONNECTION_WAIT_MS);
+      await vi.advanceTimersByTimeAsync(CONNECTION_WAIT_MS + 1_000);
       const response = await pending;
 
       expect(response.status).toBe(200);

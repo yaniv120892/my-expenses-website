@@ -36,8 +36,8 @@ send (logged as `ops_alert_failed`) or a second run-out the same day waits for t
 
 File imports reach the same alert from the other side. The extraction service calls Gemini itself
 and reports a failure to the webhook as text, so `handleFailedExtraction` checks that text with
-`isOutOfCreditsMessage` (the SDK's `[402 …]` marker) and claims the Gemini alert
-(`src/server/services/ai/creditsAlert.ts`), with `operation: fileExtraction` and the `importId`.
+`isOutOfCreditsMessage` (the SDK's `<url>: [402 …]` shape) and claims the Gemini alert
+(`src/server/services/ai/creditsAlert.ts`), with `operation: fileExtraction`, the `importId` and the `householdId`.
 
 ## Only the category decision may leave the `AI_PROVIDER` model
 

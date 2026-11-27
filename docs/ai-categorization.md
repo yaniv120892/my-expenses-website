@@ -31,6 +31,8 @@ Sentry indexes as a tag, tells the features apart.
 A failure that means the provider's balance is empty (`isOutOfCredits`: HTTP 402, or OpenAI's
 `insufficient_quota`) also sends one Telegram ops alert per provider per 24 hours, claimed in
 Redis, so the account is topped up before users notice. Every call keeps falling back meanwhile.
+The claim and the send run after the response. The claim is taken before the send, so a failed
+send (logged as `ops_alert_failed`) or a second run-out the same day waits for the next window.
 
 ## Only the category decision may leave the `AI_PROVIDER` model
 

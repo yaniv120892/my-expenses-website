@@ -29,6 +29,10 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
   });
 });
 
+function claimsOf(key: string): number {
+  return incrementWithTtl.mock.calls.filter(([calledKey]) => calledKey === key).length;
+}
+
 function telegramMessages(): string[] {
   return fetchMock.mock.calls
     .filter(([input]) => String(input).startsWith('https://api.telegram.org/'))
@@ -70,8 +74,11 @@ describe('GeminiService when the prepaid credits run out', () => {
       gemini.suggestCategory('coffee', [{ id: 'cat-food', name: 'Food' }]),
     ).resolves.toBeNull();
 
+    await vi.waitFor(() => {
+      expect(claimsOf('ai-out-of-credits-alert:Gemini')).toBe(4);
+      expect(telegramMessages()).toHaveLength(1);
+    });
     const messages = telegramMessages();
-    expect(messages).toHaveLength(1);
     expect(messages[0]).toContain('Gemini is out of credits');
     expect(messages[0]).toContain('operation: analyzeExpenses');
   });

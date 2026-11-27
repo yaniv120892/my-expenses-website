@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import type { AIProvider, CategoryEvaluation } from '@/server/services/ai/aiProvider';
 import { logger, observability } from '@/server/observability';
 import { incrementWithTtl } from '@/server/redis';
@@ -48,7 +49,9 @@ export class ProviderFallback {
         where: `${this.options.provider} API error`,
         context: { model: this.options.modelName(), operation },
       });
-      await this.alertIfOutOfCredits({ error: err, operation });
+      if (isOutOfCredits(err)) {
+        this.scheduleCreditsAlert({ error: err, operation });
+      }
       return fallback;
     }
   }
@@ -60,10 +63,17 @@ export class ProviderFallback {
     return this.orFallback({ operation, attempt: this.categoryIdOf(evaluation), fallback: null });
   }
 
-  private async alertIfOutOfCredits({ error, operation }: FailureReport): Promise<void> {
-    if (!isOutOfCredits(error)) {
-      return;
+  // The claim and the send run after the response, so neither holds the request whose call failed.
+  private scheduleCreditsAlert(report: FailureReport): void {
+    try {
+      after(() => this.alertOnFirstClaim(report));
+    } catch {
+      // Outside a request scope (a script) nothing would run the hook.
+      void this.alertOnFirstClaim(report);
     }
+  }
+
+  private async alertOnFirstClaim({ error, operation }: FailureReport): Promise<void> {
     const isFirstAlertInWindow = await this.claimCreditsAlert();
     if (!isFirstAlertInWindow) {
       return;

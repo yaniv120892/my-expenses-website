@@ -24,6 +24,8 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 }));
 
 import { ClaudeService } from '@/server/services/ai/claudeService';
+import { FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
+import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
 import type { Category } from '@/shared/types/category';
 
 const categories: Category[] = [
@@ -147,6 +149,30 @@ describe('ClaudeService', () => {
 
     await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBe('Spending rose');
     expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('reads an empty analysis as no analysis', async () => {
+    anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
+
+    await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBeNull();
+  });
+
+  it('makes no call when there is nothing to match against', async () => {
+    await expect(
+      new ClaudeService().findMatchingTransaction(importedCharge, []),
+    ).resolves.toBeNull();
+    expect(anthropicFetch).not.toHaveBeenCalled();
+  });
+
+  it('returns the offered match the model names', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({ content: [{ type: 'text', text: matchCandidate.id }] }),
+    );
+
+    await expect(
+      new ClaudeService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBe(matchCandidate.id);
+    expect(sentRequest().body).toMatchObject({ system: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT });
   });
 
   it('uses CLAUDE_MODEL when set', async () => {

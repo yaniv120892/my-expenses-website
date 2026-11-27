@@ -555,7 +555,7 @@ async function handleFailedExtraction(
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
   const outOfCreditsProvider = outOfCreditsProviderOf(errorMessage);
   if (outOfCreditsProvider) {
-    // Shares the app's claim for that provider on purpose: either balance running out asks for the same top-up.
+    // Shares the app's claim for that provider on purpose: the extraction service draws on the same balance.
     scheduleCreditsAlert({
       provider: outOfCreditsProvider,
       error: new Error(errorMessage),

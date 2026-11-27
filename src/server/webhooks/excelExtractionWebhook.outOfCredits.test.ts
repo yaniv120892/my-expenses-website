@@ -26,7 +26,7 @@ vi.mock('@/server/repositories/crossHouseholdRepository', () => ({
 vi.mock('@/server/db/client', () => ({ default: {} }));
 
 // The extraction service's error text for a Gemini 402, as production logged it on 2026-11-27.
-const CREDITS_DEPLETED_ERROR =
+const GEMINI_CREDITS_DEPLETED_ERROR =
   'AI processing failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent: [402 ] Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.';
 
 // The extraction service's error text for an Anthropic 402, as `@anthropic-ai/sdk` builds it.
@@ -41,10 +41,10 @@ const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =
   return new Response('{"ok":true}');
 });
 
-const CREDITS_ALERT_KEY = 'ai-out-of-credits-alert:Gemini';
+const GEMINI_CREDITS_ALERT_KEY = 'ai-out-of-credits-alert:Gemini';
 const CLAUDE_CREDITS_ALERT_KEY = 'ai-out-of-credits-alert:Claude';
 
-function creditsClaims(key = CREDITS_ALERT_KEY): number {
+function creditsClaims(key = GEMINI_CREDITS_ALERT_KEY): number {
   return incrementWithTtl.mock.calls.filter(([claimedKey]) => claimedKey === key).length;
 }
 
@@ -92,7 +92,9 @@ afterEach(() => {
 describe('failed extraction when the AI provider is out of credits', () => {
   it('fails each import and sends one ops alert for the burst', async () => {
     for (let i = 0; i < 4; i++) {
-      await expect(failedCallback(CREDITS_DEPLETED_ERROR)).resolves.toMatchObject({ status: 200 });
+      await expect(failedCallback(GEMINI_CREDITS_DEPLETED_ERROR)).resolves.toMatchObject({
+        status: 200,
+      });
     }
 
     expect(importRepo.updateStatus).toHaveBeenCalledTimes(4);
@@ -100,13 +102,13 @@ describe('failed extraction when the AI provider is out of credits', () => {
       'household-1',
       'imp-1',
       'FAILED',
-      CREDITS_DEPLETED_ERROR,
+      GEMINI_CREDITS_DEPLETED_ERROR,
     );
     await vi.waitFor(() => {
       expect(creditsClaims()).toBe(4);
       expect(telegramMessages()).toHaveLength(1);
     });
-    expect(incrementWithTtl).toHaveBeenCalledWith(CREDITS_ALERT_KEY, 86_400);
+    expect(incrementWithTtl).toHaveBeenCalledWith(GEMINI_CREDITS_ALERT_KEY, 86_400);
     const [message] = telegramMessages();
     expect(message).toContain('Gemini is out of credits');
     expect(message).toContain('operation: fileExtraction');

@@ -1,12 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DeepHealthRouteModule from '@/app/api/health/deep/route';
 
-const { queryRaw, getValue } = vi.hoisted(() => ({
+const { queryRaw, getValue, CONNECTION_WAIT_MS } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   getValue: vi.fn(),
+  CONNECTION_WAIT_MS: 10_000,
 }));
 
-vi.mock('@/server/db/client', () => ({ default: { $queryRaw: queryRaw } }));
+vi.mock('@/server/db/client', () => ({
+  CONNECTION_WAIT_MS,
+  default: { $queryRaw: queryRaw },
+}));
 vi.mock('@/server/redis', () => ({ getValue, incrementWithTtl: vi.fn() }));
 
 // The route caches its outcome for 60s, so each test loads a fresh copy.
@@ -45,6 +49,43 @@ describe('deep check', () => {
       status: 'unhealthy',
       checks: { db: 'fail', redis: 'ok' },
       checkedAt: expect.any(String),
+    });
+  });
+
+  describe('when the database wakes from suspend', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function answerAfter(ms: number) {
+      queryRaw.mockReturnValue(
+        new Promise((resolve) => setTimeout(() => resolve([{ '?column?': 1 }]), ms)),
+      );
+    }
+
+    it('waits as long as a real connection would, so a slow cold start is healthy', async () => {
+      answerAfter(CONNECTION_WAIT_MS - 1);
+
+      const pending = GET();
+      await vi.advanceTimersByTimeAsync(CONNECTION_WAIT_MS);
+      const response = await pending;
+
+      expect(response.status).toBe(200);
+    });
+
+    it('still fails a database that never answers', async () => {
+      queryRaw.mockReturnValue(new Promise(() => {}));
+
+      const pending = GET();
+      await vi.advanceTimersByTimeAsync(CONNECTION_WAIT_MS * 2);
+      const response = await pending;
+
+      expect(response.status).toBe(503);
+      await expect(response.json()).resolves.toMatchObject({ checks: { db: 'fail' } });
     });
   });
 

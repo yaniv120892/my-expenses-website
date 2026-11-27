@@ -32,6 +32,7 @@
     "@47ng/cloak": "^1.2.0",
     "@ai-sdk/gateway": "^4.0.152",
     "@ai-sdk/typesafe-ai": "^3.0.42",
+    "@anthropic-ai/sdk": "^1.14.0",
     "@aws-sdk/client-s3": "^3.1175.0",
     "@aws-sdk/s3-request-presigner": "^3.1175.0",
     "@emotion/react": "^11.14.0",

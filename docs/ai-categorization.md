@@ -9,7 +9,7 @@ then the AI provider.
 
 ## Every model call made per transaction row is bounded
 
-The OpenAI and Gemini clients behind `AIProvider`, and any `CategorySuggester`, take their timeout
+The OpenAI, Gemini and Claude clients behind `AIProvider`, and any `CategorySuggester`, take their timeout
 (and retry count where the SDK has one) from `AI_REQUEST_LIMITS`
 (`src/server/services/ai/requestLimits.ts`), never an SDK default, because those calls run one row
 at a time inside a batch request. A timeout is an ordinary provider failure that fails its row;
@@ -33,6 +33,18 @@ A failure that means the provider's balance is empty (`isOutOfCredits`: HTTP 402
 Redis, so the account is topped up before users notice. Every call keeps falling back meanwhile.
 The claim and the send run after the response. The claim is taken before the send, so a failed
 send (logged as `ops_alert_failed`) or a second run-out the same day waits for the next window.
+
+File imports reach the same alert from the other side. The extraction service calls its model
+itself and reports a failure to the webhook as text, so `handleFailedExtraction` reads the provider
+from that text with `outOfCreditsProviderOf` (Google's `<url>: [402 …]`, Anthropic's
+`402 {…"billing_error"…}`) and claims that provider's alert
+(`src/server/services/ai/creditsAlert.ts`), with `operation: fileExtraction`, the `importId` and the
+`householdId`.
+
+The Claude client sends no `temperature`, `top_p` or `top_k` and no thinking switch, which Sonnet 5.5
+answers with a 400; it asks at `effort: low` and caps output with the `thinking*` limits instead. It
+turns on server-side fallbacks, so a safety decline is retried on a fallback model in the same call,
+and treats a remaining `refusal` stop as a provider failure.
 
 ## Only the category decision may leave the `AI_PROVIDER` model
 

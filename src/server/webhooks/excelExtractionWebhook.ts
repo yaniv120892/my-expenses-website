@@ -15,6 +15,8 @@ import { toImportedAmountColumns } from '@/server/repositories/amountColumns';
 import { currencyCodeSchema } from '@/shared/currency';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
+import { scheduleCreditsAlert } from '@/server/services/ai/creditsAlert';
+import { outOfCreditsProviderOf } from '@/server/services/ai/outOfCredits';
 
 export type WebhookResult = {
   status: number;
@@ -551,6 +553,15 @@ async function handleFailedExtraction(
   const errorMessage = payload.error || 'Unknown extraction error';
 
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
+  const outOfCreditsProvider = outOfCreditsProviderOf(errorMessage);
+  if (outOfCreditsProvider) {
+    // Shares the app's claim for that provider on purpose: the extraction service draws on the same balance.
+    scheduleCreditsAlert({
+      provider: outOfCreditsProvider,
+      error: new Error(errorMessage),
+      context: { operation: 'fileExtraction', importId, householdId },
+    });
+  }
 
   await importRepository.updateStatus(householdId, importId, ImportStatus.FAILED, errorMessage);
 }

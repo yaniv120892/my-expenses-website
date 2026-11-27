@@ -14,6 +14,7 @@ import { lazy } from '@/server/lib/lazy';
 import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import {
+  ANALYZE_EXPENSES_SYSTEM_PROMPT,
   buildAnalyzeExpensesPrompt,
   buildSuggestCategoryPrompt,
   buildFindMatchingTransactionPrompt,
@@ -121,10 +122,7 @@ export class ChatGPTService implements AIProvider {
   }: ExpenseAnalysisRequest): Promise<string | null> {
     const response = await this.complete({
       messages: [
-        {
-          role: 'system',
-          content: 'You are a financial assistant helping users analyze their expenses.',
-        },
+        { role: 'system', content: ANALYZE_EXPENSES_SYSTEM_PROMPT },
         { role: 'user', content: buildAnalyzeExpensesPrompt(expenseSummary, suffixPrompt) },
       ],
       max_tokens: 200,

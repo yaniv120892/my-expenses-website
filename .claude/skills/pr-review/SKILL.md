@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Use when asked to review one or more pull requests, given PR numbers or URLs to review, or asked whether a PR is safe to merge. Also use when a review must check that the repo docs (CLAUDE.md, DECISIONS.md and docs/) still match the code.
+description: Use when asked to review one or more pull requests, given PR numbers or URLs to review, or asked whether a PR is safe to merge. Also use when a review must check that the repo docs (AGENTS.md, DECISIONS.md and docs/) still match the code.
 ---
 
 # Pull Request Review

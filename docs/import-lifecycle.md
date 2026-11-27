@@ -55,6 +55,8 @@ submitted and the extracted month through it, ignoring one that names no month.
   as it does, and the user deletes and re-imports. It skips an import a callback claimed within
   `CALLBACK_CLAIM_GRACE_MS` (`src/server/repositories/crossHouseholdRepository.ts`), longer than
   any function runs, so a callback mid-write finishes.
+- A failed extraction whose error text carries its AI SDK's 402 also claims that provider's
+  out-of-credits ops alert; see `docs/ai-categorization.md` for the alert's window.
 - Deleting an import deletes its rows with it, so none can still be approved or hold a match a
   re-import needs.
 

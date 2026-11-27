@@ -18,8 +18,8 @@ both the web UI and the API.
 - **Database**: PostgreSQL via Prisma (field-level encryption for sensitive
   columns)
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
-- **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
-  Gemini via `AI_PROVIDER`
+- **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI,
+  Gemini or Claude via `AI_PROVIDER`
 - **Observability**: the shared
   [`@yaniv120892/observability`](https://github.com/yaniv120892/observability)
   package — pino → Better Stack logs, Sentry errors, Better Stack heartbeats and
@@ -157,7 +157,7 @@ Two monitors, on two routes, at deliberately different intervals:
 | Monitor | URL                | Interval   | What it touches                                  |
 | ------- | ------------------ | ---------- | ------------------------------------------------ |
 | Shallow | `/api/health`      | 3 minutes  | Nothing — proves Vercel is still serving the app |
-| Deep    | `/api/health/deep` | 60 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
+| Deep    | `/api/health/deep` | 30 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
 
 The deep response reports each dependency separately — `{"status":"unhealthy",
 "checks":{"db":"fail","redis":"ok"}}` with HTTP 503 — so the alert email names
@@ -171,14 +171,17 @@ it reaches the database at most once a minute per instance. That bounds the
 cost of a hostile poller; it does not let the compute sleep under one, since
 the idle timeout is longer than the window.
 
-### Do not lower the deep interval
+### Do not shorten the deep interval
 
 Neon Free gives 100 CU-hours/month at 0.25 CU, and scale-to-zero after 5 idle
 minutes cannot be disabled. Every deep check wakes the compute and restarts that
 idle timer, so the interval sets the bill: at 3 minutes the compute never sleeps
 (730 h x 0.25 CU = **~182 CU-hours, 1.8x the allowance** — the monitor causes
-the outage it was installed to catch); at 60 minutes it is 24 wakes x 5 min/day
-= **~15 CU-hours.**
+the outage it was installed to catch); at 30 minutes it is 48 wakes x 5 min/day
+= **~30 CU-hours.**
+
+30 minutes is also the ceiling: 1800 s is the longest check interval Better
+Stack allows, so the deep monitor cannot run less often.
 
 That is why the frequent monitor hits the shallow path, which must stay free of
 any database or Redis call.

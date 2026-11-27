@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOutOfCredits } from '@/server/services/ai/outOfCredits';
+import { isOutOfCredits, outOfCreditsProviderOf } from '@/server/services/ai/outOfCredits';
 
 class ProviderError extends Error {
   public constructor(fields: { status?: number; statusCode?: number; code?: string | null }) {
@@ -28,5 +28,43 @@ describe('isOutOfCredits', () => {
     ['null', null],
   ])('is false for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(false);
+  });
+});
+
+const ANTHROPIC_BILLING_ERROR =
+  '402 {"type":"error","error":{"type":"billing_error","message":"Your credit balance is too low to access the Anthropic API."},"request_id":"req_011"}';
+
+describe('outOfCreditsProviderOf', () => {
+  it.each([
+    ['as the SDK builds it', ANTHROPIC_BILLING_ERROR],
+    ['behind a relaying prefix', `AI processing failed: ${ANTHROPIC_BILLING_ERROR}`],
+  ])('names Claude for an Anthropic billing error %s', (_label, message) => {
+    expect(outOfCreditsProviderOf(message)).toBe('Claude');
+  });
+
+  it.each([
+    [
+      'an empty status text',
+      'AI processing failed: [GoogleGenerativeAI Error]: Error fetching from https://x/models/gemini-2.5-flash:generateContent: [402 ] Your prepayment credits are depleted.',
+    ],
+    ['a status text', 'Error fetching from https://x: [402 Payment Required] Top up'],
+    ['no status text', 'Error fetching from https://x: [402] Top up'],
+  ])('names Gemini for a 402 marker with %s', (_label, message) => {
+    expect(outOfCreditsProviderOf(message)).toBe('Gemini');
+  });
+
+  it.each([
+    ['a server error', 'Error fetching from https://x: [500 Internal Server Error] Internal error'],
+    ['a status that starts with 402', 'Error fetching from https://x: [4029 ] Unknown'],
+    ['402 outside the marker', 'Statement has 402 rows, too many to read'],
+    ['a 402 marker quoted from file content', 'Could not parse sheet: [402 Q3]'],
+    [
+      'an Anthropic rate limit',
+      '429 {"type":"error","error":{"type":"rate_limit_error","message":"Slow down"}}',
+    ],
+    ['a billing_error quoted from file content', 'Row 3: {"type":"billing_error"} 402'],
+    ['an empty message', ''],
+  ])('names no provider for %s', (_label, message) => {
+    expect(outOfCreditsProviderOf(message)).toBeNull();
   });
 });

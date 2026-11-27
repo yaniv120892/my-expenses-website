@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (Claude Code, Codex and others) when working with code in this repository.
 
 ## Project Overview
 
@@ -33,7 +33,7 @@ Short docs, one topic each. Load the one whose trigger matches your task.
 
 - [Suite architecture](https://github.com/yaniv120892/platform) (locally `../platform`) — how the
   My apps and shared packages fit together: hosting, data stores, observability, households, agent
-  channels. Load its `CLAUDE.md` before adding a store, cron, external API, alert or agent-facing
+  channels. Load its `AGENTS.md` before adding a store, cron, external API, alert or agent-facing
   feature, or code a sibling app could reuse. Update it in the same change when a fact there moves.
 - [DECISIONS.md](DECISIONS.md) — the hard-to-reverse decisions and why. Load before reversing or
   adding one.
@@ -107,7 +107,7 @@ Short docs, one topic each. Load the one whose trigger matches your task.
 ## Key invariants
 
 - **No module-load-time construction of network clients.** Every external
-  client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
+  client (OpenAI, Gemini, Anthropic, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
   Google, excel extraction) is built through `lazy()` from
   `src/server/lib/lazy.ts` and reads env inside the factory — `requireEnv`, or
   `optionalEnv` where unset means the feature is off. A missing env var fails

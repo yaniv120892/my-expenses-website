@@ -1,14 +1,14 @@
 # Documentation Alignment Check
 
 Do the repo docs still describe the system after this diff lands? The docs are
-`CLAUDE.md` (essentials and an index of every doc), `DECISIONS.md` (one row per
+`AGENTS.md` (essentials and an index of every doc), `DECISIONS.md` (one row per
 hard-to-reverse decision) and the topic docs under `docs/`. Read-only — this
 check **never edits any of them**; the finding tells the author what to change,
-and `CLAUDE.md`'s own Documentation section requires the change in the same PR.
+and `AGENTS.md`'s own Documentation section requires the change in the same PR.
 
 ## How to check
 
-Read the doc index in `CLAUDE.md` at review time rather than a list kept here;
+Read the doc index in `AGENTS.md` at review time rather than a list kept here;
 each entry names the task that should load that doc, and every doc states rules
 a diff can falsify.
 
@@ -16,7 +16,7 @@ a diff can falsify.
    model, or env var. Not the file names.
 
 2. **Pick the topic doc the index points that subsystem at, and grep it,
-   `CLAUDE.md` and `DECISIONS.md`** — the function or file names it cites, the
+   `AGENTS.md` and `DECISIONS.md`** — the function or file names it cites, the
    env var, the route path. One or two greps per subsystem.
 
 3. **Read the sentences around each hit** and compare each claim against the
@@ -41,7 +41,7 @@ Do not report these. They generate noise and get the whole section ignored:
 
 - No doc mentions the change. Absence is not drift — a change that fits no
   existing doc and is not a rule future work must follow does not belong in
-  the docs, by `CLAUDE.md`'s own terms.
+  the docs, by `AGENTS.md`'s own terms.
 - Wording you would phrase differently.
 - Internal implementation detail a bullet deliberately abstracts over.
 

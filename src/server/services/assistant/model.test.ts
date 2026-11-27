@@ -13,6 +13,17 @@ describe('getAssistantModel', () => {
     expect(getAssistantModel()).toMatchObject({ id: 'google/gemini-2.5-flash' });
   });
 
+  it('runs the assistant on Sonnet 5.5 with the Anthropic key for AI_PROVIDER=claude', () => {
+    vi.stubEnv('AI_PROVIDER', 'claude');
+    vi.stubEnv('ASSISTANT_MODEL_ID', '');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'anthropic-key');
+
+    expect(getAssistantModel()).toMatchObject({
+      id: 'anthropic/claude-sonnet-5-5',
+      apiKey: 'anthropic-key',
+    });
+  });
+
   it('uses a provider/model override as given', () => {
     vi.stubEnv('AI_PROVIDER', 'chatgpt');
     vi.stubEnv('ASSISTANT_MODEL_ID', 'openai/gpt-4.1');

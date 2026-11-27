@@ -1,4 +1,5 @@
 import { ChatGPTService } from '@/server/services/ai/chatGPTService';
+import { ClaudeService } from '@/server/services/ai/claudeService';
 import { GeminiService } from '@/server/services/ai/geminiService';
 import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
 import type { AIProvider, CategorySuggester } from '@/server/services/ai/aiProvider';
@@ -9,6 +10,8 @@ const aiServiceFactory = {
     const aiProvider = process.env.AI_PROVIDER?.toLowerCase();
 
     switch (aiProvider) {
+      case 'claude':
+        return new ClaudeService();
       case 'gemini':
         return new GeminiService();
       case 'chatgpt':

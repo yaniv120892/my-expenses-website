@@ -29,6 +29,10 @@ vi.mock('@/server/db/client', () => ({ default: {} }));
 const CREDITS_DEPLETED_ERROR =
   'AI processing failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent: [402 ] Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.';
 
+// The extraction service's error text for an Anthropic 402, as `@anthropic-ai/sdk` builds it.
+const CLAUDE_CREDITS_DEPLETED_ERROR =
+  'AI processing failed: 402 {"type":"error","error":{"type":"billing_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011"}';
+
 const SERVER_ERROR =
   'AI processing failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent: [500 Internal Server Error] Internal error';
 
@@ -38,9 +42,10 @@ const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =
 });
 
 const CREDITS_ALERT_KEY = 'ai-out-of-credits-alert:Gemini';
+const CLAUDE_CREDITS_ALERT_KEY = 'ai-out-of-credits-alert:Claude';
 
-function creditsClaims(): number {
-  return incrementWithTtl.mock.calls.filter(([key]) => key === CREDITS_ALERT_KEY).length;
+function creditsClaims(key = CREDITS_ALERT_KEY): number {
+  return incrementWithTtl.mock.calls.filter(([claimedKey]) => claimedKey === key).length;
 }
 
 function telegramMessages(): string[] {
@@ -106,6 +111,17 @@ describe('failed extraction when the AI provider is out of credits', () => {
     expect(message).toContain('Gemini is out of credits');
     expect(message).toContain('operation: fileExtraction');
     expect(message).toContain('householdId: household-1');
+  });
+
+  it('names Claude when the relayed failure is an Anthropic billing error', async () => {
+    await failedCallback(CLAUDE_CREDITS_DEPLETED_ERROR);
+
+    await vi.waitFor(() => {
+      expect(telegramMessages()).toHaveLength(1);
+    });
+    expect(creditsClaims(CLAUDE_CREDITS_ALERT_KEY)).toBe(1);
+    expect(creditsClaims()).toBe(0);
+    expect(telegramMessages()[0]).toContain('Claude is out of credits');
   });
 
   it('sends no credits alert for any other extraction failure', async () => {

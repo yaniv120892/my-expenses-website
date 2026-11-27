@@ -18,8 +18,8 @@ both the web UI and the API.
 - **Database**: PostgreSQL via Prisma (field-level encryption for sensitive
   columns)
 - **Auth**: JWT (jose) in an httpOnly cookie + Upstash Redis sessions
-- **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI or
-  Gemini via `AI_PROVIDER`
+- **AI**: Mastra agent (chat assistant with tools + PG memory), OpenAI,
+  Gemini or Claude via `AI_PROVIDER`
 - **Observability**: the shared
   [`@yaniv120892/observability`](https://github.com/yaniv120892/observability)
   package — pino → Better Stack logs, Sentry errors, Better Stack heartbeats and

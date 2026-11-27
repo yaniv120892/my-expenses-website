@@ -4,6 +4,7 @@ type ModelRouterId = `${string}/${string}`;
 
 const DEFAULT_OPENAI_MODEL: ModelRouterId = 'openai/gpt-4o-mini';
 const DEFAULT_GEMINI_MODEL: ModelRouterId = 'google/gemini-2.5-flash';
+const DEFAULT_CLAUDE_MODEL: ModelRouterId = 'anthropic/claude-sonnet-5-5';
 
 function modelId(fallback: ModelRouterId): ModelRouterId {
   const override = process.env.ASSISTANT_MODEL_ID;
@@ -34,6 +35,12 @@ export function getAssistantModel(): MastraModelConfig {
   const baseUrl = url ? { url } : {};
 
   switch (provider) {
+    case 'claude':
+      return {
+        id: modelId(DEFAULT_CLAUDE_MODEL),
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        ...baseUrl,
+      };
     case 'gemini':
       return {
         id: modelId(DEFAULT_GEMINI_MODEL),

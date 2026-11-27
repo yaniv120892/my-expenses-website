@@ -157,7 +157,7 @@ Two monitors, on two routes, at deliberately different intervals:
 | Monitor | URL                | Interval   | What it touches                                  |
 | ------- | ------------------ | ---------- | ------------------------------------------------ |
 | Shallow | `/api/health`      | 3 minutes  | Nothing — proves Vercel is still serving the app |
-| Deep    | `/api/health/deep` | 60 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
+| Deep    | `/api/health/deep` | 30 minutes | Postgres (`SELECT 1`) and Redis (`GET`)          |
 
 The deep response reports each dependency separately — `{"status":"unhealthy",
 "checks":{"db":"fail","redis":"ok"}}` with HTTP 503 — so the alert email names
@@ -177,8 +177,11 @@ Neon Free gives 100 CU-hours/month at 0.25 CU, and scale-to-zero after 5 idle
 minutes cannot be disabled. Every deep check wakes the compute and restarts that
 idle timer, so the interval sets the bill: at 3 minutes the compute never sleeps
 (730 h x 0.25 CU = **~182 CU-hours, 1.8x the allowance** — the monitor causes
-the outage it was installed to catch); at 60 minutes it is 24 wakes x 5 min/day
-= **~15 CU-hours.**
+the outage it was installed to catch); at 30 minutes it is 48 wakes x 5 min/day
+= **~30 CU-hours.**
+
+30 minutes is also the ceiling: 1800 s is the longest check interval Better
+Stack allows, so the deep monitor cannot run less often.
 
 That is why the frequent monitor hits the shallow path, which must stay free of
 any database or Redis call.

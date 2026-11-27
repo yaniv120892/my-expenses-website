@@ -13,7 +13,7 @@ const providerFailureSchema = z.object({
   status: z.unknown().optional(),
   statusCode: z.unknown().optional(),
   code: z.unknown().optional(),
-  message: z.string().optional(),
+  message: z.unknown().optional(),
 });
 
 export function isOutOfCredits(error: unknown): boolean {
@@ -23,7 +23,9 @@ export function isOutOfCredits(error: unknown): boolean {
   }
   const { status, statusCode, code, message } = parsed.data;
   const isAnthropicLowBalance =
-    status === BAD_REQUEST_STATUS && Boolean(message?.includes(ANTHROPIC_LOW_BALANCE_TEXT));
+    (status === BAD_REQUEST_STATUS || statusCode === BAD_REQUEST_STATUS) &&
+    typeof message === 'string' &&
+    message.includes(ANTHROPIC_LOW_BALANCE_TEXT);
   return (
     status === PAYMENT_REQUIRED_STATUS ||
     statusCode === PAYMENT_REQUIRED_STATUS ||

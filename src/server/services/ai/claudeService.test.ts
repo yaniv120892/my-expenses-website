@@ -175,6 +175,21 @@ describe('ClaudeService', () => {
     expect(sentRequest().body).toMatchObject({ system: FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT });
   });
 
+  it('keeps the match when the explanation and the id come in separate text blocks', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [
+          { type: 'text', text: 'The merchant and the amount match.' },
+          { type: 'text', text: matchCandidate.id },
+        ],
+      }),
+    );
+
+    await expect(
+      new ClaudeService().findMatchingTransaction(importedCharge, [matchCandidate]),
+    ).resolves.toBe(matchCandidate.id);
+  });
+
   it('uses CLAUDE_MODEL when set', async () => {
     vi.stubEnv('CLAUDE_MODEL', 'claude-opus-5-5');
     anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: 'ok' }] }));

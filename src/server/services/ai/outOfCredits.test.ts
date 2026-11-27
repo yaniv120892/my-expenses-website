@@ -18,11 +18,16 @@ describe('isOutOfCredits', () => {
   it.each([
     ['a 402 status (Google, OpenAI)', new ProviderError({ status: 402 })],
     ['a 402 statusCode (AI SDK gateway)', new ProviderError({ statusCode: 402 })],
+    ['a 402 whose message is not text', Object.assign(new Error(), { status: 402, message: 42 })],
     [
       'an OpenAI insufficient_quota 429',
       new ProviderError({ status: 429, code: 'insufficient_quota' }),
     ],
     ['an Anthropic low-balance 400', new ProviderError({ status: 400 }, ANTHROPIC_LOW_BALANCE)],
+    [
+      'a low-balance 400 statusCode (AI SDK)',
+      new ProviderError({ statusCode: 400 }, ANTHROPIC_LOW_BALANCE),
+    ],
   ])('is true for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(true);
   });
@@ -40,6 +45,7 @@ describe('isOutOfCredits', () => {
     ],
     ['an error without a status', new Error('Timed out')],
     ['a non-object', 'boom'],
+    ['a 400 whose message is not text', Object.assign(new Error(), { status: 400, message: 42 })],
     ['null', null],
   ])('is false for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(false);

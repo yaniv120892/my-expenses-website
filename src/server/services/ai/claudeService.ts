@@ -181,7 +181,7 @@ export class ClaudeService implements AIProvider {
     return message.content
       .filter((block) => block.type === 'text')
       .map((block) => block.text)
-      .join('')
+      .join('\n')
       .trim();
   }
 }

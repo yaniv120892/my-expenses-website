@@ -47,7 +47,7 @@ seeded carry ids without the RFC 9562 version and variant bits that `z.uuid()` r
   import it merged into.
 - `/api/auth/*` — cookie handling.
 - `/api/health` — liveness only; touches no dependency, so Neon can scale to zero.
-- `/api/health/deep` — polled at most hourly; each instance reuses its last outcome, failures
+- `/api/health/deep` — polled every 30 minutes; each instance reuses its last outcome, failures
   included, for 60s and runs one check for concurrent misses, so a caller polling it reaches the
   database at most once a minute per instance.
 

@@ -28,6 +28,10 @@ A method that turns a provider failure into a fallback reports it through `Provi
 fallback method reuses that label and adds its name to `ProviderOperation`, so `operation`, which
 Sentry indexes as a tag, tells the features apart.
 
+A failure that means the provider's balance is empty (`isOutOfCredits`: HTTP 402, or OpenAI's
+`insufficient_quota`) also sends one Telegram ops alert per provider per 24 hours, claimed in
+Redis, so the account is topped up before users notice. Every call keeps falling back meanwhile.
+
 ## Only the category decision may leave the `AI_PROVIDER` model
 
 `AIServiceFactory.getCategorySuggester()` is the one place that decides, on

@@ -1,5 +1,7 @@
 import type { AIProvider, CategoryEvaluation } from '@/server/services/ai/aiProvider';
-import { observability } from '@/server/observability';
+import { logger, observability } from '@/server/observability';
+import { incrementWithTtl } from '@/server/redis';
+import { isOutOfCredits } from '@/server/services/ai/outOfCredits';
 
 // The provider methods that report a failure and return a fallback; extracted from the
 // interface so renaming a method breaks every report still naming the old one.
@@ -21,6 +23,14 @@ type FallbackRequest<T> = {
   fallback: T;
 };
 
+type FailureReport = {
+  error: unknown;
+  operation: ProviderOperation;
+};
+
+// An empty balance fails every call until someone tops it up, so one alert a day is enough.
+const CREDITS_ALERT_WINDOW_SECONDS = 24 * 60 * 60;
+
 type CategoryIdRequest = {
   operation: ProviderOperation;
   evaluation: Promise<CategoryEvaluation>;
@@ -38,6 +48,7 @@ export class ProviderFallback {
         where: `${this.options.provider} API error`,
         context: { model: this.options.modelName(), operation },
       });
+      await this.alertIfOutOfCredits({ error: err, operation });
       return fallback;
     }
   }
@@ -47,6 +58,38 @@ export class ProviderFallback {
     evaluation,
   }: CategoryIdRequest): Promise<string | null> {
     return this.orFallback({ operation, attempt: this.categoryIdOf(evaluation), fallback: null });
+  }
+
+  private async alertIfOutOfCredits({ error, operation }: FailureReport): Promise<void> {
+    if (!isOutOfCredits(error)) {
+      return;
+    }
+    const isFirstAlertInWindow = await this.claimCreditsAlert();
+    if (!isFirstAlertInWindow) {
+      return;
+    }
+    const { provider } = this.options;
+    await observability.notifyOpsAlert({
+      alertType: `${provider} out of credits`,
+      title: `${provider} is out of credits; top up its account`,
+      error,
+      context: { model: this.options.modelName(), operation },
+    });
+  }
+
+  // A Redis outage alerts anyway: the alerter's own hourly cap still bounds the noise.
+  private async claimCreditsAlert(): Promise<boolean> {
+    const { provider } = this.options;
+    try {
+      const count = await incrementWithTtl(
+        `ai-out-of-credits-alert:${provider}`,
+        CREDITS_ALERT_WINDOW_SECONDS,
+      );
+      return count === 1;
+    } catch (err) {
+      logger.warn({ err, provider }, 'AI out-of-credits alert claim failed');
+      return true;
+    }
   }
 
   private async categoryIdOf(evaluation: Promise<CategoryEvaluation>): Promise<string | null> {

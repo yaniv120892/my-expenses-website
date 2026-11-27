@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   // The e2e suites and dev:local address the dev server as 127.0.0.1, which
   // Next 16 otherwise refuses dev assets and the HMR socket to, so nothing hydrates.
   allowedDevOrigins: ['127.0.0.1'],
-  // next dev otherwise appends its own agent-rules block to CLAUDE.md, which is
+  // next dev otherwise appends its own agent-rules block to AGENTS.md, which is
   // this repo's curated design document.
   agentRules: false,
   turbopack: { root: __dirname },

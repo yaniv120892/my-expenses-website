@@ -151,6 +151,21 @@ describe('ClaudeService', () => {
     expect(reportError).not.toHaveBeenCalled();
   });
 
+  it('reads an analysis split across text blocks as one continuous text', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({
+        content: [
+          { type: 'text', text: 'You spent ' },
+          { type: 'text', text: 'more on food.' },
+        ],
+      }),
+    );
+
+    await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBe(
+      'You spent more on food.',
+    );
+  });
+
   it('reads an empty analysis as no analysis', async () => {
     anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
 

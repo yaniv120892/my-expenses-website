@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOutOfCredits } from '@/server/services/ai/outOfCredits';
+import { isOutOfCredits, isOutOfCreditsMessage } from '@/server/services/ai/outOfCredits';
 
 class ProviderError extends Error {
   public constructor(fields: { status?: number; statusCode?: number; code?: string | null }) {
@@ -28,5 +28,28 @@ describe('isOutOfCredits', () => {
     ['null', null],
   ])('is false for %s', (_label, error) => {
     expect(isOutOfCredits(error)).toBe(false);
+  });
+});
+
+describe('isOutOfCreditsMessage', () => {
+  it.each([
+    [
+      'an empty status text',
+      'AI processing failed: [GoogleGenerativeAI Error]: Error fetching from https://x/models/gemini-2.5-flash:generateContent: [402 ] Your prepayment credits are depleted.',
+    ],
+    ['a status text', 'Error fetching from https://x: [402 Payment Required] Top up'],
+    ['no status text', 'Error fetching from https://x: [402] Top up'],
+  ])('is true for a 402 marker with %s', (_label, message) => {
+    expect(isOutOfCreditsMessage(message)).toBe(true);
+  });
+
+  it.each([
+    ['a server error', 'Error fetching from https://x: [500 Internal Server Error] Internal error'],
+    ['a status that starts with 402', 'Error fetching from https://x: [4029 ] Unknown'],
+    ['402 outside the marker', 'Statement has 402 rows, too many to read'],
+    ['a 402 marker quoted from file content', 'Could not parse sheet: [402 Q3]'],
+    ['an empty message', ''],
+  ])('is false for %s', (_label, message) => {
+    expect(isOutOfCreditsMessage(message)).toBe(false);
   });
 });

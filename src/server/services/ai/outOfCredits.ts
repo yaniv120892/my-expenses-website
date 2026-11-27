@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AIProviderName } from '@/server/services/ai/creditsAlert.types';
 
 const PAYMENT_REQUIRED_STATUS = 402;
 // OpenAI answers an empty balance with 429 and this code, so the status alone reads as a rate limit.
@@ -24,10 +25,22 @@ export function isOutOfCredits(error: unknown): boolean {
   );
 }
 
-// A service that relays a provider failure as text keeps the SDK's
-// `<url>: [<status> <statusText>]` shape; the URL keeps a status quoted from file content out.
-const PAYMENT_REQUIRED_MARKER = new RegExp(`https?://\\S+: \\[${PAYMENT_REQUIRED_STATUS}[ \\]]`);
+// A service that relays a provider failure as text keeps its SDK's message shape: Google's
+// `<url>: [<status> <statusText>]`, Anthropic's `<status> <JSON body>`. Anchoring on the URL or
+// the JSON error type keeps a status quoted from file content out.
+const GEMINI_PAYMENT_REQUIRED_MARKER = new RegExp(
+  `https?://\\S+: \\[${PAYMENT_REQUIRED_STATUS}[ \\]]`,
+);
+const ANTHROPIC_BILLING_ERROR_MARKER = new RegExp(
+  `^(?:.*: )?${PAYMENT_REQUIRED_STATUS} \\{.*"type":"billing_error"`,
+);
 
-export function isOutOfCreditsMessage(message: string): boolean {
-  return PAYMENT_REQUIRED_MARKER.test(message);
+export function outOfCreditsProviderOf(message: string): AIProviderName | null {
+  if (ANTHROPIC_BILLING_ERROR_MARKER.test(message)) {
+    return 'Claude';
+  }
+  if (GEMINI_PAYMENT_REQUIRED_MARKER.test(message)) {
+    return 'Gemini';
+  }
+  return null;
 }

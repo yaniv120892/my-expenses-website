@@ -16,7 +16,7 @@ import { currencyCodeSchema } from '@/shared/currency';
 import { normalizePaymentMonth } from '@/shared/paymentMonth';
 import { DESCRIPTION_MAX_LENGTH } from '@/shared/descriptions';
 import { scheduleCreditsAlert } from '@/server/services/ai/creditsAlert';
-import { isOutOfCreditsMessage } from '@/server/services/ai/outOfCredits';
+import { outOfCreditsProviderOf } from '@/server/services/ai/outOfCredits';
 
 export type WebhookResult = {
   status: number;
@@ -553,10 +553,11 @@ async function handleFailedExtraction(
   const errorMessage = payload.error || 'Unknown extraction error';
 
   logger.error({ importId, error: errorMessage }, 'Processing failed extraction');
-  if (isOutOfCreditsMessage(errorMessage)) {
-    // Shares the app's Gemini claim on purpose: either balance running out asks for the same top-up.
+  const outOfCreditsProvider = outOfCreditsProviderOf(errorMessage);
+  if (outOfCreditsProvider) {
+    // Shares the app's claim for that provider on purpose: the extraction service draws on the same balance.
     scheduleCreditsAlert({
-      provider: 'Gemini',
+      provider: outOfCreditsProvider,
       error: new Error(errorMessage),
       context: { operation: 'fileExtraction', importId, householdId },
     });

@@ -11,6 +11,8 @@ export function buildAnalyzeExpensesPrompt(expenseSummary: string, suffixPrompt?
 
 export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
   'You are a financial assistant helping users categorize their expenses.';
+export const ANALYZE_EXPENSES_SYSTEM_PROMPT =
+  'You are a financial assistant helping users analyze their expenses.';
 export const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
 
 export function buildSuggestCategoryPrompt(

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { ClaudeService } from '@/server/services/ai/claudeService';
 import { GeminiService } from '@/server/services/ai/geminiService';
 import { JevCategorySuggester } from '@/server/services/ai/jevCategorySuggester';
 
@@ -13,6 +14,13 @@ describe('aiServiceFactory.getCategorySuggester', () => {
     vi.stubEnv('AI_CATEGORY_SUGGESTER', '');
 
     expect(aiServiceFactory.getCategorySuggester()).toBeInstanceOf(GeminiService);
+  });
+
+  it('builds the Claude provider for AI_PROVIDER=claude', () => {
+    vi.stubEnv('AI_PROVIDER', 'claude');
+    vi.stubEnv('AI_CATEGORY_SUGGESTER', '');
+
+    expect(aiServiceFactory.getCategorySuggester()).toBeInstanceOf(ClaudeService);
   });
 
   it('routes the category decision to Jev when the flag says so', () => {

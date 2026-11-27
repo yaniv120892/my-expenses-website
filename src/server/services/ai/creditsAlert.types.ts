@@ -1,4 +1,4 @@
-export type AIProviderName = 'ChatGPT' | 'Gemini' | 'Jev';
+export type AIProviderName = 'ChatGPT' | 'Claude' | 'Gemini' | 'Jev';
 
 export type CreditsAlert = {
   provider: AIProviderName;

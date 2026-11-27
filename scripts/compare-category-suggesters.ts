@@ -7,6 +7,7 @@ import { optionalEnv } from '../src/server/env';
 import type { CategorySuggester } from '../src/server/services/ai/aiProvider';
 import AIServiceFactory from '../src/server/services/ai/aiServiceFactory';
 import { DEFAULT_OPENAI_MODEL } from '../src/server/services/ai/chatGPTService';
+import { ClaudeService } from '../src/server/services/ai/claudeService';
 import { GeminiService } from '../src/server/services/ai/geminiService';
 import { JevCategorySuggester } from '../src/server/services/ai/jevCategorySuggester';
 import { getErrorMessage } from '../src/server/utils/errorUtils';
@@ -99,6 +100,12 @@ function llmSuggester(): CategorySuggester {
   if (suggester instanceof GeminiService) {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error('AI_PROVIDER=gemini needs GEMINI_API_KEY for the LLM side');
+    }
+    return suggester;
+  }
+  if (suggester instanceof ClaudeService) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('AI_PROVIDER=claude needs ANTHROPIC_API_KEY for the LLM side');
     }
     return suggester;
   }

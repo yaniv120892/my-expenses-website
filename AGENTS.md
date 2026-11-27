@@ -107,7 +107,7 @@ Short docs, one topic each. Load the one whose trigger matches your task.
 ## Key invariants
 
 - **No module-load-time construction of network clients.** Every external
-  client (OpenAI, Gemini, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
+  client (OpenAI, Gemini, Anthropic, TypeSafe, Vercel AI Gateway, Telegram, SMTP, S3,
   Google, excel extraction) is built through `lazy()` from
   `src/server/lib/lazy.ts` and reads env inside the factory — `requireEnv`, or
   `optionalEnv` where unset means the feature is off. A missing env var fails

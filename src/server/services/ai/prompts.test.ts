@@ -37,6 +37,21 @@ describe('resolveMatchedTransactionId', () => {
     expect(resolveMatchedTransactionId('"tx-b"', candidates)).toBe('tx-b');
   });
 
+  it('takes the id from the last line when the model explains first', () => {
+    expect(resolveMatchedTransactionId('The merchant and amount match.\n\ntx-b', candidates)).toBe(
+      'tx-b',
+    );
+  });
+
+  it('ignores an id named only inside the explanation', () => {
+    expect(
+      resolveMatchedTransactionId(
+        'tx-a looks close, but it is a different charge.\nnone',
+        candidates,
+      ),
+    ).toBeNull();
+  });
+
   it('rejects an id the model invented', () => {
     expect(
       resolveMatchedTransactionId('99999999-9999-4999-8999-999999999999', candidates),

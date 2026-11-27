@@ -106,7 +106,7 @@ export function resolveMatchedTransactionId(
   rawAnswer: string | null | undefined,
   potentialMatches: Transaction[],
 ): string | null {
-  const answer = normalizeModelAnswer(rawAnswer);
+  const answer = normalizeModelAnswer(finalLineOf(rawAnswer));
   if (answer === null || answer === 'none') {
     return null;
   }
@@ -117,6 +117,12 @@ export function resolveMatchedTransactionId(
   // diagnosable.
   logger.warn({ rawAnswer }, 'Model answer did not name an offered match; treating as no match');
   return null;
+}
+
+// A reasoning model can explain itself before the answer despite the prompt; the verdict is
+// still its last line, and an id named only inside the explanation is never taken.
+function finalLineOf(rawAnswer: string | null | undefined): string | null | undefined {
+  return rawAnswer?.trim().split('\n').at(-1);
 }
 
 function describeCandidate(transaction: Transaction): string {

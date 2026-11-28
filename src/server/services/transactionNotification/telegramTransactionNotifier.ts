@@ -20,7 +20,11 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     try {
       chatId = await this.getChatId(userId);
     } catch (err) {
-      throw this.notificationFailure({ userId, transactions, errors: [err], messageCount: 0 });
+      logger.error({ err, ...logContext }, 'Failed to read the linked Telegram chat');
+      throw new Error(
+        `Failed to read the linked Telegram chat, userId: ${userId} error: ${JSON.stringify(err)}`,
+        { cause: err },
+      );
     }
     if (!chatId) {
       logger.warn(
@@ -83,6 +87,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         transactionCount: transactions.length,
         messageCount,
         failedMessageCount: errors.length,
+        failures: errors.map((error) => this.describeFailure(error)),
       },
       'Failed to send transaction notification',
     );
@@ -92,7 +97,10 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     );
   }
 
-  /** Splits between transactions, so no part passes Telegram's length cap. */
+  private describeFailure(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
   private buildCreatedMessages(transactions: Transaction[]): string[] {
     const title =
       transactions.length === 1
@@ -102,21 +110,30 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     const parts: string[] = [];
     let current = '';
     for (const transaction of transactions) {
-      const entry = formatTransaction(transaction);
+      const entry = this.fitEntry({ entry: formatTransaction(transaction), entryLimit });
       const candidate = current ? `${current}\n${entry}` : entry;
-      const fitsCurrentPart = candidate.length <= entryLimit;
-      if (fitsCurrentPart) {
-        current = candidate;
+      const startsNewPart = candidate.length > entryLimit;
+      if (startsNewPart) {
+        parts.push(current);
+        current = entry;
         continue;
       }
-      parts.push(current);
-      current = entry;
+      current = candidate;
     }
     parts.push(current);
-    return parts.map((part, index) => `${title}${this.partLabel(index, parts.length)}\n${part}`);
+    return parts.map(
+      (part, index) => `${title}${this.partLabel({ index, partCount: parts.length })}\n${part}`,
+    );
   }
 
-  private partLabel(index: number, partCount: number): string {
+  private fitEntry({ entry, entryLimit }: { entry: string; entryLimit: number }): string {
+    if (entry.length <= entryLimit) {
+      return entry;
+    }
+    return `${entry.slice(0, entryLimit - 1)}…`;
+  }
+
+  private partLabel({ index, partCount }: { index: number; partCount: number }): string {
     if (partCount === 1) {
       return '';
     }

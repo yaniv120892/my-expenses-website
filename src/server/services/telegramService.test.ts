@@ -101,6 +101,20 @@ describe('telegramService rate limiting', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('ends the batch on a timeout or dropped connection, counting the rest as failed', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+    const telegramService = await loadTelegramService();
+
+    const failures = await telegramService.sendPlainMessagesWaitingOutRateLimits('chat-1', [
+      'part 1',
+      'part 2',
+      'part 3',
+    ]);
+
+    expect(failures).toHaveLength(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['a wait longer than the budget', () => tooManyRequests(42), 429],
     ['a 429 that names no wait', () => telegramReply({ ok: false, error_code: 429 }), 429],

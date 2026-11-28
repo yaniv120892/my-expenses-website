@@ -110,6 +110,33 @@ describe('TelegramTransactionNotifier', () => {
     await expect(notifying).rejects.toThrow(/failedMessages: 1\/[2-9] /);
   });
 
+  it('cuts a transaction too long for one message instead of sending an empty part', async () => {
+    const overlong = { ...buildTransaction(1), description: 'x'.repeat(5_000) };
+
+    await new TelegramTransactionNotifier().notifyTransactionsCreated([overlong], 'user-1');
+
+    const messages = sentMessages();
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatch(/^Transaction Created\n📉 x+…$/);
+    expect(messages[0]?.length).toBeLessThanOrEqual(TELEGRAM_MESSAGE_LIMIT);
+  });
+
+  it('names the chat lookup, not a send, when the linked chat cannot be read', async () => {
+    const readError = new Error('connection reset');
+    getLinkedTelegramChatId.mockRejectedValue(readError);
+
+    const notifying = new TelegramTransactionNotifier().notifyTransactionsCreated(
+      [buildTransaction(1)],
+      'user-1',
+    );
+
+    await expect(notifying).rejects.toThrow(
+      /^Failed to read the linked Telegram chat, userId: user-1/,
+    );
+    await expect(notifying).rejects.toMatchObject({ cause: readError });
+    expect(sendPlainMessagesWaitingOutRateLimits).not.toHaveBeenCalled();
+  });
+
   it('keeps the Telegram failure as the cause of a failed daily summary', async () => {
     const sending = new TelegramTransactionNotifier().sendDailySummary('summary', 'user-1');
 

@@ -36,7 +36,7 @@ sends, except for `/start <code>`. Register it per environment with
   and every part is tried even when one is refused. One message per row would trip the per-chat
   rate limit on a bulk import.
 - The parts go through `telegramService.sendPlainMessagesWaitingOutRateLimits`, which resends
-  after a 429, waiting each `retry_after` Telegram names, while all the waits for the batch total
-  at most 30 s, under the shortest function limit. A 429 delivered nothing, so the resend cannot
-  duplicate. The single sends, including the webhook's replies, never wait, and timeouts are
-  never retried.
+  after a 429, waiting each `retry_after` Telegram names, from one wait budget per batch that
+  fits under the shortest function limit. A 429 delivered nothing, so the resend cannot
+  duplicate. A timeout or dropped connection ends the batch, and the unsent parts count as
+  failed. Single sends, including the webhook's replies, fail fast on a 429.

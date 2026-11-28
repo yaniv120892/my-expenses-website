@@ -46,11 +46,7 @@ class TelegramService {
     return this.send({ chat_id: chatId, text: message });
   }
 
-  /**
-   * Sends every message, in order, waiting out 429s from one shared budget; a 429 delivered
-   * nothing, so the resend cannot duplicate. Returns the failures, so one refused message cannot
-   * silence the rest. Only for callers that can hold their request through the waits.
-   */
+  /** A 429 delivered nothing, so resending after its wait cannot duplicate the message. */
   public async sendPlainMessagesWaitingOutRateLimits(
     chatId: string,
     messages: string[],
@@ -61,7 +57,12 @@ class TelegramService {
     }
     const waitBudget: WaitBudget = { remainingSeconds: RATE_LIMIT_WAIT_BUDGET_SECONDS };
     const failures: unknown[] = [];
+    let transportFailure: unknown = null;
     for (const message of messages) {
+      if (transportFailure !== null) {
+        failures.push(transportFailure);
+        continue;
+      }
       try {
         await this.sendWithinWaitBudget({
           api,
@@ -70,6 +71,12 @@ class TelegramService {
         });
       } catch (err) {
         failures.push(err);
+        // A timeout or dropped connection would hit every later message too, each after a full
+        // timeout, so the rest count as failed without being sent.
+        const isTransportFailure = !(err instanceof TelegramApiError);
+        if (isTransportFailure) {
+          transportFailure = err;
+        }
       }
     }
     return failures;

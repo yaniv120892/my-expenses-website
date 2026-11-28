@@ -551,7 +551,7 @@ class TransactionService {
       return;
     }
 
-    const transactions = await this.loadApprovedTransactionsSafe(householdId, transactionIds);
+    const transactions = await this.loadApprovedTransactionsSafe({ householdId, transactionIds });
     if (transactions.length === 0) {
       return;
     }
@@ -562,10 +562,13 @@ class TransactionService {
   }
 
   /** One unreadable row is left out of the announcement rather than silencing the rest. */
-  private async loadApprovedTransactionsSafe(
-    householdId: HouseholdId,
-    transactionIds: string[],
-  ): Promise<Transaction[]> {
+  private async loadApprovedTransactionsSafe({
+    householdId,
+    transactionIds,
+  }: {
+    householdId: HouseholdId;
+    transactionIds: string[];
+  }): Promise<Transaction[]> {
     const transactions: Transaction[] = [];
     for (const transactionId of transactionIds) {
       try {

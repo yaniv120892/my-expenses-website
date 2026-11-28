@@ -524,8 +524,7 @@ class TransactionService {
 
   /**
    * Tells every member who asked to hear of new transactions, whoever added
-   * them. Each transaction is notified on its own, so one failure cannot
-   * silence the rest.
+   * them, in one announcement per member for the whole batch.
    */
   public async notifyTransactionsCreatedSafe(householdId: HouseholdId, transactionIds: string[]) {
     if (transactionIds.length === 0) {
@@ -552,59 +551,62 @@ class TransactionService {
       return;
     }
 
-    for (const transactionId of transactionIds) {
-      await this.notifyOneTransactionCreatedSafe({ householdId, transactionId, recipientIds });
+    const transactions = await this.loadApprovedTransactionsSafe(householdId, transactionIds);
+    if (transactions.length === 0) {
+      return;
     }
+
+    await Promise.all(
+      recipientIds.map((userId) => this.notifyMemberSafe({ householdId, transactions, userId })),
+    );
   }
 
-  private async notifyOneTransactionCreatedSafe({
-    householdId,
-    transactionId,
-    recipientIds,
-  }: {
-    householdId: HouseholdId;
-    transactionId: string;
-    recipientIds: string[];
-  }) {
-    try {
-      const transaction = await this.getTransactionItem(householdId, transactionId);
-      if (!transaction) {
-        logger.warn(
-          `skipped notification for transaction ${transactionId} - transaction not found`,
-        );
-        return;
+  /** One unreadable row is left out of the announcement rather than silencing the rest. */
+  private async loadApprovedTransactionsSafe(
+    householdId: HouseholdId,
+    transactionIds: string[],
+  ): Promise<Transaction[]> {
+    const transactions: Transaction[] = [];
+    for (const transactionId of transactionIds) {
+      try {
+        const transaction = await this.getTransactionItem(householdId, transactionId);
+        if (!transaction) {
+          logger.warn(
+            `skipped notification for transaction ${transactionId} - transaction not found`,
+          );
+          continue;
+        }
+        if (transaction.status !== 'APPROVED') {
+          logger.debug(
+            `skipped notification for transaction ${transactionId} - transaction not approved`,
+          );
+          continue;
+        }
+        transactions.push(transaction);
+      } catch (error) {
+        logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
       }
-
-      if (transaction.status !== 'APPROVED') {
-        logger.debug(
-          `skipped notification for transaction ${transactionId} - transaction not approved`,
-        );
-        return;
-      }
-
-      await Promise.all(
-        recipientIds.map((userId) => this.notifyMemberSafe({ transaction, userId })),
-      );
-    } catch (error) {
-      logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
     }
+    return transactions;
   }
 
   /** One member's broken channel must not silence the others. */
   private async notifyMemberSafe({
-    transaction,
+    householdId,
+    transactions,
     userId,
   }: {
-    transaction: Transaction;
+    householdId: HouseholdId;
+    transactions: Transaction[];
     userId: string;
   }): Promise<void> {
     try {
-      await this.getTransactionNotifier().notifyTransactionCreated(transaction, userId);
+      await this.getTransactionNotifier().notifyTransactionsCreated(transactions, userId);
     } catch (error) {
       observability.reportError({
         error,
-        where: 'Failed to notify a member of a created transaction',
-        context: { transactionId: transaction.id, userId },
+        where: 'Failed to notify a member of created transactions',
+        context: { householdId, userId, transactionCount: transactions.length },
       });
     }
   }

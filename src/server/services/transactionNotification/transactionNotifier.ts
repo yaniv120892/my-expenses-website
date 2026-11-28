@@ -5,6 +5,7 @@ export enum TransactionNotifierType {
 }
 
 export type TransactionNotifier = {
-  notifyTransactionCreated(transaction: Transaction, userId: string): Promise<void>;
+  /** A batch is one announcement, so a bulk import cannot flood the chat. */
+  notifyTransactionsCreated(transactions: Transaction[], userId: string): Promise<void>;
   sendDailySummary(dailySummary: string, userId: string): Promise<void>;
 };

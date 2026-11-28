@@ -522,8 +522,8 @@ describe('prepareCreateTransaction', () => {
 });
 
 describe('notifyTransactionsCreatedSafe', () => {
-  const notifyTransactionCreated = vi.fn();
-  const notifier: TransactionNotifier = { notifyTransactionCreated, sendDailySummary: vi.fn() };
+  const notifyTransactionsCreated = vi.fn();
+  const notifier: TransactionNotifier = { notifyTransactionsCreated, sendDailySummary: vi.fn() };
   const approved = { id: 'tx-1', status: 'APPROVED' };
 
   beforeEach(() => {
@@ -538,25 +538,53 @@ describe('notifyTransactionsCreatedSafe', () => {
 
     expect(findMembersNotifiedOfNewTransactions).toHaveBeenCalledWith(HOUSEHOLD_ID);
     expect(transactionService.getTransactionItem).toHaveBeenCalledWith(HOUSEHOLD_ID, 'tx-1');
-    expect(notifyTransactionCreated.mock.calls).toEqual([
-      [approved, 'user-1'],
-      [approved, 'user-2'],
+    expect(notifyTransactionsCreated.mock.calls).toEqual([
+      [[approved], 'user-1'],
+      [[approved], 'user-2'],
     ]);
+  });
+
+  it('tells each member of a bulk import once, naming every approved transaction', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
+    const transactionIds = Array.from({ length: 106 }, (_, index) => `tx-${index + 1}`);
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockImplementation(async (_householdId: string, transactionId: string) => ({
+        id: transactionId,
+        status: transactionId === 'tx-2' ? 'PENDING_APPROVAL' : 'APPROVED',
+      }));
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, transactionIds);
+
+    const expectedIds = transactionIds.filter((transactionId) => transactionId !== 'tx-2');
+    expect(notifyTransactionsCreated).toHaveBeenCalledTimes(2);
+    for (const [transactions] of notifyTransactionsCreated.mock.calls) {
+      expect(transactions.map(({ id }: { id: string }) => id)).toEqual(expectedIds);
+    }
   });
 
   it('still tells the other members when one member cannot be reached', async () => {
     findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
-    notifyTransactionCreated.mockRejectedValueOnce(new Error('chat blocked'));
+    notifyTransactionsCreated.mockRejectedValueOnce(new Error('chat blocked'));
 
     await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
 
-    expect(notifyTransactionCreated).toHaveBeenLastCalledWith(approved, 'user-2');
-    expect(notifyTransactionCreated).toHaveBeenCalledTimes(2);
+    expect(notifyTransactionsCreated).toHaveBeenLastCalledWith([approved], 'user-2');
+    expect(notifyTransactionsCreated).toHaveBeenCalledTimes(2);
     expect(reportError).toHaveBeenCalledWith({
       error: expect.any(Error),
-      where: 'Failed to notify a member of a created transaction',
-      context: { transactionId: 'tx-1', userId: 'user-1' },
+      where: 'Failed to notify a member of created transactions',
+      context: { householdId: HOUSEHOLD_ID, userId: 'user-1', transactionCount: 1 },
     });
+  });
+
+  it('sends nothing when no listed transaction is approved', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1']);
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue(null);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
+
+    expect(notifyTransactionsCreated).not.toHaveBeenCalled();
   });
 
   it('reads no transaction when no member asked to be told', async () => {
@@ -565,6 +593,6 @@ describe('notifyTransactionsCreatedSafe', () => {
     await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
 
     expect(transactionService.getTransactionItem).not.toHaveBeenCalled();
-    expect(notifyTransactionCreated).not.toHaveBeenCalled();
+    expect(notifyTransactionsCreated).not.toHaveBeenCalled();
   });
 });

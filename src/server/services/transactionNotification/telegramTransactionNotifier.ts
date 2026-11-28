@@ -5,36 +5,32 @@ import { formatTransaction } from '@/server/utils/transactionUtils';
 import { logger } from '@/server/observability';
 import userSettingsService from '@/server/services/userSettingsService';
 
+const TELEGRAM_MESSAGE_MAX_LENGTH = 4096;
+
 export class TelegramTransactionNotifier implements TransactionNotifier {
-  public async notifyTransactionCreated(transaction: Transaction, userId: string): Promise<void> {
+  public async notifyTransactionsCreated(
+    transactions: Transaction[],
+    userId: string,
+  ): Promise<void> {
+    const logContext = { userId, transactionCount: transactions.length };
     try {
-      logger.debug(
-        { userId, transactionId: transaction.id },
-        'Start sending transaction notification to Telegram',
-      );
+      logger.debug(logContext, 'Start sending transaction notification to Telegram');
       const chatId = await this.getChatId(userId);
       if (!chatId) {
         logger.warn(
-          { userId, transactionId: transaction.id },
+          logContext,
           'Skipping transaction notification. Telegram chat ID is not set or user has disabled notifications',
         );
         return;
       }
-      const message = `Transaction Created\n${formatTransaction(transaction)}`;
-      await telegramService.sendPlainMessage(chatId, message);
-      logger.debug(
-        { userId, transactionId: transaction.id },
-        'Done sending transaction notification to Telegram',
-      );
+      for (const message of this.buildCreatedMessages(transactions)) {
+        await telegramService.sendPlainMessage(chatId, message);
+      }
+      logger.debug(logContext, 'Done sending transaction notification to Telegram');
     } catch (err) {
-      logger.error(
-        { err, userId, transactionId: transaction.id },
-        'Failed to send transaction notification',
-      );
+      logger.error({ err, ...logContext }, 'Failed to send transaction notification');
       throw new Error(
-        `Failed to send transaction notification, userId: ${userId} transactionId: ${transaction.id} error: ${JSON.stringify(
-          err,
-        )}`,
+        `Failed to send transaction notification, userId: ${userId} transactionCount: ${transactions.length} firstTransactionId: ${transactions[0]?.id} error: ${JSON.stringify(err)}`,
         { cause: err },
       );
     }
@@ -60,6 +56,29 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
         { cause: err },
       );
     }
+  }
+
+  /** Splits between transactions, so no message passes Telegram's length cap. */
+  private buildCreatedMessages(transactions: Transaction[]): string[] {
+    const header =
+      transactions.length === 1
+        ? 'Transaction Created'
+        : `${transactions.length} Transactions Created`;
+    const messages: string[] = [];
+    let current = header;
+    for (const transaction of transactions) {
+      const entry = formatTransaction(transaction);
+      const candidate = `${current}\n${entry}`;
+      const fitsCurrentMessage = candidate.length <= TELEGRAM_MESSAGE_MAX_LENGTH;
+      if (fitsCurrentMessage) {
+        current = candidate;
+        continue;
+      }
+      messages.push(current);
+      current = entry;
+    }
+    messages.push(current);
+    return messages;
   }
 
   private async getChatId(userId: string) {

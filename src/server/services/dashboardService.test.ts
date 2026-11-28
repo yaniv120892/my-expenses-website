@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { generateContent, getValue, setValue } = vi.hoisted(() => ({
   generateContent: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock('@/server/repositories/dashboardRepository', () => ({
 }));
 
 import dashboardService from './dashboardService';
-import { logger } from '@/server/observability';
+import { observability } from '@/server/observability';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import { toHouseholdId } from '@/server/auth/householdId';
 
@@ -38,6 +38,10 @@ describe('dashboardService.getInsights', () => {
     vi.clearAllMocks();
     getValue.mockResolvedValue(null);
     generateContent.mockResolvedValue(JSON.stringify(INSIGHTS));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -77,6 +81,10 @@ describe('dashboardService.getInsights', () => {
       'JSON on the last line after an explanation',
       `There are two things.\nSpending rose.\n${JSON.stringify(INSIGHTS)}`,
     ],
+    [
+      'JSON after an explanation that holds a brace of its own',
+      `Here is the analysis for {October}: ${JSON.stringify(INSIGHTS)}`,
+    ],
     ['only pretty-printed JSON', JSON.stringify(INSIGHTS, null, 2)],
   ])('reads the insights from %s', async (_shape, answer) => {
     generateContent.mockResolvedValue(answer);
@@ -87,16 +95,18 @@ describe('dashboardService.getInsights', () => {
   });
 
   it('falls back to no insights, uncached, when the answer holds no JSON', async () => {
-    const loggedError = vi.spyOn(logger, 'error');
+    const reportedError = vi.spyOn(observability, 'reportError');
     generateContent.mockResolvedValue('There are no unusual expenses this month.');
 
     await expect(
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
     ).resolves.toBeNull();
     expect(setValue).not.toHaveBeenCalled();
-    expect(loggedError).toHaveBeenCalledWith(
-      { answerLength: expect.any(Number) },
-      'Failed to parse AI insights response',
+    expect(reportedError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'Failed to parse AI insights response',
+        context: { answerLength: expect.any(Number) },
+      }),
     );
   });
 });

@@ -10,7 +10,7 @@ import type {
   PercentageChange,
   TopCategory,
 } from '@/shared/types/dashboard';
-import { logger } from '@/server/observability';
+import { logger, observability } from '@/server/observability';
 import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
@@ -26,15 +26,23 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
-// The model may lead with prose on the JSON's own line, or in a text block glued to it, so the
-// object is read from the ending's first brace.
+// The model may lead with prose on the JSON's own line, or in a text block glued to it, and that
+// prose can hold a brace of its own, so the object starts at the first brace that parses.
 function insightsIn(ending: string): DashboardInsightsResponse | null {
-  const jsonStart = ending.indexOf('{');
-  if (jsonStart === -1) {
-    return null;
+  let jsonStart = ending.indexOf('{');
+  while (jsonStart !== -1) {
+    const insights = insightsFrom(ending.slice(jsonStart));
+    if (insights !== null) {
+      return insights;
+    }
+    jsonStart = ending.indexOf('{', jsonStart + 1);
   }
+  return null;
+}
+
+function insightsFrom(json: string): DashboardInsightsResponse | null {
   try {
-    const parsed = dashboardInsightsResponseSchema.safeParse(JSON.parse(ending.slice(jsonStart)));
+    const parsed = dashboardInsightsResponseSchema.safeParse(JSON.parse(json));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -223,7 +231,11 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
       });
       const insights = insightsIn(ending ?? '');
       if (insights === null) {
-        logger.error({ answerLength: cleaned.length }, 'Failed to parse AI insights response');
+        observability.reportError({
+          error: new Error('AI insights answer does not end in insights JSON'),
+          where: 'Failed to parse AI insights response',
+          context: { answerLength: cleaned.length },
+        });
       }
       return insights;
     } catch (error) {

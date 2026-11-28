@@ -53,7 +53,7 @@ and treats a remaining `refusal` stop as a provider failure.
 exactly the option list `src/server/services/ai/prompts.ts` builds and ends in its
 `buildCategoryEvaluation`, so the flag changes the model and never the question or the record.
 
-The question names the row's type (`categoryQuestion`). The option list mixes income and expense
+The question names the row's type (`CATEGORY_QUESTION`). The option list mixes income and expense
 categories, and a description alone does not say which way the money moved. The options are not
 filtered by type, because a refund may keep its purchase's category.
 

@@ -90,9 +90,7 @@ describe('sampleFileSchema', () => {
       }).success,
     ).toBe(false);
   });
-});
 
-describe('sampleFileSchema type', () => {
   it('reads a sample without a type as an expense', () => {
     const result = sampleFileSchema.parse({
       categories: ['Taxi', 'Salary'],

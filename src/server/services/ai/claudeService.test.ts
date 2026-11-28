@@ -172,6 +172,26 @@ describe('ClaudeService', () => {
     await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBeNull();
   });
 
+  it('reads empty generated content as no content', async () => {
+    anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
+
+    await expect(new ClaudeService().generateContent('advise me')).resolves.toBeNull();
+  });
+
+  it('falls back to null and reports a refused content request', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({ content: [{ type: 'text', text: 'No.' }], stopReason: 'refusal' }),
+    );
+
+    await expect(new ClaudeService().generateContent('advise me')).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'Claude API error',
+        context: expect.objectContaining({ operation: 'generateContent' }),
+      }),
+    );
+  });
+
   it('makes no call when there is nothing to match against', async () => {
     await expect(
       new ClaudeService().findMatchingTransaction(importedCharge, []),

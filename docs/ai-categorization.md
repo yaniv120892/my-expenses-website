@@ -46,6 +46,14 @@ answers with a 400; it asks at `effort: low` and caps output with the `thinking*
 turns on server-side fallbacks, so a safety decline is retried on a fallback model in the same call,
 and treats a remaining `refusal` stop as a provider failure.
 
+## A structured answer is asked through `generateContent`
+
+`analyzeExpenses` wraps its input in short-prose analysis instructions (`buildAnalyzeExpensesPrompt`),
+so a caller that needs JSON back, such as the dashboard insights, sends its own prompt through
+`generateContent`, which passes it as written. Both return null on a provider failure or an empty
+answer. A model can still explain itself before the answer, so every parser of a model answer reads
+only its ending, through `decisiveEndingOf` (`src/server/services/ai/prompts.ts`).
+
 ## Only the category decision may leave the `AI_PROVIDER` model
 
 `AIServiceFactory.getCategorySuggester()` is the one place that decides, on

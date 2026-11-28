@@ -52,11 +52,11 @@ export class ClaudeService implements AIProvider {
       }),
   );
 
-  public async generateContent(prompt: string): Promise<string> {
+  public async generateContent(prompt: string): Promise<string | null> {
     return this.errorFallback.orFallback({
       operation: 'generateContent',
       attempt: this.requestContent(prompt),
-      fallback: '',
+      fallback: null,
     });
   }
 
@@ -111,12 +111,12 @@ export class ClaudeService implements AIProvider {
     return optionalEnv('CLAUDE_MODEL', DEFAULT_CLAUDE_MODEL);
   }
 
-  private async requestContent(prompt: string): Promise<string> {
+  private async requestContent(prompt: string): Promise<string | null> {
     const message = await this.complete({
       prompt,
       maxTokens: AI_REQUEST_LIMITS.thinkingAnswerMaxOutputTokens,
     });
-    return this.answerText(message);
+    return this.answerText(message) || null;
   }
 
   private async requestAnalysis({

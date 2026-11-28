@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { analyzeExpenses, getValue, setValue } = vi.hoisted(() => ({
-  analyzeExpenses: vi.fn(),
+const { generateContent, getValue, setValue } = vi.hoisted(() => ({
+  generateContent: vi.fn(),
   getValue: vi.fn(),
   setValue: vi.fn(),
 }));
 
 vi.mock('@/server/redis', () => ({ getValue, setValue }));
 vi.mock('@/server/services/ai/aiServiceFactory', () => ({
-  default: { getAIService: () => ({ analyzeExpenses }) },
+  default: { getAIService: () => ({ generateContent }) },
 }));
 vi.mock('@/server/repositories/dashboardRepository', () => ({
   default: {
@@ -36,7 +36,7 @@ describe('dashboardService.getInsights', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getValue.mockResolvedValue(null);
-    analyzeExpenses.mockResolvedValue(JSON.stringify(INSIGHTS));
+    generateContent.mockResolvedValue(JSON.stringify(INSIGHTS));
   });
 
   it.each([
@@ -47,7 +47,7 @@ describe('dashboardService.getInsights', () => {
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale }),
     ).resolves.toEqual(INSIGHTS);
 
-    expect(analyzeExpenses.mock.calls[0]?.[0]).toContain(
+    expect(generateContent.mock.calls[0]?.[0]).toContain(
       `Write every insight and the summary in ${language}`,
     );
     expect(getValue.mock.calls[0]?.[0]).toContain(`:${HOUSEHOLD_ID}:${locale}:`);
@@ -65,7 +65,7 @@ describe('dashboardService.getInsights', () => {
 
   it('takes pretty-printed JSON that follows the explanation', async () => {
     const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
-    analyzeExpenses.mockResolvedValue(
+    generateContent.mockResolvedValue(
       `There are two things worth noting this month.\n\n${JSON.stringify(insights, null, 2)}`,
     );
 
@@ -76,7 +76,7 @@ describe('dashboardService.getInsights', () => {
 
   it('takes the JSON from the last line when the model explains first', async () => {
     const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
-    analyzeExpenses.mockResolvedValue(
+    generateContent.mockResolvedValue(
       `There are two things worth noting this month.\nSpending rose.\n${JSON.stringify(insights)}`,
     );
 
@@ -86,7 +86,7 @@ describe('dashboardService.getInsights', () => {
   });
 
   it('still reads an answer that is only pretty-printed JSON', async () => {
-    analyzeExpenses.mockResolvedValue(JSON.stringify(INSIGHTS, null, 2));
+    generateContent.mockResolvedValue(JSON.stringify(INSIGHTS, null, 2));
 
     await expect(
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
@@ -94,7 +94,7 @@ describe('dashboardService.getInsights', () => {
   });
 
   it('falls back to no insights, uncached, when the answer holds no JSON', async () => {
-    analyzeExpenses.mockResolvedValue('There are no unusual expenses this month.');
+    generateContent.mockResolvedValue('There are no unusual expenses this month.');
 
     await expect(
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),

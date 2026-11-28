@@ -31,11 +31,13 @@ export type CategorySuggester = {
 };
 
 export type AIProvider = {
-  generateContent(prompt: string): Promise<string>;
   /**
-   * Null when the provider call failed, never an apology: callers parse this,
-   * and prose turns an outage into a parse error that names the wrong culprit.
+   * Both null when the provider call failed or answered nothing, never an apology: callers parse
+   * these, and prose turns an outage into a parse error that names the wrong culprit.
+   * `generateContent` sends the prompt as given; `analyzeExpenses` wraps it in the short-prose
+   * analysis instructions.
    */
+  generateContent(prompt: string): Promise<string | null>;
   analyzeExpenses(expenseSummary: string, suffixPrompt?: string): Promise<string | null>;
   /**
    * Implementations validate the answer through `resolveMatchedTransactionId`,

@@ -196,18 +196,16 @@ describe('ChatGPTService.generateContent', () => {
     });
   });
 
-  it('falls back to a placeholder when the completion is empty', async () => {
+  it('returns null when the completion is empty', async () => {
     answering('');
 
-    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe(
-      'No insights available.',
-    );
+    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBeNull();
   });
 
-  it('reports a provider failure and returns an empty string', async () => {
+  it('reports a provider failure and returns null', async () => {
     failingWithBadRequest();
 
-    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBe('');
+    await expect(new ChatGPTService().generateContent('advise me')).resolves.toBeNull();
     expectProviderFailureReported('generateContent');
   });
 });

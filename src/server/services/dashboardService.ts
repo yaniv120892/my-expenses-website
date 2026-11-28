@@ -199,7 +199,7 @@ Write every insight and the summary in ${INSIGHTS_LANGUAGE[locale]}; keep catego
 Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {"unusualSpending": ["insight 1", "insight 2"], "summary": "A brief overall summary"}`;
 
-      const response = await this.getAiService().analyzeExpenses(prompt);
+      const response = await this.getAiService().generateContent(prompt);
       if (response === null) {
         // The provider already reported why; calling that a parse failure here
         // would name the wrong culprit in the logs and in Sentry.

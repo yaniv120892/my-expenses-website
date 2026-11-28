@@ -46,11 +46,11 @@ export class ChatGPTService implements AIProvider {
       }),
   );
 
-  public async generateContent(prompt: string): Promise<string> {
+  public async generateContent(prompt: string): Promise<string | null> {
     return this.errorFallback.orFallback({
       operation: 'generateContent',
       attempt: this.requestContent(prompt),
-      fallback: '',
+      fallback: null,
     });
   }
 
@@ -108,12 +108,12 @@ export class ChatGPTService implements AIProvider {
     return optionalEnv('OPENAI_MODEL', DEFAULT_OPENAI_MODEL);
   }
 
-  private async requestContent(prompt: string): Promise<string> {
+  private async requestContent(prompt: string): Promise<string | null> {
     const response = await this.complete({
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 200,
     });
-    return this.firstChoiceContent(response) || 'No insights available.';
+    return this.firstChoiceContent(response) || null;
   }
 
   private async requestAnalysis({

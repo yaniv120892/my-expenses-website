@@ -92,6 +92,19 @@ describe('sampleFileSchema', () => {
   });
 });
 
+describe('sampleFileSchema type', () => {
+  it('reads a sample without a type as an expense', () => {
+    const result = sampleFileSchema.parse({
+      categories: ['Taxi', 'Salary'],
+      samples: [
+        { description: 'GETT', expected: ['Taxi'] },
+        { description: 'משכורת', type: 'INCOME', expected: ['Salary'] },
+      ],
+    });
+    expect(result.samples.map((sample) => sample.type)).toEqual(['EXPENSE', 'INCOME']);
+  });
+});
+
 describe('scoreDecision', () => {
   it('counts the first expected name as exact and the rest as acceptable', () => {
     const taxi = decision({ answer: 'Taxi', categoryId: 'cat-0' });

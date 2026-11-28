@@ -18,21 +18,17 @@ export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
 export const ANALYZE_EXPENSES_SYSTEM_PROMPT =
   'You are a financial assistant helping users analyze their expenses.';
 // The category list mixes income and expense categories, so the question must say which the row is.
-const CATEGORY_QUESTION_BY_TYPE = {
+export const CATEGORY_QUESTION = {
   EXPENSE: 'This transaction is money spent. Which category does this expense belong to?',
   INCOME:
     'This transaction is money received: income, or a refund or cashback. Which category does it belong to? Choose an income category, unless it refunds a purchase whose category is in the list.',
 } satisfies Record<TransactionType, string>;
 
-export function categoryQuestion(type: TransactionType): string {
-  return CATEGORY_QUESTION_BY_TYPE[type];
-}
-
 export function buildSuggestCategoryPrompt(
   row: CategorizedRow,
   categoryOptions: Category[],
 ): string {
-  return `${categoryQuestion(row.type)}\n\n"${row.description}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
+  return `${CATEGORY_QUESTION[row.type]}\n\n"${row.description}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
 }
 
 const NO_MATCH_ANSWER = 'none';

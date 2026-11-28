@@ -241,6 +241,21 @@
     {
       "description": "PAYBOX",
       "expected": ["Other (Expenses)"]
+    },
+    {
+      "description": "החזר CashPro",
+      "type": "INCOME",
+      "expected": ["Other (Income)", "Income"]
+    },
+    {
+      "description": "משכורת נובמבר",
+      "type": "INCOME",
+      "expected": ["Salary", "Income"]
+    },
+    {
+      "description": "זיכוי ZARA",
+      "type": "INCOME",
+      "expected": ["Clothing"]
     }
   ]
 }

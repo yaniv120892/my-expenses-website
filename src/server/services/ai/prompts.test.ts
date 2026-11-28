@@ -11,6 +11,9 @@ import {
 } from '@/server/services/ai/prompts';
 import type { Transaction } from '@/shared/types/transaction';
 import { formatCurrencyPlain } from '@/utils/format';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
+
+const GETT: CategorizedRow = { description: 'GETT', type: 'EXPENSE' };
 
 const match = (id: string): Transaction => ({
   id,
@@ -220,7 +223,7 @@ describe('buildSuggestCategoryPrompt', () => {
   });
 
   it('tells the model an expense row is money spent', () => {
-    const prompt = buildSuggestCategoryPrompt({ description: 'GETT', type: 'EXPENSE' }, categories);
+    const prompt = buildSuggestCategoryPrompt(GETT, categories);
 
     expect(prompt).toContain('money spent');
     expect(prompt).not.toContain('money received');

@@ -508,7 +508,9 @@ class TransactionService {
         ? categories.find((c) => c.id === mapping.categoryId)
         : undefined;
       if (mappedCategory) {
-        logger.debug(`User mapping found for expense: ${description} -> ${mappedCategory.name}`);
+        logger.debug(
+          `User mapping found for transaction: ${description} -> ${mappedCategory.name}`,
+        );
         return mappedCategory.id;
       }
     } catch (err) {

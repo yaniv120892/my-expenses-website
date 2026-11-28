@@ -82,7 +82,7 @@ export class GeminiService implements AIProvider {
     row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
-    logger.debug({ row }, 'Start suggesting category');
+    logger.debug({ ...row }, 'Start suggesting category');
     const response = await this.generate({
       text: buildSuggestCategoryPrompt(row, categoryOptions),
       systemInstruction: SUGGEST_CATEGORY_SYSTEM_PROMPT,
@@ -95,7 +95,7 @@ export class GeminiService implements AIProvider {
       // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
       outputTokens: usage ? usage.totalTokenCount - usage.promptTokenCount : null,
     });
-    logger.debug({ row, categoryName: evaluation.categoryName }, 'Done suggesting category');
+    logger.debug({ ...row, categoryName: evaluation.categoryName }, 'Done suggesting category');
     return evaluation;
   }
 

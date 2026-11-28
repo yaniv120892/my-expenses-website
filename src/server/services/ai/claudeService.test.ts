@@ -27,6 +27,10 @@ import { ClaudeService } from '@/server/services/ai/claudeService';
 import { FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
 import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
 import type { Category } from '@/shared/types/category';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
+
+const COFFEE: CategorizedRow = { description: 'coffee', type: 'EXPENSE' };
+const APARTMENT: CategorizedRow = { description: 'apartment', type: 'EXPENSE' };
 
 const categories: Category[] = [
   { id: 'cat-food', name: 'Food' },
@@ -73,10 +77,7 @@ describe('ClaudeService', () => {
       messageResponse({ content: [{ type: 'text', text: 'Food' }] }),
     );
 
-    await new ClaudeService().evaluateCategory(
-      { description: 'coffee', type: 'EXPENSE' },
-      categories,
-    );
+    await new ClaudeService().evaluateCategory(COFFEE, categories);
 
     const { headers, body } = sentRequest();
     expect(body).toMatchObject({
@@ -101,10 +102,7 @@ describe('ClaudeService', () => {
       }),
     );
 
-    const evaluation = await new ClaudeService().evaluateCategory(
-      { description: 'apartment', type: 'EXPENSE' },
-      categories,
-    );
+    const evaluation = await new ClaudeService().evaluateCategory(APARTMENT, categories);
 
     expect(evaluation).toMatchObject({ categoryId: 'cat-rent', inputTokens: 120, outputTokens: 8 });
   });
@@ -114,9 +112,7 @@ describe('ClaudeService', () => {
       messageResponse({ content: [{ type: 'text', text: 'Food' }], stopReason: 'refusal' }),
     );
 
-    await expect(
-      new ClaudeService().suggestCategory({ description: 'coffee', type: 'EXPENSE' }, categories),
-    ).resolves.toBeNull();
+    await expect(new ClaudeService().suggestCategory(COFFEE, categories)).resolves.toBeNull();
 
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({

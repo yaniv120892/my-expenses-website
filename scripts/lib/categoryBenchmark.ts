@@ -53,7 +53,6 @@ export function parseBenchmarkArguments(argv: string[]): BenchmarkArguments {
 
 const sampleSchema = z.object({
   description: z.string().min(1),
-  /** A sample file written before income samples existed lists only expenses. */
   type: transactionTypeSchema.default('EXPENSE'),
   /** The first name is the label; any other listed name is acceptable. */
   expected: z.array(z.string().min(1)).min(1),

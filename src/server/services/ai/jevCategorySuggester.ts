@@ -10,9 +10,9 @@ import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import { optionalEnv, requireEnv } from '@/server/env';
 import { logger } from '@/server/observability';
 import {
+  CATEGORY_QUESTION,
   buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
-  categoryQuestion,
 } from '@/server/services/ai/prompts';
 import { ProviderFallback } from '@/server/services/ai/providerFallback';
 
@@ -79,7 +79,7 @@ export class JevCategorySuggester implements CategorySuggester {
       questions: {
         category: {
           type: 'choice',
-          instructions: categoryQuestion(row.type),
+          instructions: CATEGORY_QUESTION[row.type],
           criteria: buildCategoryChoiceCriteria(categoryOptions),
         },
       },
@@ -97,12 +97,12 @@ export class JevCategorySuggester implements CategorySuggester {
     });
     logger.debug(
       {
-        row,
+        ...row,
         categoryName: evaluation.categoryName,
         probability: evaluation.probability,
         model,
       },
-      'Jev categorized expense',
+      'Jev categorized transaction',
     );
     return evaluation;
   }

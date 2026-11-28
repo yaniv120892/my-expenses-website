@@ -19,7 +19,6 @@ export type CategoryEvaluation = {
   outputTokens: number | null;
 };
 
-/** The row a category is chosen for; its type decides whether it is money spent or received. */
 export type CategorizedRow = {
   description: string;
   type: TransactionType;

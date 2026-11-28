@@ -1,14 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { analyzeExpenses, getValue, setValue } = vi.hoisted(() => ({
-  analyzeExpenses: vi.fn(),
+const { generateContent, getValue, setValue } = vi.hoisted(() => ({
+  generateContent: vi.fn(),
   getValue: vi.fn(),
   setValue: vi.fn(),
 }));
 
 vi.mock('@/server/redis', () => ({ getValue, setValue }));
 vi.mock('@/server/services/ai/aiServiceFactory', () => ({
-  default: { getAIService: () => ({ analyzeExpenses }) },
+  default: { getAIService: () => ({ generateContent }) },
 }));
 vi.mock('@/server/repositories/dashboardRepository', () => ({
   default: {
@@ -25,18 +25,23 @@ vi.mock('@/server/repositories/dashboardRepository', () => ({
 }));
 
 import dashboardService from './dashboardService';
+import { observability } from '@/server/observability';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import { toHouseholdId } from '@/server/auth/householdId';
 
 const HOUSEHOLD_ID = toHouseholdId('household-1');
 
-const INSIGHTS = { unusualSpending: [], summary: 'ok' };
+const INSIGHTS = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
 
 describe('dashboardService.getInsights', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getValue.mockResolvedValue(null);
-    analyzeExpenses.mockResolvedValue(JSON.stringify(INSIGHTS));
+    generateContent.mockResolvedValue(JSON.stringify(INSIGHTS));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -47,7 +52,7 @@ describe('dashboardService.getInsights', () => {
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale }),
     ).resolves.toEqual(INSIGHTS);
 
-    expect(analyzeExpenses.mock.calls[0]?.[0]).toContain(
+    expect(generateContent.mock.calls[0]?.[0]).toContain(
       `Write every insight and the summary in ${language}`,
     );
     expect(getValue.mock.calls[0]?.[0]).toContain(`:${HOUSEHOLD_ID}:${locale}:`);
@@ -60,6 +65,48 @@ describe('dashboardService.getInsights', () => {
       expect.any(Number),
       expect.any(Number),
       7,
+    );
+  });
+
+  it.each([
+    [
+      'pretty-printed JSON after an explanation',
+      `There are two things worth noting.\n\n${JSON.stringify(INSIGHTS, null, 2)}`,
+    ],
+    [
+      'JSON after an explanation on the same line',
+      `There are two things: ${JSON.stringify(INSIGHTS)}`,
+    ],
+    [
+      'JSON on the last line after an explanation',
+      `There are two things.\nSpending rose.\n${JSON.stringify(INSIGHTS)}`,
+    ],
+    [
+      'JSON after an explanation that holds a brace of its own',
+      `Here is the analysis for {October}: ${JSON.stringify(INSIGHTS)}`,
+    ],
+    ['only pretty-printed JSON', JSON.stringify(INSIGHTS, null, 2)],
+  ])('reads the insights from %s', async (_shape, answer) => {
+    generateContent.mockResolvedValue(answer);
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toEqual(INSIGHTS);
+  });
+
+  it('falls back to no insights, uncached, when the answer holds no JSON', async () => {
+    const reportedError = vi.spyOn(observability, 'reportError');
+    generateContent.mockResolvedValue('There are no unusual expenses this month.');
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toBeNull();
+    expect(setValue).not.toHaveBeenCalled();
+    expect(reportedError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'Failed to parse AI insights response',
+        context: { answerLength: expect.any(Number) },
+      }),
     );
   });
 });

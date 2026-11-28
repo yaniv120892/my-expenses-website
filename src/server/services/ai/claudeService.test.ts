@@ -26,31 +26,13 @@ vi.mock('@/server/observability', async (importOriginal) => ({
 import { ClaudeService } from '@/server/services/ai/claudeService';
 import { FIND_MATCHING_TRANSACTION_SYSTEM_PROMPT } from '@/server/services/ai/prompts';
 import { importedCharge, matchCandidate } from '@/test/aiMatchFixtures';
+import { claudeMessageResponse as messageResponse } from '@/test/claudeMessageFixtures';
 import type { Category } from '@/shared/types/category';
 
 const categories: Category[] = [
   { id: 'cat-food', name: 'Food' },
   { id: 'cat-rent', name: 'Rent' },
 ];
-
-function messageResponse({
-  content,
-  stopReason = 'end_turn',
-}: {
-  content: unknown[];
-  stopReason?: string;
-}): Response {
-  return Response.json({
-    id: 'msg_1',
-    type: 'message',
-    role: 'assistant',
-    model: 'claude-sonnet-5-5',
-    content,
-    stop_reason: stopReason,
-    stop_details: stopReason === 'refusal' ? { type: 'refusal', category: 'cyber' } : null,
-    usage: { input_tokens: 120, output_tokens: 8 },
-  });
-}
 
 function sentRequest(): { headers: Headers; body: Record<string, unknown> } {
   const [, init] = anthropicFetch.mock.calls[0] ?? [];
@@ -170,6 +152,26 @@ describe('ClaudeService', () => {
     anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
 
     await expect(new ClaudeService().analyzeExpenses('summary')).resolves.toBeNull();
+  });
+
+  it('reads empty generated content as no content', async () => {
+    anthropicFetch.mockResolvedValue(messageResponse({ content: [{ type: 'text', text: '  ' }] }));
+
+    await expect(new ClaudeService().generateContent('advise me')).resolves.toBeNull();
+  });
+
+  it('falls back to null and reports a refused content request', async () => {
+    anthropicFetch.mockResolvedValue(
+      messageResponse({ content: [{ type: 'text', text: 'No.' }], stopReason: 'refusal' }),
+    );
+
+    await expect(new ClaudeService().generateContent('advise me')).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'Claude API error',
+        context: expect.objectContaining({ operation: 'generateContent' }),
+      }),
+    );
   });
 
   it('makes no call when there is nothing to match against', async () => {

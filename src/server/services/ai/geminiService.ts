@@ -48,11 +48,11 @@ export class GeminiService implements AIProvider {
 
   private getGemini = lazy(() => new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY')));
 
-  public async generateContent(prompt: string): Promise<string> {
+  public async generateContent(prompt: string): Promise<string | null> {
     return this.errorFallback.orFallback({
       operation: 'generateContent',
       attempt: this.requestContent(prompt),
-      fallback: '',
+      fallback: null,
     });
   }
 
@@ -116,11 +116,11 @@ export class GeminiService implements AIProvider {
     return optionalEnv('GEMINI_MODEL', DEFAULT_GEMINI_MODEL);
   }
 
-  private async requestContent(prompt: string): Promise<string> {
-    logger.debug({ prompt }, 'Start generating content');
+  private async requestContent(prompt: string): Promise<string | null> {
+    logger.debug({ promptLength: prompt.length }, 'Start generating content');
     const content = this.firstCandidateText(await this.generate({ text: prompt }));
-    logger.debug({ prompt }, 'Done generating content');
-    return content || '';
+    logger.debug({ promptLength: prompt.length }, 'Done generating content');
+    return content || null;
   }
 
   private async requestAnalysis({

@@ -206,16 +206,16 @@ describe('GeminiService.generateContent', () => {
     expect(Object.keys(generateContent.mock.calls[0]?.[0])).toEqual(['contents']);
   });
 
-  it('returns an empty string when the provider answers with no content', async () => {
+  it('returns null when the provider answers with no content', async () => {
     generateContent.mockResolvedValue({ response: { candidates: [] } });
 
-    await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
+    await expect(new GeminiService().generateContent('advise me')).resolves.toBeNull();
   });
 
-  it('reports a provider failure and returns an empty string', async () => {
+  it('reports a provider failure and returns null', async () => {
     generateContent.mockRejectedValue(RETIRED_MODEL_ERROR);
 
-    await expect(new GeminiService().generateContent('advise me')).resolves.toBe('');
+    await expect(new GeminiService().generateContent('advise me')).resolves.toBeNull();
     expectRetiredModelReported('generateContent');
   });
 });

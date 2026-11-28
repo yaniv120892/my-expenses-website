@@ -1,4 +1,5 @@
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { decisiveEndingOf } from '@/server/services/ai/prompts';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import type {
@@ -9,7 +10,7 @@ import type {
   PercentageChange,
   TopCategory,
 } from '@/shared/types/dashboard';
-import { logger } from '@/server/observability';
+import { logger, observability } from '@/server/observability';
 import { dashboardInsightsResponseSchema } from '@/shared/schemas/dashboard';
 import { getValue, setValue } from '@/server/redis';
 import { lazy } from '@/server/lib/lazy';
@@ -24,6 +25,29 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 };
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
+
+// The model may lead with prose on the JSON's own line, or in a text block glued to it, and that
+// prose can hold a brace of its own, so the object starts at the first brace that parses.
+function insightsIn(ending: string): DashboardInsightsResponse | null {
+  let jsonStart = ending.indexOf('{');
+  while (jsonStart !== -1) {
+    const insights = insightsFrom(ending.slice(jsonStart));
+    if (insights !== null) {
+      return insights;
+    }
+    jsonStart = ending.indexOf('{', jsonStart + 1);
+  }
+  return null;
+}
+
+function insightsFrom(json: string): DashboardInsightsResponse | null {
+  try {
+    const parsed = dashboardInsightsResponseSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 class DashboardService {
   private getAiService = lazy(() => aiServiceFactory.getAIService());
@@ -190,7 +214,7 @@ Write every insight and the summary in ${INSIGHTS_LANGUAGE[locale]}; keep catego
 Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {"unusualSpending": ["insight 1", "insight 2"], "summary": "A brief overall summary"}`;
 
-      const response = await this.getAiService().analyzeExpenses(prompt);
+      const response = await this.getAiService().generateContent(prompt);
       if (response === null) {
         // The provider already reported why; calling that a parse failure here
         // would name the wrong culprit in the logs and in Sentry.
@@ -201,7 +225,19 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      return dashboardInsightsResponseSchema.parse(JSON.parse(cleaned));
+      const ending = decisiveEndingOf({
+        rawAnswer: cleaned,
+        isVerdict: (candidate) => insightsIn(candidate) !== null,
+      });
+      const insights = insightsIn(ending ?? '');
+      if (insights === null) {
+        observability.reportError({
+          error: new Error('AI insights answer does not end in insights JSON'),
+          where: 'Failed to parse AI insights response',
+          context: { answerLength: cleaned.length },
+        });
+      }
+      return insights;
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

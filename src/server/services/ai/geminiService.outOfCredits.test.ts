@@ -69,7 +69,7 @@ describe('GeminiService when the prepaid credits run out', () => {
 
     await expect(gemini.analyzeExpenses('summary')).resolves.toBeNull();
     await expect(gemini.analyzeExpenses('summary')).resolves.toBeNull();
-    await expect(gemini.generateContent('prompt')).resolves.toBe('');
+    await expect(gemini.generateContent('prompt')).resolves.toBeNull();
     await expect(
       gemini.suggestCategory('coffee', [{ id: 'cat-food', name: 'Food' }]),
     ).resolves.toBeNull();

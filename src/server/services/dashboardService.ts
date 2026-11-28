@@ -1,5 +1,5 @@
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
-import { decisiveLineOf } from '@/server/services/ai/prompts';
+import { decisiveEndingOf } from '@/server/services/ai/prompts';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import type {
@@ -26,8 +26,12 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
-function isJsonObjectLine(line: string): boolean {
-  return line.startsWith('{') && line.endsWith('}');
+function isInsightsJson(text: string): boolean {
+  try {
+    return dashboardInsightsResponseSchema.safeParse(JSON.parse(text)).success;
+  } catch {
+    return false;
+  }
 }
 
 class DashboardService {
@@ -206,8 +210,8 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      const jsonLine = decisiveLineOf({ rawAnswer: cleaned, isVerdict: isJsonObjectLine });
-      return dashboardInsightsResponseSchema.parse(JSON.parse(jsonLine ?? cleaned));
+      const insightsJson = decisiveEndingOf({ rawAnswer: cleaned, isVerdict: isInsightsJson });
+      return dashboardInsightsResponseSchema.parse(JSON.parse(insightsJson ?? cleaned));
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

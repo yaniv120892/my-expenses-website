@@ -110,7 +110,7 @@ export function resolveMatchedTransactionId(
   potentialMatches: Transaction[],
 ): string | null {
   const offeredIds = new Set(potentialMatches.map((match) => match.id));
-  const verdict = decisiveLineOf({
+  const verdict = decisiveEndingOf({
     rawAnswer,
     isVerdict: (line) => line === NO_MATCH_ANSWER || offeredIds.has(line),
   });
@@ -131,21 +131,27 @@ function offeredCategoryNameIn(
   categoryOptions: Category[],
 ): string | null {
   const offeredNames = new Set(categoryOptions.map((category) => category.name));
-  return decisiveLineOf({ rawAnswer, isVerdict: (line) => offeredNames.has(line) });
+  return decisiveEndingOf({ rawAnswer, isVerdict: (line) => offeredNames.has(line) });
 }
 
-// A reasoning model can explain itself before the answer despite the prompt, so only the last
-// line decides; a value named earlier is never taken, since a later line may retract it.
-export function decisiveLineOf({
+// A reasoning model can explain itself before the answer despite the prompt, so only the answer's
+// ending decides: the shortest run of last lines that is a verdict, which for a one-value answer is
+// the last line alone. A value named earlier is never taken, since a later line may retract it.
+export function decisiveEndingOf({
   rawAnswer,
   isVerdict,
 }: {
   rawAnswer: string | null | undefined;
-  isVerdict: (line: string) => boolean;
+  isVerdict: (ending: string) => boolean;
 }): string | null {
-  const lastLine = normalizeModelAnswer(rawAnswer)?.split('\n').at(-1);
-  const verdict = normalizeModelAnswer(lastLine);
-  return verdict !== null && isVerdict(verdict) ? verdict : null;
+  const lines = normalizeModelAnswer(rawAnswer)?.split('\n') ?? [];
+  for (let start = lines.length - 1; start >= 0; start--) {
+    const ending = normalizeModelAnswer(lines.slice(start).join('\n'));
+    if (ending !== null && isVerdict(ending)) {
+      return ending;
+    }
+  }
+  return null;
 }
 
 function describeCandidate(transaction: Transaction): string {

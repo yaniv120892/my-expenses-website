@@ -63,6 +63,17 @@ describe('dashboardService.getInsights', () => {
     );
   });
 
+  it('takes pretty-printed JSON that follows the explanation', async () => {
+    const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
+    analyzeExpenses.mockResolvedValue(
+      `There are two things worth noting this month.\n\n${JSON.stringify(insights, null, 2)}`,
+    );
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toEqual(insights);
+  });
+
   it('takes the JSON from the last line when the model explains first', async () => {
     const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
     analyzeExpenses.mockResolvedValue(

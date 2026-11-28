@@ -1,4 +1,4 @@
-import { Api, type SendMessageParams } from 'node-telegram-bot-api';
+import { Api, TelegramApiError, type Message, type SendMessageParams } from 'node-telegram-bot-api';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
 import { logger } from '@/server/observability';
@@ -14,6 +14,13 @@ export function escapeMarkdown(value: string): string {
 
 // v2 retries timeouts, so a retried send could deliver twice; fail fast instead.
 const TELEGRAM_TIMEOUT_MS = 10_000;
+
+const TOO_MANY_REQUESTS = 429;
+// The sends run inside a request, and the shortest function limit is 60 s, so all the waits for
+// one batch stay well under it; a longer flood-wait is surfaced instead.
+const RATE_LIMIT_WAIT_BUDGET_SECONDS = 30;
+
+type WaitBudget = { remainingSeconds: number };
 
 class TelegramService {
   private getApi = lazy((): Api | null => {
@@ -39,16 +46,95 @@ class TelegramService {
     return this.send({ chat_id: chatId, text: message });
   }
 
-  private async send(params: SendMessageParams) {
-    const api = this.getApi();
+  /** A 429 delivered nothing, so resending after its wait cannot duplicate the message. */
+  public async sendPlainMessagesWaitingOutRateLimits(
+    chatId: string,
+    messages: string[],
+  ): Promise<unknown[]> {
+    const api = this.getConfiguredApi(chatId);
     if (!api) {
-      logger.warn(
-        { chatId: params.chat_id },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send',
-      );
+      return [];
+    }
+    const waitBudget: WaitBudget = { remainingSeconds: RATE_LIMIT_WAIT_BUDGET_SECONDS };
+    const failures: unknown[] = [];
+    let transportFailure: unknown = null;
+    for (const message of messages) {
+      if (transportFailure !== null) {
+        failures.push(transportFailure);
+        continue;
+      }
+      try {
+        await this.sendWithinWaitBudget({
+          api,
+          params: { chat_id: chatId, text: message },
+          waitBudget,
+        });
+      } catch (err) {
+        failures.push(err);
+        // A timeout or dropped connection would hit every later message too, each after a full
+        // timeout, so the rest count as failed without being sent.
+        const isTransportFailure = !(err instanceof TelegramApiError);
+        if (isTransportFailure) {
+          transportFailure = err;
+        }
+      }
+    }
+    return failures;
+  }
+
+  private async send(params: SendMessageParams) {
+    const api = this.getConfiguredApi(params.chat_id);
+    if (!api) {
       return;
     }
     return api.sendMessage(params);
+  }
+
+  private getConfiguredApi(chatId: SendMessageParams['chat_id']): Api | null {
+    const api = this.getApi();
+    if (!api) {
+      logger.warn({ chatId }, 'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send');
+    }
+    return api;
+  }
+
+  private async sendWithinWaitBudget({
+    api,
+    params,
+    waitBudget,
+  }: {
+    api: Api;
+    params: SendMessageParams;
+    waitBudget: WaitBudget;
+  }): Promise<Message> {
+    try {
+      return await api.sendMessage(params);
+    } catch (err) {
+      const retryAfterSeconds = this.retryAfterSeconds(err);
+      const fitsWaitBudget =
+        retryAfterSeconds !== null && retryAfterSeconds <= waitBudget.remainingSeconds;
+      if (!fitsWaitBudget) {
+        throw err;
+      }
+      waitBudget.remainingSeconds -= retryAfterSeconds;
+      logger.warn(
+        { chatId: params.chat_id, retryAfterSeconds },
+        'Telegram rate-limited the send, retrying after its wait',
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000));
+      return this.sendWithinWaitBudget({ api, params, waitBudget });
+    }
+  }
+
+  /** Positive, so every retry spends the budget and the retries end. */
+  private retryAfterSeconds(err: unknown): number | null {
+    const isRateLimited = err instanceof TelegramApiError && err.errorCode === TOO_MANY_REQUESTS;
+    if (!isRateLimited) {
+      return null;
+    }
+    const retryAfter = err.retryAfter;
+    const isUsableWait = typeof retryAfter === 'number' && retryAfter > 0;
+    return isUsableWait ? retryAfter : null;
   }
 }
 

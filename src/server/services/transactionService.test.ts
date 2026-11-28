@@ -58,7 +58,7 @@ import transactionService from '@/server/services/transactionService';
 import { logger } from '@/server/observability';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
-import type { CreateTransaction } from '@/shared/types/transaction';
+import type { CreateTransaction, TransactionFile } from '@/shared/types/transaction';
 import type { CategorizedRow, CategorySuggester } from '@/server/services/ai/aiProvider';
 import { testMemberActor } from '@/test/memberActor';
 import { systemActor } from '@/server/auth/householdActor';
@@ -442,6 +442,83 @@ describe('attachFile', () => {
   });
 });
 
+describe('getTransactionFiles', () => {
+  const TRANSACTION_ID = '33333333-3333-4333-8333-333333333333';
+  const fileRow = (id: string, createdAt: string): TransactionFile => ({
+    id,
+    transactionId: TRANSACTION_ID,
+    fileName: `${id}.pdf`,
+    fileKey: `transactions/${TRANSACTION_ID}/${id}.pdf`,
+    fileSize: 120,
+    mimeType: 'application/pdf',
+    status: 'ACTIVE',
+    createdAt: new Date(createdAt),
+    updatedAt: new Date(createdAt),
+  });
+  const givenTransactionWithFiles = (files: TransactionFile[]) => {
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockResolvedValue({ id: TRANSACTION_ID, files });
+  };
+
+  beforeEach(() => {
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_BUCKET_NAME', 'attachments-bucket');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_REGION', 'eu-west-1');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_ACCESS_KEY_ID', 'test-key-id');
+    vi.stubEnv('TRANSACTION_ATTACHMENT_S3_SECRET_ACCESS_KEY', 'test-secret');
+  });
+
+  it("maps the transaction's files, in order, to signed preview and download urls", async () => {
+    givenTransactionWithFiles([
+      fileRow('newer', '2026-11-02T10:00:00Z'),
+      fileRow('older', '2026-11-01T10:00:00Z'),
+    ]);
+
+    const views = await transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID);
+
+    expect(views).toEqual([
+      expect.objectContaining({
+        id: 'newer',
+        fileName: 'newer.pdf',
+        fileSize: 120,
+        mimeType: 'application/pdf',
+      }),
+      expect.objectContaining({
+        id: 'older',
+        fileName: 'older.pdf',
+        fileSize: 120,
+        mimeType: 'application/pdf',
+      }),
+    ]);
+    const [newer] = views;
+    if (!newer) {
+      throw new Error('expected the newer file first');
+    }
+    const preview = new URL(newer.previewFileUrl);
+    const download = new URL(newer.downloadableFileUrl);
+    expect(preview.pathname).toBe(`/transactions/${TRANSACTION_ID}/newer.pdf`);
+    expect(preview.searchParams.get('response-content-disposition')).toMatch(/^inline/);
+    expect(download.pathname).toBe(`/transactions/${TRANSACTION_ID}/newer.pdf`);
+    expect(download.searchParams.get('response-content-disposition')).toMatch(/^attachment/);
+  });
+
+  it('returns an empty list for a transaction with no files', async () => {
+    givenTransactionWithFiles([]);
+
+    await expect(
+      transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID),
+    ).resolves.toEqual([]);
+  });
+
+  it('404s for a transaction outside the household', async () => {
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue(null);
+
+    await expect(
+      transactionService.getTransactionFiles(HOUSEHOLD_ID, TRANSACTION_ID),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
 describe('getPresignedUploadUrl', () => {
   const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111';
   const presign = (fileSize: number) =>
@@ -545,8 +622,8 @@ describe('prepareCreateTransaction', () => {
 });
 
 describe('notifyTransactionsCreatedSafe', () => {
-  const notifyTransactionCreated = vi.fn();
-  const notifier: TransactionNotifier = { notifyTransactionCreated, sendDailySummary: vi.fn() };
+  const notifyTransactionsCreated = vi.fn();
+  const notifier: TransactionNotifier = { notifyTransactionsCreated, sendDailySummary: vi.fn() };
   const approved = { id: 'tx-1', status: 'APPROVED' };
 
   beforeEach(() => {
@@ -561,25 +638,71 @@ describe('notifyTransactionsCreatedSafe', () => {
 
     expect(findMembersNotifiedOfNewTransactions).toHaveBeenCalledWith(HOUSEHOLD_ID);
     expect(transactionService.getTransactionItem).toHaveBeenCalledWith(HOUSEHOLD_ID, 'tx-1');
-    expect(notifyTransactionCreated.mock.calls).toEqual([
-      [approved, 'user-1'],
-      [approved, 'user-2'],
+    expect(notifyTransactionsCreated.mock.calls).toEqual([
+      [[approved], 'user-1'],
+      [[approved], 'user-2'],
     ]);
+  });
+
+  it('tells each member of a bulk import once, naming every approved transaction', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
+    const transactionIds = Array.from({ length: 106 }, (_, index) => `tx-${index + 1}`);
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockImplementation(async (_householdId: string, transactionId: string) => ({
+        id: transactionId,
+        status: transactionId === 'tx-2' ? 'PENDING_APPROVAL' : 'APPROVED',
+      }));
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, transactionIds);
+
+    const expectedIds = transactionIds.filter((transactionId) => transactionId !== 'tx-2');
+    expect(notifyTransactionsCreated).toHaveBeenCalledTimes(2);
+    for (const [transactions] of notifyTransactionsCreated.mock.calls) {
+      expect(transactions.map(({ id }: { id: string }) => id)).toEqual(expectedIds);
+    }
   });
 
   it('still tells the other members when one member cannot be reached', async () => {
     findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1', 'user-2']);
-    notifyTransactionCreated.mockRejectedValueOnce(new Error('chat blocked'));
+    notifyTransactionsCreated.mockRejectedValueOnce(new Error('chat blocked'));
 
     await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
 
-    expect(notifyTransactionCreated).toHaveBeenLastCalledWith(approved, 'user-2');
-    expect(notifyTransactionCreated).toHaveBeenCalledTimes(2);
+    expect(notifyTransactionsCreated).toHaveBeenLastCalledWith([approved], 'user-2');
+    expect(notifyTransactionsCreated).toHaveBeenCalledTimes(2);
     expect(reportError).toHaveBeenCalledWith({
       error: expect.any(Error),
-      where: 'Failed to notify a member of a created transaction',
-      context: { transactionId: 'tx-1', userId: 'user-1' },
+      where: 'Failed to notify a member of created transactions',
+      context: { householdId: HOUSEHOLD_ID, userId: 'user-1', transactionCount: 1 },
     });
+  });
+
+  it('leaves an unreadable row out and still announces the rest', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1']);
+    const readError = new Error('connection reset');
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockRejectedValueOnce(readError)
+      .mockResolvedValue(approved);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-0', 'tx-1']);
+
+    expect(notifyTransactionsCreated).toHaveBeenCalledWith([approved], 'user-1');
+    expect(reportError).toHaveBeenCalledWith({
+      error: readError,
+      where: 'Failed to read a created transaction to notify',
+      context: { householdId: HOUSEHOLD_ID, transactionId: 'tx-0' },
+    });
+  });
+
+  it('sends nothing when no listed transaction is approved', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1']);
+    transactionService.getTransactionItem = vi.fn().mockResolvedValue(null);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
+
+    expect(notifyTransactionsCreated).not.toHaveBeenCalled();
   });
 
   it('reads no transaction when no member asked to be told', async () => {
@@ -588,6 +711,6 @@ describe('notifyTransactionsCreatedSafe', () => {
     await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-1']);
 
     expect(transactionService.getTransactionItem).not.toHaveBeenCalled();
-    expect(notifyTransactionCreated).not.toHaveBeenCalled();
+    expect(notifyTransactionsCreated).not.toHaveBeenCalled();
   });
 });

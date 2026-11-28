@@ -117,9 +117,9 @@ export class GeminiService implements AIProvider {
   }
 
   private async requestContent(prompt: string): Promise<string | null> {
-    logger.debug({ prompt }, 'Start generating content');
+    logger.debug({ promptLength: prompt.length }, 'Start generating content');
     const content = this.firstCandidateText(await this.generate({ text: prompt }));
-    logger.debug({ prompt }, 'Done generating content');
+    logger.debug({ promptLength: prompt.length }, 'Done generating content');
     return content || null;
   }
 

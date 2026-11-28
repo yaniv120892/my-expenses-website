@@ -111,7 +111,7 @@ export class ChatGPTService implements AIProvider {
   private async requestContent(prompt: string): Promise<string | null> {
     const response = await this.complete({
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 200,
+      max_tokens: AI_REQUEST_LIMITS.answerMaxOutputTokens,
     });
     return this.firstChoiceContent(response) || null;
   }

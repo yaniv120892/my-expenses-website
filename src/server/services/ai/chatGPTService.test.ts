@@ -192,7 +192,7 @@ describe('ChatGPTService.generateContent', () => {
     );
     expect(sentBody()).toMatchObject({
       messages: [{ role: 'user', content: 'advise me' }],
-      max_tokens: 200,
+      max_tokens: 1024,
     });
   });
 

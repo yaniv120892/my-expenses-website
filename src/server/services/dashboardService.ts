@@ -26,11 +26,18 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
 
-function isInsightsJson(text: string): boolean {
+// The model may lead with prose on the JSON's own line, or in a text block glued to it, so the
+// object is read from the ending's first brace.
+function insightsIn(ending: string): DashboardInsightsResponse | null {
+  const jsonStart = ending.indexOf('{');
+  if (jsonStart === -1) {
+    return null;
+  }
   try {
-    return dashboardInsightsResponseSchema.safeParse(JSON.parse(text)).success;
+    const parsed = dashboardInsightsResponseSchema.safeParse(JSON.parse(ending.slice(jsonStart)));
+    return parsed.success ? parsed.data : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -210,8 +217,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      const insightsJson = decisiveEndingOf({ rawAnswer: cleaned, isVerdict: isInsightsJson });
-      return dashboardInsightsResponseSchema.parse(JSON.parse(insightsJson ?? cleaned));
+      const ending = decisiveEndingOf({
+        rawAnswer: cleaned,
+        isVerdict: (candidate) => insightsIn(candidate) !== null,
+      });
+      const insights = insightsIn(ending ?? '');
+      if (insights === null) {
+        logger.error({ answerLength: cleaned.length }, 'Failed to parse AI insights response');
+      }
+      return insights;
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

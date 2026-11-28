@@ -30,6 +30,7 @@ vi.mock('@/server/repositories/dashboardRepository', () => ({
 
 import dashboardService from './dashboardService';
 import { toHouseholdId } from '@/server/auth/householdId';
+import { claudeMessageResponse } from '@/test/claudeMessageFixtures';
 
 const INSIGHTS = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
 
@@ -43,20 +44,26 @@ beforeEach(() => {
   vi.stubEnv('AI_PROVIDER', 'claude');
   vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
   anthropicFetch.mockResolvedValue(
-    Response.json({
-      id: 'msg_1',
-      type: 'message',
-      role: 'assistant',
-      model: 'claude-sonnet-5-5',
-      content: [{ type: 'text', text: JSON.stringify(INSIGHTS) }],
-      stop_reason: 'end_turn',
-      stop_details: null,
-      usage: { input_tokens: 120, output_tokens: 40 },
-    }),
+    claudeMessageResponse({ content: [{ type: 'text', text: JSON.stringify(INSIGHTS) }] }),
   );
 });
 
 describe('dashboard AI insights on Claude', () => {
+  it('reads the insights when the explanation and the JSON come in separate text blocks', async () => {
+    anthropicFetch.mockResolvedValue(
+      claudeMessageResponse({
+        content: [
+          { type: 'text', text: 'Here is the analysis:' },
+          { type: 'text', text: JSON.stringify(INSIGHTS) },
+        ],
+      }),
+    );
+
+    await expect(
+      dashboardService.getInsights({ householdId: toHouseholdId('household-1'), locale: 'en' }),
+    ).resolves.toEqual(INSIGHTS);
+  });
+
   it('sends the insights prompt as written, without the short-prose analysis instructions', async () => {
     await expect(
       dashboardService.getInsights({ householdId: toHouseholdId('household-1'), locale: 'he' }),

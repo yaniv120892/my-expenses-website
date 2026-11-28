@@ -25,12 +25,13 @@ vi.mock('@/server/repositories/dashboardRepository', () => ({
 }));
 
 import dashboardService from './dashboardService';
+import { logger } from '@/server/observability';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import { toHouseholdId } from '@/server/auth/householdId';
 
 const HOUSEHOLD_ID = toHouseholdId('household-1');
 
-const INSIGHTS = { unusualSpending: [], summary: 'ok' };
+const INSIGHTS = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
 
 describe('dashboardService.getInsights', () => {
   beforeEach(() => {
@@ -63,30 +64,22 @@ describe('dashboardService.getInsights', () => {
     );
   });
 
-  it('takes pretty-printed JSON that follows the explanation', async () => {
-    const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
-    generateContent.mockResolvedValue(
-      `There are two things worth noting this month.\n\n${JSON.stringify(insights, null, 2)}`,
-    );
-
-    await expect(
-      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
-    ).resolves.toEqual(insights);
-  });
-
-  it('takes the JSON from the last line when the model explains first', async () => {
-    const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
-    generateContent.mockResolvedValue(
-      `There are two things worth noting this month.\nSpending rose.\n${JSON.stringify(insights)}`,
-    );
-
-    await expect(
-      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
-    ).resolves.toEqual(insights);
-  });
-
-  it('still reads an answer that is only pretty-printed JSON', async () => {
-    generateContent.mockResolvedValue(JSON.stringify(INSIGHTS, null, 2));
+  it.each([
+    [
+      'pretty-printed JSON after an explanation',
+      `There are two things worth noting.\n\n${JSON.stringify(INSIGHTS, null, 2)}`,
+    ],
+    [
+      'JSON after an explanation on the same line',
+      `There are two things: ${JSON.stringify(INSIGHTS)}`,
+    ],
+    [
+      'JSON on the last line after an explanation',
+      `There are two things.\nSpending rose.\n${JSON.stringify(INSIGHTS)}`,
+    ],
+    ['only pretty-printed JSON', JSON.stringify(INSIGHTS, null, 2)],
+  ])('reads the insights from %s', async (_shape, answer) => {
+    generateContent.mockResolvedValue(answer);
 
     await expect(
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
@@ -94,11 +87,16 @@ describe('dashboardService.getInsights', () => {
   });
 
   it('falls back to no insights, uncached, when the answer holds no JSON', async () => {
+    const loggedError = vi.spyOn(logger, 'error');
     generateContent.mockResolvedValue('There are no unusual expenses this month.');
 
     await expect(
       dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
     ).resolves.toBeNull();
     expect(setValue).not.toHaveBeenCalled();
+    expect(loggedError).toHaveBeenCalledWith(
+      { answerLength: expect.any(Number) },
+      'Failed to parse AI insights response',
+    );
   });
 });

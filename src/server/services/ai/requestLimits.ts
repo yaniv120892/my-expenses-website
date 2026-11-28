@@ -9,4 +9,7 @@ export const AI_REQUEST_LIMITS = {
   thinkingCategoryMaxOutputTokens: 2048,
   // Same reasoning for a short prose answer (an insight, a summary) from a thinking model.
   thinkingAnswerMaxOutputTokens: 4096,
+  // A structured answer from a non-thinking model, such as several insights as JSON; a cut answer
+  // is unparseable, so the cap is sized for the whole object.
+  answerMaxOutputTokens: 1024,
 } as const;

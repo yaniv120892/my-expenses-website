@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendPlainMessageWaitingOutRateLimits, sendMessage, getLinkedTelegramChatId } = vi.hoisted(
+const { sendPlainMessagesWaitingOutRateLimits, sendMessage, getLinkedTelegramChatId } = vi.hoisted(
   () => ({
-    sendPlainMessageWaitingOutRateLimits: vi.fn(),
+    sendPlainMessagesWaitingOutRateLimits: vi.fn(),
     sendMessage: vi.fn(),
     getLinkedTelegramChatId: vi.fn(),
   }),
 );
 
 vi.mock('@/server/services/telegramService', () => ({
-  telegramService: { sendPlainMessageWaitingOutRateLimits, sendMessage },
+  telegramService: { sendPlainMessagesWaitingOutRateLimits, sendMessage },
 }));
 vi.mock('@/server/services/userSettingsService', () => ({
   default: { getLinkedTelegramChatId },
@@ -41,76 +41,73 @@ function buildTransaction(index: number): Transaction {
   };
 }
 
+const bulkImport = Array.from({ length: 106 }, (_, index) => buildTransaction(index + 1));
+
+function sentMessages(): string[] {
+  return sendPlainMessagesWaitingOutRateLimits.mock.calls.flatMap(([, messages]) => messages);
+}
+
 describe('TelegramTransactionNotifier', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getLinkedTelegramChatId.mockResolvedValue('chat-1');
-    sendPlainMessageWaitingOutRateLimits.mockRejectedValue(telegramError);
+    sendPlainMessagesWaitingOutRateLimits.mockResolvedValue([]);
     sendMessage.mockRejectedValue(telegramError);
   });
 
   it('keeps the Telegram failure as the cause of a failed transaction notification', async () => {
+    sendPlainMessagesWaitingOutRateLimits.mockResolvedValue([telegramError]);
+
     const notifying = new TelegramTransactionNotifier().notifyTransactionsCreated(
       [buildTransaction(1)],
       'user-1',
     );
 
+    await expect(notifying).rejects.toThrow(/failedMessages: 1\/1/);
     await expect(notifying).rejects.toMatchObject({ cause: telegramError });
   });
 
   it('announces a single transaction on its own', async () => {
-    sendPlainMessageWaitingOutRateLimits.mockResolvedValue(undefined);
-
     await new TelegramTransactionNotifier().notifyTransactionsCreated(
       [buildTransaction(1)],
       'user-1',
     );
 
-    expect(sendPlainMessageWaitingOutRateLimits).toHaveBeenCalledTimes(1);
-    expect(sendPlainMessageWaitingOutRateLimits.mock.calls[0]).toEqual([
+    expect(sendPlainMessagesWaitingOutRateLimits).toHaveBeenCalledTimes(1);
+    expect(sendPlainMessagesWaitingOutRateLimits.mock.calls[0]).toEqual([
       'chat-1',
-      expect.stringMatching(/^Transaction Created\n📉 Merchant number 1 /),
+      [expect.stringMatching(/^Transaction Created\n📉 Merchant number 1 /)],
     ]);
   });
 
   it('sums up a bulk import in a few messages that still list every transaction', async () => {
-    sendPlainMessageWaitingOutRateLimits.mockResolvedValue(undefined);
-    const transactions = Array.from({ length: 106 }, (_, index) => buildTransaction(index + 1));
+    await new TelegramTransactionNotifier().notifyTransactionsCreated(bulkImport, 'user-1');
 
-    await new TelegramTransactionNotifier().notifyTransactionsCreated(transactions, 'user-1');
-
-    const messages: string[] = sendPlainMessageWaitingOutRateLimits.mock.calls.map(
-      ([, message]) => message,
-    );
-    expect(messages.length).toBeLessThan(10);
+    expect(sendPlainMessagesWaitingOutRateLimits).toHaveBeenCalledTimes(1);
+    const messages = sentMessages();
     expect(messages.length).toBeGreaterThan(1);
+    expect(messages.length).toBeLessThan(10);
     messages.forEach((message, index) => {
       expect(message).toMatch(
         new RegExp(`^106 Transactions Created \\(${index + 1}/${messages.length}\\)\\n`),
       );
-    });
-    for (const message of messages) {
       expect(message.length).toBeLessThanOrEqual(TELEGRAM_MESSAGE_LIMIT);
-    }
+    });
     const listed = messages.join('\n').match(/Merchant number \d+ /g);
     expect(listed).toEqual(
-      transactions.map((transaction) => `Merchant number ${transaction.value} `),
+      bulkImport.map((transaction) => `Merchant number ${transaction.value} `),
     );
   });
 
-  it('still sends the later parts of a bulk import when one part is refused', async () => {
-    sendPlainMessageWaitingOutRateLimits.mockResolvedValue(undefined);
-    sendPlainMessageWaitingOutRateLimits.mockRejectedValueOnce(telegramError);
-    const transactions = Array.from({ length: 106 }, (_, index) => buildTransaction(index + 1));
+  it('reports how many parts of a bulk import were refused', async () => {
+    sendPlainMessagesWaitingOutRateLimits.mockResolvedValue([telegramError]);
 
     const notifying = new TelegramTransactionNotifier().notifyTransactionsCreated(
-      transactions,
+      bulkImport,
       'user-1',
     );
 
-    await expect(notifying).rejects.toThrow(/failedMessages: 1\/[2-9]/);
-    const lastPart: string = sendPlainMessageWaitingOutRateLimits.mock.lastCall?.[1];
-    expect(lastPart).toContain('Merchant number 106 ');
+    await expect(notifying).rejects.toThrow(/failedMessages: 1\/[2-9] /);
   });
 
   it('keeps the Telegram failure as the cause of a failed daily summary', async () => {

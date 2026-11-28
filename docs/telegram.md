@@ -35,7 +35,8 @@ sends, except for `/start <code>`. Register it per environment with
   past Telegram's 4096-character cap is split between transactions into parts headed `(i/n)`,
   and every part is tried even when one is refused. One message per row would trip the per-chat
   rate limit on a bulk import.
-- `telegramService.sendPlainMessageWaitingOutRateLimits` resends after a 429, waiting each
-  `retry_after` Telegram names, while the waits for one message total at most 30 s, under the
-  shortest function limit. A 429 delivered nothing, so the resend cannot duplicate. The other
-  sends, including the webhook's replies, never wait, and timeouts are never retried.
+- The parts go through `telegramService.sendPlainMessagesWaitingOutRateLimits`, which resends
+  after a 429, waiting each `retry_after` Telegram names, while all the waits for the batch total
+  at most 30 s, under the shortest function limit. A 429 delivered nothing, so the resend cannot
+  duplicate. The single sends, including the webhook's replies, never wait, and timeouts are
+  never retried.

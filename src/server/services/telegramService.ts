@@ -17,8 +17,10 @@ const TELEGRAM_TIMEOUT_MS = 10_000;
 
 const TOO_MANY_REQUESTS = 429;
 // The sends run inside a request, and the shortest function limit is 60 s, so all the waits for
-// one message stay well under it; a longer flood-wait is surfaced instead.
+// one batch stay well under it; a longer flood-wait is surfaced instead.
 const RATE_LIMIT_WAIT_BUDGET_SECONDS = 30;
+
+type WaitBudget = { remainingSeconds: number };
 
 class TelegramService {
   private getApi = lazy((): Api | null => {
@@ -34,71 +36,86 @@ class TelegramService {
 
   public async sendMessage(chatId: string, message: string) {
     return this.send({
-      params: { chat_id: chatId, text: message, parse_mode: 'Markdown' },
-      waitBudgetSeconds: 0,
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'Markdown',
     });
   }
 
   public async sendPlainMessage(chatId: string, message: string) {
-    return this.send({ params: { chat_id: chatId, text: message }, waitBudgetSeconds: 0 });
+    return this.send({ chat_id: chatId, text: message });
   }
 
   /**
-   * Resends after a 429, which delivered nothing, so the resend cannot duplicate. Only for
-   * callers that can hold their request through the wait; a webhook reply cannot.
+   * Sends every message, in order, waiting out 429s from one shared budget; a 429 delivered
+   * nothing, so the resend cannot duplicate. Returns the failures, so one refused message cannot
+   * silence the rest. Only for callers that can hold their request through the waits.
    */
-  public async sendPlainMessageWaitingOutRateLimits(chatId: string, message: string) {
-    return this.send({
-      params: { chat_id: chatId, text: message },
-      waitBudgetSeconds: RATE_LIMIT_WAIT_BUDGET_SECONDS,
-    });
+  public async sendPlainMessagesWaitingOutRateLimits(
+    chatId: string,
+    messages: string[],
+  ): Promise<unknown[]> {
+    const api = this.getConfiguredApi(chatId);
+    if (!api) {
+      return [];
+    }
+    const waitBudget: WaitBudget = { remainingSeconds: RATE_LIMIT_WAIT_BUDGET_SECONDS };
+    const failures: unknown[] = [];
+    for (const message of messages) {
+      try {
+        await this.sendWithinWaitBudget({
+          api,
+          params: { chat_id: chatId, text: message },
+          waitBudget,
+        });
+      } catch (err) {
+        failures.push(err);
+      }
+    }
+    return failures;
   }
 
-  private async send({
-    params,
-    waitBudgetSeconds,
-  }: {
-    params: SendMessageParams;
-    waitBudgetSeconds: number;
-  }) {
-    const api = this.getApi();
+  private async send(params: SendMessageParams) {
+    const api = this.getConfiguredApi(params.chat_id);
     if (!api) {
-      logger.warn(
-        { chatId: params.chat_id },
-        'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send',
-      );
       return;
     }
-    return this.sendWaitingOutRateLimits({ api, params, waitBudgetSeconds });
+    return api.sendMessage(params);
   }
 
-  private async sendWaitingOutRateLimits({
+  private getConfiguredApi(chatId: SendMessageParams['chat_id']): Api | null {
+    const api = this.getApi();
+    if (!api) {
+      logger.warn({ chatId }, 'TELEGRAM_BOT_TOKEN is not set, skipping Telegram send');
+    }
+    return api;
+  }
+
+  private async sendWithinWaitBudget({
     api,
     params,
-    waitBudgetSeconds,
+    waitBudget,
   }: {
     api: Api;
     params: SendMessageParams;
-    waitBudgetSeconds: number;
+    waitBudget: WaitBudget;
   }): Promise<Message> {
     try {
       return await api.sendMessage(params);
     } catch (err) {
       const retryAfterSeconds = this.retryAfterSeconds(err);
-      const fitsWaitBudget = retryAfterSeconds !== null && retryAfterSeconds <= waitBudgetSeconds;
+      const fitsWaitBudget =
+        retryAfterSeconds !== null && retryAfterSeconds <= waitBudget.remainingSeconds;
       if (!fitsWaitBudget) {
         throw err;
       }
+      waitBudget.remainingSeconds -= retryAfterSeconds;
       logger.warn(
         { chatId: params.chat_id, retryAfterSeconds },
         'Telegram rate-limited the send, retrying after its wait',
       );
       await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000));
-      return this.sendWaitingOutRateLimits({
-        api,
-        params,
-        waitBudgetSeconds: waitBudgetSeconds - retryAfterSeconds,
-      });
+      return this.sendWithinWaitBudget({ api, params, waitBudget });
     }
   }
 

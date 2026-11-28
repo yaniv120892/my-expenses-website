@@ -30,7 +30,7 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
       return;
     }
     const messages = this.buildCreatedMessages(transactions);
-    const errors = await this.sendEachMessage(chatId, messages);
+    const errors = await telegramService.sendPlainMessagesWaitingOutRateLimits(chatId, messages);
     if (errors.length > 0) {
       throw this.notificationFailure({
         userId,
@@ -90,19 +90,6 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
       `Failed to send transaction notification, userId: ${userId} transactionCount: ${transactions.length} firstTransactionId: ${transactions[0]?.id} failedMessages: ${errors.length}/${messageCount} error: ${JSON.stringify(firstError)}`,
       { cause: firstError },
     );
-  }
-
-  /** Every part is tried, so one refused part cannot silence the transactions in the others. */
-  private async sendEachMessage(chatId: string, messages: string[]): Promise<unknown[]> {
-    const failures: unknown[] = [];
-    for (const message of messages) {
-      try {
-        await telegramService.sendPlainMessageWaitingOutRateLimits(chatId, message);
-      } catch (err) {
-        failures.push(err);
-      }
-    }
-    return failures;
   }
 
   /** Splits between transactions, so no part passes Telegram's length cap. */

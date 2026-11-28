@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type Decision,
+  type Sample,
   modelPrices,
   parseBenchmarkArguments,
   percentile,
@@ -11,11 +12,11 @@ import {
   toCategories,
 } from './categoryBenchmark';
 
-const gett = { description: 'GETT', expected: ['Taxi', 'Transportation'] };
-const samples = [
+const gett: Sample = { description: 'GETT', type: 'EXPENSE', expected: ['Taxi', 'Transportation'] };
+const samples: Sample[] = [
   gett,
-  { description: 'רב קו', expected: ['Transportation'] },
-  { description: 'Lime', expected: ['Bikes & Scooters', 'Transportation'] },
+  { description: 'רב קו', type: 'EXPENSE', expected: ['Transportation'] },
+  { description: 'Lime', type: 'EXPENSE', expected: ['Bikes & Scooters', 'Transportation'] },
 ];
 
 function decision(overrides: Partial<Decision>): Decision {
@@ -73,7 +74,7 @@ describe('sampleFileSchema', () => {
   it('rejects an expected name no category lists, so a typo cannot lower every score', () => {
     const result = sampleFileSchema.safeParse({
       categories: ['Taxi'],
-      samples: [{ description: 'GETT', expected: ['Taxi', 'Taxis'] }],
+      samples: [{ description: 'GETT', type: 'EXPENSE', expected: ['Taxi', 'Taxis'] }],
     });
     expect(result.success).toBe(false);
     expect(result.error?.issues.map((issue) => issue.message)).toEqual([
@@ -85,9 +86,20 @@ describe('sampleFileSchema', () => {
     expect(
       sampleFileSchema.safeParse({
         categories: ['Taxi', 'Taxi'],
-        samples: [{ description: 'GETT', expected: ['Taxi'] }],
+        samples: [{ description: 'GETT', type: 'EXPENSE', expected: ['Taxi'] }],
       }).success,
     ).toBe(false);
+  });
+
+  it('reads a sample without a type as an expense', () => {
+    const result = sampleFileSchema.parse({
+      categories: ['Taxi', 'Salary'],
+      samples: [
+        { description: 'GETT', expected: ['Taxi'] },
+        { description: 'משכורת', type: 'INCOME', expected: ['Salary'] },
+      ],
+    });
+    expect(result.samples.map((sample) => sample.type)).toEqual(['EXPENSE', 'INCOME']);
   });
 });
 

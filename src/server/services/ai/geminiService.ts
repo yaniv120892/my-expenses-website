@@ -6,6 +6,7 @@ import type {
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   AIProvider,
+  CategorizedRow,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
@@ -68,22 +69,22 @@ export class GeminiService implements AIProvider {
   }
 
   public async suggestCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<string | null> {
     return this.errorFallback.categoryIdOrNull({
       operation: 'suggestCategory',
-      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+      evaluation: this.evaluateCategory(row, categoryOptions),
     });
   }
 
   public async evaluateCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
-    logger.debug({ expenseDescription }, 'Start suggesting category for expense');
+    logger.debug({ ...row }, 'Start suggesting category');
     const response = await this.generate({
-      text: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
+      text: buildSuggestCategoryPrompt(row, categoryOptions),
       systemInstruction: SUGGEST_CATEGORY_SYSTEM_PROMPT,
       generationConfig: { maxOutputTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens },
     });
@@ -94,10 +95,7 @@ export class GeminiService implements AIProvider {
       // candidatesTokenCount leaves out the thinking tokens Gemini bills as output.
       outputTokens: usage ? usage.totalTokenCount - usage.promptTokenCount : null,
     });
-    logger.debug(
-      { expenseDescription, categoryName: evaluation.categoryName },
-      'Done suggesting category for expense',
-    );
+    logger.debug({ ...row, categoryName: evaluation.categoryName }, 'Done suggesting category');
     return evaluation;
   }
 

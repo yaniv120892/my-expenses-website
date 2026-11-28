@@ -1,6 +1,10 @@
 import type { Category } from '@/shared/types/category';
-import type { Transaction } from '@/shared/types/transaction';
-import type { CategoryEvaluation, ImportedChargeToMatch } from '@/server/services/ai/aiProvider';
+import type { Transaction, TransactionType } from '@/shared/types/transaction';
+import type {
+  CategorizedRow,
+  CategoryEvaluation,
+  ImportedChargeToMatch,
+} from '@/server/services/ai/aiProvider';
 import { toDayString } from '@/shared/dates';
 import { formatAmountWithOriginal } from '@/utils/format';
 import { logger } from '@/server/observability';
@@ -10,16 +14,21 @@ export function buildAnalyzeExpensesPrompt(expenseSummary: string, suffixPrompt?
 }
 
 export const SUGGEST_CATEGORY_SYSTEM_PROMPT =
-  'You are a financial assistant helping users categorize their expenses.';
+  'You are a financial assistant helping users categorize their transactions.';
 export const ANALYZE_EXPENSES_SYSTEM_PROMPT =
   'You are a financial assistant helping users analyze their expenses.';
-export const SUGGEST_CATEGORY_QUESTION = 'Which category does this expense belong to?';
+// The category list mixes income and expense categories, so the question must say which the row is.
+export const CATEGORY_QUESTION = {
+  EXPENSE: 'This transaction is money spent. Which category does this expense belong to?',
+  INCOME:
+    'This transaction is money received: income, or a refund or cashback. Which category does it belong to? Choose an income category, unless it refunds a purchase whose category is in the list.',
+} satisfies Record<TransactionType, string>;
 
 export function buildSuggestCategoryPrompt(
-  expenseDescription: string,
+  row: CategorizedRow,
   categoryOptions: Category[],
 ): string {
-  return `${SUGGEST_CATEGORY_QUESTION}\n\n"${expenseDescription}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
+  return `${CATEGORY_QUESTION[row.type]}\n\n"${row.description}"\n\nAvailable categories:\n${categoryOptions.map((category) => `- ${category.name}`).join('\n')}\n\nReturn only the category name, nothing else.`;
 }
 
 const NO_MATCH_ANSWER = 'none';

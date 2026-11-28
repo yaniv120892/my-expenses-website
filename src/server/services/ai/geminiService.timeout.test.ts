@@ -15,6 +15,9 @@ import { AI_REQUEST_LIMITS } from '@/server/services/ai/requestLimits';
 import type { Category } from '@/shared/types/category';
 import { stalledFetch } from '@/test/stalledFetch';
 import { trackSettled } from '@/test/trackSettled';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
+
+const COFFEE: CategorizedRow = { description: 'coffee', type: 'EXPENSE' };
 
 const categories: Category[] = [{ id: 'cat-food', name: 'Food' }];
 
@@ -35,7 +38,7 @@ afterEach(() => {
 describe('GeminiService against a stalled provider', () => {
   it('fails the one call at the timeout instead of hanging', async () => {
     const { pending, isSettled } = trackSettled(
-      new GeminiService().suggestCategory('coffee', categories),
+      new GeminiService().suggestCategory(COFFEE, categories),
     );
 
     await vi.advanceTimersByTimeAsync(AI_REQUEST_LIMITS.timeoutMs - 1);

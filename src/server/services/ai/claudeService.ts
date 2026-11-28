@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type {
   AIProvider,
+  CategorizedRow,
   CategoryEvaluation,
   ImportedChargeToMatch,
 } from '@/server/services/ai/aiProvider';
@@ -72,21 +73,21 @@ export class ClaudeService implements AIProvider {
   }
 
   public async suggestCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<string | null> {
     return this.errorFallback.categoryIdOrNull({
       operation: 'suggestCategory',
-      evaluation: this.evaluateCategory(expenseDescription, categoryOptions),
+      evaluation: this.evaluateCategory(row, categoryOptions),
     });
   }
 
   public async evaluateCategory(
-    expenseDescription: string,
+    row: CategorizedRow,
     categoryOptions: Category[],
   ): Promise<CategoryEvaluation> {
     const message = await this.complete({
-      prompt: buildSuggestCategoryPrompt(expenseDescription, categoryOptions),
+      prompt: buildSuggestCategoryPrompt(row, categoryOptions),
       system: SUGGEST_CATEGORY_SYSTEM_PROMPT,
       maxTokens: AI_REQUEST_LIMITS.thinkingCategoryMaxOutputTokens,
     });

@@ -59,7 +59,7 @@ import { logger } from '@/server/observability';
 import { MAX_UPLOAD_BYTES } from '@/shared/uploadLimits';
 import type { Category } from '@/shared/types/category';
 import type { CreateTransaction, TransactionFile } from '@/shared/types/transaction';
-import type { CategorySuggester } from '@/server/services/ai/aiProvider';
+import type { CategorizedRow, CategorySuggester } from '@/server/services/ai/aiProvider';
 import { testMemberActor } from '@/test/memberActor';
 import { systemActor } from '@/server/auth/householdActor';
 import type { TransactionNotifier } from '@/server/services/transactionNotification/transactionNotifier';
@@ -81,8 +81,10 @@ const categorySuggester: CategorySuggester = {
   modelName: () => 'test-model',
 };
 
+const PIZZA: CategorizedRow = { description: 'Pizza', type: 'EXPENSE' };
+
 const getSuggestedCategory = (householdId = HOUSEHOLD_ID) =>
-  transactionService['getSuggestedCategory'](householdId, 'Pizza', CATEGORIES);
+  transactionService['getSuggestedCategory'](householdId, PIZZA, CATEGORIES);
 
 const counters = installFakeCounterStore();
 
@@ -263,7 +265,11 @@ describe('getSuggestedCategory', () => {
   });
 
   it('normalizes the description before looking up a mapping', async () => {
-    await transactionService['getSuggestedCategory'](HOUSEHOLD_ID, '  PiZZa  ', CATEGORIES);
+    await transactionService['getSuggestedCategory'](
+      HOUSEHOLD_ID,
+      { description: '  PiZZa  ', type: 'EXPENSE' },
+      CATEGORIES,
+    );
     expect(findByDescription).toHaveBeenCalledWith(HOUSEHOLD_ID, 'pizza');
   });
 
@@ -277,7 +283,7 @@ describe('getSuggestedCategory', () => {
   ])('asks the AI service when %s', async (_case, arrange) => {
     arrange();
     expect(await getSuggestedCategory()).toBe('cat-ai');
-    expect(suggestCategory).toHaveBeenCalledWith('Pizza', CATEGORIES);
+    expect(suggestCategory).toHaveBeenCalledWith(PIZZA, CATEGORIES);
   });
 
   it('reports a failed mapping lookup instead of only logging it', async () => {
@@ -355,6 +361,23 @@ describe('categorization budget', () => {
       }),
     ).rejects.toBeInstanceOf(CustomValidationError);
     expect(suggestCategory).not.toHaveBeenCalled();
+  });
+
+  it('tells the suggester an income row is income', async () => {
+    getAllCategories.mockResolvedValue(CATEGORIES);
+
+    await transactionService['updateCategory'](HOUSEHOLD_ID, {
+      description: 'החזר CashPro',
+      value: 27.69,
+      type: 'INCOME',
+      categoryId: null,
+      date: null,
+    });
+
+    expect(suggestCategory).toHaveBeenCalledWith(
+      { description: 'החזר CashPro', type: 'INCOME' },
+      CATEGORIES,
+    );
   });
 });
 

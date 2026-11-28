@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeminiService as GeminiServiceClass } from '@/server/services/ai/geminiService';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
+
+const COFFEE: CategorizedRow = { description: 'coffee', type: 'EXPENSE' };
 
 const { incrementWithTtl } = vi.hoisted(() => ({ incrementWithTtl: vi.fn() }));
 
@@ -71,7 +74,7 @@ describe('GeminiService when the prepaid credits run out', () => {
     await expect(gemini.analyzeExpenses('summary')).resolves.toBeNull();
     await expect(gemini.generateContent('prompt')).resolves.toBeNull();
     await expect(
-      gemini.suggestCategory('coffee', [{ id: 'cat-food', name: 'Food' }]),
+      gemini.suggestCategory(COFFEE, [{ id: 'cat-food', name: 'Food' }]),
     ).resolves.toBeNull();
 
     await vi.waitFor(() => {

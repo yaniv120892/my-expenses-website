@@ -5,11 +5,15 @@ import {
   buildCategoryChoiceCriteria,
   buildCategoryEvaluation,
   buildFindMatchingTransactionPrompt,
+  buildSuggestCategoryPrompt,
   resolveMatchedTransactionId,
   resolveSuggestedCategoryId,
 } from '@/server/services/ai/prompts';
 import type { Transaction } from '@/shared/types/transaction';
 import { formatCurrencyPlain } from '@/utils/format';
+import type { CategorizedRow } from '@/server/services/ai/aiProvider';
+
+const GETT: CategorizedRow = { description: 'GETT', type: 'EXPENSE' };
 
 const match = (id: string): Transaction => ({
   id,
@@ -198,5 +202,30 @@ describe('buildCategoryChoiceCriteria', () => {
       'Food & Drinks': null,
       Taxi: null,
     });
+  });
+});
+
+describe('buildSuggestCategoryPrompt', () => {
+  const categories = [
+    { id: 'cat-other-expenses', name: 'Other (Expenses)' },
+    { id: 'cat-other-income', name: 'Other (Income)' },
+  ];
+
+  it('tells the model an income row is money received', () => {
+    const prompt = buildSuggestCategoryPrompt(
+      { description: 'החזר CashPro', type: 'INCOME' },
+      categories,
+    );
+
+    expect(prompt).toContain('money received');
+    expect(prompt).not.toContain('money spent');
+    expect(prompt).toContain('"החזר CashPro"');
+  });
+
+  it('tells the model an expense row is money spent', () => {
+    const prompt = buildSuggestCategoryPrompt(GETT, categories);
+
+    expect(prompt).toContain('money spent');
+    expect(prompt).not.toContain('money received');
   });
 });

@@ -1,4 +1,5 @@
 import aiServiceFactory from '@/server/services/ai/aiServiceFactory';
+import { decisiveLineOf } from '@/server/services/ai/prompts';
 import dashboardRepository from '@/server/repositories/dashboardRepository';
 import subscriptionDetectionService from '@/server/services/subscriptionDetectionService';
 import type {
@@ -24,6 +25,10 @@ const INSIGHTS_LANGUAGE: Record<Locale, string> = {
 };
 
 const INSIGHTS_CACHE_TTL_SECONDS = 60 * 60;
+
+function isJsonObjectLine(line: string): boolean {
+  return line.startsWith('{') && line.endsWith('}');
+}
 
 class DashboardService {
   private getAiService = lazy(() => aiServiceFactory.getAIService());
@@ -201,7 +206,8 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         .replace(/```json?\n?/g, '')
         .replace(/```/g, '')
         .trim();
-      return dashboardInsightsResponseSchema.parse(JSON.parse(cleaned));
+      const jsonLine = decisiveLineOf({ rawAnswer: cleaned, isVerdict: isJsonObjectLine });
+      return dashboardInsightsResponseSchema.parse(JSON.parse(jsonLine ?? cleaned));
     } catch (error) {
       logger.error({ err: error }, 'Failed to parse AI insights response');
       return null;

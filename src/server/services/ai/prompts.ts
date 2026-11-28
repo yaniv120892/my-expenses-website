@@ -136,7 +136,7 @@ function offeredCategoryNameIn(
 
 // A reasoning model can explain itself before the answer despite the prompt, so only the last
 // line decides; a value named earlier is never taken, since a later line may retract it.
-function decisiveLineOf({
+export function decisiveLineOf({
   rawAnswer,
   isVerdict,
 }: {

@@ -62,4 +62,32 @@ describe('dashboardService.getInsights', () => {
       7,
     );
   });
+
+  it('takes the JSON from the last line when the model explains first', async () => {
+    const insights = { unusualSpending: ['Restaurants doubled'], summary: 'Spending rose.' };
+    analyzeExpenses.mockResolvedValue(
+      `There are two things worth noting this month.\nSpending rose.\n${JSON.stringify(insights)}`,
+    );
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toEqual(insights);
+  });
+
+  it('still reads an answer that is only pretty-printed JSON', async () => {
+    analyzeExpenses.mockResolvedValue(JSON.stringify(INSIGHTS, null, 2));
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toEqual(INSIGHTS);
+  });
+
+  it('falls back to no insights, uncached, when the answer holds no JSON', async () => {
+    analyzeExpenses.mockResolvedValue('There are no unusual expenses this month.');
+
+    await expect(
+      dashboardService.getInsights({ householdId: HOUSEHOLD_ID, locale: 'en' }),
+    ).resolves.toBeNull();
+    expect(setValue).not.toHaveBeenCalled();
+  });
 });

@@ -27,3 +27,16 @@ notification chat is linked or unlinked. The ops alert chat is separate: README 
 sends, except for `/start <code>`. Register it per environment with
 `setWebhook(url=${WEBSITE_URL}/api/webhook, secret_token=${TELEGRAM_WEBHOOK_SECRET})` (README
 "Deployment (Vercel)" has the full URL).
+
+## Transaction notifications
+
+- `transactionService.notifyTransactionsCreatedSafe` sends each opted-in member one announcement
+  per batch: "Transaction Created" for one row, "N Transactions Created" for an import. A list
+  past Telegram's 4096-character cap is split between transactions into parts headed `(i/n)`,
+  and every part is tried even when one is refused. One message per row would trip the per-chat
+  rate limit on a bulk import.
+- The parts go through `telegramService.sendPlainMessagesWaitingOutRateLimits`, which resends
+  after a 429, waiting each `retry_after` Telegram names, from one wait budget per batch that
+  fits under the shortest function limit. A 429 delivered nothing, so the resend cannot
+  duplicate. A timeout or dropped connection ends the batch, and the unsent parts count as
+  failed. Single sends, including the webhook's replies, fail fast on a 429.

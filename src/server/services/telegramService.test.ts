@@ -45,7 +45,10 @@ describe('telegramService rate limiting', () => {
     fetchMock.mockResolvedValueOnce(tooManyRequests(3)).mockResolvedValueOnce(sent());
     const telegramService = await loadTelegramService();
 
-    const sending = telegramService.sendPlainMessage('chat-1', 'Transaction Created');
+    const sending = telegramService.sendPlainMessageWaitingOutRateLimits(
+      'chat-1',
+      'Transaction Created',
+    );
     await vi.advanceTimersByTimeAsync(2_999);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -54,13 +57,46 @@ describe('telegramService rate limiting', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('gives up without waiting when retry_after is longer than a request can hold', async () => {
-    fetchMock.mockResolvedValue(tooManyRequests(600));
+  it('stops resending once the waits would pass the 30 s budget', async () => {
+    fetchMock.mockImplementation(async () => tooManyRequests(12));
     const telegramService = await loadTelegramService();
 
-    await expect(telegramService.sendPlainMessage('chat-1', 'hi')).rejects.toMatchObject({
-      errorCode: 429,
-    });
+    const sending = telegramService.sendPlainMessageWaitingOutRateLimits('chat-1', 'hi');
+    const rejected = expect(sending).rejects.toMatchObject({ errorCode: 429 });
+    await vi.advanceTimersByTimeAsync(24_000);
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up without waiting when retry_after is longer than the budget', async () => {
+    fetchMock.mockResolvedValue(tooManyRequests(42));
+    const telegramService = await loadTelegramService();
+
+    await expect(
+      telegramService.sendPlainMessageWaitingOutRateLimits('chat-1', 'hi'),
+    ).rejects.toMatchObject({ errorCode: 429 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend a 429 that names no wait', async () => {
+    fetchMock.mockResolvedValue(
+      telegramReply({ ok: false, error_code: 429, description: 'Too Many Requests' }),
+    );
+    const telegramService = await loadTelegramService();
+
+    await expect(
+      telegramService.sendPlainMessageWaitingOutRateLimits('chat-1', 'hi'),
+    ).rejects.toMatchObject({ errorCode: 429 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend a 429 whose wait is zero, which would never spend the budget', async () => {
+    fetchMock.mockImplementation(async () => tooManyRequests(0));
+    const telegramService = await loadTelegramService();
+
+    await expect(
+      telegramService.sendPlainMessageWaitingOutRateLimits('chat-1', 'hi'),
+    ).rejects.toMatchObject({ errorCode: 429 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -70,8 +106,18 @@ describe('telegramService rate limiting', () => {
     );
     const telegramService = await loadTelegramService();
 
+    await expect(
+      telegramService.sendPlainMessageWaitingOutRateLimits('chat-1', 'hi'),
+    ).rejects.toMatchObject({ errorCode: 400 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('never waits out a 429 on a plain send, which a webhook reply uses', async () => {
+    fetchMock.mockResolvedValue(tooManyRequests(1));
+    const telegramService = await loadTelegramService();
+
     await expect(telegramService.sendPlainMessage('chat-1', 'hi')).rejects.toMatchObject({
-      errorCode: 400,
+      errorCode: 429,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

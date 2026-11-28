@@ -31,9 +31,11 @@ sends, except for `/start <code>`. Register it per environment with
 ## Transaction notifications
 
 - `transactionService.notifyTransactionsCreatedSafe` sends each opted-in member one announcement
-  per batch: "Transaction Created" for one row, "N Transactions Created" for an import. The
-  notifier splits a long list between transactions to stay under Telegram's 4096-character cap.
-  One message per row would trip the per-chat rate limit on a bulk import.
-- `telegramService` resends after a 429, waiting the `retry_after` Telegram names, up to twice and
-  only while the wait is at most 60 s; a longer wait is thrown. A 429 delivered nothing, so the
-  resend cannot duplicate. Timeouts are still not retried.
+  per batch: "Transaction Created" for one row, "N Transactions Created" for an import. A list
+  past Telegram's 4096-character cap is split between transactions into parts headed `(i/n)`,
+  and every part is tried even when one is refused. One message per row would trip the per-chat
+  rate limit on a bulk import.
+- `telegramService.sendPlainMessageWaitingOutRateLimits` resends after a 429, waiting each
+  `retry_after` Telegram names, while the waits for one message total at most 30 s, under the
+  shortest function limit. A 429 delivered nothing, so the resend cannot duplicate. The other
+  sends, including the webhook's replies, never wait, and timeouts are never retried.

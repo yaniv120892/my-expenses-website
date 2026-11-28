@@ -584,7 +584,11 @@ class TransactionService {
         }
         transactions.push(transaction);
       } catch (error) {
-        logger.error({ err: error, transactionId }, 'Failed to notify transaction created');
+        observability.reportError({
+          error,
+          where: 'Failed to read a created transaction to notify',
+          context: { householdId, transactionId },
+        });
       }
     }
     return transactions;

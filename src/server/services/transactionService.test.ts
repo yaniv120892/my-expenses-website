@@ -578,6 +578,24 @@ describe('notifyTransactionsCreatedSafe', () => {
     });
   });
 
+  it('leaves an unreadable row out and still announces the rest', async () => {
+    findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1']);
+    const readError = new Error('connection reset');
+    transactionService.getTransactionItem = vi
+      .fn()
+      .mockRejectedValueOnce(readError)
+      .mockResolvedValue(approved);
+
+    await transactionService.notifyTransactionsCreatedSafe(HOUSEHOLD_ID, ['tx-0', 'tx-1']);
+
+    expect(notifyTransactionsCreated).toHaveBeenCalledWith([approved], 'user-1');
+    expect(reportError).toHaveBeenCalledWith({
+      error: readError,
+      where: 'Failed to read a created transaction to notify',
+      context: { householdId: HOUSEHOLD_ID, transactionId: 'tx-0' },
+    });
+  });
+
   it('sends nothing when no listed transaction is approved', async () => {
     findMembersNotifiedOfNewTransactions.mockResolvedValue(['user-1']);
     transactionService.getTransactionItem = vi.fn().mockResolvedValue(null);

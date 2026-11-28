@@ -6,6 +6,8 @@ import { logger } from '@/server/observability';
 import userSettingsService from '@/server/services/userSettingsService';
 
 const TELEGRAM_MESSAGE_MAX_LENGTH = 4096;
+// Room for " (999/999)" plus the newline after the title.
+const PART_LABEL_RESERVED_LENGTH = 11;
 
 export class TelegramTransactionNotifier implements TransactionNotifier {
   public async notifyTransactionsCreated(
@@ -13,27 +15,31 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     userId: string,
   ): Promise<void> {
     const logContext = { userId, transactionCount: transactions.length };
+    logger.debug(logContext, 'Start sending transaction notification to Telegram');
+    let chatId: string | null;
     try {
-      logger.debug(logContext, 'Start sending transaction notification to Telegram');
-      const chatId = await this.getChatId(userId);
-      if (!chatId) {
-        logger.warn(
-          logContext,
-          'Skipping transaction notification. Telegram chat ID is not set or user has disabled notifications',
-        );
-        return;
-      }
-      for (const message of this.buildCreatedMessages(transactions)) {
-        await telegramService.sendPlainMessage(chatId, message);
-      }
-      logger.debug(logContext, 'Done sending transaction notification to Telegram');
+      chatId = await this.getChatId(userId);
     } catch (err) {
-      logger.error({ err, ...logContext }, 'Failed to send transaction notification');
-      throw new Error(
-        `Failed to send transaction notification, userId: ${userId} transactionCount: ${transactions.length} firstTransactionId: ${transactions[0]?.id} error: ${JSON.stringify(err)}`,
-        { cause: err },
-      );
+      throw this.notificationFailure({ userId, transactions, errors: [err], messageCount: 0 });
     }
+    if (!chatId) {
+      logger.warn(
+        logContext,
+        'Skipping transaction notification. Telegram chat ID is not set or user has disabled notifications',
+      );
+      return;
+    }
+    const messages = this.buildCreatedMessages(transactions);
+    const errors = await this.sendEachMessage(chatId, messages);
+    if (errors.length > 0) {
+      throw this.notificationFailure({
+        userId,
+        transactions,
+        errors,
+        messageCount: messages.length,
+      });
+    }
+    logger.debug(logContext, 'Done sending transaction notification to Telegram');
   }
 
   public async sendDailySummary(dailySummary: string, userId: string): Promise<void> {
@@ -58,27 +64,76 @@ export class TelegramTransactionNotifier implements TransactionNotifier {
     }
   }
 
-  /** Splits between transactions, so no message passes Telegram's length cap. */
+  private notificationFailure({
+    userId,
+    transactions,
+    errors,
+    messageCount,
+  }: {
+    userId: string;
+    transactions: Transaction[];
+    errors: unknown[];
+    messageCount: number;
+  }): Error {
+    const [firstError] = errors;
+    logger.error(
+      {
+        err: firstError,
+        userId,
+        transactionCount: transactions.length,
+        messageCount,
+        failedMessageCount: errors.length,
+      },
+      'Failed to send transaction notification',
+    );
+    return new Error(
+      `Failed to send transaction notification, userId: ${userId} transactionCount: ${transactions.length} firstTransactionId: ${transactions[0]?.id} failedMessages: ${errors.length}/${messageCount} error: ${JSON.stringify(firstError)}`,
+      { cause: firstError },
+    );
+  }
+
+  /** Every part is tried, so one refused part cannot silence the transactions in the others. */
+  private async sendEachMessage(chatId: string, messages: string[]): Promise<unknown[]> {
+    const failures: unknown[] = [];
+    for (const message of messages) {
+      try {
+        await telegramService.sendPlainMessageWaitingOutRateLimits(chatId, message);
+      } catch (err) {
+        failures.push(err);
+      }
+    }
+    return failures;
+  }
+
+  /** Splits between transactions, so no part passes Telegram's length cap. */
   private buildCreatedMessages(transactions: Transaction[]): string[] {
-    const header =
+    const title =
       transactions.length === 1
         ? 'Transaction Created'
         : `${transactions.length} Transactions Created`;
-    const messages: string[] = [];
-    let current = header;
+    const entryLimit = TELEGRAM_MESSAGE_MAX_LENGTH - title.length - PART_LABEL_RESERVED_LENGTH;
+    const parts: string[] = [];
+    let current = '';
     for (const transaction of transactions) {
       const entry = formatTransaction(transaction);
-      const candidate = `${current}\n${entry}`;
-      const fitsCurrentMessage = candidate.length <= TELEGRAM_MESSAGE_MAX_LENGTH;
-      if (fitsCurrentMessage) {
+      const candidate = current ? `${current}\n${entry}` : entry;
+      const fitsCurrentPart = candidate.length <= entryLimit;
+      if (fitsCurrentPart) {
         current = candidate;
         continue;
       }
-      messages.push(current);
+      parts.push(current);
       current = entry;
     }
-    messages.push(current);
-    return messages;
+    parts.push(current);
+    return parts.map((part, index) => `${title}${this.partLabel(index, parts.length)}\n${part}`);
+  }
+
+  private partLabel(index: number, partCount: number): string {
+    if (partCount === 1) {
+      return '';
+    }
+    return ` (${index + 1}/${partCount})`;
   }
 
   private async getChatId(userId: string) {

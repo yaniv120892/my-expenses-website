@@ -1,4 +1,3 @@
-import { setTimeout } from 'node:timers/promises';
 import { Api, TelegramApiError, type Message, type SendMessageParams } from 'node-telegram-bot-api';
 import { lazy } from '@/server/lib/lazy';
 import { optionalEnv } from '@/server/env';
@@ -17,10 +16,9 @@ export function escapeMarkdown(value: string): string {
 const TELEGRAM_TIMEOUT_MS = 10_000;
 
 const TOO_MANY_REQUESTS = 429;
-// A 429 delivered nothing, so resending cannot duplicate. A longer flood-wait would hold the
-// request past what a caller can wait, so it is surfaced instead.
-const MAX_RETRY_AFTER_SECONDS = 60;
-const MAX_RATE_LIMIT_RETRIES = 2;
+// The sends run inside a request, and the shortest function limit is 60 s, so all the waits for
+// one message stay well under it; a longer flood-wait is surfaced instead.
+const RATE_LIMIT_WAIT_BUDGET_SECONDS = 30;
 
 class TelegramService {
   private getApi = lazy((): Api | null => {
@@ -36,17 +34,33 @@ class TelegramService {
 
   public async sendMessage(chatId: string, message: string) {
     return this.send({
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'Markdown',
+      params: { chat_id: chatId, text: message, parse_mode: 'Markdown' },
+      waitBudgetSeconds: 0,
     });
   }
 
   public async sendPlainMessage(chatId: string, message: string) {
-    return this.send({ chat_id: chatId, text: message });
+    return this.send({ params: { chat_id: chatId, text: message }, waitBudgetSeconds: 0 });
   }
 
-  private async send(params: SendMessageParams) {
+  /**
+   * Resends after a 429, which delivered nothing, so the resend cannot duplicate. Only for
+   * callers that can hold their request through the wait; a webhook reply cannot.
+   */
+  public async sendPlainMessageWaitingOutRateLimits(chatId: string, message: string) {
+    return this.send({
+      params: { chat_id: chatId, text: message },
+      waitBudgetSeconds: RATE_LIMIT_WAIT_BUDGET_SECONDS,
+    });
+  }
+
+  private async send({
+    params,
+    waitBudgetSeconds,
+  }: {
+    params: SendMessageParams;
+    waitBudgetSeconds: number;
+  }) {
     const api = this.getApi();
     if (!api) {
       logger.warn(
@@ -55,42 +69,48 @@ class TelegramService {
       );
       return;
     }
-    return this.sendRetryingRateLimits({ api, params, retriesLeft: MAX_RATE_LIMIT_RETRIES });
+    return this.sendWaitingOutRateLimits({ api, params, waitBudgetSeconds });
   }
 
-  private async sendRetryingRateLimits({
+  private async sendWaitingOutRateLimits({
     api,
     params,
-    retriesLeft,
+    waitBudgetSeconds,
   }: {
     api: Api;
     params: SendMessageParams;
-    retriesLeft: number;
+    waitBudgetSeconds: number;
   }): Promise<Message> {
     try {
       return await api.sendMessage(params);
     } catch (err) {
       const retryAfterSeconds = this.retryAfterSeconds(err);
-      const shouldRetry = retryAfterSeconds !== null && retriesLeft > 0;
-      if (!shouldRetry) {
+      const fitsWaitBudget = retryAfterSeconds !== null && retryAfterSeconds <= waitBudgetSeconds;
+      if (!fitsWaitBudget) {
         throw err;
       }
       logger.warn(
         { chatId: params.chat_id, retryAfterSeconds },
         'Telegram rate-limited the send, retrying after its wait',
       );
-      await setTimeout(retryAfterSeconds * 1000);
-      return this.sendRetryingRateLimits({ api, params, retriesLeft: retriesLeft - 1 });
+      await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000));
+      return this.sendWaitingOutRateLimits({
+        api,
+        params,
+        waitBudgetSeconds: waitBudgetSeconds - retryAfterSeconds,
+      });
     }
   }
 
+  /** Positive, so every retry spends the budget and the retries end. */
   private retryAfterSeconds(err: unknown): number | null {
     const isRateLimited = err instanceof TelegramApiError && err.errorCode === TOO_MANY_REQUESTS;
     if (!isRateLimited) {
       return null;
     }
-    const retryAfter = err.retryAfter ?? 1;
-    return retryAfter <= MAX_RETRY_AFTER_SECONDS ? retryAfter : null;
+    const retryAfter = err.retryAfter;
+    const isUsableWait = typeof retryAfter === 'number' && retryAfter > 0;
+    return isUsableWait ? retryAfter : null;
   }
 }
 
